@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-base: #0a0a0a;
+  --color-accent: #e8f442;
+  --color-card: #141414;
+  --color-border: #1f1f1f;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1f1f1f #0a0a0a;
+}
