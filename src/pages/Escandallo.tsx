@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, Merma, EPS, Receta } from '@/components/escandallo/types'
+import TabIndice from '@/components/escandallo/TabIndice'
 import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
@@ -8,9 +9,10 @@ import TabRecetas from '@/components/escandallo/TabRecetas'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 
-type Tab = 'ingredientes' | 'mermas' | 'eps' | 'recetas'
+type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'indice', label: 'Índice' },
   { key: 'ingredientes', label: 'Ingredientes' },
   { key: 'mermas', label: 'Mermas' },
   { key: 'eps', label: 'EPS' },
@@ -18,7 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 export default function Escandallo() {
-  const [tab, setTab] = useState<Tab>('ingredientes')
+  const [tab, setTab] = useState<Tab>('indice')
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([])
   const [mermas, setMermas] = useState<Merma[]>([])
   const [epsList, setEpsList] = useState<EPS[]>([])
@@ -35,10 +37,10 @@ export default function Escandallo() {
     setError(null)
     try {
       const [ingRes, merRes, epsRes, recRes] = await Promise.all([
-        supabase.from('ingredientes').select('*').order('nombre'),
+        supabase.from('ingredientes').select('*').order('nombre_base', { nullsFirst: false }).order('nombre'),
         supabase.from('mermas').select('*').order('nombre'),
-        supabase.from('eps').select('*').order('nombre'),
-        supabase.from('recetas').select('*').order('nombre'),
+        supabase.from('eps').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
+        supabase.from('recetas').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
       ])
       if (ingRes.error) throw ingRes.error
       if (merRes.error) throw merRes.error
@@ -57,11 +59,12 @@ export default function Escandallo() {
 
   useEffect(() => { fetchData() }, [])
 
-  const q = busqueda.toLowerCase()
-  const filteredIng = ingredientes.filter(i => i.nombre?.toLowerCase().includes(q))
-  const filteredMermas = mermas.filter(m => m.nombre?.toLowerCase().includes(q))
-  const filteredEps = epsList.filter(e => e.nombre?.toLowerCase().includes(q))
-  const filteredRec = recetasList.filter(r => r.nombre?.toLowerCase().includes(q))
+  const q = busqueda.toLowerCase().trim()
+  const match = (s?: string | null) => (s ?? '').toLowerCase().includes(q)
+  const filteredIng = !q ? ingredientes : ingredientes.filter(i => match(i.nombre) || match(i.nombre_base) || match(i.categoria) || match(i.abv))
+  const filteredMermas = !q ? mermas : mermas.filter(m => match(m.nombre) || match(m.nombre_base) || match(m.abv))
+  const filteredEps = !q ? epsList : epsList.filter(e => match(e.nombre) || match(e.codigo) || match(e.categoria))
+  const filteredRec = !q ? recetasList : recetasList.filter(r => match(r.nombre) || match(r.codigo) || match(r.categoria))
 
   const handleSaved = () => {
     setModalEPS({ open: false, eps: null })
@@ -69,47 +72,35 @@ export default function Escandallo() {
     fetchData()
   }
 
-  const showNewBtn = tab === 'eps' || tab === 'recetas'
-
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-lg font-semibold text-white">Escandallo</h2>
-        {showNewBtn && (
-          <button
-            onClick={() => tab === 'eps'
-              ? setModalEPS({ open: true, eps: null })
-              : setModalReceta({ open: true, receta: null })
-            }
-            className="px-4 py-2 text-sm font-semibold bg-accent text-black rounded-lg hover:brightness-110 transition"
-          >
-            + {tab === 'eps' ? 'Nueva EPS' : 'Nueva Receta'}
-          </button>
-        )}
+        <h2 className="text-2xl font-bold text-white tracking-tight">Escandallo</h2>
       </div>
 
-      {/* Tabs + Buscador */}
+      {/* Subtabs + buscador */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex gap-1 bg-card border border-border rounded-lg p-1">
+        <div className="flex gap-1 bg-card border border-[#333] rounded-lg p-1 flex-wrap">
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setBusqueda('') }}
-              className={'px-3 py-1.5 text-sm font-medium rounded-md transition ' +
-                (tab === t.key ? 'bg-accent text-black' : 'text-neutral-400 hover:text-white')
+              className={'px-4 py-1.5 text-sm font-medium rounded-md transition ' +
+                (tab === t.key ? 'bg-accent text-black' : 'text-[#aaa] hover:text-white')
               }
             >
               {t.label}
             </button>
           ))}
         </div>
-        <input
-          className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-accent"
-          placeholder="Buscar…"
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-        />
+        {tab !== 'indice' && (
+          <input
+            className="flex-1 bg-card border border-[#333] rounded-lg px-3 py-2 text-sm text-[#e8e8e8] placeholder:text-[#555] focus:outline-none focus:border-accent"
+            placeholder="Buscar..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
+        )}
       </div>
 
       {/* Contenido */}
@@ -118,20 +109,39 @@ export default function Escandallo() {
           <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : error ? (
-        <div className="bg-card border border-border rounded-xl p-8 text-center">
+        <div className="bg-card border border-[#333] rounded-xl p-8 text-center">
           <p className="text-red-400 text-sm">{error}</p>
           <button onClick={fetchData} className="mt-3 text-xs text-accent underline">Reintentar</button>
         </div>
       ) : (
         <>
+          {tab === 'indice' && (
+            <TabIndice
+              epsList={epsList}
+              recetasList={recetasList}
+              onOpenEps={eps => setModalEPS({ open: true, eps })}
+              onOpenReceta={receta => setModalReceta({ open: true, receta })}
+            />
+          )}
           {tab === 'ingredientes' && <TabIngredientes ingredientes={filteredIng} />}
           {tab === 'mermas' && <TabMermas mermas={filteredMermas} />}
-          {tab === 'eps' && <TabEPS epsList={filteredEps} onSelect={eps => setModalEPS({ open: true, eps })} />}
-          {tab === 'recetas' && <TabRecetas recetasList={filteredRec} onSelect={receta => setModalReceta({ open: true, receta })} />}
+          {tab === 'eps' && (
+            <TabEPS
+              epsList={filteredEps}
+              onSelect={eps => setModalEPS({ open: true, eps })}
+              onNew={() => setModalEPS({ open: true, eps: null })}
+            />
+          )}
+          {tab === 'recetas' && (
+            <TabRecetas
+              recetasList={filteredRec}
+              onSelect={receta => setModalReceta({ open: true, receta })}
+              onNew={() => setModalReceta({ open: true, receta: null })}
+            />
+          )}
         </>
       )}
 
-      {/* Modales */}
       {modalEPS.open && (
         <ModalEPS
           eps={modalEPS.eps}

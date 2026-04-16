@@ -255,8 +255,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       <tr>
                         <th className={wfTh + ' text-left'}>Concepto</th>
                         {waterfall.map(w => (<>
-                          <th key={w.key + '-r'} className={wfTh + ' border-l border-border'}>{w.label} Real</th>
-                          <th key={w.key + '-c'} className={wfTh}>{w.label} Cash</th>
+                          <th key={w.key + '-r'} className={wfTh + ' border-l border-border bg-[#1a3a1a]/30 text-green-300'}>{w.label} Real</th>
+                          <th key={w.key + '-c'} className={wfTh + ' bg-[#3a2a0a]/30 text-orange-300'}>{w.label} Cash</th>
                         </>))}
                       </tr>
                     </thead>

@@ -1,14 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #0a0a0a;
+  --color-base: #1a1a1a;
+  --color-card: #242424;
+  --color-sidebar: #111111;
+  --color-border: #333333;
   --color-accent: #e8f442;
-  --color-card: #141414;
-  --color-border: #1f1f1f;
+  --color-text: #e8e8e8;
+  --color-muted: #888888;
+  --color-row-alt: #202020;
+  --color-hover: #2a2a2a;
+  --color-real: #1a3a1a;
+  --color-cash: #3a2a0a;
+  --color-eps: #1155CC;
   --font-sans: "Inter", system-ui, sans-serif;
+}
+
+html, body {
+  background: #1a1a1a;
+  color: #e8e8e8;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1f1f1f #0a0a0a;
+  scrollbar-color: #333333 #1a1a1a;
 }
+
+/* Tablas densas: filas alternas + hover */
+tbody tr:nth-child(odd) { background: #1a1a1a; }
+tbody tr:nth-child(even) { background: #202020; }
+tbody tr:hover { background: #2a2a2a !important; }
