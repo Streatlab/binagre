@@ -165,6 +165,22 @@ export const n = (v: number | null | undefined) => v ?? 0
 export const fmt = (v: number | null | undefined, d = 2) => n(v).toFixed(d)
 export const fmtPct = (v: number | null | undefined) => n(v).toFixed(1) + '%'
 
+/* ── Formato ES obligatorio: coma decimal, punto miles ── */
+export const fmtES = (v: number | null | undefined, d = 2) =>
+  n(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+
+export const fmtEurES = (v: number | null | undefined, d = 2) => fmtES(v, d) + ' €'
+
+export const fmtPctES = (v: number | null | undefined, d = 2) => fmtES(v, d) + '%'
+
+/** dd/mm/yyyy desde string ISO o Date */
+export const fmtDateES = (v: string | Date | null | undefined): string => {
+  if (!v) return '—'
+  const d = typeof v === 'string' ? new Date(v) : v
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 /** Semáforo para márgenes: verde >10%, amarillo >=0%, rojo <0% */
 export const semaforoClasses = (pct: number) => {
   if (pct > 10) return 'bg-green-500/10 text-green-400'
@@ -185,7 +201,7 @@ export const inputCls =
   'w-full bg-[#1a1a1a] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#e8e8e8] placeholder:text-[#555] focus:outline-none focus:border-accent'
 
 export const thCls =
-  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#888] font-semibold text-left whitespace-nowrap bg-[#1f1f1f] border-b border-[#333]'
+  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#888] font-semibold text-left whitespace-nowrap bg-[#1f1f1f] border-b-2 border-[#B01D23]'
 
 export const tdCls =
   'px-3 py-2.5 text-[13px] text-[#e8e8e8] tabular-nums whitespace-nowrap border-b border-[#2a2a2a]'

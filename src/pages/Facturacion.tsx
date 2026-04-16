@@ -288,7 +288,7 @@ export default function Facturacion() {
               key={t.key}
               onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                tab === t.key ? 'bg-accent text-black' : 'text-neutral-400 hover:text-white'
+                tab === t.key ? 'bg-[#B01D23] text-white' : 'text-neutral-400 hover:text-white'
               }`}
             >
               {t.label}

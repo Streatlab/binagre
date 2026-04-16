@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 
+const RED = '#B01D23'
+
 const modulos = [
   { path: '/',              label: 'Dashboard',     icon: '⬡', perfiles: ['admin', 'cocina'] },
   { path: '/escandallo',    label: 'Escandallo',    icon: '⚖', perfiles: ['admin', 'cocina'] },
@@ -12,12 +14,26 @@ const modulos = [
   { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
 ]
 
+/** Logo SL — circulo rojo con letras SL blancas */
+function LogoSL({ small = false }: { small?: boolean }) {
+  const size = small ? 32 : 48
+  const fontSize = small ? 12 : 18
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="24" r="22" fill={RED} />
+      <text x="24" y="30" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif" fontSize={fontSize} fontWeight={800} fill="#ffffff" letterSpacing="1">
+        SL
+      </text>
+    </svg>
+  )
+}
+
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
 
   const visibles = modulos.filter(m => usuario && m.perfiles.includes(usuario.perfil))
-  const width = collapsed ? 'w-12' : 'w-[220px]'
+  const width = collapsed ? 'w-14' : 'w-[220px]'
 
   return (
     <>
@@ -34,17 +50,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           ${width}
         `}
       >
-        {/* Header */}
-        <div className="p-3 border-b border-[#333] flex items-center justify-between min-h-[56px]">
-          {!collapsed && (
-            <div className="min-w-0">
-              <h1 className="text-accent font-bold text-lg tracking-tight truncate">Streat Lab</h1>
-              <p className="text-[10px] text-[#666] mt-0.5 truncate">ERP</p>
-            </div>
-          )}
+        {/* Header con logo SL */}
+        <div className="p-3 border-b border-[#333] flex items-center justify-between min-h-[72px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <LogoSL small={collapsed} />
+            {!collapsed && (
+              <div className="min-w-0">
+                <h1 className="text-white font-bold text-base tracking-tight truncate leading-tight">Streat Lab</h1>
+                <p className="text-[10px] text-[#888] truncate">ERP</p>
+              </div>
+            )}
+          </div>
           <button
             onClick={toggle}
-            className="p-1.5 text-[#888] hover:text-white hover:bg-white/5 rounded transition-colors hidden lg:block"
+            className="p-1.5 text-[#888] hover:text-white hover:bg-white/5 rounded transition-colors hidden lg:block flex-shrink-0"
             title={collapsed ? 'Expandir' : 'Colapsar'}
           >
             {collapsed ? '»' : '«'}
@@ -60,12 +79,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               end={m.path === '/'}
               onClick={onClose}
               title={collapsed ? m.label : undefined}
+              style={({ isActive }) => isActive ? { borderRight: `2px solid ${RED}` } : undefined}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
                   collapsed ? 'justify-center' : ''
                 } ${
                   isActive
-                    ? 'text-accent bg-accent/10 border-r-2 border-accent'
+                    ? 'text-white bg-[#B01D23]/10'
                     : 'text-[#aaa] hover:text-white hover:bg-white/5'
                 }`
               }

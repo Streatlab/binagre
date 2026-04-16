@@ -34,7 +34,7 @@ export default function Configuracion() {
       <div className="flex gap-1 mb-5 bg-card border border-[#333] rounded-lg p-1 w-fit flex-wrap">
         {SECTIONS.map(s => (
           <button key={s.key} onClick={() => setSection(s.key)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${section === s.key ? 'bg-accent text-black' : 'text-[#aaa] hover:text-white'}`}>
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${section === s.key ? 'bg-[#B01D23] text-white' : 'text-[#aaa] hover:text-white'}`}>
             {s.label}
           </button>
         ))}

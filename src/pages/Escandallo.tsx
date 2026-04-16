@@ -97,7 +97,7 @@ export default function Escandallo() {
               key={t.key}
               onClick={() => { setTab(t.key); setBusqueda('') }}
               className={'px-4 py-1.5 text-sm font-medium rounded-md transition ' +
-                (tab === t.key ? 'bg-accent text-black' : 'text-[#aaa] hover:text-white')
+                (tab === t.key ? 'bg-[#B01D23] text-white' : 'text-[#aaa] hover:text-white')
               }
             >
               {t.label}
