@@ -29,3 +29,6 @@ dist-ssr
 
 # OS
 Thumbs.db
+
+# Claude Code
+.claude/
