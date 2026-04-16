@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 
-const RED = '#B01D23'
+const ACCENT = '#e8f442'
 
 const modulos = [
   { path: '/',              label: 'Dashboard',     icon: '⬡', perfiles: ['admin', 'cocina'] },
@@ -14,7 +14,7 @@ const modulos = [
   { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
 ]
 
-/** Logo — usa /logo.png si existe, si no cae a /logo.svg */
+/** Logo SL — círculo rojo corporativo */
 function LogoSL({ small = false }: { small?: boolean }) {
   const size = small ? 32 : 36
   return (
@@ -44,34 +44,34 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[#242424] border-r border-[#333]
+          fixed top-0 left-0 z-40 h-full bg-[#1a1a1a] border-r border-[#2a2a2a]
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
           ${width}
         `}
       >
-        {/* Header con logo SL */}
-        <div className="p-3 border-b border-[#333] flex items-center justify-between min-h-[72px]">
+        {/* Header con logo SL rojo */}
+        <div className="p-3 border-b border-[#2a2a2a] flex items-center justify-between min-h-[72px]">
           <div className="flex items-center gap-2 min-w-0">
             <LogoSL small={collapsed} />
             {!collapsed && (
               <div className="min-w-0">
                 <h1 className="text-white font-bold text-base tracking-tight truncate leading-tight">Streat Lab</h1>
-                <p className="text-[10px] text-[#888] truncate">ERP</p>
+                <p className="text-[10px] text-[#666] truncate">ERP</p>
               </div>
             )}
           </div>
           <button
             onClick={toggle}
-            className="p-1.5 text-[#888] hover:text-white hover:bg-white/5 rounded transition-colors hidden lg:block flex-shrink-0"
+            className="p-1.5 text-[#666] hover:text-white hover:bg-white/5 rounded transition-colors hidden lg:block flex-shrink-0"
             title={collapsed ? 'Expandir' : 'Colapsar'}
           >
             {collapsed ? '»' : '«'}
           </button>
         </div>
 
-        {/* Nav */}
+        {/* Nav — item activo con borde izquierdo accent amarillo */}
         <nav className="flex-1 py-3 overflow-y-auto">
           {visibles.map(m => (
             <NavLink
@@ -80,14 +80,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               end={m.path === '/'}
               onClick={onClose}
               title={collapsed ? m.label : undefined}
-              style={({ isActive }) => isActive ? { borderRight: `2px solid ${RED}` } : undefined}
+              style={({ isActive }) => isActive ? { borderLeft: `3px solid ${ACCENT}` } : { borderLeft: '3px solid transparent' }}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
                   collapsed ? 'justify-center' : ''
                 } ${
                   isActive
-                    ? 'text-white bg-[#B01D23]/10'
-                    : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                    ? 'text-white bg-[#242424]'
+                    : 'text-[#aaa] hover:text-white hover:bg-[#202020]'
                 }`
               }
             >
@@ -98,7 +98,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         </nav>
 
         {/* Footer user */}
-        <div className={`p-3 border-t border-[#333] ${collapsed ? 'text-center' : ''}`}>
+        <div className={`p-3 border-t border-[#2a2a2a] ${collapsed ? 'text-center' : ''}`}>
           {!collapsed ? (
             <>
               <div className="text-xs text-[#888] mb-2 truncate">

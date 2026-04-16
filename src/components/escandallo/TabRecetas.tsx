@@ -27,11 +27,11 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
       </div>
 
       {!recetasList.length ? (
-        <div className="bg-card border border-[#333] rounded-xl p-12 text-center">
+        <div className="bg-card border border-[#2a2a2a] rounded-xl p-12 text-center">
           <p className="text-[#888] text-sm">Sin recetas</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#333] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#2a2a2a] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full" style={{ minWidth: '1100px' }}>
               <thead>
@@ -86,7 +86,7 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
 
 function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
   return (
-    <div className="bg-card border border-[#333] rounded-lg px-4 py-2">
+    <div className="bg-card border border-[#2a2a2a] rounded-lg px-4 py-2">
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
     </div>

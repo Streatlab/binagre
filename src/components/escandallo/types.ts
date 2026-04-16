@@ -155,29 +155,48 @@ export const MARCA_MAP: Record<string, string> = {
 }
 
 export const getProveedor = (abv?: string | null): string => {
-  if (!abv) return '—'
+  if (!abv) return ''
   return MARCA_MAP[abv.toUpperCase()] ?? abv
 }
 
 /* ── Helpers ── */
 
 export const n = (v: number | null | undefined) => v ?? 0
-export const fmt = (v: number | null | undefined, d = 2) => n(v).toFixed(d)
-export const fmtPct = (v: number | null | undefined) => n(v).toFixed(1) + '%'
 
-/* ── Formato ES obligatorio: coma decimal, punto miles ── */
-export const fmtES = (v: number | null | undefined, d = 2) =>
-  n(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+/* ── Formato ES obligatorio: coma decimal, punto miles. Null/undefined → '' ── */
+export const fmtES = (v: number | null | undefined, d = 2): string => {
+  if (v == null || isNaN(v as number)) return ''
+  return (v as number).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+}
 
-export const fmtEurES = (v: number | null | undefined, d = 2) => fmtES(v, d) + ' €'
+export const fmtEurES = (v: number | null | undefined, d = 2): string => {
+  const s = fmtES(v, d)
+  return s ? s + ' €' : ''
+}
 
-export const fmtPctES = (v: number | null | undefined, d = 2) => fmtES(v, d) + '%'
+export const fmtPctES = (v: number | null | undefined, d = 2): string => {
+  const s = fmtES(v, d)
+  return s ? s + '%' : ''
+}
 
-/** dd/mm/yyyy desde string ISO o Date */
+/** Versión que recibe % como fracción (0.3 → 30%) */
+export const fmtPctFracES = (v: number | null | undefined, d = 2): string => {
+  if (v == null || isNaN(v as number)) return ''
+  return fmtES((v as number) * 100, d) + '%'
+}
+
+/** Compatibilidad retroactiva */
+export const fmt = fmtES
+export const fmtPct = (v: number | null | undefined) => {
+  if (v == null) return ''
+  return fmtES(v, 1) + '%'
+}
+
+/** dd/mm/yyyy desde string ISO o Date. Null → '' */
 export const fmtDateES = (v: string | Date | null | undefined): string => {
-  if (!v) return '—'
+  if (!v) return ''
   const d = typeof v === 'string' ? new Date(v) : v
-  if (isNaN(d.getTime())) return '—'
+  if (isNaN(d.getTime())) return ''
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
@@ -195,19 +214,25 @@ export const semaforoUsos = (usos: number) => {
   return 'bg-green-500/10 text-green-400 border-green-500/30'
 }
 
-/* ── CSS compartido ── */
+/* ── CSS compartido — estilo limpio original (#1a1a1a base, accent amarillo) ── */
 
 export const inputCls =
-  'w-full bg-[#1a1a1a] border border-[#333333] rounded-lg px-3 py-2 text-sm text-[#e8e8e8] placeholder:text-[#555] focus:outline-none focus:border-accent'
+  'w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#555] focus:outline-none focus:border-accent'
 
+/** Cabecera de tabla: borde inferior accent amarillo */
 export const thCls =
-  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#888] font-semibold text-left whitespace-nowrap bg-[#1f1f1f] border-b-2 border-[#B01D23]'
+  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#888] font-semibold text-left whitespace-nowrap bg-[#141414] border-b-2 border-accent'
 
 export const tdCls =
-  'px-3 py-2.5 text-[13px] text-[#e8e8e8] tabular-nums whitespace-nowrap border-b border-[#2a2a2a]'
+  'px-3 py-2.5 text-[13px] text-[#f0f0f0] tabular-nums whitespace-nowrap border-b border-[#242424]'
 
+/** Botón Guardar principal: amarillo #e8f442 con texto #111 */
 export const btnPrimary =
-  'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition'
+  'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
 
 export const btnSecondary =
-  'px-4 py-2 text-sm text-[#aaa] border border-[#333] rounded-lg hover:text-white hover:border-[#555] transition'
+  'px-4 py-2 text-sm text-[#aaa] border border-[#2a2a2a] rounded-lg hover:text-white hover:border-[#3a3a3a] transition'
+
+/** Tab activo: fondo amarillo, texto #111 */
+export const tabActiveCls = 'bg-accent text-[#111]'
+export const tabInactiveCls = 'text-[#aaa] hover:text-white'

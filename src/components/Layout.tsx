@@ -6,11 +6,11 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-[#2a2a2a] text-[#f0f0f0] font-sans">
+    <div className="flex h-screen bg-[#1a1a1a] text-[#f0f0f0] font-sans">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center px-4 border-b border-[#333] lg:hidden">
+        <header className="h-12 flex items-center px-4 border-b border-[#2a2a2a] lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-[#aaa] hover:text-white"
