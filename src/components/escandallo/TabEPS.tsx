@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { EPS } from './types'
-import { thCls, tdCls, fmt, n, semaforoUsos, btnPrimary } from './types'
+import { thCls, tdCls, fmtEurES, fmtES, fmtDateES, n, semaforoUsos, btnPrimary } from './types'
 
 interface Props { epsList: EPS[]; onSelect: (eps: EPS) => void; onNew?: () => void }
 
@@ -50,15 +50,15 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                       <td className={tdCls + ' text-[#888] font-mono text-xs'}>{e.codigo ?? '—'}</td>
                       <td className={tdCls + ' text-[#4a9eff] italic font-medium'}>{e.nombre}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{e.categoria ?? '—'}</td>
-                      <td className={tdCls + ' text-right'}>{e.raciones ?? 0}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(e.tamano_rac)}</td>
+                      <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
+                      <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{e.unidad}</td>
-                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmt(e.coste_tanda, 4)}</td>
-                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmt(e.coste_rac, 4)}</td>
+                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmtEurES(e.coste_tanda, 4)}</td>
+                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
                       <td className={tdCls + ' text-center'}>
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
                       </td>
-                      <td className={tdCls + ' text-[#888] text-xs'}>{e.fecha ?? '—'}</td>
+                      <td className={tdCls + ' text-[#888] text-xs'}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
                     </tr>
                   )
                 })}

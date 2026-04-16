@@ -14,17 +14,18 @@ const modulos = [
   { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
 ]
 
-/** Logo SL — circulo rojo con letras SL blancas */
+/** Logo — usa /logo.png si existe, si no cae a /logo.svg */
 function LogoSL({ small = false }: { small?: boolean }) {
-  const size = small ? 32 : 48
-  const fontSize = small ? 12 : 18
+  const size = small ? 32 : 36
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="24" cy="24" r="22" fill={RED} />
-      <text x="24" y="30" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif" fontSize={fontSize} fontWeight={800} fill="#ffffff" letterSpacing="1">
-        SL
-      </text>
-    </svg>
+    <img
+      src="/logo.png"
+      onError={e => { (e.currentTarget as HTMLImageElement).src = '/logo.svg' }}
+      alt="Streat Lab"
+      width={size}
+      height={size}
+      style={{ width: size, height: size, objectFit: 'contain' }}
+    />
   )
 }
 

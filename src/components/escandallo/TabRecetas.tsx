@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Receta } from './types'
-import { thCls, tdCls, fmt, semaforoClasses, n, ESTRUCTURA_PCT, btnPrimary } from './types'
+import { thCls, tdCls, fmtEurES, fmtES, fmtPctES, fmtDateES, semaforoClasses, n, ESTRUCTURA_PCT, btnPrimary } from './types'
 
 interface Props { recetasList: Receta[]; onSelect: (r: Receta) => void; onNew?: () => void }
 
@@ -58,20 +58,20 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                       <td className={tdCls + ' text-[#888] font-mono text-xs'}>{r.codigo ?? '—'}</td>
                       <td className={tdCls + ' text-white font-medium'}>{r.nombre}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{r.categoria ?? '—'}</td>
-                      <td className={tdCls + ' text-right'}>{r.raciones ?? 0}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(r.tamano_rac)}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{r.unidad ?? '—'}</td>
-                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmt(r.coste_tanda, 4)}</td>
-                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmt(r.coste_rac, 4)}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(r.pvp_uber)}</td>
+                      <td className={tdCls + ' text-right'}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
+                      <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
+                      <td className={tdCls + ' text-[#aaa]'}>{r.unidad ?? ''}</td>
+                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmtEurES(r.coste_tanda, 2)}</td>
+                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
+                      <td className={tdCls + ' text-right'}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
                       <td className={tdCls + ' text-center'}>
                         {hasPvp ? (
                           <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold ' + semaforoClasses(m)}>
-                            {m.toFixed(1)}%
+                            {fmtPctES(m, 2)}
                           </span>
-                        ) : <span className="text-[#666]">—</span>}
+                        ) : ''}
                       </td>
-                      <td className={tdCls + ' text-[#888] text-xs'}>{r.fecha ?? '—'}</td>
+                      <td className={tdCls + ' text-[#888] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
                     </tr>
                   )
                 })}
