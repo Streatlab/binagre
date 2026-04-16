@@ -1,7 +1,7 @@
 # Streat Lab ERP — Estado del proyecto
 
 **Fecha:** 2026-04-16
-**Repo:** https://github.com/Streatlab/streatlab-erp
+**Repo:** https://github.com/Streatlab/streatlab-erp (privado)
 **Deploy:** https://streatlab-erp.vercel.app
 **Supabase:** https://eryauogxcpbgdryeimdq.supabase.co
 **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + Supabase
@@ -11,100 +11,101 @@
 ```
 src/
   pages/
-    Login.tsx          ✅ Funcionando (PIN + nombre)
-    Dashboard.tsx      ✅ Funcionando (KPIs, ventas, canales)
-    Escandallo.tsx     ✅ Recién construido (4 pestañas)
-    Facturacion.tsx    ✅ Funcionando (diario/semanas/meses + modal)
-    POS.tsx            ⬜ Placeholder "En construcción"
+    Login.tsx          ✅ Funcionando
+    Dashboard.tsx      ✅ Funcionando
+    Escandallo.tsx     ✅ Construido (4 pestañas)
+    Facturacion.tsx    ✅ Funcionando
+    POS.tsx            ⬜ Placeholder
     Marcas.tsx         ⬜ Placeholder
     Proveedores.tsx    ⬜ Placeholder
     Running.tsx        ⬜ Placeholder
   components/
-    Layout.tsx         ✅ Sidebar + responsive mobile
-    Sidebar.tsx        ✅ Navegación con roles (admin/cocina)
+    Layout.tsx         ✅ Sidebar + responsive
+    Sidebar.tsx        ✅ Nav con roles
     escandallo/
-      types.ts         ✅ Interfaces + constantes + helpers
-      TabIngredientes  ✅ 19 columnas, solo lectura
-      TabMermas        ✅ 26 columnas, solo lectura
-      TabEPS           ✅ Tabla clickable con fecha
-      TabRecetas       ✅ Tabla con margen% Uber + semáforo
-      ModalEPS         ✅ Edición + líneas + cálculo costes
-      ModalReceta      ✅ PVPs + líneas + waterfall Real/Cash
-  context/
-    AuthContext.tsx     ✅ Login con Supabase (tabla usuarios)
-  lib/
-    supabase.ts        ✅ Cliente Supabase
+      types.ts         ✅ Interfaces + constantes
+      TabIngredientes  ✅ 19 columnas
+      TabMermas        ✅ 26 columnas
+      TabEPS           ✅ Tabla + click → modal
+      TabRecetas       ✅ Tabla + margen + semáforo
+      ModalEPS         ✅ Líneas + cálculos + guardar
+      ModalReceta      ✅ Líneas + waterfall Real/Cash
+  context/AuthContext  ✅ Login Supabase
+  lib/supabase.ts      ✅ Cliente
 ```
 
-## Módulos construidos y funcionando
+## Módulos funcionando
 
-### 1. Login
-- Autenticación por nombre + PIN (4 dígitos)
-- Roles: admin, cocina
-- Persistencia en localStorage
+### Login
+PIN + nombre, roles admin/cocina, localStorage
 
-### 2. Dashboard
-- KPIs: ventas hoy, pedidos hoy, ticket medio, ventas semana
-- Desglose por canal: Uber Eats, Glovo, Just Eat, Web
-- Top 5 días con más ventas
-- Gráfico bruto últimas 4 semanas
+### Dashboard
+KPIs (ventas, pedidos, ticket medio), desglose canales, top 5 días, gráfico 4 semanas
 
-### 3. Facturación
-- Tabs: diario / semanas / meses
-- Modal para añadir/editar registros
-- Export CSV
-- Tabla completa con totales y desviaciones
+### Facturación
+Tabs diario/semanas/meses, modal CRUD, export CSV
 
-### 4. Escandallo (recién construido)
-4 pestañas completas:
+### Escandallo — 4 pestañas
 
 **Ingredientes** — Solo lectura, 19 columnas:
-IDING, Nombre, Categoría, ABV, Marca, Formato, UDS, UD STD, UD MIN, Usos, Precio1/2/3, Activo, EUR/STD, EUR/MIN, Merma%, C.Neto/STD, C.Neto/MIN
+IDING, Nombre, Categoría, ABV, Marca, Formato, UDS, UD STD/MIN, Usos, Precio1/2/3, Activo, EUR/STD, EUR/MIN, Merma%, C.Neto/STD, C.Neto/MIN
 
 **Mermas** — Solo lectura, 26 columnas:
-IDING, Nombre, UDS, UD STD, Precio Total, SP1/SP2 (nombre, peso, %, euros, valorable), %SP1, %SP2, %Descarte, %Merma, %Limpio, Eur Pieza Limpia, Eur/Kg Neto, Neto(Kg), Nº Porciones, Peso Porción, Eur/Porción
+IDING, Nombre, UDS, UD STD, Precio Total, SP1/SP2 completo, %SP1/%SP2/%Descarte/%Merma/%Limpio, Eur Pieza Limpia, Eur/Kg Neto, Neto(Kg), Nº Porciones, Peso Porción, Eur/Porción
 
-**EPS** — Tabla + modal edición:
-- Tabla: Código, Nombre, Raciones, Tamaño Rac, Unidad, Coste Tanda, Coste/Rac, Fecha
-- Modal: campos editables + tabla líneas con selector de ingredientes
-- Cálculos automáticos: €total, %total, coste tanda, coste ración
-- Guardado en eps + eps_lineas
+**EPS** — Tabla + modal:
+Código, Nombre, Raciones, Tamaño Rac, Unidad, Coste Tanda, Coste/Rac, Fecha
+Modal: edición campos + líneas ingredientes + cálculos automáticos + guardar eps + eps_lineas
 
 **Recetas** — Tabla + modal con waterfall:
-- Tabla: Código, Nombre, Raciones, Coste/Rac, PVP Uber, Margen%, Semáforo
-- Margen% = (PVP/1.1 - coste_rac - PVP×0.30) / (PVP/1.1)
-- Modal: nombre, raciones, tamaño ración, PVPs por 5 canales
-- Líneas: tipo ING/EPS, selector, cantidad, unidad, €/ud, €total, %
-- Waterfall por canal (solo canales con PVP > 0):
-  - Comisiones: Uber/Glovo 30%, JE 20%, Web 7%, Directa 0%
-  - Columnas Real y Cash
-  - Coste MP, estructura 36%, plataforma, coste total
-  - PVP recomendado = (CosteMP×1.1)/(1-0.36-com%-0.15)
-  - K multiplicador, Margen€, %Margen con semáforo
-  - IVA neto, Provisión IVA/ped
-  - Guardado en recetas + recetas_lineas
+Código, Nombre, Raciones, Coste/Rac, PVP Uber, Margen%, Semáforo
+Modal: PVPs 5 canales, líneas ING/EPS, waterfall Real/Cash:
+- Comisiones: Uber/Glovo 30%, JE 20%, Web 7%, Directa 0%
+- Coste MP, estructura 36%, plataforma (Real vs Cash×1.21), coste total
+- PVP recomendado = (CosteMP×1.1)/(1-0.36-com%-0.15)
+- K, Margen€, %Margen con semáforo
+- IVA neto = (PVP−PVP×com%×1.21)/1.1×0.1−PVP×com%×0.21
+- Provisión IVA = PVP×com%×0.21
+- Solo canales con PVP > 0
 
 ## Tablas Supabase
 
 | Tabla | Estado |
 |-------|--------|
-| usuarios | ✅ Datos cargados |
-| facturacion_diario | ✅ Datos cargados |
+| usuarios | ✅ Datos |
+| facturacion_diario | ✅ Datos |
 | ingredientes | ✅ ~250 registros |
-| mermas | ✅ Datos cargados |
+| mermas | ✅ Datos |
 | eps | ✅ ~50 registros |
-| eps_lineas | ✅ Estructura lista |
+| eps_lineas | ✅ Estructura |
 | recetas | ✅ ~30 registros |
-| recetas_lineas | ✅ Estructura lista |
+| recetas_lineas | ✅ Estructura |
 
-## SQL pendiente de ejecutar
+## ACCIÓN REQUERIDA: SQL pendiente
 
-El archivo `supabase-migration.sql` en la raíz del proyecto contiene ALTERs necesarios para:
-- ingredientes: columnas nombre_base, abv, formato, uds, precios, ud_std/min, merma_ef, costes netos
-- eps: columna fecha
-- recetas_lineas: columnas ingrediente_id, eps_id, cantidad, unidad, eur_ud_neta, eur_total, pct_total
+Ejecutar `supabase-migration.sql` en Supabase SQL Editor:
+- ingredientes: nombre_base, abv, formato, uds, precios, ud_std/min, merma_ef, costes netos
+- eps: fecha
+- recetas_lineas: ingrediente_id, eps_id, cantidad, unidad, eur_ud_neta, eur_total, pct_total
 
-**EJECUTAR EN SUPABASE SQL EDITOR si no se ha hecho ya.**
+## ACCIÓN REQUERIDA: Vercel deploy
+
+El deploy en Vercel NO se actualiza automáticamente. Diagnóstico:
+- El build local funciona (`vite build` OK, 498KB JS)
+- Los commits llegan a GitHub correctamente
+- **Causa probable: Vercel busca rama `main` pero el repo usa `master`**
+
+**Solución — en https://vercel.com/dashboard:**
+1. Proyecto → Settings → Git → Production Branch → cambiar `main` a `master`
+2. O bien: Deployments → Redeploy manualmente
+3. Alternativa: `npm i -g vercel && vercel --prod`
+
+## Errores conocidos
+
+1. Tablas Ingredientes/Mermas muy anchas en móvil (scroll horizontal funciona pero UX mejorable)
+2. eps_lineas/recetas_lineas pueden estar vacíos si datos importados sin líneas detalle
+3. Verificar fórmula IVA neto del waterfall contra Excel real
+4. Deploy Vercel no auto-deploya (ver sección anterior)
 
 ## Pendiente por construir
 
@@ -113,18 +114,7 @@ El archivo `supabase-migration.sql` en la raíz del proyecto contiene ALTERs nec
 - **Proveedores** — Gestión de proveedores y pedidos
 - **Running** — Operativa diaria / running costs
 
-## Errores conocidos / mejoras pendientes
-
-1. Las tablas de Ingredientes y Mermas son muy anchas (19 y 26 columnas) — funcionan con scroll horizontal pero en móvil son difíciles de leer. Considerar vista colapsable o detalle al click.
-2. El waterfall de Recetas solo se muestra para canales con PVP > 0. Si todos los PVPs están a 0, no aparece waterfall (comportamiento correcto).
-3. Los datos de eps_lineas y recetas_lineas pueden estar vacíos si las recetas se importaron sin líneas de detalle. El modal muestra "Sin líneas" correctamente.
-4. La fórmula de IVA neto del waterfall sigue la del Excel: `(PVP−PVP×com%×1.21)/1.1×0.1−PVP×com%×0.21`. Verificar que cuadra con los resultados esperados.
-
 ## Diseño
 
-- Fondo: #0a0a0a (bg-base)
-- Cards: #141414 (bg-card)
-- Bordes: #1f1f1f (border-border)
-- Acento: #e8f442 (text-accent)
-- Fuente: Inter
-- Semáforo: verde >15%, amarillo 10-15%, rojo <10%
+Fondo #0a0a0a | Cards #141414 | Bordes #1f1f1f | Acento #e8f442 | Inter
+Semáforo: verde >15% | amarillo 10-15% | rojo <10%
