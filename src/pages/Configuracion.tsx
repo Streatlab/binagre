@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 /* ═══════ TYPES ═══════ */
 
 interface Proveedor { id: string; abv: string; nombre_completo: string; categoria: string | null; activo: boolean }
-interface Canal { id: string; canal: string; comision_pct: number | null; coste_fijo: number | null; activo?: boolean }
+interface Canal { id: string; canal: string; comision_pct: number | null; coste_fijo: number | null; margen_deseado_pct?: number | null; activo?: boolean }
 interface ConfigItem { id: string; clave: string; valor: string }
 
 type Section = 'plataformas' | 'costes' | 'proveedores' | 'categorias' | 'unidades'
@@ -84,6 +84,7 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
               <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#888] font-semibold bg-[#141414] border-b border-[#2a2a2a]">Canal</th>
               <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#888] font-semibold bg-[#141414] border-b border-[#2a2a2a]">Comisión %</th>
               <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#888] font-semibold bg-[#141414] border-b border-[#2a2a2a]">Coste Fijo €</th>
+              <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#888] font-semibold bg-[#141414] border-b border-[#2a2a2a]">Margen deseado %</th>
               <th className="px-4 py-3 text-center text-[11px] uppercase tracking-wider text-[#888] font-semibold bg-[#141414] border-b border-[#2a2a2a]">Activa</th>
             </tr>
           </thead>
@@ -99,6 +100,11 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
                 <td className="px-4 py-2.5 text-right border-b border-[#2a2a2a]">
                   <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
                     onBlur={e => update(r.id, 'coste_fijo', e.target.value)}
+                    className="w-24 bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-sm text-white text-right" />
+                </td>
+                <td className="px-4 py-2.5 text-right border-b border-[#2a2a2a]">
+                  <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
+                    onBlur={e => update(r.id, 'margen_deseado_pct', e.target.value)}
                     className="w-24 bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-sm text-white text-right" />
                 </td>
                 <td className="px-4 py-2.5 text-center border-b border-[#2a2a2a]">

@@ -113,7 +113,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     return cfg.canales.filter(c => c.activo !== false).map(c => {
       const pvpKey = CANAL_TO_KEY[c.canal] ?? 'pvp_uber'
       const pvp = pvps[pvpKey] ?? 0
-      const w = calcWaterfall(costeMP, pvp, c.comision_pct, c.coste_fijo || 0, cfg.estructura_pct, cfg.margen_deseado_pct)
+      const margenCanal = c.margen_deseado_pct ?? cfg.margen_deseado_pct
+      const w = calcWaterfall(costeMP, pvp, c.comision_pct, c.coste_fijo || 0, cfg.estructura_pct, margenCanal)
       return { canal: c, pvpKey, pvp, w }
     })
   }, [cfg, pvps, costeMP])
@@ -236,18 +237,18 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     <WFRow label="Coste total" real={w.costeTotalR} cash={w.costeTotalC} bold />
                     <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#aaa] flex justify-between">
-                        <span>Margen deseado</span><span>{cfg.margen_deseado_pct}%</span>
+                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
                       <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#aaa] flex justify-between">
-                        <span>Margen deseado</span><span>{cfg.margen_deseado_pct}%</span>
+                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-accent flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRec, 2)}</span>
+                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecR, 2)}</span>
                       </div>
                       <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-accent flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRec, 2)}</span>
+                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecC, 2)}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
