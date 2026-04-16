@@ -3,23 +3,28 @@
 export interface Ingrediente {
   id: string
   iding?: string
-  categoria?: string
   nombre_base?: string
   abv?: string
   nombre: string
+  categoria?: string
   marca?: string
   formato?: string
   uds?: number
-  ud_std: string
-  ud_min: string
-  precio_activo?: number
-  eur_std: number
-  eur_min: number
-  merma_pct?: number
-  coste_neto_std?: number
-  coste_neto_min?: number
-  tipo_merma?: string
+  ud_std?: string
+  ud_min?: string
   usos?: number
+  precio1?: number
+  precio2?: number
+  precio3?: number
+  precio_activo?: number
+  eur_std?: number
+  eur_min?: number
+  merma_pct?: number
+  merma_ef?: number
+  coste_neto_std?: number
+  ud_neto_std?: string
+  coste_neto_min?: number
+  ud_neto_min?: string
 }
 
 export interface Merma {
@@ -28,15 +33,30 @@ export interface Merma {
   nombre_base?: string
   abv?: string
   nombre: string
-  ud_std?: string
   uds?: number
+  ud_std?: string
   precio_total?: number
+  sp1_nombre?: string
+  sp1_peso_g?: number
+  sp1_pct?: number
+  sp1_euros?: number
+  sp1_valorable?: boolean
+  sp2_nombre?: string
+  sp2_peso_g?: number
+  sp2_pct?: number
+  sp2_euros?: number
+  sp2_valorable?: boolean
+  pct_sp1?: number
+  pct_sp2?: number
+  pct_descarte?: number
   pct_merma?: number
   pct_limpio?: number
+  eur_pieza_limpia?: number
   eur_kg_neto?: number
+  neto_kg?: number
   num_porciones?: number
-  eur_porcion?: number
   peso_porcion_g?: number
+  eur_porcion?: number
 }
 
 export interface EPS {
@@ -48,6 +68,7 @@ export interface EPS {
   unidad: string
   coste_tanda: number
   coste_rac: number
+  fecha?: string
 }
 
 export interface EPSLinea {
@@ -64,6 +85,7 @@ export interface Receta {
   codigo?: string
   nombre: string
   raciones: number
+  tamano_rac?: number
   categoria?: string
   coste_tanda: number
   coste_rac: number
@@ -89,11 +111,7 @@ export interface RecetaLinea {
 
 export type CanalKey = 'pvp_uber' | 'pvp_glovo' | 'pvp_je' | 'pvp_web' | 'pvp_directa'
 
-export interface Canal {
-  key: CanalKey
-  label: string
-  comision: number
-}
+export interface Canal { key: CanalKey; label: string; comision: number }
 
 export const CANALES: Canal[] = [
   { key: 'pvp_uber', label: 'Uber Eats', comision: 0.30 },
@@ -113,11 +131,9 @@ export const semaforoClasses = (pct: number) => {
   return 'bg-red-500/10 text-red-400'
 }
 
-export const fmt = (n: number | null | undefined, decimals = 2) =>
-  (n ?? 0).toFixed(decimals)
-
-export const fmtPct = (n: number | null | undefined) =>
-  (n ?? 0).toFixed(1) + '%'
+export const n = (v: number | null | undefined) => v ?? 0
+export const fmt = (v: number | null | undefined, d = 2) => n(v).toFixed(d)
+export const fmtPct = (v: number | null | undefined) => n(v).toFixed(1) + '%'
 
 /* ── CSS compartido ── */
 
