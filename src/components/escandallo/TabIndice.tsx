@@ -41,7 +41,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Counter label="TOTAL" value={rows.length} />
-        <Counter label="EPS" value={epsList.length} color="text-[#1155CC]" />
+        <Counter label="EPS" value={epsList.length} color="text-[#4a9eff]" />
         <Counter label="RECETAS" value={recetasList.length} color="text-accent" />
       </div>
 
@@ -74,9 +74,11 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                 const costeRac = n(d.coste_rac)
                 const { costeTotalR, margenR, margenC, pctR, pctC } = calcMargenes(costeRac, pvp, uberCom)
                 const usos = isEps ? n((d as EPS).usos) : 0
-                const nameCls = isEps ? 'text-[#1155CC] italic' : 'text-white'
+                const nameCls = isEps ? 'text-[#4a9eff] italic' : 'text-white'
                 return (
-                  <tr key={`${row.kind}-${d.id}`}>
+                  <tr key={`${row.kind}-${d.id}`}
+                    onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
+                    className="cursor-pointer hover:bg-[#383838] transition-colors">
                     <td className={tdCls + ' text-right text-[#666]'}>{row.idx}</td>
                     <td className={tdCls + ' font-medium ' + nameCls}>
                       <span className="text-[10px] text-[#666] mr-2">[{row.kind}]</span>

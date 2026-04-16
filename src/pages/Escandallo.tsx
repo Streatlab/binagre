@@ -8,6 +8,8 @@ import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
+import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
+import ModalMerma from '@/components/escandallo/ModalMerma'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
 
@@ -31,6 +33,8 @@ export default function Escandallo() {
 
   const [modalEPS, setModalEPS] = useState<{ open: boolean; eps: EPS | null }>({ open: false, eps: null })
   const [modalReceta, setModalReceta] = useState<{ open: boolean; receta: Receta | null }>({ open: false, receta: null })
+  const [modalIng, setModalIng] = useState<{ open: boolean; ing: Ingrediente | null }>({ open: false, ing: null })
+  const [modalMerma, setModalMerma] = useState<{ open: boolean; merma: Merma | null }>({ open: false, merma: null })
 
   const fetchData = async () => {
     setLoading(true)
@@ -38,7 +42,7 @@ export default function Escandallo() {
     try {
       const [ingRes, merRes, epsRes, recRes] = await Promise.all([
         supabase.from('ingredientes').select('*').order('nombre_base', { nullsFirst: false }).order('nombre'),
-        supabase.from('mermas').select('*').order('nombre'),
+        supabase.from('mermas').select('*').order('nombre_base', { nullsFirst: false }),
         supabase.from('eps').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
         supabase.from('recetas').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
       ])
@@ -69,6 +73,13 @@ export default function Escandallo() {
   const handleSaved = () => {
     setModalEPS({ open: false, eps: null })
     setModalReceta({ open: false, receta: null })
+    setModalIng({ open: false, ing: null })
+    setModalMerma({ open: false, merma: null })
+    fetchData()
+  }
+
+  const handleIngSaved = () => {
+    setModalIng({ open: false, ing: null })
     fetchData()
   }
 
@@ -80,7 +91,7 @@ export default function Escandallo() {
 
       {/* Subtabs + buscador */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex gap-1 bg-card border border-[#333] rounded-lg p-1 flex-wrap">
+        <div className="flex gap-1 bg-card border border-[#444] rounded-lg p-1 flex-wrap">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -95,7 +106,7 @@ export default function Escandallo() {
         </div>
         {tab !== 'indice' && (
           <input
-            className="flex-1 bg-card border border-[#333] rounded-lg px-3 py-2 text-sm text-[#e8e8e8] placeholder:text-[#555] focus:outline-none focus:border-accent"
+            className="flex-1 bg-card border border-[#444] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent"
             placeholder="Buscar..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
@@ -109,7 +120,7 @@ export default function Escandallo() {
           <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : error ? (
-        <div className="bg-card border border-[#333] rounded-xl p-8 text-center">
+        <div className="bg-card border border-[#444] rounded-xl p-8 text-center">
           <p className="text-red-400 text-sm">{error}</p>
           <button onClick={fetchData} className="mt-3 text-xs text-accent underline">Reintentar</button>
         </div>
@@ -123,8 +134,20 @@ export default function Escandallo() {
               onOpenReceta={receta => setModalReceta({ open: true, receta })}
             />
           )}
-          {tab === 'ingredientes' && <TabIngredientes ingredientes={filteredIng} />}
-          {tab === 'mermas' && <TabMermas mermas={filteredMermas} />}
+          {tab === 'ingredientes' && (
+            <TabIngredientes
+              ingredientes={filteredIng}
+              onSelect={ing => setModalIng({ open: true, ing })}
+              onNew={() => setModalIng({ open: true, ing: null })}
+            />
+          )}
+          {tab === 'mermas' && (
+            <TabMermas
+              mermas={filteredMermas}
+              onSelect={merma => setModalMerma({ open: true, merma })}
+              onNew={() => setModalMerma({ open: true, merma: null })}
+            />
+          )}
           {tab === 'eps' && (
             <TabEPS
               epsList={filteredEps}
@@ -156,6 +179,21 @@ export default function Escandallo() {
           ingredientes={ingredientes}
           epsList={epsList}
           onClose={() => setModalReceta({ open: false, receta: null })}
+          onSaved={handleSaved}
+        />
+      )}
+      {modalIng.open && (
+        <ModalIngrediente
+          ingrediente={modalIng.ing}
+          onClose={() => setModalIng({ open: false, ing: null })}
+          onSaved={handleIngSaved}
+          onOpenMerma={merma => { setModalIng({ open: false, ing: null }); setModalMerma({ open: true, merma }); fetchData() }}
+        />
+      )}
+      {modalMerma.open && (
+        <ModalMerma
+          merma={modalMerma.merma}
+          onClose={() => setModalMerma({ open: false, merma: null })}
           onSaved={handleSaved}
         />
       )}

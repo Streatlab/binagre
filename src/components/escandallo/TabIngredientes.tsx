@@ -71,16 +71,16 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
               <tbody>
                 {ingredientes.map(i => {
                   const isEps = i.abv === 'EPS'
-                  const rowNameCls = isEps ? 'text-[#1155CC] italic font-medium' : 'text-white font-medium'
+                  const rowNameCls = isEps ? 'text-[#4a9eff] italic font-medium' : 'text-white font-medium'
                   const usos = n(i.usos)
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)}
-                      className="cursor-pointer">
+                      className="cursor-pointer hover:bg-[#383838] transition-colors">
                       <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{i.iding ?? '—'}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{i.categoria ?? '—'}</td>
                       <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
                       <td className={tdCls + ' text-accent font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
-                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#1155CC] italic' : 'text-[#ddd]')}>{i.nombre}</td>
+                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#4a9eff] italic' : 'text-[#ddd]')}>{i.nombre}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{getProveedor(i.abv)}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{i.marca ?? '—'}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{i.formato ?? '—'}</td>
