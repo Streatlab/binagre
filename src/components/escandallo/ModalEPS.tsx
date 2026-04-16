@@ -68,7 +68,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
       await supabase.from('eps_lineas').delete().eq('eps_id', epsId)
       if (lineasCalc.length > 0) {
-        const rows = lineasCalc.map((l, i) => ({ eps_id: epsId, linea: i + 1, ingrediente_nombre: l.ingrediente_nombre, ingrediente_id: l.ingrediente_id, cantidad: l.cantidad, unidad: l.unidad, eur_ud_neta: l.eur_ud_neta, eur_total: l.eur_total, pct_total: l.pct_total }))
+        const rows = lineasCalc.map((l, i) => ({ eps_id: epsId, linea: i + 1, ingrediente_nombre: l.ingrediente_nombre, ingrediente_id: l.ingrediente_id, cantidad: l.cantidad, unidad: l.unidad, eur_ud_neta: l.eur_ud_neta }))
         const { error } = await supabase.from('eps_lineas').insert(rows); if (error) throw error
       }
       onSaved()

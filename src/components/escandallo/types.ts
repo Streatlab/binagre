@@ -116,10 +116,14 @@ export interface Canal { key: CanalKey; label: string; comision: number }
 export const CANALES: Canal[] = [
   { key: 'pvp_uber', label: 'Uber Eats', comision: 0.30 },
   { key: 'pvp_glovo', label: 'Glovo', comision: 0.30 },
-  { key: 'pvp_je', label: 'Just Eat', comision: 0.20 },
+  { key: 'pvp_je', label: 'Just Eat', comision: 0.30 },
   { key: 'pvp_web', label: 'Web', comision: 0.07 },
   { key: 'pvp_directa', label: 'Directa', comision: 0 },
 ]
+
+// Coste fijo estructura global (aplicado sobre PVP neto)
+export const ESTRUCTURA_PCT = 0.30
+export const MARGEN_DESEADO = 0.15
 
 export const UNIDADES = ['gr.', 'Kg.', 'ml.', 'L.', 'ud.', 'Ud.', 'Ración']
 

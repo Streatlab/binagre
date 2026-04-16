@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
-import { CANALES, UNIDADES, semaforoClasses, inputCls, thCls, tdCls, fmt, n } from './types'
+import { CANALES, UNIDADES, ESTRUCTURA_PCT, MARGEN_DESEADO, semaforoClasses, inputCls, thCls, tdCls, fmt, n } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
 
@@ -48,27 +48,27 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
   const costeMP = raciones > 0 ? costeTanda / raciones : 0
 
-  /* ── Waterfall ── */
+  /* ── Waterfall — calcula SIEMPRE los 5 canales ── */
   const waterfall = useMemo(() => {
-    return CANALES.filter(c => n(pvps[c.key]) > 0).map(c => {
+    return CANALES.map(c => {
       const pvp = n(pvps[c.key])
       const com = c.comision
       const neto = pvp / 1.1
 
-      // Real
-      const costeEstrR = 0.36 * neto
+      // Real (estructura = 30% PVP neto)
+      const costeEstrR = ESTRUCTURA_PCT * neto
       const costePlatR = pvp * com
       const costeTotalR = costeMP + costeEstrR + costePlatR
 
-      // Cash
+      // Cash (plataforma con IVA 21%)
       const costePlatC = pvp * com * 1.21
       const costeTotalC = costeMP + costeEstrR + costePlatC
 
-      // PVP recomendado
-      const denom = 1 - 0.36 - com - 0.15
+      // PVP recomendado = (CosteMP × 1.1) / (1 − 0.30 − com% − 0.15)
+      const denom = 1 - ESTRUCTURA_PCT - com - MARGEN_DESEADO
       const pvpRec = denom > 0 ? (costeMP * 1.1) / denom : 0
 
-      // K
+      // K multiplicador
       const k = costeMP > 0 ? pvp / costeMP : 0
 
       // Margen
@@ -77,20 +77,20 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
       const pctMargenR = neto > 0 ? (margenR / neto) * 100 : 0
       const pctMargenC = neto > 0 ? (margenC / neto) * 100 : 0
 
-      // IVA neto = (PVP − PVP×com%×1.21)/1.1×0.1 − (PVP×com%×0.21)
-      const ivaNeto = ((pvp - pvp * com * 1.21) / 1.1) * 0.1 - (pvp * com * 0.21)
+      // IVA neto
+      const ivaNeto = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 - (pvp * com * 0.21) : 0
 
-      // Provisión IVA/ped = PVP × com% × 0.21
+      // Provisión IVA/ped
       const provIva = pvp * com * 0.21
 
       return {
         ...c, pvp,
         rows: [
           { label: 'Coste MP', real: costeMP, cash: costeMP },
-          { label: 'Coste estructura (36%)', real: costeEstrR, cash: costeEstrR },
+          { label: `Coste estructura (${(ESTRUCTURA_PCT * 100).toFixed(0)}%)`, real: costeEstrR, cash: costeEstrR },
           { label: 'Coste plataforma', real: costePlatR, cash: costePlatC },
           { label: 'Coste total', real: costeTotalR, cash: costeTotalC, bold: true },
-          { label: 'Margen deseado', real: 0.15, cash: 0.15, isPctOnly: true },
+          { label: 'Margen deseado', real: MARGEN_DESEADO, cash: MARGEN_DESEADO, isPctOnly: true },
           { label: 'PVP recomendado', real: pvpRec, cash: null, accent: true },
           { label: 'PVP real', real: pvp, cash: null },
           { label: 'K (multiplicador)', real: k, cash: null, isK: true },
@@ -140,7 +140,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         const rows = lineasCalc.map((l, i) => ({
           receta_id: rid, linea: i + 1, tipo: l.tipo, ingrediente_nombre: l.ingrediente_nombre,
           ingrediente_id: l.ingrediente_id, eps_id: l.eps_id, cantidad: l.cantidad, unidad: l.unidad,
-          eur_ud_neta: l.eur_ud_neta, eur_total: l.eur_total, pct_total: l.pct_total,
+          eur_ud_neta: l.eur_ud_neta,
         }))
         const { error } = await supabase.from('recetas_lineas').insert(rows); if (error) throw error
       }
