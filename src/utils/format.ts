@@ -1,13 +1,15 @@
 const LOCALE = 'es-ES'
 
-export const fmtEur = (v?: number | string | null) => {
-  const n = v != null ? Number(v) : null
-  return n != null && !isNaN(n) ? n.toLocaleString(LOCALE,{minimumFractionDigits:2,maximumFractionDigits:2})+' €' : ''
+export const fmtEur = (v?: number | string | null): string => {
+  const n = (v != null && v !== '') ? Number(v) : null
+  if (n == null || isNaN(n)) return ''
+  return n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €'
 }
 
-export const fmtNum = (v?: number | string | null, d=2) => {
-  const n = v != null ? Number(v) : null
-  return n != null && !isNaN(n) ? n.toLocaleString(LOCALE,{minimumFractionDigits:d,maximumFractionDigits:d}) : ''
+export const fmtNum = (v?: number | string | null, d = 2): string => {
+  const n = (v != null && v !== '') ? Number(v) : null
+  if (n == null || isNaN(n)) return ''
+  return n.toFixed(d).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
 export const fmtPct = (v?: number | string | null) => {
