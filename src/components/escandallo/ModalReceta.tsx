@@ -170,7 +170,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-[#555] uppercase tracking-wider">Líneas</p>
-              <button onClick={addLinea} className="text-xs font-semibold text-accent hover:brightness-110 transition px-3 py-1 rounded-lg border border-accent/30 hover:bg-accent/5">+ Añadir línea</button>
+              <button onClick={addLinea} className="text-xs font-semibold text-[#1a1a1a] hover:brightness-110 transition px-3 py-1 rounded-lg border border-accent/30 hover:bg-accent/5">+ Añadir línea</button>
             </div>
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
@@ -198,7 +198,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls + ' text-right font-medium text-[#1a1a1a]'}>{l.eur_total.toFixed(4)}</td>
                           <td className={tdCls + ' text-right text-[#888]'}>{l.pct_total.toFixed(1)}%</td>
-                          <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#666] hover:text-red-400 transition text-sm">×</button></td>
+                          <td className={tdCls}>
+                            {idx === 0 ? (
+                              <span className="text-[#888] text-[10px]" title="Envase (no eliminable)">🔒</span>
+                            ) : (
+                              <button onClick={() => deleteLinea(idx)} className="text-[#666] hover:text-[#dc2626] transition text-sm">×</button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -207,7 +213,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
                     <div><span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#1a1a1a]">{costeTanda.toFixed(4)} €</span></div>
-                    <div><span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-accent">{costeMP.toFixed(4)} €</span></div>
+                    <div><span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#1a1a1a]">{costeMP.toFixed(4)} €</span></div>
                   </div>
                   <span className="text-xs text-[#666]">{raciones} raciones</span>
                 </div>
@@ -228,10 +234,10 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     </div>
                     <div className="grid grid-cols-2 text-[11px]">
                       <div className="bg-[#1e3a1e]/40 p-2 border-r border-[#dddddd]">
-                        <p className="text-[9px] uppercase text-green-300 mb-1 font-semibold">Real</p>
+                        <p className="text-[9px] uppercase text-[#15803d] mb-1 font-semibold">Real</p>
                       </div>
                       <div className="bg-[#3a2a0a]/40 p-2">
-                        <p className="text-[9px] uppercase text-orange-300 mb-1 font-semibold">Cash</p>
+                        <p className="text-[9px] uppercase text-[#c2410c] mb-1 font-semibold">Cash</p>
                       </div>
                     </div>
                     <WFRow label="Coste MP" real={w.costeMP} cash={w.costeMP} />
@@ -247,10 +253,10 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#dddddd]">
-                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-accent flex justify-between font-semibold">
+                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#1a1a1a] flex justify-between font-semibold">
                         <span>PVP rec.</span><span>{fmtEurES(w.pvpRecR, 2)}</span>
                       </div>
-                      <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-accent flex justify-between font-semibold">
+                      <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#1a1a1a] flex justify-between font-semibold">
                         <span>PVP rec.</span><span>{fmtEurES(w.pvpRecC, 2)}</span>
                       </div>
                     </div>

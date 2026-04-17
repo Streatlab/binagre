@@ -102,11 +102,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed ? (
             <>
               <div className="text-xs text-[#888] mb-2 truncate">
-                {usuario?.nombre} — <span className="text-accent">{usuario?.perfil}</span>
+                {usuario?.nombre} — <span className="text-[#1a1a1a]">{usuario?.perfil}</span>
               </div>
               <button
                 onClick={logout}
-                className="text-xs text-[#888] hover:text-red-400 transition-colors"
+                className="text-xs text-[#888] hover:text-[#dc2626] transition-colors"
               >
                 Cerrar sesión
               </button>
@@ -114,7 +114,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           ) : (
             <button
               onClick={logout}
-              className="text-[#888] hover:text-red-400 transition-colors text-sm"
+              className="text-[#888] hover:text-[#dc2626] transition-colors text-sm"
               title="Cerrar sesión"
             >
               ⏏

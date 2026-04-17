@@ -19,7 +19,7 @@ export default function Layout() {
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="ml-3 text-accent font-semibold text-sm">Streat Lab</span>
+          <span className="ml-3 text-[#1a1a1a] font-semibold text-sm">Streat Lab</span>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

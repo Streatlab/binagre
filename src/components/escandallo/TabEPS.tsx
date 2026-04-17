@@ -25,8 +25,8 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color="text-green-400" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color="text-red-400" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        <Counter label="EN USO" value={enUso} color="text-[#16a34a]" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color="text-[#dc2626]" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nueva EPS</button>}
       </div>
 
@@ -57,12 +57,12 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                   return (
                     <tr key={e.id} onClick={() => onSelect(e)} className="cursor-pointer">
                       <td className={tdCls + ' text-[#888] font-mono text-xs'}>{e.codigo ?? ''}</td>
-                      <td className={tdCls + ' text-[#4a9eff] italic font-medium'}>{e.nombre}</td>
+                      <td className={tdCls + ' text-[#2563eb] italic font-medium'}>{e.nombre}</td>
                       <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
                       <td className={tdCls + ' text-[#555]'}>{e.unidad}</td>
                       <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmtEurES(e.coste_tanda, 4)}</td>
-                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a] font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
                       <td className={tdCls + ' text-center'}>
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
                       </td>

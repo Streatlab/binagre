@@ -33,10 +33,10 @@ const CANAL_COLORS: Record<string, string> = {
   'Web':       'bg-accent',
 }
 const CANAL_TEXT: Record<string, string> = {
-  'Uber Eats': 'text-green-400',
-  'Glovo':     'text-amber-400',
-  'Just Eat':  'text-orange-400',
-  'Web':       'text-accent',
+  'Uber Eats': 'text-[#16a34a]',
+  'Glovo':     'text-[#d97706]',
+  'Just Eat':  'text-[#ea580c]',
+  'Web':       'text-[#1a1a1a]',
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -179,7 +179,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Dashboard</h2>
         <div className="bg-card border border-border rounded-xl p-8 text-center">
-          <p className="text-red-400 text-sm">{error}</p>
+          <p className="text-[#dc2626] text-sm">{error}</p>
         </div>
       </div>
     )
@@ -203,7 +203,7 @@ export default function Dashboard() {
           <div key={c.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-[#555] uppercase tracking-wide">{c.label}</p>
-              <span className={`text-xs font-bold ${CANAL_TEXT[c.label] ?? 'text-accent'}`}>
+              <span className={`text-xs font-bold ${CANAL_TEXT[c.label] ?? 'text-[#1a1a1a]'}`}>
                 {c.pct.toFixed(1)}%
               </span>
             </div>
@@ -265,7 +265,7 @@ export default function Dashboard() {
                         </span>
                         <span className="text-sm text-[#1a1a1a]">{d.fecha}</span>
                       </div>
-                      <span className="text-sm font-semibold text-accent tabular-nums">{eur(d.bruto)}</span>
+                      <span className="text-sm font-semibold text-[#1a1a1a] tabular-nums">{eur(d.bruto)}</span>
                     </div>
                     <div className="h-1 bg-white/5 rounded-full overflow-hidden ml-7">
                       <div
@@ -292,7 +292,7 @@ function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: str
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <p className="text-xs text-[#555] uppercase tracking-wide">{label}</p>
-      <p className="text-3xl font-bold text-accent mt-2">{valor}</p>
+      <p className="text-3xl font-bold text-[#1a1a1a] mt-2">{valor}</p>
       <p className="text-xs text-[#555] mt-1">{sub}</p>
     </div>
   )

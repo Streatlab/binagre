@@ -30,8 +30,8 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="CON PVP" value={conPvp} color="text-green-400" active={filter === 'conpvp'} onClick={() => toggle('conpvp')} />
-        <Counter label="SIN PVP" value={total - conPvp} color="text-red-400" active={filter === 'sinpvp'} onClick={() => toggle('sinpvp')} />
+        <Counter label="CON PVP" value={conPvp} color="text-[#16a34a]" active={filter === 'conpvp'} onClick={() => toggle('conpvp')} />
+        <Counter label="SIN PVP" value={total - conPvp} color="text-[#dc2626]" active={filter === 'sinpvp'} onClick={() => toggle('sinpvp')} />
         {onNew && <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nueva Receta</button>}
       </div>
 
@@ -71,7 +71,7 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                       <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
                       <td className={tdCls + ' text-[#555]'}>{r.unidad ?? ''}</td>
                       <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmtEurES(r.coste_tanda, 2)}</td>
-                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
                       <td className={tdCls + ' text-right'}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
                       <td className={tdCls + ' text-center'}>
                         {hasPvp ? (

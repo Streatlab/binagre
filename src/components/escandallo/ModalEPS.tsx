@@ -159,7 +159,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-[#888] uppercase tracking-wider">Líneas</p>
-              <button onClick={addLinea} className="text-xs font-semibold text-accent hover:brightness-110 transition px-3 py-1 rounded-lg border border-accent/30 hover:bg-accent/5">+ Añadir línea</button>
+              <button onClick={addLinea} className="text-xs font-semibold text-[#1a1a1a] hover:brightness-110 transition px-3 py-1 rounded-lg border border-accent/30 hover:bg-accent/5">+ Añadir línea</button>
             </div>
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
@@ -193,7 +193,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls + ' text-right font-medium text-[#1a1a1a]'}>{fmtES(l.eur_total, 4)}</td>
                           <td className={tdCls + ' text-right text-[#888]'}>{fmtES(l.pct_total, 1)}%</td>
-                          <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#666] hover:text-red-400 transition text-sm">×</button></td>
+                          <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#666] hover:text-[#dc2626] transition text-sm">×</button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -207,7 +207,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     </div>
                     <div>
                       <span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste ración</span>
-                      <span className="text-base font-bold text-accent">{fmtEurES(costeRac, 4)}</span>
+                      <span className="text-base font-bold text-[#1a1a1a]">{fmtEurES(costeRac, 4)}</span>
                     </div>
                   </div>
                   <span className="text-xs text-[#666]">{raciones} raciones</span>

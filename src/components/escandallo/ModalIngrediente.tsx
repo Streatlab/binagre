@@ -11,9 +11,9 @@ interface Props {
   onOpenMerma?: (m: Merma | null) => void
 }
 
-const inputCls = 'w-full bg-[#f5f5f5] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#666] focus:outline-none focus:border-accent'
+const inputCls = 'w-full bg-white border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#999] focus:outline-none focus:border-[#1a1a1a]'
 const labelCls = 'block text-[11px] text-[#888] mb-1 uppercase tracking-wider'
-const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
+const btnPrimary = 'px-4 py-2 bg-[#1a1a1a] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition'
 const btnSecondary = 'px-4 py-2 text-sm text-[#555] border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
 
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
@@ -51,10 +51,12 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   const set = (k: string, val: string | boolean | number | null) => setF(p => ({ ...p, [k]: val }))
 
-  // ABV autocompleta proveedor/marca desde marcaMap
+  // ABV autocompleta proveedor/marca: primero config_proveedores, fallback a MARCA_MAP
   const onAbvChange = (v: string) => {
     const up = v.toUpperCase()
-    const mapped = MARCA_MAP[up]
+    const prov = cfg.proveedores.find(p => p.abv === up)
+    const marcaFromCfg = prov?.marca_asociada || prov?.nombre_completo
+    const mapped = marcaFromCfg || MARCA_MAP[up]
     setF(p => ({ ...p, abv: up, marca: mapped || p.marca }))
   }
 
@@ -167,7 +169,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#333] border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#dddddd]">
           <div>
             <h3 className="text-base font-semibold text-[#1a1a1a]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
@@ -181,23 +183,27 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           <Section title="Identidad">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} placeholder="ING001" />
-              <Field label="Categoría" value={f.categoria} onChange={v => set('categoria', v)} list="cats" />
-              <datalist id="cats">{cfg.categorias.map(c => <option key={c} value={c} />)}</datalist>
+              <SelectField label="Categoría" value={f.categoria} onChange={v => set('categoria', v)} options={cfg.categorias} />
               <Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} placeholder="Tomate" />
-              <Field label="ABV" value={f.abv} onChange={onAbvChange} placeholder="MER" />
+              <SelectField label="ABV" value={f.abv} onChange={onAbvChange} options={cfg.proveedores.map(p => p.abv)} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="Nombre completo" value={f.nombre} onChange={v => set('nombre', v)} placeholder="Tomate pera" />
-              <Field label="Proveedor" value={MARCA_MAP[f.abv.toUpperCase()] || '—'} onChange={() => {}} disabled />
+              <div>
+                <label className={labelCls}>Nombre completo (auto)</label>
+                <div className="w-full bg-[#f0f0f0] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a]">
+                  {f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')}
+                </div>
+              </div>
+              <Field label="Proveedor" value={cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || ''} onChange={() => {}} disabled />
               <Field label="Marca" value={f.marca} onChange={v => set('marca', v)} />
-              <Field label="Formato" value={f.formato} onChange={v => set('formato', v)} placeholder="Caja 5kg" />
+              <SelectField label="Formato" value={f.formato} onChange={v => set('formato', v)} options={cfg.formatos} />
             </div>
           </Section>
 
           {/* Unidades */}
           <Section title="Unidades">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} placeholder="5" />
+              <Field label="Peso/Vol. por unidad (UD STD)" type="number" value={f.uds} onChange={v => set('uds', v)} placeholder="5" />
               <SelectField label="UD STD" value={f.ud_std} onChange={onUdStdChange} options={['Kg.', 'L.', 'Ud.']} />
               <div>
                 <label className={labelCls}>UD MIN (auto)</label>
@@ -254,7 +260,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
             </label>
           </div>
 
-          {err && <p className="text-red-400 text-sm">{err}</p>}
+          {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
@@ -287,7 +293,7 @@ function Field({ label, value, onChange, placeholder, type, step, disabled, high
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} disabled={disabled} list={list}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-accent font-bold' : '')}
+        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#1a1a1a] font-bold' : '')}
       />
     </div>
   )

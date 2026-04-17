@@ -28,7 +28,7 @@ export default function Login() {
         className="w-full max-w-xs bg-card border border-border rounded-xl p-6 space-y-5"
       >
         <div className="text-center">
-          <h1 className="text-accent font-bold text-2xl tracking-tight">Streat Lab</h1>
+          <h1 className="text-[#1a1a1a] font-bold text-2xl tracking-tight">Streat Lab</h1>
           <p className="text-[#555] text-sm mt-1">Acceso ERP</p>
         </div>
 
@@ -54,7 +54,7 @@ export default function Login() {
         </div>
 
         {error && (
-          <p className="text-red-400 text-xs text-center">{error}</p>
+          <p className="text-[#dc2626] text-xs text-center">{error}</p>
         )}
 
         <button

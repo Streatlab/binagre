@@ -26,6 +26,7 @@ export interface AppConfig {
   margen_deseado_pct: number // default global (fallback)
   categorias: string[]
   unidades: string[]
+  formatos: string[]
   loading: boolean
   refresh: () => void
 }
@@ -53,8 +54,9 @@ const DEFAULT_PROVEEDORES: ConfigProveedor[] = [
   { id: '', abv: 'LID', nombre_completo: 'Lidl', marca_asociada: 'Lidl', categoria: 'Supermercado', activo: true },
 ]
 
-const DEFAULT_CATS = ['Verduras', 'Frutas', 'Carnes', 'Pescados', 'Lácteos', 'Cereales', 'Legumbres', 'Especias', 'Aceites', 'Bebidas', 'Congelados', 'Conservas', 'Panadería', 'Repostería', 'Limpieza', 'Packaging']
-const DEFAULT_UNS = ['gr.', 'Kg.', 'ml.', 'L.', 'ud.', 'Ud.', 'Ración', 'Docena', 'Paquete', 'Botella', 'Caja', 'Saco']
+const DEFAULT_CATS = ['Aves/Carnes', 'Lácteos y Huevos', 'Cereales/Legumbres', 'Frutas/Verduras', 'Conservas/Quinta', 'Aceites/Grasas', 'Condimentos/Salsas', 'Packaging', 'Bebidas', 'Vacío', 'Mermas', 'Pescado/Marisco', 'Congelados', 'EPS', 'MRM']
+const DEFAULT_UNS = ['Kg.', 'gr.', 'L.', 'ml.', 'Ud.', 'ud.', 'Docena', 'Caja', 'Sobre', 'Bote', 'Ración', 'Rc.']
+const DEFAULT_FORMATS = ['Garrafa', 'Caja', 'Bandeja', 'Bolsa/Malla', 'Bote', 'EP/Receta', 'Unidad', 'Lata', 'Litro', 'Paquete', 'Botella', 'Kg.', 'Ración']
 
 export function useConfig(): AppConfig {
   const [canales, setCanales] = useState<ConfigCanal[]>(DEFAULT_CANALES)
@@ -63,6 +65,7 @@ export function useConfig(): AppConfig {
   const [margenPct, setMargenPct] = useState(15)
   const [categorias, setCategorias] = useState<string[]>(DEFAULT_CATS)
   const [unidades, setUnidades] = useState<string[]>(DEFAULT_UNS)
+  const [formatos, setFormatos] = useState<string[]>(DEFAULT_FORMATS)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
 
@@ -108,6 +111,10 @@ export function useConfig(): AppConfig {
             const uns = JSON.parse(map.get('unidades') || '[]')
             if (Array.isArray(uns) && uns.length) setUnidades(uns)
           } catch { /* ignore */ }
+          try {
+            const fs = JSON.parse(map.get('formatos') || map.get('formatos_compra') || '[]')
+            if (Array.isArray(fs) && fs.length) setFormatos(fs)
+          } catch { /* ignore */ }
         }
       } catch (err) {
         console.warn('useConfig: error cargando config, usando defaults', err)
@@ -127,6 +134,7 @@ export function useConfig(): AppConfig {
     margen_deseado_pct: margenPct,
     categorias,
     unidades,
+    formatos,
     loading,
     refresh,
   }

@@ -276,8 +276,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             </div>
           </Section>
 
-          {err && <p className="text-red-400 text-sm">{err}</p>}
-          <p className="text-xs text-[#888]">Al guardar se creará/actualizará automáticamente: <code className="text-accent">{f.nombre_base}_Limpio_{f.abv || 'XXX'}_MRM</code> + subproductos valorables.</p>
+          {err && <p className="text-[#dc2626] text-sm">{err}</p>}
+          <p className="text-xs text-[#888]">Al guardar se creará/actualizará automáticamente: <code className="text-[#1a1a1a]">{f.nombre_base}_Limpio_{f.abv || 'XXX'}_MRM</code> + subproductos valorables.</p>
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
@@ -324,7 +324,7 @@ function Field({ label, value, onChange, type, step, disabled, highlight, list }
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
         disabled={disabled} list={list}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-accent font-bold' : '')}
+        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#1a1a1a] font-bold' : '')}
       />
     </div>
   )

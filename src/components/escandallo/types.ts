@@ -202,16 +202,16 @@ export const fmtDateES = (v: string | Date | null | undefined): string => {
 
 /** Semáforo para márgenes: verde >10%, amarillo >=0%, rojo <0% */
 export const semaforoClasses = (pct: number) => {
-  if (pct > 10) return 'bg-green-500/10 text-green-400'
-  if (pct >= 0) return 'bg-amber-500/10 text-amber-400'
-  return 'bg-red-500/10 text-red-400'
+  if (pct > 10) return 'bg-green-500/10 text-[#16a34a]'
+  if (pct >= 0) return 'bg-amber-500/10 text-[#d97706]'
+  return 'bg-red-500/10 text-[#dc2626]'
 }
 
 /** Semáforo USOS: rojo ≤1, amarillo ≤4, verde >4 */
 export const semaforoUsos = (usos: number) => {
-  if (usos <= 1) return 'bg-red-500/10 text-red-400 border-red-500/30'
-  if (usos <= 4) return 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-  return 'bg-green-500/10 text-green-400 border-green-500/30'
+  if (usos <= 1) return 'bg-red-500/10 text-[#dc2626] border-red-500/30'
+  if (usos <= 4) return 'bg-amber-500/10 text-[#d97706] border-amber-500/30'
+  return 'bg-green-500/10 text-[#16a34a] border-green-500/30'
 }
 
 /* ── CSS compartido — TEMA CLARO (#f5f5f5 base, #ffffff card, accent amarillo) ── */
@@ -228,11 +228,11 @@ export const tdCls =
 
 /** Botón Guardar principal: fondo oscuro con acento amarillo */
 export const btnPrimary =
-  'px-4 py-2 bg-[#1a1a1a] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition border border-[#1a1a1a]'
+  'px-4 py-2 bg-[#1a1a1a] text-[#1a1a1a] text-sm font-semibold rounded-lg hover:brightness-110 transition border border-[#1a1a1a]'
 
 export const btnSecondary =
   'px-4 py-2 text-sm text-[#555] bg-white border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
 
 /** Tab activo: fondo oscuro + acento amarillo */
-export const tabActiveCls = 'bg-[#1a1a1a] text-accent'
+export const tabActiveCls = 'bg-[#1a1a1a] text-[#1a1a1a]'
 export const tabInactiveCls = 'text-[#555] hover:text-[#1a1a1a]'

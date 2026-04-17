@@ -307,7 +307,7 @@ export default function Facturacion() {
         {weekFilter && (
           <button
             onClick={clearWeekFilter}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-accent text-xs font-medium rounded-lg border border-accent/30"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-[#1a1a1a] text-xs font-medium rounded-lg border border-accent/30"
           >
             S{weekFilter.week} &times;
           </button>
@@ -430,7 +430,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                     {COLS.map(c => (
                       <th key={c.label} colSpan={2} className="px-2 py-2 text-center border-l border-border">{c.label}</th>
                     ))}
-                    <th colSpan={2} className="px-2 py-2 text-center border-l border-border text-accent font-bold">Total</th>
+                    <th colSpan={2} className="px-2 py-2 text-center border-l border-border text-[#1a1a1a] font-bold">Total</th>
                   </tr>
                   <tr className="border-b border-border text-[#555] text-[10px] uppercase tracking-wider">
                     {COLS.map(c => (
@@ -475,12 +475,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                         )
                       })}
                       <td className="px-2 py-2 text-right text-[#1a1a1a] font-medium tabular-nums border-l border-border">{num(r.total_pedidos)}</td>
-                      <td className="px-2 py-2 text-right text-accent font-semibold tabular-nums">{eur(r.total_bruto)}</td>
+                      <td className="px-2 py-2 text-right text-[#1a1a1a] font-semibold tabular-nums">{eur(r.total_bruto)}</td>
                     </>
                   ) : (
                     <>
                       <td className="px-3 py-2 text-right text-[#1a1a1a] tabular-nums">{num(getPed(r, canal))}</td>
-                      <td className="px-3 py-2 text-right text-accent font-medium tabular-nums">{eur(getBru(r, canal))}</td>
+                      <td className="px-3 py-2 text-right text-[#1a1a1a] font-medium tabular-nums">{eur(getBru(r, canal))}</td>
                     </>
                   )}
                 </tr>
@@ -488,7 +488,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-3 py-2.5 text-accent sticky left-0 bg-card" colSpan={2}>TOTAL</td>
+                <td className="px-3 py-2.5 text-[#1a1a1a] sticky left-0 bg-card" colSpan={2}>TOTAL</td>
                 {showBreakdown ? (
                   <>
                     {COLS.map(c => (
@@ -498,12 +498,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                       </Fragment>
                     ))}
                     <td className="px-2 py-2.5 text-right text-[#1a1a1a] tabular-nums border-l border-border">{num(totals.total_pedidos)}</td>
-                    <td className="px-2 py-2.5 text-right text-accent tabular-nums">{eur(totals.total_bruto)}</td>
+                    <td className="px-2 py-2.5 text-right text-[#1a1a1a] tabular-nums">{eur(totals.total_bruto)}</td>
                   </>
                 ) : (
                   <>
                     <td className="px-3 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(totals, canal))}</td>
-                    <td className="px-3 py-2.5 text-right text-accent tabular-nums">{eur(getBru(totals, canal))}</td>
+                    <td className="px-3 py-2.5 text-right text-[#1a1a1a] tabular-nums">{eur(getBru(totals, canal))}</td>
                   </>
                 )}
               </tr>
@@ -574,7 +574,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
                     <td className="px-4 py-2.5 text-[#555]">{r.periodo}</td>
                     <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{r.dias}</td>
                     <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-accent font-medium tabular-nums">{eur(bru)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#1a1a1a] font-medium tabular-nums">{eur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                         {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
@@ -586,9 +586,9 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-4 py-2.5 text-accent" colSpan={3}>TOTAL</td>
+                <td className="px-4 py-2.5 text-[#1a1a1a]" colSpan={3}>TOTAL</td>
                 <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(totals, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-accent tabular-nums">{eur(getBru(totals, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{eur(getBru(totals, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
                     {eur(totals[c.bru] as number)}
@@ -687,7 +687,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
                     <td className="px-4 py-2.5 text-[#1a1a1a] font-medium">{MES_NOMBRE[r.mes]}</td>
                     <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{r.dias}</td>
                     <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-accent font-medium tabular-nums">{eur(bru)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#1a1a1a] font-medium tabular-nums">{eur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                         {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
@@ -705,10 +705,10 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-4 py-2.5 text-accent">{selYear} TOTAL</td>
+                <td className="px-4 py-2.5 text-[#1a1a1a]">{selYear} TOTAL</td>
                 <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{yearTotal.dias}</td>
                 <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(yearTotal, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-accent tabular-nums">{eur(getBru(yearTotal, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{eur(getBru(yearTotal, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
                     {eur(yearTotal[c.bru] as number)}
@@ -845,7 +845,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
               </div>
             </div>
           ))}
-          {formError && <p className="text-red-400 text-sm">{formError}</p>}
+          {formError && <p className="text-[#dc2626] text-sm">{formError}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-lg text-sm text-[#555] border border-border hover:text-[#1a1a1a] transition">Cancelar</button>
@@ -868,7 +868,7 @@ function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: str
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <p className="text-xs text-[#555] uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-accent mt-1">{valor}</p>
+      <p className="text-2xl font-bold text-[#1a1a1a] mt-1">{valor}</p>
       <p className="text-xs text-[#555] mt-0.5">{sub}</p>
     </div>
   )
@@ -878,7 +878,7 @@ function MiniKpi({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="bg-card border border-border rounded-lg px-3 py-2">
       <p className="text-[10px] text-[#555] uppercase">{label}</p>
-      <p className="text-sm font-bold text-accent">{valor}</p>
+      <p className="text-sm font-bold text-[#1a1a1a]">{valor}</p>
     </div>
   )
 }
@@ -895,8 +895,8 @@ function Loader() {
 function ErrorBox({ msg, onRetry }: { msg: string; onRetry: () => void }) {
   return (
     <div className="bg-card border border-border rounded-xl p-8 text-center">
-      <p className="text-red-400 text-sm">{msg}</p>
-      <button onClick={onRetry} className="mt-3 text-xs text-accent underline hover:no-underline">Reintentar</button>
+      <p className="text-[#dc2626] text-sm">{msg}</p>
+      <button onClick={onRetry} className="mt-3 text-xs text-[#1a1a1a] underline hover:no-underline">Reintentar</button>
     </div>
   )
 }
@@ -918,7 +918,7 @@ function EmptyState({ label, onAdd }: { label: string; onAdd?: () => void }) {
 function ServicioBadge({ s }: { s: string }) {
   return (
     <span className={`inline-block text-xs font-medium px-1.5 py-0.5 rounded ${
-      s === 'ALM' ? 'bg-amber-500/10 text-amber-400' : 'bg-indigo-500/10 text-indigo-400'
+      s === 'ALM' ? 'bg-amber-500/10 text-[#d97706]' : 'bg-indigo-500/10 text-indigo-400'
     }`}>{s}</span>
   )
 }
@@ -927,7 +927,7 @@ function DesvBadge({ pct }: { pct: number }) {
   const pos = pct >= 0
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-      pos ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+      pos ? 'bg-green-500/10 text-[#16a34a]' : 'bg-red-500/10 text-[#dc2626]'
     }`}>{pos ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%</span>
   )
 }

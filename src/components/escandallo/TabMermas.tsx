@@ -79,32 +79,32 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                     <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{m.iding ?? '—'}</td>
                     <td className={tdCls + ' text-[#555]'}>{m.categoria ?? '—'}</td>
                     <td className={tdCls + ' sticky z-10 text-[#1a1a1a] font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
-                    <td className={tdCls + ' text-accent font-mono text-xs font-bold'}>{m.abv ?? '—'}</td>
+                    <td className={tdCls + ' text-[#1a1a1a] font-mono text-xs font-bold'}>{m.abv ?? '—'}</td>
                     <td className={tdCls + ' max-w-[180px] truncate'}>{m.nombre}</td>
                     <td className={tdCls + ' text-[#555]'}>{m.marca ?? '—'}</td>
                     <td className={tdCls + ' text-[#555]'}>{m.formato ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.uds)}</td>
                     <td className={tdCls + ' text-[#555]'}>{m.ud_std ?? '—'}</td>
-                    <td className={tdCls + ' text-right text-accent font-medium'}>{fmt(m.precio_total)}</td>
+                    <td className={tdCls + ' text-right text-[#1a1a1a] font-medium'}>{fmt(m.precio_total)}</td>
                     <td className={tdCls + ' text-[#555] text-xs'}>{m.sp1_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? (m.sp1_pct * 100).toFixed(1) + '%' : '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
-                    <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-green-400">Sí</span> : <span className="text-[#666]">No</span>}</td>
+                    <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#666]">No</span>}</td>
                     <td className={tdCls + ' text-[#555] text-xs'}>{m.sp2_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? (m.sp2_pct * 100).toFixed(1) + '%' : '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
-                    <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-green-400">Sí</span> : <span className="text-[#666]">No</span>}</td>
+                    <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#666]">No</span>}</td>
                     <td className={tdCls + ' text-right'}>{fmtPct(m.pct_descarte)}</td>
-                    <td className={tdCls + ' text-right text-orange-400'}>{m.pct_merma != null ? (m.pct_merma * 100).toFixed(1) + '%' : '—'}</td>
-                    <td className={tdCls + ' text-right text-green-400'}>{m.pct_limpio != null ? (m.pct_limpio * 100).toFixed(1) + '%' : '—'}</td>
+                    <td className={tdCls + ' text-right text-[#ea580c]'}>{m.pct_merma != null ? (m.pct_merma * 100).toFixed(1) + '%' : '—'}</td>
+                    <td className={tdCls + ' text-right text-[#16a34a]'}>{m.pct_limpio != null ? (m.pct_limpio * 100).toFixed(1) + '%' : '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.eur_pieza_limpia, 4)}</td>
-                    <td className={tdCls + ' text-right text-accent'}>{fmt(m.eur_kg_neto, 4)}</td>
+                    <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmt(m.eur_kg_neto, 4)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.neto_kg, 3)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.num_porciones, 0)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.peso_porcion_g, 0)}</td>
-                    <td className={tdCls + ' text-right text-accent font-medium'}>{fmt(m.eur_porcion, 4)}</td>
+                    <td className={tdCls + ' text-right text-[#1a1a1a] font-medium'}>{fmt(m.eur_porcion, 4)}</td>
                   </tr>
                 ))}
               </tbody>

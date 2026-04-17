@@ -29,8 +29,8 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
       {/* Contadores + acciones */}
       <div className="flex flex-wrap items-center gap-4">
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color="text-green-400" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color="text-red-400" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        <Counter label="EN USO" value={enUso} color="text-[#16a34a]" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color="text-[#dc2626]" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && (
           <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nuevo Ingrediente</button>
         )}
@@ -80,7 +80,7 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
               <tbody>
                 {filtered.map(i => {
                   const isEps = i.abv === 'EPS'
-                  const rowNameCls = isEps ? 'text-[#4a9eff] italic font-medium' : 'text-[#1a1a1a] font-medium'
+                  const rowNameCls = isEps ? 'text-[#2563eb] italic font-medium' : 'text-[#1a1a1a] font-medium'
                   const usos = n(i.usos)
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)}
@@ -88,8 +88,8 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{i.iding ?? '—'}</td>
                       <td className={tdCls + ' text-[#555]'}>{i.categoria ?? '—'}</td>
                       <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
-                      <td className={tdCls + ' text-accent font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
-                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#4a9eff] italic' : 'text-[#1a1a1a]')}>{i.nombre}</td>
+                      <td className={tdCls + ' text-[#1a1a1a] font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
+                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#2563eb] italic' : 'text-[#1a1a1a]')}>{i.nombre}</td>
                       <td className={tdCls + ' text-[#555]'}>{getProveedor(i.abv)}</td>
                       <td className={tdCls + ' text-[#555]'}>{i.marca ?? '—'}</td>
                       <td className={tdCls + ' text-[#555]'}>{i.formato ?? '—'}</td>
@@ -108,17 +108,17 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' text-center text-xs'}>
                         <span className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#555]">{i.selector_precio ?? 'Último'}</span>
                       </td>
-                      <td className={tdCls + ' text-right text-accent font-semibold'}>{fmt(i.precio_activo)}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a] font-semibold'}>{fmt(i.precio_activo)}</td>
                       <td className={tdCls + ' text-right'}>{fmt(i.eur_std, 4)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_std ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{fmt(i.eur_min, 6)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_min ?? '—'}</td>
                       <td className={tdCls + ' text-xs text-[#555]'}>{i.tipo_merma ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}</td>
-                      <td className={tdCls + ' text-right text-orange-400'}>{i.merma_ef != null ? fmt(i.merma_ef, 4) : '—'}</td>
-                      <td className={tdCls + ' text-right text-accent'}>{fmt(i.coste_neto_std, 4)}</td>
+                      <td className={tdCls + ' text-right text-[#ea580c]'}>{i.merma_ef != null ? fmt(i.merma_ef, 4) : '—'}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmt(i.coste_neto_std, 4)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_neto_std ?? i.ud_std ?? '—'}</td>
-                      <td className={tdCls + ' text-right text-accent'}>{fmt(i.coste_neto_min, 6)}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmt(i.coste_neto_min, 6)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_neto_min ?? i.ud_min ?? '—'}</td>
                     </tr>
                   )

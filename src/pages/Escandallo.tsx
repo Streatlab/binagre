@@ -121,8 +121,8 @@ export default function Escandallo() {
         </div>
       ) : error ? (
         <div className="bg-card border border-[#dddddd] rounded-xl p-8 text-center">
-          <p className="text-red-400 text-sm">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs text-accent underline">Reintentar</button>
+          <p className="text-[#dc2626] text-sm">{error}</p>
+          <button onClick={fetchData} className="mt-3 text-xs text-[#1a1a1a] underline">Reintentar</button>
         </div>
       ) : (
         <>

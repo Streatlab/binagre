@@ -76,7 +76,7 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
 
   return (
     <div>
-      {saving && <div className="text-xs text-accent mb-2">Guardando…</div>}
+      {saving && <div className="text-xs text-[#1a1a1a] mb-2">Guardando…</div>}
       <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -179,7 +179,7 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
         <button onClick={save} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
-        {msg && <span className={'text-xs ' + (msg.startsWith('Error') ? 'text-red-400' : 'text-green-400')}>{msg}</span>}
+        {msg && <span className={'text-xs ' + (msg.startsWith('Error') ? 'text-[#dc2626]' : 'text-[#16a34a]')}>{msg}</span>}
       </div>
     </div>
   )
@@ -223,11 +223,11 @@ function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
           <tbody>
             {rows.map(r => (
               <tr key={r.id} onClick={() => setEdit(r)} className="cursor-pointer">
-                <td className="px-4 py-2.5 text-accent font-mono text-xs font-bold border-b border-[#dddddd]">{r.abv}</td>
+                <td className="px-4 py-2.5 text-[#1a1a1a] font-mono text-xs font-bold border-b border-[#dddddd]">{r.abv}</td>
                 <td className="px-4 py-2.5 text-[#1a1a1a] border-b border-[#dddddd]">{r.nombre_completo}</td>
                 <td className="px-4 py-2.5 text-[#555] border-b border-[#dddddd]">{r.categoria ?? '—'}</td>
                 <td className="px-4 py-2.5 text-center border-b border-[#dddddd]">
-                  {r.activo ? <span className="text-green-400">●</span> : <span className="text-[#666]">○</span>}
+                  {r.activo ? <span className="text-[#16a34a]">●</span> : <span className="text-[#666]">○</span>}
                 </td>
               </tr>
             ))}
@@ -270,7 +270,7 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
         <label className="flex items-center gap-2 text-sm text-[#555]">
           <input type="checkbox" checked={f.activo} onChange={e => setF(p => ({ ...p, activo: e.target.checked }))} className="accent-accent" /> Activo
         </label>
-        {err && <p className="text-red-400 text-sm">{err}</p>}
+        {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className={btnSecondary + ' flex-1'}>Cancelar</button>
           <button type="submit" disabled={saving} className={btnPrimary + ' flex-1 disabled:opacity-50'}>
@@ -336,7 +336,7 @@ function SecLista({ clave, label, onRefresh }: { clave: string; label: string; o
         ) : items.map((it, idx) => (
           <div key={idx} className="flex items-center justify-between px-4 py-2.5 border-b border-[#dddddd] last:border-b-0">
             <span className="text-[#1a1a1a] text-sm">{it}</span>
-            <button onClick={() => remove(idx)} className="text-xs text-[#666] hover:text-red-400 transition">Eliminar</button>
+            <button onClick={() => remove(idx)} className="text-xs text-[#666] hover:text-[#dc2626] transition">Eliminar</button>
           </div>
         ))}
       </div>

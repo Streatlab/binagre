@@ -45,8 +45,8 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Counter label="TOTAL" value={rows.length} />
-        <Counter label="EPS" value={epsList.length} color="text-[#4a9eff]" />
-        <Counter label="RECETAS" value={recetasList.length} color="text-accent" />
+        <Counter label="EPS" value={epsList.length} color="text-[#2563eb]" />
+        <Counter label="RECETAS" value={recetasList.length} color="text-[#1a1a1a]" />
       </div>
 
       <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
@@ -77,7 +77,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                 const costeRac = n(d.coste_rac)
                 const calc = !isEps && pvp > 0 ? calcIndice(costeRac, pvp, cfg.estructura_pct) : null
                 const usos = isEps ? n((d as EPS).usos) : 0
-                const nameCls = isEps ? 'text-[#4a9eff] italic' : 'text-[#1a1a1a]'
+                const nameCls = isEps ? 'text-[#2563eb] italic' : 'text-[#1a1a1a]'
                 const costeRacDecimals = isEps ? 4 : 2
                 const fecha = 'fecha' in d ? d.fecha : null
                 return (
@@ -92,7 +92,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                       {d.nombre}
                     </td>
                     <td className={tdCls + ' text-right text-[#555]'}>{fmtEurES(d.coste_tanda, 2)}</td>
-                    <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(costeRac, costeRacDecimals)}</td>
+                    <td className={tdCls + ' text-right text-[#1a1a1a] font-semibold'}>{fmtEurES(costeRac, costeRacDecimals)}</td>
                     <td className={tdCls + ' text-center'}>
                       {isEps ? (
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
