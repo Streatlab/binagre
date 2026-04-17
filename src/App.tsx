@@ -8,6 +8,8 @@ import Facturacion from '@/pages/Facturacion'
 import POS from '@/pages/POS'
 import Marcas from '@/pages/Marcas'
 import Running from '@/pages/Running'
+import Configuracion from '@/pages/Configuracion'
+import Placeholder from '@/pages/Placeholder'
 
 function ProtectedRoute({ children, solo }: { children: React.ReactNode; solo?: string[] }) {
   const { usuario } = useAuth()
@@ -29,6 +31,12 @@ function AppRoutes() {
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
         <Route path="marcas" element={<ProtectedRoute solo={['admin']}><Marcas /></ProtectedRoute>} />
         <Route path="running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
+        <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+
+        {/* Placeholders 31 módulos — catch-all por sección */}
+        <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
+        <Route path="ops/:slug" element={<Placeholder />} />
+        <Route path="equipo/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

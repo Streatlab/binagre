@@ -1,19 +1,55 @@
 import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
 
-const modulos = [
+interface Modulo {
+  path: string
+  label: string
+  icon: string
+  perfiles: string[]
+  section?: string
+}
+
+const modulos: Modulo[] = [
+  // ── CORE ──
   { path: '/',              label: 'Dashboard',     icon: '⬡', perfiles: ['admin', 'cocina'] },
   { path: '/escandallo',    label: 'Escandallo',    icon: '⚖', perfiles: ['admin', 'cocina'] },
   { path: '/facturacion',   label: 'Facturación',   icon: '€', perfiles: ['admin'] },
   { path: '/pos',           label: 'POS',           icon: '▤', perfiles: ['admin'] },
   { path: '/marcas',        label: 'Marcas',        icon: '◉', perfiles: ['admin'] },
-  { path: '/configuracion', label: 'Configuración', icon: '⚙', perfiles: ['admin'] },
   { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
+  { path: '/configuracion', label: 'Configuración', icon: '⚙', perfiles: ['admin'] },
+
+  // ── ANALYTICS ──
+  { path: '/analytics/revenue',       label: 'Revenue & Ticket Medio', icon: '📈', perfiles: ['admin'], section: 'ANALYTICS' },
+  { path: '/analytics/cogs',          label: 'COGS / Coste MP',        icon: '🧾', perfiles: ['admin'], section: 'ANALYTICS' },
+  { path: '/analytics/margen',        label: 'Margen por Canal',       icon: '💹', perfiles: ['admin'], section: 'ANALYTICS' },
+  { path: '/analytics/ventas-marca',  label: 'Ventas por Marca',       icon: '🏪', perfiles: ['admin'], section: 'ANALYTICS' },
+  { path: '/analytics/ranking',       label: 'Ranking Productos',      icon: '🏆', perfiles: ['admin'], section: 'ANALYTICS' },
+  { path: '/analytics/demanda',       label: 'Predicción Demanda',     icon: '🔮', perfiles: ['admin'], section: 'ANALYTICS' },
+
+  // ── OPERACIONES ──
+  { path: '/ops/temperaturas',    label: 'Control Temperaturas',      icon: '🌡️', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/checklists',      label: 'Checklists Apertura/Cierre', icon: '✅', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/tareas',          label: 'Tareas Operativas',         icon: '📋', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/bitacora',        label: 'Bitácora Novedades',        icon: '📓', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/equipos',         label: 'Libro Equipos',             icon: '🔧', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/danos',           label: 'Daños Menaje',              icon: '⚠️', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/pedidos-menaje',  label: 'Pedidos Menaje',            icon: '📦', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+  { path: '/ops/pulso',           label: 'Pulso Cocina',              icon: '💓', perfiles: ['admin'], section: 'OPERACIONES' },
+  { path: '/ops/bpm',             label: 'BPM / Calidad',             icon: '⭐', perfiles: ['admin'], section: 'OPERACIONES' },
+  { path: '/ops/reuniones',       label: 'Reuniones Equipo',          icon: '🤝', perfiles: ['admin'], section: 'OPERACIONES' },
+  { path: '/ops/recetas',         label: 'Recetas Fichas Técnicas',   icon: '📖', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+
+  // ── EQUIPO ──
+  { path: '/equipo/empleados',    label: 'Fichas Empleados',       icon: '👤', perfiles: ['admin'], section: 'EQUIPO' },
+  { path: '/equipo/evaluaciones', label: 'Evaluaciones',           icon: '📊', perfiles: ['admin'], section: 'EQUIPO' },
+  { path: '/equipo/llamados',     label: 'Llamados Atención',      icon: '🚨', perfiles: ['admin'], section: 'EQUIPO' },
+  { path: '/equipo/antiguedad',   label: 'Beneficios Antigüedad',  icon: '🎖️', perfiles: ['admin'], section: 'EQUIPO' },
 ]
 
 function LogoSL({ small = false }: { small?: boolean }) {
@@ -48,7 +84,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
   const visibles = modulos.filter(m => usuario && m.perfiles.includes(usuario.perfil))
-  const width = collapsed ? 'w-14' : 'w-[200px]'
+  const width = collapsed ? 'w-14' : 'w-[220px]'
 
   return (
     <>
@@ -81,33 +117,58 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
-          {visibles.map(m => (
-            <NavLink
-              key={m.path}
-              to={m.path}
-              end={m.path === '/'}
-              onClick={onClose}
-              title={collapsed ? m.label : undefined}
-              style={({ isActive }) => ({
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: 14,
-                fontWeight: 500,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-                background: isActive ? '#262d42' : 'transparent',
-                color: isActive ? '#f0f0ff' : '#8090b8',
-              })}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
-                  isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
-                }`
-              }
-            >
-              <span className="text-base w-5 text-center flex-shrink-0">{m.icon}</span>
-              {!collapsed && <span className="truncate">{m.label}</span>}
-            </NavLink>
-          ))}
+          {visibles.map((m, idx) => {
+            const prev = visibles[idx - 1]
+            const showSectionLabel = !collapsed && m.section && m.section !== prev?.section
+            const showDividerCollapsed = collapsed && m.section && m.section !== prev?.section
+
+            return (
+              <Fragment key={m.path}>
+                {showSectionLabel && (
+                  <div
+                    style={{
+                      fontFamily: 'Oswald, sans-serif',
+                      fontSize: 9,
+                      color: '#7080a8',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.14em',
+                      padding: '12px 18px 4px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {m.section}
+                  </div>
+                )}
+                {showDividerCollapsed && (
+                  <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
+                )}
+                <NavLink
+                  to={m.path}
+                  end={m.path === '/'}
+                  onClick={onClose}
+                  title={collapsed ? m.label : undefined}
+                  style={({ isActive }) => ({
+                    fontFamily: 'Oswald, sans-serif',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
+                    background: isActive ? '#262d42' : 'transparent',
+                    color: isActive ? '#f0f0ff' : '#8090b8',
+                  })}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
+                      isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
+                    }`
+                  }
+                >
+                  <span className="text-base w-5 text-center flex-shrink-0">{m.icon}</span>
+                  {!collapsed && <span className="truncate">{m.label}</span>}
+                </NavLink>
+              </Fragment>
+            )
+          })}
         </nav>
 
         {/* Footer user */}
