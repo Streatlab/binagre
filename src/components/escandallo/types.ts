@@ -1,4 +1,5 @@
 /* ── Tipos compartidos del módulo Escandallo ── */
+import { fmtNum, fmtDate } from '@/utils/format'
 
 export interface Ingrediente {
   id: string
@@ -170,7 +171,7 @@ export const fmtES = (v: number | null | undefined, d = 2): string => {
 }
 
 export const fmtEurES = (v: number | null | undefined, d = 2): string => {
-  const s = fmtES(v, d)
+  const s = fmtNum(v, d)
   return s ? s + ' €' : ''
 }
 
@@ -192,13 +193,8 @@ export const fmtPct = (v: number | null | undefined) => {
   return fmtES(v, 1) + '%'
 }
 
-/** dd/mm/yyyy desde string ISO o Date. Null → '' */
-export const fmtDateES = (v: string | Date | null | undefined): string => {
-  if (!v) return ''
-  const d = typeof v === 'string' ? new Date(v) : v
-  if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
+/** dd/mm/aa desde string ISO o Date. Null → '' */
+export const fmtDateES = fmtDate
 
 /** Semáforo para márgenes: verde >10%, amarillo >=0%, rojo <0% */
 export const semaforoClasses = (pct: number) => {
