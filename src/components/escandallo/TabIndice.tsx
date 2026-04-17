@@ -45,8 +45,8 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Counter label="TOTAL" value={rows.length} />
-        <Counter label="EPS" value={epsList.length} color="text-[#66aaff]" />
-        <Counter label="RECETAS" value={recetasList.length} color="text-[#f0f0ff]" />
+        <Counter label="EPS" value={epsList.length} valueClass="eps" />
+        <Counter label="RECETAS" value={recetasList.length} valueClass="rec" />
       </div>
 
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
@@ -149,11 +149,11 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
   )
 }
 
-function Counter({ label, value, color = 'text-[#f0f0ff]' }: { label: string; value: number; color?: string }) {
+function Counter({ label, value, valueClass = '' }: { label: string; value: number; valueClass?: string }) {
   return (
     <div className="ds-counter" style={{ cursor: 'default' }}>
       <div className="label">{label}</div>
-      <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
+      <div className={'value' + (valueClass ? ' ' + valueClass : '')}>{value}</div>
     </div>
   )
 }

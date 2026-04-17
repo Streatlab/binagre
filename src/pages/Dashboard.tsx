@@ -28,10 +28,11 @@ const SELECT =
   'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,total_pedidos,total_bruto'
 
 const CANAL_HEX: Record<string, string> = {
-  'Uber Eats': '#d0d0e8',
+  'Uber Eats': '#06C167',
   'Glovo':     '#e8f442',
   'Just Eat':  '#f5a623',
   'Web':       '#B01D23',
+  'Directa':   '#66aaff',
 }
 
 /* ═══════════════════════════════════════════════════════════

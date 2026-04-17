@@ -29,8 +29,8 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
       {/* Contadores + acciones */}
       <div className="flex flex-wrap items-center gap-4">
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color="text-[#16a34a]" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color="text-[#dc2626]" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        <Counter label="EN USO" value={enUso} valueClass="eps" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} valueClass="rec" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && (
           <button onClick={onNew} className="ds-btn-add ml-auto">+ Nuevo Ingrediente</button>
         )}
@@ -132,11 +132,11 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
   )
 }
 
-function Counter({ label, value, color = 'text-[#f0f0ff]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+function Counter({ label, value, valueClass = '', active, onClick }: { label: string; value: number; valueClass?: string; active?: boolean; onClick?: () => void }) {
   return (
     <button onClick={onClick} type="button" className={'ds-counter' + (active ? ' active' : '')}>
       <div className="label">{label}</div>
-      <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
+      <div className={'value' + (valueClass ? ' ' + valueClass : '')}>{value}</div>
     </button>
   )
 }
