@@ -6,50 +6,91 @@ import { useSidebarState } from '@/hooks/useSidebarState'
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
 
-interface Modulo {
+interface NavItem {
   path: string
   label: string
   icon: string
   perfiles: string[]
-  section?: string
 }
 
-const modulos: Modulo[] = [
-  // ── CORE ──
-  { path: '/',              label: 'Dashboard',     icon: '⬡', perfiles: ['admin', 'cocina'] },
-  { path: '/escandallo',    label: 'Escandallo',    icon: '⚖', perfiles: ['admin', 'cocina'] },
-  { path: '/facturacion',   label: 'Facturación',   icon: '€', perfiles: ['admin'] },
-  { path: '/pos',           label: 'POS',           icon: '▤', perfiles: ['admin'] },
-  { path: '/marcas',        label: 'Marcas',        icon: '◉', perfiles: ['admin'] },
-  { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
-  { path: '/configuracion', label: 'Configuración', icon: '⚙', perfiles: ['admin'] },
+interface NavGroup {
+  key: string
+  label: string
+  items: NavItem[]
+}
 
-  // ── ANALYTICS ──
-  { path: '/analytics/revenue',       label: 'Revenue & Ticket Medio', icon: '📈', perfiles: ['admin'], section: 'ANALYTICS' },
-  { path: '/analytics/cogs',          label: 'COGS / Coste MP',        icon: '🧾', perfiles: ['admin'], section: 'ANALYTICS' },
-  { path: '/analytics/margen',        label: 'Margen por Canal',       icon: '💹', perfiles: ['admin'], section: 'ANALYTICS' },
-  { path: '/analytics/ventas-marca',  label: 'Ventas por Marca',       icon: '🏪', perfiles: ['admin'], section: 'ANALYTICS' },
-  { path: '/analytics/ranking',       label: 'Ranking Productos',      icon: '🏆', perfiles: ['admin'], section: 'ANALYTICS' },
-  { path: '/analytics/demanda',       label: 'Predicción Demanda',     icon: '🔮', perfiles: ['admin'], section: 'ANALYTICS' },
+type NavEntry =
+  | { type: 'item'; item: NavItem }
+  | { type: 'group'; group: NavGroup }
 
-  // ── OPERACIONES ──
-  { path: '/ops/temperaturas',    label: 'Control Temperaturas',      icon: '🌡️', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/checklists',      label: 'Checklists Apertura/Cierre', icon: '✅', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/tareas',          label: 'Tareas Operativas',         icon: '📋', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/bitacora',        label: 'Bitácora Novedades',        icon: '📓', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/equipos',         label: 'Libro Equipos',             icon: '🔧', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/danos',           label: 'Daños Menaje',              icon: '⚠️', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/pedidos-menaje',  label: 'Pedidos Menaje',            icon: '📦', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
-  { path: '/ops/pulso',           label: 'Pulso Cocina',              icon: '💓', perfiles: ['admin'], section: 'OPERACIONES' },
-  { path: '/ops/bpm',             label: 'BPM / Calidad',             icon: '⭐', perfiles: ['admin'], section: 'OPERACIONES' },
-  { path: '/ops/reuniones',       label: 'Reuniones Equipo',          icon: '🤝', perfiles: ['admin'], section: 'OPERACIONES' },
-  { path: '/ops/recetas',         label: 'Recetas Fichas Técnicas',   icon: '📖', perfiles: ['admin', 'cocina'], section: 'OPERACIONES' },
+const PRINCIPAL: NavItem[] = [
+  { path: '/',            label: 'Dashboard',   icon: '📊', perfiles: ['admin', 'cocina'] },
+  { path: '/escandallo',  label: 'Escandallo',  icon: '⚖️', perfiles: ['admin', 'cocina'] },
+  { path: '/facturacion', label: 'Facturación',  icon: '💶', perfiles: ['admin'] },
+]
 
-  // ── EQUIPO ──
-  { path: '/equipo/empleados',    label: 'Fichas Empleados',       icon: '👤', perfiles: ['admin'], section: 'EQUIPO' },
-  { path: '/equipo/evaluaciones', label: 'Evaluaciones',           icon: '📊', perfiles: ['admin'], section: 'EQUIPO' },
-  { path: '/equipo/llamados',     label: 'Llamados Atención',      icon: '🚨', perfiles: ['admin'], section: 'EQUIPO' },
-  { path: '/equipo/antiguedad',   label: 'Beneficios Antigüedad',  icon: '🎖️', perfiles: ['admin'], section: 'EQUIPO' },
+const GROUPS: NavGroup[] = [
+  {
+    key: 'analytics', label: 'ANALYTICS',
+    items: [
+      { path: '/analytics/revenue',      label: 'Revenue & Ticket Medio', icon: '📈', perfiles: ['admin'] },
+      { path: '/analytics/cogs',         label: 'COGS / Coste MP',        icon: '🧾', perfiles: ['admin'] },
+      { path: '/analytics/margen',       label: 'Margen por Canal',       icon: '💹', perfiles: ['admin'] },
+      { path: '/analytics/ventas-marca', label: 'Ventas por Marca',       icon: '🏪', perfiles: ['admin'] },
+      { path: '/analytics/ranking',      label: 'Ranking Productos',      icon: '🏆', perfiles: ['admin'] },
+      { path: '/analytics/demanda',      label: 'Predicción Demanda',     icon: '🔮', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'operaciones', label: 'OPERACIONES',
+    items: [
+      { path: '/ops/temperaturas',   label: 'Control Temperaturas',       icon: '🌡️', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/checklists',     label: 'Checklists Apertura/Cierre', icon: '✅', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/tareas',         label: 'Tareas Operativas',          icon: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/bitacora',       label: 'Bitácora Novedades',         icon: '📓', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/equipos',        label: 'Libro Equipos',              icon: '🔧', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/danos',          label: 'Daños Menaje',               icon: '⚠️', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/pedidos-menaje', label: 'Pedidos Menaje',             icon: '📦', perfiles: ['admin', 'cocina'] },
+      { path: '/ops/pulso',          label: 'Pulso Cocina',               icon: '💓', perfiles: ['admin'] },
+      { path: '/ops/bpm',            label: 'BPM / Calidad',              icon: '⭐', perfiles: ['admin'] },
+      { path: '/ops/reuniones',      label: 'Reuniones Equipo',           icon: '🤝', perfiles: ['admin'] },
+      { path: '/ops/recetas',        label: 'Recetas Fichas Técnicas',    icon: '📖', perfiles: ['admin', 'cocina'] },
+    ],
+  },
+  {
+    key: 'equipo', label: 'EQUIPO',
+    items: [
+      { path: '/equipo/empleados',     label: 'Fichas Empleados',      icon: '👤', perfiles: ['admin'] },
+      { path: '/equipo/evaluaciones',  label: 'Evaluaciones',          icon: '📊', perfiles: ['admin'] },
+      { path: '/equipo/llamados',      label: 'Llamados Atención',     icon: '🚨', perfiles: ['admin'] },
+      { path: '/equipo/antiguedad',    label: 'Beneficios Antigüedad', icon: '🎖️', perfiles: ['admin'] },
+      { path: '/equipo/celebraciones', label: 'Celebraciones',         icon: '🎉', perfiles: ['admin'] },
+      { path: '/equipo/dotacion',      label: 'Dotación',              icon: '👕', perfiles: ['admin'] },
+      { path: '/equipo/onboarding',    label: 'Onboarding Digital',    icon: '🚀', perfiles: ['admin'] },
+      { path: '/equipo/sgsst',        label: 'SG-SST',                icon: '🦺', perfiles: ['admin'] },
+      { path: '/equipo/metas',        label: 'Mis Ventas / Mis Metas', icon: '🎯', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'clientes', label: 'CLIENTES',
+    items: [
+      { path: '/clientes/club',    label: 'Club Fidelización',  icon: '💎', perfiles: ['admin'] },
+      { path: '/clientes/crm',     label: 'CRM Tienda Propia',  icon: '🤖', perfiles: ['admin'] },
+      { path: '/clientes/resenas', label: 'Panel Reseñas',       icon: '⭐', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'integraciones', label: 'INTEGRACIONES',
+    items: [
+      { path: '/integraciones/pos', label: 'POS Ventas', icon: '🖥️', perfiles: ['admin'] },
+    ],
+  },
+]
+
+const CONFIG: NavItem[] = [
+  { path: '/configuracion', label: 'Configuración', icon: '⚙️', perfiles: ['admin'] },
+  { path: '/marcas',        label: 'Marcas',         icon: '🏷️', perfiles: ['admin'] },
+  { path: '/running',       label: 'Running',        icon: '🏃', perfiles: ['admin'] },
 ]
 
 function LogoSL({ small = false }: { small?: boolean }) {
@@ -80,10 +121,84 @@ function LogoSL({ small = false }: { small?: boolean }) {
   )
 }
 
+function NavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
+  return (
+    <NavLink
+      to={item.path}
+      end={item.path === '/'}
+      onClick={onClose}
+      title={collapsed ? item.label : undefined}
+      style={({ isActive }) => ({
+        fontFamily: 'Oswald, sans-serif',
+        fontSize: 14,
+        fontWeight: 500,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
+        background: isActive ? '#262d42' : 'transparent',
+        color: isActive ? '#f0f0ff' : '#8090b8',
+      })}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
+          isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
+        }`
+      }
+    >
+      <span className="text-base w-5 text-center flex-shrink-0">{item.icon}</span>
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </NavLink>
+  )
+}
+
+function GroupNavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
+  return (
+    <NavLink
+      to={item.path}
+      onClick={onClose}
+      title={collapsed ? item.label : undefined}
+      style={({ isActive }) => ({
+        fontFamily: 'Oswald, sans-serif',
+        fontSize: 14,
+        fontWeight: 500,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
+        background: isActive ? '#262d42' : 'transparent',
+        color: isActive ? '#f0f0ff' : '#8090b8',
+        paddingLeft: collapsed ? undefined : 28,
+      })}
+      className={({ isActive }) =>
+        `flex items-center gap-3 pr-4 py-[11px] transition-colors ${collapsed ? 'justify-center px-4' : ''} ${
+          isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
+        }`
+      }
+    >
+      <span className="text-base w-5 text-center flex-shrink-0">{item.icon}</span>
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </NavLink>
+  )
+}
+
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
-  const visibles = modulos.filter(m => usuario && m.perfiles.includes(usuario.perfil))
+  const perfil = usuario?.perfil ?? ''
+
+  // Group open/close state
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    analytics: false,
+    operaciones: false,
+    equipo: false,
+    clientes: false,
+    integraciones: false,
+  })
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
+
   const width = collapsed ? 'w-14' : 'w-[220px]'
 
   return (
@@ -117,58 +232,67 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
-          {visibles.map((m, idx) => {
-            const prev = visibles[idx - 1]
-            const showSectionLabel = !collapsed && m.section && m.section !== prev?.section
-            const showDividerCollapsed = collapsed && m.section && m.section !== prev?.section
+          {/* PRINCIPAL items */}
+          {filterItems(PRINCIPAL).map(item => (
+            <NavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+          ))}
+
+          {/* Collapsable groups */}
+          {GROUPS.map(group => {
+            const visibleItems = filterItems(group.items)
+            if (visibleItems.length === 0) return null
+            const isOpen = openGroups[group.key]
 
             return (
-              <Fragment key={m.path}>
-                {showSectionLabel && (
-                  <div
+              <Fragment key={group.key}>
+                {/* Group header */}
+                {collapsed ? (
+                  <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.key)}
                     style={{
                       fontFamily: 'Oswald, sans-serif',
-                      fontSize: 9,
+                      fontSize: 10,
                       color: '#7080a8',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.14em',
-                      padding: '12px 18px 4px',
-                      fontWeight: 600,
+                      letterSpacing: '0.15em',
+                      padding: '10px 18px',
+                      cursor: 'pointer',
+                      background: 'transparent',
+                      border: 'none',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
+                    className="hover:!text-[#f0f0ff] transition-colors"
                   >
-                    {m.section}
-                  </div>
+                    <span>{group.label}</span>
+                    <span style={{ fontSize: 10 }}>{isOpen ? '▾' : '▸'}</span>
+                  </button>
                 )}
-                {showDividerCollapsed && (
-                  <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
-                )}
-                <NavLink
-                  to={m.path}
-                  end={m.path === '/'}
-                  onClick={onClose}
-                  title={collapsed ? m.label : undefined}
-                  style={({ isActive }) => ({
-                    fontFamily: 'Oswald, sans-serif',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-                    background: isActive ? '#262d42' : 'transparent',
-                    color: isActive ? '#f0f0ff' : '#8090b8',
-                  })}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
-                      isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
-                    }`
-                  }
-                >
-                  <span className="text-base w-5 text-center flex-shrink-0">{m.icon}</span>
-                  {!collapsed && <span className="truncate">{m.label}</span>}
-                </NavLink>
+
+                {/* Group items */}
+                {(collapsed || isOpen) && visibleItems.map(item => (
+                  <GroupNavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+                ))}
               </Fragment>
             )
           })}
+
+          {/* Separator before config */}
+          {collapsed ? (
+            <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
+          ) : (
+            <div style={{ height: 1, background: '#3a4058', margin: '8px 18px' }} />
+          )}
+
+          {/* CONFIG items */}
+          {filterItems(CONFIG).map(item => (
+            <NavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+          ))}
         </nav>
 
         {/* Footer user */}

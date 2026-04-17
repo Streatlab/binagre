@@ -54,7 +54,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
           <table className="w-full" style={{ minWidth: '1500px' }}>
             <thead className="sticky top-0 z-20">
               <tr>
-                <th className={thCls + ' w-12 text-right'}>#</th>
+                <th className={thCls} style={{ minWidth: 95 }}>CÓDIGO</th>
                 <th className={thCls} style={{ minWidth: 260 }}>NOMBRE</th>
                 <th className={thCls + ' text-right'}>COSTE TANDA</th>
                 <th className={thCls + ' text-right'}>COSTE/RAC</th>
@@ -86,7 +86,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                     onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
                     className="cursor-pointer hover:bg-[#353a50] transition-colors"
                   >
-                    <td className={tdCls + ' text-right text-[#8090b8]'}>{row.idx}</td>
+                    <td className={tdCls + ' ' + nameCls + ' font-mono text-xs'} style={{ minWidth: 95 }}>{d.codigo ?? ''}</td>
                     <td className={tdCls + ' font-medium ' + nameCls}>
                       <span className="text-[10px] text-[#8090b8] mr-2">[{row.kind}]</span>
                       {d.nombre}

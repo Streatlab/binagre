@@ -25,12 +25,25 @@ const LABELS: Record<string, string> = {
   'evaluaciones': 'Evaluaciones',
   'llamados': 'Llamados Atención',
   'antiguedad': 'Beneficios Antigüedad',
+  'celebraciones': 'Celebraciones',
+  'dotacion': 'Dotación',
+  'onboarding': 'Onboarding Digital',
+  'sgsst': 'SG-SST',
+  'metas': 'Mis Ventas / Mis Metas',
+  // Clientes
+  'club': 'Club Fidelización',
+  'crm': 'CRM Tienda Propia',
+  'resenas': 'Panel Reseñas',
+  // Integraciones
+  'pos': 'POS Ventas',
 }
 
 const SECTION_LABELS: Record<string, string> = {
   'analytics': 'Analytics',
   'ops': 'Operaciones',
   'equipo': 'Equipo',
+  'clientes': 'Clientes',
+  'integraciones': 'Integraciones',
 }
 
 export default function Placeholder() {

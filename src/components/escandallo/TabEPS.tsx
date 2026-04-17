@@ -56,8 +56,8 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                   const usos = n(e.usos)
                   return (
                     <tr key={e.id} onClick={() => onSelect(e)} className="cursor-pointer">
-                      <td className={tdCls + ' text-[#7080a8] font-mono text-xs'}>{e.codigo ?? ''}</td>
-                      <td className={tdCls + ' text-[#66aaff] italic font-medium'}>{e.nombre}</td>
+                      <td className={tdCls + ' ds-eps-name font-mono text-xs'}>{e.codigo ?? ''}</td>
+                      <td className={tdCls + ' ds-eps-name'}>{e.nombre}</td>
                       <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
                       <td className={tdCls + ' text-[#c8d0e8]'}>{e.unidad}</td>

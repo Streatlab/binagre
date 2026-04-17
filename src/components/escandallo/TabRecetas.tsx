@@ -64,8 +64,8 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                   const hasPvp = n(r.pvp_uber) > 0
                   return (
                     <tr key={r.id} onClick={() => onSelect(r)} className="cursor-pointer">
-                      <td className={tdCls + ' text-[#7080a8] font-mono text-xs'}>{r.codigo ?? ''}</td>
-                      <td className={tdCls + ' text-[#f0f0ff] font-medium'}>{r.nombre}</td>
+                      <td className={tdCls + ' ds-rec-name font-mono text-xs'}>{r.codigo ?? ''}</td>
+                      <td className={tdCls + ' ds-rec-name'}>{r.nombre}</td>
                       <td className={tdCls + ' text-[#c8d0e8]'}>{r.categoria ?? ''}</td>
                       <td className={tdCls + ' text-right'}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
