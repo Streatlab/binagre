@@ -57,27 +57,27 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside
         className={`
           fixed top-0 left-0 z-40 h-full bg-[#1e2233] border-r border-[#3a4058]
-          flex flex-col transition-all duration-200 relative
+          flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
           ${width}
         `}
       >
         {/* Header logo + nombre */}
-        <div className="p-3 border-b border-[#3a4058] flex items-center justify-center min-h-[72px]">
-          {collapsed ? <LogoSL small={true} /> : (
+        {collapsed ? (
+          <div className="border-b border-[#3a4058] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
+            <LogoSL small={true} />
+            <button onClick={toggle} className="p-1 text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:block text-xs" title="Expandir">»</button>
+          </div>
+        ) : (
+          <div className="p-3 border-b border-[#3a4058] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <LogoSL small={false} />
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#f0f0ff', letterSpacing: '0.08em' }}>Streat Lab</span>
             </div>
-          )}
-          {!collapsed && (
             <button onClick={toggle} className="p-1.5 text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
-          )}
-          {collapsed && (
-            <button onClick={toggle} className="absolute top-[76px] right-[-12px] bg-[#1e2233] border border-[#3a4058] rounded-full w-6 h-6 flex items-center justify-center text-[#7080a8] hover:text-[#f0f0ff] hidden lg:flex" title="Expandir">»</button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">

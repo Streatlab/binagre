@@ -31,7 +31,7 @@ const CANAL_HEX: Record<string, string> = {
   'Uber Eats': '#06C167',
   'Glovo':     '#e8f442',
   'Just Eat':  '#f5a623',
-  'Web':       '#B01D23',
+  'Web':       '#ff6b6b',
   'Directa':   '#66aaff',
 }
 
@@ -249,16 +249,16 @@ export default function Dashboard() {
                 const pct = (d.bruto / maxBruto) * 100
                 return (
                   <div key={d.fecha}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    <div className="flex items-center justify-between mb-1" style={{ minWidth: 0 }}>
+                      <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
                           i === 0 ? 'bg-accent text-black' : 'bg-[#484f66]/5 text-[#c8d0e8]'
                         }`}>
                           {i + 1}
                         </span>
-                        <span className="text-sm text-[#f0f0ff]">{fmtDate(d.fecha)}</span>
+                        <span className="text-sm text-[#f0f0ff] truncate">{fmtDate(d.fecha)}</span>
                       </div>
-                      <span className="text-sm font-semibold text-[#f0f0ff] tabular-nums">{fmtEur(d.bruto)}</span>
+                      <span className="text-sm font-semibold text-[#f0f0ff] tabular-nums" style={{ flexShrink: 0 }}>{fmtEur(d.bruto)}</span>
                     </div>
                     <div className="h-1 bg-[#484f66]/5 rounded-full overflow-hidden ml-7">
                       <div
