@@ -1,38 +1,47 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { EPS } from './types'
 import { thCls, tdCls, fmtEurES, fmtES, fmtDateES, n, semaforoUsos, btnPrimary } from './types'
 
 interface Props { epsList: EPS[]; onSelect: (eps: EPS) => void; onNew?: () => void }
 
+type Filter = 'todos' | 'enuso' | 'sinuso'
+
 export default function TabEPS({ epsList, onSelect, onNew }: Props) {
-  const { total, enUso, sinUso } = useMemo(() => {
+  const [filter, setFilter] = useState<Filter>('todos')
+
+  const { total, enUso, sinUso, filtered } = useMemo(() => {
     const total = epsList.length
     const enUso = epsList.filter(e => n(e.usos) > 0).length
-    return { total, enUso, sinUso: total - enUso }
-  }, [epsList])
+    const sinUso = total - enUso
+    let filtered = epsList
+    if (filter === 'enuso') filtered = epsList.filter(e => n(e.usos) > 0)
+    else if (filter === 'sinuso') filtered = epsList.filter(e => n(e.usos) === 0)
+    return { total, enUso, sinUso, filtered }
+  }, [epsList, filter])
+
+  const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <Counter label="TOTAL" value={total} />
-        <Counter label="EN USO" value={enUso} color="text-green-400" />
-        <Counter label="SIN USO" value={sinUso} color="text-red-400" />
+        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+        <Counter label="EN USO" value={enUso} color="text-green-400" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color="text-red-400" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nueva EPS</button>}
       </div>
 
-      {!epsList.length ? (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl p-12 text-center">
-          <p className="text-[#888] text-sm">Sin EPS</p>
+      {!filtered.length ? (
+        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
+          <p className="text-[#888] text-sm">Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: '1000px' }}>
+            <table className="w-full" style={{ minWidth: '900px' }}>
               <thead>
                 <tr>
                   <th className={thCls}>CÓDIGO</th>
                   <th className={thCls}>NOMBRE</th>
-                  <th className={thCls}>CATEGORÍA</th>
                   <th className={thCls + ' text-right'}>RACIONES</th>
                   <th className={thCls + ' text-right'}>TAMAÑO RAC</th>
                   <th className={thCls}>UNIDAD</th>
@@ -43,13 +52,12 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {epsList.map(e => {
+                {filtered.map(e => {
                   const usos = n(e.usos)
                   return (
                     <tr key={e.id} onClick={() => onSelect(e)} className="cursor-pointer">
-                      <td className={tdCls + ' text-[#888] font-mono text-xs'}>{e.codigo ?? '—'}</td>
+                      <td className={tdCls + ' text-[#888] font-mono text-xs'}>{e.codigo ?? ''}</td>
                       <td className={tdCls + ' text-[#4a9eff] italic font-medium'}>{e.nombre}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{e.categoria ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{e.unidad}</td>
@@ -71,11 +79,13 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
   )
 }
 
-function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
+function Counter({ label, value, color = 'text-white', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+  const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
+  const cls = active ? base + ' border-accent' : base + ' border-[#333355] hover:border-[#4a4a6a]'
   return (
-    <div className="bg-card border border-[#2a2a2a] rounded-lg px-4 py-2">
+    <button onClick={onClick} type="button" className={cls}>
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
-    </div>
+    </button>
   )
 }

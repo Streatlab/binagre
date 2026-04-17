@@ -214,24 +214,24 @@ export const semaforoUsos = (usos: number) => {
   return 'bg-green-500/10 text-green-400 border-green-500/30'
 }
 
-/* ── CSS compartido — estilo limpio original (#1a1a1a base, accent amarillo) ── */
+/* ── CSS compartido — contraste subido (#1e1e2e base, #2a2a3e card, accent amarillo) ── */
 
 export const inputCls =
-  'w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#555] focus:outline-none focus:border-accent'
+  'w-full bg-[#1e1e2e] border border-[#333355] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
 
 /** Cabecera de tabla: borde inferior accent amarillo */
 export const thCls =
-  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#888] font-semibold text-left whitespace-nowrap bg-[#141414] border-b-2 border-accent'
+  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#aaa] font-semibold text-left whitespace-nowrap bg-[#1e1e2e] border-b-2 border-accent'
 
 export const tdCls =
-  'px-3 py-2.5 text-[13px] text-[#f0f0f0] tabular-nums whitespace-nowrap border-b border-[#242424]'
+  'px-3 py-2.5 text-[13px] text-[#f0f0f0] tabular-nums whitespace-nowrap border-b border-[#333355]'
 
 /** Botón Guardar principal: amarillo #e8f442 con texto #111 */
 export const btnPrimary =
   'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
 
 export const btnSecondary =
-  'px-4 py-2 text-sm text-[#aaa] border border-[#2a2a2a] rounded-lg hover:text-white hover:border-[#3a3a3a] transition'
+  'px-4 py-2 text-sm text-[#aaa] border border-[#333355] rounded-lg hover:text-white hover:border-[#4a4a6a] transition'
 
 /** Tab activo: fondo amarillo, texto #111 */
 export const tabActiveCls = 'bg-accent text-[#111]'

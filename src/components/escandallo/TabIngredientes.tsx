@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Ingrediente } from './types'
 import { thCls, tdCls, fmt, fmtPct, n, getProveedor, semaforoUsos, btnPrimary } from './types'
 
@@ -8,38 +8,47 @@ interface Props {
   onNew?: () => void
 }
 
+type Filter = 'todos' | 'enuso' | 'sinuso'
+
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
-  const { total, enUso, sinUso } = useMemo(() => {
+  const [filter, setFilter] = useState<Filter>('todos')
+
+  const { total, enUso, sinUso, filtered } = useMemo(() => {
     const total = ingredientes.length
     const enUso = ingredientes.filter(i => n(i.usos) > 0).length
-    return { total, enUso, sinUso: total - enUso }
-  }, [ingredientes])
+    let filtered = ingredientes
+    if (filter === 'enuso') filtered = ingredientes.filter(i => n(i.usos) > 0)
+    else if (filter === 'sinuso') filtered = ingredientes.filter(i => n(i.usos) === 0)
+    return { total, enUso, sinUso: total - enUso, filtered }
+  }, [ingredientes, filter])
+
+  const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   return (
     <div className="space-y-4">
       {/* Contadores + acciones */}
       <div className="flex flex-wrap items-center gap-4">
-        <Counter label="TOTAL" value={total} />
-        <Counter label="EN USO" value={enUso} color="text-green-400" />
-        <Counter label="SIN USO" value={sinUso} color="text-red-400" />
+        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+        <Counter label="EN USO" value={enUso} color="text-green-400" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color="text-red-400" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && (
           <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nuevo Ingrediente</button>
         )}
       </div>
 
-      {!ingredientes.length ? (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl p-12 text-center">
-          <p className="text-[#888] text-sm">Sin ingredientes</p>
+      {!filtered.length ? (
+        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
+          <p className="text-[#888] text-sm">Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
             <table className="w-full" style={{ minWidth: '2700px' }}>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#141414]'} style={{ minWidth: 90 }}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[#1e1e2e]'} style={{ minWidth: 90 }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#141414]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#1e1e2e]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>PROVEEDOR</th>
@@ -69,13 +78,13 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                 </tr>
               </thead>
               <tbody>
-                {ingredientes.map(i => {
+                {filtered.map(i => {
                   const isEps = i.abv === 'EPS'
                   const rowNameCls = isEps ? 'text-[#4a9eff] italic font-medium' : 'text-white font-medium'
                   const usos = n(i.usos)
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)}
-                      className="cursor-pointer hover:bg-[#262626] transition-colors">
+                      className="cursor-pointer hover:bg-[#333355] transition-colors">
                       <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{i.iding ?? '—'}</td>
                       <td className={tdCls + ' text-[#aaa]'}>{i.categoria ?? '—'}</td>
                       <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
@@ -123,11 +132,13 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
   )
 }
 
-function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
+function Counter({ label, value, color = 'text-white', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+  const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
+  const cls = active ? base + ' border-accent' : base + ' border-[#333355] hover:border-[#4a4a6a]'
   return (
-    <div className="bg-card border border-[#2a2a2a] rounded-lg px-4 py-2">
+    <button onClick={onClick} type="button" className={cls}>
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
-    </div>
+    </button>
   )
 }

@@ -118,9 +118,9 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-card border border-[#2a2a2a] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-[#333355] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header: ID + Nombre + EP + Fecha */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0f0]">{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
             {eps?.codigo && <p className="text-xs text-[#888] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
@@ -164,7 +164,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
             ) : (
-              <div className="border border-[#2a2a2a] rounded-lg overflow-hidden">
+              <div className="border border-[#333355] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '800px' }}>
                     <thead>
@@ -217,7 +217,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#333355]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving || !nombre.trim()} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : 'Guardar'}

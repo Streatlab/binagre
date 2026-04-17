@@ -28,7 +28,10 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     pvp_uber: n(receta?.pvp_uber), pvp_glovo: n(receta?.pvp_glovo), pvp_je: n(receta?.pvp_je),
     pvp_web: n(receta?.pvp_web), pvp_directa: n(receta?.pvp_directa),
   })
-  const [lineas, setLineas] = useState<RecetaLinea[]>([])
+  // Si es receta nueva, pre-poblar con una línea de envase (tipo ENV)
+  const [lineas, setLineas] = useState<RecetaLinea[]>(
+    receta ? [] : [{ linea: 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 1, unidad: 'Ud.', eur_ud_neta: 0 }]
+  )
   const [saving, setSaving] = useState(false)
   const [loadingLineas, setLoadingLineas] = useState(!!receta)
 
@@ -121,9 +124,9 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-card border border-[#2a2a2a] rounded-xl w-full max-w-7xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-[#333355] rounded-xl w-full max-w-7xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0f0]">{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
             {receta?.codigo && <p className="text-xs text-[#888] mt-0.5 font-mono">{receta.codigo} · REC</p>}
@@ -172,7 +175,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
             ) : (
-              <div className="border border-[#2a2a2a] rounded-lg overflow-hidden">
+              <div className="border border-[#333355] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '900px' }}>
                     <thead>
@@ -218,13 +221,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
               {waterfallCanales.map(({ canal, pvpKey, pvp, w }) => {
                 return (
-                  <div key={canal.id || canal.canal} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg overflow-hidden">
-                    <div className="px-3 py-2 bg-[#141414] border-b border-[#2a2a2a]">
+                  <div key={canal.id || canal.canal} className="bg-[#1e1e2e] border border-[#333355] rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-[#1e1e2e] border-b border-[#333355]">
                       <p className="text-sm font-semibold text-white">{canal.canal}</p>
                       <p className="text-[10px] text-[#888]">{canal.comision_pct}% comisión{canal.coste_fijo ? ` · +${canal.coste_fijo}€` : ''}</p>
                     </div>
                     <div className="grid grid-cols-2 text-[11px]">
-                      <div className="bg-[#1e3a1e]/40 p-2 border-r border-[#2a2a2a]">
+                      <div className="bg-[#1e3a1e]/40 p-2 border-r border-[#333355]">
                         <p className="text-[9px] uppercase text-green-300 mb-1 font-semibold">Real</p>
                       </div>
                       <div className="bg-[#3a2a0a]/40 p-2">
@@ -235,7 +238,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     <WFRow label="Coste estructura" real={w.costeEstructura} cash={w.costeEstructura} />
                     <WFRow label="Coste plataforma" real={w.costePlatR} cash={w.costePlatC} />
                     <WFRow label="Coste total" real={w.costeTotalR} cash={w.costeTotalC} bold />
-                    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+                    <div className="grid grid-cols-2 border-t border-[#333355]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#aaa] flex justify-between">
                         <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
@@ -243,7 +246,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+                    <div className="grid grid-cols-2 border-t border-[#333355]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-accent flex justify-between font-semibold">
                         <span>PVP rec.</span><span>{fmtEurES(w.pvpRecR, 2)}</span>
                       </div>
@@ -251,16 +254,16 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <span>PVP rec.</span><span>{fmtEurES(w.pvpRecC, 2)}</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+                    <div className="grid grid-cols-2 border-t border-[#333355]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-white flex justify-between col-span-2">
                         <span>PVP real</span>
                         <input type="number" min={0} step="0.01" value={pvp || ''}
                           onChange={e => setPvps(p => ({ ...p, [pvpKey]: parseFloat(e.target.value) || 0 }))}
-                          className="w-20 bg-[#1a1a1a] border border-[#555] rounded px-1 text-right text-white text-xs" />
+                          className="w-20 bg-[#1e1e2e] border border-[#555] rounded px-1 text-right text-white text-xs" />
                       </div>
                     </div>
                     <WFRow label="K multiplicador" real={w.k} cash={w.k} suffix="×" fraction={2} />
-                    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+                    <div className="grid grid-cols-2 border-t border-[#333355]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] flex justify-between font-semibold">
                         <span className="text-[#aaa]">Margen €</span>
                         <span className="text-white">{fmtES(w.margenR, 2)}</span>
@@ -270,7 +273,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <span className="text-white">{fmtES(w.margenC, 2)}</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+                    <div className="grid grid-cols-2 border-t border-[#333355]">
                       <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.pctMargenR)}>
                         <span className="opacity-70">% Margen</span>
                         <span>{fmtES(w.pctMargenR, 2)}%</span>
@@ -289,7 +292,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#333355]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving || !nombre.trim()} className={btnPrimary + ' disabled:opacity-50'}>{saving ? 'Guardando…' : 'Guardar'}</button>
         </div>
@@ -301,7 +304,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 function WFRow({ label, real, cash, bold, suffix, fraction = 2 }: { label: string; real: number; cash: number; bold?: boolean; suffix?: string; fraction?: number }) {
   const cls = 'p-2 text-[10px] flex justify-between' + (bold ? ' font-semibold' : '')
   return (
-    <div className="grid grid-cols-2 border-t border-[#2a2a2a]">
+    <div className="grid grid-cols-2 border-t border-[#333355]">
       <div className={'bg-[#1e3a1e]/30 ' + cls}>
         <span className="text-[#aaa]">{label}</span>
         <span className="text-white">{fmtES(real, fraction)}{suffix ?? '€'}</span>

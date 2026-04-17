@@ -19,18 +19,18 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
       </div>
 
       {!mermas.length ? (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl p-12 text-center">
+        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
           <p className="text-[#888] text-sm">Sin mermas</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
             <table className="w-full" style={{ minWidth: '2400px' }}>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#141414]'} style={{ minWidth: 90 }}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[#1e1e2e]'} style={{ minWidth: 90 }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#141414]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#1e1e2e]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>MARCA</th>
@@ -61,7 +61,7 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
               </thead>
               <tbody>
                 {mermas.map(m => (
-                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[#262626] transition-colors">
+                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[#333355] transition-colors">
                     <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{m.iding ?? '—'}</td>
                     <td className={tdCls + ' text-[#aaa]'}>{m.categoria ?? '—'}</td>
                     <td className={tdCls + ' sticky z-10 text-white font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
@@ -104,7 +104,7 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
 
 function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
   return (
-    <div className="bg-card border border-[#2a2a2a] rounded-lg px-4 py-2">
+    <div className="bg-card border border-[#333355] rounded-lg px-4 py-2">
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
     </div>

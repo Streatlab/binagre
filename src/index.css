@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #1a1a1a;
-  --color-card: #242424;
-  --color-sidebar: #1a1a1a;
-  --color-border: #2a2a2a;
+  --color-base: #1e1e2e;
+  --color-card: #2a2a3e;
+  --color-card-alt: #252535;
+  --color-sidebar: #1e1e2e;
+  --color-border: #333355;
   --color-accent: #e8f442;
   --color-text: #f0f0f0;
   --color-muted: #aaaaaa;
@@ -14,13 +15,13 @@
 }
 
 html, body {
-  background: #1a1a1a;
+  background: #1e1e2e;
   color: #f0f0f0;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #333 #1a1a1a;
+  scrollbar-color: #333355 #1e1e2e;
 }
 
 /* Scrollbar visible en tablas */
@@ -29,15 +30,17 @@ html, body {
   width: 10px;
 }
 .overflow-x-auto::-webkit-scrollbar-track, .overflow-y-auto::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: #1e1e2e;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb, .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
+  background: #444466;
   border-radius: 4px;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb:hover, .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #5a5a7a;
 }
 
-/* Filas tabla: hover sutil, sin zebra */
-tbody tr:hover { background: #262626 !important; }
+/* Filas alternas en tablas (contraste) */
+tbody tr:nth-child(odd) { background: #2a2a3e; }
+tbody tr:nth-child(even) { background: #252535; }
+tbody tr:hover { background: #333355 !important; }

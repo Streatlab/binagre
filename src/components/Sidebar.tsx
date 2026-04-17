@@ -44,7 +44,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[#1a1a1a] border-r border-[#2a2a2a]
+          fixed top-0 left-0 z-40 h-full bg-[#1e1e2e] border-r border-[#333355]
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
@@ -52,7 +52,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {/* Header con logo SL rojo */}
-        <div className="p-3 border-b border-[#2a2a2a] flex items-center justify-between min-h-[72px]">
+        <div className="p-3 border-b border-[#333355] flex items-center justify-between min-h-[72px]">
           <div className="flex items-center gap-2 min-w-0">
             <LogoSL small={collapsed} />
             {!collapsed && (
@@ -86,8 +86,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   collapsed ? 'justify-center' : ''
                 } ${
                   isActive
-                    ? 'text-white bg-[#242424]'
-                    : 'text-[#aaa] hover:text-white hover:bg-[#202020]'
+                    ? 'text-white bg-[#2a2a3e]'
+                    : 'text-[#aaa] hover:text-white hover:bg-[#252535]'
                 }`
               }
             >
@@ -98,7 +98,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         </nav>
 
         {/* Footer user */}
-        <div className={`p-3 border-t border-[#2a2a2a] ${collapsed ? 'text-center' : ''}`}>
+        <div className={`p-3 border-t border-[#333355] ${collapsed ? 'text-center' : ''}`}>
           {!collapsed ? (
             <>
               <div className="text-xs text-[#888] mb-2 truncate">

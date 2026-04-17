@@ -49,7 +49,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
         <Counter label="RECETAS" value={recetasList.length} color="text-accent" />
       </div>
 
-      <div className="bg-card border border-[#2a2a2a] rounded-xl overflow-hidden">
+      <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
         <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
           <table className="w-full" style={{ minWidth: '1500px' }}>
             <thead className="sticky top-0 z-20">
@@ -84,7 +84,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                   <tr
                     key={`${row.kind}-${d.id}`}
                     onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
-                    className="cursor-pointer hover:bg-[#262626] transition-colors"
+                    className="cursor-pointer hover:bg-[#333355] transition-colors"
                   >
                     <td className={tdCls + ' text-right text-[#666]'}>{row.idx}</td>
                     <td className={tdCls + ' font-medium ' + nameCls}>
@@ -151,7 +151,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
 
 function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
   return (
-    <div className="bg-card border border-[#2a2a2a] rounded-lg px-4 py-2">
+    <div className="bg-card border border-[#333355] rounded-lg px-4 py-2">
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
     </div>

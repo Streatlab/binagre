@@ -11,10 +11,10 @@ interface Props {
   onOpenMerma?: (m: Merma | null) => void
 }
 
-const inputCls = 'w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
+const inputCls = 'w-full bg-[#1e1e2e] border border-[#333355] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[#888] mb-1 uppercase tracking-wider'
 const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#aaa] border border-[#2a2a2a] rounded-lg hover:text-white hover:border-[#3a3a3a] transition'
+const btnSecondary = 'px-4 py-2 text-sm text-[#aaa] border border-[#333355] rounded-lg hover:text-white hover:border-[#4a4a6a] transition'
 
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
@@ -153,8 +153,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#333] border border-[#2a2a2a] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+      <div className="bg-[#333] border border-[#333355] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0f0]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
             {f.iding && <p className="text-xs text-[#888] mt-0.5 font-mono">{f.iding}</p>}
@@ -240,7 +240,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-red-400 text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#333355]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -253,7 +253,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#2a2a2a] border border-[#2a2a2a] rounded-lg p-4">
+    <div className="bg-[#2a2a2a] border border-[#333355] rounded-lg p-4">
       <h4 className="text-[11px] uppercase tracking-wider text-[#888] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
