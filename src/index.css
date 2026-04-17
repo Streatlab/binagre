@@ -1,27 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #1e1e2e;
-  --color-card: #2a2a3e;
-  --color-card-alt: #252535;
-  --color-sidebar: #1e1e2e;
-  --color-border: #333355;
+  --color-base: #f5f5f5;
+  --color-card: #ffffff;
+  --color-card-alt: #f9f9f9;
+  --color-sidebar: #f0f0f0;
+  --color-section: #f0f0f0;
+  --color-border: #dddddd;
+  --color-border-strong: #cccccc;
   --color-accent: #e8f442;
-  --color-text: #f0f0f0;
-  --color-muted: #aaaaaa;
-  --color-eps: #4a9eff;
+  --color-accent-bg: #1a1a1a;
+  --color-text: #1a1a1a;
+  --color-muted: #555555;
+  --color-hover: #eef2ff;
+  --color-eps: #2563eb;
   --color-red-corp: #B01D23;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: "Arial", system-ui, sans-serif;
 }
 
 html, body {
-  background: #1e1e2e;
-  color: #f0f0f0;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  font-family: Arial, system-ui, sans-serif;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #333355 #1e1e2e;
+  scrollbar-color: #cccccc #f5f5f5;
 }
 
 /* Scrollbar visible en tablas */
@@ -30,17 +35,17 @@ html, body {
   width: 10px;
 }
 .overflow-x-auto::-webkit-scrollbar-track, .overflow-y-auto::-webkit-scrollbar-track {
-  background: #1e1e2e;
+  background: #f5f5f5;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb, .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #444466;
+  background: #cccccc;
   border-radius: 4px;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb:hover, .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #5a5a7a;
+  background: #999999;
 }
 
-/* Filas alternas en tablas (contraste) */
-tbody tr:nth-child(odd) { background: #2a2a3e; }
-tbody tr:nth-child(even) { background: #252535; }
-tbody tr:hover { background: #333355 !important; }
+/* Filas tabla: zebra clara, hover suave */
+tbody tr:nth-child(odd)  { background: #ffffff; }
+tbody tr:nth-child(even) { background: #f9f9f9; }
+tbody tr:hover { background: #eef2ff !important; }

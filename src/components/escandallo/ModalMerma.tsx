@@ -10,10 +10,10 @@ interface Props {
   onSaved: () => void
 }
 
-const inputCls = 'w-full bg-[#1e1e2e] border border-[#333355] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
+const inputCls = 'w-full bg-[#f5f5f5] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#666] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[#888] mb-1 uppercase tracking-wider'
 const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#aaa] border border-[#333355] rounded-lg hover:text-white hover:border-[#4a4a6a] transition'
+const btnSecondary = 'px-4 py-2 text-sm text-[#555] border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
 
 export default function ModalMerma({ merma, onClose, onSaved }: Props) {
   const isEdit = !!merma
@@ -198,13 +198,13 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#333] border border-[#333355] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
+      <div className="bg-[#333] border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#dddddd]">
           <div>
-            <h3 className="text-base font-semibold text-[#f0f0f0]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
+            <h3 className="text-base font-semibold text-[#1a1a1a]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
             {f.iding && <p className="text-xs text-[#888] mt-0.5 font-mono">{f.iding}</p>}
           </div>
-          <button onClick={onClose} className="text-[#888] hover:text-white transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#888] hover:text-[#1a1a1a] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -235,7 +235,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="%" value={(sp1Pct * 100).toFixed(1) + '%'} onChange={() => {}} disabled />
               <Field label="€ SP1" type="number" step="0.01" value={f.sp1_euros} onChange={v => set('sp1_euros', v)} disabled={!f.sp1_valorable} />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#aaa]">
+                <label className="flex items-center gap-2 text-sm text-[#555]">
                   <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
                   Valorable
                 </label>
@@ -250,7 +250,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="%" value={(sp2Pct * 100).toFixed(1) + '%'} onChange={() => {}} disabled />
               <Field label="€ SP2" type="number" step="0.01" value={f.sp2_euros} onChange={v => set('sp2_euros', v)} disabled={!f.sp2_valorable} />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#aaa]">
+                <label className="flex items-center gap-2 text-sm text-[#555]">
                   <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
                   Valorable
                 </label>
@@ -280,7 +280,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           <p className="text-xs text-[#888]">Al guardar se creará/actualizará automáticamente: <code className="text-accent">{f.nombre_base}_Limpio_{f.abv || 'XXX'}_MRM</code> + subproductos valorables.</p>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#333355]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -307,7 +307,7 @@ async function upsertIngrediente(row: Record<string, unknown>) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#2a2a2a] border border-[#333355] rounded-lg p-4">
+    <div className="bg-[#2a2a2a] border border-[#dddddd] rounded-lg p-4">
       <h4 className="text-[11px] uppercase tracking-wider text-[#888] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>

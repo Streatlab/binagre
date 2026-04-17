@@ -6,14 +6,14 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-[#1e1e2e] text-[#f0f0f0] font-sans">
+    <div className="flex h-screen bg-[#f5f5f5] text-[#1a1a1a] font-sans">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center px-4 border-b border-[#333355] lg:hidden">
+        <header className="h-12 flex items-center px-4 border-b border-[#dddddd] lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-[#aaa] hover:text-white"
+            className="text-[#555] hover:text-[#1a1a1a]"
           >
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M4 6h16M4 12h16M4 18h16" />

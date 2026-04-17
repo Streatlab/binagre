@@ -118,14 +118,14 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-card border border-[#333355] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header: ID + Nombre + EP + Fecha */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#dddddd]">
           <div>
-            <h3 className="text-base font-semibold text-[#f0f0f0]">{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
+            <h3 className="text-base font-semibold text-[#1a1a1a]">{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
             {eps?.codigo && <p className="text-xs text-[#888] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
           </div>
-          <button onClick={onClose} className="text-[#888] hover:text-white transition text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-[#888] hover:text-[#1a1a1a] transition text-xl leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -164,7 +164,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
             ) : (
-              <div className="border border-[#333355] rounded-lg overflow-hidden">
+              <div className="border border-[#dddddd] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '800px' }}>
                     <thead>
@@ -185,13 +185,13 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                         <tr key={idx}>
                           <td className={tdCls + ' text-[#666]'}>{idx + 1}</td>
                           <td className={tdCls}>
-                            <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-white placeholder:text-[#555]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
+                            <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a] placeholder:text-[#555]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
                             <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre} />)}</datalist>
                           </td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-white" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-white'}>{fmtES(l.eur_total, 4)}</td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#1a1a1a] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls + ' text-right font-medium text-[#1a1a1a]'}>{fmtES(l.eur_total, 4)}</td>
                           <td className={tdCls + ' text-right text-[#888]'}>{fmtES(l.pct_total, 1)}%</td>
                           <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#666] hover:text-red-400 transition text-sm">×</button></td>
                         </tr>
@@ -203,7 +203,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                   <div className="flex items-center gap-6">
                     <div>
                       <span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste tanda</span>
-                      <span className="text-sm font-bold text-white">{fmtEurES(costeTanda, 4)}</span>
+                      <span className="text-sm font-bold text-[#1a1a1a]">{fmtEurES(costeTanda, 4)}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-[#888] uppercase tracking-wide block">Coste ración</span>
@@ -217,7 +217,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#333355]">
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving || !nombre.trim()} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : 'Guardar'}

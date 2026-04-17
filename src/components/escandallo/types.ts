@@ -214,25 +214,25 @@ export const semaforoUsos = (usos: number) => {
   return 'bg-green-500/10 text-green-400 border-green-500/30'
 }
 
-/* ── CSS compartido — contraste subido (#1e1e2e base, #2a2a3e card, accent amarillo) ── */
+/* ── CSS compartido — TEMA CLARO (#f5f5f5 base, #ffffff card, accent amarillo) ── */
 
 export const inputCls =
-  'w-full bg-[#1e1e2e] border border-[#333355] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
+  'w-full bg-white border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#999] focus:outline-none focus:border-[#1a1a1a]'
 
-/** Cabecera de tabla: borde inferior accent amarillo */
+/** Cabecera de tabla: fondo #f0f0f0 con borde inferior accent amarillo sobre #1a1a1a */
 export const thCls =
-  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#aaa] font-semibold text-left whitespace-nowrap bg-[#1e1e2e] border-b-2 border-accent'
+  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#1a1a1a] font-semibold text-left whitespace-nowrap bg-[#f0f0f0] border-b-2 border-[#1a1a1a]'
 
 export const tdCls =
-  'px-3 py-2.5 text-[13px] text-[#f0f0f0] tabular-nums whitespace-nowrap border-b border-[#333355]'
+  'px-3 py-2.5 text-[13px] text-[#1a1a1a] tabular-nums whitespace-nowrap border-b border-[#dddddd]'
 
-/** Botón Guardar principal: amarillo #e8f442 con texto #111 */
+/** Botón Guardar principal: fondo oscuro con acento amarillo */
 export const btnPrimary =
-  'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
+  'px-4 py-2 bg-[#1a1a1a] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition border border-[#1a1a1a]'
 
 export const btnSecondary =
-  'px-4 py-2 text-sm text-[#aaa] border border-[#333355] rounded-lg hover:text-white hover:border-[#4a4a6a] transition'
+  'px-4 py-2 text-sm text-[#555] bg-white border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
 
-/** Tab activo: fondo amarillo, texto #111 */
-export const tabActiveCls = 'bg-accent text-[#111]'
-export const tabInactiveCls = 'text-[#aaa] hover:text-white'
+/** Tab activo: fondo oscuro + acento amarillo */
+export const tabActiveCls = 'bg-[#1a1a1a] text-accent'
+export const tabInactiveCls = 'text-[#555] hover:text-[#1a1a1a]'

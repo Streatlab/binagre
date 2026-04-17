@@ -165,10 +165,10 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Dashboard</h2>
+        <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Dashboard</h2>
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <div className="inline-block h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <p className="text-neutral-500 text-sm mt-3">Cargando...</p>
+          <p className="text-[#555] text-sm mt-3">Cargando...</p>
         </div>
       </div>
     )
@@ -177,7 +177,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Dashboard</h2>
+        <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Dashboard</h2>
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <p className="text-red-400 text-sm">{error}</p>
         </div>
@@ -187,7 +187,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Dashboard</h2>
+      <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Dashboard</h2>
 
       {/* Row 1: Main KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -202,12 +202,12 @@ export default function Dashboard() {
         {canalStats.map(c => (
           <div key={c.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide">{c.label}</p>
+              <p className="text-xs text-[#555] uppercase tracking-wide">{c.label}</p>
               <span className={`text-xs font-bold ${CANAL_TEXT[c.label] ?? 'text-accent'}`}>
                 {c.pct.toFixed(1)}%
               </span>
             </div>
-            <p className="text-xl font-bold text-white">{eur(c.bruto)}</p>
+            <p className="text-xl font-bold text-[#1a1a1a]">{eur(c.bruto)}</p>
             {/* progress bar */}
             <div className="mt-2 h-1.5 bg-white/5 rounded-full overflow-hidden">
               <div
@@ -223,21 +223,21 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Bar chart */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-4">Bruto ultimas 4 semanas</p>
+          <p className="text-xs text-[#555] uppercase tracking-wide mb-4">Bruto ultimas 4 semanas</p>
           {weekBars.length === 0 ? (
-            <p className="text-neutral-600 text-sm text-center py-8">Sin datos</p>
+            <p className="text-[#555] text-sm text-center py-8">Sin datos</p>
           ) : (
             <div className="flex items-end gap-3 h-40">
               {weekBars.map(bar => (
                 <div key={bar.label} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-neutral-400 tabular-nums">{eur(bar.bruto)}</span>
+                  <span className="text-[10px] text-[#555] tabular-nums">{eur(bar.bruto)}</span>
                   <div className="w-full bg-white/5 rounded-t-md overflow-hidden relative" style={{ height: '120px' }}>
                     <div
                       className="absolute bottom-0 w-full bg-accent/80 rounded-t-md transition-all"
                       style={{ height: `${bar.pct}%` }}
                     />
                   </div>
-                  <span className="text-xs text-neutral-400 font-medium">{bar.label}</span>
+                  <span className="text-xs text-[#555] font-medium">{bar.label}</span>
                 </div>
               ))}
             </div>
@@ -246,9 +246,9 @@ export default function Dashboard() {
 
         {/* Top 5 days */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-4">Top 5 dias con mas ventas</p>
+          <p className="text-xs text-[#555] uppercase tracking-wide mb-4">Top 5 dias con mas ventas</p>
           {topDays.length === 0 ? (
-            <p className="text-neutral-600 text-sm text-center py-8">Sin datos</p>
+            <p className="text-[#555] text-sm text-center py-8">Sin datos</p>
           ) : (
             <div className="space-y-3">
               {topDays.map((d, i) => {
@@ -259,11 +259,11 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                          i === 0 ? 'bg-accent text-black' : 'bg-white/5 text-neutral-400'
+                          i === 0 ? 'bg-accent text-black' : 'bg-white/5 text-[#555]'
                         }`}>
                           {i + 1}
                         </span>
-                        <span className="text-sm text-white">{d.fecha}</span>
+                        <span className="text-sm text-[#1a1a1a]">{d.fecha}</span>
                       </div>
                       <span className="text-sm font-semibold text-accent tabular-nums">{eur(d.bruto)}</span>
                     </div>
@@ -291,9 +291,9 @@ export default function Dashboard() {
 function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-[#555] uppercase tracking-wide">{label}</p>
       <p className="text-3xl font-bold text-accent mt-2">{valor}</p>
-      <p className="text-xs text-neutral-600 mt-1">{sub}</p>
+      <p className="text-xs text-[#555] mt-1">{sub}</p>
     </div>
   )
 }

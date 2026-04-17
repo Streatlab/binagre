@@ -29,7 +29,7 @@ export default function Login() {
       >
         <div className="text-center">
           <h1 className="text-accent font-bold text-2xl tracking-tight">Streat Lab</h1>
-          <p className="text-neutral-500 text-sm mt-1">Acceso ERP</p>
+          <p className="text-[#555] text-sm mt-1">Acceso ERP</p>
         </div>
 
         <div className="space-y-3">
@@ -39,7 +39,7 @@ export default function Login() {
             value={nombre}
             onChange={e => setNombre(e.target.value)}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#1a1a1a] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors"
           />
           <input
             type="password"
@@ -49,7 +49,7 @@ export default function Login() {
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors tracking-[0.5em] text-center"
+            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#1a1a1a] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors tracking-[0.5em] text-center"
           />
         </div>
 

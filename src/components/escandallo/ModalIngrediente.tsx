@@ -11,10 +11,10 @@ interface Props {
   onOpenMerma?: (m: Merma | null) => void
 }
 
-const inputCls = 'w-full bg-[#1e1e2e] border border-[#333355] rounded-lg px-3 py-2 text-sm text-[#f0f0f0] placeholder:text-[#666] focus:outline-none focus:border-accent'
+const inputCls = 'w-full bg-[#f5f5f5] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#666] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[#888] mb-1 uppercase tracking-wider'
 const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#aaa] border border-[#333355] rounded-lg hover:text-white hover:border-[#4a4a6a] transition'
+const btnSecondary = 'px-4 py-2 text-sm text-[#555] border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
 
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
@@ -58,6 +58,16 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     setF(p => ({ ...p, abv: up, marca: mapped || p.marca }))
   }
 
+  // UD STD → UD MIN automático (Kg→gr, L→ml, Ud→ud)
+  const onUdStdChange = (v: string) => {
+    const lower = v.toLowerCase()
+    let udMin = v
+    if (lower.startsWith('kg')) udMin = 'gr.'
+    else if (lower.startsWith('l')) udMin = 'ml.'
+    else if (lower.startsWith('ud')) udMin = 'ud.'
+    setF(p => ({ ...p, ud_std: v, ud_min: udMin }))
+  }
+
   // Calcular precio activo según selector
   const p1 = parseFloat(f.precio1) || 0
   const p2 = parseFloat(f.precio2) || 0
@@ -80,12 +90,16 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
     setSaving(true)
     try {
+      // Nombre concatenado NombreBase_ABV según FIX 2.8
+      const baseTrim = f.nombre_base.trim()
+      const abvTrim = (f.abv || '').toUpperCase().trim()
+      const nombreConcat = abvTrim ? `${baseTrim}_${abvTrim}` : baseTrim
       const payload = {
         iding: f.iding || null,
         categoria: f.categoria || null,
-        nombre_base: f.nombre_base.trim(),
-        abv: f.abv || null,
-        nombre: f.nombre.trim() || f.nombre_base.trim(),
+        nombre_base: baseTrim,
+        abv: abvTrim || null,
+        nombre: f.nombre.trim() || nombreConcat,
         marca: f.marca || null,
         formato: f.formato || null,
         uds: uds || null,
@@ -153,13 +167,13 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#333] border border-[#333355] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#333355]">
+      <div className="bg-[#333] border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#dddddd]">
           <div>
-            <h3 className="text-base font-semibold text-[#f0f0f0]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            <h3 className="text-base font-semibold text-[#1a1a1a]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
             {f.iding && <p className="text-xs text-[#888] mt-0.5 font-mono">{f.iding}</p>}
           </div>
-          <button onClick={onClose} className="text-[#888] hover:text-white transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#888] hover:text-[#1a1a1a] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -184,8 +198,11 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           <Section title="Unidades">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} placeholder="5" />
-              <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <SelectField label="UD MIN" value={f.ud_min} onChange={v => set('ud_min', v)} options={cfg.unidades} />
+              <SelectField label="UD STD" value={f.ud_std} onChange={onUdStdChange} options={['Kg.', 'L.', 'Ud.']} />
+              <div>
+                <label className={labelCls}>UD MIN (auto)</label>
+                <div className="w-full bg-[#f0f0f0] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#555]">{f.ud_min}</div>
+              </div>
               <Field label="USOS" value={String(f.usos)} onChange={() => {}} disabled />
             </div>
           </Section>
@@ -231,7 +248,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
           {/* Estado */}
           <div className="flex items-center gap-3 pt-2">
-            <label className="flex items-center gap-2 text-sm text-[#aaa]">
+            <label className="flex items-center gap-2 text-sm text-[#555]">
               <input type="checkbox" checked={f.activo} onChange={e => set('activo', e.target.checked)} className="accent-accent w-4 h-4" />
               Ingrediente activo
             </label>
@@ -240,7 +257,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-red-400 text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#333355]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -253,7 +270,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#2a2a2a] border border-[#333355] rounded-lg p-4">
+    <div className="bg-[#2a2a2a] border border-[#dddddd] rounded-lg p-4">
       <h4 className="text-[11px] uppercase tracking-wider text-[#888] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>

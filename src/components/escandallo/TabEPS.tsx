@@ -31,11 +31,11 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
       </div>
 
       {!filtered.length ? (
-        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
+        <div className="bg-card border border-[#dddddd] rounded-xl p-12 text-center">
           <p className="text-[#888] text-sm">Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full" style={{ minWidth: '900px' }}>
               <thead>
@@ -60,8 +60,8 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                       <td className={tdCls + ' text-[#4a9eff] italic font-medium'}>{e.nombre}</td>
                       <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{e.unidad}</td>
-                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmtEurES(e.coste_tanda, 4)}</td>
+                      <td className={tdCls + ' text-[#555]'}>{e.unidad}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmtEurES(e.coste_tanda, 4)}</td>
                       <td className={tdCls + ' text-right text-accent font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
                       <td className={tdCls + ' text-center'}>
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
@@ -79,9 +79,9 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
   )
 }
 
-function Counter({ label, value, color = 'text-white', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+function Counter({ label, value, color = 'text-[#1a1a1a]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
   const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
-  const cls = active ? base + ' border-accent' : base + ' border-[#333355] hover:border-[#4a4a6a]'
+  const cls = active ? base + ' border-accent' : base + ' border-[#dddddd] hover:border-[#999]'
   return (
     <button onClick={onClick} type="button" className={cls}>
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>

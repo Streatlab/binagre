@@ -37,18 +37,18 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
       </div>
 
       {!filtered.length ? (
-        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
+        <div className="bg-card border border-[#dddddd] rounded-xl p-12 text-center">
           <p className="text-[#888] text-sm">Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
             <table className="w-full" style={{ minWidth: '2700px' }}>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#1e1e2e]'} style={{ minWidth: 90 }}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[#f5f5f5]'} style={{ minWidth: 90 }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#1e1e2e]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#f5f5f5]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>PROVEEDOR</th>
@@ -80,22 +80,22 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
               <tbody>
                 {filtered.map(i => {
                   const isEps = i.abv === 'EPS'
-                  const rowNameCls = isEps ? 'text-[#4a9eff] italic font-medium' : 'text-white font-medium'
+                  const rowNameCls = isEps ? 'text-[#4a9eff] italic font-medium' : 'text-[#1a1a1a] font-medium'
                   const usos = n(i.usos)
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)}
-                      className="cursor-pointer hover:bg-[#333355] transition-colors">
+                      className="cursor-pointer hover:bg-[#f0f0f0] transition-colors">
                       <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{i.iding ?? '—'}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{i.categoria ?? '—'}</td>
+                      <td className={tdCls + ' text-[#555]'}>{i.categoria ?? '—'}</td>
                       <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
                       <td className={tdCls + ' text-accent font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
-                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#4a9eff] italic' : 'text-[#ddd]')}>{i.nombre}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{getProveedor(i.abv)}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{i.marca ?? '—'}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{i.formato ?? '—'}</td>
+                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#4a9eff] italic' : 'text-[#1a1a1a]')}>{i.nombre}</td>
+                      <td className={tdCls + ' text-[#555]'}>{getProveedor(i.abv)}</td>
+                      <td className={tdCls + ' text-[#555]'}>{i.marca ?? '—'}</td>
+                      <td className={tdCls + ' text-[#555]'}>{i.formato ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{fmt(i.uds)}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{i.ud_std ?? '—'}</td>
-                      <td className={tdCls + ' text-[#aaa]'}>{i.ud_min ?? '—'}</td>
+                      <td className={tdCls + ' text-[#555]'}>{i.ud_std ?? '—'}</td>
+                      <td className={tdCls + ' text-[#555]'}>{i.ud_min ?? '—'}</td>
                       <td className={tdCls + ' text-center'}>
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>
                           {usos}
@@ -104,16 +104,16 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' text-right text-[#888]'}>{fmt(i.precio1)}</td>
                       <td className={tdCls + ' text-right text-[#888]'}>{fmt(i.precio2)}</td>
                       <td className={tdCls + ' text-right text-[#888]'}>{fmt(i.precio3)}</td>
-                      <td className={tdCls + ' text-right text-[#ddd]'}>{fmt(i.ultimo_precio ?? i.precio_activo)}</td>
+                      <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmt(i.ultimo_precio ?? i.precio_activo)}</td>
                       <td className={tdCls + ' text-center text-xs'}>
-                        <span className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#aaa]">{i.selector_precio ?? 'Último'}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#555]">{i.selector_precio ?? 'Último'}</span>
                       </td>
                       <td className={tdCls + ' text-right text-accent font-semibold'}>{fmt(i.precio_activo)}</td>
                       <td className={tdCls + ' text-right'}>{fmt(i.eur_std, 4)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_std ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{fmt(i.eur_min, 6)}</td>
                       <td className={tdCls + ' text-[#888] text-xs'}>{i.ud_min ?? '—'}</td>
-                      <td className={tdCls + ' text-xs text-[#aaa]'}>{i.tipo_merma ?? '—'}</td>
+                      <td className={tdCls + ' text-xs text-[#555]'}>{i.tipo_merma ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}</td>
                       <td className={tdCls + ' text-right text-orange-400'}>{i.merma_ef != null ? fmt(i.merma_ef, 4) : '—'}</td>
                       <td className={tdCls + ' text-right text-accent'}>{fmt(i.coste_neto_std, 4)}</td>
@@ -132,9 +132,9 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
   )
 }
 
-function Counter({ label, value, color = 'text-white', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+function Counter({ label, value, color = 'text-[#1a1a1a]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
   const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
-  const cls = active ? base + ' border-accent' : base + ' border-[#333355] hover:border-[#4a4a6a]'
+  const cls = active ? base + ' border-accent' : base + ' border-[#dddddd] hover:border-[#999]'
   return (
     <button onClick={onClick} type="button" className={cls}>
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>

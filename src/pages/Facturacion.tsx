@@ -268,7 +268,7 @@ export default function Facturacion() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-4">Facturacion</h2>
+      <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Facturacion</h2>
 
       {/* Global KPIs */}
       {!loading && !error && (
@@ -288,7 +288,7 @@ export default function Facturacion() {
               key={t.key}
               onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                tab === t.key ? 'bg-[#B01D23] text-white' : 'text-neutral-400 hover:text-white'
+                tab === t.key ? 'bg-[#B01D23] text-[#1a1a1a]' : 'text-[#555] hover:text-[#1a1a1a]'
               }`}
             >
               {t.label}
@@ -299,7 +299,7 @@ export default function Facturacion() {
         <select
           value={canal}
           onChange={e => setCanal(e.target.value as CanalFilter)}
-          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-white"
+          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[#1a1a1a]"
         >
           {CANAL_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -396,11 +396,11 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select value={mesFilter} onChange={e => setMesFilter(e.target.value)}
-          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-white">
+          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[#1a1a1a]">
           <option value="todos">Todos los meses</option>
           {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <button onClick={exportar} className="px-3 py-2 text-xs text-neutral-400 border border-border rounded-lg hover:text-white transition">
+        <button onClick={exportar} className="px-3 py-2 text-xs text-[#555] border border-border rounded-lg hover:text-[#1a1a1a] transition">
           Exportar CSV
         </button>
         <button onClick={onAdd}
@@ -424,7 +424,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
             <thead>
               {showBreakdown ? (
                 <>
-                  <tr className="border-b border-border text-neutral-500 text-xs uppercase tracking-wide">
+                  <tr className="border-b border-border text-[#555] text-xs uppercase tracking-wide">
                     <th rowSpan={2} className="px-3 py-2 text-left sticky left-0 bg-card z-10">Fecha</th>
                     <th rowSpan={2} className="px-3 py-2 text-left">Serv.</th>
                     {COLS.map(c => (
@@ -432,7 +432,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                     ))}
                     <th colSpan={2} className="px-2 py-2 text-center border-l border-border text-accent font-bold">Total</th>
                   </tr>
-                  <tr className="border-b border-border text-neutral-600 text-[10px] uppercase tracking-wider">
+                  <tr className="border-b border-border text-[#555] text-[10px] uppercase tracking-wider">
                     {COLS.map(c => (
                       <Fragment key={c.label}>
                         <th className="px-2 py-1.5 text-right border-l border-border">Ped</th>
@@ -444,7 +444,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                   </tr>
                 </>
               ) : (
-                <tr className="border-b border-border text-neutral-500 text-xs uppercase tracking-wide">
+                <tr className="border-b border-border text-[#555] text-xs uppercase tracking-wide">
                   <th className="px-3 py-2 text-left sticky left-0 bg-card z-10">Fecha</th>
                   <th className="px-3 py-2 text-left">Serv.</th>
                   <th className="px-3 py-2 text-right">Pedidos</th>
@@ -456,7 +456,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
               {rows.map(r => (
                 <tr key={r.id} onClick={() => onEdit(r)}
                   className="hover:bg-white/[0.03] transition-colors cursor-pointer">
-                  <td className="px-3 py-2 text-white sticky left-0 bg-card">{r.fecha}</td>
+                  <td className="px-3 py-2 text-[#1a1a1a] sticky left-0 bg-card">{r.fecha}</td>
                   <td className="px-3 py-2"><ServicioBadge s={r.servicio} /></td>
                   {showBreakdown ? (
                     <>
@@ -465,7 +465,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                         const b = (r[c.bru] as number) || 0
                         return (
                           <Fragment key={c.label}>
-                            <td className="px-2 py-2 text-right text-neutral-400 tabular-nums border-l border-border">
+                            <td className="px-2 py-2 text-right text-[#555] tabular-nums border-l border-border">
                               {p > 0 ? p : <Dash />}
                             </td>
                             <td className="px-2 py-2 text-right text-neutral-300 tabular-nums">
@@ -474,12 +474,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                           </Fragment>
                         )
                       })}
-                      <td className="px-2 py-2 text-right text-white font-medium tabular-nums border-l border-border">{num(r.total_pedidos)}</td>
+                      <td className="px-2 py-2 text-right text-[#1a1a1a] font-medium tabular-nums border-l border-border">{num(r.total_pedidos)}</td>
                       <td className="px-2 py-2 text-right text-accent font-semibold tabular-nums">{eur(r.total_bruto)}</td>
                     </>
                   ) : (
                     <>
-                      <td className="px-3 py-2 text-right text-white tabular-nums">{num(getPed(r, canal))}</td>
+                      <td className="px-3 py-2 text-right text-[#1a1a1a] tabular-nums">{num(getPed(r, canal))}</td>
                       <td className="px-3 py-2 text-right text-accent font-medium tabular-nums">{eur(getBru(r, canal))}</td>
                     </>
                   )}
@@ -497,12 +497,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                         <td className="px-2 py-2.5 text-right text-neutral-200 tabular-nums">{eur(totals[c.bru] as number)}</td>
                       </Fragment>
                     ))}
-                    <td className="px-2 py-2.5 text-right text-white tabular-nums border-l border-border">{num(totals.total_pedidos)}</td>
+                    <td className="px-2 py-2.5 text-right text-[#1a1a1a] tabular-nums border-l border-border">{num(totals.total_pedidos)}</td>
                     <td className="px-2 py-2.5 text-right text-accent tabular-nums">{eur(totals.total_bruto)}</td>
                   </>
                 ) : (
                   <>
-                    <td className="px-3 py-2.5 text-right text-white tabular-nums">{num(getPed(totals, canal))}</td>
+                    <td className="px-3 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(totals, canal))}</td>
                     <td className="px-3 py-2.5 text-right text-accent tabular-nums">{eur(getBru(totals, canal))}</td>
                   </>
                 )}
@@ -543,7 +543,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
         <MiniKpi label="Semanas" valor={String(rows.length)} />
         <MiniKpi label="Bruto" valor={eur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={num(getPed(totals, canal))} />
-        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-neutral-400 border border-border rounded-lg hover:text-white transition">
+        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[#555] border border-border rounded-lg hover:text-[#1a1a1a] transition">
           Exportar CSV
         </button>
       </div>
@@ -552,7 +552,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap">
             <thead>
-              <tr className="border-b border-border text-neutral-500 text-xs uppercase tracking-wide">
+              <tr className="border-b border-border text-[#555] text-xs uppercase tracking-wide">
                 <th className="px-4 py-3 text-left">Sem</th>
                 <th className="px-4 py-3 text-left">Periodo</th>
                 <th className="px-3 py-3 text-right">Dias</th>
@@ -570,13 +570,13 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
                 return (
                   <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)}
                     className="hover:bg-white/[0.03] transition-colors cursor-pointer">
-                    <td className="px-4 py-2.5 text-white font-medium">S{r.week}</td>
-                    <td className="px-4 py-2.5 text-neutral-400">{r.periodo}</td>
-                    <td className="px-3 py-2.5 text-right text-neutral-500 tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-white tabular-nums">{num(ped)}</td>
+                    <td className="px-4 py-2.5 text-[#1a1a1a] font-medium">S{r.week}</td>
+                    <td className="px-4 py-2.5 text-[#555]">{r.periodo}</td>
+                    <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{r.dias}</td>
+                    <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(ped)}</td>
                     <td className="px-4 py-2.5 text-right text-accent font-medium tabular-nums">{eur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
-                      <td key={c.label} className="px-3 py-2.5 text-right text-neutral-400 tabular-nums border-l border-border">
+                      <td key={c.label} className="px-3 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                         {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
                       </td>
                     ))}
@@ -587,7 +587,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-accent" colSpan={3}>TOTAL</td>
-                <td className="px-4 py-2.5 text-right text-white tabular-nums">{num(getPed(totals, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(totals, canal))}</td>
                 <td className="px-4 py-2.5 text-right text-accent tabular-nums">{eur(getBru(totals, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
@@ -599,7 +599,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
           </table>
         </div>
       </div>
-      <p className="text-[10px] text-neutral-600 mt-2">Haz clic en una semana para ver el detalle diario</p>
+      <p className="text-[10px] text-[#555] mt-2">Haz clic en una semana para ver el detalle diario</p>
     </>
   )
 }
@@ -650,14 +650,14 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {years.length > 1 && (
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-white">
+            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[#1a1a1a]">
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
         <MiniKpi label="Bruto anual" valor={eur(getBru(yearTotal, canal))} />
         <MiniKpi label="Pedidos" valor={num(getPed(yearTotal, canal))} />
         <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? eur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
-        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-neutral-400 border border-border rounded-lg hover:text-white transition">
+        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[#555] border border-border rounded-lg hover:text-[#1a1a1a] transition">
           Exportar CSV
         </button>
       </div>
@@ -666,7 +666,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         <div className="overflow-x-auto">
           <table className="w-full text-sm whitespace-nowrap">
             <thead>
-              <tr className="border-b border-border text-neutral-500 text-xs uppercase tracking-wide">
+              <tr className="border-b border-border text-[#555] text-xs uppercase tracking-wide">
                 <th className="px-4 py-3 text-left">Mes</th>
                 <th className="px-3 py-3 text-right">Dias</th>
                 <th className="px-4 py-3 text-right">Pedidos</th>
@@ -684,16 +684,16 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
                 const bru = getBru(r, canal)
                 return (
                   <tr key={r.mes} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-2.5 text-white font-medium">{MES_NOMBRE[r.mes]}</td>
-                    <td className="px-3 py-2.5 text-right text-neutral-500 tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-white tabular-nums">{num(ped)}</td>
+                    <td className="px-4 py-2.5 text-[#1a1a1a] font-medium">{MES_NOMBRE[r.mes]}</td>
+                    <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{r.dias}</td>
+                    <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(ped)}</td>
                     <td className="px-4 py-2.5 text-right text-accent font-medium tabular-nums">{eur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
-                      <td key={c.label} className="px-3 py-2.5 text-right text-neutral-400 tabular-nums border-l border-border">
+                      <td key={c.label} className="px-3 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                         {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
                       </td>
                     ))}
-                    <td className="px-4 py-2.5 text-right text-neutral-400 tabular-nums border-l border-border">
+                    <td className="px-4 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                       {r.dias > 0 ? eur(r.media_diaria) : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right border-l border-border">
@@ -706,15 +706,15 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-accent">{selYear} TOTAL</td>
-                <td className="px-3 py-2.5 text-right text-neutral-400 tabular-nums">{yearTotal.dias}</td>
-                <td className="px-4 py-2.5 text-right text-white tabular-nums">{num(getPed(yearTotal, canal))}</td>
+                <td className="px-3 py-2.5 text-right text-[#555] tabular-nums">{yearTotal.dias}</td>
+                <td className="px-4 py-2.5 text-right text-[#1a1a1a] tabular-nums">{num(getPed(yearTotal, canal))}</td>
                 <td className="px-4 py-2.5 text-right text-accent tabular-nums">{eur(getBru(yearTotal, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
                     {eur(yearTotal[c.bru] as number)}
                   </td>
                 ))}
-                <td className="px-4 py-2.5 text-right text-neutral-400 tabular-nums border-l border-border">
+                <td className="px-4 py-2.5 text-right text-[#555] tabular-nums border-l border-border">
                   {yearTotal.dias > 0 ? eur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
                 </td>
                 <td className="px-4 py-2.5 border-l border-border" />
@@ -804,23 +804,23 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="text-white font-semibold">{isEdit ? 'Editar dia' : 'Anadir dia'}</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white text-xl leading-none">&times;</button>
+          <h3 className="text-[#1a1a1a] font-semibold">{isEdit ? 'Editar dia' : 'Anadir dia'}</h3>
+          <button onClick={onClose} className="text-[#555] hover:text-[#1a1a1a] text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Fecha</label>
+              <label className="block text-xs text-[#555] mb-1">Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-white" />
+                className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#1a1a1a]" />
             </div>
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Servicio</label>
+              <label className="block text-xs text-[#555] mb-1">Servicio</label>
               <div className="flex gap-1">
                 {SERVICIOS.map(s => (
                   <button key={s} type="button" onClick={() => setServicio(s)}
                     className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      servicio === s ? 'bg-accent text-black' : 'bg-base border border-border text-neutral-400 hover:text-white'
+                      servicio === s ? 'bg-accent text-black' : 'bg-base border border-border text-[#555] hover:text-[#1a1a1a]'
                     }`}>{s}</button>
                 ))}
               </div>
@@ -828,19 +828,19 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           </div>
           {FORM_COLS.map(c => (
             <div key={c.label} className="bg-base/50 border border-border rounded-lg p-3">
-              <p className="text-xs text-neutral-400 font-medium mb-2">{c.label}</p>
+              <p className="text-xs text-[#555] font-medium mb-2">{c.label}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] text-neutral-600 mb-0.5">Pedidos</label>
+                  <label className="block text-[10px] text-[#555] mb-0.5">Pedidos</label>
                   <input type="number" min="0" placeholder="0" value={fields[c.ped]}
                     onChange={e => set(c.ped, e.target.value)}
-                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-[#1a1a1a]" />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-neutral-600 mb-0.5">Bruto (EUR)</label>
+                  <label className="block text-[10px] text-[#555] mb-0.5">Bruto (EUR)</label>
                   <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
                     onChange={e => set(c.bru, e.target.value)}
-                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-[#1a1a1a]" />
                 </div>
               </div>
             </div>
@@ -848,7 +848,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           {formError && <p className="text-red-400 text-sm">{formError}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg text-sm text-neutral-400 border border-border hover:text-white transition">Cancelar</button>
+              className="flex-1 py-2.5 rounded-lg text-sm text-[#555] border border-border hover:text-[#1a1a1a] transition">Cancelar</button>
             <button type="submit" disabled={saving}
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-accent text-black hover:brightness-110 transition disabled:opacity-50">
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -867,9 +867,9 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
 function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-[#555] uppercase tracking-wide">{label}</p>
       <p className="text-2xl font-bold text-accent mt-1">{valor}</p>
-      <p className="text-xs text-neutral-600 mt-0.5">{sub}</p>
+      <p className="text-xs text-[#555] mt-0.5">{sub}</p>
     </div>
   )
 }
@@ -877,7 +877,7 @@ function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: str
 function MiniKpi({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="bg-card border border-border rounded-lg px-3 py-2">
-      <p className="text-[10px] text-neutral-500 uppercase">{label}</p>
+      <p className="text-[10px] text-[#555] uppercase">{label}</p>
       <p className="text-sm font-bold text-accent">{valor}</p>
     </div>
   )
@@ -887,7 +887,7 @@ function Loader() {
   return (
     <div className="bg-card border border-border rounded-xl p-12 text-center">
       <div className="inline-block h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      <p className="text-neutral-500 text-sm mt-3">Cargando...</p>
+      <p className="text-[#555] text-sm mt-3">Cargando...</p>
     </div>
   )
 }
@@ -904,7 +904,7 @@ function ErrorBox({ msg, onRetry }: { msg: string; onRetry: () => void }) {
 function EmptyState({ label, onAdd }: { label: string; onAdd?: () => void }) {
   return (
     <div className="bg-card border border-border rounded-xl p-12 text-center">
-      <p className="text-neutral-500 text-sm">{label}</p>
+      <p className="text-[#555] text-sm">{label}</p>
       {onAdd && (
         <button onClick={onAdd}
           className="mt-4 px-5 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition">
@@ -933,5 +933,5 @@ function DesvBadge({ pct }: { pct: number }) {
 }
 
 function Dash() {
-  return <span className="text-neutral-700">—</span>
+  return <span className="text-[#555]">—</span>
 }

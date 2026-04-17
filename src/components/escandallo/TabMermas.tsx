@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Merma } from './types'
-import { thCls, tdCls, fmt, fmtPct, btnPrimary } from './types'
+import { thCls, tdCls, fmt, fmtPct, n, btnPrimary } from './types'
 
 interface Props {
   mermas: Merma[]
@@ -8,29 +8,43 @@ interface Props {
   onNew?: () => void
 }
 
+type Filter = 'todos' | 'enuso' | 'sinuso'
+
 export default function TabMermas({ mermas, onSelect, onNew }: Props) {
+  const [filter, setFilter] = useState<Filter>('todos')
   const total = useMemo(() => mermas.length, [mermas])
+  // Usos como proxy: si tiene porciones calculadas o num_porciones > 0 se considera en uso
+  const enUso = useMemo(() => mermas.filter(m => n((m as any).usos) > 0 || n(m.num_porciones) > 0).length, [mermas])
+  const sinUso = total - enUso
+  const filtered = useMemo(() => {
+    if (filter === 'enuso') return mermas.filter(m => n((m as any).usos) > 0 || n(m.num_porciones) > 0)
+    if (filter === 'sinuso') return mermas.filter(m => !(n((m as any).usos) > 0 || n(m.num_porciones) > 0))
+    return mermas
+  }, [mermas, filter])
+  const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <Counter label="TOTAL MERMAS" value={total} />
+        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+        <Counter label="EN USO" value={enUso} color="text-green-600" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color="text-red-600" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nueva Merma</button>}
       </div>
 
-      {!mermas.length ? (
-        <div className="bg-card border border-[#333355] rounded-xl p-12 text-center">
-          <p className="text-[#888] text-sm">Sin mermas</p>
+      {!filtered.length ? (
+        <div className="bg-card border border-[#dddddd] rounded-xl p-12 text-center">
+          <p className="text-[#888] text-sm">Sin mermas{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#333355] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
             <table className="w-full" style={{ minWidth: '2400px' }}>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#1e1e2e]'} style={{ minWidth: 90 }}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[#f5f5f5]'} style={{ minWidth: 90 }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#1e1e2e]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#f5f5f5]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>MARCA</th>
@@ -60,24 +74,24 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {mermas.map(m => (
-                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[#333355] transition-colors">
+                {filtered.map(m => (
+                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[#f0f0f0] transition-colors">
                     <td className={tdCls + ' sticky left-0 z-10 text-[#888] font-mono text-xs'}>{m.iding ?? '—'}</td>
-                    <td className={tdCls + ' text-[#aaa]'}>{m.categoria ?? '—'}</td>
-                    <td className={tdCls + ' sticky z-10 text-white font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555]'}>{m.categoria ?? '—'}</td>
+                    <td className={tdCls + ' sticky z-10 text-[#1a1a1a] font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
                     <td className={tdCls + ' text-accent font-mono text-xs font-bold'}>{m.abv ?? '—'}</td>
                     <td className={tdCls + ' max-w-[180px] truncate'}>{m.nombre}</td>
-                    <td className={tdCls + ' text-[#aaa]'}>{m.marca ?? '—'}</td>
-                    <td className={tdCls + ' text-[#aaa]'}>{m.formato ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555]'}>{m.marca ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555]'}>{m.formato ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.uds)}</td>
-                    <td className={tdCls + ' text-[#aaa]'}>{m.ud_std ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555]'}>{m.ud_std ?? '—'}</td>
                     <td className={tdCls + ' text-right text-accent font-medium'}>{fmt(m.precio_total)}</td>
-                    <td className={tdCls + ' text-[#aaa] text-xs'}>{m.sp1_nombre ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555] text-xs'}>{m.sp1_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? (m.sp1_pct * 100).toFixed(1) + '%' : '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-green-400">Sí</span> : <span className="text-[#666]">No</span>}</td>
-                    <td className={tdCls + ' text-[#aaa] text-xs'}>{m.sp2_nombre ?? '—'}</td>
+                    <td className={tdCls + ' text-[#555] text-xs'}>{m.sp2_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? (m.sp2_pct * 100).toFixed(1) + '%' : '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
@@ -102,11 +116,13 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
   )
 }
 
-function Counter({ label, value, color = 'text-white' }: { label: string; value: number; color?: string }) {
+function Counter({ label, value, color = 'text-[#1a1a1a]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+  const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
+  const cls = active ? base + ' border-accent' : base + ' border-[#dddddd] hover:border-[#999]'
   return (
-    <div className="bg-card border border-[#333355] rounded-lg px-4 py-2">
+    <button onClick={onClick} type="button" className={cls}>
       <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
-    </div>
+    </button>
   )
 }
