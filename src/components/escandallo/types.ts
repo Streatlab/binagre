@@ -202,37 +202,41 @@ export const fmtDateES = (v: string | Date | null | undefined): string => {
 
 /** Semáforo para márgenes: verde >10%, amarillo >=0%, rojo <0% */
 export const semaforoClasses = (pct: number) => {
-  if (pct > 10) return 'bg-green-500/10 text-[#16a34a]'
-  if (pct >= 0) return 'bg-amber-500/10 text-[#d97706]'
-  return 'bg-red-500/10 text-[#dc2626]'
+  if (pct > 10) return 'bg-[#1e3a1e] text-[#6ee7b7]'
+  if (pct >= 0) return 'bg-[#3a2a0a] text-[#fbbf24]'
+  return 'bg-[#3a1a1a] text-[#fca5a5]'
 }
 
-/** Semáforo USOS: rojo ≤1, amarillo ≤4, verde >4 */
+/** Semáforo USOS: sin usos=gris neutro, en uso=rojo corporativo */
 export const semaforoUsos = (usos: number) => {
-  if (usos <= 1) return 'bg-red-500/10 text-[#dc2626] border-red-500/30'
-  if (usos <= 4) return 'bg-amber-500/10 text-[#d97706] border-amber-500/30'
-  return 'bg-green-500/10 text-[#16a34a] border-green-500/30'
+  if (usos === 0) return 'bg-[#2e3347] text-[#7080a8] border-transparent'
+  return 'bg-[#B01D23] text-white border-transparent'
 }
 
-/* ── CSS compartido — TEMA CLARO (#f5f5f5 base, #ffffff card, accent amarillo) ── */
+/* ── CSS compartido — DESIGN SYSTEM (fondo oscuro azul-púrpura) ── */
 
 export const inputCls =
-  'w-full bg-white border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#999] focus:outline-none focus:border-[#1a1a1a]'
+  'w-full bg-[#3a4058] border border-[#5a6480] rounded-md px-3 py-2 text-[13px] text-[#f0f0ff] placeholder:text-[#7a84a8] focus:outline-none focus:border-accent font-sans'
 
-/** Cabecera de tabla: fondo #f0f0f0 con borde inferior accent amarillo sobre #1a1a1a */
+/** Cabecera de tabla — Oswald uppercase */
 export const thCls =
-  'px-3 py-2.5 text-[11px] uppercase tracking-wider text-[#1a1a1a] font-semibold text-left whitespace-nowrap bg-[#f0f0f0] border-b-2 border-[#1a1a1a]'
+  'px-3.5 py-2.5 text-[11px] uppercase tracking-[0.1em] text-[#7080a8] font-semibold text-left whitespace-nowrap bg-[#353a50] border-b border-[#4a5270] font-ui'
 
 export const tdCls =
-  'px-3 py-2.5 text-[13px] text-[#1a1a1a] tabular-nums whitespace-nowrap border-b border-[#dddddd]'
+  'px-3.5 py-2.5 text-[13px] text-[#d8d8f0] tabular-nums whitespace-nowrap border-b border-[#3e4460] font-sans'
 
-/** Botón Guardar principal: fondo oscuro con acento amarillo */
+/** Botón Guardar (Oswald + rojo corporativo) */
 export const btnPrimary =
-  'px-4 py-2 bg-[#1a1a1a] text-[#1a1a1a] text-sm font-semibold rounded-lg hover:brightness-110 transition border border-[#1a1a1a]'
+  'px-[22px] py-2 bg-[#B01D23] text-white text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
 
+/** Botón Añadir (Oswald + amarillo) */
+export const btnAdd =
+  'px-[22px] py-2 bg-accent text-[#1a1a1a] text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
+
+/** Botón Cancelar (Lexend + gris neutro) */
 export const btnSecondary =
-  'px-4 py-2 text-sm text-[#555] bg-white border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
+  'px-[22px] py-2 bg-[#555e7a] border border-[#6a7490] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
 
-/** Tab activo: fondo oscuro + acento amarillo */
-export const tabActiveCls = 'bg-[#1a1a1a] text-[#1a1a1a]'
-export const tabInactiveCls = 'text-[#555] hover:text-[#1a1a1a]'
+/** Tab activo/inactivo */
+export const tabActiveCls = 'bg-accent text-[#1a1a1a] border-accent font-ui uppercase tracking-[0.06em]'
+export const tabInactiveCls = 'text-[#9090b8] border-[#4a5270] hover:text-[#f0f0ff] hover:border-[#6070a0] font-ui uppercase tracking-[0.06em]'

@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 
 const ACCENT = '#e8f442'
+const RED = '#B01D23'
 
 const modulos = [
   { path: '/',              label: 'Dashboard',     icon: '⬡', perfiles: ['admin', 'cocina'] },
@@ -14,17 +16,30 @@ const modulos = [
   { path: '/running',       label: 'Running',       icon: '↗', perfiles: ['admin'] },
 ]
 
-/** Logo SL — círculo rojo corporativo */
 function LogoSL({ small = false }: { small?: boolean }) {
   const size = small ? 32 : 36
+  const [fallback, setFallback] = useState(false)
+  if (fallback) {
+    return (
+      <div
+        style={{
+          width: size, height: size, borderRadius: '50%',
+          background: RED, color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Impact, sans-serif', fontSize: 13, letterSpacing: '0.02em',
+          flexShrink: 0,
+        }}
+      >SL</div>
+    )
+  }
   return (
     <img
-      src="/logo.png"
-      onError={e => { (e.currentTarget as HTMLImageElement).src = '/logo.svg' }}
+      src="/data/STREAT LAB LOGO-04.jpg"
+      onError={() => setFallback(true)}
       alt="Streat Lab"
       width={size}
       height={size}
-      style={{ width: size, height: size, objectFit: 'contain' }}
+      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
     />
   )
 }
@@ -32,46 +47,40 @@ function LogoSL({ small = false }: { small?: boolean }) {
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
-
   const visibles = modulos.filter(m => usuario && m.perfiles.includes(usuario.perfil))
-  const width = collapsed ? 'w-14' : 'w-[220px]'
+  const width = collapsed ? 'w-14' : 'w-[200px]'
 
   return (
     <>
-      {open && (
-        <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />
-      )}
+      {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[#f5f5f5] border-r border-[#dddddd]
+          fixed top-0 left-0 z-40 h-full bg-[#1e2233] border-r border-[#3a4058]
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
           ${width}
         `}
       >
-        {/* Header con logo SL rojo */}
-        <div className="p-3 border-b border-[#dddddd] flex items-center justify-between min-h-[72px]">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* Header logo + ERP */}
+        <div className="p-3 border-b border-[#3a4058] flex items-center justify-between min-h-[72px]">
+          <div className="flex items-center gap-3 min-w-0">
             <LogoSL small={collapsed} />
             {!collapsed && (
-              <div className="min-w-0">
-                <h1 className="text-[#1a1a1a] font-bold text-base tracking-tight truncate leading-tight">Streat Lab</h1>
-                <p className="text-[10px] text-[#666] truncate">ERP</p>
-              </div>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#f0f0ff', letterSpacing: '0.08em' }}>
+                ERP
+              </span>
             )}
           </div>
           <button
             onClick={toggle}
-            className="p-1.5 text-[#666] hover:text-[#1a1a1a] hover:bg-white/5 rounded transition-colors hidden lg:block flex-shrink-0"
+            className="p-1.5 text-[#7080a8] hover:text-[#f0f0ff] hover:bg-[#484f66]/5 rounded transition-colors hidden lg:block flex-shrink-0"
             title={collapsed ? 'Expandir' : 'Colapsar'}
-          >
-            {collapsed ? '»' : '«'}
-          </button>
+          >{collapsed ? '»' : '«'}</button>
         </div>
 
-        {/* Nav — item activo con borde izquierdo accent amarillo */}
+        {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
           {visibles.map(m => (
             <NavLink
@@ -80,14 +89,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               end={m.path === '/'}
               onClick={onClose}
               title={collapsed ? m.label : undefined}
-              style={({ isActive }) => isActive ? { borderLeft: `3px solid ${ACCENT}` } : { borderLeft: '3px solid transparent' }}
+              style={({ isActive }) => ({
+                fontFamily: 'Oswald, sans-serif',
+                fontSize: 14,
+                fontWeight: 500,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
+                background: isActive ? '#262d42' : 'transparent',
+                color: isActive ? '#f0f0ff' : '#8090b8',
+              })}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
-                  collapsed ? 'justify-center' : ''
-                } ${
-                  isActive
-                    ? 'text-[#1a1a1a] bg-white'
-                    : 'text-[#555] hover:text-[#1a1a1a] hover:bg-[#f9f9f9]'
+                `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
+                  isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
                 }`
               }
             >
@@ -98,27 +112,26 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         </nav>
 
         {/* Footer user */}
-        <div className={`p-3 border-t border-[#dddddd] ${collapsed ? 'text-center' : ''}`}>
+        <div
+          className={`p-3 border-t border-[#3a4058] ${collapsed ? 'text-center' : ''}`}
+          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#5060a0' }}
+        >
           {!collapsed ? (
             <>
-              <div className="text-xs text-[#888] mb-2 truncate">
-                {usuario?.nombre} — <span className="text-[#1a1a1a]">{usuario?.perfil}</span>
+              <div className="mb-2 truncate">
+                {usuario?.nombre} — <span className="text-accent">{usuario?.perfil}</span>
               </div>
               <button
                 onClick={logout}
-                className="text-xs text-[#888] hover:text-[#dc2626] transition-colors"
-              >
-                Cerrar sesión
-              </button>
+                className="text-[#5060a0] hover:text-[#ff6060] transition-colors text-xs"
+              >Cerrar sesión</button>
             </>
           ) : (
             <button
               onClick={logout}
-              className="text-[#888] hover:text-[#dc2626] transition-colors text-sm"
+              className="text-[#5060a0] hover:text-[#ff6060] transition-colors text-sm"
               title="Cerrar sesión"
-            >
-              ⏏
-            </button>
+            >⏏</button>
           )}
         </div>
       </aside>

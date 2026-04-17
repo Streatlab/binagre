@@ -1,0 +1,348 @@
+/* ═══════════════════════════════════════════════════════════
+   DESIGN SYSTEM — STREAT LAB ERP
+   Fuente única de verdad para colores y tipografías.
+   No inventar colores ni fuentes fuera de este archivo.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Fondos ── */
+  --bg-app:        #2e3347;
+  --bg-sidebar:    #1e2233;
+  --bg-card:       #484f66;
+  --bg-input:      #3a4058;
+  --bg-input-ro:   #333848;
+  --bg-input-calc: #3d2828;
+  --bg-row-odd:    #484f66;
+  --bg-row-even:   #404558;
+  --bg-table-head: #353a50;
+  --bg-counter:    #3a4058;
+  --bg-cancel:     #555e7a;
+
+  /* ── Bordes ── */
+  --border:        #4a5270;
+  --border-calc:   #884040;
+  --border-focus:  #e8f442;
+  --border-sep:    #3e4460;
+
+  /* ── Texto ── */
+  --text-primary:    #f0f0ff;
+  --text-secondary:  #c8d0e8;
+  --text-calc:       #ffffff;
+  --text-muted:      #7080a8;
+  --text-input-ro:   #7080a8;
+  --text-input-calc: #ffcccc;
+  --text-cancel:     #e0e0f0;
+  --text-nav:        #8090b8;
+  --text-label-sec:  #a0b0d0;
+
+  /* ── Acentos ── */
+  --accent-yellow: #e8f442;
+  --accent-red:    #B01D23;
+  --accent-eps:    #66aaff;
+  --accent-rec:    #f5a623;
+  --accent-val:    #e8f442;
+
+  /* ── Fuentes ── */
+  --font-body:  'Lexend', system-ui, sans-serif;
+  --font-ui:    'Oswald', system-ui, sans-serif;
+  --font-title: 'Impact', 'Oswald', sans-serif;
+}
+
+/* ── BODY BASE ── */
+html, body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+/* ── Títulos de página ── */
+.page-title {
+  font-family: var(--font-title);
+  font-size: 28px;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  margin-bottom: 20px;
+  font-weight: normal;
+}
+
+/* ── Sidebar ── */
+.ds-sidebar {
+  width: 200px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--bg-input);
+}
+.ds-sidebar .nav-item {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-nav);
+  padding: 11px 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-left: 3px solid transparent;
+}
+.ds-sidebar .nav-item.active {
+  color: var(--text-primary);
+  border-left-color: var(--accent-yellow);
+  background: #262d42;
+}
+.ds-sidebar .nav-user {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: #5060a0;
+  margin-top: auto;
+  border-top: 1px solid var(--bg-input);
+}
+
+/* ── Tabs ── */
+.ds-tab {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 18px;
+  border-radius: 6px;
+  color: #9090b8;
+  background: transparent;
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ds-tab:hover { color: var(--text-primary); border-color: #6070a0; }
+.ds-tab.active {
+  background: var(--accent-yellow);
+  color: #1a1a1a;
+  border-color: var(--accent-yellow);
+}
+
+/* ── Counters / KPI ── */
+.ds-counter {
+  background: var(--bg-counter);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  text-align: left;
+  user-select: none;
+}
+.ds-counter:hover { border-color: #6070a0; }
+.ds-counter.active { border-color: var(--accent-yellow); }
+.ds-counter .label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.ds-counter .value {
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ds-counter .value.eps { color: var(--accent-eps); }
+.ds-counter .value.rec { color: var(--accent-rec); }
+.ds-counter .sub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: #6070a0;
+}
+
+/* ── Tablas ── */
+.ds-table-wrap {
+  background: var(--bg-row-even);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.ds-table thead th {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--bg-table-head);
+  padding: 9px 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+.ds-table tbody td {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #d8d8f0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-sep);
+  white-space: nowrap;
+}
+.ds-table tbody tr:nth-child(odd)  { background: var(--bg-row-odd); }
+.ds-table tbody tr:nth-child(even) { background: var(--bg-row-even); }
+.ds-table tbody tr:hover { background: #4f5874 !important; }
+
+.ds-eps-name { color: var(--accent-eps); font-weight: 700; font-style: italic; }
+.ds-rec-name { color: var(--accent-rec); font-weight: 700; font-style: italic; }
+.ds-val-accent { color: var(--accent-val); font-weight: 500; }
+.ds-muted { color: var(--text-muted); }
+
+.ds-badge-usos-zero {
+  background: var(--bg-app);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 20px;
+}
+.ds-badge-usos {
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 20px;
+}
+
+/* ── Modales ── */
+.ds-modal {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+}
+.ds-modal-title {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+.ds-modal-id {
+  background: var(--accent-yellow);
+  color: #1a1a1a;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.ds-section-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-label-sec);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #5a6280;
+  margin-top: 16px;
+  margin-bottom: 10px;
+}
+
+/* ── Inputs ── */
+.ds-input {
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--bg-input);
+  border: 1px solid #5a6480;
+  color: var(--text-primary);
+  padding: 7px 9px;
+  border-radius: 6px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ds-input:focus { border-color: var(--border-focus); }
+.ds-input::placeholder { color: #7a84a8; }
+
+.ds-input-ro {
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--bg-input-ro);
+  border: 1px solid var(--border-sep);
+  color: var(--text-input-ro);
+  padding: 7px 9px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.ds-input-calc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--bg-input-calc);
+  border: 1px solid var(--border-calc);
+  color: var(--text-input-calc);
+  font-weight: 500;
+  padding: 7px 9px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+/* ── Labels ── */
+.ds-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  display: block;
+}
+.ds-label-calc {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-calc);
+  font-weight: 500;
+  margin-bottom: 5px;
+  display: block;
+}
+.ds-label-calc::after {
+  content: ' ·';
+  color: #cc4444;
+  font-weight: 700;
+}
+
+/* ── Botones ── */
+.ds-btn-save {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent-red);
+  color: #fff;
+  padding: 8px 22px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ds-btn-save:hover { filter: brightness(1.1); }
+.ds-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ds-btn-add {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent-yellow);
+  color: #1a1a1a;
+  padding: 8px 22px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ds-btn-add:hover { filter: brightness(1.1); }
+
+.ds-btn-cancel {
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--bg-cancel);
+  border: 1px solid #6a7490;
+  color: var(--text-cancel);
+  padding: 8px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ds-btn-cancel:hover { filter: brightness(1.15); }
+
+/* ── Scrollbar ── */
+* { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-app); }
+::-webkit-scrollbar { height: 10px; width: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-app); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #5a6480; }

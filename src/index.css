@@ -1,51 +1,24 @@
 @import "tailwindcss";
+@import "./styles/design-system.css";
 
 @theme {
-  --color-base: #f5f5f5;
-  --color-card: #ffffff;
-  --color-card-alt: #f9f9f9;
-  --color-sidebar: #f0f0f0;
-  --color-section: #f0f0f0;
-  --color-border: #dddddd;
-  --color-border-strong: #cccccc;
-  --color-accent: #e8f442;
-  --color-accent-bg: #1a1a1a;
-  --color-text: #1a1a1a;
-  --color-muted: #555555;
-  --color-hover: #eef2ff;
-  --color-eps: #2563eb;
-  --color-red-corp: #B01D23;
-  --font-sans: "Arial", system-ui, sans-serif;
+  /* Puentes Tailwind → design system tokens */
+  --color-base:        #2e3347;
+  --color-card:        #484f66;
+  --color-sidebar:     #1e2233;
+  --color-border:      #4a5270;
+  --color-accent:      #e8f442;
+  --color-accent-red:  #B01D23;
+  --color-eps:         #66aaff;
+  --color-rec:         #f5a623;
+  --color-text:        #f0f0ff;
+  --color-muted:       #7080a8;
+  --font-sans:         "Lexend", system-ui, sans-serif;
+  --font-ui:           "Oswald", system-ui, sans-serif;
+  --font-title:        "Impact", "Oswald", sans-serif;
 }
 
-html, body {
-  background: #f5f5f5;
-  color: #1a1a1a;
-  font-family: Arial, system-ui, sans-serif;
-}
-
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #cccccc #f5f5f5;
-}
-
-/* Scrollbar visible en tablas */
-.overflow-x-auto::-webkit-scrollbar, .overflow-y-auto::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
-}
-.overflow-x-auto::-webkit-scrollbar-track, .overflow-y-auto::-webkit-scrollbar-track {
-  background: #f5f5f5;
-}
-.overflow-x-auto::-webkit-scrollbar-thumb, .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #cccccc;
-  border-radius: 4px;
-}
-.overflow-x-auto::-webkit-scrollbar-thumb:hover, .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #999999;
-}
-
-/* Filas tabla: zebra clara, hover suave */
-tbody tr:nth-child(odd)  { background: #ffffff; }
-tbody tr:nth-child(even) { background: #f9f9f9; }
-tbody tr:hover { background: #eef2ff !important; }
+/* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
+tbody tr:nth-child(odd)  { background: #484f66; }
+tbody tr:nth-child(even) { background: #404558; }
+tbody tr:hover { background: #4f5874 !important; }

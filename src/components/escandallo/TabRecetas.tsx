@@ -36,11 +36,11 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
       </div>
 
       {!filtered.length ? (
-        <div className="bg-card border border-[#dddddd] rounded-xl p-12 text-center">
-          <p className="text-[#888] text-sm">Sin recetas{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        <div className="bg-[#484f66] border border-[#4a5270] rounded-xl p-12 text-center">
+          <p className="text-[#7080a8] text-sm">Sin recetas{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-card border border-[#dddddd] rounded-xl overflow-hidden">
+        <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full" style={{ minWidth: '1100px' }}>
               <thead>
@@ -64,14 +64,14 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                   const hasPvp = n(r.pvp_uber) > 0
                   return (
                     <tr key={r.id} onClick={() => onSelect(r)} className="cursor-pointer">
-                      <td className={tdCls + ' text-[#888] font-mono text-xs'}>{r.codigo ?? ''}</td>
-                      <td className={tdCls + ' text-[#1a1a1a] font-medium'}>{r.nombre}</td>
-                      <td className={tdCls + ' text-[#555]'}>{r.categoria ?? ''}</td>
+                      <td className={tdCls + ' text-[#7080a8] font-mono text-xs'}>{r.codigo ?? ''}</td>
+                      <td className={tdCls + ' text-[#f0f0ff] font-medium'}>{r.nombre}</td>
+                      <td className={tdCls + ' text-[#c8d0e8]'}>{r.categoria ?? ''}</td>
                       <td className={tdCls + ' text-right'}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
-                      <td className={tdCls + ' text-[#555]'}>{r.unidad ?? ''}</td>
-                      <td className={tdCls + ' text-right text-[#1a1a1a]'}>{fmtEurES(r.coste_tanda, 2)}</td>
-                      <td className={tdCls + ' text-right text-[#1a1a1a] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
+                      <td className={tdCls + ' text-[#c8d0e8]'}>{r.unidad ?? ''}</td>
+                      <td className={tdCls + ' text-right text-[#f0f0ff]'}>{fmtEurES(r.coste_tanda, 2)}</td>
+                      <td className={tdCls + ' text-right text-[#f0f0ff] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
                       <td className={tdCls + ' text-right'}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
                       <td className={tdCls + ' text-center'}>
                         {hasPvp ? (
@@ -80,7 +80,7 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                           </span>
                         ) : ''}
                       </td>
-                      <td className={tdCls + ' text-[#888] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
+                      <td className={tdCls + ' text-[#7080a8] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
                     </tr>
                   )
                 })}
@@ -93,12 +93,12 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
   )
 }
 
-function Counter({ label, value, color = 'text-[#1a1a1a]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
-  const base = 'bg-card border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
-  const cls = active ? base + ' border-accent' : base + ' border-[#dddddd] hover:border-[#999]'
+function Counter({ label, value, color = 'text-[#f0f0ff]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+  const base = 'bg-[#484f66] border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
+  const cls = active ? base + ' border-accent' : base + ' border-[#4a5270] hover:border-[#6070a0]'
   return (
     <button onClick={onClick} type="button" className={cls}>
-      <div className="text-[10px] text-[#888] uppercase tracking-wider">{label}</div>
+      <div className="text-[10px] text-[#7080a8] uppercase tracking-wider">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
     </button>
   )

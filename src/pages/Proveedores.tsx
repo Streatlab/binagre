@@ -1,8 +1,8 @@
 export default function Proveedores() {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#1a1a1a] mb-4">Proveedores y Compras</h2>
-      <div className="bg-card border border-border rounded-xl p-8 text-center text-[#555]">
+      <h2 className="text-lg font-semibold text-[#f0f0ff] mb-4">Proveedores y Compras</h2>
+      <div className="bg-[#484f66] border border-border rounded-xl p-8 text-center text-[#c8d0e8]">
         En construcción
       </div>
     </div>

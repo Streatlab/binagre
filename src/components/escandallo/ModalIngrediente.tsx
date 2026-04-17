@@ -11,10 +11,10 @@ interface Props {
   onOpenMerma?: (m: Merma | null) => void
 }
 
-const inputCls = 'w-full bg-white border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#999] focus:outline-none focus:border-[#1a1a1a]'
-const labelCls = 'block text-[11px] text-[#888] mb-1 uppercase tracking-wider'
-const btnPrimary = 'px-4 py-2 bg-[#1a1a1a] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#555] border border-[#dddddd] rounded-lg hover:text-[#1a1a1a] hover:border-[#999] transition'
+const inputCls = 'w-full bg-[#484f66] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] placeholder:text-[#7a84a8] focus:outline-none focus:border-[#1a1a1a]'
+const labelCls = 'block text-[11px] text-[#7080a8] mb-1 uppercase tracking-wider'
+const btnPrimary = 'px-4 py-2 bg-[#B01D23] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition'
+const btnSecondary = 'px-4 py-2 text-sm text-[#c8d0e8] border border-[#4a5270] rounded-lg hover:text-[#f0f0ff] hover:border-[#6070a0] transition'
 
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
@@ -169,13 +169,13 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white border border-[#dddddd] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#dddddd]">
+      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
-            <h3 className="text-base font-semibold text-[#1a1a1a]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
-            {f.iding && <p className="text-xs text-[#888] mt-0.5 font-mono">{f.iding}</p>}
+            <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            {f.iding && <p className="text-xs text-[#7080a8] mt-0.5 font-mono">{f.iding}</p>}
           </div>
-          <button onClick={onClose} className="text-[#888] hover:text-[#1a1a1a] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -190,7 +190,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className={labelCls}>Nombre completo (auto)</label>
-                <div className="w-full bg-[#f0f0f0] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#1a1a1a]">
+                <div className="w-full bg-[#353a50] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff]">
                   {f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')}
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               <SelectField label="UD STD" value={f.ud_std} onChange={onUdStdChange} options={['Kg.', 'L.', 'Ud.']} />
               <div>
                 <label className={labelCls}>UD MIN (auto)</label>
-                <div className="w-full bg-[#f0f0f0] border border-[#dddddd] rounded-lg px-3 py-2 text-sm text-[#555]">{f.ud_min}</div>
+                <div className="w-full bg-[#353a50] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#c8d0e8]">{f.ud_min}</div>
               </div>
               <Field label="USOS" value={String(f.usos)} onChange={() => {}} disabled />
             </div>
@@ -254,7 +254,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
           {/* Estado */}
           <div className="flex items-center gap-3 pt-2">
-            <label className="flex items-center gap-2 text-sm text-[#555]">
+            <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
               <input type="checkbox" checked={f.activo} onChange={e => set('activo', e.target.checked)} className="accent-accent w-4 h-4" />
               Ingrediente activo
             </label>
@@ -263,7 +263,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#dddddd]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#4a5270]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -276,8 +276,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#2a2a2a] border border-[#dddddd] rounded-lg p-4">
-      <h4 className="text-[11px] uppercase tracking-wider text-[#888] font-semibold mb-3">{title}</h4>
+    <div className="bg-[#2a2a2a] border border-[#4a5270] rounded-lg p-4">
+      <h4 className="text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   )
@@ -293,7 +293,7 @@ function Field({ label, value, onChange, placeholder, type, step, disabled, high
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} disabled={disabled} list={list}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#1a1a1a] font-bold' : '')}
+        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#f0f0ff] font-bold' : '')}
       />
     </div>
   )
