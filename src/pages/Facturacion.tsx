@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fmtEur, fmtNum } from '@/utils/format'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -61,8 +62,6 @@ const SELECT_DIARIO =
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-const num = (n: number) => n.toLocaleString('es-ES')
 const today = () => new Date().toISOString().slice(0, 10)
 
 /* — canal-aware accessors — */
@@ -273,10 +272,10 @@ export default function Facturacion() {
       {/* Global KPIs */}
       {!loading && !error && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <KpiCard label="Hoy" valor={eur(kpiHoy.bruto)} sub={`${num(kpiHoy.pedidos)} pedidos`} />
-          <KpiCard label="Semana actual" valor={eur(kpiSemana.bruto)} sub={`${num(kpiSemana.pedidos)} pedidos`} />
-          <KpiCard label="Mes actual" valor={eur(kpiMes.bruto)} sub={`${num(kpiMes.pedidos)} pedidos`} />
-          <KpiCard label={`Ano ${currentYear}`} valor={eur(kpiAnio.bruto)} sub={`${num(kpiAnio.pedidos)} pedidos`} />
+          <KpiCard label="Hoy" valor={fmtEur(kpiHoy.bruto)} sub={`${fmtNum(kpiHoy.pedidos, 0)} pedidos`} />
+          <KpiCard label="Semana actual" valor={fmtEur(kpiSemana.bruto)} sub={`${fmtNum(kpiSemana.pedidos, 0)} pedidos`} />
+          <KpiCard label="Mes actual" valor={fmtEur(kpiMes.bruto)} sub={`${fmtNum(kpiMes.pedidos, 0)} pedidos`} />
+          <KpiCard label={`Ano ${currentYear}`} valor={fmtEur(kpiAnio.bruto)} sub={`${fmtNum(kpiAnio.pedidos, 0)} pedidos`} />
         </div>
       )}
 
@@ -411,10 +410,10 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <MiniKpi label="Bruto" valor={eur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={num(getPed(totals, canal))} />
-        <MiniKpi label="Ticket medio" valor={getPed(totals, canal) > 0 ? eur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
-        <MiniKpi label="Media diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? eur(getBru(totals, canal) / d) : '—' })()} />
+        <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtNum(getPed(totals, canal))} />
+        <MiniKpi label="Ticket medio" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
+        <MiniKpi label="Media diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
       </div>
 
       {/* Table */}
@@ -469,18 +468,18 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                               {p > 0 ? p : <Dash />}
                             </td>
                             <td className="px-2 py-2 text-right text-neutral-300 tabular-nums">
-                              {b > 0 ? eur(b) : <Dash />}
+                              {b > 0 ? fmtEur(b) : <Dash />}
                             </td>
                           </Fragment>
                         )
                       })}
-                      <td className="px-2 py-2 text-right text-[#f0f0ff] font-medium tabular-nums border-l border-border">{num(r.total_pedidos)}</td>
-                      <td className="px-2 py-2 text-right text-[#f0f0ff] font-semibold tabular-nums">{eur(r.total_bruto)}</td>
+                      <td className="px-2 py-2 text-right text-[#f0f0ff] font-medium tabular-nums border-l border-border">{fmtNum(r.total_pedidos, 0)}</td>
+                      <td className="px-2 py-2 text-right text-[#f0f0ff] font-semibold tabular-nums">{fmtEur(r.total_bruto)}</td>
                     </>
                   ) : (
                     <>
-                      <td className="px-3 py-2 text-right text-[#f0f0ff] tabular-nums">{num(getPed(r, canal))}</td>
-                      <td className="px-3 py-2 text-right text-[#f0f0ff] font-medium tabular-nums">{eur(getBru(r, canal))}</td>
+                      <td className="px-3 py-2 text-right text-[#f0f0ff] tabular-nums">{fmtNum(getPed(r, canal))}</td>
+                      <td className="px-3 py-2 text-right text-[#f0f0ff] font-medium tabular-nums">{fmtEur(getBru(r, canal))}</td>
                     </>
                   )}
                 </tr>
@@ -493,17 +492,17 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                   <>
                     {COLS.map(c => (
                       <Fragment key={c.label}>
-                        <td className="px-2 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">{num(totals[c.ped] as number)}</td>
-                        <td className="px-2 py-2.5 text-right text-neutral-200 tabular-nums">{eur(totals[c.bru] as number)}</td>
+                        <td className="px-2 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">{fmtNum(totals[c.ped] as number, 0)}</td>
+                        <td className="px-2 py-2.5 text-right text-neutral-200 tabular-nums">{fmtEur(totals[c.bru] as number)}</td>
                       </Fragment>
                     ))}
-                    <td className="px-2 py-2.5 text-right text-[#f0f0ff] tabular-nums border-l border-border">{num(totals.total_pedidos)}</td>
-                    <td className="px-2 py-2.5 text-right text-[#f0f0ff] tabular-nums">{eur(totals.total_bruto)}</td>
+                    <td className="px-2 py-2.5 text-right text-[#f0f0ff] tabular-nums border-l border-border">{fmtNum(totals.total_pedidos, 0)}</td>
+                    <td className="px-2 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtEur(totals.total_bruto)}</td>
                   </>
                 ) : (
                   <>
-                    <td className="px-3 py-2.5 text-right text-[#f0f0ff] tabular-nums">{num(getPed(totals, canal))}</td>
-                    <td className="px-3 py-2.5 text-right text-[#f0f0ff] tabular-nums">{eur(getBru(totals, canal))}</td>
+                    <td className="px-3 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtNum(getPed(totals, canal))}</td>
+                    <td className="px-3 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
                   </>
                 )}
               </tr>
@@ -541,8 +540,8 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
     <>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <MiniKpi label="Semanas" valor={String(rows.length)} />
-        <MiniKpi label="Bruto" valor={eur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={num(getPed(totals, canal))} />
+        <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtNum(getPed(totals, canal))} />
         <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[#c8d0e8] border border-border rounded-lg hover:text-[#f0f0ff] transition">
           Exportar CSV
         </button>
@@ -573,11 +572,11 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
                     <td className="px-4 py-2.5 text-[#f0f0ff] font-medium">S{r.week}</td>
                     <td className="px-4 py-2.5 text-[#c8d0e8]">{r.periodo}</td>
                     <td className="px-3 py-2.5 text-right text-[#c8d0e8] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{num(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] font-medium tabular-nums">{eur(bru)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtNum(ped, 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] font-medium tabular-nums">{fmtEur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[#c8d0e8] tabular-nums border-l border-border">
-                        {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
+                        {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
                       </td>
                     ))}
                   </tr>
@@ -587,11 +586,11 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-[#f0f0ff]" colSpan={3}>TOTAL</td>
-                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{num(getPed(totals, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{eur(getBru(totals, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtNum(getPed(totals, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
-                    {eur(totals[c.bru] as number)}
+                    {fmtEur(totals[c.bru] as number)}
                   </td>
                 ))}
               </tr>
@@ -635,10 +634,10 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
       ? ['Mes', 'Dias', 'UE', 'Glovo', 'JE', 'Web', 'Total Ped', 'Total Bruto', 'Media Diaria', 'vs Anterior']
       : ['Mes', 'Dias', 'Pedidos', 'Bruto', 'Media Diaria', 'vs Anterior']
     const csvRows = rows.map(r => {
-      const vs = r.vs_anterior !== null ? r.vs_anterior.toFixed(1) + '%' : ''
+      const vs = r.vs_anterior !== null ? fmtNum(r.vs_anterior, 1) + '%' : ''
       return showBreakdown
-        ? [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.total_pedidos, r.total_bruto, r.media_diaria.toFixed(2), vs]
-        : [MES_NOMBRE[r.mes], r.dias, getPed(r, canal), getBru(r, canal), r.media_diaria.toFixed(2), vs]
+        ? [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.total_pedidos, r.total_bruto, fmtNum(r.media_diaria, 2), vs]
+        : [MES_NOMBRE[r.mes], r.dias, getPed(r, canal), getBru(r, canal), fmtNum(r.media_diaria, 2), vs]
     })
     downloadCSV(`facturacion_meses_${selYear}.csv`, headers, csvRows)
   }
@@ -654,9 +653,9 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
-        <MiniKpi label="Bruto anual" valor={eur(getBru(yearTotal, canal))} />
-        <MiniKpi label="Pedidos" valor={num(getPed(yearTotal, canal))} />
-        <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? eur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
+        <MiniKpi label="Bruto anual" valor={fmtEur(getBru(yearTotal, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtNum(getPed(yearTotal, canal))} />
+        <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
         <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[#c8d0e8] border border-border rounded-lg hover:text-[#f0f0ff] transition">
           Exportar CSV
         </button>
@@ -686,15 +685,15 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
                   <tr key={r.mes} className="hover:bg-[#484f66]/[0.02] transition-colors">
                     <td className="px-4 py-2.5 text-[#f0f0ff] font-medium">{MES_NOMBRE[r.mes]}</td>
                     <td className="px-3 py-2.5 text-right text-[#c8d0e8] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{num(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] font-medium tabular-nums">{eur(bru)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtNum(ped, 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#f0f0ff] font-medium tabular-nums">{fmtEur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[#c8d0e8] tabular-nums border-l border-border">
-                        {(r[c.bru] as number) > 0 ? eur(r[c.bru] as number) : <Dash />}
+                        {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
                       </td>
                     ))}
                     <td className="px-4 py-2.5 text-right text-[#c8d0e8] tabular-nums border-l border-border">
-                      {r.dias > 0 ? eur(r.media_diaria) : '—'}
+                      {r.dias > 0 ? fmtEur(r.media_diaria) : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right border-l border-border">
                       {r.vs_anterior !== null ? <DesvBadge pct={r.vs_anterior} /> : <Dash />}
@@ -707,15 +706,15 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-[#f0f0ff]">{selYear} TOTAL</td>
                 <td className="px-3 py-2.5 text-right text-[#c8d0e8] tabular-nums">{yearTotal.dias}</td>
-                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{num(getPed(yearTotal, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{eur(getBru(yearTotal, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtNum(getPed(yearTotal, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[#f0f0ff] tabular-nums">{fmtEur(getBru(yearTotal, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
-                    {eur(yearTotal[c.bru] as number)}
+                    {fmtEur(yearTotal[c.bru] as number)}
                   </td>
                 ))}
                 <td className="px-4 py-2.5 text-right text-[#c8d0e8] tabular-nums border-l border-border">
-                  {yearTotal.dias > 0 ? eur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
+                  {yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
                 </td>
                 <td className="px-4 py-2.5 border-l border-border" />
               </tr>
@@ -928,7 +927,7 @@ function DesvBadge({ pct }: { pct: number }) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
       pos ? 'bg-green-500/10 text-[#16a34a]' : 'bg-red-500/10 text-[#dc2626]'
-    }`}>{pos ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%</span>
+    }`}>{pos ? '▲' : '▼'} {fmtNum(Math.abs(pct), 1)}%</span>
   )
 }
 

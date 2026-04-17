@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fmtEur, fmtNum } from '@/utils/format'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -43,8 +44,6 @@ const CANAL_TEXT: Record<string, string> = {
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-const num = (n: number) => n.toLocaleString('es-ES')
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
 function isoWeek(dateStr: string): { year: number; week: number } {
@@ -191,10 +190,10 @@ export default function Dashboard() {
 
       {/* Row 1: Main KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        <KpiCard label="Ventas hoy" valor={eur(kpiHoy.bruto)} sub="bruto diario" />
-        <KpiCard label="Pedidos hoy" valor={num(kpiHoy.pedidos)} sub="todos los canales" />
-        <KpiCard label="Ticket medio" valor={ticketHoy > 0 ? eur(ticketHoy) : '—'} sub="bruto / pedidos" />
-        <KpiCard label="Ventas semana" valor={eur(kpiSemana.bruto)} sub={`S${currentIso.week} — ${num(kpiSemana.pedidos)} ped`} />
+        <KpiCard label="Ventas hoy" valor={fmtEur(kpiHoy.bruto)} sub="bruto diario" />
+        <KpiCard label="Pedidos hoy" valor={fmtNum(kpiHoy.pedidos, 0)} sub="todos los canales" />
+        <KpiCard label="Ticket medio" valor={ticketHoy > 0 ? fmtEur(ticketHoy) : '—'} sub="bruto / pedidos" />
+        <KpiCard label="Ventas semana" valor={fmtEur(kpiSemana.bruto)} sub={`S${currentIso.week} — ${fmtNum(kpiSemana.pedidos, 0)} ped`} />
       </div>
 
       {/* Row 2: Canal breakdown */}
@@ -204,10 +203,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-[#c8d0e8] uppercase tracking-wide">{c.label}</p>
               <span className={`text-xs font-bold ${CANAL_TEXT[c.label] ?? 'text-[#f0f0ff]'}`}>
-                {c.pct.toFixed(1)}%
+                {fmtNum(c.pct, 1)}%
               </span>
             </div>
-            <p className="text-xl font-bold text-[#f0f0ff]">{eur(c.bruto)}</p>
+            <p className="text-xl font-bold text-[#f0f0ff]">{fmtEur(c.bruto)}</p>
             {/* progress bar */}
             <div className="mt-2 h-1.5 bg-[#484f66]/5 rounded-full overflow-hidden">
               <div
@@ -230,7 +229,7 @@ export default function Dashboard() {
             <div className="flex items-end gap-3 h-40">
               {weekBars.map(bar => (
                 <div key={bar.label} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-[#c8d0e8] tabular-nums">{eur(bar.bruto)}</span>
+                  <span className="text-[10px] text-[#c8d0e8] tabular-nums">{fmtEur(bar.bruto)}</span>
                   <div className="w-full bg-[#484f66]/5 rounded-t-md overflow-hidden relative" style={{ height: '120px' }}>
                     <div
                       className="absolute bottom-0 w-full bg-accent/80 rounded-t-md transition-all"
@@ -265,7 +264,7 @@ export default function Dashboard() {
                         </span>
                         <span className="text-sm text-[#f0f0ff]">{d.fecha}</span>
                       </div>
-                      <span className="text-sm font-semibold text-[#f0f0ff] tabular-nums">{eur(d.bruto)}</span>
+                      <span className="text-sm font-semibold text-[#f0f0ff] tabular-nums">{fmtEur(d.bruto)}</span>
                     </div>
                     <div className="h-1 bg-[#484f66]/5 rounded-full overflow-hidden ml-7">
                       <div

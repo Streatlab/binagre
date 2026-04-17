@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Merma } from './types'
 import { thCls, tdCls, fmt, fmtPct, n, btnPrimary } from './types'
+import { fmtNum } from '@/utils/format'
 
 interface Props {
   mermas: Merma[]
@@ -88,17 +89,17 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                     <td className={tdCls + ' text-right text-[#f0f0ff] font-medium'}>{fmt(m.precio_total)}</td>
                     <td className={tdCls + ' text-[#c8d0e8] text-xs'}>{m.sp1_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
-                    <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? (m.sp1_pct * 100).toFixed(1) + '%' : '—'}</td>
+                    <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? fmtNum(m.sp1_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#8090b8]">No</span>}</td>
                     <td className={tdCls + ' text-[#c8d0e8] text-xs'}>{m.sp2_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
-                    <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? (m.sp2_pct * 100).toFixed(1) + '%' : '—'}</td>
+                    <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? fmtNum(m.sp2_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#8090b8]">No</span>}</td>
                     <td className={tdCls + ' text-right'}>{fmtPct(m.pct_descarte)}</td>
-                    <td className={tdCls + ' text-right text-[#ea580c]'}>{m.pct_merma != null ? (m.pct_merma * 100).toFixed(1) + '%' : '—'}</td>
-                    <td className={tdCls + ' text-right text-[#16a34a]'}>{m.pct_limpio != null ? (m.pct_limpio * 100).toFixed(1) + '%' : '—'}</td>
+                    <td className={tdCls + ' text-right text-[#ea580c]'}>{m.pct_merma != null ? fmtNum(m.pct_merma * 100, 1) + '%' : ''}</td>
+                    <td className={tdCls + ' text-right text-[#16a34a]'}>{m.pct_limpio != null ? fmtNum(m.pct_limpio * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.eur_pieza_limpia, 4)}</td>
                     <td className={tdCls + ' text-right text-[#f0f0ff]'}>{fmt(m.eur_kg_neto, 4)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.neto_kg, 3)}</td>

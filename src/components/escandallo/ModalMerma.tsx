@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Merma } from './types'
@@ -223,8 +224,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} />
               <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <Field label="Total gramos" value={totalG.toFixed(0)} onChange={() => {}} disabled />
-              <Field label="Neto Kg" value={netoKg.toFixed(3)} onChange={() => {}} disabled highlight />
+              <Field label="Total gramos" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
+              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight />
             </div>
           </Section>
 
@@ -232,7 +233,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
-              <Field label="%" value={(sp1Pct * 100).toFixed(1) + '%'} onChange={() => {}} disabled />
+              <Field label="%" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
               <Field label="€ SP1" type="number" step="0.01" value={f.sp1_euros} onChange={v => set('sp1_euros', v)} disabled={!f.sp1_valorable} />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
@@ -247,7 +248,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
-              <Field label="%" value={(sp2Pct * 100).toFixed(1) + '%'} onChange={() => {}} disabled />
+              <Field label="%" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />
               <Field label="€ SP2" type="number" step="0.01" value={f.sp2_euros} onChange={v => set('sp2_euros', v)} disabled={!f.sp2_valorable} />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
@@ -262,17 +263,17 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="Num Porciones" type="number" value={f.num_porciones} onChange={v => set('num_porciones', v)} />
               <Field label="Peso Porción (g)" type="number" value={f.peso_porcion_g} onChange={v => set('peso_porcion_g', v)} />
-              <Field label="€/Porción" value={eurPorcion.toFixed(4)} onChange={() => {}} disabled highlight />
-              <Field label="€/Pieza Limpia" value={eurPiezaLimpia.toFixed(4)} onChange={() => {}} disabled />
+              <Field label="€/Porción" value={fmtNum(eurPorcion, 4)} onChange={() => {}} disabled highlight />
+              <Field label="€/Pieza Limpia" value={fmtNum(eurPiezaLimpia, 4)} onChange={() => {}} disabled />
             </div>
           </Section>
 
           <Section title="Cálculos">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="% Merma" value={(pctMerma * 100).toFixed(2) + '%'} onChange={() => {}} disabled />
-              <Field label="% Limpio" value={(pctLimpio * 100).toFixed(2) + '%'} onChange={() => {}} disabled />
-              <Field label="€/Kg Neto" value={eurKgNeto.toFixed(4)} onChange={() => {}} disabled highlight />
-              <Field label="Neto Kg" value={netoKg.toFixed(3)} onChange={() => {}} disabled />
+              <Field label="% Merma" value={fmtNum(pctMerma * 100, 2) + '%'} onChange={() => {}} disabled />
+              <Field label="% Limpio" value={fmtNum(pctLimpio * 100, 2) + '%'} onChange={() => {}} disabled />
+              <Field label="€/Kg Neto" value={fmtNum(eurKgNeto, 4)} onChange={() => {}} disabled highlight />
+              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled />
             </div>
           </Section>
 

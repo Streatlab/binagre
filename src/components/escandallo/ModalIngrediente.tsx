@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Ingrediente, Merma } from './types'
@@ -229,9 +230,9 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                   <option value="media">Media</option>
                 </select>
               </div>
-              <Field label="Precio Activo" value={precioActivo.toFixed(4)} onChange={() => {}} disabled highlight />
-              <Field label="EUR/STD" value={eurStd.toFixed(4)} onChange={() => {}} disabled />
-              <Field label="EUR/MIN" value={eurMin.toFixed(6)} onChange={() => {}} disabled />
+              <Field label="Precio Activo" value={fmtNum(precioActivo, 4)} onChange={() => {}} disabled highlight />
+              <Field label="EUR/STD" value={fmtNum(eurStd, 4)} onChange={() => {}} disabled />
+              <Field label="EUR/MIN" value={fmtNum(eurMin, 6)} onChange={() => {}} disabled />
             </div>
           </Section>
 
@@ -247,8 +248,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                 </select>
               </div>
               <Field label="Merma %" type="number" value={f.merma_pct} onChange={v => set('merma_pct', v)} step="0.1" disabled={f.tipo_merma === 'Tecnica'} />
-              <Field label="C.Neto/STD" value={costeNetoStd.toFixed(4)} onChange={() => {}} disabled />
-              <Field label="C.Neto/MIN" value={costeNetoMin.toFixed(6)} onChange={() => {}} disabled />
+              <Field label="C.Neto/STD" value={fmtNum(costeNetoStd, 4)} onChange={() => {}} disabled />
+              <Field label="C.Neto/MIN" value={fmtNum(costeNetoMin, 6)} onChange={() => {}} disabled />
             </div>
           </Section>
 
