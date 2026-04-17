@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum } from '@/utils/format'
+import { fmtEur, fmtNum, fmtDate } from '@/utils/format'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -27,17 +27,11 @@ interface TopDay { fecha: string; bruto: number }
 const SELECT =
   'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,total_pedidos,total_bruto'
 
-const CANAL_COLORS: Record<string, string> = {
-  'Uber Eats': 'bg-green-500',
-  'Glovo':     'bg-amber-500',
-  'Just Eat':  'bg-orange-500',
-  'Web':       'bg-accent',
-}
-const CANAL_TEXT: Record<string, string> = {
-  'Uber Eats': 'text-[#16a34a]',
-  'Glovo':     'text-[#d97706]',
-  'Just Eat':  'text-[#ea580c]',
-  'Web':       'text-[#f0f0ff]',
+const CANAL_HEX: Record<string, string> = {
+  'Uber Eats': '#d0d0e8',
+  'Glovo':     '#e8f442',
+  'Just Eat':  '#f5a623',
+  'Web':       '#B01D23',
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -202,16 +196,15 @@ export default function Dashboard() {
           <div key={c.label} className="bg-[#484f66] border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-[#c8d0e8] uppercase tracking-wide">{c.label}</p>
-              <span className={`text-xs font-bold ${CANAL_TEXT[c.label] ?? 'text-[#f0f0ff]'}`}>
+              <span className="text-xs font-bold" style={{ color: CANAL_HEX[c.label] }}>
                 {fmtNum(c.pct, 1)}%
               </span>
             </div>
             <p className="text-xl font-bold text-[#f0f0ff]">{fmtEur(c.bruto)}</p>
-            {/* progress bar */}
             <div className="mt-2 h-1.5 bg-[#484f66]/5 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${CANAL_COLORS[c.label] ?? 'bg-accent'}`}
-                style={{ width: `${Math.min(c.pct, 100)}%` }}
+                className="h-full rounded-full transition-all"
+                style={{ background: CANAL_HEX[c.label], width: `${Math.min(c.pct, 100)}%` }}
               />
             </div>
           </div>
@@ -232,8 +225,8 @@ export default function Dashboard() {
                   <span className="text-[10px] text-[#c8d0e8] tabular-nums">{fmtEur(bar.bruto)}</span>
                   <div className="w-full bg-[#484f66]/5 rounded-t-md overflow-hidden relative" style={{ height: '120px' }}>
                     <div
-                      className="absolute bottom-0 w-full bg-accent/80 rounded-t-md transition-all"
-                      style={{ height: `${bar.pct}%` }}
+                      className="absolute bottom-0 w-full rounded-t-md transition-all"
+                      style={{ height: `${bar.pct}%`, background: '#e8f442', opacity: 0.85 }}
                     />
                   </div>
                   <span className="text-xs text-[#c8d0e8] font-medium">{bar.label}</span>
@@ -262,14 +255,14 @@ export default function Dashboard() {
                         }`}>
                           {i + 1}
                         </span>
-                        <span className="text-sm text-[#f0f0ff]">{d.fecha}</span>
+                        <span className="text-sm text-[#f0f0ff]">{fmtDate(d.fecha)}</span>
                       </div>
                       <span className="text-sm font-semibold text-[#f0f0ff] tabular-nums">{fmtEur(d.bruto)}</span>
                     </div>
                     <div className="h-1 bg-[#484f66]/5 rounded-full overflow-hidden ml-7">
                       <div
-                        className="h-full bg-accent/60 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, background: '#66aaff', opacity: 0.8 }}
                       />
                     </div>
                   </div>
@@ -289,10 +282,10 @@ export default function Dashboard() {
 
 function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: string }) {
   return (
-    <div className="bg-[#484f66] border border-border rounded-xl p-5">
-      <p className="text-xs text-[#c8d0e8] uppercase tracking-wide">{label}</p>
-      <p className="text-3xl font-bold text-[#f0f0ff] mt-2">{valor}</p>
-      <p className="text-xs text-[#c8d0e8] mt-1">{sub}</p>
+    <div className="ds-counter" style={{ cursor: 'default' }}>
+      <div className="label">{label}</div>
+      <div className="value" style={{ fontSize: 22 }}>{valor}</div>
+      <div className="sub">{sub}</div>
     </div>
   )
 }

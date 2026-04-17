@@ -1,5 +1,4 @@
-// de-DE usa punto de miles y coma decimal igual que es-ES, pero agrupa desde 1.000 (es-ES solo desde 10.000 en algunos navegadores)
-const LOCALE = 'de-DE'
+const LOCALE = 'es-ES'
 
 export const fmtEur = (v?: number | string | null) => {
   const n = v != null ? Number(v) : null

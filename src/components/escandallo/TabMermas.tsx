@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Merma } from './types'
-import { thCls, tdCls, fmt, fmtPct, n, btnPrimary } from './types'
+import { thCls, tdCls, fmt, fmtPct, n } from './types'
 import { fmtNum } from '@/utils/format'
 
 interface Props {
@@ -30,7 +30,7 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
         <Counter label="EN USO" value={enUso} color="text-green-600" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
         <Counter label="SIN USO" value={sinUso} color="text-red-600" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
-        {onNew && <button onClick={onNew} className={btnPrimary + ' ml-auto'}>+ Nueva Merma</button>}
+        {onNew && <button onClick={onNew} className="ds-btn-add ml-auto">+ Nueva Merma</button>}
       </div>
 
       {!filtered.length ? (
@@ -118,11 +118,9 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
 }
 
 function Counter({ label, value, color = 'text-[#f0f0ff]', active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
-  const base = 'bg-[#484f66] border rounded-lg px-4 py-2 transition-colors cursor-pointer select-none'
-  const cls = active ? base + ' border-accent' : base + ' border-[#4a5270] hover:border-[#6070a0]'
   return (
-    <button onClick={onClick} type="button" className={cls}>
-      <div className="text-[10px] text-[#7080a8] uppercase tracking-wider">{label}</div>
+    <button onClick={onClick} type="button" className={'ds-counter' + (active ? ' active' : '')}>
+      <div className="label">{label}</div>
       <div className={'text-lg font-bold tabular-nums ' + color}>{value}</div>
     </button>
   )

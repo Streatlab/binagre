@@ -69,7 +69,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <LogoSL small={collapsed} />
             {!collapsed && (
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#f0f0ff', letterSpacing: '0.08em' }}>
-                ERP
+                Streat Lab
               </span>
             )}
           </div>
