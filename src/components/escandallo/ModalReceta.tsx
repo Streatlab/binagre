@@ -130,10 +130,10 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
-            <h3 className="text-base font-semibold text-[#f0f0ff]">{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
+            <h3 className="text-base font-semibold text-white">{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
             {receta?.codigo && <p className="text-xs text-[#7080a8] mt-0.5 font-mono">{receta.codigo} · REC</p>}
           </div>
-          <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#7080a8] hover:text-white transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -190,15 +190,15 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       {lineasCalc.map((l, idx) => (
                         <tr key={idx}>
                           <td className={tdCls + ' text-[#8090b8]'}>{idx + 1}</td>
-                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff]" value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}><option value="ING">ING</option><option value="EPS">EPS</option></select></td>
+                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-white" value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}><option value="ING">ING</option><option value="EPS">EPS</option></select></td>
                           <td className={tdCls}>
-                            <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] placeholder:text-[#8090b8]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
+                            <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-white placeholder:text-[#8090b8]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
                             <datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist>
                           </td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-[#f0f0ff]'}>{fmtNum(l.eur_total, 4)}</td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-white" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls + ' text-right font-medium text-white'}>{fmtNum(l.eur_total, 4)}</td>
                           <td className={tdCls + ' text-right text-[#7080a8]'}>{fmtNum(l.pct_total, 1)}%</td>
                           <td className={tdCls}>
                             {idx === 0 ? (
@@ -214,8 +214,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 </div>
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#f0f0ff]">{fmtNum(costeTanda, 4)} €</span></div>
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#f0f0ff]">{fmtNum(costeMP, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-white">{fmtNum(costeTanda, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-white">{fmtNum(costeMP, 4)} €</span></div>
                   </div>
                   <span className="text-xs text-[#8090b8]">{raciones} raciones</span>
                 </div>
@@ -262,7 +262,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                   <table className="w-full text-sm" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#353a50' }}>
-                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: '#f0f0ff', fontWeight: '600', borderRight: '1px solid #4a5270', fontFamily: 'Lexend' }}>Métrica</th>
+                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: '#ffffff', fontWeight: '600', borderRight: '1px solid #4a5270', fontFamily: 'Lexend' }}>Métrica</th>
                         {canalesActivos.map(cid => {
                           const cdef = [
                             { id: 'uber', label: 'Uber Eats', color: '#06C167' },
@@ -291,7 +291,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     <tbody>
                       {['Coste MP', 'Coste plataforma', 'Coste estructura', 'Coste total', 'Margen deseado', 'PVP recomendado', 'PVP real', 'Factor K', 'Margen €', '% Margen', 'IVA repercutido', 'IVA soportado'].map((metrica, rowIdx) => (
                         <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? '#484f66' : '#404558' }}>
-                          <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: '#7080a8', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid #4a5270' }}>
+                          <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: '#a8b8d8', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid #4a5270' }}>
                             {metrica}
                           </td>
                           {canalesActivos.map(cid => {
@@ -329,9 +329,9 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
                             return (
                               <React.Fragment key={cid}>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#f0f0ff', borderRight: '1px solid #4a5270' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#ffffff', borderRight: '1px solid #4a5270' }}>
                                   {metrica === 'PVP real' ? (
-                                    <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[#3a4058] border border-[#4a5270] rounded px-1 text-right text-[#f0f0ff] text-xs" />
+                                    <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[#3a4058] border border-[#4a5270] rounded px-1 text-right text-white text-xs" />
                                   ) : metrica === '% Margen' ? (
                                     <span style={{ color: realVal > 15 ? '#22c55e' : realVal >= 5 ? '#eab308' : '#ef4444' }}>{fmtNum(realVal)}%</span>
                                   ) : metrica === 'Factor K' ? (
@@ -340,7 +340,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                                     <span>{fmtNum(realVal)}</span>
                                   )}
                                 </td>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#f0f0ff', borderRight: '1px solid #4a5270' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#ffffff', borderRight: '1px solid #4a5270' }}>
                                   {metrica === 'PVP real' ? (
                                     <span>{fmtNum(cashVal)}</span>
                                   ) : metrica === '% Margen' ? (
