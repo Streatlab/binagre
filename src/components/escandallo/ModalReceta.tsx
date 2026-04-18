@@ -206,8 +206,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-[#f0f0ff]'}>{fmtNum(l.eur_total, 4)}</td>
-                          <td className={tdCls + ' text-right text-[#7080a8]'}>{fmtNum(l.pct_total, 1)}%</td>
+                          <td className={tdCls + ' text-right font-medium text-[#f0f0ff]'}>{fmtNum(l.eur_total)}</td>
+                          <td className={tdCls + ' text-right text-[#7080a8]'}>{fmtNum(l.pct_total)}%</td>
                           <td className={tdCls}>
                             {idx === 0 ? (
                               <span className="text-[#7080a8] text-[10px]" title="Envase (no eliminable)">🔒</span>
@@ -222,8 +222,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 </div>
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#f0f0ff]">{fmtNum(costeTanda, 4)} €</span></div>
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#f0f0ff]">{fmtNum(costeMP, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#f0f0ff]">{fmtNum(costeTanda)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#f0f0ff]">{fmtNum(costeMP)} €</span></div>
                   </div>
                   <span className="text-xs text-[#8090b8]">{raciones} raciones</span>
                 </div>
@@ -292,11 +292,11 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
                       <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.real.margen_pct)}>
                         <span className="opacity-70">% Margen</span>
-                        <span>{fmtNum(w.real.margen_pct, 2)}%</span>
+                        <span>{fmtNum(w.real.margen_pct)}%</span>
                       </div>
                       <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.cash.margen_pct)}>
                         <span className="opacity-70">% Margen</span>
-                        <span>{fmtNum(w.cash.margen_pct, 2)}%</span>
+                        <span>{fmtNum(w.cash.margen_pct)}%</span>
                       </div>
                     </div>
                     <WFRow label="IVA repercutido" real={w.real.iva_repercutido} cash={w.cash.iva_repercutido} fraction={3} />
