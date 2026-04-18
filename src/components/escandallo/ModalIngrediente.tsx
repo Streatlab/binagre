@@ -165,7 +165,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="ds-modal-title">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
-            {f.iding && <span className="ds-modal-id mt-1 inline-block">{f.iding}</span>}
           </div>
           <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
         </div>
@@ -238,9 +237,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label">UD MIN</label>
-                <select value={f.ud_min} onChange={e => set('ud_min', e.target.value)} className="ds-input">
-                  {cfg.unidades_min.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <div className="ds-input-ro">{f.ud_min}</div>
               </div>
               <div>
                 <label className="ds-label">USOS</label>

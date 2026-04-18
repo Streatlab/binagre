@@ -240,7 +240,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" style={{ background: '#484f66' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
@@ -271,7 +271,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <Section title="Subproducto 1 (SP1)">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
               <Field label="%" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
@@ -287,7 +287,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <Section title="Subproducto 2 (SP2)">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
               <Field label="%" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />

@@ -10,8 +10,10 @@ export const fmtEur = (v?: number | string | null): string => {
 export const fmtNum = (v?: number | string | null, d = 2): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
-  const [int, dec] = n.toFixed(d).split('.')
-  return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec
+  const fixed = n.toFixed(d)
+  const [int, dec] = fixed.split('.')
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return dec !== undefined ? intFmt + ',' + dec : intFmt
 }
 
 export const fmtPct = (v?: number | string | null) => {
