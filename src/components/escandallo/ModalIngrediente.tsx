@@ -67,10 +67,10 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
   const p1 = parseFloat(f.precio1) || 0
   const p2 = parseFloat(f.precio2) || 0
   const p3 = parseFloat(f.precio3) || 0
-  const ultimo = parseFloat(f.ultimo_precio) || 0
+  const ultimoAuto = p3 || p2 || p1
   const precios = [p1, p2, p3].filter(p => p > 0)
   const media = precios.length ? precios.reduce((a, b) => a + b, 0) / precios.length : 0
-  const precioActivo = f.selector_precio === 'ultimo' ? p1 : media
+  const precioActivo = f.selector_precio === 'ultimo' ? ultimoAuto : media
   const udStdOptions = cfg.unidades_std?.length ? cfg.unidades_std : ['Kg.', 'L.', 'Ud.']
 
   const uds = parseFloat(f.uds) || 0
@@ -84,6 +84,19 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
   const handleSave = async () => {
     setErr(null)
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
+
+    // FIX 7: Técnica → Manual: confirmar borrado subproductos
+    const originalTipoMerma = ingrediente?.tipo_merma
+    if (originalTipoMerma === 'Tecnica' && f.tipo_merma === 'Manual') {
+      const baseTrimPrev = f.nombre_base.trim()
+      const eliminar = window.confirm(
+        'Este ingrediente tiene subproductos creados (Limpio, pieles, porciones). ¿Deseas ELIMINAR los subproductos de Ingredientes?\n\nAceptar = eliminar subproductos\nCancelar = mantener subproductos'
+      )
+      if (eliminar) {
+        await supabase.from('ingredientes').delete().eq('abv', 'MRM').ilike('nombre_base', `%${baseTrimPrev}%`)
+      }
+    }
+
     setSaving(true)
     try {
       const baseTrim = f.nombre_base.trim()
@@ -103,7 +116,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
         precio1: p1 || null,
         precio2: p2 || null,
         precio3: p3 || null,
-        ultimo_precio: ultimo || null,
+        ultimo_precio: ultimoAuto || null,
         selector_precio: f.selector_precio,
         precio_activo: precioActivo || null,
         eur_std: eurStd || null,
@@ -131,7 +144,10 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           .select('*')
           .eq('iding', f.iding || '')
           .maybeSingle()
-        if (!existing) {
+        if (existing) {
+          // FIX 6: ya existe → abrir directamente
+          if (onOpenMerma) { onOpenMerma(existing as Merma); return }
+        } else {
           const mermaRecord = {
             iding: f.iding || null,
             categoria: f.categoria || null,
@@ -245,10 +261,10 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                 <div className="ds-input-ro">{f.usos}</div>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="ds-label">Precio 1</label>
-                <input type="number" step="0.01" value={f.precio1} onChange={e => { set('precio1', e.target.value); set('ultimo_precio', e.target.value) }} className="ds-input" />
+                <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className="ds-input" />
               </div>
               <div>
                 <label className="ds-label">Precio 2</label>
@@ -257,10 +273,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               <div>
                 <label className="ds-label">Precio 3</label>
                 <input type="number" step="0.01" value={f.precio3} onChange={e => set('precio3', e.target.value)} className="ds-input" />
-              </div>
-              <div>
-                <label className="ds-label-calc">Último Precio</label>
-                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(p1, 4)}</div>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">

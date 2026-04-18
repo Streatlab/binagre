@@ -14,11 +14,14 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
   const [filter, setFilter] = useState<Filter>('todos')
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
-    const total = ingredientes.length
-    const enUso = ingredientes.filter(i => n(i.usos) > 0).length
-    let filtered = ingredientes
-    if (filter === 'enuso') filtered = ingredientes.filter(i => n(i.usos) > 0)
-    else if (filter === 'sinuso') filtered = ingredientes.filter(i => n(i.usos) === 0)
+    const base = ingredientes.filter(i =>
+      i.abv !== 'EPS' && i.abv !== 'MRM' && (i as any).tipo_merma !== 'EPS'
+    )
+    const total = base.length
+    const enUso = base.filter(i => n(i.usos) > 0).length
+    let filtered = base
+    if (filter === 'enuso') filtered = base.filter(i => n(i.usos) > 0)
+    else if (filter === 'sinuso') filtered = base.filter(i => n(i.usos) === 0)
     return { total, enUso, sinUso: total - enUso, filtered }
   }, [ingredientes, filter])
 

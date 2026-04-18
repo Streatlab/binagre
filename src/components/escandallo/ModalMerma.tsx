@@ -242,7 +242,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="border border-[#4a5270] rounded-xl w-full max-w-4xl my-8 shadow-2xl" style={{ background: '#484f66', backgroundColor: '#484f66' }} onClick={e => e.stopPropagation()}>
+      <div className="border border-[#4a5270] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: '#484f66', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
@@ -264,12 +264,13 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="Precio Total" type="number" step="0.01" value={f.precio_total} onChange={v => set('precio_total', v)} />
               <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} />
               <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <Field label="Total g" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
+              <Field label="Peso Total (g)" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
               <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight />
             </div>
           </Section>
 
           <div className="bg-[#404558] border border-[#4a5270] rounded-lg p-4 space-y-3">
+            <div style={{ borderTop: 'none', paddingTop: '0', fontSize: '11px', color: '#7080a8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             {/* SP1 */}
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
@@ -305,8 +306,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="€/Porción" value={fmtNum(eurPorcion, 4)} onChange={() => {}} disabled highlight />
               <div />
             </div>
-            {/* Divider */}
-            <hr className="border-[#4a5270]" />
+            {/* Divider + label Cálculos */}
+            <div style={{ borderTop: '1px solid #4a5270', paddingTop: '8px', fontSize: '11px', color: '#7080a8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
             {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
               <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
