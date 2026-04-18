@@ -22,3 +22,5 @@
 tbody tr:nth-child(odd)  { background: #484f66; }
 tbody tr:nth-child(even) { background: #404558; }
 tbody tr:hover { background: #4f5874 !important; }
+
+.modal-merma { background-color: #484f66 !important; }

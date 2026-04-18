@@ -242,7 +242,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="border border-[#4a5270] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: '#484f66', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-merma border border-[#4a5270] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: '#484f66', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
