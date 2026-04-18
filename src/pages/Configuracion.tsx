@@ -276,9 +276,9 @@ function SecCategorias({ onRefresh }: { onRefresh: () => void }) {
 function SecUnidades({ onRefresh }: { onRefresh: () => void }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <EditableList clave="formatos" colLabel="Formatos de Compra" placeholder="Nuevo formato…" onRefresh={onRefresh} />
-      <EditableList clave="unidades" colLabel="Unidades Estándar" placeholder="Nueva unidad…" onRefresh={onRefresh} />
-      <EditableList clave="unidades_min" colLabel="Unidades Mínimas" placeholder="Nueva unidad mín…" onRefresh={onRefresh} />
+      <EditableList clave="formatos_compra" colLabel="Formatos de Compra" placeholder="Nuevo formato…" onRefresh={onRefresh} />
+      <EditableList clave="unidades_estandar" colLabel="Unidades Estándar" placeholder="Nueva unidad…" onRefresh={onRefresh} />
+      <EditableList clave="unidades_minimas" colLabel="Unidades Mínimas" placeholder="Nueva unidad mín…" onRefresh={onRefresh} />
     </div>
   )
 }

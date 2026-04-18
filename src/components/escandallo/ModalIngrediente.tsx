@@ -232,12 +232,14 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               <div>
                 <label className="ds-label">UD STD</label>
                 <select value={f.ud_std} onChange={e => onUdStdChange(e.target.value)} className="ds-input">
-                  {['Kg.', 'L.', 'Ud.'].map(o => <option key={o} value={o}>{o}</option>)}
+                  {cfg.unidades_std.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
-                <label className="ds-label">UD MIN (auto)</label>
-                <div className="ds-input-ro">{f.ud_min}</div>
+                <label className="ds-label">UD MIN</label>
+                <select value={f.ud_min} onChange={e => set('ud_min', e.target.value)} className="ds-input">
+                  {cfg.unidades_min.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </div>
               <div>
                 <label className="ds-label">USOS</label>

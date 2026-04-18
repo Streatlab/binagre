@@ -26,6 +26,8 @@ export interface AppConfig {
   margen_deseado_pct: number // default global (fallback)
   categorias: string[]
   unidades: string[]
+  unidades_std: string[]
+  unidades_min: string[]
   formatos: string[]
   loading: boolean
   refresh: () => void
@@ -56,6 +58,8 @@ const DEFAULT_PROVEEDORES: ConfigProveedor[] = [
 
 const DEFAULT_CATS = ['Aves/Carnes', 'Lácteos y Huevos', 'Cereales/Legumbres', 'Frutas/Verduras', 'Conservas/Quinta', 'Aceites/Grasas', 'Condimentos/Salsas', 'Packaging', 'Bebidas', 'Vacío', 'Mermas', 'Pescado/Marisco', 'Congelados', 'EPS', 'MRM']
 const DEFAULT_UNS = ['Kg.', 'gr.', 'L.', 'ml.', 'Ud.', 'ud.', 'Docena', 'Caja', 'Sobre', 'Bote', 'Ración', 'Rc.']
+const DEFAULT_UNS_STD = ['Kg.', 'L.', 'Ud.', 'Docena']
+const DEFAULT_UNS_MIN = ['gr.', 'ml.', 'ud.']
 const DEFAULT_FORMATS = ['Garrafa', 'Caja', 'Bandeja', 'Bolsa/Malla', 'Bote', 'EP/Receta', 'Unidad', 'Lata', 'Litro', 'Paquete', 'Botella', 'Kg.', 'Ración']
 
 export function useConfig(): AppConfig {
@@ -65,6 +69,8 @@ export function useConfig(): AppConfig {
   const [margenPct, setMargenPct] = useState(15)
   const [categorias, setCategorias] = useState<string[]>(DEFAULT_CATS)
   const [unidades, setUnidades] = useState<string[]>(DEFAULT_UNS)
+  const [unidadesStd, setUnidadesStd] = useState<string[]>(DEFAULT_UNS_STD)
+  const [unidadesMin, setUnidadesMin] = useState<string[]>(DEFAULT_UNS_MIN)
   const [formatos, setFormatos] = useState<string[]>(DEFAULT_FORMATS)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
@@ -112,7 +118,15 @@ export function useConfig(): AppConfig {
             if (Array.isArray(uns) && uns.length) setUnidades(uns)
           } catch { /* ignore */ }
           try {
-            const fs = JSON.parse(map.get('formatos') || map.get('formatos_compra') || '[]')
+            const unsStd = JSON.parse(map.get('unidades_estandar') || '[]')
+            if (Array.isArray(unsStd) && unsStd.length) setUnidadesStd(unsStd)
+          } catch { /* ignore */ }
+          try {
+            const unsMin = JSON.parse(map.get('unidades_minimas') || '[]')
+            if (Array.isArray(unsMin) && unsMin.length) setUnidadesMin(unsMin)
+          } catch { /* ignore */ }
+          try {
+            const fs = JSON.parse(map.get('formatos_compra') || '[]')
             if (Array.isArray(fs) && fs.length) setFormatos(fs)
           } catch { /* ignore */ }
         }
@@ -134,6 +148,8 @@ export function useConfig(): AppConfig {
     margen_deseado_pct: margenPct,
     categorias,
     unidades,
+    unidades_std: unidadesStd,
+    unidades_min: unidadesMin,
     formatos,
     loading,
     refresh,
