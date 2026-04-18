@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig, calcWaterfall } from '@/hooks/useConfig'
@@ -29,6 +29,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     pvp_uber: n(receta?.pvp_uber), pvp_glovo: n(receta?.pvp_glovo), pvp_je: n(receta?.pvp_je),
     pvp_web: n(receta?.pvp_web), pvp_directa: n(receta?.pvp_directa),
   })
+  const [canalesActivos, setCanalesActivos] = useState<string[]>(['uber', 'glovo'])
   // Si es receta nueva, pre-poblar con una línea de envase (tipo ENV)
   const [lineas, setLineas] = useState<RecetaLinea[]>(
     receta ? [] : [{ linea: 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 1, unidad: 'Ud.', eur_ud_neta: 0 }]
@@ -222,80 +223,144 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             )}
           </div>
 
-          {/* Waterfall — layout vertical: 1 tarjeta por canal, Real/Cash dentro */}
+          {/* Waterfall — toggles + tabla */}
           <div>
-            <p className="text-[11px] text-[#c8d0e8] uppercase tracking-wider mb-3">Waterfall pricing por canal (Real / Cash)</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-              {waterfallCanales.map(({ canal, pvpKey, pvp, w }) => {
+            <p className="text-[11px] text-[#c8d0e8] uppercase tracking-wider mb-3">Waterfall pricing por canal</p>
+
+            {/* Botones toggle */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[
+                { id: 'uber', label: 'Uber Eats', activeColor: '#06C167', activeText: '#ffffff', inactiveColor: '#3a4058', inactiveText: '#7080a8' },
+                { id: 'glovo', label: 'Glovo', activeColor: '#e8f442', activeText: '#1a1a1a', inactiveColor: '#3a4058', inactiveText: '#7080a8' },
+                { id: 'je', label: 'Just Eat', activeColor: '#f5a623', activeText: '#1a1a1a', inactiveColor: '#3a4058', inactiveText: '#7080a8' },
+                { id: 'web', label: 'Web', activeColor: '#B01D23', activeText: '#ffffff', inactiveColor: '#3a4058', inactiveText: '#7080a8' },
+                { id: 'directa', label: 'Directa', activeColor: '#66aaff', activeText: '#1a1a1a', inactiveColor: '#3a4058', inactiveText: '#7080a8' },
+              ].map(ch => {
+                const isActive = canalesActivos.includes(ch.id)
                 return (
-                  <div key={canal.id || canal.canal} className="bg-[#2e3347] border border-[#4a5270] rounded-lg overflow-hidden">
-                    <div className="px-3 py-2 bg-[#2e3347] border-b border-[#4a5270]">
-                      <p className="text-sm font-semibold text-[#f0f0ff]">{canal.canal}</p>
-                      <p className="text-[10px] text-[#7080a8]">{canal.comision_pct}% comisión{canal.coste_fijo ? ` · +${canal.coste_fijo}€` : ''}</p>
-                    </div>
-                    <div className="grid grid-cols-2 text-[11px]">
-                      <div className="bg-[#1e3a1e]/40 p-2 border-r border-[#4a5270]">
-                        <p className="text-[9px] uppercase text-[#15803d] mb-1 font-semibold">Real</p>
-                      </div>
-                      <div className="bg-[#3a2a0a]/40 p-2">
-                        <p className="text-[9px] uppercase text-[#c2410c] mb-1 font-semibold">Cash</p>
-                      </div>
-                    </div>
-                    <WFRow label="Coste MP" real={w.costeMP} cash={w.costeMP} />
-                    <WFRow label="Coste estructura" real={w.costeEstructura} cash={w.costeEstructura} />
-                    <WFRow label="Coste plataforma" real={w.costePlatR} cash={w.costePlatC} />
-                    <WFRow label="Coste total" real={w.costeTotalR} cash={w.costeTotalC} bold />
-                    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#c8d0e8] flex justify-between">
-                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
-                      </div>
-                      <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#c8d0e8] flex justify-between">
-                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#f0f0ff] flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecR, 2)}</span>
-                      </div>
-                      <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#f0f0ff] flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecC, 2)}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#f0f0ff] flex justify-between col-span-2">
-                        <span>PVP real</span>
-                        <input type="number" min={0} step="0.01" value={pvp || ''}
-                          onChange={e => setPvps(p => ({ ...p, [pvpKey]: parseFloat(e.target.value) || 0 }))}
-                          className="w-20 bg-[#2e3347] border border-[#555] rounded px-1 text-right text-[#f0f0ff] text-xs" />
-                      </div>
-                    </div>
-                    <WFRow label="K multiplicador" real={w.k} cash={w.k} suffix="×" fraction={2} />
-                    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className="bg-[#1e3a1e]/30 p-2 text-[10px] flex justify-between font-semibold">
-                        <span className="text-[#c8d0e8]">Margen €</span>
-                        <span className="text-[#f0f0ff]">{fmtES(w.margenR, 2)}</span>
-                      </div>
-                      <div className="bg-[#3a2a0a]/30 p-2 text-[10px] flex justify-between font-semibold">
-                        <span className="text-[#c8d0e8]">Margen €</span>
-                        <span className="text-[#f0f0ff]">{fmtES(w.margenC, 2)}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.pctMargenR)}>
-                        <span className="opacity-70">% Margen</span>
-                        <span>{fmtES(w.pctMargenR, 2)}%</span>
-                      </div>
-                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.pctMargenC)}>
-                        <span className="opacity-70">% Margen</span>
-                        <span>{fmtES(w.pctMargenC, 2)}%</span>
-                      </div>
-                    </div>
-                    <WFRow label="IVA neto" real={w.ivaNeto} cash={w.ivaNeto} fraction={3} />
-                    <WFRow label="Provisión IVA" real={w.provIva} cash={w.provIva} fraction={3} />
-                  </div>
+                  <button
+                    key={ch.id}
+                    onClick={() => setCanalesActivos(p => isActive ? p.filter(x => x !== ch.id) : [...p, ch.id])}
+                    style={{
+                      backgroundColor: isActive ? ch.activeColor : ch.inactiveColor,
+                      color: isActive ? ch.activeText : ch.inactiveText,
+                    }}
+                    className="text-xs font-medium px-3 py-1.5 rounded transition"
+                  >
+                    {ch.label}
+                  </button>
                 )
               })}
             </div>
+
+            {/* Tabla waterfall */}
+            {canalesActivos.length === 0 ? (
+              <div className="text-center py-8 text-[#7080a8]">Selecciona al menos un canal</div>
+            ) : (
+              <div className="border border-[#4a5270] rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#353a50' }}>
+                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: '#f0f0ff', fontWeight: '600', borderRight: '1px solid #4a5270', fontFamily: 'Lexend' }}>Métrica</th>
+                        {canalesActivos.map(cid => {
+                          const cdef = [
+                            { id: 'uber', label: 'Uber Eats', color: '#06C167' },
+                            { id: 'glovo', label: 'Glovo', color: '#e8f442' },
+                            { id: 'je', label: 'Just Eat', color: '#f5a623' },
+                            { id: 'web', label: 'Web', color: '#B01D23' },
+                            { id: 'directa', label: 'Directa', color: '#66aaff' },
+                          ].find(x => x.id === cid)
+                          return (
+                            <th key={cid} colSpan={2} style={{ textAlign: 'center', borderRight: '1px solid #4a5270', color: cdef?.color }}>
+                              {cdef?.label}
+                            </th>
+                          )
+                        })}
+                      </tr>
+                      <tr style={{ backgroundColor: '#353a50', borderTop: '1px solid #4a5270' }}>
+                        <th style={{ width: '140px' }} />
+                        {canalesActivos.map(cid => (
+                          <React.Fragment key={cid}>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: '#c8d0e8', fontWeight: '500', borderRight: '1px solid #4a5270', fontSize: '9px' }}>REAL</th>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: '#c8d0e8', fontWeight: '500', borderRight: '1px solid #4a5270', fontSize: '9px' }}>CASH</th>
+                          </React.Fragment>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['Coste MP', 'Coste plataforma', 'Coste estructura', 'Coste total', 'Margen deseado', 'PVP recomendado', 'PVP real', 'Factor K', 'Margen €', '% Margen', 'IVA repercutido', 'IVA soportado'].map((metrica, rowIdx) => (
+                        <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? '#484f66' : '#404558' }}>
+                          <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: '#7080a8', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid #4a5270' }}>
+                            {metrica}
+                          </td>
+                          {canalesActivos.map(cid => {
+                            const cdef = [
+                              { id: 'uber', pvpKey: 'pvp_uber' as CanalKey },
+                              { id: 'glovo', pvpKey: 'pvp_glovo' as CanalKey },
+                              { id: 'je', pvpKey: 'pvp_je' as CanalKey },
+                              { id: 'web', pvpKey: 'pvp_web' as CanalKey },
+                              { id: 'directa', pvpKey: 'pvp_directa' as CanalKey },
+                            ].find(x => x.id === cid)!
+                            const canal = cfg.canales.find(c => {
+                              const ck = CANAL_TO_KEY[c.canal]
+                              return ck === cdef.pvpKey
+                            })
+                            const pvp = pvps[cdef.pvpKey] ?? 0
+                            const w = canal ? calcWaterfall(costeMP, pvp, canal.comision_pct, canal.coste_fijo || 0, cfg.estructura_pct, canal.margen_deseado_pct ?? cfg.margen_deseado_pct) : null
+
+                            let realVal = 0, cashVal = 0, suffix = '€'
+                            if (w) {
+                              switch (metrica) {
+                                case 'Coste MP': realVal = w.costeMP; cashVal = w.costeMP; break
+                                case 'Coste plataforma': realVal = w.costePlatR; cashVal = w.costePlatC; break
+                                case 'Coste estructura': realVal = w.costeEstructura; cashVal = w.costeEstructura; break
+                                case 'Coste total': realVal = w.costeTotalR; cashVal = w.costeTotalC; break
+                                case 'Margen deseado': realVal = w.margenDeseadoR; cashVal = w.margenDeseadoC; break
+                                case 'PVP recomendado': realVal = w.pvpRecR; cashVal = w.pvpRecC; break
+                                case 'PVP real': suffix = 'input'; realVal = pvp; cashVal = pvp; break
+                                case 'Factor K': suffix = '×'; realVal = w.k; cashVal = w.k; break
+                                case 'Margen €': realVal = w.margenR; cashVal = w.margenC; break
+                                case '% Margen': suffix = '%'; realVal = w.pctMargenR; cashVal = w.pctMargenC; break
+                                case 'IVA repercutido': realVal = w.ivaRepercutido; cashVal = w.ivaSoportado; break
+                                case 'IVA soportado': realVal = w.ivaSoportado; cashVal = 0; break
+                              }
+                            }
+
+                            return (
+                              <React.Fragment key={cid}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#f0f0ff', borderRight: '1px solid #4a5270' }}>
+                                  {metrica === 'PVP real' ? (
+                                    <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[#3a4058] border border-[#4a5270] rounded px-1 text-right text-[#f0f0ff] text-xs" />
+                                  ) : metrica === '% Margen' ? (
+                                    <span style={{ color: realVal > 15 ? '#22c55e' : realVal >= 5 ? '#eab308' : '#ef4444' }}>{fmtNum(realVal)}%</span>
+                                  ) : metrica === 'Factor K' ? (
+                                    <span>{fmtNum(realVal)}</span>
+                                  ) : (
+                                    <span>{fmtNum(realVal)}</span>
+                                  )}
+                                </td>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#f0f0ff', borderRight: '1px solid #4a5270' }}>
+                                  {metrica === 'PVP real' ? (
+                                    <span>{fmtNum(cashVal)}</span>
+                                  ) : metrica === '% Margen' ? (
+                                    <span style={{ color: cashVal > 15 ? '#22c55e' : cashVal >= 5 ? '#eab308' : '#ef4444' }}>{fmtNum(cashVal)}%</span>
+                                  ) : metrica === 'Factor K' ? (
+                                    <span>{fmtNum(cashVal)}</span>
+                                  ) : (
+                                    <span>{fmtNum(cashVal)}</span>
+                                  )}
+                                </td>
+                              </React.Fragment>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -308,18 +373,3 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   )
 }
 
-function WFRow({ label, real, cash, bold, suffix, fraction = 2 }: { label: string; real: number; cash: number; bold?: boolean; suffix?: string; fraction?: number }) {
-  const cls = 'p-2 text-[10px] flex justify-between' + (bold ? ' font-semibold' : '')
-  return (
-    <div className="grid grid-cols-2 border-t border-[#4a5270]">
-      <div className={'bg-[#1e3a1e]/30 ' + cls}>
-        <span className="text-[#c8d0e8]">{label}</span>
-        <span className="text-[#f0f0ff]">{fmtES(real, fraction)}{suffix ?? '€'}</span>
-      </div>
-      <div className={'bg-[#3a2a0a]/30 ' + cls}>
-        <span className="text-[#c8d0e8]">{label}</span>
-        <span className="text-[#f0f0ff]">{fmtES(cash, fraction)}{suffix ?? '€'}</span>
-      </div>
-    </div>
-  )
-}
