@@ -38,6 +38,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
     sp2_peso_g: merma?.sp2_peso_g != null ? String(merma.sp2_peso_g) : '',
     sp2_euros: merma?.sp2_euros != null ? String(merma.sp2_euros) : '',
     sp2_valorable: merma?.sp2_valorable ?? false,
+    sp1_eur_kg_mercado: (merma as any)?.sp1_eur_kg_mercado != null ? String((merma as any).sp1_eur_kg_mercado) : '',
+    sp2_eur_kg_mercado: (merma as any)?.sp2_eur_kg_mercado != null ? String((merma as any).sp2_eur_kg_mercado) : '',
     num_porciones: merma?.num_porciones != null ? String(merma.num_porciones) : '',
     peso_porcion_g: merma?.peso_porcion_g != null ? String(merma.peso_porcion_g) : '',
   })
@@ -73,6 +75,13 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
   const numPorc = parseFloat(f.num_porciones) || 0
   const eurPorcion = numPorc > 0 ? eurPiezaLimpia / numPorc : 0
 
+  const sp1EurosAuto = totalG > 0 ? (precioTotal / totalG) * sp1g : 0
+  const sp1EurosFinal = f.sp1_eur_kg_mercado ? (parseFloat(f.sp1_eur_kg_mercado) / 1000) * sp1g : sp1EurosAuto
+  const sp2EurosAuto = totalG > 0 ? (precioTotal / totalG) * sp2g : 0
+  const sp2EurosFinal = f.sp2_eur_kg_mercado ? (parseFloat(f.sp2_eur_kg_mercado) / 1000) * sp2g : sp2EurosAuto
+  const pctDescarte = (!f.sp1_valorable ? sp1Pct : 0) + (!f.sp2_valorable ? sp2Pct : 0)
+  const pctUtilizable = (f.sp1_valorable ? sp1Pct : 0) + (f.sp2_valorable ? sp2Pct : 0)
+
   const handleSave = async () => {
     setErr(null)
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
@@ -92,13 +101,16 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
         sp1_nombre: f.sp1_nombre || null,
         sp1_peso_g: sp1g || null,
         sp1_pct: sp1Pct || null,
-        sp1_euros: parseFloat(f.sp1_euros) || null,
+        sp1_eur_kg_mercado: parseFloat(f.sp1_eur_kg_mercado) || null,
+        sp1_euros: sp1EurosFinal || null,
         sp1_valorable: f.sp1_valorable,
         sp2_nombre: f.sp2_nombre || null,
         sp2_peso_g: sp2g || null,
         sp2_pct: sp2Pct || null,
-        sp2_euros: parseFloat(f.sp2_euros) || null,
+        sp2_eur_kg_mercado: parseFloat(f.sp2_eur_kg_mercado) || null,
+        sp2_euros: sp2EurosFinal || null,
         sp2_valorable: f.sp2_valorable,
+        pct_descarte: pctDescarte || null,
         pct_merma: pctMerma || null,
         pct_limpio: pctLimpio || null,
         eur_pieza_limpia: eurPiezaLimpia || null,
@@ -145,6 +157,32 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
         coste_neto_min: eurKgNeto / 1000 || 0,
       })
 
+      // _Porcion_ABV_MRM si numPorc > 0
+      const pesoPorc = parseFloat(f.peso_porcion_g) || 0
+      if (numPorc > 0 && pesoPorc > 0) {
+        const nombrePorcion = `${ingBase}_Porcion_${abv}_MRM`
+        const eurStdPorc = eurPorcion / (pesoPorc / 1000)
+        await upsertIngrediente({
+          iding: f.iding ? `${f.iding}_PORCION` : null,
+          categoria: f.categoria || null,
+          nombre_base: nombrePorcion,
+          abv: 'MRM',
+          nombre: nombrePorcion,
+          marca: 'Cocina Interna',
+          formato: 'Porcion',
+          uds: pesoPorc / 1000,
+          ud_std: 'Kg.',
+          ud_min: 'gr.',
+          precio_activo: eurPorcion,
+          eur_std: eurStdPorc,
+          eur_min: eurStdPorc / 1000,
+          coste_neto_std: eurStdPorc,
+          coste_neto_min: eurStdPorc / 1000,
+          tipo_merma: 'Manual',
+          merma_pct: 0,
+        })
+      }
+
       // SP1 Valorable
       if (f.sp1_valorable && f.sp1_nombre) {
         const nombreSp1 = `${ingBase}_${f.sp1_nombre}_${abv}_MRM`
@@ -186,6 +224,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
         await supabase.from('ingredientes').update({
           merma_pct: pctMerma * 100,
           tipo_merma: 'Tecnica',
+          coste_neto_std: eurKgNeto,
+          coste_neto_min: eurKgNeto / 1000,
         }).eq('iding', f.iding)
       }
 
@@ -199,7 +239,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#333] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
@@ -230,11 +270,12 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <Section title="Subproducto 1 (SP1)">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
               <Field label="%" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
-              <Field label="€ SP1" type="number" step="0.01" value={f.sp1_euros} onChange={v => set('sp1_euros', v)} disabled={!f.sp1_valorable} />
+              <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
+              <Field label="€ SP1" value={fmtNum(sp1EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
                   <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
@@ -245,11 +286,12 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <Section title="Subproducto 2 (SP2)">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
               <Field label="Peso (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
               <Field label="%" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />
-              <Field label="€ SP2" type="number" step="0.01" value={f.sp2_euros} onChange={v => set('sp2_euros', v)} disabled={!f.sp2_valorable} />
+              <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
+              <Field label="€ SP2" value={fmtNum(sp2EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
                   <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
@@ -270,6 +312,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
           <Section title="Cálculos">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled />
+              <Field label="% Utilizable" value={fmtNum(pctUtilizable * 100, 2) + '%'} onChange={() => {}} disabled />
               <Field label="% Merma" value={fmtNum(pctMerma * 100, 2) + '%'} onChange={() => {}} disabled />
               <Field label="% Limpio" value={fmtNum(pctLimpio * 100, 2) + '%'} onChange={() => {}} disabled />
               <Field label="€/Kg Neto" value={fmtNum(eurKgNeto, 4)} onChange={() => {}} disabled highlight />
@@ -315,16 +359,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({ label, value, onChange, type, step, disabled, highlight, list }: {
+function Field({ label, value, onChange, type, step, disabled, highlight, list, placeholder }: {
   label: string; value: string; onChange: (v: string) => void;
-  type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string
+  type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string; placeholder?: string
 }) {
   return (
     <div>
       <label className={labelCls}>{label}</label>
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
-        disabled={disabled} list={list}
+        disabled={disabled} list={list} placeholder={placeholder}
         className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#f0f0ff] font-bold' : '')}
       />
     </div>

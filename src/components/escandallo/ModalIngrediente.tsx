@@ -70,7 +70,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
   const ultimo = parseFloat(f.ultimo_precio) || 0
   const precios = [p1, p2, p3].filter(p => p > 0)
   const media = precios.length ? precios.reduce((a, b) => a + b, 0) / precios.length : 0
-  const precioActivo = f.selector_precio === 'ultimo' ? (ultimo || precios[precios.length - 1] || 0) : media
+  const precioActivo = f.selector_precio === 'ultimo' ? p1 : media
+  const udStdOptions = cfg.unidades_std?.length ? cfg.unidades_std : ['Kg.', 'L.', 'Ud.']
 
   const uds = parseFloat(f.uds) || 0
   const mermaPct = parseFloat(f.merma_pct) || 0
@@ -232,7 +233,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               <div>
                 <label className="ds-label">UD STD</label>
                 <select value={f.ud_std} onChange={e => onUdStdChange(e.target.value)} className="ds-input">
-                  {cfg.unidades_std.map(o => <option key={o} value={o}>{o}</option>)}
+                  {udStdOptions.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
@@ -254,7 +255,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="ds-label">Precio 1</label>
-                <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className="ds-input" />
+                <input type="number" step="0.01" value={f.precio1} onChange={e => { set('precio1', e.target.value); set('ultimo_precio', e.target.value) }} className="ds-input" />
               </div>
               <div>
                 <label className="ds-label">Precio 2</label>
@@ -265,8 +266,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                 <input type="number" step="0.01" value={f.precio3} onChange={e => set('precio3', e.target.value)} className="ds-input" />
               </div>
               <div>
-                <label className="ds-label">Último Precio</label>
-                <input type="number" step="0.01" value={f.ultimo_precio} onChange={e => set('ultimo_precio', e.target.value)} className="ds-input" />
+                <label className="ds-label-calc">Último Precio</label>
+                <div className="ds-input-calc">{fmtNum(p1, 4)}</div>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
