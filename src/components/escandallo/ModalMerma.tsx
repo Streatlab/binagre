@@ -60,7 +60,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   // Cálculos derivados
   const uds = parseFloat(f.uds) || 0
-  const factor = f.ud_std?.toLowerCase().startsWith('kg') || f.ud_std?.toLowerCase().startsWith('l') ? 1000 : 1
+  const udStdLower = (f.ud_std ?? '').toLowerCase()
+  const factor = (udStdLower.startsWith('kg') || udStdLower.startsWith('l')) ? 1000 : 1
   const totalG = uds * factor
   const sp1g = parseFloat(f.sp1_peso_g) || 0
   const sp2g = parseFloat(f.sp2_peso_g) || 0
@@ -352,7 +353,7 @@ async function upsertIngrediente(row: Record<string, unknown>) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#2a2a2a] border border-[#4a5270] rounded-lg p-4">
+    <div className="bg-[#404558] border border-[#4a5270] rounded-lg p-4">
       <h4 className="text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
