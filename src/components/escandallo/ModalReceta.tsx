@@ -140,30 +140,30 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           {/* Cabecera: Nombre + Raciones + Tamaño + Unidad + Fecha + Categoria */}
           <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
             <div className="sm:col-span-2">
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Nombre</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Nombre</label>
               <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Smash Burger" />
             </div>
             <div>
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Categoría</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Categoría</label>
               <input className={inputCls} value={categoria} onChange={e => setCategoria(e.target.value)} list="rec-cats" />
               <datalist id="rec-cats">{cfg.categorias.map(c => <option key={c} value={c} />)}</datalist>
             </div>
             <div>
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Raciones</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Raciones</label>
               <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => setRaciones(parseFloat(e.target.value) || 1)} />
             </div>
             <div>
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Tamaño rac</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Tamaño rac</label>
               <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => setTamanoRac(parseFloat(e.target.value) || 0)} />
             </div>
             <div>
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Unidad</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Unidad</label>
               <select className={inputCls} value={unidad} onChange={e => setUnidad(e.target.value)}>
                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div className="sm:col-span-1">
-              <label className="block text-[11px] text-[#c8d0e8] mb-1 uppercase tracking-wider">Fecha</label>
+              <label className="block text-sm text-[#c8d0e8] mb-1 uppercase tracking-wider">Fecha</label>
               <input type="date" className={inputCls} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           {/* Líneas */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] text-[#c8d0e8] uppercase tracking-wider">Líneas</p>
+              <p className="text-sm text-[#c8d0e8] uppercase tracking-wider">Líneas</p>
               <button onClick={addLinea} className="text-xs font-semibold text-[#1a1a1a] bg-accent hover:brightness-110 transition px-3 py-1 rounded-md">+ Añadir línea</button>
             </div>
             {loadingLineas ? (
@@ -225,7 +225,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
           {/* Waterfall — toggles + tabla */}
           <div>
-            <p className="text-[11px] text-[#c8d0e8] uppercase tracking-wider mb-3">Waterfall pricing por canal</p>
+            <p className="text-sm text-[#c8d0e8] uppercase tracking-wider mb-3">Waterfall pricing por canal</p>
 
             {/* Botones toggle */}
             <div className="flex flex-wrap gap-2 mb-4">
@@ -259,7 +259,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             ) : (
               <div className="border border-[#4a5270] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[11px]" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
+                  <table className="w-full text-sm" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#353a50' }}>
                         <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: '#f0f0ff', fontWeight: '600', borderRight: '1px solid #4a5270', fontFamily: 'Lexend' }}>Métrica</th>
