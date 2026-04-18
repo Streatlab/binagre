@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtNum, fmtEur } from '@/utils/format'
-import { useConfig } from '@/hooks/useConfig'
-import { calcWaterfall as calcWaterfallCh, type ConfigCanal as ConfigCanalWF } from '@/utils/calcWaterfall'
+import { fmtNum } from '@/utils/format'
+import { useConfig, calcWaterfall } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
-import { UNIDADES, semaforoClasses, inputCls, thCls, tdCls, n, btnPrimary, btnSecondary } from './types'
+import { UNIDADES, semaforoClasses, inputCls, thCls, tdCls, n, fmtES, fmtEurES, btnPrimary, btnSecondary } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
 
@@ -113,22 +112,14 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     finally { setSaving(false) }
   }
 
-  /* ── Canales para waterfall — usan calcWaterfall unificado ── */
+  /* ── Canales para waterfall — usan useConfig ── */
   const waterfallCanales = useMemo(() => {
     return cfg.canales.filter(c => c.activo !== false).map(c => {
       const pvpKey = CANAL_TO_KEY[c.canal] ?? 'pvp_uber'
       const pvp = pvps[pvpKey] ?? 0
-
-      const canalAdaptado: ConfigCanalWF = {
-        nombre: c.canal,
-        comision_pct: c.comision_pct / 100,
-        estructura_pct: cfg.estructura_pct / 100,
-        margen_deseado_pct: (c.margen_deseado_pct ?? cfg.margen_deseado_pct) / 100,
-      }
-
-      const w = calcWaterfallCh(costeMP, pvp, canalAdaptado)
-
-      return { canal: c, pvpKey, pvp, w, canalAdaptado }
+      const margenCanal = c.margen_deseado_pct ?? cfg.margen_deseado_pct
+      const w = calcWaterfall(costeMP, pvp, c.comision_pct, c.coste_fijo || 0, cfg.estructura_pct, margenCanal)
+      return { canal: c, pvpKey, pvp, w }
     })
   }, [cfg, pvps, costeMP])
 
@@ -206,8 +197,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#f0f0ff] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-[#f0f0ff]'}>{fmtNum(l.eur_total)}</td>
-                          <td className={tdCls + ' text-right text-[#7080a8]'}>{fmtNum(l.pct_total)}%</td>
+                          <td className={tdCls + ' text-right font-medium text-[#f0f0ff]'}>{fmtNum(l.eur_total, 4)}</td>
+                          <td className={tdCls + ' text-right text-[#7080a8]'}>{fmtNum(l.pct_total, 1)}%</td>
                           <td className={tdCls}>
                             {idx === 0 ? (
                               <span className="text-[#7080a8] text-[10px]" title="Envase (no eliminable)">🔒</span>
@@ -222,8 +213,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 </div>
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#f0f0ff]">{fmtNum(costeTanda)} €</span></div>
-                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#f0f0ff]">{fmtNum(costeMP)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#f0f0ff]">{fmtNum(costeTanda, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[#7080a8] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#f0f0ff]">{fmtNum(costeMP, 4)} €</span></div>
                   </div>
                   <span className="text-xs text-[#8090b8]">{raciones} raciones</span>
                 </div>
@@ -250,24 +241,24 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <p className="text-[9px] uppercase text-[#c2410c] mb-1 font-semibold">Cash</p>
                       </div>
                     </div>
-                    <WFRow label="Coste MP" real={w.real.coste_mp} cash={w.cash.coste_mp} />
-                    <WFRow label="Coste estructura" real={w.real.coste_estructura} cash={w.cash.coste_estructura} />
-                    <WFRow label="Coste plataforma" real={w.real.coste_plataforma} cash={w.cash.coste_plataforma} />
-                    <WFRow label="Coste total" real={w.real.coste_total} cash={w.cash.coste_total} bold />
+                    <WFRow label="Coste MP" real={w.costeMP} cash={w.costeMP} />
+                    <WFRow label="Coste estructura" real={w.costeEstructura} cash={w.costeEstructura} />
+                    <WFRow label="Coste plataforma" real={w.costePlatR} cash={w.costePlatC} />
+                    <WFRow label="Coste total" real={w.costeTotalR} cash={w.costeTotalC} bold />
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#c8d0e8] flex justify-between">
-                        <span>Margen deseado</span><span>{fmtEur(w.real.margen_deseado, 2)}</span>
+                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
                       <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#c8d0e8] flex justify-between">
-                        <span>Margen deseado</span><span>{fmtEur(w.cash.margen_deseado, 2)}</span>
+                        <span>Margen deseado</span><span>{canal.margen_deseado_pct ?? cfg.margen_deseado_pct}%</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] text-[#f0f0ff] flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEur(w.real.pvp_recomendado, 2)}</span>
+                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecR, 2)}</span>
                       </div>
                       <div className="bg-[#3a2a0a]/30 p-2 text-[10px] text-[#f0f0ff] flex justify-between font-semibold">
-                        <span>PVP rec.</span><span>{fmtEur(w.cash.pvp_recomendado, 2)}</span>
+                        <span>PVP rec.</span><span>{fmtEurES(w.pvpRecC, 2)}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
@@ -278,29 +269,29 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           className="w-20 bg-[#2e3347] border border-[#555] rounded px-1 text-right text-[#f0f0ff] text-xs" />
                       </div>
                     </div>
-                    <WFRow label="K multiplicador" real={w.real.factor_k} cash={w.cash.factor_k} suffix="×" fraction={2} />
+                    <WFRow label="K multiplicador" real={w.k} cash={w.k} suffix="×" fraction={2} />
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
                       <div className="bg-[#1e3a1e]/30 p-2 text-[10px] flex justify-between font-semibold">
                         <span className="text-[#c8d0e8]">Margen €</span>
-                        <span className="text-[#f0f0ff]">{fmtEur(w.real.margen_eur, 2)}</span>
+                        <span className="text-[#f0f0ff]">{fmtES(w.margenR, 2)}</span>
                       </div>
                       <div className="bg-[#3a2a0a]/30 p-2 text-[10px] flex justify-between font-semibold">
                         <span className="text-[#c8d0e8]">Margen €</span>
-                        <span className="text-[#f0f0ff]">{fmtEur(w.cash.margen_eur, 2)}</span>
+                        <span className="text-[#f0f0ff]">{fmtES(w.margenC, 2)}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 border-t border-[#4a5270]">
-                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.real.margen_pct)}>
+                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.pctMargenR)}>
                         <span className="opacity-70">% Margen</span>
-                        <span>{fmtNum(w.real.margen_pct)}%</span>
+                        <span>{fmtES(w.pctMargenR, 2)}%</span>
                       </div>
-                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.cash.margen_pct)}>
+                      <div className={'p-2 text-[10px] flex justify-between font-bold ' + semaforoClasses(w.pctMargenC)}>
                         <span className="opacity-70">% Margen</span>
-                        <span>{fmtNum(w.cash.margen_pct)}%</span>
+                        <span>{fmtES(w.pctMargenC, 2)}%</span>
                       </div>
                     </div>
-                    <WFRow label="IVA repercutido" real={w.real.iva_repercutido} cash={w.cash.iva_repercutido} fraction={3} />
-                    <WFRow label="IVA soportado" real={w.real.iva_soportado} cash={w.cash.iva_soportado} fraction={3} />
+                    <WFRow label="IVA neto" real={w.ivaNeto} cash={w.ivaNeto} fraction={3} />
+                    <WFRow label="Provisión IVA" real={w.provIva} cash={w.provIva} fraction={3} />
                   </div>
                 )
               })}
@@ -323,11 +314,11 @@ function WFRow({ label, real, cash, bold, suffix, fraction = 2 }: { label: strin
     <div className="grid grid-cols-2 border-t border-[#4a5270]">
       <div className={'bg-[#1e3a1e]/30 ' + cls}>
         <span className="text-[#c8d0e8]">{label}</span>
-        <span className="text-[#f0f0ff]">{fmtNum(real, fraction)}{suffix ?? ' €'}</span>
+        <span className="text-[#f0f0ff]">{fmtES(real, fraction)}{suffix ?? '€'}</span>
       </div>
       <div className={'bg-[#3a2a0a]/30 ' + cls}>
         <span className="text-[#c8d0e8]">{label}</span>
-        <span className="text-[#f0f0ff]">{fmtNum(cash, fraction)}{suffix ?? ' €'}</span>
+        <span className="text-[#f0f0ff]">{fmtES(cash, fraction)}{suffix ?? '€'}</span>
       </div>
     </div>
   )
