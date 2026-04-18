@@ -4,7 +4,7 @@
 @theme {
   /* Puentes Tailwind → design system tokens */
   --color-base:        #2e3347;
-  --color-card:        #484f66;
+  --color-card:        #575e7a;
   --color-sidebar:     #1e2233;
   --color-border:      #4a5270;
   --color-accent:      #e8f442;
@@ -19,8 +19,8 @@
 }
 
 /* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
-tbody tr:nth-child(odd)  { background: #484f66; }
-tbody tr:nth-child(even) { background: #404558; }
-tbody tr:hover { background: #4f5874 !important; }
+tbody tr:nth-child(odd)  { background: #575e7a; }
+tbody tr:nth-child(even) { background: #4e5470; }
+tbody tr:hover { background: #5f6680 !important; }
 
-.modal-merma { background-color: #484f66 !important; }
+.modal-merma { background-color: #575e7a !important; }
