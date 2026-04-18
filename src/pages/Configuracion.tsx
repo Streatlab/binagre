@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 /* ═══════ TYPES ═══════ */
 
-interface Proveedor { id: string; abv: string; nombre_completo: string; categoria: string | null; activo: boolean }
+interface Proveedor { id: string; abv: string; nombre_completo: string; categoria: string | null; marca_asociada?: string | null; activo: boolean }
 interface Canal { id: string; canal: string; comision_pct: number | null; coste_fijo: number | null; margen_deseado_pct?: number | null; activo?: boolean }
 interface ConfigItem { id: string; clave: string; valor: string }
 
@@ -20,6 +20,9 @@ const SECTIONS: { key: Section; label: string }[] = [
 const inputCls = 'w-full bg-[#2e3347] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] focus:outline-none focus:border-accent'
 const btnPrimary = 'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition'
 const btnSecondary = 'px-4 py-2 text-sm text-[#c8d0e8] border border-[#4a5270] rounded-lg hover:text-[#f0f0ff] hover:border-[#555] transition'
+const thCfg = 'px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#353a50] border-b border-[#4a5270]'
+
+const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
 
 /* ═══════ MAIN ═══════ */
 
@@ -42,8 +45,8 @@ export default function Configuracion() {
       {section === 'plataformas' && <SecPlataformas key={refreshKey} onRefresh={refresh} />}
       {section === 'costes' && <SecCostes key={refreshKey} onRefresh={refresh} />}
       {section === 'proveedores' && <SecProveedores key={refreshKey} onRefresh={refresh} />}
-      {section === 'categorias' && <SecLista key={`c-${refreshKey}`} clave="categorias" label="Categoría" onRefresh={refresh} />}
-      {section === 'unidades' && <SecLista key={`u-${refreshKey}`} clave="unidades" label="Unidad" onRefresh={refresh} />}
+      {section === 'categorias' && <SecCategorias key={`c-${refreshKey}`} onRefresh={refresh} />}
+      {section === 'unidades' && <SecUnidades key={`u-${refreshKey}`} onRefresh={refresh} />}
     </div>
   )
 }
@@ -58,14 +61,24 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   useEffect(() => {
     let c = false
     ;(async () => {
-      const { data } = await supabase.from('config_canales').select('*').order('canal')
-      if (!c) { setRows((data as Canal[]) ?? []); setLoading(false) }
+      const { data } = await supabase.from('config_canales').select('*')
+      if (!c) {
+        const sorted = ((data as Canal[]) ?? []).sort((a, b) => {
+          const ia = CANAL_ORDER.indexOf(a.canal)
+          const ib = CANAL_ORDER.indexOf(b.canal)
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+        })
+        setRows(sorted)
+        setLoading(false)
+      }
     })()
     return () => { c = true }
   }, [])
 
-  const update = async (id: string, field: string, val: string | boolean) => {
-    const payload = typeof val === 'boolean' ? { [field]: val } : { [field]: parseFloat(val) || 0 }
+  const update = async (id: string, field: string, val: string) => {
+    let numVal = parseFloat(val) || 0
+    if (field === 'comision_pct') numVal = numVal / 100
+    const payload = { [field]: numVal }
     setSaving(true)
     await supabase.from('config_canales').update(payload).eq('id', id)
     setRows(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
@@ -81,36 +94,30 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Canal</th>
-              <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Comisión %</th>
-              <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Coste Fijo €</th>
-              <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Margen deseado %</th>
-              <th className="px-4 py-3 text-center text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Activa</th>
+              <th className={thCfg}>Canal</th>
+              <th className={thCfg + ' text-right'}>Comisión %</th>
+              <th className={thCfg + ' text-right'}>Coste Fijo €</th>
+              <th className={thCfg + ' text-right'}>Margen deseado %</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.id}>
-                <td className="px-4 py-2.5 text-[#f0f0ff] font-medium border-b border-[#4a5270]">{r.canal}</td>
-                <td className="px-4 py-2.5 text-right border-b border-[#4a5270]">
-                  <input type="number" step="0.1" defaultValue={r.comision_pct ?? 0}
+            {rows.map((r, idx) => (
+              <tr key={r.id} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
+                <td className="px-4 py-2.5 text-[#f0f0ff] font-medium border-b border-[#3e4460]">{r.canal}</td>
+                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
+                  <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
                     onBlur={e => update(r.id, 'comision_pct', e.target.value)}
                     className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
                 </td>
-                <td className="px-4 py-2.5 text-right border-b border-[#4a5270]">
+                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
                   <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
-                    onBlur={e => update(r.id, 'coste_fijo', e.target.value)}
+                    onBlur={e => { const payload = { coste_fijo: parseFloat(e.target.value) || 0 }; setSaving(true); supabase.from('config_canales').update(payload).eq('id', r.id).then(() => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, ...payload } : x)); setSaving(false) }) }}
                     className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
                 </td>
-                <td className="px-4 py-2.5 text-right border-b border-[#4a5270]">
+                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
                   <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
-                    onBlur={e => update(r.id, 'margen_deseado_pct', e.target.value)}
+                    onBlur={e => { const payload = { margen_deseado_pct: parseFloat(e.target.value) || 0 }; setSaving(true); supabase.from('config_canales').update(payload).eq('id', r.id).then(() => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, ...payload } : x)); setSaving(false) }) }}
                     className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
-                </td>
-                <td className="px-4 py-2.5 text-center border-b border-[#4a5270]">
-                  <input type="checkbox" checked={r.activo ?? true}
-                    onChange={e => update(r.id, 'activo', e.target.checked)}
-                    className="accent-accent w-4 h-4" />
                 </td>
               </tr>
             ))}
@@ -125,7 +132,6 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
 
 function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   const [estructura, setEstructura] = useState('30')
-  const [margen, setMargen] = useState('15')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -133,12 +139,9 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   useEffect(() => {
     let c = false
     ;(async () => {
-      const { data } = await supabase.from('configuracion').select('*').in('clave', ['estructura_pct', 'margen_deseado_pct'])
-      if (!c && data) {
-        const e = (data as ConfigItem[]).find(x => x.clave === 'estructura_pct')
-        const m = (data as ConfigItem[]).find(x => x.clave === 'margen_deseado_pct')
-        if (e) setEstructura(e.valor)
-        if (m) setMargen(m.valor)
+      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'estructura_pct').single()
+      if (!c) {
+        if (data) setEstructura((data as ConfigItem).valor)
         setLoading(false)
       }
     })()
@@ -151,7 +154,6 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
     try {
       await supabase.from('configuracion').upsert([
         { clave: 'estructura_pct', valor: estructura },
-        { clave: 'margen_deseado_pct', valor: margen },
       ], { onConflict: 'clave' })
       setMsg('Guardado')
     } catch (e: any) {
@@ -169,11 +171,6 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
         <label className="block text-xs text-[#7080a8] mb-1.5">Coste estructura (%)</label>
         <input type="number" step="0.1" value={estructura} onChange={e => setEstructura(e.target.value)} className={inputCls} />
         <p className="text-[11px] text-[#8090b8] mt-1">Se aplica sobre PVP neto (sin IVA) en todas las recetas</p>
-      </div>
-      <div>
-        <label className="block text-xs text-[#7080a8] mb-1.5">Margen deseado (%)</label>
-        <input type="number" step="0.1" value={margen} onChange={e => setMargen(e.target.value)} className={inputCls} />
-        <p className="text-[11px] text-[#8090b8] mt-1">Usado en fórmula de PVP recomendado</p>
       </div>
       <div className="flex items-center gap-3 pt-2">
         <button onClick={save} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
@@ -193,14 +190,19 @@ function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
   const [edit, setEdit] = useState<Proveedor | null>(null)
   const [showAdd, setShowAdd] = useState(false)
 
-  useEffect(() => {
-    let c = false
-    ;(async () => {
-      const { data } = await supabase.from('config_proveedores').select('*').order('abv')
-      if (!c) { setRows((data as Proveedor[]) ?? []); setLoading(false) }
-    })()
-    return () => { c = true }
-  }, [])
+  const load = async () => {
+    const { data } = await supabase.from('config_proveedores').select('*').order('abv')
+    setRows((data as Proveedor[]) ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleDelete = async (id: string, abv: string) => {
+    if (!confirm(`¿Eliminar proveedor ${abv}?`)) return
+    await supabase.from('config_proveedores').delete().eq('id', id)
+    setRows(prev => prev.filter(r => r.id !== id))
+  }
 
   if (loading) return <Loader />
 
@@ -214,35 +216,37 @@ function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">ABV</th>
-              <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Nombre completo</th>
-              <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Categoría</th>
-              <th className="px-4 py-3 text-center text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#2e3347] border-b border-[#4a5270]">Activo</th>
+              <th className={thCfg}>Categoría</th>
+              <th className={thCfg}>ABV</th>
+              <th className={thCfg}>Nombre</th>
+              <th className={thCfg}>Marca Principal</th>
+              <th className={thCfg + ' text-center'} style={{ width: 80 }}></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.id} onClick={() => setEdit(r)} className="cursor-pointer">
-                <td className="px-4 py-2.5 text-[#f0f0ff] font-mono text-xs font-bold border-b border-[#4a5270]">{r.abv}</td>
-                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#4a5270]">{r.nombre_completo}</td>
-                <td className="px-4 py-2.5 text-[#c8d0e8] border-b border-[#4a5270]">{r.categoria ?? '—'}</td>
-                <td className="px-4 py-2.5 text-center border-b border-[#4a5270]">
-                  {r.activo ? <span className="text-[#16a34a]">●</span> : <span className="text-[#8090b8]">○</span>}
+            {rows.map((r, idx) => (
+              <tr key={r.id} onClick={() => setEdit(r)} className={'cursor-pointer hover:bg-[#353a50] ' + (idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]')}>
+                <td className="px-4 py-2.5 text-[#c8d0e8] border-b border-[#3e4460]">{r.categoria ?? '—'}</td>
+                <td className="px-4 py-2.5 text-[#f0f0ff] font-mono text-xs font-bold border-b border-[#3e4460]">{r.abv}</td>
+                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{r.nombre_completo}</td>
+                <td className="px-4 py-2.5 text-[#c8d0e8] border-b border-[#3e4460]">{r.marca_asociada ?? '—'}</td>
+                <td className="px-4 py-2.5 text-center border-b border-[#3e4460]">
+                  <button onClick={e => { e.stopPropagation(); handleDelete(r.id, r.abv) }} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {showAdd && <ProvModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); onRefresh() }} />}
-      {edit && <ProvModal existing={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); onRefresh() }} />}
+      {showAdd && <ProvModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); onRefresh() }} />}
+      {edit && <ProvModal existing={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); onRefresh() }} />}
     </div>
   )
 }
 
 function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!existing
-  const [f, setF] = useState({ abv: existing?.abv ?? '', nombre_completo: existing?.nombre_completo ?? '', categoria: existing?.categoria ?? '', activo: existing?.activo ?? true })
+  const [f, setF] = useState({ abv: existing?.abv ?? '', nombre_completo: existing?.nombre_completo ?? '', categoria: existing?.categoria ?? '', marca_asociada: existing?.marca_asociada ?? '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -250,7 +254,7 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
     e.preventDefault()
     if (!f.abv.trim() || !f.nombre_completo.trim()) { setErr('ABV y nombre son obligatorios'); return }
     setSaving(true)
-    const payload = { abv: f.abv.trim().toUpperCase(), nombre_completo: f.nombre_completo.trim(), categoria: f.categoria || null, activo: f.activo }
+    const payload = { abv: f.abv.trim().toUpperCase(), nombre_completo: f.nombre_completo.trim(), categoria: f.categoria || null, marca_asociada: f.marca_asociada || null, activo: true }
     const { error } = isEdit
       ? await supabase.from('config_proveedores').update(payload).eq('id', existing!.id)
       : await supabase.from('config_proveedores').insert(payload)
@@ -264,12 +268,12 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <Field label="ABV" value={f.abv} onChange={v => setF(p => ({ ...p, abv: v }))} placeholder="MER" />
-          <Field label="Nombre completo" value={f.nombre_completo} onChange={v => setF(p => ({ ...p, nombre_completo: v }))} placeholder="Mercadona" />
+          <Field label="Nombre" value={f.nombre_completo} onChange={v => setF(p => ({ ...p, nombre_completo: v }))} placeholder="Mercadona" />
         </div>
-        <Field label="Categoría" value={f.categoria} onChange={v => setF(p => ({ ...p, categoria: v }))} placeholder="Supermercado, Mayorista..." />
-        <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
-          <input type="checkbox" checked={f.activo} onChange={e => setF(p => ({ ...p, activo: e.target.checked }))} className="accent-accent" /> Activo
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Categoría" value={f.categoria} onChange={v => setF(p => ({ ...p, categoria: v }))} placeholder="Supermercado" />
+          <Field label="Marca Principal" value={f.marca_asociada} onChange={v => setF(p => ({ ...p, marca_asociada: v }))} placeholder="Hacendado" />
+        </div>
         {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className={btnSecondary + ' flex-1'}>Cancelar</button>
@@ -282,9 +286,93 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
   )
 }
 
-/* ═══════ LISTA EDITABLE (categorias / unidades) ═══════ */
+/* ═══════ CATEGORÍAS ═══════ */
 
-function SecLista({ clave, label, onRefresh }: { clave: string; label: string; onRefresh: () => void }) {
+function SecCategorias({ onRefresh }: { onRefresh: () => void }) {
+  const [items, setItems] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [nuevo, setNuevo] = useState('')
+
+  useEffect(() => {
+    let c = false
+    ;(async () => {
+      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'categorias').single()
+      if (!c) {
+        const list = data?.valor ? JSON.parse(data.valor) : []
+        setItems(Array.isArray(list) ? list : [])
+        setLoading(false)
+      }
+    })()
+    return () => { c = true }
+  }, [])
+
+  const persist = async (next: string[]) => {
+    await supabase.from('configuracion').upsert({ clave: 'categorias', valor: JSON.stringify(next) }, { onConflict: 'clave' })
+    onRefresh()
+  }
+
+  const add = async () => {
+    if (!nuevo.trim()) return
+    const next = [...items, nuevo.trim()]
+    setItems(next)
+    setNuevo('')
+    await persist(next)
+  }
+
+  const remove = async (idx: number) => {
+    const next = items.filter((_, i) => i !== idx)
+    setItems(next)
+    await persist(next)
+  }
+
+  if (loading) return <Loader />
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="flex gap-2">
+        <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="Nueva categoría…" className={inputCls} />
+        <button onClick={add} className={btnPrimary}>+ Añadir</button>
+      </div>
+      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              <th className={thCfg}>Categoría</th>
+              <th className={thCfg + ' text-right'} style={{ width: 80 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan={2} className="p-8 text-center text-[#8090b8] text-sm">Sin categorías</td></tr>
+            ) : items.map((it, idx) => (
+              <tr key={idx} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
+                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{it}</td>
+                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
+                  <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════ UNIDADES (3 subsecciones) ═══════ */
+
+function SecUnidades({ onRefresh }: { onRefresh: () => void }) {
+  return (
+    <div className="space-y-8 max-w-3xl">
+      <ListaUnidades clave="formatos" label="Formatos de Compra" placeholder="Nuevo formato…" onRefresh={onRefresh} />
+      <ListaUnidades clave="unidades" label="Unidades Estándar" placeholder="Nueva unidad estándar…" onRefresh={onRefresh} />
+      <ListaUnidades clave="unidades_min" label="Unidades Mínimas" placeholder="Nueva unidad mínima…" onRefresh={onRefresh} />
+    </div>
+  )
+}
+
+function ListaUnidades({ clave, label, placeholder, onRefresh }: { clave: string; label: string; placeholder: string; onRefresh: () => void }) {
   const [items, setItems] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [nuevo, setNuevo] = useState('')
@@ -324,21 +412,34 @@ function SecLista({ clave, label, onRefresh }: { clave: string; label: string; o
   if (loading) return <Loader />
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-[#c8d0e8] uppercase tracking-wider">{label}</h3>
       <div className="flex gap-2">
         <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder={`Nueva ${label.toLowerCase()}…`} className={inputCls} />
+          placeholder={placeholder} className={inputCls} />
         <button onClick={add} className={btnPrimary}>+ Añadir</button>
       </div>
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
-        {items.length === 0 ? (
-          <div className="p-8 text-center text-[#8090b8] text-sm">Sin items</div>
-        ) : items.map((it, idx) => (
-          <div key={idx} className="flex items-center justify-between px-4 py-2.5 border-b border-[#4a5270] last:border-b-0">
-            <span className="text-[#f0f0ff] text-sm">{it}</span>
-            <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
-          </div>
-        ))}
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              <th className={thCfg}>{label}</th>
+              <th className={thCfg + ' text-right'} style={{ width: 80 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan={2} className="p-6 text-center text-[#8090b8] text-sm">Sin items</td></tr>
+            ) : items.map((it, idx) => (
+              <tr key={idx} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
+                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{it}</td>
+                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
+                  <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

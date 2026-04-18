@@ -40,12 +40,43 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
       ) : (
         <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-            <table style={{ tableLayout: 'auto', width: '100%' }}>
+            <table style={{ tableLayout: 'fixed', width: '2600px' }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 80 }} />
+              </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#2e3347]'}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[#353a50]'}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#2e3347]'} style={{ left: 90, minWidth: 200 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#353a50]'} style={{ left: 90 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>MARCA</th>

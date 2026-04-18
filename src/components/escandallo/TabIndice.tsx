@@ -51,11 +51,26 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
 
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-          <table style={{ tableLayout: 'auto', width: '100%' }}>
+          <table style={{ tableLayout: 'fixed', width: '1360px' }}>
+            <colgroup>
+              <col style={{ width: 90 }} />
+              <col style={{ width: 260 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 60 }} />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 80 }} />
+            </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr>
                 <th className={thCls}>CÓDIGO</th>
-                <th className={thCls} style={{ minWidth: 200 }}>NOMBRE</th>
+                <th className={thCls}>NOMBRE</th>
                 <th className={thCls + ' text-right'}>COSTE TANDA</th>
                 <th className={thCls + ' text-right'}>COSTE/RAC</th>
                 <th className={thCls + ' text-center'}>USOS</th>

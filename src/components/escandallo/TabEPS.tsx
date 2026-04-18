@@ -37,11 +37,22 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
       ) : (
         <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-            <table style={{ tableLayout: 'auto', width: '100%' }}>
+            <table style={{ tableLayout: 'fixed', width: '960px' }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 260 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 70 }} />
+                <col style={{ width: 80 }} />
+              </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
                   <th className={thCls}>CÓDIGO</th>
-                  <th className={thCls} style={{ minWidth: 200 }}>NOMBRE</th>
+                  <th className={thCls}>NOMBRE</th>
                   <th className={thCls + ' text-right'}>RACIONES</th>
                   <th className={thCls + ' text-right'}>TAMAÑO RAC</th>
                   <th className={thCls}>UNIDAD</th>
