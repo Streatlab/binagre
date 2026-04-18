@@ -43,12 +43,12 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
       ) : (
         <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
-            <table className="w-full" style={{ minWidth: '2700px' }}>
+            <table className="w-full" style={{ minWidth: '2700px', tableLayout: 'auto' }}>
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className={thCls + ' sticky left-0 z-30 bg-[#2e3347]'} style={{ minWidth: 90 }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#2e3347]'} style={{ left: 90, minWidth: 220 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[#2e3347]'} style={{ left: 90, minWidth: 240 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>PROVEEDOR</th>

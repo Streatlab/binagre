@@ -42,11 +42,11 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
       ) : (
         <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
-            <table className="w-full" style={{ minWidth: '1100px' }}>
+            <table className="w-full" style={{ minWidth: '1100px', tableLayout: 'auto' }}>
               <thead className="sticky top-0 z-10">
                 <tr>
                   <th className={thCls}>CÓDIGO</th>
-                  <th className={thCls}>NOMBRE</th>
+                  <th className={thCls} style={{ minWidth: 240 }}>NOMBRE</th>
                   <th className={thCls}>CATEGORÍA</th>
                   <th className={thCls + ' text-right'}>RACIONES</th>
                   <th className={thCls + ' text-right'}>TAMAÑO RAC</th>

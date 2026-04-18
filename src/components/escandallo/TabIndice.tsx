@@ -51,11 +51,11 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
 
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
         <div className="overflow-x-auto max-h-[calc(100vh-240px)] overflow-y-auto">
-          <table className="w-full" style={{ minWidth: '1500px' }}>
+          <table className="w-full" style={{ minWidth: '1500px', tableLayout: 'auto' }}>
             <thead className="sticky top-0 z-20">
               <tr>
-                <th className={thCls} style={{ minWidth: 95 }}>CÓDIGO</th>
-                <th className={thCls} style={{ minWidth: 260 }}>NOMBRE</th>
+                <th className={thCls}>CÓDIGO</th>
+                <th className={thCls} style={{ minWidth: 240 }}>NOMBRE</th>
                 <th className={thCls + ' text-right'}>COSTE TANDA</th>
                 <th className={thCls + ' text-right'}>COSTE/RAC</th>
                 <th className={thCls + ' text-center'}>USOS</th>
@@ -86,9 +86,8 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                     onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
                     className="cursor-pointer hover:bg-[#353a50] transition-colors"
                   >
-                    <td className={tdCls + ' ' + nameCls + ' font-mono text-xs'} style={{ minWidth: 95 }}>{d.codigo ?? ''}</td>
+                    <td className={tdCls + ' ' + nameCls + ' font-mono text-xs'}>{d.codigo ?? ''}</td>
                     <td className={tdCls + ' font-medium ' + nameCls}>
-                      <span className="text-[10px] text-[#8090b8] mr-2">[{row.kind}]</span>
                       {d.nombre}
                     </td>
                     <td className={tdCls + ' text-right text-[#c8d0e8]'}>{fmtEurES(d.coste_tanda, 2)}</td>

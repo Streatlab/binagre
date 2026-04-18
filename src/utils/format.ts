@@ -3,13 +3,15 @@ const LOCALE = 'es-ES'
 export const fmtEur = (v?: number | string | null): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
-  return n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €'
+  const [int, dec] = n.toFixed(2).split('.')
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €'
 }
 
 export const fmtNum = (v?: number | string | null, d = 2): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
-  return n.toFixed(d).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  const [int, dec] = n.toFixed(d).split('.')
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec
 }
 
 export const fmtPct = (v?: number | string | null) => {
