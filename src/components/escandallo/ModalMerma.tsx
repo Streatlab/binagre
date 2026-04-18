@@ -248,32 +248,32 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-4">
           <Section title="Identidad">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} style={{ maxWidth: '120px' }} />
+            <div className="grid grid-cols-8 gap-2">
+              <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} />
               <Field label="Categoría" value={f.categoria} onChange={v => set('categoria', v)} list="mcats" />
               <datalist id="mcats">{cfg.categorias.map(c => <option key={c} value={c} />)}</datalist>
-              <Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} style={{ maxWidth: '200px' }} />
-              <Field label="ABV" value={f.abv} onChange={onAbvChange} style={{ maxWidth: '120px' }} />
-              <Field label="Nombre" value={f.nombre} onChange={v => set('nombre', v)} style={{ maxWidth: '200px' }} />
+              <div className="col-span-2"><Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} /></div>
+              <Field label="ABV" value={f.abv} onChange={onAbvChange} />
+              <div className="col-span-2"><Field label="Nombre" value={f.nombre} onChange={v => set('nombre', v)} /></div>
               <Field label="Marca" value={f.marca} onChange={v => set('marca', v)} />
+            </div>
+            <div className="grid grid-cols-8 gap-2 mt-2">
               <Field label="Formato" value={f.formato} onChange={v => set('formato', v)} />
               <Field label="Precio Total" type="number" step="0.01" value={f.precio_total} onChange={v => set('precio_total', v)} />
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} style={{ maxWidth: '120px' }} />
+              <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} />
               <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <Field label="Total gramos" value={fmtNum(totalG, 0)} onChange={() => {}} disabled style={{ maxWidth: '120px' }} />
-              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight style={{ maxWidth: '120px' }} />
+              <Field label="Total g" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
+              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight />
             </div>
           </Section>
 
-          <Section title="Subproducto 1 (SP1)">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+          <Section title="Subproductos y Porciones">
+            <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
-              <Field label="Peso (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
-              <Field label="%" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
+              <Field label="Peso SP1 (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
+              <Field label="% SP1" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
               <Field label="€ SP1" value={fmtNum(sp1EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
@@ -283,13 +283,10 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
                 </label>
               </div>
             </div>
-          </Section>
-
-          <Section title="Subproducto 2 (SP2)">
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+            <div className="grid grid-cols-6 gap-2 items-end mt-2">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
-              <Field label="Peso (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
-              <Field label="%" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />
+              <Field label="Peso SP2 (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
+              <Field label="% SP2" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
               <Field label="€ SP2" value={fmtNum(sp2EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
@@ -299,10 +296,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
                 </label>
               </div>
             </div>
-          </Section>
-
-          <Section title="Porciones">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2 mt-2">
               <Field label="Num Porciones" type="number" value={f.num_porciones} onChange={v => set('num_porciones', v)} />
               <Field label="Peso Porción (g)" type="number" value={f.peso_porcion_g} onChange={v => set('peso_porcion_g', v)} />
               <Field label="€/Porción" value={fmtNum(eurPorcion, 4)} onChange={() => {}} disabled highlight />
@@ -311,7 +305,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <Section title="Cálculos">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-6 gap-2">
               <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled />
               <Field label="% Utilizable" value={fmtNum(pctUtilizable * 100, 2) + '%'} onChange={() => {}} disabled />
               <Field label="% Merma" value={fmtNum(pctMerma * 100, 2) + '%'} onChange={() => {}} disabled />
