@@ -11,7 +11,7 @@ interface Props {
   onSaved: () => void
 }
 
-const inputCls = 'w-full bg-[#2e3347] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] placeholder:text-[#8090b8] focus:outline-none focus:border-accent'
+const inputCls = 'w-full bg-[#3a4058] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] placeholder:text-[#8090b8] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[#7080a8] mb-1 uppercase tracking-wider'
 const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
 const btnSecondary = 'px-4 py-2 text-sm text-[#c8d0e8] border border-[#4a5270] rounded-lg hover:text-[#f0f0ff] hover:border-[#6070a0] transition'
@@ -240,11 +240,10 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" style={{ background: '#484f66' }} onClick={e => e.stopPropagation()}>
+      <div className="border border-[#4a5270] rounded-xl w-full max-w-4xl my-8 shadow-2xl" style={{ background: '#484f66' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
-            {f.iding && <p className="text-xs text-[#7080a8] mt-0.5 font-mono">{f.iding}</p>}
           </div>
           <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
         </div>
@@ -252,21 +251,21 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
         <div className="p-5 space-y-5">
           <Section title="Identidad">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} />
+              <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} style={{ maxWidth: '120px' }} />
               <Field label="Categoría" value={f.categoria} onChange={v => set('categoria', v)} list="mcats" />
               <datalist id="mcats">{cfg.categorias.map(c => <option key={c} value={c} />)}</datalist>
-              <Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} />
-              <Field label="ABV" value={f.abv} onChange={onAbvChange} />
-              <Field label="Nombre" value={f.nombre} onChange={v => set('nombre', v)} />
+              <Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} style={{ maxWidth: '200px' }} />
+              <Field label="ABV" value={f.abv} onChange={onAbvChange} style={{ maxWidth: '120px' }} />
+              <Field label="Nombre" value={f.nombre} onChange={v => set('nombre', v)} style={{ maxWidth: '200px' }} />
               <Field label="Marca" value={f.marca} onChange={v => set('marca', v)} />
               <Field label="Formato" value={f.formato} onChange={v => set('formato', v)} />
               <Field label="Precio Total" type="number" step="0.01" value={f.precio_total} onChange={v => set('precio_total', v)} />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} />
+            <div className="grid grid-cols-4 gap-3">
+              <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} style={{ maxWidth: '120px' }} />
               <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <Field label="Total gramos" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
-              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight />
+              <Field label="Total gramos" value={fmtNum(totalG, 0)} onChange={() => {}} disabled style={{ maxWidth: '120px' }} />
+              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight style={{ maxWidth: '120px' }} />
             </div>
           </Section>
 
@@ -323,7 +322,6 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
-          <p className="text-xs text-[#7080a8]">Al guardar se creará/actualizará automáticamente: <code className="text-[#f0f0ff]">{f.nombre_base}_Limpio_{f.abv || 'XXX'}_MRM</code> + subproductos valorables.</p>
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#4a5270]">
@@ -360,12 +358,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({ label, value, onChange, type, step, disabled, highlight, list, placeholder }: {
+function Field({ label, value, onChange, type, step, disabled, highlight, list, placeholder, style }: {
   label: string; value: string; onChange: (v: string) => void;
-  type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string; placeholder?: string
+  type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string; placeholder?: string; style?: React.CSSProperties
 }) {
   return (
-    <div>
+    <div style={style}>
       <label className={labelCls}>{label}</label>
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
