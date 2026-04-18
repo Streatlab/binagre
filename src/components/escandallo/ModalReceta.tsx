@@ -290,7 +290,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     </thead>
                     <tbody>
                       {['Coste MP', 'Coste plataforma', 'Coste estructura', 'Coste total', 'Margen deseado', 'PVP recomendado', 'PVP real', 'Factor K', 'Margen €', '% Margen', 'IVA repercutido', 'IVA soportado'].map((metrica, rowIdx) => (
-                        <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? '#9aaabb' : '#8a9aaa' }}>
+                        <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? '#6a7a90' : '#5a6a80' }}>
                           <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: '#a8b8d8', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid #4a5270' }}>
                             {metrica}
                           </td>
