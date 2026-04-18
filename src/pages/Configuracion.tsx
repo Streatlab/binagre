@@ -18,9 +18,12 @@ const SECTIONS: { key: Section; label: string }[] = [
 ]
 
 const inputCls = 'w-full bg-[#2e3347] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] focus:outline-none focus:border-accent'
+const inputSmCls = 'w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right'
 const btnPrimary = 'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition'
 const btnSecondary = 'px-4 py-2 text-sm text-[#c8d0e8] border border-[#4a5270] rounded-lg hover:text-[#f0f0ff] hover:border-[#555] transition'
 const thCfg = 'px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold bg-[#353a50] border-b border-[#4a5270]'
+const rowCls = (idx: number) => idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'
+const tdCfg = 'px-4 py-2.5 border-b border-[#3e4460]'
 
 const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
 
@@ -42,8 +45,8 @@ export default function Configuracion() {
           </button>
         ))}
       </div>
-      {section === 'plataformas' && <SecPlataformas key={refreshKey} onRefresh={refresh} />}
-      {section === 'costes' && <SecCostes key={refreshKey} onRefresh={refresh} />}
+      {section === 'plataformas' && <SecPlataformas key={refreshKey} />}
+      {section === 'costes' && <SecCostes key={refreshKey} />}
       {section === 'proveedores' && <SecProveedores key={refreshKey} onRefresh={refresh} />}
       {section === 'categorias' && <SecCategorias key={`c-${refreshKey}`} onRefresh={refresh} />}
       {section === 'unidades' && <SecUnidades key={`u-${refreshKey}`} onRefresh={refresh} />}
@@ -51,12 +54,11 @@ export default function Configuracion() {
   )
 }
 
-/* ═══════ PLATAFORMAS (config_canales) ═══════ */
+/* ═══════ PLATAFORMAS ═══════ */
 
-function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
+function SecPlataformas() {
   const [rows, setRows] = useState<Canal[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let c = false
@@ -75,62 +77,53 @@ function SecPlataformas({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
     return () => { c = true }
   }, [])
 
-  const update = async (id: string, field: string, val: string) => {
-    let numVal = parseFloat(val) || 0
+  const update = async (id: string, field: string, displayVal: string) => {
+    let numVal = parseFloat(displayVal) || 0
     if (field === 'comision_pct') numVal = numVal / 100
-    const payload = { [field]: numVal }
-    setSaving(true)
-    await supabase.from('config_canales').update(payload).eq('id', id)
-    setRows(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
-    setSaving(false)
+    await supabase.from('config_canales').update({ [field]: numVal }).eq('id', id)
+    setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: numVal } : r))
   }
 
   if (loading) return <Loader />
 
   return (
-    <div>
-      {saving && <div className="text-xs text-[#f0f0ff] mb-2">Guardando…</div>}
-      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCfg}>Canal</th>
-              <th className={thCfg + ' text-right'}>Comisión %</th>
-              <th className={thCfg + ' text-right'}>Coste Fijo €</th>
-              <th className={thCfg + ' text-right'}>Margen deseado %</th>
+    <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr>
+            <th className={thCfg}>Canal</th>
+            <th className={thCfg + ' text-right'}>Comisión %</th>
+            <th className={thCfg + ' text-right'}>Coste Fijo €</th>
+            <th className={thCfg + ' text-right'}>Margen deseado %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, idx) => (
+            <tr key={r.id} className={rowCls(idx)}>
+              <td className={tdCfg + ' text-[#f0f0ff] font-medium'}>{r.canal}</td>
+              <td className={tdCfg + ' text-right'}>
+                <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
+                  onBlur={e => update(r.id, 'comision_pct', e.target.value)} className={inputSmCls} />
+              </td>
+              <td className={tdCfg + ' text-right'}>
+                <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
+                  onBlur={e => update(r.id, 'coste_fijo', e.target.value)} className={inputSmCls} />
+              </td>
+              <td className={tdCfg + ' text-right'}>
+                <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
+                  onBlur={e => update(r.id, 'margen_deseado_pct', e.target.value)} className={inputSmCls} />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, idx) => (
-              <tr key={r.id} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
-                <td className="px-4 py-2.5 text-[#f0f0ff] font-medium border-b border-[#3e4460]">{r.canal}</td>
-                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
-                  <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
-                    onBlur={e => update(r.id, 'comision_pct', e.target.value)}
-                    className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
-                </td>
-                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
-                  <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
-                    onBlur={e => { const payload = { coste_fijo: parseFloat(e.target.value) || 0 }; setSaving(true); supabase.from('config_canales').update(payload).eq('id', r.id).then(() => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, ...payload } : x)); setSaving(false) }) }}
-                    className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
-                </td>
-                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
-                  <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
-                    onBlur={e => { const payload = { margen_deseado_pct: parseFloat(e.target.value) || 0 }; setSaving(true); supabase.from('config_canales').update(payload).eq('id', r.id).then(() => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, ...payload } : x)); setSaving(false) }) }}
-                    className="w-24 bg-[#2e3347] border border-[#4a5270] rounded px-2 py-1 text-sm text-[#f0f0ff] text-right" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
 
 /* ═══════ COSTES ═══════ */
 
-function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
+function SecCostes() {
   const [estructura, setEstructura] = useState('30')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -139,7 +132,7 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   useEffect(() => {
     let c = false
     ;(async () => {
-      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'estructura_pct').single()
+      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'estructura_pct').maybeSingle()
       if (!c) {
         if (data) setEstructura((data as ConfigItem).valor)
         setLoading(false)
@@ -149,18 +142,12 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
   }, [])
 
   const save = async () => {
-    setSaving(true)
-    setMsg(null)
+    setSaving(true); setMsg(null)
     try {
-      await supabase.from('configuracion').upsert([
-        { clave: 'estructura_pct', valor: estructura },
-      ], { onConflict: 'clave' })
+      await supabase.from('configuracion').upsert({ clave: 'estructura_pct', valor: estructura }, { onConflict: 'clave' })
       setMsg('Guardado')
-    } catch (e: any) {
-      setMsg('Error: ' + e.message)
-    } finally {
-      setSaving(false)
-    }
+    } catch (e: any) { setMsg('Error: ' + e.message) }
+    finally { setSaving(false) }
   }
 
   if (loading) return <Loader />
@@ -173,9 +160,7 @@ function SecCostes({ onRefresh: _onRefresh }: { onRefresh: () => void }) {
         <p className="text-[11px] text-[#8090b8] mt-1">Se aplica sobre PVP neto (sin IVA) en todas las recetas</p>
       </div>
       <div className="flex items-center gap-3 pt-2">
-        <button onClick={save} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
-          {saving ? 'Guardando…' : 'Guardar'}
-        </button>
+        <button onClick={save} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>{saving ? 'Guardando…' : 'Guardar'}</button>
         {msg && <span className={'text-xs ' + (msg.startsWith('Error') ? 'text-[#dc2626]' : 'text-[#16a34a]')}>{msg}</span>}
       </div>
     </div>
@@ -192,10 +177,8 @@ function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
 
   const load = async () => {
     const { data } = await supabase.from('config_proveedores').select('*').order('abv')
-    setRows((data as Proveedor[]) ?? [])
-    setLoading(false)
+    setRows((data as Proveedor[]) ?? []); setLoading(false)
   }
-
   useEffect(() => { load() }, [])
 
   const handleDelete = async (id: string, abv: string) => {
@@ -214,23 +197,21 @@ function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
       </div>
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCfg}>Categoría</th>
-              <th className={thCfg}>ABV</th>
-              <th className={thCfg}>Nombre</th>
-              <th className={thCfg}>Marca Principal</th>
-              <th className={thCfg + ' text-center'} style={{ width: 80 }}></th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th className={thCfg}>Categoría</th>
+            <th className={thCfg}>ABV</th>
+            <th className={thCfg}>Nombre</th>
+            <th className={thCfg}>Marca Principal</th>
+            <th className={thCfg + ' text-center'} style={{ width: 80 }}></th>
+          </tr></thead>
           <tbody>
             {rows.map((r, idx) => (
-              <tr key={r.id} onClick={() => setEdit(r)} className={'cursor-pointer hover:bg-[#353a50] ' + (idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]')}>
-                <td className="px-4 py-2.5 text-[#c8d0e8] border-b border-[#3e4460]">{r.categoria ?? '—'}</td>
-                <td className="px-4 py-2.5 text-[#f0f0ff] font-mono text-xs font-bold border-b border-[#3e4460]">{r.abv}</td>
-                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{r.nombre_completo}</td>
-                <td className="px-4 py-2.5 text-[#c8d0e8] border-b border-[#3e4460]">{r.marca_asociada ?? '—'}</td>
-                <td className="px-4 py-2.5 text-center border-b border-[#3e4460]">
+              <tr key={r.id} onClick={() => setEdit(r)} className={'cursor-pointer hover:bg-[#353a50] ' + rowCls(idx)}>
+                <td className={tdCfg + ' text-[#c8d0e8]'}>{r.categoria ?? '—'}</td>
+                <td className={tdCfg + ' text-[#f0f0ff] font-mono text-xs font-bold'}>{r.abv}</td>
+                <td className={tdCfg + ' text-[#f0f0ff]'}>{r.nombre_completo}</td>
+                <td className={tdCfg + ' text-[#c8d0e8]'}>{r.marca_asociada ?? '—'}</td>
+                <td className={tdCfg + ' text-center'}>
                   <button onClick={e => { e.stopPropagation(); handleDelete(r.id, r.abv) }} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
                 </td>
               </tr>
@@ -267,19 +248,17 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
     <Modal title={isEdit ? 'Editar proveedor' : 'Añadir proveedor'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="ABV" value={f.abv} onChange={v => setF(p => ({ ...p, abv: v }))} placeholder="MER" />
-          <Field label="Nombre" value={f.nombre_completo} onChange={v => setF(p => ({ ...p, nombre_completo: v }))} placeholder="Mercadona" />
+          <CfgField label="ABV" value={f.abv} onChange={v => setF(p => ({ ...p, abv: v }))} placeholder="MER" />
+          <CfgField label="Nombre" value={f.nombre_completo} onChange={v => setF(p => ({ ...p, nombre_completo: v }))} placeholder="Mercadona" />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Categoría" value={f.categoria} onChange={v => setF(p => ({ ...p, categoria: v }))} placeholder="Supermercado" />
-          <Field label="Marca Principal" value={f.marca_asociada} onChange={v => setF(p => ({ ...p, marca_asociada: v }))} placeholder="Hacendado" />
+          <CfgField label="Categoría" value={f.categoria} onChange={v => setF(p => ({ ...p, categoria: v }))} placeholder="Supermercado" />
+          <CfgField label="Marca Principal" value={f.marca_asociada} onChange={v => setF(p => ({ ...p, marca_asociada: v }))} placeholder="Hacendado" />
         </div>
         {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className={btnSecondary + ' flex-1'}>Cancelar</button>
-          <button type="submit" disabled={saving} className={btnPrimary + ' flex-1 disabled:opacity-50'}>
-            {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
-          </button>
+          <button type="submit" disabled={saving} className={btnPrimary + ' flex-1 disabled:opacity-50'}>{saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}</button>
         </div>
       </form>
     </Modal>
@@ -289,90 +268,24 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
 /* ═══════ CATEGORÍAS ═══════ */
 
 function SecCategorias({ onRefresh }: { onRefresh: () => void }) {
-  const [items, setItems] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [nuevo, setNuevo] = useState('')
-
-  useEffect(() => {
-    let c = false
-    ;(async () => {
-      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'categorias').single()
-      if (!c) {
-        const list = data?.valor ? JSON.parse(data.valor) : []
-        setItems(Array.isArray(list) ? list : [])
-        setLoading(false)
-      }
-    })()
-    return () => { c = true }
-  }, [])
-
-  const persist = async (next: string[]) => {
-    await supabase.from('configuracion').upsert({ clave: 'categorias', valor: JSON.stringify(next) }, { onConflict: 'clave' })
-    onRefresh()
-  }
-
-  const add = async () => {
-    if (!nuevo.trim()) return
-    const next = [...items, nuevo.trim()]
-    setItems(next)
-    setNuevo('')
-    await persist(next)
-  }
-
-  const remove = async (idx: number) => {
-    const next = items.filter((_, i) => i !== idx)
-    setItems(next)
-    await persist(next)
-  }
-
-  if (loading) return <Loader />
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="flex gap-2">
-        <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Nueva categoría…" className={inputCls} />
-        <button onClick={add} className={btnPrimary}>+ Añadir</button>
-      </div>
-      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCfg}>Categoría</th>
-              <th className={thCfg + ' text-right'} style={{ width: 80 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr><td colSpan={2} className="p-8 text-center text-[#8090b8] text-sm">Sin categorías</td></tr>
-            ) : items.map((it, idx) => (
-              <tr key={idx} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
-                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{it}</td>
-                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
-                  <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
+  return <EditableList clave="categorias" colLabel="Categoría" placeholder="Nueva categoría…" onRefresh={onRefresh} />
 }
 
-/* ═══════ UNIDADES (3 subsecciones) ═══════ */
+/* ═══════ UNIDADES (3 columnas) ═══════ */
 
 function SecUnidades({ onRefresh }: { onRefresh: () => void }) {
   return (
-    <div className="space-y-8 max-w-3xl">
-      <ListaUnidades clave="formatos" label="Formatos de Compra" placeholder="Nuevo formato…" onRefresh={onRefresh} />
-      <ListaUnidades clave="unidades" label="Unidades Estándar" placeholder="Nueva unidad estándar…" onRefresh={onRefresh} />
-      <ListaUnidades clave="unidades_min" label="Unidades Mínimas" placeholder="Nueva unidad mínima…" onRefresh={onRefresh} />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <EditableList clave="formatos" colLabel="Formatos de Compra" placeholder="Nuevo formato…" onRefresh={onRefresh} />
+      <EditableList clave="unidades" colLabel="Unidades Estándar" placeholder="Nueva unidad…" onRefresh={onRefresh} />
+      <EditableList clave="unidades_min" colLabel="Unidades Mínimas" placeholder="Nueva unidad mín…" onRefresh={onRefresh} />
     </div>
   )
 }
 
-function ListaUnidades({ clave, label, placeholder, onRefresh }: { clave: string; label: string; placeholder: string; onRefresh: () => void }) {
+/* ═══════ EDITABLE LIST (shared for categorías + unidades) ═══════ */
+
+function EditableList({ clave, colLabel, placeholder, onRefresh }: { clave: string; colLabel: string; placeholder: string; onRefresh: () => void }) {
   const [items, setItems] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [nuevo, setNuevo] = useState('')
@@ -380,7 +293,7 @@ function ListaUnidades({ clave, label, placeholder, onRefresh }: { clave: string
   useEffect(() => {
     let c = false
     ;(async () => {
-      const { data } = await supabase.from('configuracion').select('*').eq('clave', clave).single()
+      const { data } = await supabase.from('configuracion').select('*').eq('clave', clave).maybeSingle()
       if (!c) {
         const list = data?.valor ? JSON.parse(data.valor) : []
         setItems(Array.isArray(list) ? list : [])
@@ -398,8 +311,7 @@ function ListaUnidades({ clave, label, placeholder, onRefresh }: { clave: string
   const add = async () => {
     if (!nuevo.trim()) return
     const next = [...items, nuevo.trim()]
-    setItems(next)
-    setNuevo('')
+    setItems(next); setNuevo('')
     await persist(next)
   }
 
@@ -413,28 +325,25 @@ function ListaUnidades({ clave, label, placeholder, onRefresh }: { clave: string
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-[#c8d0e8] uppercase tracking-wider">{label}</h3>
       <div className="flex gap-2">
         <input value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}
           placeholder={placeholder} className={inputCls} />
-        <button onClick={add} className={btnPrimary}>+ Añadir</button>
+        <button onClick={add} className={btnPrimary} style={{ whiteSpace: 'nowrap' }}>+</button>
       </div>
       <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCfg}>{label}</th>
-              <th className={thCfg + ' text-right'} style={{ width: 80 }}></th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th className={thCfg}>{colLabel}</th>
+            <th className={thCfg + ' text-right'} style={{ width: 70 }}></th>
+          </tr></thead>
           <tbody>
             {items.length === 0 ? (
               <tr><td colSpan={2} className="p-6 text-center text-[#8090b8] text-sm">Sin items</td></tr>
             ) : items.map((it, idx) => (
-              <tr key={idx} className={idx % 2 === 0 ? 'bg-[#484f66]' : 'bg-[#404558]'}>
-                <td className="px-4 py-2.5 text-[#f0f0ff] border-b border-[#3e4460]">{it}</td>
-                <td className="px-4 py-2.5 text-right border-b border-[#3e4460]">
-                  <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">Eliminar</button>
+              <tr key={idx} className={rowCls(idx)}>
+                <td className={tdCfg + ' text-[#f0f0ff]'}>{it}</td>
+                <td className={tdCfg + ' text-right'}>
+                  <button onClick={() => remove(idx)} className="text-xs text-[#8090b8] hover:text-[#dc2626] transition">×</button>
                 </td>
               </tr>
             ))}
@@ -461,7 +370,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+function CfgField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
       <label className="block text-xs text-[#7080a8] mb-1">{label}</label>

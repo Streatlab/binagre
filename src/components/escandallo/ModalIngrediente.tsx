@@ -27,8 +27,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     ud_std: ingrediente?.ud_std ?? 'Kg.',
     ud_min: ingrediente?.ud_min ?? 'gr.',
     precio1: ingrediente?.precio1 != null ? String(ingrediente.precio1) : '',
-    precio2: ingrediente?.precio2 != null ? String(ingrediente.precio2) : '',
-    precio3: ingrediente?.precio3 != null ? String(ingrediente.precio3) : '',
+    precio2: ingrediente?.precio2 != null && ingrediente.precio2 !== 0 ? String(ingrediente.precio2) : '',
+    precio3: ingrediente?.precio3 != null && ingrediente.precio3 !== 0 ? String(ingrediente.precio3) : '',
     ultimo_precio: ingrediente?.ultimo_precio != null ? String(ingrediente.ultimo_precio) : '',
     selector_precio: ingrediente?.selector_precio ?? 'ultimo',
     merma_pct: ingrediente?.merma_pct != null ? String(ingrediente.merma_pct) : '0',
@@ -296,10 +296,9 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="ds-label">Tipo Merma</label>
-                <select value={f.tipo_merma ?? ''} onChange={e => set('tipo_merma', e.target.value || null)} className="ds-input">
-                  <option value="">—</option>
+                <select value={f.tipo_merma ?? 'Manual'} onChange={e => set('tipo_merma', e.target.value)} className="ds-input">
                   <option value="Manual">Manual</option>
-                  <option value="Tecnica">Técnica (abrirá modal de merma)</option>
+                  <option value="Tecnica">Técnica</option>
                 </select>
               </div>
               <div>
@@ -315,14 +314,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                 <div className="ds-input-calc">{fmtNum(costeNetoMin, 6)}</div>
               </div>
             </div>
-          </div>
-
-          {/* Estado */}
-          <div className="flex items-center gap-3 pt-2">
-            <label className="flex items-center gap-2 text-sm text-[#c8d0e8]">
-              <input type="checkbox" checked={f.activo} onChange={e => set('activo', e.target.checked)} className="accent-accent w-4 h-4" />
-              Ingrediente activo
-            </label>
           </div>
 
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}

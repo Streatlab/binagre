@@ -215,7 +215,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {collapsed ? (
           <div className="border-b border-[#3a4058] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
             <LogoSL small={true} />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
           <div className="p-3 border-b border-[#3a4058] flex items-center min-h-[72px]">

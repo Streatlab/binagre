@@ -42,19 +42,19 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
       ) : (
         <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-            <table style={{ tableLayout: 'fixed', width: '1220px' }}>
+            <table style={{ tableLayout: 'fixed', width: '1070px' }}>
               <colgroup>
-                <col style={{ width: 90 }} />
-                <col style={{ width: 260 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 70 }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 90 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 80 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 250 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 105 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 75 }} />
               </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
