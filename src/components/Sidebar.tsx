@@ -19,9 +19,6 @@ interface NavGroup {
   items: NavItem[]
 }
 
-type NavEntry =
-  | { type: 'item'; item: NavItem }
-  | { type: 'group'; group: NavGroup }
 
 const PRINCIPAL: NavItem[] = [
   { path: '/',            label: 'Dashboard',   icon: '📊', perfiles: ['admin', 'cocina'] },
