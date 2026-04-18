@@ -196,7 +196,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
 
-  const width = collapsed ? 'w-14' : 'w-[220px]'
+  const width = collapsed ? 'w-[56px]' : 'w-[220px]'
 
   return (
     <>

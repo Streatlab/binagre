@@ -12,11 +12,6 @@ interface Props {
   onOpenMerma?: (m: Merma | null) => void
 }
 
-const inputCls = 'w-full bg-[#484f66] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] placeholder:text-[#7a84a8] focus:outline-none focus:border-[#1a1a1a]'
-const labelCls = 'block text-[11px] text-[#7080a8] mb-1 uppercase tracking-wider'
-const btnPrimary = 'px-4 py-2 bg-[#B01D23] text-accent text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#c8d0e8] border border-[#4a5270] rounded-lg hover:text-[#f0f0ff] hover:border-[#6070a0] transition'
-
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
   const cfg = useConfig()
@@ -52,7 +47,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   const set = (k: string, val: string | boolean | number | null) => setF(p => ({ ...p, [k]: val }))
 
-  // ABV autocompleta proveedor/marca: primero config_proveedores, fallback a MARCA_MAP
   const onAbvChange = (v: string) => {
     const up = v.toUpperCase()
     const prov = cfg.proveedores.find(p => p.abv === up)
@@ -61,7 +55,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     setF(p => ({ ...p, abv: up, marca: mapped || p.marca }))
   }
 
-  // UD STD → UD MIN automático (Kg→gr, L→ml, Ud→ud)
   const onUdStdChange = (v: string) => {
     const lower = v.toLowerCase()
     let udMin = v
@@ -71,7 +64,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     setF(p => ({ ...p, ud_std: v, ud_min: udMin }))
   }
 
-  // Calcular precio activo según selector
   const p1 = parseFloat(f.precio1) || 0
   const p2 = parseFloat(f.precio2) || 0
   const p3 = parseFloat(f.precio3) || 0
@@ -93,7 +85,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
     setSaving(true)
     try {
-      // Nombre concatenado NombreBase_ABV según FIX 2.8
       const baseTrim = f.nombre_base.trim()
       const abvTrim = (f.abv || '').toUpperCase().trim()
       const nombreConcat = abvTrim ? `${baseTrim}_${abvTrim}` : baseTrim
@@ -133,7 +124,6 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
         ingId = data.id
       }
 
-      // Logica Tipo Merma "Tecnica" -> crear entrada en mermas si no existe
       if (f.tipo_merma === 'Tecnica' && ingId) {
         const { data: existing } = await supabase
           .from('mermas')
@@ -170,88 +160,162 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#484f66] border border-[#4a5270] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
+      <div className="ds-modal w-full max-w-5xl my-8 shadow-2xl" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
-            {f.iding && <p className="text-xs text-[#7080a8] mt-0.5 font-mono">{f.iding}</p>}
+            <h3 className="ds-modal-title">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            {f.iding && <span className="ds-modal-id mt-1 inline-block">{f.iding}</span>}
           </div>
           <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="space-y-4">
           {/* Identidad */}
-          <Section title="Identidad">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="IDING" value={f.iding} onChange={v => set('iding', v)} placeholder="ING001" />
-              <SelectField label="Categoría" value={f.categoria} onChange={v => set('categoria', v)} options={cfg.categorias} />
-              <Field label="Nombre Base" value={f.nombre_base} onChange={v => set('nombre_base', v)} placeholder="Tomate" />
-              <SelectField label="ABV" value={f.abv} onChange={onAbvChange} options={cfg.proveedores.map(p => p.abv)} />
-            </div>
+          <div>
+            <div className="ds-section-label">Identidad</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className={labelCls}>Nombre completo (auto)</label>
-                <div className="w-full bg-[#353a50] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#f0f0ff]">
+                <label className="ds-label">IDING</label>
+                <input type="text" value={f.iding} onChange={e => set('iding', e.target.value)} placeholder="ING001" className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">Categoría</label>
+                <select value={f.categoria} onChange={e => set('categoria', e.target.value)} className="ds-input">
+                  {cfg.categorias.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="ds-label">Nombre Base</label>
+                <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} placeholder="Tomate" className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">ABV</label>
+                <select value={f.abv} onChange={e => onAbvChange(e.target.value)} className="ds-input">
+                  {cfg.proveedores.map(p => <option key={p.abv} value={p.abv}>{p.abv}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <div>
+                <label className="ds-label">Nombre completo (auto)</label>
+                <div className="ds-input-ro">
                   {f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')}
                 </div>
               </div>
-              <Field label="Proveedor" value={cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || ''} onChange={() => {}} disabled />
-              <Field label="Marca" value={f.marca} onChange={v => set('marca', v)} />
-              <SelectField label="Formato" value={f.formato} onChange={v => set('formato', v)} options={cfg.formatos} />
+              <div>
+                <label className="ds-label">Proveedor</label>
+                <div className="ds-input-ro">
+                  {cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || '—'}
+                </div>
+              </div>
+              <div>
+                <label className="ds-label">Marca</label>
+                <input type="text" value={f.marca} onChange={e => set('marca', e.target.value)} className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">Formato</label>
+                <select value={f.formato} onChange={e => set('formato', e.target.value)} className="ds-input">
+                  {cfg.formatos.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
             </div>
-          </Section>
+          </div>
 
           {/* Unidades */}
-          <Section title="Unidades">
+          <div>
+            <div className="ds-section-label">Unidades</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="Peso/Vol. por unidad (UD STD)" type="number" value={f.uds} onChange={v => set('uds', v)} placeholder="5" />
-              <SelectField label="UD STD" value={f.ud_std} onChange={onUdStdChange} options={['Kg.', 'L.', 'Ud.']} />
               <div>
-                <label className={labelCls}>UD MIN (auto)</label>
-                <div className="w-full bg-[#353a50] border border-[#4a5270] rounded-lg px-3 py-2 text-sm text-[#c8d0e8]">{f.ud_min}</div>
+                <label className="ds-label">Peso/Vol. por unidad (UD STD)</label>
+                <input type="number" step="any" value={f.uds} onChange={e => set('uds', e.target.value)} placeholder="5" className="ds-input" />
               </div>
-              <Field label="USOS" value={String(f.usos)} onChange={() => {}} disabled />
+              <div>
+                <label className="ds-label">UD STD</label>
+                <select value={f.ud_std} onChange={e => onUdStdChange(e.target.value)} className="ds-input">
+                  {['Kg.', 'L.', 'Ud.'].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="ds-label">UD MIN (auto)</label>
+                <div className="ds-input-ro">{f.ud_min}</div>
+              </div>
+              <div>
+                <label className="ds-label">USOS</label>
+                <div className="ds-input-ro">{f.usos}</div>
+              </div>
             </div>
-          </Section>
+          </div>
 
           {/* Precios */}
-          <Section title="Precios">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="Precio 1" type="number" value={f.precio1} onChange={v => set('precio1', v)} step="0.01" />
-              <Field label="Precio 2" type="number" value={f.precio2} onChange={v => set('precio2', v)} step="0.01" />
-              <Field label="Precio 3" type="number" value={f.precio3} onChange={v => set('precio3', v)} step="0.01" />
-              <Field label="Último Precio" type="number" value={f.ultimo_precio} onChange={v => set('ultimo_precio', v)} step="0.01" />
-            </div>
+          <div>
+            <div className="ds-section-label">Precios</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className={labelCls}>Selector</label>
-                <select value={f.selector_precio} onChange={e => set('selector_precio', e.target.value)} className={inputCls}>
+                <label className="ds-label">Precio 1</label>
+                <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">Precio 2</label>
+                <input type="number" step="0.01" value={f.precio2} onChange={e => set('precio2', e.target.value)} className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">Precio 3</label>
+                <input type="number" step="0.01" value={f.precio3} onChange={e => set('precio3', e.target.value)} className="ds-input" />
+              </div>
+              <div>
+                <label className="ds-label">Último Precio</label>
+                <input type="number" step="0.01" value={f.ultimo_precio} onChange={e => set('ultimo_precio', e.target.value)} className="ds-input" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <div>
+                <label className="ds-label">Selector</label>
+                <select value={f.selector_precio} onChange={e => set('selector_precio', e.target.value)} className="ds-input">
                   <option value="ultimo">Último</option>
                   <option value="media">Media</option>
                 </select>
               </div>
-              <Field label="Precio Activo" value={fmtNum(precioActivo, 4)} onChange={() => {}} disabled highlight />
-              <Field label="EUR/STD" value={fmtNum(eurStd, 4)} onChange={() => {}} disabled />
-              <Field label="EUR/MIN" value={fmtNum(eurMin, 6)} onChange={() => {}} disabled />
+              <div>
+                <label className="ds-label-calc">Precio Activo</label>
+                <div className="ds-input-calc">{fmtNum(precioActivo, 4)}</div>
+              </div>
+              <div>
+                <label className="ds-label-calc">EUR/STD</label>
+                <div className="ds-input-calc">{fmtNum(eurStd, 4)}</div>
+              </div>
+              <div>
+                <label className="ds-label-calc">EUR/MIN</label>
+                <div className="ds-input-calc">{fmtNum(eurMin, 6)}</div>
+              </div>
             </div>
-          </Section>
+          </div>
 
           {/* Merma */}
-          <Section title="Merma">
+          <div>
+            <div className="ds-section-label">Merma</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className={labelCls}>Tipo Merma</label>
-                <select value={f.tipo_merma ?? ''} onChange={e => set('tipo_merma', e.target.value || null)} className={inputCls}>
+                <label className="ds-label">Tipo Merma</label>
+                <select value={f.tipo_merma ?? ''} onChange={e => set('tipo_merma', e.target.value || null)} className="ds-input">
                   <option value="">—</option>
                   <option value="Manual">Manual</option>
                   <option value="Tecnica">Técnica (abrirá modal de merma)</option>
                 </select>
               </div>
-              <Field label="Merma %" type="number" value={f.merma_pct} onChange={v => set('merma_pct', v)} step="0.1" disabled={f.tipo_merma === 'Tecnica'} />
-              <Field label="C.Neto/STD" value={fmtNum(costeNetoStd, 4)} onChange={() => {}} disabled />
-              <Field label="C.Neto/MIN" value={fmtNum(costeNetoMin, 6)} onChange={() => {}} disabled />
+              <div>
+                <label className="ds-label">Merma %</label>
+                <input type="number" step="0.1" value={f.merma_pct} onChange={e => set('merma_pct', e.target.value)} disabled={f.tipo_merma === 'Tecnica'} className="ds-input" style={f.tipo_merma === 'Tecnica' ? { opacity: 0.6 } : undefined} />
+              </div>
+              <div>
+                <label className="ds-label-calc">C.Neto/STD</label>
+                <div className="ds-input-calc">{fmtNum(costeNetoStd, 4)}</div>
+              </div>
+              <div>
+                <label className="ds-label-calc">C.Neto/MIN</label>
+                <div className="ds-input-calc">{fmtNum(costeNetoMin, 6)}</div>
+              </div>
             </div>
-          </Section>
+          </div>
 
           {/* Estado */}
           <div className="flex items-center gap-3 pt-2">
@@ -264,49 +328,13 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#4a5270]">
-          <button onClick={onClose} className={btnSecondary}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
+        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[#4a5270]">
+          <button onClick={onClose} className="ds-btn-cancel">Cancelar</button>
+          <button onClick={handleSave} disabled={saving} className="ds-btn-save">
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-[#2a2a2a] border border-[#4a5270] rounded-lg p-4">
-      <h4 className="text-[11px] uppercase tracking-wider text-[#7080a8] font-semibold mb-3">{title}</h4>
-      <div className="space-y-3">{children}</div>
-    </div>
-  )
-}
-
-function Field({ label, value, onChange, placeholder, type, step, disabled, highlight, list }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string
-}) {
-  return (
-    <div>
-      <label className={labelCls}>{label}</label>
-      <input
-        type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} disabled={disabled} list={list}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#f0f0ff] font-bold' : '')}
-      />
-    </div>
-  )
-}
-
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
-  return (
-    <div>
-      <label className={labelCls}>{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)} className={inputCls}>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
     </div>
   )
 }
