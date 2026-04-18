@@ -222,11 +222,12 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           </div>
 
           {/* Unidades */}
+          {/* Unidades y Precios */}
           <div>
-            <div className="ds-section-label">Unidades</div>
+            <div className="ds-section-label">Unidades y Precios</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="ds-label">Peso/Vol. por unidad (UD STD)</label>
+                <label className="ds-label">Peso/Vol. por unidad</label>
                 <input type="number" step="any" value={f.uds} onChange={e => set('uds', e.target.value)} placeholder="5" className="ds-input" />
               </div>
               <div>
@@ -244,12 +245,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
                 <div className="ds-input-ro">{f.usos}</div>
               </div>
             </div>
-          </div>
-
-          {/* Precios */}
-          <div>
-            <div className="ds-section-label">Precios</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
               <div>
                 <label className="ds-label">Precio 1</label>
                 <input type="number" step="0.01" value={f.precio1} onChange={e => { set('precio1', e.target.value); set('ultimo_precio', e.target.value) }} className="ds-input" />
@@ -264,7 +260,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Último Precio</label>
-                <div className="ds-input-calc">{fmtNum(p1, 4)}</div>
+                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(p1, 4)}</div>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
@@ -277,15 +273,15 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Precio Activo</label>
-                <div className="ds-input-calc">{fmtNum(precioActivo, 4)}</div>
+                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/STD</label>
-                <div className="ds-input-calc">{fmtNum(eurStd, 4)}</div>
+                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/MIN</label>
-                <div className="ds-input-calc">{fmtNum(eurMin, 6)}</div>
+                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
               </div>
             </div>
           </div>

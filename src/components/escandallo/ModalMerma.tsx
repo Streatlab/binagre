@@ -77,9 +77,11 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
   const eurPorcion = numPorc > 0 ? eurPiezaLimpia / numPorc : 0
 
   const sp1EurosAuto = totalG > 0 ? (precioTotal / totalG) * sp1g : 0
-  const sp1EurosFinal = f.sp1_eur_kg_mercado ? (parseFloat(f.sp1_eur_kg_mercado) / 1000) * sp1g : sp1EurosAuto
+  const sp1MercadoVal = parseFloat(f.sp1_eur_kg_mercado) || 0
+  const sp1EurosFinal = sp1MercadoVal > 0 ? (sp1MercadoVal / 1000) * sp1g : sp1EurosAuto
   const sp2EurosAuto = totalG > 0 ? (precioTotal / totalG) * sp2g : 0
-  const sp2EurosFinal = f.sp2_eur_kg_mercado ? (parseFloat(f.sp2_eur_kg_mercado) / 1000) * sp2g : sp2EurosAuto
+  const sp2MercadoVal = parseFloat(f.sp2_eur_kg_mercado) || 0
+  const sp2EurosFinal = sp2MercadoVal > 0 ? (sp2MercadoVal / 1000) * sp2g : sp2EurosAuto
   const pctDescarte = (!f.sp1_valorable ? sp1Pct : 0) + (!f.sp2_valorable ? sp2Pct : 0)
   const pctUtilizable = (f.sp1_valorable ? sp1Pct : 0) + (f.sp2_valorable ? sp2Pct : 0)
 
@@ -240,7 +242,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="border border-[#4a5270] rounded-xl w-full max-w-4xl my-8 shadow-2xl" style={{ background: '#484f66' }} onClick={e => e.stopPropagation()}>
+      <div className="border border-[#4a5270] rounded-xl w-full max-w-4xl my-8 shadow-2xl" style={{ background: '#484f66', backgroundColor: '#484f66' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#4a5270]">
           <div>
             <h3 className="text-base font-semibold text-[#f0f0ff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
