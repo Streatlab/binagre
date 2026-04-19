@@ -40,16 +40,15 @@ function IngSelector({ value, options, placeholder, onSelect }: {
         style={{ color: 'var(--sl-text-primary)' }}
       />
       {open && (
-        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 280), backgroundColor: '#484f66', border: '1px solid #4a5270', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 280), zIndex: 9999 }}
+          className="bg-white dark:bg-[#484f66] border border-gray-200 dark:border-[#4a5270] rounded-md shadow-lg max-h-56 overflow-y-auto">
           {filtered.length === 0
-            ? <div style={{ padding: '8px 12px', color: '#ccc', fontSize: '12px' }}>Sin resultados</div>
+            ? <div className="px-3 py-2 text-sm text-gray-400 dark:text-[#aaa]">Sin resultados</div>
             : filtered.map(opt => (
               <div key={`${opt.tipo}-${opt.id}`} onMouseDown={() => { onSelect(opt); setOpen(false) }}
-                style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', cursor: 'pointer', gap: '8px' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = '#5a6280')}
-                onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent')}>
-                <span style={{ flex: 1, fontSize: '13px', color: '#fff' }}>{opt.nombre}</span>
-                <span style={{ backgroundColor: opt.tipo === 'EPS' ? '#1a3a5c' : '#2a2a2a', color: opt.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', padding: '1px 5px', borderRadius: '3px', fontSize: '10px', fontFamily: 'Oswald, sans-serif' }}>{opt.badge}</span>
+                className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3a4058] text-gray-800 dark:text-[#f0f0ff] text-sm gap-2">
+                <span className="flex-1">{opt.nombre}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${opt.tipo === 'EPS' ? 'bg-blue-100 dark:bg-[#1a3a5c] text-blue-700 dark:text-[#66aaff]' : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-[#c8d0e8]'}`}>{opt.badge}</span>
               </div>
             ))
           }
