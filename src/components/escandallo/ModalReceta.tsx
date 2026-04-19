@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
+import { calcWaterfall, type ConfigCanal, type FilaWaterfall } from '@/utils/calcWaterfall'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 
@@ -33,37 +34,6 @@ function norm(v: number): number {
   return v > 1 ? v / 100 : v
 }
 
-interface Waterfall {
-  costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number
-  costePlatC: number; costeEstrC: number; costeTotalC: number; margenC: number; margenPctC: number; ivaSoportado: number
-  pvpRecR: number; pvpRecC: number; factorK: number
-}
-
-function computeWaterfall(costeMP: number, pvp: number, comision: number, estructura: number, margenDeseado: number): Waterfall {
-  const costePlatR = pvp * comision * 1.21
-  const ingresoNetoR = pvp - costePlatR
-  const costeEstrR = ingresoNetoR * estructura
-  const costeTotalR = costeMP + costePlatR + costeEstrR
-  const margenR = pvp - costeTotalR
-  const margenPctR = pvp > 0 ? (margenR / pvp) * 100 : 0
-  const ivaRepercutido = pvp > 0 ? (ingresoNetoR / 1.10) * 0.10 : 0
-
-  const costePlatC = pvp * comision
-  const ingresoNetoC = pvp - costePlatC
-  const costeEstrC = ingresoNetoC * estructura
-  const costeTotalC = costeMP + costePlatC + costeEstrC
-  const margenC = pvp - costeTotalC
-  const margenPctC = pvp > 0 ? (margenC / pvp) * 100 : 0
-  const ivaSoportado = pvp * comision * 0.21
-
-  const denomR = 1 - comision * 1.21 - estructura - margenDeseado
-  const denomC = 1 - comision - estructura - margenDeseado
-  const pvpRecR = denomR > 0 ? costeMP / denomR : 0
-  const pvpRecC = denomC > 0 ? costeMP / denomC : 0
-  const factorK = pvp > 0 && costeMP > 0 ? pvp / costeMP : 0
-
-  return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
-}
 
 export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved }: Props) {
   const cfg = useConfig()
@@ -171,7 +141,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     const comision = norm(cfgCanal?.comision_pct ?? 0)
     const estructura = norm(cfg.estructura_pct ?? 0)
     const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
-    const w = computeWaterfall(costeMP, pvpGlobal, comision, estructura, margenDeseado)
+    const canal: ConfigCanal = { nombre: ch.canalName, comision_pct: comision, estructura_pct: estructura, margen_deseado_pct: margenDeseado }
+    const w = calcWaterfall(costeMP, pvpGlobal, canal)
     return { ch, comision, margenDeseado, w }
   })
 
@@ -384,8 +355,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>Coste plataforma</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatR)}</td>
-                            <td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costePlatC)}</td>
+                            <td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.coste_plataforma)}</td>
+                            <td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.cash.coste_plataforma)}</td>
                           </>
                         ))}
                       </tr>
@@ -393,8 +364,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>Coste estructura</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrR)}</td>
-                            <td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costeEstrC)}</td>
+                            <td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.coste_estructura)}</td>
+                            <td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.cash.coste_estructura)}</td>
                           </>
                         ))}
                       </tr>
@@ -402,8 +373,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={{ ...metricaCellStyle, fontWeight: 700, color: 'var(--sl-text-primary)' }}>Coste total</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalR)}</td>
-                            <td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costeTotalC)}</td>
+                            <td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.coste_total)}</td>
+                            <td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.cash.coste_total)}</td>
                           </>
                         ))}
                       </tr>
@@ -424,8 +395,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>PVP recomendado</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td>
-                            <td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.pvpRecC)}</td>
+                            <td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.pvp_recomendado)}</td>
+                            <td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.cash.pvp_recomendado)}</td>
                           </>
                         ))}
                       </tr>
@@ -465,7 +436,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>Factor K</td>
                         {channelData.map((d, idx) => (
                           <td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>
-                            {fmtNum(d.w.factorK)}
+                            {fmtNum(d.w.real.factor_k)}
                           </td>
                         ))}
                       </tr>
@@ -473,8 +444,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>Margen €</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td>
-                            <td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.margenC)}</td>
+                            <td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.margen_eur)}</td>
+                            <td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.cash.margen_eur)}</td>
                           </>
                         ))}
                       </tr>
@@ -482,11 +453,11 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>% Margen</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctR), ...channelBorderStyle(idx, true) }}>
-                              {fmtPct(d.w.margenPctR / 100)}
+                            <td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.real.margen_pct), ...channelBorderStyle(idx, true) }}>
+                              {fmtPct(d.w.real.margen_pct / 100)}
                             </td>
-                            <td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctC) }}>
-                              {fmtPct(d.w.margenPctC / 100)}
+                            <td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.cash.margen_pct) }}>
+                              {fmtPct(d.w.cash.margen_pct / 100)}
                             </td>
                           </>
                         ))}
@@ -499,8 +470,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>IVA repercutido</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td>
-                            <td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.ivaRepercutido)}</td>
+                            <td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.iva_repercutido)}</td>
+                            <td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.real.iva_repercutido)}</td>
                           </>
                         ))}
                       </tr>
@@ -508,8 +479,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <td style={metricaCellStyle}>IVA soportado</td>
                         {channelData.map((d, idx) => (
                           <>
-                            <td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td>
-                            <td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td>
+                            <td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.real.iva_soportado)}</td>
+                            <td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{d.comision === 0 ? '—' : fmtEur(d.w.cash.iva_soportado)}</td>
                           </>
                         ))}
                       </tr>
