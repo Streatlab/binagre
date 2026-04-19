@@ -68,6 +68,11 @@ function calcFilaWaterfall(
   margen_deseado_pct: number,
   conIvaComision: boolean
 ): FilaWaterfall {
+  // Normalizar % si vienen sin normalizar (ej: 33 → 0.33)
+  comision_pct = comision_pct > 1 ? comision_pct / 100 : comision_pct
+  estructura_pct = estructura_pct > 1 ? estructura_pct / 100 : estructura_pct
+  margen_deseado_pct = margen_deseado_pct > 1 ? margen_deseado_pct / 100 : margen_deseado_pct
+
   // Garantizar decimales correctos
   coste_mp = round4(coste_mp);
   pvp_real = round4(pvp_real);

@@ -12,7 +12,7 @@ interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: E
 // Colores fijos por canal (no cambian con el tema — son marca)
 const CHANNELS = [
   { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: '#06C167', fg: '#ffffff' },
-  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#e8f442', fg: '#111111' },
+  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#e8f442', fg: '#1a1a1a' },
   { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#f5a623', fg: '#111111' },
   { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: '#ff6b70', fg: '#ffffff' },
   { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#66aaff', fg: '#111111' },
@@ -92,15 +92,16 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   const addLinea = () => setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }])
   const changeTipo = (idx: number, tipo: 'ING' | 'EPS') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: 'gr.' })
   const selectItem = (idx: number, val: string) => {
-    const l = lineas[idx]
-    if (l.tipo === 'ING') {
-      const ing = ingredientes.find(i => i.nombre === val)
-      if (ing) updateLinea(idx, { ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std), unidad: ing.ud_min ?? ing.ud_std ?? 'gr.' })
-      else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null, eps_id: null })
+    const ing = ingredientes.find(i => i.nombre === val)
+    if (ing) {
+      updateLinea(idx, { tipo: 'ING', ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std), unidad: ing.ud_min ?? ing.ud_std ?? 'gr.' })
     } else {
       const ep = epsList.find(e => e.nombre === val)
-      if (ep) updateLinea(idx, { ingrediente_nombre: ep.nombre, eps_id: ep.id, ingrediente_id: null, eur_ud_neta: n(ep.coste_rac), unidad: ep.unidad ?? 'Ración' })
-      else updateLinea(idx, { ingrediente_nombre: val, eps_id: null, ingrediente_id: null })
+      if (ep) {
+        updateLinea(idx, { tipo: 'EPS', ingrediente_nombre: ep.nombre, eps_id: ep.id, ingrediente_id: null, eur_ud_neta: n(ep.coste_rac), unidad: ep.unidad ?? 'Ración' })
+      } else {
+        updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null, eps_id: null })
+      }
     }
   }
 
@@ -147,9 +148,14 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   })
 
   const getSemaforoColor = (pct: number): string => {
-    if (pct > 15) return '#06C167'
-    if (pct >= 5) return '#f5a623'
-    return '#ff6b70'
+    if (channelData.length === 1) return '#06C167'
+    const margenReal = channelData.map(d => d.w.real.margen_pct)
+    const min = Math.min(...margenReal)
+    const max = Math.max(...margenReal)
+    if (max === min) return '#e8f442'
+    if (Math.abs(pct - max) < 0.01) return '#06C167'
+    if (Math.abs(pct - min) < 0.01) return '#B01D23'
+    return '#e8f442'
   }
 
   const pvpRef = useRef<HTMLInputElement>(null)
@@ -176,8 +182,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   // Border left on the first (real) column of each non-first channel
   const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => {
     if (chIdx === 0 || !isRealCol) return {}
-    const color = channelData[chIdx].ch.color
-    return { borderLeft: `2px solid ${colorAlpha(color, 0.4)}` }
+    return { borderLeft: `2px solid #2e3347` }
   }
 
   return (
@@ -194,26 +199,26 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
         <div className="p-5 space-y-5">
           {/* Cabecera */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-            <div className="sm:col-span-2">
+          <div className="flex gap-3">
+            <div className="flex-1">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Nombre</label>
               <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Smash Burger" />
             </div>
-            <div>
+            <div className="w-24">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Raciones</label>
               <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => setRaciones(parseFloat(e.target.value) || 1)} />
             </div>
-            <div>
+            <div className="w-28">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Tamaño rac</label>
               <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => setTamanoRac(parseFloat(e.target.value) || 0)} />
             </div>
-            <div>
+            <div className="w-24">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Unidad</label>
               <select className={inputCls} value={unidad} onChange={e => setUnidad(e.target.value)}>
                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div>
+            <div className="w-32">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Fecha</label>
               <input type="date" className={inputCls} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
             </div>
@@ -233,25 +238,29 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                   <table className="w-full" style={{ minWidth: '900px' }}>
                     <thead>
                       <tr>
-                        <th className={thCls + ' w-10'}>#</th><th className={thCls + ' w-20'}>Tipo</th><th className={thCls}>Nombre</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th>
+                        <th className={thCls + ' w-10'}>#</th><th className={thCls}>Ingrediente / EPS</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
-                        const nameColor = l.tipo === 'EPS' ? 'var(--sl-eps)' : 'var(--sl-text-primary)'
+                        const allItems = [
+                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const })),
+                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const }))
+                        ].sort((a, b) => a.nombre.localeCompare(b.nombre))
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}>
-                              <select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}>
-                                <option value="ING">ING</option>
-                                <option value="EPS">EPS</option>
-                              </select>
-                            </td>
-                            <td className={tdCls}>
-                              <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
-                              <datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist>
+                              <div className="flex items-center gap-2">
+                                <input list={`r-all-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder="Ingrediente o EPS..." />
+                                {l.ingrediente_nombre && (
+                                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: l.tipo === 'EPS' ? 'var(--sl-eps)' : '#666', color: '#fff' }}>
+                                    {l.tipo}
+                                  </span>
+                                )}
+                                <datalist id={`r-all-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.nombre}`} value={item.nombre} />)}</datalist>
+                              </div>
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
@@ -345,10 +354,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>Coste MP</td>
                         {channelData.map((d, idx) => (
-                          <>
-                            <td key={`${d.ch.id}-mp-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>
-                            <td key={`${d.ch.id}-mp-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(costeMP)}</td>
-                          </>
+                          <td key={`${d.ch.id}-mp`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>
                         ))}
                       </tr>
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
@@ -469,19 +475,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>IVA repercutido</td>
                         {channelData.map((d, idx) => (
-                          <>
-                            <td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.iva_repercutido)}</td>
-                            <td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.real.iva_repercutido)}</td>
-                          </>
+                          <td key={`${d.ch.id}-ivr`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.iva_repercutido)}</td>
                         ))}
                       </tr>
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>IVA soportado</td>
                         {channelData.map((d, idx) => (
-                          <>
-                            <td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.real.iva_soportado)}</td>
-                            <td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{d.comision === 0 ? '—' : fmtEur(d.w.cash.iva_soportado)}</td>
-                          </>
+                          <td key={`${d.ch.id}-ivs`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.real.iva_soportado)}</td>
                         ))}
                       </tr>
                     </tbody>
