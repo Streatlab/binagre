@@ -1,4 +1,28 @@
+import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+
+const btnSaveStyle: CSSProperties = {
+  backgroundColor: 'var(--sl-btn-save-bg)',
+  color: 'var(--sl-btn-save-text)',
+  fontFamily: 'Oswald, sans-serif',
+  letterSpacing: '1px',
+  padding: '9px 24px',
+  borderRadius: '5px',
+  border: 'none',
+  cursor: 'pointer',
+  minHeight: '40px',
+}
+const btnCancelStyle: CSSProperties = {
+  backgroundColor: 'var(--sl-btn-cancel-bg)',
+  color: 'var(--sl-btn-cancel-text)',
+  border: '1px solid var(--sl-btn-cancel-border)',
+  fontFamily: 'Oswald, sans-serif',
+  letterSpacing: '1px',
+  padding: '9px 24px',
+  borderRadius: '5px',
+  cursor: 'pointer',
+  minHeight: '40px',
+}
 import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
@@ -13,8 +37,6 @@ interface Props {
 
 const inputCls = 'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
-const btnPrimary = 'px-4 py-2 bg-[var(--sl-btn-add-alt-bg)] text-[var(--sl-btn-add-alt-text)] text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-lg hover:text-[var(--sl-text-primary)] hover:border-[var(--sl-border-strong)] transition'
 
 export default function ModalMerma({ merma, onClose, onSaved }: Props) {
   const isEdit = !!merma
@@ -324,9 +346,9 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
         </div>
 
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} className={btnSecondary}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
-            {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
+          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+          <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
+            {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
           </button>
         </div>
       </div>

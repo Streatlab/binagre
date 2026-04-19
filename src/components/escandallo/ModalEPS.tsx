@@ -1,7 +1,31 @@
+import type { CSSProperties } from 'react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
-import { UNIDADES, inputCls, thCls, tdCls, btnPrimary, btnSecondary, fmtES, fmtEurES, n } from './types'
+import { UNIDADES, inputCls, thCls, tdCls, fmtES, fmtEurES, n } from './types'
+
+const btnSaveStyle: CSSProperties = {
+  backgroundColor: 'var(--sl-btn-save-bg)',
+  color: 'var(--sl-btn-save-text)',
+  fontFamily: 'Oswald, sans-serif',
+  letterSpacing: '1px',
+  padding: '9px 24px',
+  borderRadius: '5px',
+  border: 'none',
+  cursor: 'pointer',
+  minHeight: '40px',
+}
+const btnCancelStyle: CSSProperties = {
+  backgroundColor: 'var(--sl-btn-cancel-bg)',
+  color: 'var(--sl-btn-cancel-text)',
+  border: '1px solid var(--sl-btn-cancel-border)',
+  fontFamily: 'Oswald, sans-serif',
+  letterSpacing: '1px',
+  padding: '9px 24px',
+  borderRadius: '5px',
+  cursor: 'pointer',
+  minHeight: '40px',
+}
 
 interface Props { eps: EPS | null; ingredientes: Ingrediente[]; onClose: () => void; onSaved: () => void }
 
@@ -218,9 +242,9 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
         </div>
 
         <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} className={btnSecondary}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !nombre.trim()} className={btnPrimary + ' disabled:opacity-50'}>
-            {saving ? 'Guardando…' : 'Guardar'}
+          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+          <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
+            {saving ? 'GUARDANDO…' : 'GUARDAR'}
           </button>
         </div>
       </div>
