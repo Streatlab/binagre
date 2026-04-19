@@ -25,11 +25,11 @@ export default function Login() {
     <div className="min-h-screen bg-base flex items-center justify-center p-4 font-sans">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-xs bg-[#484f66] border border-border rounded-xl p-6 space-y-5"
+        className="w-full max-w-xs bg-[#1a1a1a] border border-border rounded-xl p-6 space-y-5"
       >
         <div className="text-center">
-          <h1 className="text-[#f0f0ff] font-bold text-2xl tracking-tight">Streat Lab</h1>
-          <p className="text-[#c8d0e8] text-sm mt-1">Acceso ERP</p>
+          <h1 className="text-[#ffffff] font-bold text-2xl tracking-tight">Streat Lab</h1>
+          <p className="text-[#cccccc] text-sm mt-1">Acceso ERP</p>
         </div>
 
         <div className="space-y-3">
@@ -39,7 +39,7 @@ export default function Login() {
             value={nombre}
             onChange={e => setNombre(e.target.value)}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#f0f0ff] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors"
           />
           <input
             type="password"
@@ -49,7 +49,7 @@ export default function Login() {
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#f0f0ff] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors tracking-[0.5em] text-center"
+            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors tracking-[0.5em] text-center"
           />
         </div>
 

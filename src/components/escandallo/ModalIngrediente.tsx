@@ -182,7 +182,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           <div>
             <h3 className="ds-modal-title">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
           </div>
-          <button onClick={onClose} className="text-[#7080a8] hover:text-[#f0f0ff] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#999999] hover:text-[#ffffff] transition text-lg leading-none">×</button>
         </div>
 
         <div className="space-y-4">
@@ -285,15 +285,15 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Precio Activo</label>
-                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
+                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/STD</label>
-                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
+                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/MIN</label>
-                <div style={{ backgroundColor: '#3d2828', border: '1px solid #884040', color: '#ffcccc', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
+                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
               </div>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[#4a5270]">
+        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[#2a2a2a]">
           <button onClick={onClose} className="ds-btn-cancel">Cancelar</button>
           <button onClick={handleSave} disabled={saving} className="ds-btn-save">
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}

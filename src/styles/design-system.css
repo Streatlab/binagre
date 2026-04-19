@@ -6,34 +6,34 @@
 
 :root {
   /* ── Fondos ── */
-  --bg-app:        #2e3347;
-  --bg-sidebar:    #1e2233;
-  --bg-card:       #484f66;
-  --bg-input:      #3a4058;
-  --bg-input-ro:   #333848;
-  --bg-input-calc: #3d2828;
-  --bg-row-odd:    #484f66;
-  --bg-row-even:   #404558;
-  --bg-table-head: #353a50;
-  --bg-counter:    #3a4058;
-  --bg-cancel:     #555e7a;
+  --bg-app:        #111111;
+  --bg-sidebar:    #000000;
+  --bg-card:       #1a1a1a;
+  --bg-input:      #1e1e1e;
+  --bg-input-ro:   #181818;
+  --bg-input-calc: #2d1515;
+  --bg-row-odd:    #1a1a1a;
+  --bg-row-even:   #141414;
+  --bg-table-head: #0a0a0a;
+  --bg-counter:    #1e1e1e;
+  --bg-cancel:     #222222;
 
   /* ── Bordes ── */
-  --border:        #4a5270;
-  --border-calc:   #884040;
+  --border:        #2a2a2a;
+  --border-calc:   #aa3030;
   --border-focus:  #e8f442;
-  --border-sep:    #3e4460;
+  --border-sep:    #2a2a2a;
 
   /* ── Texto ── */
-  --text-primary:    #f0f0ff;
-  --text-secondary:  #c8d0e8;
+  --text-primary:    #ffffff;
+  --text-secondary:  #cccccc;
   --text-calc:       #ffffff;
-  --text-muted:      #7080a8;
-  --text-input-ro:   #7080a8;
-  --text-input-calc: #ffcccc;
-  --text-cancel:     #e0e0f0;
-  --text-nav:        #8090b8;
-  --text-label-sec:  #a0b0d0;
+  --text-muted:      #999999;
+  --text-input-ro:   #999999;
+  --text-input-calc: #ffaaaa;
+  --text-cancel:     #aaaaaa;
+  --text-nav:        #999999;
+  --text-label-sec:  #cccccc;
 
   /* ── Acentos ── */
   --accent-yellow: #e8f442;
@@ -84,12 +84,12 @@ html, body {
 .ds-sidebar .nav-item.active {
   color: var(--text-primary);
   border-left-color: var(--accent-yellow);
-  background: #262d42;
+  background: #1a1a1a;
 }
 .ds-sidebar .nav-user {
   font-family: var(--font-body);
   font-size: 12px;
-  color: #5060a0;
+  color: #777777;
   margin-top: auto;
   border-top: 1px solid var(--bg-input);
 }
@@ -101,7 +101,7 @@ html, body {
   font-weight: 500;
   padding: 7px 18px;
   border-radius: 6px;
-  color: #9090b8;
+  color: #999999;
   background: transparent;
   border: 1px solid var(--border);
   text-transform: uppercase;
@@ -109,7 +109,7 @@ html, body {
   cursor: pointer;
   transition: all 0.15s;
 }
-.ds-tab:hover { color: var(--text-primary); border-color: #6070a0; }
+.ds-tab:hover { color: var(--text-primary); border-color: #383838; }
 .ds-tab.active {
   background: var(--accent-yellow);
   color: #1a1a1a;
@@ -127,7 +127,7 @@ html, body {
   text-align: left;
   user-select: none;
 }
-.ds-counter:hover { border-color: #6070a0; }
+.ds-counter:hover { border-color: #383838; }
 .ds-counter.active { border-color: var(--accent-yellow); }
 .ds-counter .label {
   font-family: var(--font-ui);
@@ -147,7 +147,7 @@ html, body {
 .ds-counter .sub {
   font-family: var(--font-body);
   font-size: 12px;
-  color: #6070a0;
+  color: #383838;
 }
 
 /* ── Tablas ── */
@@ -171,14 +171,14 @@ html, body {
 .ds-table tbody td {
   font-family: var(--font-body);
   font-size: 13px;
-  color: #d8d8f0;
+  color: #cccccc;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border-sep);
   white-space: nowrap;
 }
 .ds-table tbody tr:nth-child(odd)  { background: var(--bg-row-odd); }
 .ds-table tbody tr:nth-child(even) { background: var(--bg-row-even); }
-.ds-table tbody tr:hover { background: #4f5874 !important; }
+.ds-table tbody tr:hover { background: #1e1e1e !important; }
 
 .ds-eps-name { color: var(--accent-eps); font-weight: 700; font-style: italic; }
 .ds-rec-name { color: var(--accent-rec); font-weight: 700; font-style: italic; }
@@ -231,7 +231,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   padding-bottom: 5px;
-  border-bottom: 1px solid #5a6280;
+  border-bottom: 1px solid #383838;
   margin-top: 16px;
   margin-bottom: 10px;
 }
@@ -241,7 +241,7 @@ html, body {
   font-family: var(--font-body);
   font-size: 13px;
   background: var(--bg-input);
-  border: 1px solid #5a6480;
+  border: 1px solid #383838;
   color: var(--text-primary);
   padding: 7px 9px;
   border-radius: 6px;
@@ -250,7 +250,7 @@ html, body {
   transition: border-color 0.15s;
 }
 .ds-input:focus { border-color: var(--border-focus); }
-.ds-input::placeholder { color: #7a84a8; }
+.ds-input::placeholder { color: #777777; }
 
 .ds-input-ro {
   font-family: var(--font-body);
@@ -331,7 +331,7 @@ html, body {
   font-family: var(--font-body);
   font-size: 13px;
   background: var(--bg-cancel);
-  border: 1px solid #6a7490;
+  border: 1px solid #383838;
   color: var(--text-cancel);
   padding: 8px 22px;
   border-radius: 6px;
@@ -345,4 +345,4 @@ html, body {
 ::-webkit-scrollbar { height: 10px; width: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-app); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #5a6480; }
+::-webkit-scrollbar-thumb:hover { background: #383838; }

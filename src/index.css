@@ -1,26 +1,75 @@
 @import "tailwindcss";
 @import "./styles/design-system.css";
 
+:root {
+  --sl-app: #111111;
+  --sl-sidebar: #000000;
+  --sl-card: #1a1a1a;
+  --sl-card-alt: #141414;
+  --sl-thead: #0a0a0a;
+  --sl-modal-bg: #1a1a1a;
+  --sl-overlay: rgba(0,0,0,0.7);
+  --sl-hover: #1e1e1e;
+  --sl-input-edit: #1e1e1e;
+  --sl-input-ro: #181818;
+  --sl-input-calc: #2d1515;
+  --sl-select-bg: #1e1e1e;
+  --sl-border: #2a2a2a;
+  --sl-border-strong: #383838;
+  --sl-border-calc: #aa3030;
+  --sl-border-focus: #e8f442;
+  --sl-border-error: #cc4444;
+  --sl-border-success: #06C167;
+  --sl-text-primary: #ffffff;
+  --sl-text-secondary: #cccccc;
+  --sl-text-muted: #999999;
+  --sl-text-disabled: #555555;
+  --sl-text-calc: #ffaaaa;
+  --sl-yellow: #e8f442;
+  --sl-red: #B01D23;
+  --sl-uber: #06C167;
+  --sl-glovo-text: #aabc00;
+  --sl-je: #f5a623;
+  --sl-web: #ff6b70;
+  --sl-web-dot: #B01D23;
+  --sl-direct: #66aaff;
+  --sl-eps: #66aaff;
+  --sl-rec: #f5a623;
+  --sl-btn-save-bg: #B01D23;
+  --sl-btn-save-text: #ffffff;
+  --sl-btn-add-bg: #e8f442;
+  --sl-btn-add-text: #111111;
+  --sl-btn-cancel-bg: #222222;
+  --sl-btn-cancel-text: #aaaaaa;
+  --sl-btn-cancel-border: #383838;
+  --sl-btn-danger-bg: #7a1010;
+  --sl-btn-danger-text: #ffffff;
+  --sl-radius-sm: 5px;
+  --sl-radius-md: 7px;
+  --sl-radius-lg: 10px;
+  --sl-sidebar-width: 200px;
+}
+
 @theme {
   /* Puentes Tailwind → design system tokens */
-  --color-base:        #2e3347;
-  --color-card:        #484f66;
-  --color-sidebar:     #1e2233;
-  --color-border:      #4a5270;
+  --color-base:        #111111;
+  --color-card:        #1a1a1a;
+  --color-sidebar:     #000000;
+  --color-border:      #2a2a2a;
   --color-accent:      #e8f442;
   --color-accent-red:  #B01D23;
   --color-eps:         #66aaff;
   --color-rec:         #f5a623;
-  --color-text:        #f0f0ff;
-  --color-muted:       #7080a8;
+  --color-text:        #ffffff;
+  --color-muted:       #999999;
   --font-sans:         "Lexend", system-ui, sans-serif;
   --font-ui:           "Oswald", system-ui, sans-serif;
   --font-title:        "Impact", "Oswald", sans-serif;
 }
 
 /* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
-tbody tr:nth-child(odd)  { background: #484f66; }
-tbody tr:nth-child(even) { background: #404558; }
-tbody tr:hover { background: #4f5874 !important; }
+tbody tr:nth-child(odd)  { background: #1a1a1a; }
+tbody tr:nth-child(even) { background: #141414; }
+tbody tr:hover { background: #1e1e1e !important; }
 
-.modal-merma { background-color: #484f66 !important; }
+.modal-merma { background-color: #1a1a1a !important; }

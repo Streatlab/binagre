@@ -127,17 +127,17 @@ function NavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: b
       title={collapsed ? item.label : undefined}
       style={({ isActive }) => ({
         fontFamily: 'Oswald, sans-serif',
-        fontSize: 14,
+        fontSize: '0.78rem',
         fontWeight: 500,
-        letterSpacing: '0.06em',
+        letterSpacing: '1.5px',
         textTransform: 'uppercase',
         borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? '#262d42' : 'transparent',
-        color: isActive ? '#f0f0ff' : '#8090b8',
+        background: isActive ? '#1a1a1a' : 'transparent',
+        color: isActive ? ACCENT : '#999999',
       })}
       className={({ isActive }) =>
         `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
-          isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
+          isActive ? '' : 'hover:text-[#ffffff] hover:bg-[#1a1a1a]'
         }`
       }
     >
@@ -155,18 +155,18 @@ function GroupNavItemLink({ item, collapsed, onClose }: { item: NavItem; collaps
       title={collapsed ? item.label : undefined}
       style={({ isActive }) => ({
         fontFamily: 'Oswald, sans-serif',
-        fontSize: 14,
+        fontSize: '0.78rem',
         fontWeight: 500,
-        letterSpacing: '0.06em',
+        letterSpacing: '1.5px',
         textTransform: 'uppercase',
         borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? '#262d42' : 'transparent',
-        color: isActive ? '#f0f0ff' : '#8090b8',
+        background: isActive ? '#1a1a1a' : 'transparent',
+        color: isActive ? ACCENT : '#999999',
         paddingLeft: collapsed ? undefined : 28,
       })}
       className={({ isActive }) =>
         `flex items-center gap-3 pr-4 py-[11px] transition-colors ${collapsed ? 'justify-center px-4' : ''} ${
-          isActive ? '' : 'hover:text-[#f0f0ff] hover:bg-[#262d42]/60'
+          isActive ? '' : 'hover:text-[#ffffff] hover:bg-[#1a1a1a]'
         }`
       }
     >
@@ -204,7 +204,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[#1e2233] border-r border-[#3a4058]
+          fixed top-0 left-0 z-40 h-full bg-[#000000] border-r border-[#2a2a2a]
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
@@ -213,17 +213,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         {/* Header logo + nombre */}
         {collapsed ? (
-          <div className="border-b border-[#3a4058] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
+          <div className="border-b border-[#2a2a2a] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
             <LogoSL small={true} />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[#999999] hover:text-[#ffffff] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
-          <div className="p-3 border-b border-[#3a4058] flex items-center min-h-[72px]">
+          <div className="p-3 border-b border-[#2a2a2a] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <LogoSL small={false} />
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#f0f0ff', letterSpacing: '0.08em' }}>Streat Lab</span>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} className="p-1.5 text-[#7080a8] hover:text-[#f0f0ff] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
+            <button onClick={toggle} className="p-1.5 text-[#999999] hover:text-[#ffffff] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
           </div>
         )}
 
@@ -244,17 +244,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <Fragment key={group.key}>
                 {/* Group header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
+                  <div style={{ height: 1, background: '#2a2a2a', margin: '8px 10px' }} />
                 ) : (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.key)}
                     style={{
                       fontFamily: 'Oswald, sans-serif',
-                      fontSize: 10,
-                      color: '#7080a8',
+                      fontSize: '0.6rem',
+                      color: '#555555',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.15em',
+                      letterSpacing: '2px',
                       padding: '10px 18px',
                       cursor: 'pointer',
                       background: 'transparent',
@@ -264,7 +264,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       alignItems: 'center',
                       justifyContent: 'space-between',
                     }}
-                    className="hover:!text-[#f0f0ff] transition-colors"
+                    className="hover:!text-[#ffffff] transition-colors"
                   >
                     <span>{group.label}</span>
                     <span style={{ fontSize: 10 }}>{isOpen ? '▾' : '▸'}</span>
@@ -281,9 +281,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Separator before config */}
           {collapsed ? (
-            <div style={{ height: 1, background: '#3a4058', margin: '8px 10px' }} />
+            <div style={{ height: 1, background: '#2a2a2a', margin: '8px 10px' }} />
           ) : (
-            <div style={{ height: 1, background: '#3a4058', margin: '8px 18px' }} />
+            <div style={{ height: 1, background: '#2a2a2a', margin: '8px 18px' }} />
           )}
 
           {/* CONFIG items */}
@@ -294,8 +294,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Footer user */}
         <div
-          className={`p-3 border-t border-[#3a4058] ${collapsed ? 'text-center' : ''}`}
-          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#5060a0' }}
+          className={`p-3 border-t border-[#2a2a2a] ${collapsed ? 'text-center' : ''}`}
+          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777' }}
         >
           {!collapsed ? (
             <>
@@ -304,13 +304,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               </div>
               <button
                 onClick={logout}
-                className="text-[#5060a0] hover:text-[#ff6060] transition-colors text-xs"
+                className="text-[#777777] hover:text-[#cc4444] transition-colors text-xs"
               >Cerrar sesión</button>
             </>
           ) : (
             <button
               onClick={logout}
-              className="text-[#5060a0] hover:text-[#ff6060] transition-colors text-sm"
+              className="text-[#777777] hover:text-[#cc4444] transition-colors text-sm"
               title="Cerrar sesión"
             >⏏</button>
           )}

@@ -205,21 +205,21 @@ export const semaforoClasses = (pct: number) => {
 
 /** Semáforo USOS: sin usos=gris neutro, en uso=rojo corporativo */
 export const semaforoUsos = (usos: number) => {
-  if (usos === 0) return 'bg-[#2e3347] text-[#7080a8] border-transparent'
+  if (usos === 0) return 'bg-[#111111] text-[#999999] border-transparent'
   return 'bg-[#B01D23] text-white border-transparent'
 }
 
 /* ── CSS compartido — DESIGN SYSTEM (fondo oscuro azul-púrpura) ── */
 
 export const inputCls =
-  'w-full bg-[#3a4058] border border-[#5a6480] rounded-md px-3 py-2 text-[13px] text-[#f0f0ff] placeholder:text-[#7a84a8] focus:outline-none focus:border-accent font-sans'
+  'w-full bg-[#1e1e1e] border border-[#383838] rounded-md px-3 py-2 text-[13px] text-[#ffffff] placeholder:text-[#777777] focus:outline-none focus:border-accent font-sans'
 
 /** Cabecera de tabla — Oswald uppercase */
 export const thCls =
-  'px-3.5 py-2.5 text-[11px] uppercase tracking-[0.1em] text-[#7080a8] font-semibold text-left whitespace-nowrap bg-[#353a50] border-b border-[#4a5270] font-ui'
+  'px-3.5 py-2.5 text-[11px] uppercase tracking-[0.1em] text-[#999999] font-semibold text-left whitespace-nowrap bg-[#0a0a0a] border-b border-[#2a2a2a] font-ui'
 
 export const tdCls =
-  'px-3.5 py-2.5 text-[13px] text-[#d8d8f0] tabular-nums whitespace-nowrap border-b border-[#3e4460] font-sans'
+  'px-3.5 py-2.5 text-[13px] text-[#cccccc] tabular-nums whitespace-nowrap border-b border-[#2a2a2a] font-sans'
 
 /** Botón Guardar (Oswald + rojo corporativo) */
 export const btnPrimary =
@@ -231,8 +231,8 @@ export const btnAdd =
 
 /** Botón Cancelar (Lexend + gris neutro) */
 export const btnSecondary =
-  'px-[22px] py-2 bg-[#555e7a] border border-[#6a7490] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
+  'px-[22px] py-2 bg-[#222222] border border-[#383838] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
 
 /** Tab activo/inactivo */
 export const tabActiveCls = 'bg-accent text-[#1a1a1a] border-accent font-ui uppercase tracking-[0.06em]'
-export const tabInactiveCls = 'text-[#9090b8] border-[#4a5270] hover:text-[#f0f0ff] hover:border-[#6070a0] font-ui uppercase tracking-[0.06em]'
+export const tabInactiveCls = 'text-[#999999] border-[#2a2a2a] hover:text-[#ffffff] hover:border-[#383838] font-ui uppercase tracking-[0.06em]'

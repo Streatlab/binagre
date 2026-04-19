@@ -36,11 +36,11 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
       </div>
 
       {!filtered.length ? (
-        <div className="bg-[#484f66] border border-[#4a5270] rounded-xl p-12 text-center">
-          <p className="text-[#7080a8] text-sm">Sin recetas{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-12 text-center">
+          <p className="text-[#999999] text-sm">Sin recetas{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-[#484f66] border border-[#4a5270] rounded-xl overflow-hidden">
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
             <table style={{ tableLayout: 'fixed', width: '1070px' }}>
               <colgroup>
@@ -79,12 +79,12 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                     <tr key={r.id} onClick={() => onSelect(r)} className="cursor-pointer">
                       <td className={tdCls + ' ds-rec-name font-mono text-xs'}>{r.codigo ?? ''}</td>
                       <td className={tdCls + ' ds-rec-name'}>{r.nombre}</td>
-                      <td className={tdCls + ' text-[#c8d0e8]'}>{r.categoria ?? ''}</td>
+                      <td className={tdCls + ' text-[#cccccc]'}>{r.categoria ?? ''}</td>
                       <td className={tdCls + ' text-right'}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
-                      <td className={tdCls + ' text-[#c8d0e8]'}>{r.unidad ?? ''}</td>
-                      <td className={tdCls + ' text-right text-[#f0f0ff]'}>{fmtEurES(r.coste_tanda, 2)}</td>
-                      <td className={tdCls + ' text-right text-[#f0f0ff] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
+                      <td className={tdCls + ' text-[#cccccc]'}>{r.unidad ?? ''}</td>
+                      <td className={tdCls + ' text-right text-[#ffffff]'}>{fmtEurES(r.coste_tanda, 2)}</td>
+                      <td className={tdCls + ' text-right text-[#ffffff] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
                       <td className={tdCls + ' text-right'}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
                       <td className={tdCls + ' text-center'}>
                         {hasPvp ? (
@@ -93,7 +93,7 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
                           </span>
                         ) : ''}
                       </td>
-                      <td className={tdCls + ' text-[#7080a8] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
+                      <td className={tdCls + ' text-[#999999] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
                     </tr>
                   )
                 })}
