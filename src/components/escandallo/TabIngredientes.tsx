@@ -274,7 +274,7 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew, onInlin
                       {/* MERMA% — editable inline (solo si tipo_merma !== Tecnica) */}
                       <td className={tdCls + ' text-right'}
                         style={{ cursor: i.tipo_merma === 'Tecnica' ? 'default' : 'text' }}
-                        onClick={e => { if (i.tipo_merma !== 'Tecnica') handleCellClick(e, i.id, 'merma_pct', i.merma_pct) else e.stopPropagation() }}>
+                        onClick={e => { if (i.tipo_merma !== 'Tecnica') { handleCellClick(e, i.id, 'merma_pct', i.merma_pct) } else { e.stopPropagation() } }}>
                         {editInput(i.id, 'merma_pct') ? (
                           <input autoFocus value={editingValue}
                             onChange={e => setEditingValue(e.target.value)}
