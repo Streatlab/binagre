@@ -1,88 +1,69 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtNum, fmtEur } from '@/utils/format'
-import { useConfig, calcWaterfall } from '@/hooks/useConfig'
+import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
+import { useConfig } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
 
-const CANAL_TO_KEY: Record<string, CanalKey> = {
-  'Uber Eats': 'pvp_uber',
-  'Glovo': 'pvp_glovo',
-  'Just Eat': 'pvp_je',
-  'Web Propia': 'pvp_web',
-  'Web': 'pvp_web',
-  'Venta Directa': 'pvp_directa',
-  'Directa': 'pvp_directa',
-}
-
-// Colores fijos por canal (iguales en claro y oscuro para reconocimiento de marca)
-const CHANNEL_DEFS = [
-  { id: 'uber',    label: 'Uber Eats', pvpKey: 'pvp_uber' as CanalKey,    bg: '#06C167', fg: '#ffffff', text: '#06C167' },
-  { id: 'glovo',   label: 'Glovo',     pvpKey: 'pvp_glovo' as CanalKey,   bg: '#e8f442', fg: '#111111', text: '#111111' },
-  { id: 'je',      label: 'Just Eat',  pvpKey: 'pvp_je' as CanalKey,      bg: '#f5a623', fg: '#111111', text: '#f5a623' },
-  { id: 'web',     label: 'Web',       pvpKey: 'pvp_web' as CanalKey,     bg: '#ff6b70', fg: '#ffffff', text: '#ff6b70' },
-  { id: 'directa', label: 'Directa',   pvpKey: 'pvp_directa' as CanalKey, bg: '#66aaff', fg: '#111111', text: '#66aaff' },
+// Colores fijos por canal (no cambian con el tema — son marca)
+const CHANNELS = [
+  { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: '#06C167', fg: '#ffffff' },
+  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#e8f442', fg: '#111111' },
+  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#f5a623', fg: '#111111' },
+  { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: '#ff6b70', fg: '#ffffff' },
+  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#66aaff', fg: '#111111' },
 ]
 
 const ALL_PVP_KEYS: CanalKey[] = ['pvp_uber', 'pvp_glovo', 'pvp_je', 'pvp_web', 'pvp_directa']
 
-type MetricType = 'normal' | 'total' | 'small' | 'pvp_rec' | 'pvp_real' | 'bold' | 'semaforo' | 'muted'
-
-interface Metric {
-  key: string
-  label: string
-  type: MetricType
+// Hex → rgba al 40%
+function colorAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
 }
 
-interface Grupo {
-  key: string
-  bgColor?: string
-  borderTop?: string
-  metrics: Metric[]
+// Normaliza % (acepta 30 ó 0.30)
+function norm(v: number): number {
+  return v > 1 ? v / 100 : v
 }
 
-const GRUPOS: Grupo[] = [
-  {
-    key: 'costes',
-    bgColor: 'var(--sl-card-alt)',
-    metrics: [
-      { key: 'coste_mp',         label: 'Coste MP',         type: 'normal' },
-      { key: 'coste_plat',       label: 'Coste plataforma', type: 'normal' },
-      { key: 'coste_estructura', label: 'Coste estructura', type: 'normal' },
-      { key: 'coste_total',      label: 'Coste total',      type: 'total' },
-    ],
-  },
-  {
-    key: 'precio',
-    bgColor: 'var(--sl-card)',
-    borderTop: '2px solid var(--sl-border-strong)',
-    metrics: [
-      { key: 'margen_deseado', label: 'Margen deseado',  type: 'small' },
-      { key: 'pvp_rec',        label: 'PVP recomendado', type: 'pvp_rec' },
-      { key: 'pvp_real',       label: 'PVP real',        type: 'pvp_real' },
-    ],
-  },
-  {
-    key: 'resultado',
-    bgColor: 'var(--sl-card)',
-    borderTop: '2px solid var(--sl-border-strong)',
-    metrics: [
-      { key: 'k',          label: 'Factor K', type: 'small' },
-      { key: 'margen_eur', label: 'Margen €', type: 'bold' },
-      { key: 'pct_margen', label: '% Margen', type: 'semaforo' },
-    ],
-  },
-  {
-    key: 'iva',
-    bgColor: 'var(--sl-card-alt)',
-    metrics: [
-      { key: 'iva_rep', label: 'IVA repercutido', type: 'muted' },
-      { key: 'iva_sop', label: 'IVA soportado',   type: 'muted' },
-    ],
-  },
-]
+interface Waterfall {
+  costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number
+  costePlatC: number; costeEstrC: number; costeTotalC: number; margenC: number; margenPctC: number; ivaSoportado: number
+  pvpRecR: number; pvpRecC: number; factorK: number
+}
+
+function computeWaterfall(costeMP: number, pvp: number, comision: number, estructura: number, margenDeseado: number): Waterfall {
+  const costePlatR = pvp * comision * 1.21
+  const ingresoNetoR = pvp - costePlatR
+  const costeEstrR = ingresoNetoR * estructura
+  const costeTotalR = costeMP + costePlatR + costeEstrR
+  const margenR = pvp - costeTotalR
+  const margenPctR = pvp > 0 ? (margenR / pvp) * 100 : 0
+  const ivaRepercutido = pvp > 0 ? (ingresoNetoR / 1.10) * 0.10 : 0
+
+  const costePlatC = pvp * comision
+  const ingresoNetoC = pvp - costePlatC
+  const costeEstrC = ingresoNetoC * estructura
+  const costeTotalC = costeMP + costePlatC + costeEstrC
+  const margenC = pvp - costeTotalC
+  const margenPctC = pvp > 0 ? (margenC / pvp) * 100 : 0
+  const ivaSoportado = pvp * comision * 0.21
+
+  const denomR = 1 - comision * 1.21 - estructura - margenDeseado
+  const denomC = 1 - comision - estructura - margenDeseado
+  const pvpRecR = denomR > 0 ? costeMP / denomR : 0
+  const pvpRecC = denomC > 0 ? costeMP / denomC : 0
+  const factorK = pvp > 0 && costeMP > 0 ? pvp / costeMP : 0
+
+  return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
+}
 
 export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved }: Props) {
   const cfg = useConfig()
@@ -92,22 +73,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   const [unidad, setUnidad] = useState(receta?.unidad ?? 'Ración')
   const [fecha, setFecha] = useState(receta?.fecha ?? '')
 
-  // PVP state: global + override por canal
+  // PVP único — el mismo valor propaga a todos los canales
   const [pvpGlobal, setPvpGlobal] = useState<number>(() => {
-    const vals = ALL_PVP_KEYS.map(k => n((receta as unknown as Record<string, number | null | undefined>)?.[k])).filter(v => v > 0)
-    return vals.length > 0 ? vals[0] : 0
-  })
-  const [pvpOverride, setPvpOverride] = useState<Partial<Record<CanalKey, number>>>(() => {
-    const overrides: Partial<Record<CanalKey, number>> = {}
-    const saved = ALL_PVP_KEYS.map(k => ({ k, v: n((receta as unknown as Record<string, number | null | undefined>)?.[k]) }))
-    const nonZero = saved.filter(s => s.v > 0)
-    if (nonZero.length === 0) return overrides
-    const first = nonZero[0].v
-    nonZero.forEach(s => { if (s.v !== first) overrides[s.k] = s.v })
-    return overrides
+    const saved = ALL_PVP_KEYS.map(k => n((receta as unknown as Record<string, number | null | undefined>)?.[k])).filter(v => v > 0)
+    return saved.length > 0 ? saved[0] : 0
   })
 
-  const [canalesActivos, setCanalesActivos] = useState<string[]>(['uber', 'glovo'])
+  const [canalesActivos, setCanalesActivos] = useState<string[]>(['uber', 'glovo', 'je'])
   const [lineas, setLineas] = useState<RecetaLinea[]>(
     receta ? [] : [{ linea: 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 1, unidad: 'Ud.', eur_ud_neta: 0 }]
   )
@@ -138,7 +110,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   const lineasCalc = useMemo(() => {
     const items = lineas.map(l => ({ ...l, eur_total: l.cantidad * l.eur_ud_neta }))
     const total = items.reduce((s, i) => s + i.eur_total, 0)
-    return items.map(i => ({ ...i, pct_total: total > 0 ? (i.eur_total / total) * 100 : 0 }))
+    return items.map(i => ({ ...i, pct_total: total > 0 ? i.eur_total / total : 0 }))
   }, [lineas])
 
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
@@ -162,29 +134,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     }
   }
 
-  const getPvp = (key: CanalKey): number => pvpOverride[key] ?? pvpGlobal
-
-  const setPvpForChannel = (key: CanalKey, val: number) => {
-    // Si el canal está sobreescrito, actualiza solo su override
-    if (pvpOverride[key] !== undefined) {
-      setPvpOverride(prev => ({ ...prev, [key]: val }))
-      return
-    }
-    // Si no, propaga a global — todos los canales sin override heredan
-    setPvpGlobal(val)
-  }
-
   const handleSave = async () => {
     if (!nombre.trim()) return
     setSaving(true)
     try {
       let rid = receta?.id
       const pvpRecord: Record<CanalKey, number> = {
-        pvp_uber: getPvp('pvp_uber'),
-        pvp_glovo: getPvp('pvp_glovo'),
-        pvp_je: getPvp('pvp_je'),
-        pvp_web: getPvp('pvp_web'),
-        pvp_directa: getPvp('pvp_directa'),
+        pvp_uber: pvpGlobal, pvp_glovo: pvpGlobal, pvp_je: pvpGlobal, pvp_web: pvpGlobal, pvp_directa: pvpGlobal,
       }
       const record = {
         nombre, raciones,
@@ -208,54 +164,16 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     finally { setSaving(false) }
   }
 
+  // Datos por canal activo
   const channelData = canalesActivos.map(cid => {
-    const def = CHANNEL_DEFS.find(d => d.id === cid)!
-    const canal = cfg.canales.find(c => CANAL_TO_KEY[c.canal] === def.pvpKey)
-    const pvp = getPvp(def.pvpKey)
-    const w = canal ? calcWaterfall(costeMP, pvp, canal.comision_pct, canal.coste_fijo || 0, cfg.estructura_pct, canal.margen_deseado_pct ?? cfg.margen_deseado_pct) : null
-    return { def, canal, pvp, w }
+    const ch = CHANNELS.find(c => c.id === cid)!
+    const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
+    const comision = norm(cfgCanal?.comision_pct ?? 0)
+    const estructura = norm(cfg.estructura_pct ?? 0)
+    const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
+    const w = computeWaterfall(costeMP, pvpGlobal, comision, estructura, margenDeseado)
+    return { ch, comision, margenDeseado, w }
   })
-
-  const getMetricValues = (metricKey: string, ch: typeof channelData[0]): { real: number; cash: number } => {
-    const w = ch.w
-    if (!w) return { real: 0, cash: 0 }
-    switch (metricKey) {
-      case 'coste_mp':         return { real: w.costeMP,          cash: w.costeMP }
-      case 'coste_plat':       return { real: w.costePlatR,       cash: w.costePlatC }
-      case 'coste_estructura': return { real: w.costeEstructura,  cash: w.costeEstructura }
-      case 'coste_total':      return { real: w.costeTotalR,      cash: w.costeTotalC }
-      case 'margen_deseado':   return { real: w.margenDeseadoR,   cash: w.margenDeseadoC }
-      case 'pvp_rec':          return { real: w.pvpRecR,          cash: w.pvpRecC }
-      case 'pvp_real':         return { real: ch.pvp,             cash: ch.pvp }
-      case 'k':                return { real: w.k,                cash: w.k }
-      case 'margen_eur':       return { real: w.margenR,          cash: w.margenC }
-      case 'pct_margen':       return { real: w.pctMargenR,       cash: w.pctMargenC }
-      case 'iva_rep':          return { real: w.ivaRepercutido,   cash: w.ivaRepercutido }
-      case 'iva_sop':          return { real: w.ivaSoportado,     cash: w.ivaSoportado }
-      default: return { real: 0, cash: 0 }
-    }
-  }
-
-  const getCellStyle = (type: MetricType): React.CSSProperties => {
-    switch (type) {
-      case 'normal':
-        return { fontFamily: 'Lexend, sans-serif', fontSize: '0.78rem', color: 'var(--sl-text-primary)' }
-      case 'total':
-        return { fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: 'var(--sl-text-primary)' }
-      case 'small':
-        return { fontFamily: 'Lexend, sans-serif', fontSize: '0.70rem', color: 'var(--sl-text-muted)' }
-      case 'pvp_rec':
-        return { fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: 600, color: 'var(--sl-text-primary)', backgroundColor: 'var(--sl-input-ro)' }
-      case 'pvp_real':
-        return { fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', fontWeight: 700, color: 'var(--sl-text-primary)', backgroundColor: 'rgba(232,244,66,0.12)' }
-      case 'bold':
-        return { fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: 'var(--sl-text-primary)' }
-      case 'semaforo':
-        return { fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', fontWeight: 700 }
-      case 'muted':
-        return { fontFamily: 'Lexend, sans-serif', fontSize: '0.70rem', color: 'var(--sl-text-muted)' }
-    }
-  }
 
   const getSemaforoColor = (pct: number): string => {
     if (pct > 15) return '#06C167'
@@ -263,77 +181,32 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     return '#ff6b70'
   }
 
-  const renderPvpInput = (pvpKey: CanalKey) => {
-    const val = getPvp(pvpKey)
-    return (
-      <input
-        type="number"
-        min={0}
-        step="0.01"
-        value={val > 0 ? val : ''}
-        onChange={e => setPvpForChannel(pvpKey, parseFloat(e.target.value) || 0)}
-        placeholder="—"
-        style={{
-          width: '100%',
-          padding: '4px 8px',
-          fontFamily: 'Oswald, sans-serif',
-          fontWeight: 700,
-          fontSize: '0.85rem',
-          textAlign: 'right',
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          color: 'var(--sl-text-primary)',
-        }}
-      />
-    )
-  }
+  const pvpRef = useRef<HTMLInputElement>(null)
 
-  const renderCellContent = (metric: Metric, real: number, cash: number, pvpKey: CanalKey) => {
-    if (metric.type === 'pvp_real') {
-      return renderPvpInput(pvpKey)
-    }
-    if (metric.type === 'semaforo') {
-      return (
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ color: getSemaforoColor(real) }}>{fmtNum(real)}%</div>
-          <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--sl-text-muted)', marginTop: '2px' }}>{fmtNum(cash)}%</div>
-        </div>
-      )
-    }
-    const showPlaceholder = real === 0 && cash === 0 && (metric.type === 'small' || metric.type === 'muted')
-    if (showPlaceholder) {
-      return <span>—</span>
-    }
-    return (
-      <div style={{ textAlign: 'right' }}>
-        <div>{fmtNum(real)}</div>
-        <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--sl-text-muted)', marginTop: '2px' }}>{fmtNum(cash)}</div>
-      </div>
-    )
+  const btnSaveStyle: CSSProperties = {
+    backgroundColor: 'var(--sl-btn-save-bg)', color: 'var(--sl-btn-save-text)',
+    fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px',
+    borderRadius: '5px', border: 'none', cursor: 'pointer', minHeight: '40px',
   }
-
-  const btnSaveStyle: React.CSSProperties = {
-    backgroundColor: 'var(--sl-btn-save-bg)',
-    color: 'var(--sl-btn-save-text)',
-    fontFamily: 'Oswald, sans-serif',
-    letterSpacing: '1px',
-    padding: '9px 24px',
-    borderRadius: '5px',
-    border: 'none',
-    cursor: 'pointer',
-    minHeight: '40px',
-  }
-  const btnCancelStyle: React.CSSProperties = {
-    backgroundColor: 'var(--sl-btn-cancel-bg)',
-    color: 'var(--sl-btn-cancel-text)',
+  const btnCancelStyle: CSSProperties = {
+    backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)',
     border: '1px solid var(--sl-btn-cancel-border)',
-    fontFamily: 'Oswald, sans-serif',
-    letterSpacing: '1px',
-    padding: '9px 24px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    minHeight: '40px',
+    fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px',
+    borderRadius: '5px', cursor: 'pointer', minHeight: '40px',
+  }
+
+  // Celdas waterfall
+  const metricaCellStyle: CSSProperties = {
+    width: '130px', padding: '8px 12px', textAlign: 'left',
+    fontFamily: 'Oswald, sans-serif', color: 'var(--sl-text-muted)',
+    fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase',
+  }
+
+  // Border left on the first (real) column of each non-first channel
+  const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => {
+    if (chIdx === 0 || !isRealCol) return {}
+    const color = channelData[chIdx].ch.color
+    return { borderLeft: `2px solid ${colorAlpha(color, 0.4)}` }
   }
 
   return (
@@ -349,7 +222,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Cabecera: Nombre + Raciones + Tamaño + Unidad + Fecha */}
+          {/* Cabecera */}
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Nombre</label>
@@ -400,32 +273,20 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}>
-                              <select
-                                className="w-full bg-transparent border-none outline-none text-sm"
-                                style={{ color: nameColor, fontWeight: 600 }}
-                                value={l.tipo}
-                                onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}
-                              >
+                              <select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}>
                                 <option value="ING">ING</option>
                                 <option value="EPS">EPS</option>
                               </select>
                             </td>
                             <td className={tdCls}>
-                              <input
-                                list={`r-i-${idx}`}
-                                className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]"
-                                style={{ color: nameColor }}
-                                value={l.ingrediente_nombre}
-                                onChange={e => selectItem(idx, e.target.value)}
-                                placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'}
-                              />
+                              <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
                               <datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist>
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtNum(l.eur_total)}</td>
-                            <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtNum(l.pct_total)}%</td>
+                            <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtEur(l.eur_total)}</td>
+                            <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtPct(l.pct_total)}</td>
                           </tr>
                         )
                       })}
@@ -443,23 +304,24 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             )}
           </div>
 
-          {/* Waterfall — toggles + tabla rediseñada */}
+          {/* Waterfall */}
           <div>
             <p className="text-sm text-[var(--sl-text-secondary)] uppercase tracking-wider mb-3">Waterfall pricing por canal</p>
 
-            {/* Botones toggle */}
+            {/* Toggles */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {CHANNEL_DEFS.map(ch => {
+              {CHANNELS.map(ch => {
                 const isActive = canalesActivos.includes(ch.id)
                 return (
                   <button
                     key={ch.id}
                     onClick={() => setCanalesActivos(p => isActive ? p.filter(x => x !== ch.id) : [...p, ch.id])}
                     style={{
-                      backgroundColor: isActive ? ch.bg : 'var(--sl-input-edit)',
-                      color: isActive ? ch.fg : 'var(--sl-text-muted)',
+                      backgroundColor: ch.color,
+                      color: ch.fg,
                       fontFamily: 'Oswald, sans-serif',
                       letterSpacing: '1px',
+                      opacity: isActive ? 1 : 0.35,
                     }}
                     className="text-xs font-medium px-3 py-1.5 rounded transition uppercase"
                   >
@@ -469,98 +331,189 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
               })}
             </div>
 
-            {/* Tabla waterfall */}
+            {/* Tabla */}
             {canalesActivos.length === 0 ? (
               <div className="text-center py-8 text-[var(--sl-text-muted)]">Selecciona al menos un canal</div>
             ) : (
               <div className="border border-[var(--sl-border)] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                    {/* Encabezados */}
                     <thead>
                       <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-                        <th style={{
-                          width: '140px',
-                          padding: '10px 14px',
-                          textAlign: 'left',
-                          fontFamily: 'Oswald, sans-serif',
-                          color: 'var(--sl-text-muted)',
-                          fontSize: '0.72rem',
-                          letterSpacing: '0.5px',
-                          textTransform: 'uppercase',
-                          borderRight: '2px solid var(--sl-border-strong)',
-                        }}>
-                          Métrica
-                        </th>
-                        {channelData.map((ch, cidx) => {
-                          const isLast = cidx === channelData.length - 1
-                          const isGlovo = ch.def.id === 'glovo'
-                          return (
-                            <th key={ch.def.id} style={{
-                              padding: '10px 12px',
-                              textAlign: 'center',
-                              fontFamily: 'Oswald, sans-serif',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              letterSpacing: '0.5px',
-                              color: ch.def.text,
-                              textTransform: 'uppercase',
-                              borderRight: isLast ? 'none' : '2px solid var(--sl-border-strong)',
-                              backgroundColor: isGlovo ? ch.def.bg : undefined,
-                            }}>
-                              {ch.def.label}
-                            </th>
-                          )
-                        })}
+                        <th style={{ ...metricaCellStyle, padding: '10px 12px' }}>MÉTRICA</th>
+                        {channelData.map((d, idx) => (
+                          <th key={d.ch.id} colSpan={2} style={{
+                            padding: '10px 10px',
+                            textAlign: 'center',
+                            fontFamily: 'Oswald, sans-serif',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            letterSpacing: '0.5px',
+                            color: d.ch.color,
+                            textTransform: 'uppercase',
+                            ...channelBorderStyle(idx, true),
+                          }}>
+                            {d.ch.label}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
+                        <th />
+                        {channelData.map((d, idx) => (
+                          <>
+                            <th key={`${d.ch.id}-hr`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: 'var(--sl-text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>real</th>
+                            <th key={`${d.ch.id}-hc`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: 'var(--sl-text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>cash</th>
+                          </>
+                        ))}
                       </tr>
                     </thead>
-                    {GRUPOS.map(grupo => (
-                      <tbody key={grupo.key}>
-                        {grupo.metrics.map((m, mIdx) => {
-                          const rowStyle: React.CSSProperties = { backgroundColor: grupo.bgColor }
-                          if (mIdx === 0 && grupo.borderTop) {
-                            rowStyle.borderTop = grupo.borderTop
-                          }
-                          if (m.type === 'total') {
-                            rowStyle.backgroundColor = 'var(--sl-thead)'
-                            rowStyle.borderTop = '1px solid var(--sl-border-strong)'
-                            rowStyle.borderBottom = '1px solid var(--sl-border-strong)'
-                          }
-                          const cellBase = getCellStyle(m.type)
-                          return (
-                            <tr key={m.key} style={rowStyle}>
-                              <td style={{
-                                width: '140px',
-                                padding: '8px 14px',
+
+                    {/* GRUPO COSTES */}
+                    <tbody>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
+                        <td style={metricaCellStyle}>Coste MP</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-mp-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>
+                            <td key={`${d.ch.id}-mp-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(costeMP)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
+                        <td style={metricaCellStyle}>Coste plataforma</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatR)}</td>
+                            <td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costePlatC)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
+                        <td style={metricaCellStyle}>Coste estructura</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrR)}</td>
+                            <td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costeEstrC)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)', borderTop: '2px solid var(--sl-border-strong)', borderBottom: '2px solid var(--sl-border-strong)' }}>
+                        <td style={{ ...metricaCellStyle, fontWeight: 700, color: 'var(--sl-text-primary)' }}>Coste total</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalR)}</td>
+                            <td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.costeTotalC)}</td>
+                          </>
+                        ))}
+                      </tr>
+                    </tbody>
+
+                    {/* GRUPO PRECIO */}
+                    <tbody>
+                      <tr style={{ backgroundColor: 'var(--sl-card)', borderTop: '2px solid var(--sl-border-strong)' }}>
+                        <td style={metricaCellStyle}>Margen deseado</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-md-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td>
+                            <td key={`${d.ch.id}-md-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtPct(d.margenDeseado)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card)' }}>
+                        <td style={metricaCellStyle}>PVP recomendado</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td>
+                            <td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.pvpRecC)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card)' }}>
+                        <td style={metricaCellStyle}>PVP real</td>
+                        {channelData.map((d, idx) => (
+                          <td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}>
+                            <input
+                              ref={idx === 0 ? pvpRef : undefined}
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={pvpGlobal > 0 ? pvpGlobal : ''}
+                              onChange={e => setPvpGlobal(parseFloat(e.target.value) || 0)}
+                              placeholder="—"
+                              style={{
+                                width: '100%',
+                                padding: '4px 8px',
                                 fontFamily: 'Oswald, sans-serif',
-                                color: 'var(--sl-text-muted)',
-                                fontSize: '0.72rem',
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase',
-                                borderRight: '2px solid var(--sl-border-strong)',
-                                textAlign: 'left',
-                              }}>
-                                {m.label}
-                              </td>
-                              {channelData.map((ch, cidx) => {
-                                const vals = getMetricValues(m.key, ch)
-                                const isLast = cidx === channelData.length - 1
-                                const tdStyle: React.CSSProperties = {
-                                  ...cellBase,
-                                  padding: m.type === 'pvp_real' ? '4px 6px' : '8px 12px',
-                                  borderRight: isLast ? 'none' : '2px solid var(--sl-border-strong)',
-                                  textAlign: 'right',
-                                }
-                                return (
-                                  <td key={ch.def.id} style={tdStyle}>
-                                    {renderCellContent(m, vals.real, vals.cash, ch.def.pvpKey)}
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    ))}
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                color: '#2a52a0',
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+
+                    {/* GRUPO RESULTADO */}
+                    <tbody>
+                      <tr style={{ borderTop: '2px solid var(--sl-border-strong)' }}>
+                        <td style={metricaCellStyle}>Factor K</td>
+                        {channelData.map((d, idx) => (
+                          <td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>
+                            {fmtNum(d.w.factorK)}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td style={metricaCellStyle}>Margen €</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td>
+                            <td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.margenC)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td style={metricaCellStyle}>% Margen</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctR), ...channelBorderStyle(idx, true) }}>
+                              {fmtPct(d.w.margenPctR / 100)}
+                            </td>
+                            <td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctC) }}>
+                              {fmtPct(d.w.margenPctC / 100)}
+                            </td>
+                          </>
+                        ))}
+                      </tr>
+                    </tbody>
+
+                    {/* GRUPO IVA */}
+                    <tbody>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
+                        <td style={metricaCellStyle}>IVA repercutido</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td>
+                            <td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.ivaRepercutido)}</td>
+                          </>
+                        ))}
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
+                        <td style={metricaCellStyle}>IVA soportado</td>
+                        {channelData.map((d, idx) => (
+                          <>
+                            <td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td>
+                            <td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td>
+                          </>
+                        ))}
+                      </tr>
+                    </tbody>
                   </table>
                 </div>
               </div>

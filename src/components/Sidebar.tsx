@@ -109,12 +109,12 @@ function LogoSL({ small = false }: { small?: boolean }) {
   }
   return (
     <img
-      src="/data/STREAT LAB LOGO-04.jpg"
+      src="/data/streat-icon.svg"
       onError={() => setFallback(true)}
       alt="Streat Lab"
       width={size}
       height={size}
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }}
     />
   )
 }
