@@ -119,12 +119,12 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                     <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{m.ud_std ?? '—'}</td>
                     <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmt(m.precio_total)}</td>
                     <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp1_nombre ?? '—'}</td>
-                    <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
+                    <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 2)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? fmtNum(m.sp1_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
                     <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp2_nombre ?? '—'}</td>
-                    <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
+                    <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 2)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? fmtNum(m.sp2_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
@@ -135,7 +135,7 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                     <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(m.eur_kg_neto, 4)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.neto_kg, 3)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.num_porciones, 0)}</td>
-                    <td className={tdCls + ' text-right'}>{fmt(m.peso_porcion_g, 0)}</td>
+                    <td className={tdCls + ' text-right'}>{fmt(m.peso_porcion_g, 2)}</td>
                     <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmt(m.eur_porcion, 4)}</td>
                   </tr>
                 ))}

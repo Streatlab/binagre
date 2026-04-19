@@ -155,8 +155,8 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
         <div className="p-5 space-y-5">
           {/* Campos cabecera: Nombre + Raciones + Tamaño Rac + Unidad + Fecha */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            <div className="sm:col-span-2">
               <label className="block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider">Nombre</label>
               <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Salsa brava" />
             </div>
@@ -174,7 +174,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div className="col-span-2 sm:col-span-1">
+            <div>
               <label className="block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider">Fecha</label>
               <input type="date" className={inputCls} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
             </div>

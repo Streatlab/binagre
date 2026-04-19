@@ -148,14 +148,11 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   })
 
   const getSemaforoColor = (pct: number): string => {
-    if (channelData.length === 1) return '#06C167'
-    const margenReal = channelData.map(d => d.w.real.margen_pct)
-    const min = Math.min(...margenReal)
-    const max = Math.max(...margenReal)
-    if (max === min) return '#e8f442'
-    if (Math.abs(pct - max) < 0.01) return '#06C167'
-    if (Math.abs(pct - min) < 0.01) return '#B01D23'
-    return '#e8f442'
+    // pct is 0-1, convert to 0-100 for threshold comparison
+    const pct100 = pct * 100
+    if (pct100 >= 65) return '#06C167'
+    if (pct100 >= 50) return '#f5a623'
+    return '#B01D23'
   }
 
   const pvpRef = useRef<HTMLInputElement>(null)
@@ -182,7 +179,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   // Border left on the first (real) column of each non-first channel
   const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => {
     if (chIdx === 0 || !isRealCol) return {}
-    return { borderLeft: `2px solid #2e3347` }
+    return { borderLeft: `2px solid #1a1f2e` }
   }
 
   return (
@@ -245,9 +242,12 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
                         const allItems = [
-                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const })),
-                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const }))
-                        ].sort((a, b) => a.nombre.localeCompare(b.nombre))
+                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const })),
+                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const }))
+                        ].sort((a, b) => {
+                          if (a.tipo !== b.tipo) return a.tipo === 'EPS' ? -1 : 1
+                          return a.nombre.localeCompare(b.nombre)
+                        })
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>

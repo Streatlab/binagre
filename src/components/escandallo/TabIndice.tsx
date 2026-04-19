@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useConfig } from '@/hooks/useConfig'
 import type { EPS, Receta } from './types'
-import { thCls, tdCls, fmtES, fmtEurES, fmtPctES, fmtDateES, n, semaforoUsos, semaforoClasses } from './types'
+import { thCls, tdCls, fmtES, fmtEurES, fmtPctES, fmtDateES, n, semaforoUsos } from './types'
 
 interface Props {
   epsList: EPS[]
@@ -28,6 +28,12 @@ function calcIndice(costeRac: number, pvp: number, estructuraPct: number) {
   const pctR = neto > 0 ? (margenR / neto) * 100 : 0
   const pctC = neto > 0 ? (margenC / neto) * 100 : 0
   return { costeEstr, costeTotR, costeTotC, margenR, margenC, pctR, pctC }
+}
+
+function getSemaforoColor(pct: number): string {
+  if (pct >= 65) return '#06C167'
+  if (pct >= 50) return '#f5a623'
+  return '#B01D23'
 }
 
 const EMPTY = <span></span>
@@ -93,7 +99,6 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                 const calc = !isEps && pvp > 0 ? calcIndice(costeRac, pvp, cfg.estructura_pct) : null
                 const usos = isEps ? n((d as EPS).usos) : 0
                 const nameCls = isEps ? 'ds-eps-name' : 'ds-rec-name'
-                const costeRacDecimals = isEps ? 4 : 2
                 const fecha = 'fecha' in d ? d.fecha : null
                 return (
                   <tr
@@ -106,7 +111,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                       {d.nombre}
                     </td>
                     <td className={tdCls + ' text-right text-[var(--sl-text-secondary)]'}>{fmtEurES(d.coste_tanda, 2)}</td>
-                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmtEurES(costeRac, costeRacDecimals)}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmtEurES(costeRac, 2)}</td>
                     <td className={tdCls + ' text-center'}>
                       {isEps ? (
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
@@ -132,12 +137,12 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                         <td className={tdCls + ' text-right'}>{fmtEurES(calc.margenR, 2)}</td>
                         <td className={tdCls + ' text-right'}>{fmtEurES(calc.margenC, 2)}</td>
                         <td className={tdCls + ' text-center'}>
-                          <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold ' + semaforoClasses(calc.pctR)}>
+                          <span style={{ color: getSemaforoColor(calc.pctR) }}>
                             {fmtPctES(calc.pctR, 2)}
                           </span>
                         </td>
                         <td className={tdCls + ' text-center'}>
-                          <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold ' + semaforoClasses(calc.pctC)}>
+                          <span style={{ color: getSemaforoColor(calc.pctC) }}>
                             {fmtPctES(calc.pctC, 2)}
                           </span>
                         </td>
