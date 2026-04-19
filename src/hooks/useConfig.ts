@@ -192,6 +192,12 @@ export function calcWaterfall(
   // IVA neto = (PVP - PVP×comision%×1.21)/1.1 × 0.10 - PVP×comision%×0.21
   const ivaNeto = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 - pvp * com * 0.21 : 0
   const provIva = pvp * com * 0.21
+  const ivaRepercutido = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 : 0
+  const ivaSoportado = provIva
+
+  // Margen deseado en € (objetivo): pvp × margenD (mismo target para Real y Cash)
+  const margenDeseadoR = pvp * margenD
+  const margenDeseadoC = pvp * margenD
 
   return {
     neto, costeMP, costeEstructura,
@@ -202,6 +208,8 @@ export function calcWaterfall(
     margenR, margenC,
     pctMargenR, pctMargenC,
     ivaNeto, provIva,
+    ivaRepercutido, ivaSoportado,
+    margenDeseadoR, margenDeseadoC,
     margenDeseadoPct,
   }
 }

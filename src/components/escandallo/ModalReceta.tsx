@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig, calcWaterfall } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
-import { UNIDADES, semaforoClasses, inputCls, thCls, tdCls, n, fmtES, fmtEurES, btnPrimary, btnSecondary } from './types'
+import { UNIDADES, inputCls, thCls, tdCls, n, btnPrimary, btnSecondary } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
 
@@ -112,17 +112,6 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     } catch (e: any) { alert('Error: ' + (e.message || 'Error desconocido')) }
     finally { setSaving(false) }
   }
-
-  /* ── Canales para waterfall — usan useConfig ── */
-  const waterfallCanales = useMemo(() => {
-    return cfg.canales.filter(c => c.activo !== false).map(c => {
-      const pvpKey = CANAL_TO_KEY[c.canal] ?? 'pvp_uber'
-      const pvp = pvps[pvpKey] ?? 0
-      const margenCanal = c.margen_deseado_pct ?? cfg.margen_deseado_pct
-      const w = calcWaterfall(costeMP, pvp, c.comision_pct, c.coste_fijo || 0, cfg.estructura_pct, margenCanal)
-      return { canal: c, pvpKey, pvp, w }
-    })
-  }, [cfg, pvps, costeMP])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
@@ -309,7 +298,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                             const pvp = pvps[cdef.pvpKey] ?? 0
                             const w = canal ? calcWaterfall(costeMP, pvp, canal.comision_pct, canal.coste_fijo || 0, cfg.estructura_pct, canal.margen_deseado_pct ?? cfg.margen_deseado_pct) : null
 
-                            let realVal = 0, cashVal = 0, suffix = '€'
+                            let realVal = 0, cashVal = 0
                             if (w) {
                               switch (metrica) {
                                 case 'Coste MP': realVal = w.costeMP; cashVal = w.costeMP; break
@@ -318,12 +307,12 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                                 case 'Coste total': realVal = w.costeTotalR; cashVal = w.costeTotalC; break
                                 case 'Margen deseado': realVal = w.margenDeseadoR; cashVal = w.margenDeseadoC; break
                                 case 'PVP recomendado': realVal = w.pvpRecR; cashVal = w.pvpRecC; break
-                                case 'PVP real': suffix = 'input'; realVal = pvp; cashVal = pvp; break
-                                case 'Factor K': suffix = '×'; realVal = w.k; cashVal = w.k; break
+                                case 'PVP real': realVal = pvp; cashVal = pvp; break
+                                case 'Factor K': realVal = w.k; cashVal = w.k; break
                                 case 'Margen €': realVal = w.margenR; cashVal = w.margenC; break
-                                case '% Margen': suffix = '%'; realVal = w.pctMargenR; cashVal = w.pctMargenC; break
-                                case 'IVA repercutido': realVal = w.ivaRepercutido; cashVal = w.ivaSoportado; break
-                                case 'IVA soportado': realVal = w.ivaSoportado; cashVal = 0; break
+                                case '% Margen': realVal = w.pctMargenR; cashVal = w.pctMargenC; break
+                                case 'IVA repercutido': realVal = w.ivaRepercutido; cashVal = w.ivaRepercutido; break
+                                case 'IVA soportado': realVal = w.ivaSoportado; cashVal = w.ivaSoportado; break
                               }
                             }
 
