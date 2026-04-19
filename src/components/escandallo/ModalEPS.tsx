@@ -95,17 +95,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
         unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
       })
     } else {
-      const ep = epsList.find(e => e.nombre === val)
-      if (ep) {
-        updateLinea(idx, {
-          ingrediente_nombre: ep.nombre,
-          ingrediente_id: null,
-          eur_ud_neta: n(ep.coste_rac),
-          unidad: ep.unidad ?? 'Ración',
-        })
-      } else {
-        updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
-      }
+      updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
     }
   }
 
@@ -220,14 +210,9 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas — añade ingredientes</td></tr>}
                       {lineasCalc.map((l, idx) => {
-                        const allItems = [
-                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const, id: e.id, badge: 'EPS' })),
-                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const, id: i.id, badge: i.abv || 'ING' }))
-                        ].sort((a, b) => {
-                          if (a.tipo !== b.tipo) return a.tipo === 'EPS' ? -1 : 1
-                          return a.nombre.localeCompare(b.nombre)
-                        })
-                        const selected = allItems.find(item => item.nombre === l.ingrediente_nombre)
+                        const ingItems = ingredientes.map(i => ({ nombre: i.nombre, id: i.id, badge: i.abv || 'ING' }))
+                          .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                        const selected = ingItems.find(item => item.nombre === l.ingrediente_nombre)
                         return (
                         <tr key={idx}>
                           <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
@@ -235,11 +220,11 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                             <div className="flex items-center gap-2">
                               <input list={`eps-ing-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
                               {l.ingrediente_nombre && (
-                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: selected?.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', color: selected?.tipo === 'EPS' ? '#fff' : '#111' }}>
-                                  {selected?.badge}
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: '#c8d0e8', color: '#111' }}>
+                                  {selected?.badge ?? 'ING'}
                                 </span>
                               )}
-                              <datalist id={`eps-ing-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.id}`} value={item.nombre} />)}</datalist>
+                              <datalist id={`eps-ing-${idx}`}>{ingItems.map(item => <option key={item.id} value={item.nombre} />)}</datalist>
                             </div>
                           </td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
