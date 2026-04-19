@@ -15,28 +15,40 @@ function IngSelector({ value, options, placeholder, onSelect }: {
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const inputRef = useRef<HTMLInputElement>(null)
   const filtered = options.filter(o => query === '' ? true : o.nombre.toLowerCase().includes(query.toLowerCase()))
+
+  const handleFocus = () => {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width })
+    }
+    setQuery(''); setOpen(true)
+  }
+
   return (
-    <div style={{ position: 'relative', flex: 1 }}>
+    <div style={{ flex: 1 }}>
       <input
+        ref={inputRef}
         value={open ? query : value}
         onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => { setQuery(''); setOpen(true) }}
+        onFocus={handleFocus}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
         className="w-full bg-transparent border-none outline-none text-sm"
         style={{ color: 'var(--sl-text-primary)' }}
       />
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '280px', background: '#1a1a1a', border: '1px solid #383838', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
+        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 280), backgroundColor: '#484f66', border: '1px solid #4a5270', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', zIndex: 9999, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
           {filtered.length === 0
-            ? <div style={{ padding: '8px 12px', color: '#777', fontSize: '12px' }}>Sin resultados</div>
+            ? <div style={{ padding: '8px 12px', color: '#ccc', fontSize: '12px' }}>Sin resultados</div>
             : filtered.map(opt => (
               <div key={`${opt.tipo}-${opt.id}`} onMouseDown={() => { onSelect(opt); setOpen(false) }}
                 style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', cursor: 'pointer', gap: '8px' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = '#2a2a2a')}
+                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = '#5a6280')}
                 onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent')}>
-                <span style={{ flex: 1, fontSize: '13px', color: '#ccc' }}>{opt.nombre}</span>
+                <span style={{ flex: 1, fontSize: '13px', color: '#fff' }}>{opt.nombre}</span>
                 <span style={{ backgroundColor: opt.tipo === 'EPS' ? '#1a3a5c' : '#2a2a2a', color: opt.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', padding: '1px 5px', borderRadius: '3px', fontSize: '10px', fontFamily: 'Oswald, sans-serif' }}>{opt.badge}</span>
               </div>
             ))
@@ -285,9 +297,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           ...epsList.map(e => ({ id: e.id, nombre: e.nombre, tipo: 'EPS' as const, badge: e.codigo || 'EPS' })),
                           ...ingredientes.map(i => ({ id: i.id, nombre: i.nombre, tipo: 'ING' as const, badge: i.iding || i.abv || 'ING' }))
                         ].sort((a, b) => a.tipo !== b.tipo ? (a.tipo === 'EPS' ? -1 : 1) : a.nombre.localeCompare(b.nombre))
-                        const selEps = l.tipo === 'EPS' ? epsList.find(e => e.nombre === l.ingrediente_nombre) : null
-                        const selIng = l.tipo === 'ING' ? ingredientes.find(i => i.nombre === l.ingrediente_nombre) : null
-                        const badgeCode = selEps?.codigo ?? selIng?.iding ?? l.tipo
+                        const selEps = l.tipo === 'EPS'
+                          ? (epsList.find(e => String(e.id) === String(l.eps_id)) ?? epsList.find(e => e.nombre === l.ingrediente_nombre))
+                          : null
+                        const selIng = l.tipo === 'ING'
+                          ? (ingredientes.find(i => String(i.id) === String(l.ingrediente_id)) ?? ingredientes.find(i => i.nombre === l.ingrediente_nombre))
+                          : null
+                        const badgeCode = selEps?.codigo ?? selIng?.iding ?? String(l.ingrediente_id || l.eps_id || l.tipo)
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
