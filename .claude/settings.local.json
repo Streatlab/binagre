@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git init:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git config:*)",
+      "Bash(git remote:*)",
+      "Bash(gh auth:*)",
+      "Bash(git push:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git commit:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(GIT_TRACE=1 git push origin master)",
+      "Bash(npx.cmd tsc:*)",
+      "Bash(node ./node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(where node:*)",
+      "Bash(where npx:*)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)",
+      "Bash(git restore:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull *)"
+    ]
+  }
+}

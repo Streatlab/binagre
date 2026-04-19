@@ -1,37 +1,46 @@
-# STREAT LAB ERP — CLAUDE.md
+# STREAT LAB ERP — CONTEXTO BASE
 
-## PROYECTO
-- URL: https://streatlab-erp.vercel.app
-- Stack: React + TypeScript + Vite + Tailwind + Supabase + Vercel
-- Bar: C:\Users\ruben\streatlab-erp | Casa: C:\streatlab-erp
-- Supabase: eryauogxcpbgdryeimdq.supabase.co
+## STACK
+React + TypeScript + Vite + Tailwind + Supabase + Vercel
+Repo: github.com/Streatlab/streatlab-erp
+Supabase: eryauogxcpbgdryeimdq.supabase.co
 
-## REGLAS IRROMPIBLES
-- Sin placeholders, sin parches, sin TODOs, causa raíz siempre
-- Mobile friendly obligatorio en todo lo que se toque
-- Una tarea a la vez — no tocar archivos fuera del scope
-- Sin atajos: nada de "por ahora" o "temporalmente"
-- Verificar build limpio antes de terminar
+## REGLAS ABSOLUTAS — SIEMPRE
+1. Lee el archivo antes de tocarlo
+2. npx tsc --no-emit antes de cada commit — si hay errores, corrígelos
+3. fmtNum acepta solo 1 argumento — nunca pasar segundo argumento
+4. Campos calculados: NUNCA input disabled — SIEMPRE div con style={{backgroundColor:'#2d1515',border:'1px solid #aa3030',color:'#ffaaaa'}}
+5. Fondos modal: SIEMPRE style inline style={{backgroundColor:'#1a1a1a'}} — nunca clase Tailwind
+6. Commit siempre al final: git add . && git commit -m "descripcion" && git push origin master
 
 ## DESIGN SYSTEM
-Fondos: app #2e3347 | sidebar #1e2233 | modal #484f66 | input #3a4058 | input-calc #3d2828
-Bordes: normal #4a5270 | calc #884040 | focus #e8f442
-Texto: primary #f0f0ff | secondary #c8d0e8 | muted #7080a8 | calc #ffcccc
-Acentos: yellow #e8f442 | red #B01D23 | eps #66aaff | rec #f5a623
-Canales: Uber Eats #06C167 | Glovo #e8f442 | Just Eat #f5a623 | Web #B01D23 | Directa #66aaff
-Fuentes: Lexend (todo) | Oswald (nav,tabs,th,botones,labels) | Impact (solo h1 página)
-Botones: ds-btn-save #B01D23 | ds-btn-add #e8f442 texto #1a1a1a | ds-btn-cancel #555e7a
-Modales: bg #484f66 | border-radius 10px | border #4a5270 | max-height 90vh
-Tablas: thead sticky #353a50 Oswald 11px | odd #484f66 | even #404558
+Fondos:   app #111111 | sidebar #000000 | modal #1a1a1a | card-alt #141414 | thead #0a0a0a
+Inputs:   edit #1e1e1e | readonly #181818 | calc #2d1515
+Bordes:   normal #2a2a2a | strong #383838 | calc #aa3030 | focus #e8f442
+Texto:    primary #ffffff | secondary #cccccc | muted #777777 | calc #ffaaaa
+Acentos:  yellow #e8f442 | red #B01D23
+Canales:  Uber #06C167 | Glovo dot #e8f442 | Glovo texto #aabc00 | JustEat #f5a623 | Web texto #ff6b70 | Web dot #B01D23 | Directa #66aaff
+Botones:  Guardar bg #B01D23 blanco | Añadir bg #e8f442 texto #111111 | Cancelar bg #222222 border #383838
+Calc:     style={{backgroundColor:'#2d1515',border:'1px solid #aa3030',color:'#ffaaaa'}}
+Fuentes:  Lexend (todo) | Oswald (nav, tabs, th, botones, labels)
 
 ## FORMATO NÚMEROS
-4 decimales: EUR/STD, EUR/MIN, C.Neto/STD, C.Neto/MIN
-Siempre desde src/utils/format.ts — fmtEur, fmtNum, fmtPct, fmtDate
-Celdas sin dato: string vacío, nunca guion ni null visible
+fmtEur(n) | fmtNum(n) — SOLO 1 argumento | fmtPct(n) | fmtDate(d)
+Todos desde src/utils/format.ts
 
-## TRAS COMPACTACIÓN
-1. Lee este CLAUDE.md
-2. Lee .claude/skills/erp/SKILL.md
-3. Confirma qué fix atacamos y espera aprobación antes de tocar nada
+## SUPABASE — TABLAS
+ingredientes, mermas, eps, eps_lineas, recetas, recetas_lineas,
+config_canales, config_proveedores, configuracion, usuarios, facturacion_diario
 
-@lessons.md
+## PROVEEDORES INTERNOS
+ABV EPS → no aparece en tabla ingredientes
+ABV MRM → no aparece en tabla ingredientes
+
+## WATERFALL — src/utils/calcWaterfall.ts
+Comisiones (decimal): Uber 0.30 | Glovo 0.30 | JustEat 0.30 | Web 0.07 | Directa 0.00
+Orden canales: Uber → Glovo → JustEat → Web → Directa
+
+## MÓDULOS
+OK: Login | Dashboard | Facturación | Ingredientes | Mermas | Config | Sidebar
+PENDIENTE: EPS | Recetas waterfall | Índice
+PLACEHOLDER: POS | Marcas | Running
