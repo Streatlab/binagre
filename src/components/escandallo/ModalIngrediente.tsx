@@ -1,6 +1,16 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
 
+function useIsDark() {
+  const [isDark, setIsDark] = useState(document.documentElement.getAttribute('data-theme') === 'dark')
+  useEffect(() => {
+    const obs = new MutationObserver(() => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark'))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
+
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)',
   color: 'var(--sl-btn-save-text)',
@@ -39,6 +49,7 @@ interface Props {
 export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
   const cfg = useConfig()
+  const isDark = useIsDark()
   const [f, setF] = useState({
     iding: ingrediente?.iding ?? '',
     categoria: ingrediente?.categoria ?? '',
@@ -309,15 +320,15 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Precio Activo</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo)}</div>
+                <div style={{ backgroundColor: isDark ? '#2d1515' : '#fff5f5', border: '1px solid #aa3030', color: isDark ? '#ffaaaa' : '#991b1b', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{precioActivo.toFixed(2)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/STD</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd)}</div>
+                <div style={{ backgroundColor: isDark ? '#2d1515' : '#fff5f5', border: '1px solid #aa3030', color: isDark ? '#ffaaaa' : '#991b1b', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{eurStd.toFixed(4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/MIN</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin)}</div>
+                <div style={{ backgroundColor: isDark ? '#2d1515' : '#fff5f5', border: '1px solid #aa3030', color: isDark ? '#ffaaaa' : '#991b1b', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{eurMin.toFixed(4)}</div>
               </div>
             </div>
           </div>
@@ -339,11 +350,11 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">C.Neto/STD</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoStd)}</div>
+                <div style={{ backgroundColor: isDark ? '#2d1515' : '#fff5f5', border: '1px solid #aa3030', color: isDark ? '#ffaaaa' : '#991b1b', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{costeNetoStd.toFixed(4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">C.Neto/MIN</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoMin)}</div>
+                <div style={{ backgroundColor: isDark ? '#2d1515' : '#fff5f5', border: '1px solid #aa3030', color: isDark ? '#ffaaaa' : '#991b1b', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{costeNetoMin.toFixed(4)}</div>
               </div>
             </div>
           </div>
