@@ -45,16 +45,16 @@ function IngSelector({ value, options, placeholder, onSelect }: {
         style={{ color: 'var(--sl-text-primary)' }}
       />
       {open && (
-        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 280), zIndex: 9999, backgroundColor: isDark ? '#484f66' : '#ffffff', border: `1px solid ${isDark ? '#4a5270' : '#d1d5db'}`, borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', maxHeight: '220px', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: Math.max(pos.width, 280), zIndex: 9999, backgroundColor: isDark ? '#1a1a1a' : '#ffffff', border: `1px solid ${isDark ? '#2a2a2a' : '#d1d5db'}`, borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.6)', maxHeight: '220px', overflowY: 'auto' }}>
           {filtered.length === 0
             ? <div style={{ padding: '8px 12px', fontSize: '12px', color: isDark ? '#aaa' : '#6b7280' }}>Sin resultados</div>
             : filtered.map(opt => (
               <div key={opt.id} onMouseDown={() => { onSelect(opt); setOpen(false) }}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: isDark ? '#f0f0ff' : '#1a1a1a', backgroundColor: 'transparent', gap: '8px' }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = isDark ? '#3a4058' : '#f3f4f6')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: isDark ? '#cccccc' : '#1a1a1a', backgroundColor: 'transparent', gap: '8px' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = isDark ? '#141414' : '#f3f4f6')}
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
                 <span style={{ flex: 1 }}>{opt.nombre}</span>
-                <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'Oswald, sans-serif', backgroundColor: isDark ? '#2a2a2a' : '#f3f4f6', color: isDark ? '#c8d0e8' : '#374151' }}>{opt.badge}</span>
+                <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'Oswald, sans-serif', border: `1px solid ${isDark ? '#2a2a2a' : '#d1d5db'}`, backgroundColor: isDark ? '#111' : '#f3f4f6', color: isDark ? '#666666' : '#374151' }}>{opt.badge}</span>
               </div>
             ))
           }

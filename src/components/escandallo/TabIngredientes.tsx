@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { Ingrediente } from './types'
 import { thCls, tdCls, fmt, fmtPct, n, getProveedor, semaforoUsos } from './types'
 import { fmtNum } from '@/utils/format'
@@ -13,6 +13,12 @@ type Filter = 'todos' | 'enuso' | 'sinuso'
 
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
+  const [isDark, setIsDark] = useState(document.documentElement.getAttribute('data-theme') === 'dark')
+  useEffect(() => {
+    const obs = new MutationObserver(() => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark'))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
     const base = ingredientes.filter(i =>
@@ -81,9 +87,9 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
               </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[var(--sl-thead)]'}>IDING</th>
+                  <th className={thCls} style={{ position: 'sticky', left: 0, zIndex: 3, backgroundColor: isDark ? '#0a0a0a' : '#f9fafb' }}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[var(--sl-thead)]'} style={{ left: 90 }}>NOMBRE BASE</th>
+                  <th className={thCls} style={{ position: 'sticky', left: 90, zIndex: 3, backgroundColor: isDark ? '#0a0a0a' : '#f9fafb' }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>PROVEEDOR</th>
@@ -120,9 +126,9 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)}
                       className="cursor-pointer hover:bg-[var(--sl-thead)] transition-colors">
-                      <td className={tdCls + ' sticky left-0 z-10 text-[var(--sl-text-muted)] font-mono text-xs'}>{i.iding ?? '—'}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] font-mono text-xs'} style={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: isDark ? '#111111' : '#ffffff' }}>{i.iding ?? '—'}</td>
                       <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.categoria ?? '—'}</td>
-                      <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
+                      <td className={tdCls + ' max-w-[220px] truncate ' + rowNameCls} style={{ position: 'sticky', left: 90, zIndex: 2, backgroundColor: isDark ? '#111111' : '#ffffff' }}>{i.nombre_base ?? '—'}</td>
                       <td className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
                       <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#66aaff] italic' : 'text-[var(--sl-text-primary)]')}>{i.nombre}</td>
                       <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{getProveedor(i.abv)}</td>
@@ -141,7 +147,7 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmt(i.precio3)}</td>
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(i.ultimo_precio ?? i.precio_activo)}</td>
                       <td className={tdCls + ' text-center text-xs'}>
-                        <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">{i.selector_precio ?? 'Último'}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">{i.selector_precio === 'ultimo' ? 'Último' : (i.selector_precio ?? 'Último')}</span>
                       </td>
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmt(i.precio_activo)}</td>
                       <td className={tdCls + ' text-right'}>{fmtNum(i.eur_std)}</td>
