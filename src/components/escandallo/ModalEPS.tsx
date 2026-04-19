@@ -5,6 +5,46 @@ import type { Ingrediente, EPS, EPSLinea } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
 
+interface IngSelectorOpt { id: string; nombre: string; badge: string }
+
+function IngSelector({ value, options, placeholder, onSelect }: {
+  value: string; options: IngSelectorOpt[]; placeholder?: string
+  onSelect: (opt: IngSelectorOpt) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const filtered = options.filter(o => query === '' ? true : o.nombre.toLowerCase().includes(query.toLowerCase()))
+  return (
+    <div style={{ position: 'relative', flex: 1 }}>
+      <input
+        value={open ? query : value}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="w-full bg-transparent border-none outline-none text-sm"
+        style={{ color: 'var(--sl-text-primary)' }}
+      />
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '280px', background: '#1a1a1a', border: '1px solid #383838', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
+          {filtered.length === 0
+            ? <div style={{ padding: '8px 12px', color: '#777', fontSize: '12px' }}>Sin resultados</div>
+            : filtered.map(opt => (
+              <div key={opt.id} onMouseDown={() => { onSelect(opt); setOpen(false) }}
+                style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', cursor: 'pointer', gap: '8px' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = '#2a2a2a')}
+                onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent')}>
+                <span style={{ flex: 1, fontSize: '13px', color: '#ccc' }}>{opt.nombre}</span>
+                <span style={{ backgroundColor: '#2a2a2a', color: '#c8d0e8', padding: '1px 5px', borderRadius: '3px', fontSize: '10px', fontFamily: 'Oswald, sans-serif' }}>{opt.badge}</span>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)',
   color: 'var(--sl-btn-save-text)',
@@ -210,21 +250,27 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas — añade ingredientes</td></tr>}
                       {lineasCalc.map((l, idx) => {
-                        const ingItems = ingredientes.map(i => ({ nombre: i.nombre, id: i.id, badge: i.abv || 'ING' }))
+                        const ingOpts: IngSelectorOpt[] = ingredientes
+                          .map(i => ({ id: i.id, nombre: i.nombre, badge: i.iding || i.abv || 'ING' }))
                           .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                        const selected = ingItems.find(item => item.nombre === l.ingrediente_nombre)
+                        const selIng = ingredientes.find(i => i.nombre === l.ingrediente_nombre)
+                        const badgeCode = selIng?.iding ?? selIng?.abv ?? 'ING'
                         return (
                         <tr key={idx}>
                           <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                           <td className={tdCls}>
                             <div className="flex items-center gap-2">
-                              <input list={`eps-ing-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
+                              <IngSelector
+                                value={l.ingrediente_nombre}
+                                options={ingOpts}
+                                placeholder="Buscar ingrediente…"
+                                onSelect={opt => selectIngrediente(idx, opt.nombre)}
+                              />
                               {l.ingrediente_nombre && (
-                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: '#c8d0e8', color: '#111' }}>
-                                  {selected?.badge ?? 'ING'}
+                                <span style={{ backgroundColor: '#2a2a2a', color: '#c8d0e8', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>
+                                  {badgeCode}
                                 </span>
                               )}
-                              <datalist id={`eps-ing-${idx}`}>{ingItems.map(item => <option key={item.id} value={item.nombre} />)}</datalist>
                             </div>
                           </td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
@@ -246,7 +292,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     </div>
                     <div>
                       <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste ración</span>
-                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeRac ?? 0).toFixed(2)}</span>
+                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeRac ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>

@@ -1,11 +1,51 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, MouseEvent as RMouseEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import { calcWaterfall, type ConfigCanal, type FilaWaterfall } from '@/utils/calcWaterfall'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
+
+interface IngSelectorOpt { id: string; nombre: string; tipo: 'EPS' | 'ING'; badge: string }
+
+function IngSelector({ value, options, placeholder, onSelect }: {
+  value: string; options: IngSelectorOpt[]; placeholder?: string
+  onSelect: (opt: IngSelectorOpt) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const filtered = options.filter(o => query === '' ? true : o.nombre.toLowerCase().includes(query.toLowerCase()))
+  return (
+    <div style={{ position: 'relative', flex: 1 }}>
+      <input
+        value={open ? query : value}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="w-full bg-transparent border-none outline-none text-sm"
+        style={{ color: 'var(--sl-text-primary)' }}
+      />
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '280px', background: '#1a1a1a', border: '1px solid #383838', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
+          {filtered.length === 0
+            ? <div style={{ padding: '8px 12px', color: '#777', fontSize: '12px' }}>Sin resultados</div>
+            : filtered.map(opt => (
+              <div key={`${opt.tipo}-${opt.id}`} onMouseDown={() => { onSelect(opt); setOpen(false) }}
+                style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', cursor: 'pointer', gap: '8px' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = '#2a2a2a')}
+                onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent')}>
+                <span style={{ flex: 1, fontSize: '13px', color: '#ccc' }}>{opt.nombre}</span>
+                <span style={{ backgroundColor: opt.tipo === 'EPS' ? '#1a3a5c' : '#2a2a2a', color: opt.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', padding: '1px 5px', borderRadius: '3px', fontSize: '10px', fontFamily: 'Oswald, sans-serif' }}>{opt.badge}</span>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
 
@@ -241,26 +281,29 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
-                        const allItems = [
-                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const, id: e.id, badge: 'EPS' })),
-                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const, id: i.id, badge: i.abv || 'ING' }))
-                        ].sort((a, b) => {
-                          if (a.tipo !== b.tipo) return a.tipo === 'EPS' ? -1 : 1
-                          return a.nombre.localeCompare(b.nombre)
-                        })
-                        const selected = allItems.find(item => item.nombre === l.ingrediente_nombre)
+                        const allOpts: IngSelectorOpt[] = [
+                          ...epsList.map(e => ({ id: e.id, nombre: e.nombre, tipo: 'EPS' as const, badge: e.codigo || 'EPS' })),
+                          ...ingredientes.map(i => ({ id: i.id, nombre: i.nombre, tipo: 'ING' as const, badge: i.iding || i.abv || 'ING' }))
+                        ].sort((a, b) => a.tipo !== b.tipo ? (a.tipo === 'EPS' ? -1 : 1) : a.nombre.localeCompare(b.nombre))
+                        const selEps = l.tipo === 'EPS' ? epsList.find(e => e.nombre === l.ingrediente_nombre) : null
+                        const selIng = l.tipo === 'ING' ? ingredientes.find(i => i.nombre === l.ingrediente_nombre) : null
+                        const badgeCode = selEps?.codigo ?? selIng?.iding ?? l.tipo
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}>
                               <div className="flex items-center gap-2">
-                                <input list={`r-all-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder="Ingrediente o EPS..." />
+                                <IngSelector
+                                  value={l.ingrediente_nombre}
+                                  options={allOpts}
+                                  placeholder="Ingrediente o EPS..."
+                                  onSelect={opt => selectItem(idx, opt.nombre)}
+                                />
                                 {l.ingrediente_nombre && (
-                                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: selected?.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', color: selected?.tipo === 'EPS' ? '#fff' : '#111' }}>
-                                    {selected?.badge}
+                                  <span style={{ backgroundColor: l.tipo === 'EPS' ? '#1a3a5c' : '#2a2a2a', color: l.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>
+                                    {badgeCode}
                                   </span>
                                 )}
-                                <datalist id={`r-all-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.id}`} value={item.nombre} />)}</datalist>
                               </div>
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
@@ -277,7 +320,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
                     <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtEur(costeTanda)}</span></div>
-                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeMP ?? 0).toFixed(2)}</span></div>
+                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeMP ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                   </div>
                 </div>
               </div>
@@ -354,7 +397,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>Coste MP</td>
                         {channelData.map((d, idx) => (
-                          <td key={`${d.ch.id}-mp`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>
+                          <td key={`${d.ch.id}-mp`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>
                         ))}
                       </tr>
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
@@ -475,13 +518,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>IVA repercutido</td>
                         {channelData.map((d, idx) => (
-                          <td key={`${d.ch.id}-ivr`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.iva_repercutido)}</td>
+                          <td key={`${d.ch.id}-ivr`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.real.iva_repercutido)}</td>
                         ))}
                       </tr>
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}>
                         <td style={metricaCellStyle}>IVA soportado</td>
                         {channelData.map((d, idx) => (
-                          <td key={`${d.ch.id}-ivs`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.real.iva_soportado)}</td>
+                          <td key={`${d.ch.id}-ivs`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.real.iva_soportado)}</td>
                         ))}
                       </tr>
                     </tbody>
