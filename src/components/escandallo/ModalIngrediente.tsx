@@ -182,7 +182,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           <div>
             <h3 className="ds-modal-title">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
           </div>
-          <button onClick={onClose} className="text-[#999999] hover:text-[#ffffff] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
 
         <div className="space-y-4">
@@ -327,7 +327,7 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
           <button onClick={onClose} className="ds-btn-cancel">Cancelar</button>
           <button onClick={handleSave} disabled={saving} className="ds-btn-save">
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}

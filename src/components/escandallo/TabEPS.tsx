@@ -31,11 +31,11 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
       </div>
 
       {!filtered.length ? (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-12 text-center">
-          <p className="text-[#999999] text-sm">Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">
+          <p className="text-[var(--sl-text-muted)] text-sm">Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
             <table style={{ tableLayout: 'fixed', width: '910px' }}>
               <colgroup>
@@ -71,13 +71,13 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
                       <td className={tdCls + ' ds-eps-name'}>{e.nombre}</td>
                       <td className={tdCls + ' text-right'}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td className={tdCls + ' text-right'}>{e.tamano_rac != null ? fmtES(e.tamano_rac) : ''}</td>
-                      <td className={tdCls + ' text-[#cccccc]'}>{e.unidad}</td>
-                      <td className={tdCls + ' text-right text-[#ffffff]'}>{fmtEurES(e.coste_tanda, 4)}</td>
-                      <td className={tdCls + ' text-right text-[#ffffff] font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{e.unidad}</td>
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtEurES(e.coste_tanda, 4)}</td>
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmtEurES(e.coste_rac, 4)}</td>
                       <td className={tdCls + ' text-center'}>
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
                       </td>
-                      <td className={tdCls + ' text-[#999999] text-xs'}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
                     </tr>
                   )
                 })}

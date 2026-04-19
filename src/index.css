@@ -135,9 +135,13 @@
   --font-title:        "Impact", "Oswald", sans-serif;
 }
 
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"]  { color-scheme: dark; }
+
+html { background: var(--sl-app) !important; }
 body {
-  background: var(--sl-app);
-  color: var(--sl-text-primary);
+  background: var(--sl-app) !important;
+  color: var(--sl-text-primary) !important;
 }
 
 /* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */

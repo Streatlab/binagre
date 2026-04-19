@@ -133,12 +133,12 @@ function NavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: b
         letterSpacing: '1.5px',
         textTransform: 'uppercase',
         borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? '#1a1a1a' : 'transparent',
-        color: isActive ? ACCENT : '#999999',
+        background: isActive ? 'var(--sl-card)' : 'transparent',
+        color: isActive ? ACCENT : 'var(--sl-text-nav)',
       })}
       className={({ isActive }) =>
         `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
-          isActive ? '' : 'hover:text-[#ffffff] hover:bg-[#1a1a1a]'
+          isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
         }`
       }
     >
@@ -161,13 +161,13 @@ function GroupNavItemLink({ item, collapsed, onClose }: { item: NavItem; collaps
         letterSpacing: '1.5px',
         textTransform: 'uppercase',
         borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? '#1a1a1a' : 'transparent',
-        color: isActive ? ACCENT : '#999999',
+        background: isActive ? 'var(--sl-card)' : 'transparent',
+        color: isActive ? ACCENT : 'var(--sl-text-nav)',
         paddingLeft: collapsed ? undefined : 28,
       })}
       className={({ isActive }) =>
         `flex items-center gap-3 pr-4 py-[11px] transition-colors ${collapsed ? 'justify-center px-4' : ''} ${
-          isActive ? '' : 'hover:text-[#ffffff] hover:bg-[#1a1a1a]'
+          isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
         }`
       }
     >
@@ -205,7 +205,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[#000000] border-r border-[#2a2a2a]
+          fixed top-0 left-0 z-40 h-full bg-[var(--sl-sidebar)] border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
@@ -214,17 +214,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         {/* Header logo + nombre */}
         {collapsed ? (
-          <div className="border-b border-[#2a2a2a] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
+          <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
             <LogoSL small={true} />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[#999999] hover:text-[#ffffff] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
-          <div className="p-3 border-b border-[#2a2a2a] flex items-center min-h-[72px]">
+          <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <LogoSL small={false} />
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} className="p-1.5 text-[#999999] hover:text-[#ffffff] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
+            <button onClick={toggle} className="p-1.5 text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
           </div>
         )}
 
@@ -245,7 +245,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <Fragment key={group.key}>
                 {/* Group header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: '#2a2a2a', margin: '8px 10px' }} />
+                  <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
                 ) : (
                   <button
                     type="button"
@@ -253,7 +253,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     style={{
                       fontFamily: 'Oswald, sans-serif',
                       fontSize: '0.6rem',
-                      color: '#555555',
+                      color: 'var(--sl-text-disabled)',
                       textTransform: 'uppercase',
                       letterSpacing: '2px',
                       padding: '10px 18px',
@@ -265,7 +265,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       alignItems: 'center',
                       justifyContent: 'space-between',
                     }}
-                    className="hover:!text-[#ffffff] transition-colors"
+                    className="hover:!text-[var(--sl-text-primary)] transition-colors"
                   >
                     <span>{group.label}</span>
                     <span style={{ fontSize: 10 }}>{isOpen ? '▾' : '▸'}</span>
@@ -282,9 +282,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Separator before config */}
           {collapsed ? (
-            <div style={{ height: 1, background: '#2a2a2a', margin: '8px 10px' }} />
+            <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
           ) : (
-            <div style={{ height: 1, background: '#2a2a2a', margin: '8px 18px' }} />
+            <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 18px' }} />
           )}
 
           {/* CONFIG items */}
@@ -302,8 +302,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Footer user */}
         <div
-          className={`p-3 border-t border-[#2a2a2a] ${collapsed ? 'text-center' : ''}`}
-          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777' }}
+          className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`}
+          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)' }}
         >
           {!collapsed ? (
             <>
@@ -312,13 +312,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               </div>
               <button
                 onClick={logout}
-                className="text-[#777777] hover:text-[#cc4444] transition-colors text-xs"
+                className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-xs"
               >Cerrar sesión</button>
             </>
           ) : (
             <button
               onClick={logout}
-              className="text-[#777777] hover:text-[#cc4444] transition-colors text-sm"
+              className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-sm"
               title="Cerrar sesión"
             >⏏</button>
           )}

@@ -34,11 +34,11 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
       </div>
 
       {!filtered.length ? (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-12 text-center">
-          <p className="text-[#999999] text-sm">Sin mermas{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">
+          <p className="text-[var(--sl-text-muted)] text-sm">Sin mermas{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
             <table style={{ tableLayout: 'fixed', width: '2500px' }}>
               <colgroup>
@@ -74,9 +74,9 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
               </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[#0a0a0a]'}>IDING</th>
+                  <th className={thCls + ' sticky left-0 z-30 bg-[var(--sl-thead)]'}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[#0a0a0a]'} style={{ left: 90 }}>NOMBRE BASE</th>
+                  <th className={thCls + ' sticky z-30 bg-[var(--sl-thead)]'} style={{ left: 90 }}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>MARCA</th>
@@ -107,36 +107,36 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
               </thead>
               <tbody>
                 {filtered.map(m => (
-                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[#0a0a0a] transition-colors">
-                    <td className={tdCls + ' sticky left-0 z-10 text-[#999999] font-mono text-xs'}>{m.iding ?? '—'}</td>
-                    <td className={tdCls + ' text-[#cccccc]'}>{m.categoria ?? '—'}</td>
-                    <td className={tdCls + ' sticky z-10 text-[#ffffff] font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
-                    <td className={tdCls + ' text-[#ffffff] font-mono text-xs font-bold'}>{m.abv ?? '—'}</td>
+                  <tr key={m.id} onClick={() => onSelect?.(m)} className="cursor-pointer hover:bg-[var(--sl-thead)] transition-colors">
+                    <td className={tdCls + ' sticky left-0 z-10 text-[var(--sl-text-muted)] font-mono text-xs'}>{m.iding ?? '—'}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{m.categoria ?? '—'}</td>
+                    <td className={tdCls + ' sticky z-10 text-[var(--sl-text-primary)] font-medium max-w-[220px] truncate'} style={{ left: 90 }}>{m.nombre_base ?? '—'}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}>{m.abv ?? '—'}</td>
                     <td className={tdCls + ' max-w-[180px] truncate'}>{m.nombre}</td>
-                    <td className={tdCls + ' text-[#cccccc]'}>{m.marca ?? '—'}</td>
-                    <td className={tdCls + ' text-[#cccccc]'}>{m.formato ?? '—'}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{m.marca ?? '—'}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{m.formato ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.uds)}</td>
-                    <td className={tdCls + ' text-[#cccccc]'}>{m.ud_std ?? '—'}</td>
-                    <td className={tdCls + ' text-right text-[#ffffff] font-medium'}>{fmt(m.precio_total)}</td>
-                    <td className={tdCls + ' text-[#cccccc] text-xs'}>{m.sp1_nombre ?? '—'}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{m.ud_std ?? '—'}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmt(m.precio_total)}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp1_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? fmtNum(m.sp1_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
-                    <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#999999]">No</span>}</td>
-                    <td className={tdCls + ' text-[#cccccc] text-xs'}>{m.sp2_nombre ?? '—'}</td>
+                    <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
+                    <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp2_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
                     <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? fmtNum(m.sp2_pct * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
-                    <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[#999999]">No</span>}</td>
+                    <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
                     <td className={tdCls + ' text-right'}>{fmtPct(m.pct_descarte)}</td>
                     <td className={tdCls + ' text-right text-[#ea580c]'}>{m.pct_merma != null ? fmtNum(m.pct_merma * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right text-[#16a34a]'}>{m.pct_limpio != null ? fmtNum(m.pct_limpio * 100, 1) + '%' : ''}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.eur_pieza_limpia, 4)}</td>
-                    <td className={tdCls + ' text-right text-[#ffffff]'}>{fmt(m.eur_kg_neto, 4)}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(m.eur_kg_neto, 4)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.neto_kg, 3)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.num_porciones, 0)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.peso_porcion_g, 0)}</td>
-                    <td className={tdCls + ' text-right text-[#ffffff] font-medium'}>{fmt(m.eur_porcion, 4)}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmt(m.eur_porcion, 4)}</td>
                   </tr>
                 ))}
               </tbody>

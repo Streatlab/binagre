@@ -86,18 +86,18 @@ export default function Escandallo() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-2xl font-bold text-[#ffffff] tracking-tight">Escandallo</h2>
+        <h2 className="text-2xl font-bold text-[var(--sl-text-primary)] tracking-tight">Escandallo</h2>
       </div>
 
       {/* Subtabs + buscador */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-1 flex-wrap">
+        <div className="flex gap-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg p-1 flex-wrap">
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setBusqueda('') }}
               className={'px-4 py-1.5 text-sm font-medium rounded-md transition ' +
-                (tab === t.key ? 'bg-accent text-[#111]' : 'text-[#cccccc] hover:text-[#ffffff]')
+                (tab === t.key ? 'bg-accent text-[#111]' : 'text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)]')
               }
             >
               {t.label}
@@ -106,7 +106,7 @@ export default function Escandallo() {
         </div>
         {tab !== 'indice' && (
           <input
-            className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder:text-[#999999] focus:outline-none focus:border-accent"
+            className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
             placeholder="Buscar..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
@@ -120,9 +120,9 @@ export default function Escandallo() {
           <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : error ? (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-8 text-center">
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-8 text-center">
           <p className="text-[#dc2626] text-sm">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs text-[#ffffff] underline">Reintentar</button>
+          <button onClick={fetchData} className="mt-3 text-xs text-[var(--sl-text-primary)] underline">Reintentar</button>
         </div>
       ) : (
         <>

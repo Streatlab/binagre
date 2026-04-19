@@ -11,10 +11,10 @@ interface Props {
   onSaved: () => void
 }
 
-const inputCls = 'w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder:text-[#999999] focus:outline-none focus:border-accent'
-const labelCls = 'block text-[11px] text-[#999999] mb-1 uppercase tracking-wider'
+const inputCls = 'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent'
+const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
 const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[#cccccc] border border-[#2a2a2a] rounded-lg hover:text-[#ffffff] hover:border-[#383838] transition'
+const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-lg hover:text-[var(--sl-text-primary)] hover:border-[var(--sl-border-strong)] transition'
 
 export default function ModalMerma({ merma, onClose, onSaved }: Props) {
   const isEdit = !!merma
@@ -242,12 +242,12 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="modal-merma border border-[#2a2a2a] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+      <div className="modal-merma border border-[var(--sl-border)] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
           <div>
-            <h3 className="text-base font-semibold text-[#ffffff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
+            <h3 className="text-base font-semibold text-[var(--sl-text-primary)]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
           </div>
-          <button onClick={onClose} className="text-[#999999] hover:text-[#ffffff] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -269,7 +269,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             </div>
           </Section>
 
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-lg p-4 space-y-3">
+          <div className="bg-[var(--sl-card-alt)] border border-[var(--sl-border)] rounded-lg p-4 space-y-3">
             <div style={{ borderTop: 'none', paddingTop: '0', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             {/* SP1 */}
             <div className="grid grid-cols-6 gap-2 items-end">
@@ -279,7 +279,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
               <Field label="€ SP1" value={fmtNum(sp1EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#cccccc]">
+                <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
                   <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
                   Valorable
                 </label>
@@ -293,7 +293,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
               <Field label="€ SP2" value={fmtNum(sp2EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#cccccc]">
+                <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
                   <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
                   Valorable
                 </label>
@@ -323,7 +323,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
           <button onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>
             {saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}
@@ -350,8 +350,8 @@ async function upsertIngrediente(row: Record<string, unknown>) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#141414] border border-[#2a2a2a] rounded-lg p-4">
-      <h4 className="text-[11px] uppercase tracking-wider text-[#999999] font-semibold mb-3">{title}</h4>
+    <div className="bg-[var(--sl-card-alt)] border border-[var(--sl-border)] rounded-lg p-4">
+      <h4 className="text-[11px] uppercase tracking-wider text-[var(--sl-text-muted)] font-semibold mb-3">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   )
@@ -367,7 +367,7 @@ function Field({ label, value, onChange, type, step, disabled, highlight, list, 
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
         disabled={disabled} list={list} placeholder={placeholder}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[#ffffff] font-bold' : '')}
+        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[var(--sl-text-primary)] font-bold' : '')}
       />
     </div>
   )

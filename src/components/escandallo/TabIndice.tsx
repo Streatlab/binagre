@@ -49,7 +49,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
         <Counter label="RECETAS" value={recetasList.length} valueClass="rec" />
       </div>
 
-      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden">
+      <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
           <table style={{ tableLayout: 'fixed', width: '1290px' }}>
             <colgroup>
@@ -99,21 +99,21 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                   <tr
                     key={`${row.kind}-${d.id}`}
                     onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
-                    className="cursor-pointer hover:bg-[#0a0a0a] transition-colors"
+                    className="cursor-pointer hover:bg-[var(--sl-thead)] transition-colors"
                   >
                     <td className={tdCls + ' ' + nameCls + ' font-mono text-xs'}>{d.codigo ?? ''}</td>
                     <td className={tdCls + ' font-medium ' + nameCls}>
                       {d.nombre}
                     </td>
-                    <td className={tdCls + ' text-right text-[#cccccc]'}>{fmtEurES(d.coste_tanda, 2)}</td>
-                    <td className={tdCls + ' text-right text-[#ffffff] font-semibold'}>{fmtEurES(costeRac, costeRacDecimals)}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-secondary)]'}>{fmtEurES(d.coste_tanda, 2)}</td>
+                    <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmtEurES(costeRac, costeRacDecimals)}</td>
                     <td className={tdCls + ' text-center'}>
                       {isEps ? (
                         <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>{usos}</span>
                       ) : EMPTY}
                     </td>
                     <td className={tdCls + ' text-right'}>{d.raciones ? fmtES(d.raciones, 0) : EMPTY}</td>
-                    <td className={tdCls + ' text-center text-[#999999] text-xs'}>{fecha ? fmtDateES(fecha) : ''}</td>
+                    <td className={tdCls + ' text-center text-[var(--sl-text-muted)] text-xs'}>{fecha ? fmtDateES(fecha) : ''}</td>
 
                     {/* Pricing — EPS completamente vacias */}
                     {isEps ? (
@@ -127,8 +127,8 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                       </>
                     ) : calc ? (
                       <>
-                        <td className={tdCls + ' text-right text-[#ffffff] font-medium'}>{fmtEurES(pvp, 2)}</td>
-                        <td className={tdCls + ' text-right text-[#cccccc]'}>{fmtEurES(calc.costeTotR, 2)}</td>
+                        <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmtEurES(pvp, 2)}</td>
+                        <td className={tdCls + ' text-right text-[var(--sl-text-secondary)]'}>{fmtEurES(calc.costeTotR, 2)}</td>
                         <td className={tdCls + ' text-right'}>{fmtEurES(calc.margenR, 2)}</td>
                         <td className={tdCls + ' text-right'}>{fmtEurES(calc.margenC, 2)}</td>
                         <td className={tdCls + ' text-center'}>

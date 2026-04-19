@@ -205,25 +205,25 @@ export const semaforoClasses = (pct: number) => {
 
 /** Semáforo USOS: sin usos=gris neutro, en uso=rojo corporativo */
 export const semaforoUsos = (usos: number) => {
-  if (usos === 0) return 'bg-[#111111] text-[#999999] border-transparent'
-  return 'bg-[#B01D23] text-white border-transparent'
+  if (usos === 0) return 'bg-[var(--sl-app)] text-[var(--sl-text-muted)] border-transparent'
+  return 'bg-[var(--sl-red)] text-white border-transparent'
 }
 
 /* ── CSS compartido — DESIGN SYSTEM (fondo oscuro azul-púrpura) ── */
 
 export const inputCls =
-  'w-full bg-[#1e1e1e] border border-[#383838] rounded-md px-3 py-2 text-[13px] text-[#ffffff] placeholder:text-[#777777] focus:outline-none focus:border-accent font-sans'
+  'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border-strong)] rounded-md px-3 py-2 text-[13px] text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent font-sans'
 
 /** Cabecera de tabla — Oswald uppercase */
 export const thCls =
-  'px-3.5 py-2.5 text-[11px] uppercase tracking-[0.1em] text-[#999999] font-semibold text-left whitespace-nowrap bg-[#0a0a0a] border-b border-[#2a2a2a] font-ui'
+  'px-3.5 py-2.5 text-[11px] uppercase tracking-[0.1em] text-[var(--sl-text-muted)] font-semibold text-left whitespace-nowrap bg-[var(--sl-thead)] border-b border-[var(--sl-border)] font-ui'
 
 export const tdCls =
-  'px-3.5 py-2.5 text-[13px] text-[#cccccc] tabular-nums whitespace-nowrap border-b border-[#2a2a2a] font-sans'
+  'px-3.5 py-2.5 text-[13px] text-[var(--sl-text-secondary)] tabular-nums whitespace-nowrap border-b border-[var(--sl-border)] font-sans'
 
 /** Botón Guardar (Oswald + rojo corporativo) */
 export const btnPrimary =
-  'px-[22px] py-2 bg-[#B01D23] text-white text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
+  'px-[22px] py-2 bg-[var(--sl-red)] text-white text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
 
 /** Botón Añadir (Oswald + amarillo) */
 export const btnAdd =
@@ -231,8 +231,8 @@ export const btnAdd =
 
 /** Botón Cancelar (Lexend + gris neutro) */
 export const btnSecondary =
-  'px-[22px] py-2 bg-[#222222] border border-[#383838] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
+  'px-[22px] py-2 bg-[var(--sl-btn-cancel-bg)] border border-[var(--sl-border-strong)] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
 
 /** Tab activo/inactivo */
 export const tabActiveCls = 'bg-accent text-[#1a1a1a] border-accent font-ui uppercase tracking-[0.06em]'
-export const tabInactiveCls = 'text-[#999999] border-[#2a2a2a] hover:text-[#ffffff] hover:border-[#383838] font-ui uppercase tracking-[0.06em]'
+export const tabInactiveCls = 'text-[var(--sl-text-muted)] border-[var(--sl-border)] hover:text-[var(--sl-text-primary)] hover:border-[var(--sl-border-strong)] font-ui uppercase tracking-[0.06em]'
