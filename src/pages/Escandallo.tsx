@@ -36,6 +36,22 @@ export default function Escandallo() {
   const [modalIng, setModalIng] = useState<{ open: boolean; ing: Ingrediente | null }>({ open: false, ing: null })
   const [modalMerma, setModalMerma] = useState<{ open: boolean; merma: Merma | null }>({ open: false, merma: null })
 
+  const recalcUsos = async (ings: Ingrediente[]) => {
+    const [epsUsos, recUsos] = await Promise.all([
+      supabase.from('eps_lineas').select('ingrediente_id'),
+      supabase.from('recetas_lineas').select('ingrediente_id'),
+    ])
+    const todos = [...(epsUsos.data ?? []), ...(recUsos.data ?? [])]
+    const conteo: Record<string, number> = {}
+    todos.forEach(u => {
+      if (u.ingrediente_id) {
+        const k = String(u.ingrediente_id)
+        conteo[k] = (conteo[k] ?? 0) + 1
+      }
+    })
+    setIngredientes(ings.map(ing => ({ ...ing, usos: conteo[String(ing.id)] ?? 0 })))
+  }
+
   const fetchData = async () => {
     setLoading(true)
     setError(null)
@@ -50,15 +66,19 @@ export default function Escandallo() {
       if (merRes.error) throw merRes.error
       if (epsRes.error) throw epsRes.error
       if (recRes.error) throw recRes.error
-      setIngredientes(ingRes.data ?? [])
       setMermas(merRes.data ?? [])
       setEpsList(epsRes.data ?? [])
       setRecetasList(recRes.data ?? [])
+      await recalcUsos(ingRes.data ?? [])
     } catch (e: any) {
       setError(e.message || 'Error cargando datos')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleInlineUpdate = (id: string, patch: Partial<Ingrediente>) => {
+    setIngredientes(prev => prev.map(ing => ing.id === id ? { ...ing, ...patch } : ing))
   }
 
   useEffect(() => { fetchData() }, [])
@@ -139,6 +159,7 @@ export default function Escandallo() {
               ingredientes={filteredIng}
               onSelect={ing => setModalIng({ open: true, ing })}
               onNew={() => setModalIng({ open: true, ing: null })}
+              onInlineUpdate={handleInlineUpdate}
             />
           )}
           {tab === 'mermas' && (
