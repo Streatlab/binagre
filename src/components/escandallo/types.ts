@@ -227,12 +227,12 @@ export const btnPrimary =
 
 /** Botón Añadir (Oswald + amarillo) */
 export const btnAdd =
-  'px-[22px] py-2 bg-accent text-[#1a1a1a] text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
+  'px-[22px] py-2 bg-[var(--sl-btn-add-alt-bg)] text-[var(--sl-btn-add-alt-text)] text-[14px] font-medium rounded-md hover:brightness-110 transition font-ui uppercase tracking-[0.04em]'
 
 /** Botón Cancelar (Lexend + gris neutro) */
 export const btnSecondary =
-  'px-[22px] py-2 bg-[var(--sl-btn-cancel-bg)] border border-[var(--sl-border-strong)] text-[#e0e0f0] text-[13px] rounded-md hover:brightness-110 transition font-sans'
+  'px-[22px] py-2 bg-[var(--sl-btn-cancel-bg)] border border-[var(--sl-btn-cancel-border)] text-[var(--sl-btn-cancel-text)] text-[13px] rounded-md hover:brightness-110 transition font-sans'
 
 /** Tab activo/inactivo */
-export const tabActiveCls = 'bg-accent text-[#1a1a1a] border-accent font-ui uppercase tracking-[0.06em]'
+export const tabActiveCls = 'bg-accent text-[var(--sl-btn-add-alt-text)] border-accent font-ui uppercase tracking-[0.06em]'
 export const tabInactiveCls = 'text-[var(--sl-text-muted)] border-[var(--sl-border)] hover:text-[var(--sl-text-primary)] hover:border-[var(--sl-border-strong)] font-ui uppercase tracking-[0.06em]'

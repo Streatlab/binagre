@@ -13,7 +13,7 @@ interface Props {
 
 const inputCls = 'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
-const btnPrimary = 'px-4 py-2 bg-accent text-[#111] text-sm font-semibold rounded-lg hover:brightness-110 transition'
+const btnPrimary = 'px-4 py-2 bg-[var(--sl-btn-add-alt-bg)] text-[var(--sl-btn-add-alt-text)] text-sm font-semibold rounded-lg hover:brightness-110 transition'
 const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-lg hover:text-[var(--sl-text-primary)] hover:border-[var(--sl-border-strong)] transition'
 
 export default function ModalMerma({ merma, onClose, onSaved }: Props) {
@@ -307,7 +307,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <div />
             </div>
             {/* Divider + label Cálculos */}
-            <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: '8px', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
+            <div style={{ borderTop: '1px solid var(--sl-border)', paddingTop: '8px', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
             {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
               <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />

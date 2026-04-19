@@ -159,7 +159,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-[var(--sl-text-muted)] uppercase tracking-wider">Líneas</p>
-              <button onClick={addLinea} className="text-xs font-semibold text-[#1a1a1a] bg-accent hover:brightness-110 transition px-3 py-1 rounded-md">+ Añadir línea</button>
+              <button onClick={addLinea} className="text-xs font-semibold hover:brightness-110 transition px-3 py-1 rounded-md" style={{ backgroundColor: 'var(--sl-btn-add-alt-bg)', color: 'var(--sl-btn-add-alt-text)' }}>+ Añadir línea</button>
             </div>
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>

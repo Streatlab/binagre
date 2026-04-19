@@ -119,10 +119,10 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
           <div>
-            <h3 className="text-base font-semibold text-white">{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
+            <h3 className="text-base font-semibold text-[var(--sl-text-primary)]">{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
             {receta?.codigo && <p className="text-xs text-[var(--sl-text-muted)] mt-0.5 font-mono">{receta.codigo} · REC</p>}
           </div>
-          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-white transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -161,7 +161,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-[var(--sl-text-secondary)] uppercase tracking-wider">Líneas</p>
-              <button onClick={addLinea} className="text-xs font-semibold text-[#1a1a1a] bg-accent hover:brightness-110 transition px-3 py-1 rounded-md">+ Añadir línea</button>
+              <button onClick={addLinea} className="text-xs font-semibold hover:brightness-110 transition px-3 py-1 rounded-md" style={{ backgroundColor: 'var(--sl-btn-add-alt-bg)', color: 'var(--sl-btn-add-alt-text)' }}>+ Añadir línea</button>
             </div>
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
@@ -179,15 +179,15 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       {lineasCalc.map((l, idx) => (
                         <tr key={idx}>
                           <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
-                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-white" value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}><option value="ING">ING</option><option value="EPS">EPS</option></select></td>
+                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}><option value="ING">ING</option><option value="EPS">EPS</option></select></td>
                           <td className={tdCls}>
-                            <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-white placeholder:text-[var(--sl-text-muted)]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
+                            <input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} />
                             <datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist>
                           </td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-white" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-white text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-white'}>{fmtNum(l.eur_total, 4)}</td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtNum(l.eur_total, 4)}</td>
                           <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtNum(l.pct_total, 1)}%</td>
                           <td className={tdCls}>
                             {idx === 0 ? (
@@ -203,8 +203,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 </div>
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-white">{fmtNum(costeTanda, 4)} €</span></div>
-                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-white">{fmtNum(costeMP, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtNum(costeTanda, 4)} €</span></div>
+                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtNum(costeMP, 4)} €</span></div>
                   </div>
                   <span className="text-xs text-[var(--sl-text-muted)]">{raciones} raciones</span>
                 </div>
@@ -219,11 +219,11 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             {/* Botones toggle */}
             <div className="flex flex-wrap gap-2 mb-4">
               {[
-                { id: 'uber', label: 'Uber Eats', activeColor: '#06C167', activeText: '#ffffff', inactiveColor: '#1e1e1e', inactiveText: '#999999' },
-                { id: 'glovo', label: 'Glovo', activeColor: '#e8f442', activeText: '#1a1a1a', inactiveColor: '#1e1e1e', inactiveText: '#999999' },
-                { id: 'je', label: 'Just Eat', activeColor: '#f5a623', activeText: '#1a1a1a', inactiveColor: '#1e1e1e', inactiveText: '#999999' },
-                { id: 'web', label: 'Web', activeColor: '#B01D23', activeText: '#ffffff', inactiveColor: '#1e1e1e', inactiveText: '#999999' },
-                { id: 'directa', label: 'Directa', activeColor: '#66aaff', activeText: '#1a1a1a', inactiveColor: '#1e1e1e', inactiveText: '#999999' },
+                { id: 'uber', label: 'Uber Eats', activeColor: 'var(--sl-uber)', activeText: '#ffffff', inactiveColor: 'var(--sl-input-edit)', inactiveText: 'var(--sl-text-muted)' },
+                { id: 'glovo', label: 'Glovo', activeColor: 'var(--sl-glovo-dot)', activeText: '#1a1a1a', inactiveColor: 'var(--sl-input-edit)', inactiveText: 'var(--sl-text-muted)' },
+                { id: 'je', label: 'Just Eat', activeColor: 'var(--sl-je)', activeText: '#1a1a1a', inactiveColor: 'var(--sl-input-edit)', inactiveText: 'var(--sl-text-muted)' },
+                { id: 'web', label: 'Web', activeColor: 'var(--sl-red)', activeText: '#ffffff', inactiveColor: 'var(--sl-input-edit)', inactiveText: 'var(--sl-text-muted)' },
+                { id: 'directa', label: 'Directa', activeColor: 'var(--sl-direct)', activeText: '#1a1a1a', inactiveColor: 'var(--sl-input-edit)', inactiveText: 'var(--sl-text-muted)' },
               ].map(ch => {
                 const isActive = canalesActivos.includes(ch.id)
                 return (
@@ -251,7 +251,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                   <table className="w-full text-sm" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
                     <thead>
                       <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: 'var(--sl-text-primary)', fontWeight: '600', borderRight: '1px solid #2a2a2a', fontFamily: 'Lexend' }}>Métrica</th>
+                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: 'var(--sl-text-primary)', fontWeight: '600', borderRight: '1px solid var(--sl-border)', fontFamily: 'Lexend' }}>Métrica</th>
                         {canalesActivos.map(cid => {
                           const cdef = [
                             { id: 'uber', label: 'Uber Eats', color: '#06C167' },
@@ -261,7 +261,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                             { id: 'directa', label: 'Directa', color: '#66aaff' },
                           ].find(x => x.id === cid)
                           return (
-                            <th key={cid} colSpan={2} style={{ textAlign: 'center', borderRight: '1px solid #2a2a2a', color: cdef?.color }}>
+                            <th key={cid} colSpan={2} style={{ textAlign: 'center', borderRight: '1px solid var(--sl-border)', color: cdef?.color }}>
                               {cdef?.label}
                             </th>
                           )
@@ -271,16 +271,16 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                         <th style={{ width: '140px' }} />
                         {canalesActivos.map(cid => (
                           <React.Fragment key={cid}>
-                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>REAL</th>
-                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>CASH</th>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid var(--sl-border)', fontSize: '9px' }}>REAL</th>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid var(--sl-border)', fontSize: '9px' }}>CASH</th>
                           </React.Fragment>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {['Coste MP', 'Coste plataforma', 'Coste estructura', 'Coste total', 'Margen deseado', 'PVP recomendado', 'PVP real', 'Factor K', 'Margen €', '% Margen', 'IVA repercutido', 'IVA soportado'].map((metrica, rowIdx) => (
-                        <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? '#1a1a1a' : '#141414' }}>
-                          <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: '#a8b8d8', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid #2a2a2a' }}>
+                        <tr key={metrica} style={{ backgroundColor: rowIdx % 2 === 0 ? 'var(--sl-card)' : 'var(--sl-card-alt)' }}>
+                          <td style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', color: 'var(--sl-text-secondary)', fontFamily: 'Lexend', fontSize: '12px', borderRight: '1px solid var(--sl-border)' }}>
                             {metrica}
                           </td>
                           {canalesActivos.map(cid => {
@@ -318,9 +318,9 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
                             return (
                               <React.Fragment key={cid}>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid #2a2a2a' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid var(--sl-border)' }}>
                                   {metrica === 'PVP real' ? (
-                                    <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded px-1 text-right text-white text-xs" />
+                                    <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded px-1 text-right text-[var(--sl-text-primary)] text-xs" />
                                   ) : metrica === '% Margen' ? (
                                     <span style={{ color: realVal > 15 ? '#22c55e' : realVal >= 5 ? '#eab308' : '#ef4444' }}>{fmtNum(realVal)}%</span>
                                   ) : metrica === 'Factor K' ? (
@@ -329,7 +329,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                                     <span>{fmtNum(realVal)}</span>
                                   )}
                                 </td>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid #2a2a2a' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid var(--sl-border)' }}>
                                   {metrica === 'PVP real' ? (
                                     <span>{fmtNum(cashVal)}</span>
                                   ) : metrica === '% Margen' ? (
