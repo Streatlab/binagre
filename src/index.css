@@ -1,53 +1,121 @@
 @import "tailwindcss";
 @import "./styles/design-system.css";
 
-:root {
-  --sl-app: #111111;
-  --sl-sidebar: #000000;
-  --sl-card: #1a1a1a;
-  --sl-card-alt: #141414;
-  --sl-thead: #0a0a0a;
-  --sl-modal-bg: #1a1a1a;
-  --sl-overlay: rgba(0,0,0,0.7);
-  --sl-hover: #1e1e1e;
-  --sl-input-edit: #1e1e1e;
-  --sl-input-ro: #181818;
-  --sl-input-calc: #2d1515;
-  --sl-select-bg: #1e1e1e;
-  --sl-border: #2a2a2a;
-  --sl-border-strong: #383838;
-  --sl-border-calc: #aa3030;
-  --sl-border-focus: #e8f442;
-  --sl-border-error: #cc4444;
+:root,
+[data-theme="dark"] {
+  --sl-app:          #111111;
+  --sl-sidebar:      #000000;
+  --sl-card:         #1a1a1a;
+  --sl-card-alt:     #141414;
+  --sl-thead:        #0a0a0a;
+  --sl-modal-bg:     #1a1a1a;
+  --sl-overlay:      rgba(0,0,0,0.7);
+  --sl-hover:        #1e1e1e;
+  --sl-input-edit:   #1e1e1e;
+  --sl-input-ro:     #181818;
+  --sl-input-calc:   #2d1515;
+  --sl-select-bg:    #1e1e1e;
+  --sl-border:         #2a2a2a;
+  --sl-border-strong:  #383838;
+  --sl-border-calc:    #aa3030;
+  --sl-border-focus:   #7a2e10;
+  --sl-border-error:   #cc4444;
   --sl-border-success: #06C167;
-  --sl-text-primary: #ffffff;
+  --sl-text-primary:   #ffffff;
   --sl-text-secondary: #cccccc;
-  --sl-text-muted: #999999;
-  --sl-text-disabled: #555555;
-  --sl-text-calc: #ffaaaa;
-  --sl-yellow: #e8f442;
-  --sl-red: #B01D23;
-  --sl-uber: #06C167;
-  --sl-glovo-text: #aabc00;
-  --sl-je: #f5a623;
-  --sl-web: #ff6b70;
-  --sl-web-dot: #B01D23;
-  --sl-direct: #66aaff;
-  --sl-eps: #66aaff;
-  --sl-rec: #f5a623;
-  --sl-btn-save-bg: #B01D23;
-  --sl-btn-save-text: #ffffff;
-  --sl-btn-add-bg: #e8f442;
-  --sl-btn-add-text: #111111;
-  --sl-btn-cancel-bg: #222222;
-  --sl-btn-cancel-text: #aaaaaa;
-  --sl-btn-cancel-border: #383838;
-  --sl-btn-danger-bg: #7a1010;
-  --sl-btn-danger-text: #ffffff;
-  --sl-radius-sm: 5px;
-  --sl-radius-md: 7px;
-  --sl-radius-lg: 10px;
+  --sl-text-muted:     #999999;
+  --sl-text-disabled:  #555555;
+  --sl-text-calc:      #ffaaaa;
+  --sl-text-nav:       #999999;
+  --sl-yellow:         #e8f442;
+  --sl-teja:           #7a2e10;
+  --sl-red:            #B01D23;
+  --sl-uber:           #06C167;
+  --sl-uber-text:      #06C167;
+  --sl-glovo-dot:      #e8f442;
+  --sl-glovo-text:     #aabc00;
+  --sl-je:             #f5a623;
+  --sl-je-text:        #f5a623;
+  --sl-web:            #ff6b70;
+  --sl-web-dot:        #B01D23;
+  --sl-direct:         #66aaff;
+  --sl-direct-text:    #66aaff;
+  --sl-eps:            #66aaff;
+  --sl-rec:            #f5a623;
+  --sl-btn-save-bg:      #B01D23;
+  --sl-btn-save-text:    #ffffff;
+  --sl-btn-add-bg:       #7a2e10;
+  --sl-btn-add-text:     #ffffff;
+  --sl-btn-add-alt-bg:   #e8f442;
+  --sl-btn-add-alt-text: #111111;
+  --sl-btn-cancel-bg:    #222222;
+  --sl-btn-cancel-text:  #aaaaaa;
+  --sl-btn-cancel-border:#383838;
+  --sl-btn-danger-bg:    #7a1010;
+  --sl-btn-danger-text:  #ffffff;
+  --sl-radius-sm:  5px;
+  --sl-radius-md:  7px;
+  --sl-radius-lg:  10px;
+  --sl-radius-pill:20px;
   --sl-sidebar-width: 200px;
+  --sl-topbar-height: 57px;
+  --sl-shadow-sm: 0 1px 4px rgba(0,0,0,0.4);
+  --sl-shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+[data-theme="light"] {
+  --sl-app:          #f0e8d8;
+  --sl-sidebar:      #e8dcc8;
+  --sl-card:         #fdfaf4;
+  --sl-card-alt:     #f4eddf;
+  --sl-thead:        #e0d4bc;
+  --sl-modal-bg:     #fdfaf4;
+  --sl-overlay:      rgba(0,0,0,0.4);
+  --sl-hover:        rgba(122,46,16,0.05);
+  --sl-input-edit:   rgba(255,255,255,0.85);
+  --sl-input-ro:     #f4eddf;
+  --sl-input-calc:   #fff9e8;
+  --sl-select-bg:    rgba(255,255,255,0.85);
+  --sl-border:         #c8b48a;
+  --sl-border-strong:  #a8906a;
+  --sl-border-calc:    #c8900a;
+  --sl-border-focus:   #7a2e10;
+  --sl-border-error:   #B01D23;
+  --sl-border-success: #2a7a3a;
+  --sl-text-primary:   #1a0e06;
+  --sl-text-secondary: #3a2010;
+  --sl-text-muted:     #6a5038;
+  --sl-text-disabled:  #a8906a;
+  --sl-text-calc:      #6a4800;
+  --sl-text-nav:       #4a3020;
+  --sl-yellow:         #e8f442;
+  --sl-teja:           #7a2e10;
+  --sl-red:            #B01D23;
+  --sl-uber:           #06C167;
+  --sl-uber-text:      #1a6a30;
+  --sl-glovo-dot:      #c8900a;
+  --sl-glovo-text:     #7a5800;
+  --sl-je:             #d46010;
+  --sl-je-text:        #7a3800;
+  --sl-web:            #B01D23;
+  --sl-web-dot:        #B01D23;
+  --sl-direct:         #3a5aee;
+  --sl-direct-text:    #2a4aaa;
+  --sl-eps:            #2a4aaa;
+  --sl-rec:            #c8900a;
+  --sl-btn-save-bg:      #B01D23;
+  --sl-btn-save-text:    #ffffff;
+  --sl-btn-add-bg:       #7a2e10;
+  --sl-btn-add-text:     #ffffff;
+  --sl-btn-add-alt-bg:   #e8f442;
+  --sl-btn-add-alt-text: #1a0e06;
+  --sl-btn-cancel-bg:    transparent;
+  --sl-btn-cancel-text:  #4a3020;
+  --sl-btn-cancel-border:#a8906a;
+  --sl-btn-danger-bg:    #7a1010;
+  --sl-btn-danger-text:  #ffffff;
+  --sl-shadow-sm: 0 1px 4px rgba(100,60,20,0.12);
+  --sl-shadow-md: 0 4px 16px rgba(100,60,20,0.12);
 }
 
 @theme {
@@ -67,9 +135,24 @@
   --font-title:        "Impact", "Oswald", sans-serif;
 }
 
-/* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
-tbody tr:nth-child(odd)  { background: #1a1a1a; }
-tbody tr:nth-child(even) { background: #141414; }
-tbody tr:hover { background: #1e1e1e !important; }
+body {
+  background: var(--sl-app);
+  color: var(--sl-text-primary);
+}
 
-.modal-merma { background-color: #1a1a1a !important; }
+/* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
+tbody tr:nth-child(odd)  { background: var(--sl-card); }
+tbody tr:nth-child(even) { background: var(--sl-card-alt); }
+tbody tr:hover { background: var(--sl-hover) !important; }
+
+.modal-merma { background-color: var(--sl-modal-bg) !important; }
+
+/* Transición suave al cambiar de tema */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+/* Excepciones — sin transición larga en elementos interactivos */
+button, input, select, textarea {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}

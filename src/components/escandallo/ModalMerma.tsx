@@ -242,7 +242,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="modal-merma border border-[#2a2a2a] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: '#1a1a1a', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-merma border border-[#2a2a2a] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
           <div>
             <h3 className="text-base font-semibold text-[#ffffff]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
@@ -270,7 +270,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           </Section>
 
           <div className="bg-[#141414] border border-[#2a2a2a] rounded-lg p-4 space-y-3">
-            <div style={{ borderTop: 'none', paddingTop: '0', fontSize: '11px', color: '#999999', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
+            <div style={{ borderTop: 'none', paddingTop: '0', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             {/* SP1 */}
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
@@ -307,7 +307,7 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <div />
             </div>
             {/* Divider + label Cálculos */}
-            <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: '8px', fontSize: '11px', color: '#999999', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
+            <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: '8px', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
             {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
               <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />

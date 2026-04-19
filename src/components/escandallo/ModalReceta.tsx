@@ -250,8 +250,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm" style={{ minWidth: canalesActivos.length * 200 + 140 + 'px' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#0a0a0a' }}>
-                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: '#ffffff', fontWeight: '600', borderRight: '1px solid #2a2a2a', fontFamily: 'Lexend' }}>Métrica</th>
+                      <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
+                        <th style={{ width: '140px', paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'left', color: 'var(--sl-text-primary)', fontWeight: '600', borderRight: '1px solid #2a2a2a', fontFamily: 'Lexend' }}>Métrica</th>
                         {canalesActivos.map(cid => {
                           const cdef = [
                             { id: 'uber', label: 'Uber Eats', color: '#06C167' },
@@ -267,12 +267,12 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                           )
                         })}
                       </tr>
-                      <tr style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid #2a2a2a' }}>
+                      <tr style={{ backgroundColor: 'var(--sl-thead)', borderTop: '1px solid #2a2a2a' }}>
                         <th style={{ width: '140px' }} />
                         {canalesActivos.map(cid => (
                           <React.Fragment key={cid}>
-                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: '#cccccc', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>REAL</th>
-                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: '#cccccc', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>CASH</th>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>REAL</th>
+                            <th style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px', textAlign: 'center', color: 'var(--sl-text-secondary)', fontWeight: '500', borderRight: '1px solid #2a2a2a', fontSize: '9px' }}>CASH</th>
                           </React.Fragment>
                         ))}
                       </tr>
@@ -318,7 +318,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
 
                             return (
                               <React.Fragment key={cid}>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#ffffff', borderRight: '1px solid #2a2a2a' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid #2a2a2a' }}>
                                   {metrica === 'PVP real' ? (
                                     <input type="number" min={0} step="0.01" value={realVal || ''} onChange={e => setPvps(p => ({ ...p, [cdef.pvpKey]: parseFloat(e.target.value) || 0 }))} className="w-16 bg-[#1e1e1e] border border-[#2a2a2a] rounded px-1 text-right text-white text-xs" />
                                   ) : metrica === '% Margen' ? (
@@ -329,7 +329,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                                     <span>{fmtNum(realVal)}</span>
                                   )}
                                 </td>
-                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: '#ffffff', borderRight: '1px solid #2a2a2a' }}>
+                                <td style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px', textAlign: 'right', color: 'var(--sl-text-primary)', borderRight: '1px solid #2a2a2a' }}>
                                   {metrica === 'PVP real' ? (
                                     <span>{fmtNum(cashVal)}</span>
                                   ) : metrica === '% Margen' ? (

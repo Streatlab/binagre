@@ -285,15 +285,15 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Precio Activo</label>
-                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/STD</label>
-                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/MIN</label>
-                <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
               </div>
             </div>
           </div>

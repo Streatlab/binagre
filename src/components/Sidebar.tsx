@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useState, Fragment } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
+import { ThemeToggle } from './ThemeToggle'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
@@ -291,6 +292,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <NavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
           ))}
         </nav>
+
+        {/* Theme toggle */}
+        {!collapsed && (
+          <div style={{ marginTop: 'auto', padding: '12px', borderTop: '1px solid var(--sl-border)' }}>
+            <ThemeToggle />
+          </div>
+        )}
 
         {/* Footer user */}
         <div
