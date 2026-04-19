@@ -309,15 +309,15 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">Precio Activo</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo, 4)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/STD</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd, 4)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">EUR/MIN</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin, 6)}</div>
+                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin)}</div>
               </div>
             </div>
           </div>
@@ -339,11 +339,11 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
               </div>
               <div>
                 <label className="ds-label-calc">C.Neto/STD</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoStd, 4)}</div>
+                <div className="ds-input-calc">{fmtNum(costeNetoStd)}</div>
               </div>
               <div>
                 <label className="ds-label-calc">C.Neto/MIN</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoMin, 6)}</div>
+                <div className="ds-input-calc">{fmtNum(costeNetoMin)}</div>
               </div>
             </div>
           </div>

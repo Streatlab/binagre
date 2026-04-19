@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Ingrediente } from './types'
 import { thCls, tdCls, fmt, fmtPct, n, getProveedor, semaforoUsos } from './types'
+import { fmtNum } from '@/utils/format'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -143,16 +144,16 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                         <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">{i.selector_precio ?? 'Último'}</span>
                       </td>
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmt(i.precio_activo)}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(i.eur_std, 4)}</td>
+                      <td className={tdCls + ' text-right'}>{fmtNum(i.eur_std)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_std ?? '—'}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(i.eur_min, 6)}</td>
+                      <td className={tdCls + ' text-right'}>{fmtNum(i.eur_min)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_min ?? '—'}</td>
                       <td className={tdCls + ' text-xs text-[var(--sl-text-secondary)]'}>{i.tipo_merma ?? '—'}</td>
                       <td className={tdCls + ' text-right'}>{i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}</td>
-                      <td className={tdCls + ' text-right text-[#ea580c]'}>{i.merma_ef != null ? fmt(i.merma_ef, 4) : '—'}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(i.coste_neto_std, 4)}</td>
+                      <td className={tdCls + ' text-right text-[#ea580c]'}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_std)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_std ?? i.ud_std ?? '—'}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(i.coste_neto_min, 6)}</td>
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_min)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_min ?? i.ud_min ?? '—'}</td>
                     </tr>
                   )

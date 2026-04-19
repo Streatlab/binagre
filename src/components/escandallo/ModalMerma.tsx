@@ -24,7 +24,7 @@ const btnCancelStyle: CSSProperties = {
   minHeight: '40px',
 }
 import { supabase } from '@/lib/supabase'
-import { fmtNum } from '@/utils/format'
+import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Merma } from './types'
@@ -286,8 +286,8 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
               <Field label="Precio Total" type="number" step="0.01" value={f.precio_total} onChange={v => set('precio_total', v)} />
               <Field label="UDS" type="number" value={f.uds} onChange={v => set('uds', v)} />
               <SelectField label="UD STD" value={f.ud_std} onChange={v => set('ud_std', v)} options={cfg.unidades} />
-              <Field label="Peso Total (g)" value={fmtNum(totalG, 0)} onChange={() => {}} disabled />
-              <Field label="Neto Kg" value={fmtNum(netoKg, 3)} onChange={() => {}} disabled highlight />
+              <Field label="Peso Total (g)" value={fmtNum(totalG)} onChange={() => {}} disabled />
+              <Field label="Neto Kg" value={fmtNum(netoKg)} onChange={() => {}} disabled highlight />
             </div>
           </Section>
 
@@ -297,9 +297,9 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
               <Field label="Peso SP1 (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
-              <Field label="% SP1" value={fmtNum(sp1Pct * 100, 1) + '%'} onChange={() => {}} disabled />
+              <Field label="% SP1" value={fmtPct(sp1Pct)} onChange={() => {}} disabled />
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
-              <Field label="€ SP1" value={fmtNum(sp1EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
+              <Field label="€ SP1" value={fmtEur(sp1EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
                   <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
@@ -311,9 +311,9 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
               <Field label="Peso SP2 (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
-              <Field label="% SP2" value={fmtNum(sp2Pct * 100, 1) + '%'} onChange={() => {}} disabled />
+              <Field label="% SP2" value={fmtPct(sp2Pct)} onChange={() => {}} disabled />
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
-              <Field label="€ SP2" value={fmtNum(sp2EurosFinal, 4)} placeholder="auto" onChange={() => {}} disabled highlight />
+              <Field label="€ SP2" value={fmtEur(sp2EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
                   <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
@@ -325,20 +325,20 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
             <div className="grid grid-cols-4 gap-2">
               <Field label="Num Porciones" type="number" value={f.num_porciones} onChange={v => set('num_porciones', v)} />
               <Field label="Peso Porción (g)" type="number" value={f.peso_porcion_g} onChange={v => set('peso_porcion_g', v)} />
-              <Field label="€/Porción" value={fmtNum(eurPorcion, 4)} onChange={() => {}} disabled highlight />
+              <Field label="€/Porción" value={fmtEur(eurPorcion)} onChange={() => {}} disabled highlight />
               <div />
             </div>
             {/* Divider + label Cálculos */}
             <div style={{ borderTop: '1px solid var(--sl-border)', paddingTop: '8px', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
             {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
-              <Field label="% Descarte" value={fmtNum(pctDescarte * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
-              <Field label="% Utilizable" value={fmtNum(pctUtilizable * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
-              <Field label="% Merma" value={fmtNum(pctMerma * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
-              <Field label="% Limpio" value={fmtNum(pctLimpio * 100, 2) + '%'} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
-              <Field label="€/Kg Neto" value={fmtNum(eurKgNeto, 4)} onChange={() => {}} disabled highlight />
-              <Field label="EUR/MIN" value={fmtNum(eurKgNeto / 1000, 6)} onChange={() => {}} disabled highlight />
-              <Field label="€/Pieza Limpia" value={fmtNum(eurPiezaLimpia, 4)} onChange={() => {}} disabled />
+              <Field label="% Descarte" value={fmtPct(pctDescarte)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
+              <Field label="% Utilizable" value={fmtPct(pctUtilizable)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
+              <Field label="% Merma" value={fmtPct(pctMerma)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
+              <Field label="% Limpio" value={fmtPct(pctLimpio)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
+              <Field label="€/Kg Neto" value={fmtNum(eurKgNeto)} onChange={() => {}} disabled highlight />
+              <Field label="EUR/MIN" value={fmtNum(eurKgNeto / 1000)} onChange={() => {}} disabled highlight />
+              <Field label="€/Pieza Limpia" value={fmtEur(eurPiezaLimpia)} onChange={() => {}} disabled />
             </div>
           </div>
 

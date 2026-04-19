@@ -165,9 +165,10 @@ export function calcWaterfall(
   estructuraPct: number,
   margenDeseadoPct: number,
 ) {
-  const com = comisionPct / 100
-  const estr = estructuraPct / 100
-  const margenD = margenDeseadoPct / 100
+  // Normaliza: acepta tanto 30 (%) como 0.30 (decimal)
+  const com = comisionPct > 1 ? comisionPct / 100 : comisionPct
+  const estr = estructuraPct > 1 ? estructuraPct / 100 : estructuraPct
+  const margenD = margenDeseadoPct > 1 ? margenDeseadoPct / 100 : margenDeseadoPct
 
   const neto = pvp > 0 ? pvp / 1.1 : 0
   const costeMP = costeRac

@@ -7,7 +7,7 @@ export const fmtEur = (v?: number | string | null): string => {
   return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €'
 }
 
-export const fmtNum = (v?: number | string | null, d = 2): string => {
+export const fmtNum = (v?: number | string | null, d = 4): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
   const fixed = n.toFixed(d)

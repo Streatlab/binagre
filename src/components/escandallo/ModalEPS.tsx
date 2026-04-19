@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
-import { UNIDADES, inputCls, thCls, tdCls, fmtES, fmtEurES, n } from './types'
+import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
+import { fmtNum, fmtEur } from '@/utils/format'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)',
@@ -215,8 +216,8 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                          <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtES(l.eur_total, 4)}</td>
-                          <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtES(l.pct_total, 1)}%</td>
+                          <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtNum(l.eur_total)}</td>
+                          <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtNum(l.pct_total)}%</td>
                           <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[var(--sl-text-muted)] hover:text-[#dc2626] transition text-sm">×</button></td>
                         </tr>
                       ))}
@@ -227,11 +228,11 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                   <div className="flex items-center gap-6">
                     <div>
                       <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span>
-                      <span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtEurES(costeTanda, 4)}</span>
+                      <span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtEur(costeTanda)}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste ración</span>
-                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtEurES(costeRac, 4)}</span>
+                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtNum(costeRac)}</span>
                     </div>
                   </div>
                   <span className="text-xs text-[var(--sl-text-muted)]">{raciones} raciones</span>
