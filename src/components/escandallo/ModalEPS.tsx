@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
-import { useTheme } from '@/contexts/ThemeContext'
 import { useRef } from 'react'
 
 interface IngSelectorOpt { id: string; nombre: string; badge: string }
@@ -13,8 +12,12 @@ function IngSelector({ value, options, placeholder, onSelect }: {
   value: string; options: IngSelectorOpt[]; placeholder?: string
   onSelect: (opt: IngSelectorOpt) => void
 }) {
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const [isDark, setIsDark] = useState(document.documentElement.getAttribute('data-theme') === 'dark')
+  useEffect(() => {
+    const obs = new MutationObserver(() => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark'))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
