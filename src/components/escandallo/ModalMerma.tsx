@@ -33,14 +33,21 @@ interface Props {
   merma: Merma | null
   onClose: () => void
   onSaved: () => void
+  onDelete?: () => void
 }
 
 const inputCls = 'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent'
 const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
 
-export default function ModalMerma({ merma, onClose, onSaved }: Props) {
+export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props) {
   const isEdit = !!merma
   const cfg = useConfig()
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const handleEliminar = async () => {
+    if (!merma) return
+    await supabase.from('mermas').delete().eq('id', merma.id)
+    onClose(); onDelete?.()
+  }
   const [f, setF] = useState({
     iding: merma?.iding ?? '',
     categoria: merma?.categoria ?? '',
@@ -345,11 +352,25 @@ export default function ModalMerma({ merma, onClose, onSaved }: Props) {
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isEdit && !confirmEliminar && (
+              <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>
+            )}
+            {confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend' }}>¿Eliminar definitivamente?</span>
+                <button onClick={handleEliminar} style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>SÍ, ELIMINAR</button>
+                <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: '1px solid #555e7a', color: '#c8d0e8', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>CANCELAR</button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

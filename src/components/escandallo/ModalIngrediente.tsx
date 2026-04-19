@@ -43,12 +43,19 @@ interface Props {
   onClose: () => void
   onSaved: () => void
   onOpenMerma?: (m: Merma | null) => void
+  onDelete?: () => void
 }
 
-export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
+export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma, onDelete }: Props) {
   const isEdit = !!ingrediente
   const cfg = useConfig()
   const isDark = useIsDark()
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const handleEliminar = async () => {
+    if (!ingrediente) return
+    await supabase.from('ingredientes').delete().eq('id', ingrediente.id)
+    onClose(); onDelete?.()
+  }
   const [f, setF] = useState({
     iding: ingrediente?.iding ?? '',
     categoria: ingrediente?.categoria ?? '',
@@ -361,11 +368,25 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isEdit && !confirmEliminar && (
+              <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>
+            )}
+            {confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend' }}>¿Eliminar definitivamente?</span>
+                <button onClick={handleEliminar} style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>SÍ, ELIMINAR</button>
+                <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: '1px solid #555e7a', color: '#c8d0e8', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>CANCELAR</button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

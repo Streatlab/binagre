@@ -65,7 +65,7 @@ function IngSelector({ value, options, placeholder, onSelect }: {
   )
 }
 
-interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
+interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
 // Colores fijos por canal (no cambian con el tema — son marca)
 const CHANNELS = [
@@ -84,8 +84,15 @@ function norm(v: number): number {
 }
 
 
-export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved }: Props) {
+export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const handleEliminar = async () => {
+    if (!receta) return
+    await supabase.from('recetas_lineas').delete().eq('receta_id', receta.id)
+    await supabase.from('recetas').delete().eq('id', receta.id)
+    onClose(); onDelete?.()
+  }
   const [nombre, setNombre] = useState(receta?.nombre ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
@@ -553,11 +560,25 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {receta && !confirmEliminar && (
+              <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>
+            )}
+            {confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend' }}>¿Eliminar definitivamente?</span>
+                <button onClick={handleEliminar} style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>SÍ, ELIMINAR</button>
+                <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: '1px solid #555e7a', color: '#c8d0e8', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '.7rem' }}>CANCELAR</button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

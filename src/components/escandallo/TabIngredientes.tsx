@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import type { Ingrediente } from './types'
-import { thCls, tdCls, fmt, n, getProveedor, semaforoUsos } from './types'
+import { thCls, tdCls, fmt, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { useConfig } from '@/hooks/useConfig'
@@ -239,8 +239,7 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew, onInlin
                   const rowNameCls = isEps ? 'text-[#66aaff] italic font-medium' : 'text-[var(--sl-text-primary)] font-medium'
                   const usos = n(i.usos)
                   return (
-                    <tr key={i.id} onClick={() => onSelect?.(i)}
-                      className="cursor-pointer hover:bg-[var(--sl-thead)] transition-colors">
+                    <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
 
                       {/* IDING — abre modal */}
                       <td className={tdCls} style={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: isDark ? '#111111' : '#ffffff', cursor: 'pointer', color: '#e8f442', fontFamily: 'Oswald, sans-serif', fontWeight: 600, fontSize: '12px' }}
