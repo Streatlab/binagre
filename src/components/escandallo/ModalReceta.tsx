@@ -242,12 +242,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
                         const allItems = [
-                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const })),
-                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const }))
+                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const, id: e.id, badge: 'EPS' })),
+                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const, id: i.id, badge: i.abv || 'ING' }))
                         ].sort((a, b) => {
                           if (a.tipo !== b.tipo) return a.tipo === 'EPS' ? -1 : 1
                           return a.nombre.localeCompare(b.nombre)
                         })
+                        const selected = allItems.find(item => item.nombre === l.ingrediente_nombre)
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
@@ -255,16 +256,16 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                               <div className="flex items-center gap-2">
                                 <input list={`r-all-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder="Ingrediente o EPS..." />
                                 {l.ingrediente_nombre && (
-                                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: l.tipo === 'EPS' ? 'var(--sl-eps)' : '#666', color: '#fff' }}>
-                                    {l.tipo}
+                                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: selected?.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', color: selected?.tipo === 'EPS' ? '#fff' : '#111' }}>
+                                    {selected?.badge}
                                   </span>
                                 )}
-                                <datalist id={`r-all-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.nombre}`} value={item.nombre} />)}</datalist>
+                                <datalist id={`r-all-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.id}`} value={item.nombre} />)}</datalist>
                               </div>
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta ? Number(l.eur_ud_neta).toFixed(2) : ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtEur(l.eur_total)}</td>
                             <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtPct(l.pct_total)}</td>
                           </tr>
@@ -276,9 +277,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
                 <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/30 bg-accent/5">
                   <div className="flex items-center gap-6">
                     <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtEur(costeTanda)}</span></div>
-                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtNum(costeMP)}</span></div>
+                    <div><span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeMP ?? 0).toFixed(2)}</span></div>
                   </div>
-                  <span className="text-xs text-[var(--sl-text-muted)]">{raciones} raciones</span>
                 </div>
               </div>
             )}

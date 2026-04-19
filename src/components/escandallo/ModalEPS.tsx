@@ -87,13 +87,26 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
   const selectIngrediente = (idx: number, val: string) => {
     const ing = ingredientes.find(i => i.nombre === val)
-    if (ing) updateLinea(idx, {
-      ingrediente_nombre: ing.nombre,
-      ingrediente_id: ing.id,
-      eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
-      unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
-    })
-    else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
+    if (ing) {
+      updateLinea(idx, {
+        ingrediente_nombre: ing.nombre,
+        ingrediente_id: ing.id,
+        eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+        unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
+      })
+    } else {
+      const ep = epsList.find(e => e.nombre === val)
+      if (ep) {
+        updateLinea(idx, {
+          ingrediente_nombre: ep.nombre,
+          ingrediente_id: null,
+          eur_ud_neta: n(ep.coste_rac),
+          unidad: ep.unidad ?? 'Ración',
+        })
+      } else {
+        updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
+      }
+    }
   }
 
   const handleSave = async () => {
@@ -155,8 +168,8 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
 
         <div className="p-5 space-y-5">
           {/* Campos cabecera: Nombre + Raciones + Tamaño Rac + Unidad + Fecha */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-            <div className="sm:col-span-2">
+          <div className="grid grid-cols-2 sm:grid-cols-[1fr_80px_80px_100px_130px] gap-2 items-end">
+            <div className="col-span-2 sm:col-span-1">
               <label className="block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider">Nombre</label>
               <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Salsa brava" />
             </div>
@@ -206,21 +219,37 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     </thead>
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas — añade ingredientes</td></tr>}
-                      {lineasCalc.map((l, idx) => (
+                      {lineasCalc.map((l, idx) => {
+                        const allItems = [
+                          ...epsList.map(e => ({ nombre: e.nombre, tipo: 'EPS' as const, id: e.id, badge: 'EPS' })),
+                          ...ingredientes.map(i => ({ nombre: i.nombre, tipo: 'ING' as const, id: i.id, badge: i.abv || 'ING' }))
+                        ].sort((a, b) => {
+                          if (a.tipo !== b.tipo) return a.tipo === 'EPS' ? -1 : 1
+                          return a.nombre.localeCompare(b.nombre)
+                        })
+                        const selected = allItems.find(item => item.nombre === l.ingrediente_nombre)
+                        return (
                         <tr key={idx}>
                           <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                           <td className={tdCls}>
-                            <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
-                            <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre} />)}</datalist>
+                            <div className="flex items-center gap-2">
+                              <input list={`eps-ing-${idx}`} className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
+                              {l.ingrediente_nombre && (
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: selected?.tipo === 'EPS' ? '#66aaff' : '#c8d0e8', color: selected?.tipo === 'EPS' ? '#fff' : '#111' }}>
+                                  {selected?.badge}
+                                </span>
+                              )}
+                              <datalist id={`eps-ing-${idx}`}>{allItems.map(item => <option key={`${item.tipo}-${item.id}`} value={item.nombre} />)}</datalist>
+                            </div>
                           </td>
                           <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta ? Number(l.eur_ud_neta).toFixed(2) : ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
                           <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtNum(l.eur_total)}</td>
                           <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtNum(l.pct_total)}%</td>
                           <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[var(--sl-text-muted)] hover:text-[#dc2626] transition text-sm">×</button></td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
@@ -232,10 +261,9 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
                     </div>
                     <div>
                       <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste ración</span>
-                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtNum(costeRac)}</span>
+                      <span className="text-base font-bold text-[var(--sl-text-primary)]">{Number(costeRac ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
-                  <span className="text-xs text-[var(--sl-text-muted)]">{raciones} raciones</span>
                 </div>
               </div>
             )}
