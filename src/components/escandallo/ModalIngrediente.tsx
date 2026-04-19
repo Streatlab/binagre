@@ -34,7 +34,6 @@ const btnCancelStyle: CSSProperties = {
   minHeight: '40px',
 }
 import { supabase } from '@/lib/supabase'
-import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Ingrediente, Merma } from './types'

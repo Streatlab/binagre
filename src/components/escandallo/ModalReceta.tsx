@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import type { CSSProperties, MouseEvent as RMouseEvent } from 'react'
+import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
-import { calcWaterfall, type ConfigCanal, type FilaWaterfall } from '@/utils/calcWaterfall'
+import { calcWaterfall, type ConfigCanal } from '@/utils/calcWaterfall'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 
@@ -78,15 +78,6 @@ const CHANNELS = [
 
 const ALL_PVP_KEYS: CanalKey[] = ['pvp_uber', 'pvp_glovo', 'pvp_je', 'pvp_web', 'pvp_directa']
 
-// Hex → rgba al 40%
-function colorAlpha(hex: string, alpha: number): string {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.substring(0, 2), 16)
-  const g = parseInt(h.substring(2, 4), 16)
-  const b = parseInt(h.substring(4, 6), 16)
-  return `rgba(${r},${g},${b},${alpha})`
-}
-
 // Normaliza % (acepta 30 ó 0.30)
 function norm(v: number): number {
   return v > 1 ? v / 100 : v
@@ -154,7 +145,6 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
   }, [])
   const addLinea = () => setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }])
-  const changeTipo = (idx: number, tipo: 'ING' | 'EPS') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: 'gr.' })
   const selectItem = (idx: number, val: string) => {
     const ing = ingredientes.find(i => i.nombre === val)
     if (ing) {
