@@ -367,7 +367,7 @@ export default function Objetivos() {
   const sorted = TIPO_ORDER.map(t => generales.find(o => o.tipo === t)).filter(Boolean) as ObjetivoGeneral[]
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', maxWidth: 900 }}>
 
       {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>

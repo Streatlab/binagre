@@ -324,7 +324,7 @@ export default function Facturacion() {
   }, [filteredData, canal, currentYear])
 
   return (
-    <div>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
       <h2 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: T.emphasis, fontWeight: 600, margin: '0 0 18px' }}>
         Facturación
       </h2>
@@ -436,6 +436,7 @@ export default function Facturacion() {
           onSaved={() => { setEditRow(null); refresh() }}
         />
       )}
+    </div>
     </div>
   )
 }

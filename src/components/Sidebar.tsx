@@ -387,7 +387,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   fontWeight: 400,
                   textTransform: 'uppercase' as const,
                   letterSpacing: '0.08em',
-                  color: isActive ? '#1a1a1a' : 'var(--sl-text-muted)',
+                  color: isActive ? '#1a1a1a' : 'var(--sl-text-secondary)',
                   background: isActive ? ACCENT : 'transparent',
                   textDecoration: 'none',
                   cursor: 'pointer',
