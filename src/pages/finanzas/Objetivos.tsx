@@ -26,6 +26,24 @@ interface ObjetivoDia {
 
 const DIA_LABELS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 
+// Calendario laboral Madrid capital 2026
+const FESTIVOS_MADRID_2026 = [
+  { fecha: '2026-01-01', nombre: 'Año Nuevo' },
+  { fecha: '2026-01-06', nombre: 'Reyes' },
+  { fecha: '2026-04-02', nombre: 'Jueves Santo' },
+  { fecha: '2026-04-03', nombre: 'Viernes Santo' },
+  { fecha: '2026-05-01', nombre: 'Día del Trabajo' },
+  { fecha: '2026-05-15', nombre: 'San Isidro' },
+  { fecha: '2026-07-25', nombre: 'Santiago Apóstol' },
+  { fecha: '2026-08-15', nombre: 'Asunción' },
+  { fecha: '2026-10-12', nombre: 'Fiesta Nacional' },
+  { fecha: '2026-11-02', nombre: 'Todos los Santos' },
+  { fecha: '2026-11-09', nombre: 'Almudena' },
+  { fecha: '2026-12-07', nombre: 'Constitución' },
+  { fecha: '2026-12-08', nombre: 'Inmaculada' },
+  { fecha: '2026-12-25', nombre: 'Navidad' },
+]
+
 interface ObjetivoEspecifico {
   id: string
   nombre: string
@@ -487,7 +505,7 @@ export default function Objetivos() {
           {[...objetivosDia].sort((a,b) => a.dia - b.dia).map(o => {
             const isEditing = editingDiaId === o.id
             const isSaved = savedDiaId === o.id
-            const esFinde = o.dia >= 6
+            const esFinde = o.dia >= 5
             const cardBg = esFinde ? (isDark ? '#1a2810' : '#edf7e8') : T.card
             const cardBrd = isEditing ? T.emphasis : (esFinde ? '#1D9E75' : T.brd)
             const dayColor = esFinde ? '#1D9E75' : T.sec
@@ -574,6 +592,40 @@ export default function Objetivos() {
                     </div>
                   </>
                 )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Festivos Madrid */}
+      <div style={sectionLabel}>Festivos Madrid {new Date().getFullYear()}</div>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 10 }}>
+          Calendario laboral Madrid capital. Considera crear objetivos específicos para estas fechas.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
+          {FESTIVOS_MADRID_2026.map(f => {
+            const d = new Date(f.fecha + 'T12:00:00')
+            const diaSem = ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]
+            const fechaStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+            return (
+              <div key={f.fecha} style={{
+                padding: '8px 10px',
+                background: isDark ? '#2a1500' : '#fff3e0',
+                border: `1px solid ${isDark ? '#f5a623' : '#f5a623'}`,
+                borderRadius: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 6,
+              }}>
+                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {f.nombre}
+                </span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 11, color: '#f5a623', letterSpacing: '0.5px', flexShrink: 0 }}>
+                  {diaSem} {fechaStr}
+                </span>
               </div>
             )
           })}
