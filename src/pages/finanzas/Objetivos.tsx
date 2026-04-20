@@ -37,10 +37,6 @@ interface VentaHistorico {
 
 const TIPO_ORDER: ObjetivoGeneral['tipo'][] = ['diario', 'semanal', 'mensual', 'anual']
 
-const TIPO_LABEL: Record<string, string> = {
-  diario: 'Diario', semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
-}
-
 const hoyDate = new Date()
 const dayOfWeek = hoyDate.getDay()
 const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -50,7 +46,7 @@ const fmtShort = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:
 const weekNum = (() => { const d=new Date(hoyDate); const day=d.getDay()||7; d.setDate(d.getDate()+4-day); const y=d.getFullYear(); const jan1=new Date(y,0,1); return Math.ceil(((d.getTime()-jan1.getTime())/86400000+1)/7) })()
 
 const TIPO_DESC: Record<string, string> = {
-  diario: hoyDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),
+  diario: hoyDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}).replace(/^\w/, c => c.toUpperCase()),
   semanal: `S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}`,
   mensual: hoyDate.toLocaleDateString('es-ES',{month:'long'}).replace(/^\w/,c=>c.toUpperCase()),
   anual: `${hoyDate.getFullYear()}`,
@@ -380,7 +376,7 @@ export default function Objetivos() {
               {!isEditing ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: T.pri }}>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
                       {fmtEur(o.importe)}
                     </div>
                     <button onClick={() => startEdit(o)} style={btnEditar}>Editar</button>
@@ -408,9 +404,6 @@ export default function Objetivos() {
                   </div>
                 </div>
               )}
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8, textTransform: 'none' }}>
-                {TIPO_LABEL[o.tipo]}
-              </div>
             </div>
           )
         })}
