@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Ingrediente } from './types'
-import { thCls, tdCls, fmt, fmtPct, n, getProveedor, semaforoUsos } from './types'
+import { thCls, tdCls, fmt, fmtPct, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
+import { supabase } from '@/lib/supabase'
+import { useConfig } from '@/hooks/useConfig'
+import { useTheme } from '@/contexts/ThemeContext'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -11,22 +14,173 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
+const colorUsos = (usos: number, isDark: boolean) =>
+  usos === 0 ? '#B01D23' :
+  usos <= 4 ? (isDark ? '#e8f442' : '#f5a623') :
+  '#06C167'
+
+const editInputStyle: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  borderBottom: '1px solid #e8f442',
+  color: 'inherit',
+  width: '100%',
+  outline: 'none',
+  fontFamily: 'inherit',
+  fontSize: 'inherit',
+  padding: 0,
+}
+
+const editSelectStyle: React.CSSProperties = {
+  ...editInputStyle,
+  appearance: 'auto',
+}
+
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
+  const [localIngs, setLocalIngs] = useState<Ingrediente[]>(ingredientes)
+  const [usosMap, setUsosMap] = useState<Record<string, number>>({})
+  const [editingCell, setEditingCell] = useState<{ id: string; campo: string } | null>(null)
+  const [editingValue, setEditingValue] = useState<string>('')
+  const cfg = useConfig()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
+  useEffect(() => { setLocalIngs(ingredientes) }, [ingredientes])
+
+  const recalcularUsos = async () => {
+    const [{ data: epsL }, { data: recL }] = await Promise.all([
+      supabase.from('eps_lineas').select('ingrediente_id'),
+      supabase.from('recetas_lineas').select('ingrediente_id'),
+    ])
+    const conteo: Record<string, number> = {}
+    ;[...(epsL ?? []), ...(recL ?? [])].forEach((u: { ingrediente_id: string | null }) => {
+      if (!u.ingrediente_id) return
+      const id = String(u.ingrediente_id)
+      conteo[id] = (conteo[id] ?? 0) + 1
+    })
+    setUsosMap(conteo)
+  }
+
+  useEffect(() => { recalcularUsos() }, [ingredientes])
+
+  const categoriasUnicas = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.categoria) s.add(i.categoria) })
+    cfg.categorias.forEach(c => s.add(c))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.categorias])
+
+  const abvUnicos = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.abv) s.add(i.abv) })
+    cfg.proveedores.forEach(p => s.add(p.abv))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.proveedores])
+
+  const formatosUnicos = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.formato) s.add(i.formato) })
+    cfg.formatos.forEach(f => s.add(f))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.formatos])
+
+  const udStdOptions = cfg.unidades_std?.length ? cfg.unidades_std : ['Kg.', 'L.', 'Ud.']
+  const udMinOptions = cfg.unidades_min?.length ? cfg.unidades_min : ['gr.', 'ml.', 'ud.']
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
-    const base = ingredientes.filter(i =>
-      i.abv !== 'EPS' && i.abv !== 'MRM' && (i as any).tipo_merma !== 'EPS'
+    const base = localIngs.filter(i =>
+      i.abv !== 'EPS' && i.abv !== 'MRM' && (i as { tipo_merma?: string }).tipo_merma !== 'EPS'
     )
-    const total = base.length
-    const enUso = base.filter(i => n(i.usos) > 0).length
-    let filtered = base
-    if (filter === 'enuso') filtered = base.filter(i => n(i.usos) > 0)
-    else if (filter === 'sinuso') filtered = base.filter(i => n(i.usos) === 0)
-    return { total, enUso, sinUso: total - enUso, filtered }
-  }, [ingredientes, filter])
+    const getUsos = (ing: Ingrediente) => usosMap[String(ing.id)] ?? n(ing.usos)
+    const totalCount = base.length
+    const enUsoCount = base.filter(i => getUsos(i) > 0).length
+    let filteredList = base
+    if (filter === 'enuso') filteredList = base.filter(i => getUsos(i) > 0)
+    else if (filter === 'sinuso') filteredList = base.filter(i => getUsos(i) === 0)
+    return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
+  }, [localIngs, usosMap, filter])
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
+
+  const startEdit = (e: React.MouseEvent, id: string, campo: string, valor: unknown) => {
+    e.stopPropagation()
+    setEditingCell({ id, campo })
+    setEditingValue(valor == null ? '' : String(valor))
+  }
+
+  const saveEdit = async (id: string, campo: string, valor: string) => {
+    const isNum = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio'].includes(campo)
+    const parsed: string | number | null = isNum
+      ? (valor === '' ? null : (parseFloat(valor) || 0))
+      : (valor === '' ? null : valor)
+    const update: Record<string, string | number | null> = { [campo]: parsed }
+    await supabase.from('ingredientes').update(update).eq('id', id)
+    setLocalIngs(prev => prev.map(ing => ing.id === id ? { ...ing, ...update } as Ingrediente : ing))
+    setEditingCell(null)
+    recalcularUsos()
+  }
+
+  const cancelEdit = () => setEditingCell(null)
+
+  const isEditing = (i: Ingrediente, campo: string) =>
+    editingCell?.id === i.id && editingCell.campo === campo
+
+  const CellInput = ({ i, campo, type = 'text', display, className = tdCls, style }: {
+    i: Ingrediente; campo: string; type?: 'text' | 'number'; display: React.ReactNode; className?: string; style?: React.CSSProperties
+  }) => (
+    <td
+      className={className}
+      style={style}
+      onClick={e => startEdit(e, i.id, campo, (i as unknown as Record<string, unknown>)[campo])}
+    >
+      {isEditing(i, campo) ? (
+        <input
+          autoFocus
+          type={type}
+          step={type === 'number' ? 'any' : undefined}
+          value={editingValue}
+          onChange={e => setEditingValue(e.target.value)}
+          onBlur={() => saveEdit(i.id, campo, editingValue)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') saveEdit(i.id, campo, editingValue)
+            if (e.key === 'Escape') cancelEdit()
+          }}
+          onClick={e => e.stopPropagation()}
+          style={editInputStyle}
+        />
+      ) : display}
+    </td>
+  )
+
+  const CellSelect = ({ i, campo, options, display, className = tdCls, style }: {
+    i: Ingrediente; campo: string; options: string[]; display: React.ReactNode; className?: string; style?: React.CSSProperties
+  }) => (
+    <td
+      className={className}
+      style={style}
+      onClick={e => startEdit(e, i.id, campo, (i as unknown as Record<string, unknown>)[campo])}
+    >
+      {isEditing(i, campo) ? (
+        <select
+          autoFocus
+          value={editingValue}
+          onChange={e => {
+            const v = e.target.value
+            setEditingValue(v)
+            saveEdit(i.id, campo, v)
+          }}
+          onBlur={() => saveEdit(i.id, campo, editingValue)}
+          onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
+          onClick={e => e.stopPropagation()}
+          style={editSelectStyle}
+        >
+          <option value=""></option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : display}
+    </td>
+  )
 
   return (
     <div className="space-y-4">
@@ -116,43 +270,200 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                 {filtered.map(i => {
                   const isEps = i.abv === 'EPS'
                   const rowNameCls = isEps ? 'text-[#66aaff] italic font-medium' : 'text-[var(--sl-text-primary)] font-medium'
-                  const usos = n(i.usos)
+                  const usos = usosMap[String(i.id)] ?? n(i.usos)
+                  const mermaManual = i.tipo_merma === 'Manual'
                   return (
-                    <tr key={i.id} onClick={() => onSelect?.(i)}
-                      className="cursor-pointer hover:bg-[var(--sl-thead)] transition-colors">
-                      <td className={tdCls + ' sticky left-0 z-10 text-[var(--sl-text-muted)] font-mono text-xs'}>{i.iding ?? '—'}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.categoria ?? '—'}</td>
-                      <td className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls} style={{ left: 90 }}>{i.nombre_base ?? '—'}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}>{i.abv ?? '—'}</td>
-                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#66aaff] italic' : 'text-[var(--sl-text-primary)]')}>{i.nombre}</td>
+                    <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
+                      {/* IDING — único clic que abre modal */}
+                      <td
+                        className={tdCls + ' sticky left-0 z-10'}
+                        onClick={() => onSelect?.(i)}
+                        style={{ cursor: 'pointer', color: '#e8f442', fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}
+                      >
+                        {i.iding ?? '—'}
+                      </td>
+
+                      {/* CATEGORIA — select */}
+                      <CellSelect
+                        i={i}
+                        campo="categoria"
+                        options={categoriasUnicas}
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.categoria ?? '—'}</span>}
+                      />
+
+                      {/* NOMBRE BASE — input text (sticky) */}
+                      <CellInput
+                        i={i}
+                        campo="nombre_base"
+                        className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls}
+                        style={{ left: 90 }}
+                        display={<span>{i.nombre_base ?? '—'}</span>}
+                      />
+
+                      {/* ABV — select */}
+                      <CellSelect
+                        i={i}
+                        campo="abv"
+                        options={abvUnicos}
+                        className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}
+                        display={<span>{i.abv ?? '—'}</span>}
+                      />
+
+                      {/* NOMBRE — display */}
+                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#66aaff] italic' : 'text-[var(--sl-text-primary)]')}>
+                        {i.nombre}
+                      </td>
+
+                      {/* PROVEEDOR — derived */}
                       <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{getProveedor(i.abv)}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.marca ?? '—'}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.formato ?? '—'}</td>
-                      <td className={tdCls + ' text-right'}>{fmt(i.uds)}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.ud_std ?? '—'}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{i.ud_min ?? '—'}</td>
-                      <td className={tdCls + ' text-center'}>
-                        <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ' + semaforoUsos(usos)}>
-                          {usos}
-                        </span>
+
+                      {/* MARCA — input */}
+                      <CellInput
+                        i={i}
+                        campo="marca"
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.marca ?? '—'}</span>}
+                      />
+
+                      {/* FORMATO — select */}
+                      <CellSelect
+                        i={i}
+                        campo="formato"
+                        options={formatosUnicos}
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.formato ?? '—'}</span>}
+                      />
+
+                      {/* UDS — input number */}
+                      <CellInput
+                        i={i}
+                        campo="uds"
+                        type="number"
+                        className={tdCls + ' text-right'}
+                        display={<span>{fmt(i.uds)}</span>}
+                      />
+
+                      {/* UD STD — select */}
+                      <CellSelect
+                        i={i}
+                        campo="ud_std"
+                        options={udStdOptions}
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.ud_std ?? '—'}</span>}
+                      />
+
+                      {/* UD MIN — select */}
+                      <CellSelect
+                        i={i}
+                        campo="ud_min"
+                        options={udMinOptions}
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.ud_min ?? '—'}</span>}
+                      />
+
+                      {/* USOS — semáforo */}
+                      <td className={tdCls + ' text-center'} style={{ color: colorUsos(usos, isDark), fontWeight: 700 }}>
+                        {usos}
                       </td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmt(i.precio1)}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmt(i.precio2)}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmt(i.precio3)}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(i.ultimo_precio ?? i.precio_activo)}</td>
-                      <td className={tdCls + ' text-center text-xs'}>
-                        <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">{i.selector_precio ?? 'Último'}</span>
+
+                      {/* PRECIO1/2/3 — input number */}
+                      <CellInput
+                        i={i}
+                        campo="precio1"
+                        type="number"
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        display={<span>{fmt(i.precio1)}</span>}
+                      />
+                      <CellInput
+                        i={i}
+                        campo="precio2"
+                        type="number"
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        display={<span>{fmt(i.precio2)}</span>}
+                      />
+                      <CellInput
+                        i={i}
+                        campo="precio3"
+                        type="number"
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        display={<span>{fmt(i.precio3)}</span>}
+                      />
+
+                      {/* ÚLTIMO PRECIO — display */}
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>
+                        {fmt(i.ultimo_precio ?? i.precio_activo)}
                       </td>
+
+                      {/* SELECTOR — select fijo */}
+                      <CellSelect
+                        i={i}
+                        campo="selector_precio"
+                        options={['Último', 'P1', 'P2', 'P3']}
+                        className={tdCls + ' text-center text-xs'}
+                        display={
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">
+                            {i.selector_precio ?? 'Último'}
+                          </span>
+                        }
+                      />
+
+                      {/* ACTIVO — display */}
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmt(i.precio_activo)}</td>
+
+                      {/* EUR/STD — display */}
                       <td className={tdCls + ' text-right'}>{fmtNum(i.eur_std)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_std ?? '—'}</td>
+
+                      {/* EUR/MIN — display */}
                       <td className={tdCls + ' text-right'}>{fmtNum(i.eur_min)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_min ?? '—'}</td>
-                      <td className={tdCls + ' text-xs text-[var(--sl-text-secondary)]'}>{i.tipo_merma ?? '—'}</td>
-                      <td className={tdCls + ' text-right'}>{i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}</td>
+
+                      {/* TIPO MERMA — select fijo */}
+                      <CellSelect
+                        i={i}
+                        campo="tipo_merma"
+                        options={['Manual', 'Tecnica']}
+                        className={tdCls + ' text-xs text-[var(--sl-text-secondary)]'}
+                        display={<span>{i.tipo_merma ?? '—'}</span>}
+                      />
+
+                      {/* MERMA% — editable sólo si Manual */}
+                      <td
+                        className={tdCls + ' text-right'}
+                        onClick={mermaManual ? e => startEdit(e, i.id, 'merma_pct', i.merma_pct) : undefined}
+                        style={{ cursor: mermaManual ? 'pointer' : 'default' }}
+                      >
+                        {isEditing(i, 'merma_pct') ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            step="any"
+                            value={editingValue}
+                            onChange={e => setEditingValue(e.target.value)}
+                            onBlur={() => saveEdit(i.id, 'merma_pct', editingValue)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveEdit(i.id, 'merma_pct', editingValue)
+                              if (e.key === 'Escape') cancelEdit()
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ ...editInputStyle, width: '60px', textAlign: 'right' }}
+                          />
+                        ) : (
+                          <span style={{ color: i.tipo_merma === 'Tecnica' ? '#7080a8' : undefined }}>
+                            {i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* MERMA EF. */}
                       <td className={tdCls + ' text-right text-[#ea580c]'}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
+
+                      {/* C.NETO/STD */}
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_std)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_std ?? i.ud_std ?? '—'}</td>
+
+                      {/* C.NETO/MIN */}
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_min)}</td>
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_min ?? i.ud_min ?? '—'}</td>
                     </tr>

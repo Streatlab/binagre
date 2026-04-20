@@ -6,7 +6,7 @@ import { useConfig } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 
-interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void }
+interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
 // Colores fijos por canal (no cambian con el tema — son marca)
 const CHANNELS = [
@@ -65,7 +65,7 @@ function computeWaterfall(costeMP: number, pvp: number, comision: number, estruc
   return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
 }
 
-export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved }: Props) {
+export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
   const [nombre, setNombre] = useState(receta?.nombre ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
@@ -85,6 +85,21 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   )
   const [saving, setSaving] = useState(false)
   const [loadingLineas, setLoadingLineas] = useState(!!receta)
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleEliminar = async () => {
+    if (!receta) return
+    setDeleting(true)
+    try {
+      await supabase.from('recetas_lineas').delete().eq('receta_id', receta.id)
+      await supabase.from('recetas').delete().eq('id', receta.id)
+      onClose()
+      ;(onDelete ?? onSaved)()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (!receta) return
@@ -521,11 +536,41 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+          <div className="flex items-center gap-2">
+            {receta && !confirmEliminar && (
+              <button
+                onClick={() => setConfirmEliminar(true)}
+                style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+              >
+                ELIMINAR
+              </button>
+            )}
+            {receta && confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
+                <button
+                  onClick={handleEliminar}
+                  disabled={deleting}
+                  style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
+                >
+                  {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
+                </button>
+                <button
+                  onClick={() => setConfirmEliminar(false)}
+                  style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}
+                >
+                  CANCELAR
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

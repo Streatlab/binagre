@@ -33,10 +33,11 @@ interface Props {
   ingrediente: Ingrediente | null
   onClose: () => void
   onSaved: () => void
+  onDelete?: () => void
   onOpenMerma?: (m: Merma | null) => void
 }
 
-export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpenMerma }: Props) {
+export default function ModalIngrediente({ ingrediente, onClose, onSaved, onDelete, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
   const cfg = useConfig()
   const [f, setF] = useState({
@@ -62,6 +63,20 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleEliminar = async () => {
+    if (!ingrediente) return
+    setDeleting(true)
+    try {
+      await supabase.from('ingredientes').delete().eq('id', ingrediente.id)
+      onClose()
+      ;(onDelete ?? onSaved)()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -351,11 +366,41 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onOpen
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
+          <div className="flex items-center gap-2">
+            {isEdit && !confirmEliminar && (
+              <button
+                onClick={() => setConfirmEliminar(true)}
+                style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+              >
+                ELIMINAR
+              </button>
+            )}
+            {isEdit && confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
+                <button
+                  onClick={handleEliminar}
+                  disabled={deleting}
+                  style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
+                >
+                  {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
+                </button>
+                <button
+                  onClick={() => setConfirmEliminar(false)}
+                  style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}
+                >
+                  CANCELAR
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

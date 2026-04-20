@@ -171,6 +171,7 @@ export default function Escandallo() {
           ingredientes={ingredientes}
           onClose={() => setModalEPS({ open: false, eps: null })}
           onSaved={handleSaved}
+          onDelete={handleSaved}
         />
       )}
       {modalReceta.open && (
@@ -180,6 +181,7 @@ export default function Escandallo() {
           epsList={epsList}
           onClose={() => setModalReceta({ open: false, receta: null })}
           onSaved={handleSaved}
+          onDelete={handleSaved}
         />
       )}
       {modalIng.open && (
@@ -187,6 +189,7 @@ export default function Escandallo() {
           ingrediente={modalIng.ing}
           onClose={() => setModalIng({ open: false, ing: null })}
           onSaved={handleIngSaved}
+          onDelete={handleSaved}
           onOpenMerma={merma => { setModalIng({ open: false, ing: null }); setModalMerma({ open: true, merma }); fetchData() }}
         />
       )}
@@ -195,6 +198,7 @@ export default function Escandallo() {
           merma={modalMerma.merma}
           onClose={() => setModalMerma({ open: false, merma: null })}
           onSaved={handleSaved}
+          onDelete={handleSaved}
         />
       )}
     </div>

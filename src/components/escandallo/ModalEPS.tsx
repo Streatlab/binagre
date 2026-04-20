@@ -28,9 +28,9 @@ const btnCancelStyle: CSSProperties = {
   minHeight: '40px',
 }
 
-interface Props { eps: EPS | null; ingredientes: Ingrediente[]; onClose: () => void; onSaved: () => void }
+interface Props { eps: EPS | null; ingredientes: Ingrediente[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
-export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props) {
+export default function ModalEPS({ eps, ingredientes, onClose, onSaved, onDelete }: Props) {
   const [nombre, setNombre] = useState(eps?.nombre ?? '')
   const [raciones, setRaciones] = useState(eps?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(eps?.tamano_rac ?? 0)
@@ -39,6 +39,21 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
   const [lineas, setLineas] = useState<EPSLinea[]>([])
   const [saving, setSaving] = useState(false)
   const [loadingLineas, setLoadingLineas] = useState(!!eps)
+  const [confirmEliminar, setConfirmEliminar] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleEliminar = async () => {
+    if (!eps) return
+    setDeleting(true)
+    try {
+      await supabase.from('eps_lineas').delete().eq('eps_id', eps.id)
+      await supabase.from('eps').delete().eq('id', eps.id)
+      onClose()
+      ;(onDelete ?? onSaved)()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (!eps) return
@@ -242,11 +257,41 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved }: Props)
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
-          <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
-          <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
-            {saving ? 'GUARDANDO…' : 'GUARDAR'}
-          </button>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+          <div className="flex items-center gap-2">
+            {eps && !confirmEliminar && (
+              <button
+                onClick={() => setConfirmEliminar(true)}
+                style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+              >
+                ELIMINAR
+              </button>
+            )}
+            {eps && confirmEliminar && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
+                <button
+                  onClick={handleEliminar}
+                  disabled={deleting}
+                  style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
+                >
+                  {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
+                </button>
+                <button
+                  onClick={() => setConfirmEliminar(false)}
+                  style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}
+                >
+                  CANCELAR
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
+            <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>
+              {saving ? 'GUARDANDO…' : 'GUARDAR'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
