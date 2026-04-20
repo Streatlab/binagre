@@ -17,6 +17,15 @@ interface ObjetivoGeneral {
   updated_at: string
 }
 
+interface ObjetivoDia {
+  id: string
+  dia: number  // 1=lunes, 7=domingo
+  importe: number
+  updated_at: string
+}
+
+const DIA_LABELS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
 interface ObjetivoEspecifico {
   id: string
   nombre: string
@@ -64,6 +73,13 @@ export default function Objetivos() {
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
 
+  // Estado día de semana
+  const [objetivosDia, setObjetivosDia] = useState<ObjetivoDia[]>([])
+  const [editingDiaId, setEditingDiaId] = useState<string | null>(null)
+  const [editDiaValue, setEditDiaValue] = useState('')
+  const [savingDia, setSavingDia] = useState(false)
+  const [savedDiaId, setSavedDiaId] = useState<string | null>(null)
+
   // Estado específicos
   const [especificos, setEspecificos] = useState<ObjetivoEspecifico[]>([])
   const [showNuevo, setShowNuevo] = useState(false)
@@ -87,14 +103,17 @@ export default function Objetivos() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [g, e, v] = await Promise.all([
+      const [g, d, e, v] = await Promise.all([
         supabase.from('objetivos').select('*').order('tipo'),
+        supabase.from('objetivos_dia_semana').select('*').order('dia'),
         supabase.from('objetivos_especificos').select('*').eq('activo', true).order('fecha_desde', { ascending: false }),
         supabase.from('facturacion_diario').select('fecha,total_bruto').order('fecha', { ascending: false }).limit(365),
       ])
       if (g.error) throw g.error
+      if (d.error) throw d.error
       if (e.error) throw e.error
       setGenerales((g.data as ObjetivoGeneral[]) ?? [])
+      setObjetivosDia((d.data as ObjetivoDia[]) ?? [])
       setEspecificos((e.data as ObjetivoEspecifico[]) ?? [])
       setVentas((v.data as { fecha: string; total_bruto: number }[]) ?? [])
     } catch (err: unknown) {
@@ -128,6 +147,32 @@ export default function Objetivos() {
     }
     setSaving(false)
     setEditingId(null)
+  }
+
+  // ─── DÍA DE SEMANA: edición ───────────────────────────────
+
+  function startEditDia(o: ObjetivoDia) {
+    setEditingDiaId(o.id)
+    setEditDiaValue(o.importe.toString())
+  }
+
+  function cancelEditDia() { setEditingDiaId(null); setEditDiaValue('') }
+
+  async function saveEditDia(id: string) {
+    const val = parseFloat(editDiaValue.replace(',','.'))
+    if (isNaN(val) || val < 0) return
+    setSavingDia(true)
+    const { error: e } = await supabase
+      .from('objetivos_dia_semana')
+      .update({ importe: val, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (!e) {
+      setObjetivosDia(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
+      setSavedDiaId(id)
+      setTimeout(() => setSavedDiaId(null), 2000)
+    }
+    setSavingDia(false)
+    setEditingDiaId(null)
   }
 
   // ─── ESPECÍFICOS: crear ───────────────────────────────────
@@ -422,6 +467,102 @@ export default function Objetivos() {
             </div>
           )
         })}
+      </div>
+
+      {/* Objetivos por día de semana */}
+      <div style={sectionLabel}>Objetivos por día de semana</div>
+      <div style={{ ...cardStyle(T), marginBottom: 24 }}>
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 14 }}>
+          Objetivo de ventas estándar para cada día. Úsalos como referencia cuando no hay un objetivo específico activo.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
+          {[...objetivosDia].sort((a,b) => a.dia - b.dia).map(o => {
+            const isEditing = editingDiaId === o.id
+            const isSaved = savedDiaId === o.id
+            const dayColor = o.dia >= 5 ? '#1D9E75' : T.sec
+            return (
+              <div key={o.id} style={{
+                ...cardStyle(T),
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                border: isEditing ? `1px solid ${T.emphasis}` : `0.5px solid ${T.brd}`,
+              }}>
+                <div style={{
+                  fontFamily: FONT.heading,
+                  fontSize: 10,
+                  letterSpacing: '1.5px',
+                  textTransform: 'uppercase',
+                  color: dayColor,
+                }}>
+                  {DIA_LABELS[o.dia - 1]}
+                </div>
+
+                {!isEditing ? (
+                  <>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
+                      {fmtEur(o.importe)}
+                    </div>
+                    {isSaved && (
+                      <div style={{ fontFamily: FONT.body, fontSize: 10, color: '#1D9E75' }}>✓</div>
+                    )}
+                    <button onClick={() => startEditDia(o)} style={{
+                      padding: '4px 0',
+                      borderRadius: 6,
+                      border: `0.5px solid ${T.brd}`,
+                      background: 'none',
+                      color: T.mut,
+                      fontFamily: FONT.body,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      marginTop: 4,
+                    }}>
+                      Editar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="number"
+                      value={editDiaValue}
+                      onChange={e => setEditDiaValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEditDia(o.id); if (e.key === 'Escape') cancelEditDia() }}
+                      autoFocus
+                      style={{
+                        background: isDark ? '#3a4058' : '#ffffff',
+                        border: `1px solid ${T.emphasis}`,
+                        borderRadius: 6,
+                        color: T.pri,
+                        fontFamily: FONT.heading,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        padding: '4px 6px',
+                        width: '100%',
+                        textAlign: 'right',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                      <button
+                        onClick={() => saveEditDia(o.id)}
+                        disabled={savingDia}
+                        style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.body, fontSize: 11, cursor: 'pointer' }}
+                      >
+                        {savingDia ? '…' : '✓'}
+                      </button>
+                      <button
+                        onClick={cancelEditDia}
+                        style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 11, cursor: 'pointer' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Cumplimiento actual */}
