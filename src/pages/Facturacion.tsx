@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
+import { useTheme, FONT } from '@/styles/tokens'
 
-const fmtInt = (n: number) => n.toLocaleString('es-ES')
+// Pedidos siempre enteros
+const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -469,7 +471,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                         return (
                           <Fragment key={c.label}>
                             <td className="px-2 py-2 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
-                              {p > 0 ? p : <Dash />}
+                              {p > 0 ? Math.round(p) : <Dash />}
                             </td>
                             <td className="px-2 py-2 text-right text-neutral-300 tabular-nums">
                               {b > 0 ? fmtEur(b) : <Dash />}
@@ -772,16 +774,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const [isDark, setIsDark] = useState(
-    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
-  )
-  useEffect(() => {
-    const obs = new MutationObserver(() =>
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
-    )
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => obs.disconnect()
-  }, [])
+  const { T, isDark } = useTheme()
 
   const [jeItems, setJeItems] = useState<number[]>(
     existing && (existing.je_bruto ?? 0) > 0 ? [existing.je_bruto] : []
@@ -838,12 +831,12 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
   const inputStyle: CSSProperties = {
     width: '100%',
     background: isDark ? '#3a4058' : '#ffffff',
-    color: isDark ? '#f0f0ff' : '#111111',
+    color: T.pri,
     border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
     borderRadius: 8,
     padding: '8px 12px',
     fontSize: 13,
-    fontFamily: 'Lexend, sans-serif',
+    fontFamily: FONT.body,
     outline: 'none',
   }
 
@@ -902,7 +895,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10 }}>
               <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>
               {jeItems.length > 0 && (
-                <span style={{ fontFamily:'Lexend, sans-serif', fontSize:12, color: isDark ? '#9ba8c0' : '#5a6478' }}>
+                <span style={{ fontFamily: FONT.body, fontSize:12, color: T.sec }}>
                   {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
                 </span>
               )}
@@ -911,8 +904,8 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
             {jeItems.length > 0 && (
               <div style={{ display:'flex', flexDirection:'column', gap: 4, marginBottom: 10 }}>
                 {jeItems.map((item, idx) => (
-                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', borderRadius: 6, background: isDark ? '#1a1f32' : '#ffffff', border: `1px solid ${isDark ? '#3a4058' : '#e5d5a0'}` }}>
-                    <span style={{ fontFamily:'Lexend, sans-serif', fontSize:13, color: isDark ? '#f0f0ff' : '#111' }}>{item.toFixed(2)} €</span>
+                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', borderRadius: 6, background: T.card, border: `1px solid ${isDark ? '#3a4058' : '#e5d5a0'}` }}>
+                    <span style={{ fontFamily: FONT.body, fontSize:13, color: T.pri }}>{item.toFixed(2)} €</span>
                     <button type="button" onClick={() => setJeItems(p => p.filter((_,i) => i !== idx))}
                       style={{ background:'none', border:'none', cursor:'pointer', color:'#E24B4A', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
                   </div>
@@ -933,14 +926,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                     if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
                   }
                 }}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 8,
-                  border: `1px solid ${isDark ? '#3a4058' : '#cccccc'}`,
-                  background: isDark ? '#3a4058' : '#ffffff',
-                  color: isDark ? '#f0f0ff' : '#111111',
-                  fontFamily: 'Lexend, sans-serif', fontSize: 13,
-                  outline: 'none',
-                }}
+                style={{ ...inputStyle, flex: 1, width: 'auto' }}
               />
               <button
                 type="button"
@@ -954,8 +940,8 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
 
             {jeItems.length > 0 && (
               <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: isDark ? '#1a1500' : '#fffde0', border: '1px solid #f5a623', display:'flex', justifyContent:'space-between' }}>
-                <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, letterSpacing:1, color:'#f5a623', textTransform:'uppercase' }}>Total</span>
-                <span style={{ fontFamily:'Oswald, sans-serif', fontSize:14, fontWeight:600, color: isDark ? '#f0f0ff' : '#111' }}>
+                <span style={{ fontFamily: FONT.heading, fontSize:11, letterSpacing:1, color:'#f5a623', textTransform:'uppercase' }}>Total</span>
+                <span style={{ fontFamily: FONT.heading, fontSize:14, fontWeight:600, color: T.pri }}>
                   {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
                 </span>
               </div>

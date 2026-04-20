@@ -2,6 +2,15 @@ import type { CSSProperties } from 'react'
 import { useTheme as useThemeContext } from '@/contexts/ThemeContext'
 
 /* ═══════════════════════════════════════════════════════════
+   FONTS
+   ═══════════════════════════════════════════════════════════ */
+
+export const FONT = {
+  body: 'Lexend, sans-serif',
+  heading: 'Oswald, sans-serif',
+}
+
+/* ═══════════════════════════════════════════════════════════
    THEME TOKENS
    ═══════════════════════════════════════════════════════════ */
 
