@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum } from '@/utils/format'
-import { useTheme } from '@/contexts/ThemeContext'
+import { fmtEur } from '@/utils/format'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -17,8 +16,8 @@ interface Row {
   total_pedidos: number; total_bruto: number
 }
 
-interface CanalStat { label: string; bruto: number; pct: number; color: string }
-interface WeekBar { label: string; bruto: number; pct: number }
+interface CanalStat { nombre: string; total: number; pct: number }
+interface WeekBar { label: string; total: number }
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -27,12 +26,12 @@ interface WeekBar { label: string; bruto: number; pct: number }
 const SELECT =
   'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,total_pedidos,total_bruto'
 
-const CANAL_HEX: Record<string, string> = {
-  'Uber Eats':      '#06C167',
-  'Glovo':          '#e8f442',
-  'Just Eat':       '#f5a623',
-  'Web Propia':     '#B01D23',
-  'Venta Directa':  '#66aaff',
+const CANAL_COLOR: Record<string, string> = {
+  'Uber Eats':     '#06C167',
+  'Glovo':         '#e8f442',
+  'Just Eat':      '#f5a623',
+  'Web Propia':    '#B01D23',
+  'Venta Directa': '#66aaff',
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -80,8 +79,17 @@ export default function Dashboard() {
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  useEffect(() => {
+    const observer = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    )
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -106,48 +114,43 @@ export default function Dashboard() {
 
   const hoy = todayStr()
   const weekStart = startOfWeekStr()
-  const currentIso = isoWeek(hoy)
+  const nSemana = isoWeek(hoy).week
   const currentMonth = hoy.slice(0, 7)
 
-  /* row 1: KPIs — semana en curso + mes en curso */
   const rowsSemana = useMemo(
     () => data.filter(r => r.fecha >= weekStart && r.fecha <= hoy),
     [data, weekStart, hoy]
   )
-  const kpiSemana = useMemo(() => sumRows(rowsSemana), [rowsSemana])
-  const ticketSemana = kpiSemana.pedidos > 0 ? kpiSemana.bruto / kpiSemana.pedidos : 0
-  const kpiMes = useMemo(
+  const agSemana = useMemo(() => sumRows(rowsSemana), [rowsSemana])
+  const ventasSemana = agSemana.bruto
+  const pedidosSemana = agSemana.pedidos
+
+  const agMes = useMemo(
     () => sumRows(data.filter(r => r.fecha.startsWith(currentMonth))),
     [data, currentMonth]
   )
+  const ventasMes = agMes.bruto
 
-  /* row 2: canal breakdown — mes en curso */
-  const canalStats = useMemo((): CanalStat[] => {
+  const canales = useMemo((): CanalStat[] => {
     const rows = data.filter(r => r.fecha.startsWith(currentMonth))
     const uber = sumCanal(rows, 'uber_pedidos', 'uber_bruto')
     const glovo = sumCanal(rows, 'glovo_pedidos', 'glovo_bruto')
     const je = sumCanal(rows, 'je_pedidos', 'je_bruto')
     const web = sumCanal(rows, 'web_pedidos', 'web_bruto')
     const total = rows.reduce((s, r) => s + (r.total_bruto || 0), 0)
-    const directaBruto = Math.max(0, total - uber.bruto - glovo.bruto - je.bruto - web.bruto)
-    const stats: CanalStat[] = []
-    const push = (label: string, bruto: number) => {
-      stats.push({
-        label,
-        bruto,
-        pct: total > 0 ? (bruto / total) * 100 : 0,
-        color: CANAL_HEX[label] ?? '#888',
-      })
+    const directa = Math.max(0, total - uber.bruto - glovo.bruto - je.bruto - web.bruto)
+    const list: CanalStat[] = [
+      { nombre: 'Uber Eats',  total: uber.bruto,  pct: total > 0 ? (uber.bruto / total) * 100 : 0 },
+      { nombre: 'Glovo',      total: glovo.bruto, pct: total > 0 ? (glovo.bruto / total) * 100 : 0 },
+      { nombre: 'Just Eat',   total: je.bruto,    pct: total > 0 ? (je.bruto / total) * 100 : 0 },
+      { nombre: 'Web Propia', total: web.bruto,   pct: total > 0 ? (web.bruto / total) * 100 : 0 },
+    ]
+    if (directa > 0) {
+      list.push({ nombre: 'Venta Directa', total: directa, pct: total > 0 ? (directa / total) * 100 : 0 })
     }
-    push('Uber Eats', uber.bruto)
-    push('Glovo', glovo.bruto)
-    push('Just Eat', je.bruto)
-    push('Web Propia', web.bruto)
-    if (directaBruto > 0) push('Venta Directa', directaBruto)
-    return stats
+    return list
   }, [data, currentMonth])
 
-  /* row 3: last 4 weeks bar chart */
   const weekBars = useMemo((): WeekBar[] => {
     const map = new Map<string, number>()
     for (const r of data) {
@@ -156,25 +159,32 @@ export default function Dashboard() {
       map.set(key, (map.get(key) || 0) + (r.total_bruto || 0))
     }
     const sorted = [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 4).reverse()
-    const max = Math.max(...sorted.map(([, v]) => v), 1)
-    return sorted.map(([key, bruto]) => ({
+    return sorted.map(([key, total]) => ({
       label: `S${parseInt(key.split('-')[1])}`,
-      bruto,
-      pct: (bruto / max) * 100,
+      total,
     }))
   }, [data])
 
-  const barColor = isDark ? '#c8d0e8' : '#8896b0'
+  /* ── tema ──────────────────────────────────────────────── */
+
+  const surface = isDark ? '#111111' : '#ffffff'
+  const border  = isDark ? '#2a2a2a' : '#e5e0d8'
+  const textPri = isDark ? '#f0f0ff' : '#1a1a1a'
+  const textSec = isDark ? '#7080a8' : '#6b7280'
+  const barColor = isDark ? '#4a5270' : '#8896b0'
+
+  const mesCurso = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+  const mesLabel = mesCurso.charAt(0).toUpperCase() + mesCurso.slice(1)
 
   /* ── render ────────────────────────────────────────────── */
 
   if (loading) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-[var(--sl-text-primary)] mb-4">Dashboard</h2>
-        <div className="bg-[var(--sl-card)] border border-border rounded-xl p-12 text-center">
+        <h2 style={{ color: textPri, fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Dashboard</h2>
+        <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
           <div className="inline-block h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <p className="text-[var(--sl-text-secondary)] text-sm mt-3">Cargando...</p>
+          <p style={{ color: textSec, fontSize: 13, marginTop: 12 }}>Cargando…</p>
         </div>
       </div>
     )
@@ -183,89 +193,98 @@ export default function Dashboard() {
   if (error) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-[var(--sl-text-primary)] mb-4">Dashboard</h2>
-        <div className="bg-[var(--sl-card)] border border-border rounded-xl p-8 text-center">
-          <p className="text-[#dc2626] text-sm">{error}</p>
+        <h2 style={{ color: textPri, fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Dashboard</h2>
+        <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, padding: 32, textAlign: 'center' }}>
+          <p style={{ color: '#dc2626', fontSize: 13 }}>{error}</p>
         </div>
       </div>
     )
   }
 
-  const canalColsClass = canalStats.length === 5
+  const canalColsClass = canales.length === 5
     ? 'grid grid-cols-2 lg:grid-cols-5 gap-4 mb-5'
     : 'grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5'
 
+  const kpis = [
+    { label: 'VENTAS SEMANA',  valor: fmtEur(ventasSemana),   sub: `S${nSemana} · bruto` },
+    { label: 'PEDIDOS SEMANA', valor: Math.round(pedidosSemana).toString(), sub: 'todos los canales' },
+    { label: 'TICKET MEDIO',   valor: pedidosSemana > 0 ? fmtEur(ventasSemana / pedidosSemana) : '—', sub: 'bruto / pedido' },
+    { label: 'VENTAS MES',     valor: fmtEur(ventasMes),      sub: mesLabel },
+  ]
+
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[var(--sl-text-primary)] mb-4">Dashboard</h2>
+      <h2 style={{ color: textPri, fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Dashboard</h2>
 
-      {/* Row 1: Main KPIs */}
+      {/* Row 1: KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        <KpiCard label="Ventas semana" valor={fmtEur(kpiSemana.bruto)} sub={`S${currentIso.week} — bruto`} />
-        <KpiCard label="Pedidos semana" valor={fmtNum(kpiSemana.pedidos)} sub="todos los canales" />
-        <KpiCard label="Ticket medio" valor={ticketSemana > 0 ? fmtEur(ticketSemana) : '—'} sub="bruto / pedidos (semana)" />
-        <KpiCard label="Ventas mes" valor={fmtEur(kpiMes.bruto)} sub={`${currentMonth} — ${fmtNum(kpiMes.pedidos)} ped`} />
-      </div>
-
-      {/* Row 2: Canal breakdown */}
-      <div className={canalColsClass}>
-        {canalStats.map(c => (
-          <div key={c.label} className="bg-[var(--sl-card)] border border-border rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-[var(--sl-text-secondary)] uppercase tracking-wide">{c.label}</p>
-              <span className="text-xs font-bold" style={{ color: c.color }}>
-                {fmtNum(c.pct)}%
-              </span>
+        {kpis.map(k => (
+          <div key={k.label} style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontSize: '0.58rem', fontFamily: 'Oswald, sans-serif', letterSpacing: '1.5px', color: textSec, marginBottom: 6, textTransform: 'uppercase' }}>
+              {k.label}
             </div>
-            <p className="text-xl font-bold text-[var(--sl-text-primary)]">{fmtEur(c.bruto)}</p>
-            <div className="mt-2 h-1.5 bg-[var(--sl-card)]/5 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ background: c.color, width: `${Math.min(c.pct, 100)}%` }}
-              />
+            <div style={{ fontSize: '1.5rem', fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: textPri }}>
+              {k.valor}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: textSec, marginTop: 4 }}>
+              {k.sub}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Row 3: Last 4 weeks chart — ancho completo */}
-      <div className="bg-[var(--sl-card)] border border-border rounded-xl p-5">
-        <p className="text-xs text-[var(--sl-text-secondary)] uppercase tracking-wide mb-4">Últimas 4 semanas</p>
-        {weekBars.length === 0 ? (
-          <p className="text-[var(--sl-text-secondary)] text-sm text-center py-8">Sin datos</p>
-        ) : (
-          <div className="flex items-end gap-3 h-40">
-            {weekBars.map(bar => (
-              <div key={bar.label} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'var(--sl-text-primary)' }}>
-                  {fmtEur(bar.bruto)}
+      {/* Row 2: Canales */}
+      <div className={canalColsClass}>
+        {canales.map(canal => {
+          const color = CANAL_COLOR[canal.nombre] ?? '#888'
+          return (
+            <div key={canal.nombre} style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: '0.58rem', fontFamily: 'Oswald, sans-serif', letterSpacing: '1.5px', color: textSec, textTransform: 'uppercase' }}>
+                  {canal.nombre}
                 </span>
-                <div className="w-full bg-[var(--sl-card)]/5 rounded-t-md overflow-hidden relative" style={{ height: '120px' }}>
-                  <div
-                    className="absolute bottom-0 w-full rounded-t-md transition-all"
-                    style={{ height: `${bar.pct}%`, background: barColor }}
-                  />
-                </div>
-                <span className="text-xs text-[var(--sl-text-secondary)] font-medium">{bar.label}</span>
+                <span style={{ fontSize: '0.72rem', fontFamily: 'Oswald, sans-serif', fontWeight: 600, color }}>
+                  {canal.pct.toFixed(1)}%
+                </span>
               </div>
-            ))}
+              <div style={{ fontSize: '1.2rem', fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: textPri, marginBottom: 10 }}>
+                {fmtEur(canal.total)}
+              </div>
+              <div style={{ height: 3, backgroundColor: border, borderRadius: 2 }}>
+                <div style={{ height: 3, width: `${Math.min(canal.pct, 100)}%`, backgroundColor: color, borderRadius: 2 }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Row 3: Últimas 4 semanas */}
+      <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '20px 24px' }}>
+        <div style={{ fontSize: '0.58rem', fontFamily: 'Oswald, sans-serif', letterSpacing: '1.5px', color: textSec, marginBottom: 20, textTransform: 'uppercase' }}>
+          Últimas 4 semanas
+        </div>
+        {weekBars.length === 0 ? (
+          <p style={{ color: textSec, fontSize: 13, textAlign: 'center', padding: '32px 0' }}>Sin datos</p>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, height: 140 }}>
+            {weekBars.map(w => {
+              const maxVal = Math.max(...weekBars.map(x => x.total), 1)
+              const pct = (w.total / maxVal) * 100
+              return (
+                <div key={w.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: '0.65rem', color: textPri, fontFamily: 'Lexend, sans-serif' }}>
+                    {fmtEur(w.total)}
+                  </span>
+                  <div style={{ width: '100%', height: `${pct}%`, backgroundColor: barColor, borderRadius: '4px 4px 0 0', minHeight: 4 }} />
+                  <span style={{ fontSize: '0.6rem', color: textSec, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' }}>
+                    {w.label}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   MICRO-COMPONENTS
-   ═══════════════════════════════════════════════════════════ */
-
-function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: string }) {
-  return (
-    <div className="ds-counter" style={{ cursor: 'default' }}>
-      <div className="label">{label}</div>
-      <div className="value" style={{ fontSize: 22 }}>{valor}</div>
-      <div className="sub">{sub}</div>
     </div>
   )
 }

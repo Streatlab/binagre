@@ -289,16 +289,21 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                   const selectorDisplay = normalizeSelector(i.selector_precio)
                   return (
                     <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
-                      {/* IDING — amarillo fijo, abre modal */}
+                      {/* IDING — amarillo oscuro / tostado claro, abre modal */}
                       <td
-                        className={tdCls}
                         onClick={() => onSelect?.(i)}
                         style={{
-                          ...stickyTdStyle(0),
-                          cursor: 'pointer',
-                          color: '#e8f442',
+                          color: isDark ? '#e8f442' : '#7a6200',
                           fontFamily: 'Oswald, sans-serif',
                           fontWeight: 600,
+                          cursor: 'pointer',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 2,
+                          backgroundColor: isDark ? '#111111' : '#faf9f5',
+                          padding: '10px 14px',
+                          borderBottom: '1px solid var(--sl-border)',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {i.iding ?? '—'}

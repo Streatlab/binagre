@@ -1,64 +1,83 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { useState, useEffect, Fragment } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
-import { useTheme } from '@/contexts/ThemeContext'
 import { ThemeToggle } from './ThemeToggle'
 
-const ACCENT = '#e8f442'
 const RED = '#B01D23'
+
+interface NavLink {
+  type: 'link'
+  label: string
+  path: string
+  icon: string
+}
 
 interface NavItem {
   label: string
   path: string
-  icon?: string
+  active?: boolean
   placeholder?: boolean
-  perfiles: string[]
 }
 
 interface NavGroup {
-  key: string
+  type: 'group'
   label: string
   items: NavItem[]
 }
 
-const DASHBOARD: NavItem = { label: 'Dashboard', path: '/', icon: '📊', perfiles: ['admin', 'cocina'] }
-const CONFIGURACION: NavItem = { label: 'Configuración', path: '/configuracion', icon: '⚙️', perfiles: ['admin'] }
+type NavEntry = NavLink | NavGroup
 
-const GROUPS: NavGroup[] = [
+const NAV: NavEntry[] = [
+  { type: 'link', label: 'DASHBOARD', path: '/', icon: '▪' },
   {
-    key: 'facturacion', label: 'FACTURACIÓN',
+    type: 'group', label: 'FACTURACIÓN',
     items: [
-      { label: 'Resumen',   path: '/facturacion', icon: '💶', perfiles: ['admin'] },
-      { label: 'Análisis',  path: '/analytics',   icon: '📈', placeholder: true, perfiles: ['admin'] },
-      { label: 'Revenue',   path: '/revenue',     icon: '💹', placeholder: true, perfiles: ['admin'] },
-      { label: 'Running',   path: '/running',     icon: '🏃', perfiles: ['admin'] },
+      { label: 'Resumen',  path: '/facturacion', active: true },
+      { label: 'Análisis', path: '/analytics',   placeholder: true },
+      { label: 'Revenue',  path: '/revenue',     placeholder: true },
+      { label: 'Running',  path: '/running',     active: true },
     ],
   },
   {
-    key: 'cocina', label: 'COCINA',
+    type: 'group', label: 'COCINA',
     items: [
-      { label: 'Escandallo',    path: '/escandallo',           icon: '⚖️', perfiles: ['admin', 'cocina'] },
-      { label: 'Control temp.', path: '/control-temperatura',  icon: '🌡️', placeholder: true, perfiles: ['admin', 'cocina'] },
-      { label: 'Checklists',    path: '/checklists',           icon: '✅', placeholder: true, perfiles: ['admin', 'cocina'] },
+      { label: 'Escandallo',    path: '/escandallo',          active: true },
+      { label: 'Control Temp.', path: '/control-temperatura', placeholder: true },
+      { label: 'Checklists',    path: '/checklists',          placeholder: true },
+      { label: 'Bitácora',      path: '/bitacora',            placeholder: true },
     ],
   },
   {
-    key: 'operaciones', label: 'OPERACIONES',
+    type: 'group', label: 'OPERACIONES',
     items: [
-      { label: 'Marcas',        path: '/marcas',         icon: '🏷️', perfiles: ['admin'] },
-      { label: 'POS',           path: '/pos',            icon: '🖥️', placeholder: true, perfiles: ['admin'] },
-      { label: 'Integraciones', path: '/integraciones',  icon: '🔌', placeholder: true, perfiles: ['admin'] },
-      { label: 'Manuales',      path: '/manuales',       icon: '📘', placeholder: true, perfiles: ['admin'] },
+      { label: 'Marcas',        path: '/marcas',        active: true },
+      { label: 'POS',           path: '/pos',           placeholder: true },
+      { label: 'Daño Equipo',   path: '/dano-equipo',   placeholder: true },
+      { label: 'Daño Menaje',   path: '/dano-menaje',   placeholder: true },
+      { label: 'Novedades',     path: '/novedades',     placeholder: true },
+      { label: 'Integraciones', path: '/integraciones', placeholder: true },
+      { label: 'Manuales',      path: '/manuales',      placeholder: true },
     ],
   },
   {
-    key: 'equipo', label: 'EQUIPO',
+    type: 'group', label: 'EQUIPO',
     items: [
-      { label: 'Equipo',    path: '/equipo',    icon: '👥', placeholder: true, perfiles: ['admin'] },
-      { label: 'Clientes',  path: '/clientes',  icon: '🤝', placeholder: true, perfiles: ['admin'] },
+      { label: 'Mi Equipo',            path: '/equipo',       placeholder: true },
+      { label: 'Evaluaciones',         path: '/evaluaciones', placeholder: true },
+      { label: 'Llamados de atención', path: '/llamados',     placeholder: true },
+      { label: 'Celebraciones',        path: '/celebraciones', placeholder: true },
+      { label: 'Dotación',             path: '/dotacion',     placeholder: true },
     ],
   },
+  {
+    type: 'group', label: 'CLIENTES',
+    items: [
+      { label: 'Reseñas', path: '/resenas', placeholder: true },
+      { label: 'Quejas',  path: '/quejas',  placeholder: true },
+    ],
+  },
+  { type: 'link', label: 'CONFIGURACIÓN', path: '/configuracion', icon: '▪' },
 ]
 
 function LogoSL({ small = false }: { small?: boolean }) {
@@ -89,110 +108,56 @@ function LogoSL({ small = false }: { small?: boolean }) {
   )
 }
 
-function activeLinkStyle(isActive: boolean, collapsed: boolean, indent: boolean): React.CSSProperties {
-  return {
-    fontFamily: 'Oswald, sans-serif',
-    fontSize: '0.78rem',
-    fontWeight: 500,
-    letterSpacing: '1.5px',
-    textTransform: 'uppercase',
-    borderLeft: isActive ? `2px solid ${ACCENT}` : '2px solid transparent',
-    background: isActive ? 'var(--sl-card)' : 'transparent',
-    color: isActive ? ACCENT : 'var(--sl-text-nav)',
-    paddingLeft: collapsed ? undefined : (indent ? 28 : undefined),
-  }
-}
-
-function TopNavLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
-  return (
-    <NavLink
-      to={item.path}
-      end={item.path === '/'}
-      onClick={onClose}
-      title={collapsed ? item.label : undefined}
-      style={({ isActive }) => activeLinkStyle(isActive, collapsed, false)}
-      className={({ isActive }) =>
-        `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
-          isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
-        }`
-      }
-    >
-      <span style={collapsed ? { fontSize: 20, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' } : { width: 20, textAlign: 'center', flexShrink: 0 }} className={collapsed ? '' : 'text-base flex-shrink-0'}>{item.icon}</span>
-      {!collapsed && <span className="truncate">{item.label}</span>}
-    </NavLink>
-  )
-}
-
-function GroupChild({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
-  if (item.placeholder) {
-    return (
-      <div
-        title={collapsed ? `${item.label} (próximamente)` : undefined}
-        style={{
-          ...activeLinkStyle(false, collapsed, !collapsed),
-          opacity: 0.4,
-          cursor: 'default',
-        }}
-        className={`flex items-center gap-3 pr-4 py-[11px] ${collapsed ? 'justify-center px-4' : ''}`}
-      >
-        <span style={collapsed ? { fontSize: 20, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' } : { width: 20, textAlign: 'center', flexShrink: 0 }} className={collapsed ? '' : 'text-base flex-shrink-0'}>{item.icon}</span>
-        {!collapsed && <span className="truncate">{item.label}</span>}
-      </div>
-    )
-  }
-  return (
-    <NavLink
-      to={item.path}
-      onClick={onClose}
-      title={collapsed ? item.label : undefined}
-      style={({ isActive }) => activeLinkStyle(isActive, collapsed, !collapsed)}
-      className={({ isActive }) =>
-        `flex items-center gap-3 pr-4 py-[11px] transition-colors ${collapsed ? 'justify-center px-4' : ''} ${
-          isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
-        }`
-      }
-    >
-      <span style={collapsed ? { fontSize: 20, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' } : { width: 20, textAlign: 'center', flexShrink: 0 }} className={collapsed ? '' : 'text-base flex-shrink-0'}>{item.icon}</span>
-      {!collapsed && <span className="truncate">{item.label}</span>}
-    </NavLink>
-  )
-}
-
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
   const location = useLocation()
-  const perfil = usuario?.perfil ?? ''
+  const navigate = useNavigate()
 
-  const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  useEffect(() => {
+    const observer = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    )
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  }, [])
+
+  // tokens
+  const sbBg      = isDark ? '#0a0a0a' : '#ffffff'
+  const sbBorder  = isDark ? '#1a1a1a' : '#e5e0d8'
+  const sbText    = isDark ? '#c8d0e8' : '#374151'
+  const sbMuted   = isDark ? '#4a5270' : '#9ca3af'
+  const sbActive  = '#e8f442'
+  const sbActiveText = isDark ? '#e8f442' : '#7a6200'
+  const activeBg  = isDark ? '#111111' : '#f9f9f7'
 
   // Auto-abrir grupo que contiene la ruta activa
-  const initialOpen = (): Record<string, boolean> => {
-    const state: Record<string, boolean> = {}
-    for (const g of GROUPS) {
-      state[g.key] = g.items.some(i => !i.placeholder && location.pathname.startsWith(i.path) && i.path !== '/')
-    }
-    return state
-  }
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(initialOpen)
-
-  useEffect(() => {
-    setOpenGroups(prev => {
-      const next = { ...prev }
-      for (const g of GROUPS) {
-        const hasActive = g.items.some(i => !i.placeholder && location.pathname.startsWith(i.path) && i.path !== '/')
-        if (hasActive) next[g.key] = true
+  const groupOfPath = (path: string): string | null => {
+    for (const e of NAV) {
+      if (e.type === 'group' && e.items.some(i => i.path === path || (i.path !== '/' && path.startsWith(i.path)))) {
+        return e.label
       }
-      return next
-    })
+    }
+    return null
+  }
+  const [openGroup, setOpenGroup] = useState<string | null>(groupOfPath(location.pathname))
+  useEffect(() => {
+    const g = groupOfPath(location.pathname)
+    if (g) setOpenGroup(g)
   }, [location.pathname])
 
-  const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  const isPathActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(path + '/')
 
-  const groupHeaderColor = isDark ? '#7080a8' : '#9ca3af'
   const width = collapsed ? 'w-[56px]' : 'w-[220px]'
+
+  const goTo = (path: string) => {
+    navigate(path)
+    onClose()
+  }
 
   return (
     <>
@@ -200,120 +165,188 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-full bg-[var(--sl-sidebar)] border-r border-[var(--sl-border)]
+          fixed top-0 left-0 z-40 h-full border-r
           flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
           ${width}
         `}
+        style={{ backgroundColor: sbBg, borderColor: sbBorder }}
       >
         {/* Header logo */}
         {collapsed ? (
-          <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
-            <LogoSL small={true} />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+          <div style={{ borderBottom: `1px solid ${sbBorder}` }} className="flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
+            <LogoSL small />
+            <button
+              onClick={toggle}
+              style={{ width: 44, height: 44, fontSize: 18, color: sbMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className="rounded transition-colors hidden lg:flex hover:!text-[var(--sl-text-primary)]"
+              title="Expandir"
+            >»</button>
           </div>
         ) : (
-          <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
+          <div style={{ borderBottom: `1px solid ${sbBorder}` }} className="p-3 flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <LogoSL small={false} />
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
+              <LogoSL />
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: sbActive, letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} className="p-1.5 text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
+            <button
+              onClick={toggle}
+              style={{ color: sbMuted }}
+              className="p-1.5 rounded transition-colors hidden lg:block flex-shrink-0 hover:!text-[var(--sl-text-primary)]"
+              title="Colapsar"
+            >«</button>
           </div>
         )}
 
         {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
-          {/* DASHBOARD — siempre visible */}
-          {filterItems([DASHBOARD]).map(item => (
-            <TopNavLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
-          ))}
+          {NAV.map(entry => {
+            if (entry.type === 'link') {
+              const active = isPathActive(entry.path)
+              return (
+                <NavLink
+                  key={entry.path}
+                  to={entry.path}
+                  end={entry.path === '/'}
+                  onClick={onClose}
+                  title={collapsed ? entry.label : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: collapsed ? '12px 0' : '10px 16px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    color: active ? sbActiveText : sbText,
+                    borderLeft: active ? `2px solid ${sbActive}` : '2px solid transparent',
+                    fontFamily: 'Oswald, sans-serif',
+                    fontSize: '0.78rem',
+                    letterSpacing: '1px',
+                    textDecoration: 'none',
+                    backgroundColor: active ? activeBg : 'transparent',
+                  }}
+                >
+                  <span style={{ fontSize: 10, color: active ? sbActive : sbMuted }}>{entry.icon}</span>
+                  {!collapsed && <span>{entry.label}</span>}
+                </NavLink>
+              )
+            }
 
-          {/* Grupos colapsables */}
-          {GROUPS.map(group => {
-            const visibleItems = filterItems(group.items)
-            if (visibleItems.length === 0) return null
-            const isOpen = openGroups[group.key]
+            // group
+            const groupActive = entry.items.some(i => !i.placeholder && isPathActive(i.path))
+            const isOpenGroup = openGroup === entry.label || (collapsed && groupActive)
 
             return (
-              <Fragment key={group.key}>
-                {/* Cabecera de grupo */}
-                {collapsed ? (
-                  <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.key)}
+              <div key={entry.label}>
+                {!collapsed && (
+                  <div
+                    onClick={() => setOpenGroup(prev => prev === entry.label ? null : entry.label)}
                     style={{
-                      fontFamily: 'Oswald, sans-serif',
-                      fontSize: '0.62rem',
-                      color: groupHeaderColor,
-                      textTransform: 'uppercase',
-                      letterSpacing: '2px',
-                      padding: '10px 18px',
-                      cursor: 'pointer',
-                      background: 'transparent',
-                      border: 'none',
-                      width: '100%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      padding: '8px 16px',
+                      color: sbMuted,
+                      fontFamily: 'Oswald, sans-serif',
+                      fontSize: '0.6rem',
+                      letterSpacing: '2px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      marginTop: 4,
                     }}
-                    className="hover:!text-[var(--sl-text-primary)] transition-colors"
                   >
-                    <span>{group.label}</span>
-                    <span style={{ fontSize: 10 }}>{isOpen ? '▼' : '▶'}</span>
-                  </button>
+                    <span>{entry.label}</span>
+                    <span style={{ fontSize: 10 }}>{isOpenGroup ? '▼' : '▶'}</span>
+                  </div>
                 )}
+                {collapsed && <div style={{ height: 1, background: sbBorder, margin: '8px 10px' }} />}
 
-                {/* Items del grupo */}
-                {(collapsed || isOpen) && visibleItems.map(item => (
-                  <GroupChild key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
-                ))}
-              </Fragment>
+                {isOpenGroup && entry.items.map(item => {
+                  const itemActive = !item.placeholder && isPathActive(item.path)
+
+                  if (item.placeholder) {
+                    return (
+                      <div
+                        key={item.path}
+                        title={collapsed ? `${item.label} (próximamente)` : undefined}
+                        style={{
+                          opacity: 0.35,
+                          cursor: 'default',
+                          padding: collapsed ? '7px 10px' : '7px 16px 7px 28px',
+                          fontSize: '0.75rem',
+                          color: sbText,
+                          fontFamily: 'Lexend, sans-serif',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {collapsed ? item.label.charAt(0) : item.label}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div
+                      key={item.path}
+                      onClick={() => goTo(item.path)}
+                      title={collapsed ? item.label : undefined}
+                      style={{
+                        padding: collapsed ? '7px 10px' : '7px 16px 7px 28px',
+                        fontSize: '0.75rem',
+                        color: itemActive ? sbActiveText : sbText,
+                        borderLeft: itemActive ? `2px solid ${sbActive}` : '2px solid transparent',
+                        fontFamily: 'Lexend, sans-serif',
+                        cursor: 'pointer',
+                        backgroundColor: itemActive ? activeBg : 'transparent',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {collapsed ? item.label.charAt(0) : item.label}
+                    </div>
+                  )
+                })}
+              </div>
             )
           })}
-
-          {/* Separator antes de config */}
-          {collapsed ? (
-            <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
-          ) : (
-            <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 18px' }} />
-          )}
-
-          {/* CONFIGURACIÓN — siempre visible al final */}
-          {filterItems([CONFIGURACION]).map(item => (
-            <TopNavLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
-          ))}
         </nav>
 
         {/* Theme toggle */}
         {!collapsed && (
-          <div style={{ marginTop: 'auto', padding: '12px', borderTop: '1px solid var(--sl-border)' }}>
+          <div style={{ marginTop: 'auto', padding: 12, borderTop: `1px solid ${sbBorder}` }}>
             <ThemeToggle />
           </div>
         )}
 
         {/* Footer user */}
         <div
-          className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`}
-          style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)' }}
+          className={collapsed ? 'text-center' : ''}
+          style={{
+            padding: 12,
+            borderTop: `1px solid ${sbBorder}`,
+            fontFamily: 'Lexend, sans-serif',
+            fontSize: 12,
+            color: sbMuted,
+          }}
         >
           {!collapsed ? (
             <>
-              <div className="mb-2 truncate">
-                {usuario?.nombre} — <span className="text-accent">{usuario?.perfil}</span>
+              <div className="mb-2 truncate" style={{ color: sbText }}>
+                {usuario?.nombre} — <span style={{ color: sbActive }}>{usuario?.perfil}</span>
               </div>
               <button
                 onClick={logout}
-                className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-xs"
+                style={{ color: sbMuted, background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                className="hover:!text-[var(--sl-border-error)] transition-colors"
               >Cerrar sesión</button>
             </>
           ) : (
             <button
               onClick={logout}
-              className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-sm"
+              style={{ color: sbMuted, background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
+              className="hover:!text-[var(--sl-border-error)] transition-colors"
               title="Cerrar sesión"
             >⏏</button>
           )}
