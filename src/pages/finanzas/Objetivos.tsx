@@ -396,7 +396,7 @@ export default function Objetivos() {
   const sorted = TIPO_ORDER.map(t => generales.find(o => o.tipo === t)).filter(Boolean) as ObjetivoGeneral[]
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', maxWidth: 900 }}>
 
       {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -592,40 +592,6 @@ export default function Objetivos() {
                     </div>
                   </>
                 )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Festivos Madrid */}
-      <div style={sectionLabel}>Festivos Madrid {new Date().getFullYear()}</div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 10 }}>
-          Calendario laboral Madrid capital. Considera crear objetivos específicos para estas fechas.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
-          {FESTIVOS_MADRID_2026.map(f => {
-            const d = new Date(f.fecha + 'T12:00:00')
-            const diaSem = ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]
-            const fechaStr = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-            return (
-              <div key={f.fecha} style={{
-                padding: '8px 10px',
-                background: isDark ? '#2a1500' : '#fff3e0',
-                border: `1px solid ${isDark ? '#f5a623' : '#f5a623'}`,
-                borderRadius: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 6,
-              }}>
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {f.nombre}
-                </span>
-                <span style={{ fontFamily: FONT.heading, fontSize: 11, color: '#f5a623', letterSpacing: '0.5px', flexShrink: 0 }}>
-                  {diaSem} {fechaStr}
-                </span>
               </div>
             )
           })}
