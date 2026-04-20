@@ -26,7 +26,7 @@ export function NavIcon({ section, collapsed, isDark, active = false, size = 24 
   const sectionColor = SECTION_COLORS[section] ?? '#9ba8c0'
   const strokeColor = collapsed
     ? (active ? (isDark ? '#e8f442' : '#B01D23') : (isDark ? '#c8d0e8' : '#3a4050'))
-    : sectionColor
+    : (active ? '#1a1a1a' : sectionColor)
   const strokeW = collapsed ? 1.5 : 2
 
   const svgProps = {
