@@ -398,7 +398,7 @@ export default function Dashboard() {
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap' }}>
           <span style={{
             fontFamily:'Oswald,sans-serif',
-            fontSize:22,
+            fontSize:15,
             letterSpacing:'3px',
             textTransform:'uppercase',
             color:T.emphasis,
