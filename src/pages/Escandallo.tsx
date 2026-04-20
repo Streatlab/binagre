@@ -40,19 +40,25 @@ export default function Escandallo() {
     setLoading(true)
     setError(null)
     try {
-      const [ingRes, merRes, epsRes, recRes] = await Promise.all([
+      const [ingRes, merRes, epsRes, recRes, recLinRes] = await Promise.all([
         supabase.from('ingredientes').select('*').order('nombre_base', { nullsFirst: false }).order('nombre'),
         supabase.from('mermas').select('*').order('nombre_base', { nullsFirst: false }),
         supabase.from('eps').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
         supabase.from('recetas').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
+        supabase.from('recetas_lineas').select('eps_id').not('eps_id', 'is', null),
       ])
       if (ingRes.error) throw ingRes.error
       if (merRes.error) throw merRes.error
       if (epsRes.error) throw epsRes.error
       if (recRes.error) throw recRes.error
+      const usosEps: Record<string, number> = {}
+      ;(recLinRes.data ?? []).forEach(l => {
+        if (!l.eps_id) return
+        usosEps[l.eps_id] = (usosEps[l.eps_id] ?? 0) + 1
+      })
       setIngredientes(ingRes.data ?? [])
       setMermas(merRes.data ?? [])
-      setEpsList(epsRes.data ?? [])
+      setEpsList((epsRes.data ?? []).map(e => ({ ...e, usos: usosEps[e.id] ?? 0 })))
       setRecetasList(recRes.data ?? [])
     } catch (e: any) {
       setError(e.message || 'Error cargando datos')
