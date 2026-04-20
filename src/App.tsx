@@ -25,6 +25,9 @@ import PrediccionDemanda from '@/pages/analytics/PrediccionDemanda'
 // Cocina
 import CocinaRecetas from '@/pages/CocinaRecetas'
 
+// Marketing
+import MarketingEmbudo from '@/pages/MarketingEmbudo'
+
 // Operaciones
 import ControlTemperaturas from '@/pages/ops/ControlTemperaturas'
 import ChecklistsAperturaCierre from '@/pages/ops/ChecklistsAperturaCierre'
@@ -123,6 +126,7 @@ function AppRoutes() {
         <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
 
         {/* Marketing */}
+        <Route path="marketing/embudo" element={<MarketingEmbudo />} />
         <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
         {/* Catch-all */}
