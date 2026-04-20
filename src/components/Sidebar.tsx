@@ -338,7 +338,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   textDecoration: 'none',
                   cursor: 'pointer',
                   transition: 'background 150ms',
-                })}>
+                })}
+                className={({ isActive }) => `sl-nav-item${isActive ? ' sl-nav-active' : ''}`}>
                 {({ isActive }) => (
                   <>
                     <NavIcon section="panel" collapsed={false} isDark={isDark} active={isActive} size={24} />
@@ -429,8 +430,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           whiteSpace: 'nowrap' as const,
                           overflow: 'hidden',
                         })}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--sl-hover)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        className={({ isActive }) => `sl-nav-item${isActive ? ' sl-nav-active' : ''}`}
                       >
                         {({ isActive }) => (
                           <>

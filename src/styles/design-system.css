@@ -340,6 +340,9 @@ html, body {
 }
 .ds-btn-cancel:hover { filter: brightness(1.15); }
 
+/* ── Nav item hover (no destruir activo) ── */
+.sl-nav-item:not(.sl-nav-active):hover { background: var(--sl-hover) !important; }
+
 /* ── Scrollbar ── */
 * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-app); }
 ::-webkit-scrollbar { height: 10px; width: 10px; }
