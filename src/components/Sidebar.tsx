@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
-import { ThemeToggle } from './ThemeToggle'
+import { useTheme } from '../contexts/ThemeContext'
+import { NavIcon } from './NavIcon'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
@@ -206,6 +207,8 @@ function LogoSL({ small = false }: { small?: boolean }) {
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
   const perfil = usuario?.perfil ?? ''
   // FIFO accordion: max 2 sections open simultaneously
   const [openSections, setOpenSections] = useState<string[]>([])
@@ -246,20 +249,56 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: 'var(--sl-sidebar)' }}
+        style={{ background: 'var(--sl-sidebar)', position: 'relative' }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
-          flex flex-col transition-all duration-200 overflow-hidden
+          flex flex-col transition-all duration-200
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
           ${width}
         `}
       >
+        {/* Botón circular colapsar/expandir — flecha SVG rotatoria */}
+        <button
+          onClick={toggle}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: -12,
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            background: isDark ? '#2a3050' : '#e8e4de',
+            border: `1px solid ${isDark ? '#3a4058' : '#d0c8bc'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 10,
+            padding: 0,
+          }}
+          className="hidden lg:flex"
+          title={collapsed ? 'Expandir' : 'Colapsar'}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={isDark ? '#9ba8c0' : '#5a6478'}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s ease' }}
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
         {/* Header */}
         {collapsed ? (
-          <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
+          <div className="border-b border-[var(--sl-border)] flex items-center justify-center min-h-[72px] py-2">
             <LogoSL small />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
           <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
@@ -267,7 +306,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <LogoSL />
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} className="p-1.5 text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
           </div>
         )}
 
@@ -279,15 +317,15 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
-                {PANEL_GLOBAL.emoji}
+                style={({ isActive }) => ({ width: 56, height: 44, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
+                {({ isActive }) => <NavIcon section="panel" collapsed isDark={isDark} active={isActive} />}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
                 style={({ isActive }) => ({ ...itemStyle(isActive), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
                 {({ isActive }) => (
                   <>
-                    <span style={{ fontSize: 16 }}>{PANEL_GLOBAL.emoji}</span>
+                    <NavIcon section="panel" collapsed={false} isDark={isDark} active={isActive} size={16} />
                     <span style={{ color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)' }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
@@ -305,7 +343,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <div key={section.key}>
                 {/* Section header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: 'var(--sl-border)', margin: '6px 8px' }} />
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.key)}
+                    title={section.label}
+                    style={{
+                      width: 56, height: 40, background: 'none', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: isOpen ? 1 : 0.7,
+                    }}
+                  >
+                    <NavIcon section={section.key} collapsed isDark={isDark} active={isOpen} />
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -321,14 +370,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>{section.emoji}</span>
+                      <NavIcon section={section.key} collapsed={false} isDark={isDark} size={14} />
                       <span>{section.label}</span>
                     </div>
                     <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
                   </button>
                 )}
 
-                {/* Section items — animated */}
+                {/* Section items — animated (expanded) */}
                 {!collapsed && (
                   <div style={{ maxHeight: isOpen ? `${visibleItems.length * 44}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
                     {visibleItems.map((item, idx) => (
@@ -338,7 +387,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         end={item.path === '/'}
                         onClick={onClose}
                         style={({ isActive }) => itemStyle(isActive)}
-                        className={({ isActive }) => isActive ? '' : ''}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--sl-hover)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                       >
@@ -372,12 +420,48 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           })}
         </nav>
 
-        {/* Theme toggle */}
-        {!collapsed && (
-          <div style={{ padding: '12px', borderTop: '1px solid var(--sl-border)' }}>
-            <ThemeToggle />
-          </div>
-        )}
+        {/* Botón tema — sol/luna, siempre visible */}
+        <button
+          onClick={toggleTheme}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: collapsed ? 0 : 8,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            padding: collapsed ? '10px' : '10px 16px',
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            borderTop: `0.5px solid ${isDark ? '#2a3050' : '#d0c8bc'}`,
+          }}
+          title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+        >
+          {isDark ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="#9ba8c0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="#5a6478" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+            </svg>
+          )}
+          {!collapsed && (
+            <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 12, color: isDark ? '#9ba8c0' : '#5a6478' }}>
+              {isDark ? 'Modo claro' : 'Modo oscuro'}
+            </span>
+          )}
+        </button>
 
         {/* Footer user */}
         <div className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`} style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)' }}>
