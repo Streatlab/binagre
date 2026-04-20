@@ -6,10 +6,28 @@ interface NavIconProps {
   size?: number
 }
 
-export function NavIcon({ section, collapsed, isDark, active = false, size = 18 }: NavIconProps) {
-  const strokeColor = active
-    ? (isDark ? '#e8f442' : '#B01D23')
-    : (isDark ? '#c8d0e8' : '#3a4050')
+const SECTION_COLORS: Record<string, string> = {
+  panel:         '#e8f442',
+  finanzas:      '#06C167',
+  cocina:        '#f5a623',
+  operaciones:   '#9ba8c0',
+  stock:         '#f5a623',
+  pos:           '#66aaff',
+  marcas:        '#B01D23',
+  equipo:        '#9ba8c0',
+  clientes:      '#06C167',
+  informes:      '#378ADD',
+  configuracion: '#5a6880',
+}
+
+export function NavIcon({ section, collapsed, isDark, active = false, size = 24 }: NavIconProps) {
+  // Color expandido: cada sección su propio color
+  // Color colapsado: activo = acento tema; inactivo = gris contrastado
+  const sectionColor = SECTION_COLORS[section] ?? '#9ba8c0'
+  const strokeColor = collapsed
+    ? (active ? (isDark ? '#e8f442' : '#B01D23') : (isDark ? '#c8d0e8' : '#3a4050'))
+    : sectionColor
+  const strokeW = collapsed ? 1.5 : 2
 
   const svgProps = {
     width: size,
@@ -17,19 +35,10 @@ export function NavIcon({ section, collapsed, isDark, active = false, size = 18 
     viewBox: '0 0 24 24' as string,
     fill: 'none',
     stroke: strokeColor,
-    strokeWidth: 1.5,
+    strokeWidth: strokeW,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
     style: { flexShrink: 0 as const },
-  }
-
-  if (!collapsed) {
-    const emojis: Record<string, string> = {
-      panel: '🏠', finanzas: '📈', cocina: '🍳', operaciones: '⚙️',
-      stock: '📦', pos: '🚀', marcas: '🏷️', equipo: '👥',
-      clientes: '🤝', informes: '📊', configuracion: '⚙️',
-    }
-    return <span style={{ fontSize: size + 2, lineHeight: 1, flexShrink: 0 }}>{emojis[section] ?? '●'}</span>
   }
 
   switch (section) {

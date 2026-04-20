@@ -305,7 +305,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <LogoSL />
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: isDark ? '#f0f0ff' : '#111111', letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
           </div>
         )}
@@ -319,14 +319,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <NavLink to={PANEL_GLOBAL.path} end onClick={() => { toggle(); onClose() }} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
                 style={({ isActive }) => ({ width: 56, height: 44, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
-                {({ isActive }) => <NavIcon section="panel" collapsed isDark={isDark} active={isActive} />}
+                {({ isActive }) => <NavIcon section="panel" collapsed isDark={isDark} active={isActive} size={24} />}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
                 style={({ isActive }) => ({ ...itemStyle(isActive), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
                 {({ isActive }) => (
                   <>
-                    <NavIcon section="panel" collapsed={false} isDark={isDark} active={isActive} size={16} />
+                    <NavIcon section="panel" collapsed={false} isDark={isDark} active={isActive} size={24} />
                     <span style={{ color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)' }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
@@ -364,7 +364,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       opacity: isOpen ? 1 : 0.7,
                     }}
                   >
-                    <NavIcon section={section.key} collapsed isDark={isDark} active={isOpen} />
+                    <NavIcon section={section.key} collapsed isDark={isDark} active={isOpen} size={24} />
                   </button>
                 ) : (
                   <button
@@ -381,7 +381,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <NavIcon section={section.key} collapsed={false} isDark={isDark} size={14} />
+                      <NavIcon section={section.key} collapsed={false} isDark={isDark} size={24} />
                       <span>{section.label}</span>
                     </div>
                     <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
