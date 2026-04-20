@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Merma } from './types'
-import { thCls, tdCls, fmt, fmtPct, n } from './types'
-import { fmtNum } from '@/utils/format'
+import { thCls, tdCls, fmt, fmtPct, fmtPctFracES, n } from './types'
 
 interface Props {
   mermas: Merma[]
@@ -120,17 +119,17 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
                     <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-medium'}>{fmt(m.precio_total)}</td>
                     <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp1_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_peso_g, 0)}</td>
-                    <td className={tdCls + ' text-right'}>{m.sp1_pct != null ? fmtNum(m.sp1_pct * 100, 1) + '%' : ''}</td>
+                    <td className={tdCls + ' text-right'}>{fmtPctFracES(m.sp1_pct, 1)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp1_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp1_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
                     <td className={tdCls + ' text-[var(--sl-text-secondary)] text-xs'}>{m.sp2_nombre ?? '—'}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_peso_g, 0)}</td>
-                    <td className={tdCls + ' text-right'}>{m.sp2_pct != null ? fmtNum(m.sp2_pct * 100, 1) + '%' : ''}</td>
+                    <td className={tdCls + ' text-right'}>{fmtPctFracES(m.sp2_pct, 1)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.sp2_euros)}</td>
                     <td className={tdCls + ' text-center text-xs'}>{m.sp2_valorable ? <span className="text-[#16a34a]">Sí</span> : <span className="text-[var(--sl-text-muted)]">No</span>}</td>
                     <td className={tdCls + ' text-right'}>{fmtPct(m.pct_descarte)}</td>
-                    <td className={tdCls + ' text-right text-[#ea580c]'}>{m.pct_merma != null ? fmtNum(m.pct_merma * 100, 1) + '%' : ''}</td>
-                    <td className={tdCls + ' text-right text-[#16a34a]'}>{m.pct_limpio != null ? fmtNum(m.pct_limpio * 100, 1) + '%' : ''}</td>
+                    <td className={tdCls + ' text-right text-[#ea580c]'}>{fmtPctFracES(m.pct_merma, 1)}</td>
+                    <td className={tdCls + ' text-right text-[#16a34a]'}>{fmtPctFracES(m.pct_limpio, 1)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.eur_pieza_limpia, 4)}</td>
                     <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmt(m.eur_kg_neto, 4)}</td>
                     <td className={tdCls + ' text-right'}>{fmt(m.neto_kg, 3)}</td>

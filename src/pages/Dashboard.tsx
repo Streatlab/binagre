@@ -12,6 +12,7 @@ interface Row {
   glovo_pedidos: number; glovo_bruto: number
   je_pedidos: number; je_bruto: number
   web_pedidos: number; web_bruto: number
+  directa_pedidos: number; directa_bruto: number
   total_pedidos: number; total_bruto: number
 }
 interface CanalStat { nombre: string; bruto: number; neto: number; pct: number; pedidos: number }
@@ -21,7 +22,7 @@ interface WeekBar { label: string; total: number; uber: number; glovo: number; j
    CONSTANTS
    ═══════════════════════════════════════════════════════════ */
 
-const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,total_pedidos,total_bruto'
+const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 
 const CANAL_COLOR: Record<string, string> = {
   'Uber Eats':     '#06C167',
@@ -38,8 +39,6 @@ const COMISION: Record<string, { pct: number; fijo: number }> = {
   'Web Propia':    { pct: 0.07, fijo: 0.50 },
   'Venta Directa': { pct: 0.00, fijo: 0.00 },
 }
-
-const OBJETIVOS = { semanal: 5000, mensual: 20000, anual: 240000 }
 
 const TOP_PRODUCTOS_MOCK = [
   { nombre: 'Ramen Warriors',      canal: 'Uber Eats',      uds: 42, total: 796 },
@@ -175,6 +174,22 @@ export default function Dashboard() {
     return () => { cancelled = true }
   }, [])
 
+  const [objetivos, setObjetivos] = useState({ diario: 700, semanal: 5000, mensual: 20000, anual: 240000 })
+
+  useEffect(() => {
+    supabase.from('objetivos').select('tipo,importe').then(({ data }) => {
+      if (!data) return
+      const obj = { diario: 700, semanal: 5000, mensual: 20000, anual: 240000 }
+      for (const r of data) {
+        if (r.tipo === 'diario')   obj.diario   = Number(r.importe)
+        if (r.tipo === 'semanal')  obj.semanal  = Number(r.importe)
+        if (r.tipo === 'mensual')  obj.mensual  = Number(r.importe)
+        if (r.tipo === 'anual')    obj.anual    = Number(r.importe)
+      }
+      setObjetivos(obj)
+    })
+  }, [])
+
   /* ── derived data ──────────────────────────────────────── */
 
   const { desde, hasta } = useMemo(() => rangoFecha(periodo), [periodo])
@@ -190,21 +205,20 @@ export default function Dashboard() {
   const ticketMedio = pedidosPeriodo > 0 ? ventasPeriodo / pedidosPeriodo : 0
 
   const canalStats = useMemo((): CanalStat[] => {
-    const uber  = sumCanal(rowsPeriodo, 'uber_pedidos',  'uber_bruto')
-    const glovo = sumCanal(rowsPeriodo, 'glovo_pedidos', 'glovo_bruto')
-    const je    = sumCanal(rowsPeriodo, 'je_pedidos',    'je_bruto')
-    const web   = sumCanal(rowsPeriodo, 'web_pedidos',   'web_bruto')
-    const directaBruto = Math.max(0, ventasPeriodo - uber.bruto - glovo.bruto - je.bruto - web.bruto)
-    const directaPed   = Math.max(0, pedidosPeriodo - uber.pedidos - glovo.pedidos - je.pedidos - web.pedidos)
+    const uber    = sumCanal(rowsPeriodo, 'uber_pedidos',    'uber_bruto')
+    const glovo   = sumCanal(rowsPeriodo, 'glovo_pedidos',   'glovo_bruto')
+    const je      = sumCanal(rowsPeriodo, 'je_pedidos',      'je_bruto')
+    const web     = sumCanal(rowsPeriodo, 'web_pedidos',     'web_bruto')
+    const directa = sumCanal(rowsPeriodo, 'directa_pedidos', 'directa_bruto')
     const pct = (v: number) => ventasPeriodo > 0 ? (v / ventasPeriodo) * 100 : 0
     return [
-      { nombre: 'Uber Eats',     bruto: uber.bruto,   neto: calcNeto(uber.bruto, uber.pedidos, 'Uber Eats'),       pct: pct(uber.bruto),   pedidos: uber.pedidos },
-      { nombre: 'Glovo',         bruto: glovo.bruto,  neto: calcNeto(glovo.bruto, glovo.pedidos, 'Glovo'),         pct: pct(glovo.bruto),  pedidos: glovo.pedidos },
-      { nombre: 'Just Eat',      bruto: je.bruto,     neto: calcNeto(je.bruto, je.pedidos, 'Just Eat'),            pct: pct(je.bruto),     pedidos: je.pedidos },
-      { nombre: 'Web Propia',    bruto: web.bruto,    neto: calcNeto(web.bruto, web.pedidos, 'Web Propia'),        pct: pct(web.bruto),    pedidos: web.pedidos },
-      { nombre: 'Venta Directa', bruto: directaBruto, neto: directaBruto,                                         pct: pct(directaBruto), pedidos: directaPed },
+      { nombre: 'Uber Eats',     bruto: uber.bruto,    neto: calcNeto(uber.bruto, uber.pedidos, 'Uber Eats'),    pct: pct(uber.bruto),    pedidos: uber.pedidos },
+      { nombre: 'Glovo',         bruto: glovo.bruto,   neto: calcNeto(glovo.bruto, glovo.pedidos, 'Glovo'),      pct: pct(glovo.bruto),   pedidos: glovo.pedidos },
+      { nombre: 'Just Eat',      bruto: je.bruto,      neto: calcNeto(je.bruto, je.pedidos, 'Just Eat'),         pct: pct(je.bruto),      pedidos: je.pedidos },
+      { nombre: 'Web Propia',    bruto: web.bruto,     neto: calcNeto(web.bruto, web.pedidos, 'Web Propia'),     pct: pct(web.bruto),     pedidos: web.pedidos },
+      { nombre: 'Venta Directa', bruto: directa.bruto, neto: directa.bruto,                                      pct: pct(directa.bruto), pedidos: directa.pedidos },
     ].filter(c => c.bruto > 0)
-  }, [rowsPeriodo, ventasPeriodo, pedidosPeriodo])
+  }, [rowsPeriodo, ventasPeriodo])
 
   const weekBars = useMemo((): WeekBar[] => {
     const map = new Map<string, WeekBar>()
@@ -213,12 +227,12 @@ export default function Dashboard() {
       const { year, week } = isoWeek(r.fecha)
       const key = `${year}-${String(week).padStart(2,'0')}`
       const prev = map.get(key) ?? { label: `S${week}`, total: 0, uber: 0, glovo: 0, je: 0, web: 0, directa: 0, isCurrent: key === currentWeekKey }
-      prev.total  += r.total_bruto || 0
-      prev.uber   += r.uber_bruto  || 0
-      prev.glovo  += r.glovo_bruto || 0
-      prev.je     += r.je_bruto    || 0
-      prev.web    += r.web_bruto   || 0
-      prev.directa = Math.max(0, prev.total - prev.uber - prev.glovo - prev.je - prev.web)
+      prev.total   += r.total_bruto   || 0
+      prev.uber    += r.uber_bruto    || 0
+      prev.glovo   += r.glovo_bruto   || 0
+      prev.je      += r.je_bruto      || 0
+      prev.web     += r.web_bruto     || 0
+      prev.directa += r.directa_bruto || 0
       map.set(key, prev)
     }
     return [...map.entries()].sort((a,b) => b[0].localeCompare(a[0])).slice(0,4).reverse().map(([,v]) => v)
@@ -236,7 +250,7 @@ export default function Dashboard() {
 
   const diaSemana = new Date().getDay() || 7
   const pctTiempoSemana = Math.round((diaSemana / 7) * 100)
-  const pctObjetivoSemana = OBJETIVOS.semanal > 0 ? Math.round((ventasSemana / OBJETIVOS.semanal) * 100) : 0
+  const pctObjetivoSemana = objetivos.semanal > 0 ? Math.round((ventasSemana / objetivos.semanal) * 100) : 0
 
   const diasSemana = useMemo(() => {
     const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
@@ -263,8 +277,10 @@ export default function Dashboard() {
   const textMut  = isDark ? '#5a6880' : '#9ba0aa'
   const accent   = '#e8f442'
 
-  const card: React.CSSProperties = { backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 10, padding: '16px 18px' }
+  const card: React.CSSProperties = { backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 10, padding: '18px 20px' }
   const sectionLabel: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: '0.6rem', letterSpacing: '2px', textTransform: 'uppercase', color: textMut, marginBottom: 14 }
+  const groupBox: React.CSSProperties = { background: isDark ? '#131928' : '#f5f3ef', border: `1px solid ${isDark ? '#2a3050' : '#e2ddd6'}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }
+  const groupLabel: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: isDark ? '#5a6880' : '#9ba0aa', marginBottom: 16 }
 
   /* ── semáforo ──────────────────────────────────────────── */
   const semaforo = (pct: number) => pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
@@ -318,12 +334,12 @@ export default function Dashboard() {
       </div>
 
       {/* SECCIÓN 1 — KPIs período */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={sectionLabel}>{PERIODO_LABEL[periodo] ?? periodo}</div>
+      <div style={groupBox}>
+        <div style={groupLabel}>{PERIODO_LABEL[periodo] ?? periodo}</div>
         {ventasPeriodo === 0 ? (
           <div style={{ ...card, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
             {[
               { label:'Ventas período', valor: fmtEur(ventasPeriodo), sub:'bruto total' },
               { label:'Pedidos período', valor: Math.round(pedidosPeriodo).toString(), sub:'todos los canales' },
@@ -340,15 +356,18 @@ export default function Dashboard() {
       </div>
 
       {/* SECCIÓN 2 — Por canal */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={sectionLabel}>Por canal — {PERIODO_LABEL[periodo] ?? periodo}</div>
+      <div style={groupBox}>
+        <div style={groupLabel}>Por canal — {PERIODO_LABEL[periodo] ?? periodo}</div>
         {ventasPeriodo === 0 ? (
           <div style={{ ...card, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:16 }}>
             {canalStats.map(c => {
               const color = CANAL_COLOR[c.nombre] ?? '#888'
               const bg = hexAlpha(color, isDark ? 0.12 : 0.07)
+              const ratio = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
+              const semaforoColor = ratio >= 75 ? '#1D9E75' : ratio >= 55 ? '#f5a623' : '#E24B4A'
+              const semaforoLabel = ratio >= 75 ? 'Rentable' : ratio >= 55 ? 'Moderado' : 'Bajo margen'
               return (
                 <div key={c.nombre} style={{ borderRadius:10, padding:'14px 16px', backgroundColor:bg, border:`1px solid ${hexAlpha(color, 0.35)}` }}>
                   <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.62rem', letterSpacing:'1px', color, textTransform:'uppercase', marginBottom:6 }}>{c.nombre}</div>
@@ -357,7 +376,11 @@ export default function Dashboard() {
                   <div style={{ height:3, backgroundColor:hexAlpha(color,0.2), borderRadius:2, marginBottom:8 }}>
                     <div style={{ height:3, width:`${Math.min(c.pct,100)}%`, backgroundColor:color, borderRadius:2 }} />
                   </div>
-                  <div style={{ fontSize:'0.65rem', color:textMut }}>{c.pedidos} pedidos · {c.pct.toFixed(1)}%</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 8 }}>
+                    <span style={{ fontFamily:'Lexend, sans-serif', fontSize:11, color: semaforoColor }}>● {semaforoLabel}</span>
+                    <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, color: semaforoColor }}>{ratio.toFixed(1)}% neto</span>
+                  </div>
+                  <div style={{ fontSize:'0.65rem', color:textMut, marginTop:6 }}>{c.pedidos} pedidos · {c.pct.toFixed(1)}%</div>
                 </div>
               )
             })}
@@ -366,7 +389,9 @@ export default function Dashboard() {
       </div>
 
       {/* SECCIÓN 3 — Gráfico + Objetivos */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>
+      <div style={groupBox}>
+        <div style={groupLabel}>Tendencia y objetivos</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
 
         {/* Gráfico 4 semanas */}
         <div style={card}>
@@ -432,9 +457,9 @@ export default function Dashboard() {
         <div style={card}>
           <div style={sectionLabel}>Objetivos</div>
           {[
-            { label:'Semanal', valor:ventasSemana, objetivo:OBJETIVOS.semanal, sub:`S${nSemana}` },
-            { label:'Mensual', valor:ventasMes,    objetivo:OBJETIVOS.mensual, sub:'mes actual' },
-            { label:'Anual',   valor:ventasAno,    objetivo:OBJETIVOS.anual,   sub:new Date().getFullYear().toString() },
+            { label:'Semanal', valor:ventasSemana, objetivo:objetivos.semanal, sub:`S${nSemana}` },
+            { label:'Mensual', valor:ventasMes,    objetivo:objetivos.mensual, sub:'mes actual' },
+            { label:'Anual',   valor:ventasAno,    objetivo:objetivos.anual,   sub:new Date().getFullYear().toString() },
           ].map((obj, idx) => {
             const pct = obj.objetivo > 0 ? Math.min(Math.round((obj.valor / obj.objetivo) * 100), 100) : 0
             const color = semaforo(pct)
@@ -483,10 +508,13 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* SECCIÓN 4 — Top productos + Días pico + Ticket canal */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+      <div style={groupBox}>
+        <div style={groupLabel}>Productos y actividad</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
 
         {/* Top productos */}
         <div style={card}>
@@ -503,7 +531,7 @@ export default function Dashboard() {
               {TOP_PRODUCTOS_MOCK.map((p, idx) => {
                 const color = CANAL_COLOR[p.canal] ?? '#888'
                 return (
-                  <tr key={idx} style={{ borderBottom:`1px solid ${hexAlpha(border.replace(')',',0.5)').replace('rgb','rgba')}` }}>
+                  <tr key={idx} style={{ borderBottom:`1px solid ${hexAlpha(border, 0.5)}` }}>
                     <td style={{ fontSize:'0.7rem', color:textMut, textAlign:'right', padding:'7px 8px 7px 0' }}>{idx+1}</td>
                     <td style={{ fontSize:'0.75rem', color:textPri, padding:'7px 8px' }}>{p.nombre}</td>
                     <td style={{ padding:'7px 8px' }}>
@@ -575,6 +603,7 @@ export default function Dashboard() {
             )}
           </div>
 
+        </div>
         </div>
       </div>
 

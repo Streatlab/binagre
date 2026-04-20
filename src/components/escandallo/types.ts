@@ -1,5 +1,5 @@
 /* ── Tipos compartidos del módulo Escandallo ── */
-import { fmtNum, fmtDate } from '@/utils/format'
+import { fmtDate } from '@/utils/format'
 
 export interface Ingrediente {
   id: string
@@ -171,7 +171,7 @@ export const fmtES = (v: number | null | undefined, d = 2): string => {
 }
 
 export const fmtEurES = (v: number | null | undefined, d = 2): string => {
-  const s = fmtNum(v, d)
+  const s = fmtES(v, d)
   return s ? s + ' €' : ''
 }
 

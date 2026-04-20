@@ -1,6 +1,8 @@
-import { Fragment, useEffect, useState, useMemo, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum } from '@/utils/format'
+import { fmtEur } from '@/utils/format'
+
+const fmtInt = (n: number) => n.toLocaleString('es-ES')
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -18,6 +20,8 @@ interface RawDiario extends AggRow {
   id: number
   fecha: string
   servicio: string
+  directa_pedidos: number
+  directa_bruto: number
 }
 
 interface SemanaGroup extends AggRow {
@@ -56,7 +60,7 @@ const MES_NOMBRE: Record<number, string> = {
 }
 
 const SELECT_DIARIO =
-  'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,total_pedidos,total_bruto'
+  'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -272,10 +276,10 @@ export default function Facturacion() {
       {/* Global KPIs */}
       {!loading && !error && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <KpiCard label="Hoy" valor={fmtEur(kpiHoy.bruto)} sub={`${fmtNum(kpiHoy.pedidos, 0)} pedidos`} />
-          <KpiCard label="Semana actual" valor={fmtEur(kpiSemana.bruto)} sub={`${fmtNum(kpiSemana.pedidos, 0)} pedidos`} />
-          <KpiCard label="Mes actual" valor={fmtEur(kpiMes.bruto)} sub={`${fmtNum(kpiMes.pedidos, 0)} pedidos`} />
-          <KpiCard label={`Ano ${currentYear}`} valor={fmtEur(kpiAnio.bruto)} sub={`${fmtNum(kpiAnio.pedidos, 0)} pedidos`} />
+          <KpiCard label="Hoy" valor={fmtEur(kpiHoy.bruto)} sub={`${fmtInt(kpiHoy.pedidos)} pedidos`} />
+          <KpiCard label="Semana actual" valor={fmtEur(kpiSemana.bruto)} sub={`${fmtInt(kpiSemana.pedidos)} pedidos`} />
+          <KpiCard label="Mes actual" valor={fmtEur(kpiMes.bruto)} sub={`${fmtInt(kpiMes.pedidos)} pedidos`} />
+          <KpiCard label={`Ano ${currentYear}`} valor={fmtEur(kpiAnio.bruto)} sub={`${fmtInt(kpiAnio.pedidos)} pedidos`} />
         </div>
       )}
 
@@ -411,7 +415,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
       {/* Summary strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtNum(getPed(totals, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
         <MiniKpi label="Ticket medio" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
         <MiniKpi label="Media diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
       </div>
@@ -473,12 +477,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                           </Fragment>
                         )
                       })}
-                      <td className="px-2 py-2 text-right text-[var(--sl-text-primary)] font-medium tabular-nums border-l border-border">{fmtNum(r.total_pedidos, 0)}</td>
+                      <td className="px-2 py-2 text-right text-[var(--sl-text-primary)] font-medium tabular-nums border-l border-border">{fmtInt(r.total_pedidos)}</td>
                       <td className="px-2 py-2 text-right text-[var(--sl-text-primary)] font-semibold tabular-nums">{fmtEur(r.total_bruto)}</td>
                     </>
                   ) : (
                     <>
-                      <td className="px-3 py-2 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(getPed(r, canal))}</td>
+                      <td className="px-3 py-2 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(r, canal))}</td>
                       <td className="px-3 py-2 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(getBru(r, canal))}</td>
                     </>
                   )}
@@ -492,16 +496,16 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                   <>
                     {COLS.map(c => (
                       <Fragment key={c.label}>
-                        <td className="px-2 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">{fmtNum(totals[c.ped] as number, 0)}</td>
+                        <td className="px-2 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">{fmtInt(totals[c.ped] as number)}</td>
                         <td className="px-2 py-2.5 text-right text-neutral-200 tabular-nums">{fmtEur(totals[c.bru] as number)}</td>
                       </Fragment>
                     ))}
-                    <td className="px-2 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums border-l border-border">{fmtNum(totals.total_pedidos, 0)}</td>
+                    <td className="px-2 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums border-l border-border">{fmtInt(totals.total_pedidos)}</td>
                     <td className="px-2 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(totals.total_bruto)}</td>
                   </>
                 ) : (
                   <>
-                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(getPed(totals, canal))}</td>
+                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(totals, canal))}</td>
                     <td className="px-3 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
                   </>
                 )}
@@ -541,7 +545,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <MiniKpi label="Semanas" valor={String(rows.length)} />
         <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtNum(getPed(totals, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
         <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[var(--sl-text-secondary)] border border-border rounded-lg hover:text-[var(--sl-text-primary)] transition">
           Exportar CSV
         </button>
@@ -572,7 +576,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
                     <td className="px-4 py-2.5 text-[var(--sl-text-primary)] font-medium">S{r.week}</td>
                     <td className="px-4 py-2.5 text-[var(--sl-text-secondary)]">{r.periodo}</td>
                     <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(ped, 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(ped)}</td>
                     <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
@@ -586,7 +590,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
             <tfoot>
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-[var(--sl-text-primary)]" colSpan={3}>TOTAL</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(getPed(totals, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(totals, canal))}</td>
                 <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
@@ -634,10 +638,10 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
       ? ['Mes', 'Dias', 'UE', 'Glovo', 'JE', 'Web', 'Total Ped', 'Total Bruto', 'Media Diaria', 'vs Anterior']
       : ['Mes', 'Dias', 'Pedidos', 'Bruto', 'Media Diaria', 'vs Anterior']
     const csvRows = rows.map(r => {
-      const vs = r.vs_anterior !== null ? fmtNum(r.vs_anterior, 1) + '%' : ''
+      const vs = r.vs_anterior !== null ? r.vs_anterior.toFixed(1) + '%' : ''
       return showBreakdown
-        ? [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.total_pedidos, r.total_bruto, fmtNum(r.media_diaria, 2), vs]
-        : [MES_NOMBRE[r.mes], r.dias, getPed(r, canal), getBru(r, canal), fmtNum(r.media_diaria, 2), vs]
+        ? [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.total_pedidos, r.total_bruto, r.media_diaria.toFixed(2), vs]
+        : [MES_NOMBRE[r.mes], r.dias, getPed(r, canal), getBru(r, canal), r.media_diaria.toFixed(2), vs]
     })
     downloadCSV(`facturacion_meses_${selYear}.csv`, headers, csvRows)
   }
@@ -654,7 +658,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
           </select>
         )}
         <MiniKpi label="Bruto anual" valor={fmtEur(getBru(yearTotal, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtNum(getPed(yearTotal, canal))} />
+        <MiniKpi label="Pedidos" valor={fmtInt(getPed(yearTotal, canal))} />
         <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
         <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[var(--sl-text-secondary)] border border-border rounded-lg hover:text-[var(--sl-text-primary)] transition">
           Exportar CSV
@@ -685,7 +689,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
                   <tr key={r.mes} className="hover:bg-[var(--sl-card)]/[0.02] transition-colors">
                     <td className="px-4 py-2.5 text-[var(--sl-text-primary)] font-medium">{MES_NOMBRE[r.mes]}</td>
                     <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(ped, 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(ped)}</td>
                     <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(bru)}</td>
                     {showBreakdown && COLS.map(c => (
                       <td key={c.label} className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
@@ -706,7 +710,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
               <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
                 <td className="px-4 py-2.5 text-[var(--sl-text-primary)]">{selYear} TOTAL</td>
                 <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{yearTotal.dias}</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtNum(getPed(yearTotal, canal))}</td>
+                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(yearTotal, canal))}</td>
                 <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(yearTotal, canal))}</td>
                 {showBreakdown && COLS.map(c => (
                   <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
@@ -733,15 +737,16 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
 interface FormFields {
   uber_pedidos: string; uber_bruto: string
   glovo_pedidos: string; glovo_bruto: string
-  je_pedidos: string; je_bruto: string
+  je_ped: string; je_bru: string
   web_pedidos: string; web_bruto: string
+  directa_ped: string; directa_bru: string
 }
 
-const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields }[] = [
-  { label: 'Uber Eats', ped: 'uber_pedidos', bru: 'uber_bruto' },
-  { label: 'Glovo',     ped: 'glovo_pedidos', bru: 'glovo_bruto' },
-  { label: 'Just Eat',  ped: 'je_pedidos',    bru: 'je_bruto' },
-  { label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto' },
+const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields; color?: string }[] = [
+  { label: 'Uber Eats',     ped: 'uber_pedidos',  bru: 'uber_bruto' },
+  { label: 'Glovo',         ped: 'glovo_pedidos', bru: 'glovo_bruto' },
+  { label: 'Web',           ped: 'web_pedidos',   bru: 'web_bruto' },
+  { label: 'Venta Directa', ped: 'directa_ped',   bru: 'directa_bru', color: '#66aaff' },
 ]
 
 function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
@@ -749,16 +754,44 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
   const [fecha, setFecha] = useState(existing?.fecha ?? '')
   const [servicio, setServicio] = useState(existing?.servicio ?? 'ALM')
   const [fields, setFields] = useState<FormFields>(() => {
-    if (!existing) return { uber_pedidos: '', uber_bruto: '', glovo_pedidos: '', glovo_bruto: '', je_pedidos: '', je_bruto: '', web_pedidos: '', web_bruto: '' }
+    if (!existing) return {
+      uber_pedidos: '',  uber_bruto: '',
+      glovo_pedidos: '', glovo_bruto: '',
+      je_ped: '',        je_bru: '',
+      web_pedidos: '',   web_bruto: '',
+      directa_ped: '0',  directa_bru: '0.00',
+    }
     return {
-      uber_pedidos: String(existing.uber_pedidos || ''), uber_bruto: String(existing.uber_bruto || ''),
+      uber_pedidos: String(existing.uber_pedidos || ''),   uber_bruto: String(existing.uber_bruto || ''),
       glovo_pedidos: String(existing.glovo_pedidos || ''), glovo_bruto: String(existing.glovo_bruto || ''),
-      je_pedidos: String(existing.je_pedidos || ''), je_bruto: String(existing.je_bruto || ''),
-      web_pedidos: String(existing.web_pedidos || ''), web_bruto: String(existing.web_bruto || ''),
+      je_ped: String(existing.je_pedidos || ''),           je_bru: String(existing.je_bruto || ''),
+      web_pedidos: String(existing.web_pedidos || ''),     web_bruto: String(existing.web_bruto || ''),
+      directa_ped: String(existing.directa_pedidos || 0),  directa_bru: String(existing.directa_bruto || 0),
     }
   })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
+  const [jeItems, setJeItems] = useState<number[]>(
+    existing && (existing.je_bruto ?? 0) > 0 ? [existing.je_bruto] : []
+  )
+  const [jeInput, setJeInput] = useState('')
+
+  useEffect(() => {
+    const total = jeItems.reduce((a, b) => a + b, 0)
+    setFields(f => ({ ...f, je_ped: String(jeItems.length), je_bru: total.toFixed(2) }))
+  }, [jeItems])
 
   const set = (k: keyof FormFields, v: string) => setFields(p => ({ ...p, [k]: v }))
 
@@ -767,26 +800,29 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     setFormError(null)
     if (!fecha) { setFormError('Selecciona una fecha'); return }
 
-    const uber_ped = parseInt(fields.uber_pedidos) || 0
+    const uber_ped = Math.round(parseFloat(fields.uber_pedidos) || 0)
     const uber_bru = parseFloat(fields.uber_bruto) || 0
-    const glovo_ped = parseInt(fields.glovo_pedidos) || 0
+    const glovo_ped = Math.round(parseFloat(fields.glovo_pedidos) || 0)
     const glovo_bru = parseFloat(fields.glovo_bruto) || 0
-    const je_ped = parseInt(fields.je_pedidos) || 0
-    const je_bru = parseFloat(fields.je_bruto) || 0
-    const web_ped = parseInt(fields.web_pedidos) || 0
+    const je_ped = Math.round(parseFloat(fields.je_ped) || 0)
+    const je_bru = parseFloat(fields.je_bru) || 0
+    const web_ped = Math.round(parseFloat(fields.web_pedidos) || 0)
     const web_bru = parseFloat(fields.web_bruto) || 0
-    const tot_ped = uber_ped + glovo_ped + je_ped + web_ped
-    const tot_bru = uber_bru + glovo_bru + je_bru + web_bru
+    const directa_ped = Math.round(parseFloat(fields.directa_ped) || 0)
+    const directa_bru = parseFloat(fields.directa_bru) || 0
+    const tot_ped = uber_ped + glovo_ped + je_ped + web_ped + directa_ped
+    const tot_bru = uber_bru + glovo_bru + je_bru + web_bru + directa_bru
 
     if (tot_ped === 0 && tot_bru === 0) { setFormError('Introduce datos en al menos un canal'); return }
 
     const payload = {
       fecha, servicio,
-      uber_pedidos: uber_ped, uber_bruto: uber_bru,
-      glovo_pedidos: glovo_ped, glovo_bruto: glovo_bru,
-      je_pedidos: je_ped, je_bruto: je_bru,
-      web_pedidos: web_ped, web_bruto: web_bru,
-      total_pedidos: tot_ped, total_bruto: tot_bru,
+      uber_pedidos: uber_ped,       uber_bruto: uber_bru,
+      glovo_pedidos: glovo_ped,     glovo_bruto: glovo_bru,
+      je_pedidos: je_ped,           je_bruto: je_bru,
+      web_pedidos: web_ped,         web_bruto: web_bru,
+      directa_pedidos: directa_ped, directa_bruto: directa_bru,
+      total_pedidos: tot_ped,       total_bruto: tot_bru,
     }
 
     setSaving(true)
@@ -798,6 +834,38 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     if (error) { setFormError(error.message); return }
     onSaved()
   }
+
+  const inputStyle: CSSProperties = {
+    width: '100%',
+    background: isDark ? '#3a4058' : '#ffffff',
+    color: isDark ? '#f0f0ff' : '#111111',
+    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
+    borderRadius: 8,
+    padding: '8px 12px',
+    fontSize: 13,
+    fontFamily: 'Lexend, sans-serif',
+    outline: 'none',
+  }
+
+  const renderCanalCard = (c: typeof FORM_COLS[number]) => (
+    <div key={c.label} className="bg-base/50 border border-border rounded-lg p-3">
+      <p className="text-xs font-medium mb-2" style={c.color ? { color: c.color, fontFamily: 'Oswald, sans-serif', letterSpacing: 1, textTransform: 'uppercase' } : { color: 'var(--sl-text-secondary)' }}>{c.label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Pedidos</label>
+          <input type="number" min="0" placeholder="0" value={fields[c.ped]}
+            onChange={e => set(c.ped, e.target.value)}
+            style={inputStyle} />
+        </div>
+        <div>
+          <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Bruto (EUR)</label>
+          <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
+            onChange={e => set(c.bru, e.target.value)}
+            style={inputStyle} />
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
@@ -811,7 +879,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
             <div>
               <label className="block text-xs text-[var(--sl-text-secondary)] mb-1">Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[var(--sl-text-primary)]" />
+                style={inputStyle} />
             </div>
             <div>
               <label className="block text-xs text-[var(--sl-text-secondary)] mb-1">Servicio</label>
@@ -825,25 +893,78 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
               </div>
             </div>
           </div>
-          {FORM_COLS.map(c => (
-            <div key={c.label} className="bg-base/50 border border-border rounded-lg p-3">
-              <p className="text-xs text-[var(--sl-text-secondary)] font-medium mb-2">{c.label}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Pedidos</label>
-                  <input type="number" min="0" placeholder="0" value={fields[c.ped]}
-                    onChange={e => set(c.ped, e.target.value)}
-                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)]" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Bruto (EUR)</label>
-                  <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
-                    onChange={e => set(c.bru, e.target.value)}
-                    className="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)]" />
-                </div>
-              </div>
+
+          {/* Uber + Glovo */}
+          {FORM_COLS.slice(0, 2).map(renderCanalCard)}
+
+          {/* Just Eat accumulator */}
+          <div style={{ background: isDark ? '#2a2000' : '#fffbf0', borderRadius: 10, padding: 14, border: '1px solid #f5a623' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10 }}>
+              <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>
+              {jeItems.length > 0 && (
+                <span style={{ fontFamily:'Lexend, sans-serif', fontSize:12, color: isDark ? '#9ba8c0' : '#5a6478' }}>
+                  {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
+                </span>
+              )}
             </div>
-          ))}
+
+            {jeItems.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap: 4, marginBottom: 10 }}>
+                {jeItems.map((item, idx) => (
+                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', borderRadius: 6, background: isDark ? '#1a1f32' : '#ffffff', border: `1px solid ${isDark ? '#3a4058' : '#e5d5a0'}` }}>
+                    <span style={{ fontFamily:'Lexend, sans-serif', fontSize:13, color: isDark ? '#f0f0ff' : '#111' }}>{item.toFixed(2)} €</span>
+                    <button type="button" onClick={() => setJeItems(p => p.filter((_,i) => i !== idx))}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'#E24B4A', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display:'flex', gap: 8 }}>
+              <input
+                type="number" step="0.01" min="0"
+                placeholder="Importe pedido (€)"
+                value={jeInput}
+                onChange={e => setJeInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const v = parseFloat(jeInput)
+                    if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 8,
+                  border: `1px solid ${isDark ? '#3a4058' : '#cccccc'}`,
+                  background: isDark ? '#3a4058' : '#ffffff',
+                  color: isDark ? '#f0f0ff' : '#111111',
+                  fontFamily: 'Lexend, sans-serif', fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const v = parseFloat(jeInput)
+                  if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
+                }}
+                style={{ padding: '8px 20px', borderRadius: 8, background: '#e8f442', color: '#1a1a00', border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600 }}
+              >+</button>
+            </div>
+
+            {jeItems.length > 0 && (
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: isDark ? '#1a1500' : '#fffde0', border: '1px solid #f5a623', display:'flex', justifyContent:'space-between' }}>
+                <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, letterSpacing:1, color:'#f5a623', textTransform:'uppercase' }}>Total</span>
+                <span style={{ fontFamily:'Oswald, sans-serif', fontSize:14, fontWeight:600, color: isDark ? '#f0f0ff' : '#111' }}>
+                  {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Web + Venta Directa */}
+          {FORM_COLS.slice(2).map(renderCanalCard)}
+
           {formError && <p className="text-[#dc2626] text-sm">{formError}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
@@ -927,7 +1048,7 @@ function DesvBadge({ pct }: { pct: number }) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
       pos ? 'bg-green-500/10 text-[#16a34a]' : 'bg-red-500/10 text-[#dc2626]'
-    }`}>{pos ? '▲' : '▼'} {fmtNum(Math.abs(pct), 1)}%</span>
+    }`}>{pos ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%</span>
   )
 }
 
