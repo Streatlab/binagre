@@ -261,7 +261,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         {/* Botón circular colapsar/expandir — flecha SVG rotatoria */}
         <button
-          onClick={toggle}
+          type="button"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); toggle() }}
           style={{
             position: 'absolute',
             top: 16,
