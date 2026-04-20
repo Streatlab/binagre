@@ -32,10 +32,6 @@ const CANAL_COLOR: Record<string, string> = {
   'Venta Directa': '#66aaff',
 }
 
-const CANAL_COLOR_LIGHT: Record<string, string> = {
-  'Glovo': '#b8a000',
-}
-
 const COMISION: Record<string, { pct: number; fijo: number }> = {
   'Uber Eats':     { pct: 0.30, fijo: 0.82 },
   'Glovo':         { pct: 0.25, fijo: 0.75 },
@@ -126,18 +122,6 @@ function rangoFecha(periodo: string): { desde: string; hasta: string } {
   }
 }
 
-const PERIODO_LABEL: Record<string, string> = {
-  semana_actual: 'Semana actual', semana_anterior: 'Semana anterior',
-  '7d': 'Últimos 7 días', '14d': 'Últimos 14 días', '30d': 'Últimos 30 días',
-  '60d': 'Últimos 60 días', '90d': 'Últimos 90 días',
-  mes_actual: 'Mes actual', mes_anterior: 'Mes anterior', ano_actual: 'Año actual',
-}
-
-function hexAlpha(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
-  return `rgba(${r},${g},${b},${alpha})`
-}
-
 /* ═══════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════ */
@@ -150,6 +134,9 @@ export default function Dashboard() {
   const [isDark, setIsDark] = useState(
     typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
   )
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < 768
+  )
 
   useEffect(() => {
     const obs = new MutationObserver(() =>
@@ -157,6 +144,12 @@ export default function Dashboard() {
     )
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   useEffect(() => {
@@ -257,36 +250,48 @@ export default function Dashboard() {
   const pctObjetivoSemana = objetivos.semanal > 0 ? Math.round((ventasSemana / objetivos.semanal) * 100) : 0
 
   const diasSemana = useMemo(() => {
-    const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+    const nombres = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
     const vals = [0,0,0,0,0,0,0]
     for (const r of rowsSemana) {
       const d = new Date(r.fecha + 'T12:00:00')
       const idx = (d.getDay() + 6) % 7
       vals[idx] += r.total_bruto || 0
     }
-    return dias.map((nombre, i) => ({ nombre, valor: vals[i] }))
+    return nombres.map((nombre, i) => ({ nombre, valor: vals[i] }))
   }, [rowsSemana])
 
   const ticketPorCanal = useMemo(() =>
     canalStats.filter(c => c.pedidos > 0).map(c => ({ nombre: c.nombre, ticket: c.bruto / c.pedidos }))
   , [canalStats])
 
+  const labelPeriodo = useMemo(() => {
+    const map: Record<string,string> = {
+      semana_actual: `Semana actual — S${nSemana}`,
+      semana_anterior: 'Semana anterior',
+      '7d': 'Últimos 7 días',
+      '14d': 'Últimos 14 días',
+      '30d': 'Últimos 30 días',
+      '60d': 'Últimos 60 días',
+      '90d': 'Últimos 90 días',
+      mes_actual: new Date().toLocaleDateString('es-ES',{month:'long',year:'numeric'}),
+      mes_anterior: (() => { const d=new Date(); d.setMonth(d.getMonth()-1); return d.toLocaleDateString('es-ES',{month:'long',year:'numeric'}) })(),
+      ano_actual: new Date().getFullYear().toString(),
+    }
+    return map[periodo] ?? periodo
+  }, [periodo, nSemana])
+
   /* ── tokens ────────────────────────────────────────────── */
 
-  const surface  = isDark ? '#1a1f32' : '#ffffff'
-  const border   = isDark ? '#2a3050' : '#e2ddd6'
-  const textPri  = isDark ? '#f0f0ff' : '#111111'
-  const textSec  = isDark ? '#9ba8c0' : '#3a4050'
-  const textMut  = isDark ? '#5a6880' : '#9ba0aa'
-  const accent   = '#e8f442'
-
-  const card: React.CSSProperties = { backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 10, padding: '18px 20px' }
-  const sectionLabel: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: '0.6rem', letterSpacing: '2px', textTransform: 'uppercase', color: textMut, marginBottom: 14 }
-  const groupBox: React.CSSProperties = { background: isDark ? '#131928' : '#f5f3ef', border: `1px solid ${isDark ? '#2a3050' : '#e2ddd6'}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }
-  const groupLabel: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: isDark ? '#5a6880' : '#9ba0aa', marginBottom: 16 }
-
-  /* ── semáforo ──────────────────────────────────────────── */
-  const semaforo = (pct: number) => pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
+  const surface   = isDark ? '#1a1f32' : '#ffffff'
+  const surface2  = isDark ? '#111827' : '#f0ede8'
+  const surfaceG  = isDark ? '#0d1120' : '#e8e4de'
+  const border    = isDark ? '#2a3050' : '#d0c8bc'
+  const textPri   = isDark ? '#f0f0ff' : '#111111'
+  const textSec   = isDark ? '#9ba8c0' : '#3a4050'
+  const textMut   = isDark ? '#5a6880' : '#7a8090'
+  const accent    = '#e8f442'
+  const glovoBadgeBg = isDark ? '#e8f442' : '#8a7800'
+  const glovoBadgeTx = isDark ? '#1a1a00' : '#ffffff'
 
   /* ── loading / error ───────────────────────────────────── */
 
@@ -297,15 +302,10 @@ export default function Dashboard() {
   )
 
   if (error) return (
-    <div style={{ ...card, textAlign:'center', padding:40 }}>
+    <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, textAlign:'center', padding:40 }}>
       <p style={{ color:'#E24B4A', fontSize:13 }}>{error}</p>
     </div>
   )
-
-  /* ── chart helpers ─────────────────────────────────────── */
-
-  const maxBarTotal = Math.max(...weekBars.map(w => w.total), 1)
-  const CANAL_NAMES = ['Uber Eats','Glovo','Just Eat','Web Propia','Venta Directa']
 
   /* ── render ────────────────────────────────────────────── */
 
@@ -313,15 +313,14 @@ export default function Dashboard() {
     <div style={{ fontFamily: 'Lexend, sans-serif' }}>
 
       {/* CABECERA */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
-        <h1 style={{ fontFamily:'Oswald, sans-serif', fontSize:'1.3rem', letterSpacing:'3px', textTransform:'uppercase', color:textSec, margin:0 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+        <h1 style={{ fontFamily:'Oswald,sans-serif', fontSize:'1.4rem', letterSpacing:'4px', textTransform:'uppercase', color:textSec, margin:0 }}>
           Panel Global
         </h1>
-        <select
-          value={periodo}
-          onChange={e => setPeriodo(e.target.value)}
-          style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${border}`, background:surface, color:textPri, fontFamily:'Lexend, sans-serif', fontSize:13, cursor:'pointer' }}
-        >
+        <select value={periodo} onChange={e=>setPeriodo(e.target.value)} style={{
+          padding:'8px 16px', borderRadius:8, border:`1px solid ${border}`,
+          background:surface, color:textPri, fontFamily:'Lexend,sans-serif', fontSize:13, cursor:'pointer'
+        }}>
           <option value="semana_actual">Semana actual</option>
           <option value="semana_anterior">Semana anterior</option>
           <option value="7d">Últimos 7 días</option>
@@ -335,55 +334,70 @@ export default function Dashboard() {
         </select>
       </div>
 
-      {/* SECCIÓN 1 — KPIs período */}
-      <div style={groupBox}>
-        <div style={groupLabel}>{PERIODO_LABEL[periodo] ?? periodo}</div>
+      {/* GRUPO 1 — KPIs del período */}
+      <div style={{ background:surfaceG, border:`1px solid ${border}`, borderRadius:16, padding:'22px 26px', marginBottom:24 }}>
+        <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2.5px', textTransform:'uppercase', color:textMut, marginBottom:18 }}>
+          {labelPeriodo}
+        </div>
         {ventasPeriodo === 0 ? (
-          <div style={{ ...card, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
+          <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,minmax(0,1fr))', gap:16 }}>
             {[
-              { label:'Ventas período', valor: fmtEur(ventasPeriodo), sub:'bruto total' },
-              { label:'Pedidos período', valor: Math.round(pedidosPeriodo).toString(), sub:'todos los canales' },
-              { label:'Ticket medio', valor: fmtEur(ticketMedio), sub:'bruto / pedido' },
+              { label:'Ventas período',  valor: fmtEur(ventasPeriodo),                      sub:'bruto total' },
+              { label:'Pedidos período', valor: Math.round(pedidosPeriodo).toLocaleString('es-ES'), sub:'todos los canales' },
+              { label:'Ticket medio',    valor: fmtEur(ticketMedio),                        sub:'bruto / pedido' },
             ].map(k => (
-              <div key={k.label} style={card}>
-                <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.58rem', letterSpacing:'1.5px', color:textMut, marginBottom:6, textTransform:'uppercase' }}>{k.label}</div>
-                <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'1.6rem', fontWeight:600, color:textPri, lineHeight:1.1 }}>{k.valor}</div>
-                <div style={{ fontSize:'0.68rem', color:textSec, marginTop:4 }}>{k.sub}</div>
+              <div key={k.label} style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut, marginBottom:8 }}>
+                  {k.label}
+                </div>
+                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'1.8rem', fontWeight:600, color:textPri, lineHeight:1, marginBottom:6 }}>
+                  {k.valor}
+                </div>
+                <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:textSec }}>{k.sub}</div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* SECCIÓN 2 — Por canal */}
-      <div style={groupBox}>
-        <div style={groupLabel}>Por canal — {PERIODO_LABEL[periodo] ?? periodo}</div>
-        {ventasPeriodo === 0 ? (
-          <div style={{ ...card, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
+      {/* GRUPO 2 — Por canal */}
+      <div style={{ background:surfaceG, border:`1px solid ${border}`, borderRadius:16, padding:'22px 26px', marginBottom:24 }}>
+        <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2.5px', textTransform:'uppercase', color:textMut, marginBottom:18 }}>
+          Por canal — {labelPeriodo}
+        </div>
+        {canalStats.length === 0 ? (
+          <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, textAlign:'center', color:textMut, fontSize:13, padding:32 }}>Sin datos para este período</div>
         ) : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:16 }}>
-            {canalStats.map(c => {
-              const color = CANAL_COLOR[c.nombre] ?? '#888'
-              const displayColor = isDark ? color : (CANAL_COLOR_LIGHT[c.nombre] ?? color)
-              const bg = hexAlpha(color, isDark ? 0.12 : 0.15)
-              const ratio = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
-              const semaforoColor = ratio >= 75 ? '#1D9E75' : ratio >= 55 ? '#f5a623' : '#E24B4A'
-              const semaforoLabel = ratio >= 75 ? 'Rentable' : ratio >= 55 ? 'Moderado' : 'Bajo margen'
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(180px,1fr))', gap:14 }}>
+            {canalStats.map(canal => {
+              const color = CANAL_COLOR[canal.nombre] ?? '#888'
+              const ratio = canal.bruto > 0 ? (canal.neto / canal.bruto) * 100 : 0
+              const semColor = ratio >= 75 ? '#1D9E75' : ratio >= 55 ? '#f5a623' : '#E24B4A'
+              const semLabel = ratio >= 75 ? 'Rentable' : ratio >= 55 ? 'Moderado' : 'Bajo margen'
+              const cardBg = isDark ? `${color}30` : `${color}20`
               return (
-                <div key={c.nombre} style={{ borderRadius:10, padding:'14px 16px', backgroundColor:bg, border:`1px solid ${hexAlpha(color, 0.35)}` }}>
-                  <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.62rem', letterSpacing:'1px', color: displayColor, textTransform:'uppercase', marginBottom:6 }}>{c.nombre}</div>
-                  <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'1.1rem', fontWeight:600, color:textPri, marginBottom:2 }}>{fmtEur(c.bruto)}</div>
-                  <div style={{ fontSize:'0.68rem', color:hexAlpha(displayColor, 0.85), marginBottom:8 }}>Neto {fmtEur(c.neto)}</div>
-                  <div style={{ height:3, backgroundColor:hexAlpha(color,0.2), borderRadius:2, marginBottom:8 }}>
-                    <div style={{ height:3, width:`${Math.min(c.pct,100)}%`, backgroundColor:color, borderRadius:2 }} />
+                <div key={canal.nombre} style={{ background:cardBg, border:`1.5px solid ${color}`, borderRadius:12, padding:'14px 16px' }}>
+                  <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color, marginBottom:10 }}>
+                    {canal.nombre}
                   </div>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 8 }}>
-                    <span style={{ fontFamily:'Lexend, sans-serif', fontSize:11, color: semaforoColor }}>● {semaforoLabel}</span>
-                    <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, color: semaforoColor }}>{ratio.toFixed(1)}% neto</span>
+                  <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'1.2rem', fontWeight:600, color:textPri, marginBottom:4 }}>
+                    {fmtEur(canal.bruto)}
                   </div>
-                  <div style={{ fontSize:'0.65rem', color:textSec, marginTop:6 }}>{c.pedidos} pedidos · {c.pct.toFixed(1)}%</div>
+                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color, marginBottom:10 }}>
+                    Neto {fmtEur(canal.neto)}
+                  </div>
+                  <div style={{ height:3, background:border, borderRadius:2, marginBottom:8 }}>
+                    <div style={{ height:3, width:`${Math.min(canal.pct,100)}%`, background:color, borderRadius:2 }} />
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                    <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:semColor }}>● {semLabel}</span>
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:11, color:semColor }}>{ratio.toFixed(1)}% neto</span>
+                  </div>
+                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:textSec }}>
+                    {Math.round(canal.pedidos)} pedidos · {canal.pct.toFixed(1)}%
+                  </div>
                 </div>
               )
             })}
@@ -391,226 +405,211 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* SECCIÓN 3 — Gráfico + Objetivos */}
-      <div style={groupBox}>
-        <div style={groupLabel}>Tendencia y objetivos</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+      {/* GRUPO 3 — Tendencia y Objetivos */}
+      <div style={{ background:surfaceG, border:`1px solid ${border}`, borderRadius:16, padding:'22px 26px', marginBottom:24 }}>
+        <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2.5px', textTransform:'uppercase', color:textMut, marginBottom:18 }}>
+          Tendencia y objetivos
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(320px,1fr))', gap:20 }}>
 
-        {/* Gráfico 4 semanas */}
-        <div style={card}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.6rem', letterSpacing:'2px', textTransform:'uppercase', color:textMut }}>Últimas 4 semanas</span>
-            <span style={{ fontSize:'0.72rem', color:textSec }}>Total: {fmtEur(weekBars.reduce((a,w)=>a+w.total,0))}</span>
-          </div>
-          {/* Leyenda */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'6px 12px', marginBottom:14 }}>
-            {CANAL_NAMES.map((n) => (
-              <div key={n} style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.62rem', color:textSec }}>
-                <div style={{ width:8, height:8, borderRadius:2, backgroundColor:CANAL_COLOR[n] ?? '#888' }} />
-                <span>{n.replace(' Eats','').replace(' Propia','').replace(' Directa','')}</span>
-              </div>
-            ))}
-          </div>
-          {weekBars.length === 0 ? (
-            <p style={{ color:textMut, fontSize:13, textAlign:'center', padding:'24px 0' }}>Sin datos</p>
-          ) : (
-            <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:180 }}>
+          {/* Gráfico 4 semanas */}
+          <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+              <span style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut }}>Últimas 4 semanas</span>
+              <span style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:textSec, background:surface2, padding:'3px 10px', borderRadius:99, border:`1px solid ${border}` }}>
+                Total: {fmtEur(weekBars.reduce((a,w)=>a+w.total,0))}
+              </span>
+            </div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:16 }}>
+              {['Uber Eats','Glovo','Just Eat','Web Propia','Venta Directa'].map(n => (
+                <span key={n} style={{ display:'flex', alignItems:'center', gap:5, fontFamily:'Lexend,sans-serif', fontSize:11, color:textSec }}>
+                  <span style={{ width:10, height:10, borderRadius:2, background:CANAL_COLOR[n] ?? '#888', flexShrink:0 }} />
+                  {n === 'Uber Eats' ? 'Uber' : n === 'Web Propia' ? 'Web' : n === 'Venta Directa' ? 'Directa' : n}
+                </span>
+              ))}
+            </div>
+            <div style={{ display:'flex', alignItems:'flex-end', gap:12, height:180 }}>
               {weekBars.map((w) => {
-                const barH = maxBarTotal > 0 ? (w.total / maxBarTotal) * 160 : 4
-                const segs = [
-                  { key:'uber',    color: CANAL_COLOR['Uber Eats'],     val: w.uber },
-                  { key:'glovo',   color: CANAL_COLOR['Glovo'],         val: w.glovo },
-                  { key:'je',      color: CANAL_COLOR['Just Eat'],      val: w.je },
-                  { key:'web',     color: CANAL_COLOR['Web Propia'],    val: w.web },
-                  { key:'directa', color: CANAL_COLOR['Venta Directa'], val: w.directa },
-                ].filter(s => s.val > 0)
+                const maxVal = Math.max(...weekBars.map(x=>x.total), 1)
+                const barPct = (w.total / maxVal) * 100
+                const isCurrent = w.isCurrent
+                const seg = (val: number) => w.total > 0 ? (val / w.total) * 100 : 0
                 return (
-                  <div key={w.label} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4, height:'100%', justifyContent:'flex-end' }}>
-                    <span style={{ fontFamily:'Lexend, sans-serif', fontSize:'0.65rem', color: w.isCurrent ? accent : textPri, fontWeight: w.isCurrent ? 600 : 400 }}>
-                      {fmtEur(w.total)}
-                    </span>
-                    <div style={{
-                      width:'100%', height:`${barH}px`, minHeight:4,
-                      display:'flex', flexDirection:'column', justifyContent:'flex-end',
-                      border: w.isCurrent ? `2px solid ${accent}` : 'none',
-                      borderRadius:'4px 4px 0 0',
-                      overflow:'hidden',
-                      opacity: w.isCurrent ? 1 : 0.6,
-                    }}>
-                      {segs.map((s, si) => (
-                        <div key={s.key} style={{
-                          width:'100%',
-                          height:`${w.total > 0 ? (s.val / w.total) * 100 : 0}%`,
-                          minHeight: si === segs.length-1 ? 4 : 0,
-                          backgroundColor: s.color,
-                        }} />
-                      ))}
+                  <div key={w.label} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%', justifyContent:'flex-end' }}>
+                    {w.total > 0 && (
+                      <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color: isCurrent ? accent : textSec, fontWeight: isCurrent ? 600 : 400 }}>
+                        {fmtEur(w.total)}
+                      </span>
+                    )}
+                    <div style={{ width:'100%', height:`${barPct}%`, display:'flex', flexDirection:'column-reverse', opacity: isCurrent ? 1 : 0.55, border: isCurrent ? `2px solid ${accent}` : 'none', borderRadius:'4px 4px 0 0', overflow:'hidden', minHeight:4 }}>
+                      <div style={{ height:`${seg(w.uber)}%`,    background:'#06C167', minHeight: w.uber    > 0 ? 2 : 0 }} />
+                      <div style={{ height:`${seg(w.glovo)}%`,   background:'#e8f442', minHeight: w.glovo   > 0 ? 2 : 0 }} />
+                      <div style={{ height:`${seg(w.je)}%`,      background:'#f5a623', minHeight: w.je      > 0 ? 2 : 0 }} />
+                      <div style={{ height:`${seg(w.web)}%`,     background:'#B01D23', minHeight: w.web     > 0 ? 2 : 0 }} />
+                      <div style={{ height:`${seg(w.directa)}%`, background:'#66aaff', minHeight: w.directa > 0 ? 2 : 0 }} />
                     </div>
-                    <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.65rem', color: w.isCurrent ? accent : textSec, letterSpacing:'1px', fontWeight: w.isCurrent ? 600 : 400 }}>
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:11, letterSpacing:'1px', color: isCurrent ? accent : textSec, fontWeight: isCurrent ? 600 : 400 }}>
                       {w.label}
                     </span>
                   </div>
                 )
               })}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Objetivos */}
-        <div style={card}>
-          <div style={sectionLabel}>Objetivos</div>
-          {[
-            { label:'Semanal', valor:ventasSemana, objetivo:objetivos.semanal, sub:`S${nSemana}` },
-            { label:'Mensual', valor:ventasMes,    objetivo:objetivos.mensual, sub:'mes actual' },
-            { label:'Anual',   valor:ventasAno,    objetivo:objetivos.anual,   sub:new Date().getFullYear().toString() },
-          ].map((obj, idx) => {
-            const pct = obj.objetivo > 0 ? Math.min(Math.round((obj.valor / obj.objetivo) * 100), 100) : 0
-            const color = semaforo(pct)
-            const faltan = Math.max(0, obj.objetivo - obj.valor)
-            return (
-              <div key={obj.label}>
-                {idx > 0 && <div style={{ height:1, backgroundColor:border, margin:'12px 0' }} />}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', backgroundColor:color, flexShrink:0 }} />
-                    <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.72rem', letterSpacing:'1px', textTransform:'uppercase', color:textPri }}>{obj.label}</span>
-                    <span style={{ fontSize:'0.65rem', color:textMut }}>— {obj.sub}</span>
+          {/* Objetivos */}
+          <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut, marginBottom:18 }}>
+              Objetivos
+            </div>
+            {[
+              { tipo:'semanal', label:'Semanal', valor:ventasSemana, objetivo:objetivos.semanal, sub:`S${nSemana}` },
+              { tipo:'mensual', label:'Mensual', valor:ventasMes,    objetivo:objetivos.mensual, sub:'mes actual' },
+              { tipo:'anual',   label:'Anual',   valor:ventasAno,    objetivo:objetivos.anual,   sub: new Date().getFullYear().toString() },
+            ].map((obj, idx, arr) => {
+              const pct = obj.objetivo > 0 ? Math.round((obj.valor / obj.objetivo) * 100) : 0
+              const falta = Math.max(0, obj.objetivo - obj.valor)
+              const semColor = pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
+              return (
+                <div key={obj.tipo}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ width:8, height:8, borderRadius:'50%', background:semColor, flexShrink:0 }} />
+                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:12, letterSpacing:'1px', textTransform:'uppercase', color:textPri }}>{obj.label}</span>
+                      <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:textMut }}>— {obj.sub}</span>
+                    </div>
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:semColor }}>{pct}%</span>
                   </div>
-                  <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.85rem', fontWeight:600, color }}>{pct}%</span>
+                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:textSec, marginBottom:8 }}>
+                    {fmtEur(obj.valor)} · Faltan <span style={{ color:semColor, fontWeight:500 }}>{fmtEur(falta)}</span> de {fmtEur(obj.objetivo)}
+                  </div>
+                  <div style={{ height:6, background:border, borderRadius:3 }}>
+                    <div style={{ height:6, width:`${Math.min(pct,100)}%`, background:semColor, borderRadius:3, transition:'width 0.6s ease' }} />
+                  </div>
+                  {idx < arr.length-1 && <div style={{ height:1, background:border, margin:'16px 0' }} />}
                 </div>
-                <div style={{ fontSize:'0.65rem', color:textMut, marginBottom:6 }}>
-                  {fmtEur(obj.valor)} · Faltan {fmtEur(faltan)} de {fmtEur(obj.objetivo)}
+              )
+            })}
+            <div style={{ height:1, background:border, margin:'16px 0' }} />
+            <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:textSec, marginBottom:10 }}>
+              Vas al <span style={{ color:accent, fontWeight:600 }}>{pctObjetivoSemana}%</span> del objetivo con el <span style={{ color:textPri, fontWeight:500 }}>{pctTiempoSemana}%</span> de la semana transcurrida
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {[
+                { label:'Tiempo',   pct:pctTiempoSemana,   color:'#378ADD' },
+                { label:'Objetivo', pct:pctObjetivoSemana, color:'#E24B4A' },
+              ].map(b => (
+                <div key={b.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:textSec, width:52 }}>{b.label}</span>
+                  <div style={{ flex:1, height:6, background:border, borderRadius:3 }}>
+                    <div style={{ height:6, width:`${Math.min(b.pct,100)}%`, background:b.color, borderRadius:3 }} />
+                  </div>
+                  <span style={{ fontFamily:'Oswald,sans-serif', fontSize:11, color:b.color, width:30, textAlign:'right' }}>{b.pct}%</span>
                 </div>
-                <div style={{ height:4, backgroundColor:hexAlpha(color,0.2), borderRadius:2 }}>
-                  <div style={{ height:4, width:`${pct}%`, backgroundColor:color, borderRadius:2, transition:'width 500ms ease' }} />
-                </div>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          </div>
 
-          {/* Velocidad */}
-          <div style={{ height:1, backgroundColor:border, margin:'14px 0' }} />
-          <div style={sectionLabel}>Velocidad — semana actual</div>
-          <div style={{ fontSize:'0.7rem', color:textSec, marginBottom:10, lineHeight:1.5 }}>
-            Vas al <span style={{ color: semaforo(pctObjetivoSemana), fontWeight:600 }}>{pctObjetivoSemana}%</span> del objetivo con el <span style={{ color:textPri, fontWeight:600 }}>{pctTiempoSemana}%</span> de la semana transcurrida
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:'0.6rem', color:textMut, width:60, flexShrink:0 }}>Tiempo</span>
-              <div style={{ flex:1, height:6, backgroundColor:hexAlpha('#66aaff',0.2), borderRadius:3 }}>
-                <div style={{ height:6, width:`${pctTiempoSemana}%`, backgroundColor:'#66aaff', borderRadius:3 }} />
-              </div>
-              <span style={{ fontSize:'0.6rem', color:'#66aaff', width:30, textAlign:'right' }}>{pctTiempoSemana}%</span>
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:'0.6rem', color:textMut, width:60, flexShrink:0 }}>Objetivo</span>
-              <div style={{ flex:1, height:6, backgroundColor:hexAlpha(semaforo(pctObjetivoSemana),0.2), borderRadius:3 }}>
-                <div style={{ height:6, width:`${pctObjetivoSemana}%`, backgroundColor:semaforo(pctObjetivoSemana), borderRadius:3 }} />
-              </div>
-              <span style={{ fontSize:'0.6rem', color:semaforo(pctObjetivoSemana), width:30, textAlign:'right' }}>{pctObjetivoSemana}%</span>
-            </div>
-          </div>
-        </div>
         </div>
       </div>
 
-      {/* SECCIÓN 4 — Top productos + Días pico + Ticket canal */}
-      <div style={groupBox}>
-        <div style={groupLabel}>Productos y actividad</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-
-        {/* Top productos */}
-        <div style={card}>
-          <div style={sectionLabel}>Top productos — semana actual</div>
-          <table style={{ width:'100%', borderCollapse:'collapse' }}>
-            <thead>
-              <tr>
-                {['#','Producto','Canal','Uds','Total'].map(h => (
-                  <th key={h} style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.58rem', letterSpacing:'1px', textTransform:'uppercase', color:textMut, textAlign: h==='#'||h==='Uds'||h==='Total' ? 'right' : 'left', paddingBottom:8, borderBottom:`1px solid ${border}`, paddingRight: h==='Total' ? 0 : 8, fontWeight:600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {TOP_PRODUCTOS_MOCK.map((p, idx) => {
-                const color = CANAL_COLOR[p.canal] ?? '#888'
-                const isGlovoLight = !isDark && p.canal === 'Glovo'
-                const badgeBg = isGlovoLight ? '#b8a000' : hexAlpha(color, 0.15)
-                const badgeColor = isGlovoLight ? '#ffffff' : color
-                const badgeBorder = isGlovoLight ? '#b8a000' : hexAlpha(color, 0.3)
-                return (
-                  <tr key={idx} style={{ borderBottom:`1px solid ${hexAlpha(border, 0.5)}` }}>
-                    <td style={{ fontSize:'0.7rem', color:textMut, textAlign:'right', padding:'7px 8px 7px 0' }}>{idx+1}</td>
-                    <td style={{ fontSize:'0.75rem', color:textPri, padding:'7px 8px' }}>{p.nombre}</td>
-                    <td style={{ padding:'7px 8px' }}>
-                      <span style={{ fontSize:'0.6rem', backgroundColor: badgeBg, color: badgeColor, border:`1px solid ${badgeBorder}`, borderRadius:4, padding:'2px 6px', fontFamily:'Oswald, sans-serif', letterSpacing:'0.5px', whiteSpace:'nowrap' }}>
-                        {p.canal.replace(' Eats','').replace(' Propia','').replace(' Directa','')}
-                      </span>
-                    </td>
-                    <td style={{ fontSize:'0.75rem', color:textSec, textAlign:'right', padding:'7px 8px' }}>{p.uds}</td>
-                    <td style={{ fontSize:'0.75rem', color:textPri, textAlign:'right', padding:'7px 0', fontWeight:500 }}>{fmtEur(p.total)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <p style={{ fontSize:'0.62rem', color:textMut, marginTop:10, marginBottom:0 }}>* Datos de ventas por plato disponibles cuando se integre POS</p>
+      {/* GRUPO 4 — Productos y Actividad */}
+      <div style={{ background:surfaceG, border:`1px solid ${border}`, borderRadius:16, padding:'22px 26px', marginBottom:24 }}>
+        <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2.5px', textTransform:'uppercase', color:textMut, marginBottom:18 }}>
+          Productos y actividad
         </div>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(320px,1fr))', gap:20 }}>
 
-        {/* Días pico + Ticket canal */}
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-
-          {/* Días pico */}
-          <div style={card}>
-            <div style={sectionLabel}>Días pico — semana actual (S{nSemana})</div>
-            {diasSemana.every(d => d.valor === 0) ? (
-              <p style={{ color:textMut, fontSize:13, textAlign:'center', padding:'16px 0' }}>Sin datos esta semana</p>
-            ) : (
-              <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:100 }}>
-                {(() => {
-                  const maxD = Math.max(...diasSemana.map(d => d.valor), 1)
-                  return diasSemana.map(d => {
-                    const h = Math.max((d.valor / maxD) * 80, d.valor > 0 ? 4 : 0)
-                    const isMax = d.valor === maxD && d.valor > 0
-                    return (
-                      <div key={d.nombre} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, height:'100%', justifyContent:'flex-end' }}>
-                        {d.valor > 0 && <span style={{ fontSize:'0.58rem', color: isMax ? accent : textSec }}>{fmtEur(d.valor)}</span>}
-                        <div style={{ width:'100%', height:`${h}px`, minHeight: d.valor>0?4:0, backgroundColor: isMax ? accent : hexAlpha(CANAL_COLOR['Uber Eats'],0.5), borderRadius:'3px 3px 0 0' }} />
-                        <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.6rem', color: isMax ? accent : textMut, letterSpacing:'0.5px' }}>{d.nombre}</span>
-                      </div>
-                    )
-                  })
-                })()}
-              </div>
-            )}
+          {/* Top productos */}
+          <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut, marginBottom:14 }}>
+              Top productos — {labelPeriodo}
+            </div>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr>
+                  {['#','Producto','Canal','Uds','Total'].map(h => (
+                    <th key={h} style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:textMut, padding:'0 8px 10px', textAlign: h==='#'||h==='Uds'||h==='Total' ? 'right' : 'left', borderBottom:`1px solid ${border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TOP_PRODUCTOS_MOCK.map((p, idx) => {
+                  const color = CANAL_COLOR[p.canal] ?? '#888'
+                  const badgeBg = p.canal === 'Glovo' ? glovoBadgeBg : color
+                  const badgeTx = p.canal === 'Glovo' ? glovoBadgeTx : '#ffffff'
+                  const shortName = p.canal === 'Uber Eats' ? 'Uber' : p.canal === 'Just Eat' ? 'JE' : p.canal === 'Web Propia' ? 'Web' : p.canal === 'Venta Directa' ? 'Dir' : p.canal
+                  return (
+                    <tr key={idx} style={{ borderBottom:`1px solid ${border}` }}>
+                      <td style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:textMut, padding:'9px 8px', textAlign:'right' }}>{idx+1}</td>
+                      <td style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:textPri, padding:'9px 8px' }}>{p.nombre}</td>
+                      <td style={{ padding:'9px 8px' }}>
+                        <span style={{ background:badgeBg, color:badgeTx, fontSize:10, padding:'2px 7px', borderRadius:4, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }}>{shortName}</span>
+                      </td>
+                      <td style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:textPri, padding:'9px 8px', textAlign:'right' }}>{p.uds}</td>
+                      <td style={{ fontFamily:'Oswald,sans-serif', fontSize:13, color:textPri, padding:'9px 8px', textAlign:'right', fontWeight:600 }}>{fmtEur(p.total)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:textMut, marginTop:12 }}>
+              * Datos reales disponibles cuando se integre POS
+            </div>
           </div>
 
-          {/* Ticket por canal */}
-          <div style={card}>
-            <div style={sectionLabel}>Ticket medio por canal</div>
-            {ticketPorCanal.length === 0 ? (
-              <p style={{ color:textMut, fontSize:13, textAlign:'center', padding:'12px 0' }}>Sin datos</p>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column' }}>
-                {ticketPorCanal.map((t, idx) => {
-                  const color = CANAL_COLOR[t.nombre] ?? '#888'
+          {/* Días pico + Ticket por canal */}
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+            <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+              <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut, marginBottom:14 }}>
+                Días pico — semana actual (S{nSemana})
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6 }}>
+                {diasSemana.map(({ nombre, valor }) => {
+                  const maxVal = Math.max(...diasSemana.map(d=>d.valor), 1)
+                  const h = Math.max(Math.round((valor / maxVal) * 60), valor > 0 ? 4 : 0)
+                  const isTop = valor === maxVal && valor > 0
                   return (
-                    <div key={t.nombre}>
-                      {idx > 0 && <div style={{ height:1, backgroundColor:border, margin:'8px 0' }} />}
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <div style={{ width:8, height:8, borderRadius:'50%', backgroundColor:color, flexShrink:0 }} />
-                          <span style={{ fontSize:'0.72rem', color:textSec }}>{t.nombre}</span>
-                        </div>
-                        <span style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.82rem', fontWeight:600, color:textPri }}>{fmtEur(t.ticket)}</span>
+                    <div key={nombre} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                      <div style={{ fontFamily:'Lexend,sans-serif', fontSize:10, color:textMut }}>{nombre}</div>
+                      <div style={{ height:60, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+                        <div style={{ width:20, height:h, background: isTop ? accent : '#378ADD', borderRadius:'3px 3px 0 0', opacity: valor > 0 ? 1 : 0.2 }} />
+                      </div>
+                      <div style={{ fontFamily:'Lexend,sans-serif', fontSize:10, color: isTop ? accent : textSec, fontWeight: isTop ? 600 : 400 }}>
+                        {valor > 0 ? fmtEur(valor).replace(' €','') : '—'}
                       </div>
                     </div>
                   )
                 })}
               </div>
-            )}
-          </div>
+            </div>
 
-        </div>
+            <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:'18px 20px' }}>
+              <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:textMut, marginBottom:14 }}>
+                Ticket medio por canal
+              </div>
+              {ticketPorCanal.length === 0 ? (
+                <p style={{ color:textMut, fontSize:13, textAlign:'center', padding:'12px 0' }}>Sin datos</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  {ticketPorCanal.map((c, idx) => {
+                    const color = CANAL_COLOR[c.nombre] ?? '#888'
+                    return (
+                      <div key={c.nombre} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom: idx < ticketPorCanal.length-1 ? `1px solid ${border}` : 'none' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
+                          <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:textPri }}>{c.nombre}</span>
+                        </div>
+                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:textPri }}>{fmtEur(c.ticket)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
       </div>
 
