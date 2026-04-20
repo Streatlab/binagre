@@ -324,11 +324,25 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => ({ ...itemStyle(isActive), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
+                style={({ isActive }) => ({
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%',
+                  padding: '10px 16px 10px 12px',
+                  fontFamily: 'Oswald, sans-serif',
+                  fontSize: 11,
+                  fontWeight: 400,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.08em',
+                  color: isActive ? '#1a1a1a' : 'var(--sl-text-muted)',
+                  background: isActive ? ACCENT : 'transparent',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  transition: 'background 150ms',
+                })}>
                 {({ isActive }) => (
                   <>
                     <NavIcon section="panel" collapsed={false} isDark={isDark} active={isActive} size={24} />
-                    <span style={{ color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)' }}>{PANEL_GLOBAL.label}</span>
+                    <span>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
@@ -391,20 +405,36 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
                 {/* Section items — animated (expanded) */}
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 44}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 36}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
                     {visibleItems.map((item, idx) => (
                       <NavLink
                         key={`${item.path}-${idx}`}
                         to={item.path}
                         end={item.path === '/'}
                         onClick={onClose}
-                        style={({ isActive }) => itemStyle(isActive)}
+                        style={({ isActive }) => ({
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '6px 12px 6px 16px',
+                          margin: '1px 8px',
+                          borderRadius: 6,
+                          fontFamily: 'Lexend, sans-serif',
+                          fontSize: 13,
+                          color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)',
+                          background: isActive ? ACCENT : 'transparent',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          transition: 'background 150ms',
+                          whiteSpace: 'nowrap' as const,
+                          overflow: 'hidden',
+                        })}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--sl-hover)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                       >
                         {({ isActive }) => (
                           <>
-                            <span style={{ fontSize: 14, flexShrink: 0, ...(isActive ? {} : { paddingLeft: 16 }) }}>{item.emoji}</span>
+                            <NavIcon section={section.key} collapsed={false} isDark={isDark} active={isActive} size={14} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                           </>
                         )}
