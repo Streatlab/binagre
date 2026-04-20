@@ -195,6 +195,7 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
    ═══════════════════════════════════════════════════════════ */
 
 export default function Facturacion() {
+  const { T, isDark } = useTheme()
   const [tab, setTab] = useState<Tab>('diario')
   const [canal, setCanal] = useState<CanalFilter>('Todos')
   const [allData, setAllData] = useState<RawDiario[]>([])
@@ -287,24 +288,36 @@ export default function Facturacion() {
 
       {/* Toolbar: Tabs + Canal filter */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="flex gap-1 bg-[var(--sl-card)] border border-border rounded-lg p-1">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                tab === t.key ? 'bg-[var(--sl-red)] text-[var(--sl-text-primary)]' : 'text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)]'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div style={{ display:'flex', gap:4, background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:10, padding:4 }}>
+          {TABS.map(t => {
+            const active = tab === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  border: active ? 'none' : `0.5px solid ${T.brd}`,
+                  background: active ? (isDark ? '#e8f442' : '#B01D23') : 'none',
+                  color: active ? (isDark ? '#1a1a00' : '#ffffff') : T.sec,
+                  fontFamily: FONT.body,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background 150ms',
+                }}
+              >
+                {t.label}
+              </button>
+            )
+          })}
         </div>
 
         <select
           value={canal}
           onChange={e => setCanal(e.target.value as CanalFilter)}
-          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)]"
+          style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}
         >
           {CANAL_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -312,7 +325,7 @@ export default function Facturacion() {
         {weekFilter && (
           <button
             onClick={clearWeekFilter}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-[var(--sl-text-primary)] text-xs font-medium rounded-lg border border-accent/30"
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', background:isDark?'rgba(232,244,66,0.12)':'rgba(176,29,35,0.08)', color:T.pri, fontFamily:FONT.body, fontSize:12, fontWeight:500, borderRadius:8, border:`0.5px solid ${isDark?'rgba(232,244,66,0.3)':'rgba(176,29,35,0.3)'}`, cursor:'pointer' }}
           >
             S{weekFilter.week} &times;
           </button>
@@ -359,6 +372,7 @@ interface DiarioProps {
 }
 
 function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: DiarioProps) {
+  const { T } = useTheme()
   const [mesFilter, setMesFilter] = useState('todos')
 
   /* apply weekFilter first, then mesFilter */
@@ -401,11 +415,12 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select value={mesFilter} onChange={e => setMesFilter(e.target.value)}
-          className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)]">
+          style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}>
           <option value="todos">Todos los meses</option>
           {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <button onClick={exportar} className="px-3 py-2 text-xs text-[var(--sl-text-secondary)] border border-border rounded-lg hover:text-[var(--sl-text-primary)] transition">
+        <button onClick={exportar}
+          style={{ padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
           Exportar CSV
         </button>
         <button onClick={onAdd}
@@ -525,6 +540,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
    ═══════════════════════════════════════════════════════════ */
 
 function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: CanalFilter; onDrill: (y: number, w: number) => void }) {
+  const { T } = useTheme()
   const rows = useMemo(() => buildSemanas(allData), [allData])
   const totals = useMemo(() => aggregate(allData), [allData])
   const showBreakdown = canal === 'Todos'
@@ -548,7 +564,8 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
         <MiniKpi label="Semanas" valor={String(rows.length)} />
         <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
-        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[var(--sl-text-secondary)] border border-border rounded-lg hover:text-[var(--sl-text-primary)] transition">
+        <button onClick={exportar}
+          style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
           Exportar CSV
         </button>
       </div>
@@ -614,6 +631,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
    ═══════════════════════════════════════════════════════════ */
 
 function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter }) {
+  const { T } = useTheme()
   const allRows = useMemo(() => buildMeses(allData), [allData])
 
   const years = useMemo(() => {
@@ -655,14 +673,15 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {years.length > 1 && (
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            className="bg-base border border-border rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)]">
+            style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
         <MiniKpi label="Bruto anual" valor={fmtEur(getBru(yearTotal, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(yearTotal, canal))} />
         <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
-        <button onClick={exportar} className="ml-auto px-3 py-2 text-xs text-[var(--sl-text-secondary)] border border-border rounded-lg hover:text-[var(--sl-text-primary)] transition">
+        <button onClick={exportar}
+          style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
           Exportar CSV
         </button>
       </div>
