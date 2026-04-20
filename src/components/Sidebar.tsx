@@ -1,9 +1,80 @@
 import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { useTheme } from '../contexts/ThemeContext'
 import { NavIcon } from './NavIcon'
+
+// ─── Subitem icons — SVG outline 14px, usan currentColor ──────────────────────
+
+const svgProps = {
+  width: 14, height: 14, viewBox: '0 0 24 24',
+  fill: 'none', stroke: 'currentColor', strokeWidth: 1.5,
+  strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+}
+
+const SUBITEM_ICONS: Record<string, ReactElement> = {
+  // Finanzas
+  'Facturación':       <svg {...svgProps}><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/></svg>,
+  'Objetivos':         <svg {...svgProps}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+  'Análisis':          <svg {...svgProps}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  'Revenue & Ticket':  <svg {...svgProps}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+  'COGS / Coste MP':   <svg {...svgProps}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+  'Margen por Canal':  <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>,
+  'Ventas por Marca':  <svg {...svgProps}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  'Ranking Productos': <svg {...svgProps}><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>,
+  'Predicción Demanda':<svg {...svgProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  'Tesorería':         <svg {...svgProps}><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>,
+  'Cobros':            <svg {...svgProps}><line x1="12" y1="2" x2="12" y2="22"/><polyline points="19 15 12 22 5 15"/></svg>,
+  'Pagos':             <svg {...svgProps}><line x1="12" y1="22" x2="12" y2="2"/><polyline points="5 9 12 2 19 9"/></svg>,
+  'Presupuestos':      <svg {...svgProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>,
+  'Remesas':           <svg {...svgProps}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>,
+  'Running Financiero':<svg {...svgProps}><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>,
+  // Cocina
+  'Escandallo':        <svg {...svgProps}><path d="M3 6h18"/><path d="M7 6v14M17 6v14"/><path d="M3 12h18"/></svg>,
+  'Ingredientes':      <svg {...svgProps}><path d="M12 2a10 10 0 010 20"/><path d="M12 2c-3 0-6 4-6 10s3 10 6 10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>,
+  'EPS':               <svg {...svgProps}><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
+  'Recetas':           <svg {...svgProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
+  'Mermas':            <svg {...svgProps}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
+  'Índice':            <svg {...svgProps}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  'Fichas Técnicas':   <svg {...svgProps}><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="12" y2="17"/></svg>,
+  'Pulso Cocina':      <svg {...svgProps}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+  'KDS Kitchen Display':<svg {...svgProps}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+  'Carta':             <svg {...svgProps}><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>,
+  'Menu Engineering':  <svg {...svgProps}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.34.22.7.22 1.06V10a2 2 0 010 4h-.22z"/></svg>,
+  'Histórico Recetas': <svg {...svgProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  // Operaciones
+  'Checklists Apertura/Cierre':<svg {...svgProps}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  'Tareas Operativas': <svg {...svgProps}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  'Control Temperaturas BPM':<svg {...svgProps}><path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4 4 0 105 0z"/></svg>,
+  'BPM / Calidad':     <svg {...svgProps}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  'Daños Material':    <svg {...svgProps}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  'Pedidos a Proveedores':<svg {...svgProps}><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>,
+  'Manuales':          <svg {...svgProps}><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>,
+  'Novedades':         <svg {...svgProps}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  'Bitácora':          <svg {...svgProps}><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>,
+  'Mantenimiento Equipos':<svg {...svgProps}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
+  'Organigrama':       <svg {...svgProps}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  'División Órgano Trabajo':<svg {...svgProps}><rect x="2" y="7" width="20" height="14" rx="2"/><polyline points="16 21 12 17 8 21"/><path d="M12 17V3"/></svg>,
+  // Stock
+  'Inventario':        <svg {...svgProps}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  'Almacén':           <svg {...svgProps}><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
+  'Stock Mínimo Alertas':<svg {...svgProps}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  'Movimientos Stock': <svg {...svgProps}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>,
+  'Compras':           <svg {...svgProps}><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>,
+  'Proveedores':       <svg {...svgProps}><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+  'Pedidos a Proveedor':<svg {...svgProps}><path d="M9 11H5l-2 9h16l-2-9h-4"/><path d="M9 11V5a3 3 0 016 0v6"/></svg>,
+  'Pedidos de Artículos':<svg {...svgProps}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  'Albaranes':         <svg {...svgProps}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>,
+  // POS
+  'POS':               <svg {...svgProps}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+  'Pedidos en Curso':  <svg {...svgProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  'Producción':        <svg {...svgProps}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M7 3h10v4H7z"/></svg>,
+  // Configuración
+  'Configuración':     <svg {...svgProps}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.34.22.7.22 1.06V10a2 2 0 010 4h-.22z"/></svg>,
+  'Roles y Permisos':  <svg {...svgProps}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
+  'Usuarios':          <svg {...svgProps}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
+}
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
@@ -226,23 +297,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
   const width = collapsed ? 'w-[56px]' : 'w-[260px]'
 
-  const itemStyle = (isActive: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 8px 8px 16px',
-    margin: '1px 8px',
-    borderRadius: 6,
-    fontFamily: 'Lexend, sans-serif',
-    fontSize: 13,
-    color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)',
-    background: isActive ? ACCENT : 'transparent',
-    textDecoration: 'none',
-    cursor: 'pointer',
-    transition: 'background 150ms',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-  })
 
   return (
     <>
@@ -432,12 +486,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         })}
                         className={({ isActive }) => `sl-nav-item${isActive ? ' sl-nav-active' : ''}`}
                       >
-                        {({ isActive }) => (
-                          <>
-                            <NavIcon section={section.key} collapsed={false} isDark={isDark} active={isActive} size={14} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                          </>
-                        )}
+                        {({ isActive }) => {
+                          const iconColor = isActive ? '#1a1a1a' : (isDark ? '#c8d0e8' : '#5a6478')
+                          const icon = SUBITEM_ICONS[item.label]
+                          return (
+                            <>
+                              <span style={{ color: iconColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, flexShrink: 0 }}>
+                                {icon ?? <span style={{ fontSize: 8, lineHeight: 1 }}>●</span>}
+                              </span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                            </>
+                          )
+                        }}
                       </NavLink>
                     ))}
                   </div>
