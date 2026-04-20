@@ -11,6 +11,9 @@ import Running from '@/pages/Running'
 import Configuracion from '@/pages/Configuracion'
 import Placeholder from '@/pages/Placeholder'
 
+// Finanzas
+import Objetivos from '@/pages/finanzas/Objetivos'
+
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
 import CogsCosteMp from '@/pages/analytics/CogsCosteMp'
@@ -72,6 +75,9 @@ function AppRoutes() {
         <Route path="marcas" element={<ProtectedRoute solo={['admin']}><Marcas /></ProtectedRoute>} />
         <Route path="running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+
+        {/* Finanzas */}
+        <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
