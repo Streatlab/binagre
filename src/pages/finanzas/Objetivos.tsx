@@ -76,6 +76,7 @@ export default function Objetivos() {
 
   // Histórico
   const [histTipo, setHistTipo] = useState<'semanas' | 'meses'>('semanas')
+  const [histAnio, setHistAnio] = useState<number>(new Date().getFullYear())
   const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
 
   const [loading, setLoading] = useState(true)
@@ -202,13 +203,25 @@ export default function Objetivos() {
 
   // ─── HISTÓRICO ────────────────────────────────────────────
 
+  const aniosDisponibles = useMemo(() => {
+    const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
+    const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
+    if (arr.length === 0) arr.push(new Date().getFullYear())
+    return arr
+  }, [ventas])
+
   const historico = useMemo((): VentaHistorico[] => {
+    const esAnioActual = histAnio === new Date().getFullYear()
+    const ventasFiltAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
+
     if (histTipo === 'semanas') {
       const mondayStr = monday.toISOString().slice(0,10)
       const sundayStr = sunday.toISOString().slice(0,10)
-      const ventasFiltSem = ventas.filter(r => r.fecha < mondayStr || r.fecha > sundayStr)
+      const base = esAnioActual
+        ? ventasFiltAnio.filter(r => r.fecha < mondayStr || r.fecha > sundayStr)
+        : ventasFiltAnio
       const map = new Map<string, number>()
-      for (const r of ventasFiltSem) {
+      for (const r of base) {
         const { year, week } = isoWeek(r.fecha)
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + (r.total_bruto || 0))
@@ -223,9 +236,11 @@ export default function Objetivos() {
         }))
     } else {
       const currentMonthStr = hoyDate.toISOString().slice(0,7)
-      const ventasFiltMes = ventas.filter(r => !r.fecha.startsWith(currentMonthStr))
+      const base = esAnioActual
+        ? ventasFiltAnio.filter(r => !r.fecha.startsWith(currentMonthStr))
+        : ventasFiltAnio
       const map = new Map<string, number>()
-      for (const r of ventasFiltMes) {
+      for (const r of base) {
         const m = r.fecha.slice(0, 7)
         map.set(m, (map.get(m) || 0) + (r.total_bruto || 0))
       }
@@ -239,7 +254,7 @@ export default function Objetivos() {
           return { label, real, objetivo: objMap.mensual ?? 20000 }
         })
     }
-  }, [ventas, histTipo, objMap])
+  }, [ventas, histTipo, histAnio, objMap])
 
   // ─── HELPERS ──────────────────────────────────────────────
 
@@ -475,18 +490,25 @@ export default function Objetivos() {
       {/* Histórico */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={sectionLabel}>Histórico de cumplimiento</div>
-        <select
-          value={histTipo}
-          onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses')}
-          style={{
-            ...inputStyle,
-            padding: '4px 10px',
-            fontSize: 12,
-          }}
-        >
-          <option value="semanas">Por semanas</option>
-          <option value="meses">Por meses</option>
-        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={histTipo}
+            onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses')}
+            style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}
+          >
+            <option value="semanas">Por semanas</option>
+            <option value="meses">Por meses</option>
+          </select>
+          <select
+            value={histAnio}
+            onChange={e => setHistAnio(parseInt(e.target.value))}
+            style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}
+          >
+            {aniosDisponibles.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div style={cardStyle(T)}>
