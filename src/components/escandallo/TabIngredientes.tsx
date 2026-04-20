@@ -19,22 +19,14 @@ const colorUsos = (usos: number, isDark: boolean) =>
   usos <= 4 ? (isDark ? '#e8f442' : '#f5a623') :
   '#06C167'
 
-const editInputStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  borderBottom: '1px solid #e8f442',
-  color: 'inherit',
-  width: '100%',
-  outline: 'none',
-  fontFamily: 'inherit',
-  fontSize: 'inherit',
-  padding: 0,
+const normalizeSelector = (v?: string | null): string => {
+  if (!v) return 'Último'
+  if (v.toLowerCase() === 'ultimo' || v === 'Último') return 'Último'
+  if (v.toLowerCase() === 'media') return 'Media'
+  return v
 }
 
-const editSelectStyle: React.CSSProperties = {
-  ...editInputStyle,
-  appearance: 'auto',
-}
+const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio']
 
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
@@ -109,8 +101,12 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
     setEditingValue(valor == null ? '' : String(valor))
   }
 
-  const saveEdit = async (id: string, campo: string, valor: string) => {
-    const isNum = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio'].includes(campo)
+  const saveEdit = async (id: string, campo: string, rawValor: string) => {
+    let valor: string = rawValor
+    if (campo === 'selector_precio') {
+      if (valor === 'ultimo') valor = 'Último'
+    }
+    const isNum = CAMPOS_NUMERICOS.includes(campo)
     const parsed: string | number | null = isNum
       ? (valor === '' ? null : (parseFloat(valor) || 0))
       : (valor === '' ? null : valor)
@@ -126,61 +122,79 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
   const isEditing = (i: Ingrediente, campo: string) =>
     editingCell?.id === i.id && editingCell.campo === campo
 
-  const CellInput = ({ i, campo, type = 'text', display, className = tdCls, style }: {
-    i: Ingrediente; campo: string; type?: 'text' | 'number'; display: React.ReactNode; className?: string; style?: React.CSSProperties
-  }) => (
-    <td
-      className={className}
-      style={style}
-      onClick={e => startEdit(e, i.id, campo, (i as unknown as Record<string, unknown>)[campo])}
-    >
-      {isEditing(i, campo) ? (
-        <input
-          autoFocus
-          type={type}
-          step={type === 'number' ? 'any' : undefined}
-          value={editingValue}
-          onChange={e => setEditingValue(e.target.value)}
-          onBlur={() => saveEdit(i.id, campo, editingValue)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') saveEdit(i.id, campo, editingValue)
-            if (e.key === 'Escape') cancelEdit()
-          }}
-          onClick={e => e.stopPropagation()}
-          style={editInputStyle}
-        />
-      ) : display}
-    </td>
+  const editInputStyle: React.CSSProperties = {
+    background: isDark ? '#3a4058' : '#f0f0f0',
+    border: '1px solid #e8f442',
+    borderRadius: '3px',
+    color: 'inherit',
+    width: '100%',
+    outline: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    padding: '2px 6px',
+  }
+
+  const editSelectStyle: React.CSSProperties = {
+    background: isDark ? '#3a4058' : '#f0f0f0',
+    border: '1px solid #e8f442',
+    borderRadius: '3px',
+    color: 'inherit',
+    width: '100%',
+    outline: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    padding: '2px 4px',
+  }
+
+  const renderInput = (id: string, campo: string, extraStyle?: React.CSSProperties) => (
+    <input
+      autoFocus
+      type={CAMPOS_NUMERICOS.includes(campo) ? 'number' : 'text'}
+      step={CAMPOS_NUMERICOS.includes(campo) ? 'any' : undefined}
+      value={editingValue}
+      onChange={e => setEditingValue(e.target.value)}
+      onBlur={() => saveEdit(id, campo, editingValue)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') saveEdit(id, campo, editingValue)
+        if (e.key === 'Escape') cancelEdit()
+      }}
+      onClick={e => e.stopPropagation()}
+      style={{ ...editInputStyle, ...extraStyle }}
+    />
   )
 
-  const CellSelect = ({ i, campo, options, display, className = tdCls, style }: {
-    i: Ingrediente; campo: string; options: string[]; display: React.ReactNode; className?: string; style?: React.CSSProperties
-  }) => (
-    <td
-      className={className}
-      style={style}
-      onClick={e => startEdit(e, i.id, campo, (i as unknown as Record<string, unknown>)[campo])}
+  const renderSelect = (id: string, campo: string, opciones: string[]) => (
+    <select
+      autoFocus
+      value={editingValue}
+      onChange={e => { setEditingValue(e.target.value); saveEdit(id, campo, e.target.value) }}
+      onBlur={() => cancelEdit()}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
+      style={editSelectStyle}
     >
-      {isEditing(i, campo) ? (
-        <select
-          autoFocus
-          value={editingValue}
-          onChange={e => {
-            const v = e.target.value
-            setEditingValue(v)
-            saveEdit(i.id, campo, v)
-          }}
-          onBlur={() => saveEdit(i.id, campo, editingValue)}
-          onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
-          onClick={e => e.stopPropagation()}
-          style={editSelectStyle}
-        >
-          <option value=""></option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      ) : display}
-    </td>
+      <option value=""></option>
+      {opciones.map(op => <option key={op} value={op}>{op}</option>)}
+    </select>
   )
+
+  // Sticky cell backgrounds — opaque per theme
+  const stickyTdBg = isDark ? '#111111' : '#faf9f5'
+  const stickyThBg = isDark ? '#1a1a1a' : '#f5f5f0'
+
+  const stickyTdStyle = (left: number): React.CSSProperties => ({
+    position: 'sticky',
+    left,
+    zIndex: 2,
+    backgroundColor: stickyTdBg,
+  })
+
+  const stickyThStyle = (left: number): React.CSSProperties => ({
+    position: 'sticky',
+    left,
+    zIndex: 30,
+    backgroundColor: stickyThBg,
+  })
 
   return (
     <div className="space-y-4">
@@ -199,8 +213,8 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
           <p className="text-[var(--sl-text-muted)] text-sm">Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
-          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl" style={{ overflow: 'visible' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', borderRadius: 'inherit' }}>
             <table style={{ tableLayout: 'fixed', width: '2660px' }}>
               <colgroup>
                 <col style={{ width: 90 }} />
@@ -233,11 +247,11 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                 <col style={{ width: 95 }} />
                 <col style={{ width: 75 }} />
               </colgroup>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 20 }}>
                 <tr>
-                  <th className={thCls + ' sticky left-0 z-30 bg-[var(--sl-thead)]'}>IDING</th>
+                  <th className={thCls} style={stickyThStyle(0)}>IDING</th>
                   <th className={thCls}>CATEGORIA</th>
-                  <th className={thCls + ' sticky z-30 bg-[var(--sl-thead)]'} style={{ left: 90 }}>NOMBRE BASE</th>
+                  <th className={thCls} style={stickyThStyle(90)}>NOMBRE BASE</th>
                   <th className={thCls}>ABV</th>
                   <th className={thCls}>NOMBRE</th>
                   <th className={thCls}>PROVEEDOR</th>
@@ -272,43 +286,56 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                   const rowNameCls = isEps ? 'text-[#66aaff] italic font-medium' : 'text-[var(--sl-text-primary)] font-medium'
                   const usos = usosMap[String(i.id)] ?? n(i.usos)
                   const mermaManual = i.tipo_merma === 'Manual'
+                  const selectorDisplay = normalizeSelector(i.selector_precio)
                   return (
                     <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
-                      {/* IDING — único clic que abre modal */}
+                      {/* IDING — amarillo fijo, abre modal */}
                       <td
-                        className={tdCls + ' sticky left-0 z-10'}
+                        className={tdCls}
                         onClick={() => onSelect?.(i)}
-                        style={{ cursor: 'pointer', color: '#e8f442', fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}
+                        style={{
+                          ...stickyTdStyle(0),
+                          cursor: 'pointer',
+                          color: '#e8f442',
+                          fontFamily: 'Oswald, sans-serif',
+                          fontWeight: 600,
+                        }}
                       >
                         {i.iding ?? '—'}
                       </td>
 
                       {/* CATEGORIA — select */}
-                      <CellSelect
-                        i={i}
-                        campo="categoria"
-                        options={categoriasUnicas}
+                      <td
                         className={tdCls + ' text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.categoria ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'categoria', i.categoria)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'categoria')
+                          ? renderSelect(i.id, 'categoria', categoriasUnicas)
+                          : <span>{i.categoria ?? '—'}</span>}
+                      </td>
 
                       {/* NOMBRE BASE — input text (sticky) */}
-                      <CellInput
-                        i={i}
-                        campo="nombre_base"
-                        className={tdCls + ' sticky z-10 max-w-[220px] truncate ' + rowNameCls}
-                        style={{ left: 90 }}
-                        display={<span>{i.nombre_base ?? '—'}</span>}
-                      />
+                      <td
+                        className={tdCls + ' max-w-[220px] truncate ' + rowNameCls}
+                        onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)}
+                        style={{ ...stickyTdStyle(90), cursor: 'text' }}
+                      >
+                        {isEditing(i, 'nombre_base')
+                          ? renderInput(i.id, 'nombre_base')
+                          : <span>{i.nombre_base ?? '—'}</span>}
+                      </td>
 
                       {/* ABV — select */}
-                      <CellSelect
-                        i={i}
-                        campo="abv"
-                        options={abvUnicos}
+                      <td
                         className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}
-                        display={<span>{i.abv ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'abv', i.abv)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'abv')
+                          ? renderSelect(i.id, 'abv', abvUnicos)
+                          : <span>{i.abv ?? '—'}</span>}
+                      </td>
 
                       {/* NOMBRE — display */}
                       <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#66aaff] italic' : 'text-[var(--sl-text-primary)]')}>
@@ -319,76 +346,100 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{getProveedor(i.abv)}</td>
 
                       {/* MARCA — input */}
-                      <CellInput
-                        i={i}
-                        campo="marca"
+                      <td
                         className={tdCls + ' text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.marca ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'marca', i.marca)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'marca')
+                          ? renderInput(i.id, 'marca')
+                          : <span>{i.marca ?? '—'}</span>}
+                      </td>
 
                       {/* FORMATO — select */}
-                      <CellSelect
-                        i={i}
-                        campo="formato"
-                        options={formatosUnicos}
+                      <td
                         className={tdCls + ' text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.formato ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'formato', i.formato)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'formato')
+                          ? renderSelect(i.id, 'formato', formatosUnicos)
+                          : <span>{i.formato ?? '—'}</span>}
+                      </td>
 
                       {/* UDS — input number */}
-                      <CellInput
-                        i={i}
-                        campo="uds"
-                        type="number"
+                      <td
                         className={tdCls + ' text-right'}
-                        display={<span>{fmt(i.uds)}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'uds', i.uds)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'uds')
+                          ? renderInput(i.id, 'uds')
+                          : <span>{fmt(i.uds)}</span>}
+                      </td>
 
                       {/* UD STD — select */}
-                      <CellSelect
-                        i={i}
-                        campo="ud_std"
-                        options={udStdOptions}
+                      <td
                         className={tdCls + ' text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.ud_std ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'ud_std', i.ud_std)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'ud_std')
+                          ? renderSelect(i.id, 'ud_std', udStdOptions)
+                          : <span>{i.ud_std ?? '—'}</span>}
+                      </td>
 
                       {/* UD MIN — select */}
-                      <CellSelect
-                        i={i}
-                        campo="ud_min"
-                        options={udMinOptions}
+                      <td
                         className={tdCls + ' text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.ud_min ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'ud_min', i.ud_min)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'ud_min')
+                          ? renderSelect(i.id, 'ud_min', udMinOptions)
+                          : <span>{i.ud_min ?? '—'}</span>}
+                      </td>
 
                       {/* USOS — semáforo */}
-                      <td className={tdCls + ' text-center'} style={{ color: colorUsos(usos, isDark), fontWeight: 700 }}>
+                      <td
+                        className={tdCls}
+                        style={{ color: colorUsos(usos, isDark), fontWeight: 700, textAlign: 'center' }}
+                      >
                         {usos}
                       </td>
 
-                      {/* PRECIO1/2/3 — input number */}
-                      <CellInput
-                        i={i}
-                        campo="precio1"
-                        type="number"
+                      {/* PRECIO1 — input number */}
+                      <td
                         className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
-                        display={<span>{fmt(i.precio1)}</span>}
-                      />
-                      <CellInput
-                        i={i}
-                        campo="precio2"
-                        type="number"
+                        onClick={e => startEdit(e, i.id, 'precio1', i.precio1)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio1')
+                          ? renderInput(i.id, 'precio1')
+                          : <span>{fmt(i.precio1)}</span>}
+                      </td>
+
+                      {/* PRECIO2 — input number */}
+                      <td
                         className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
-                        display={<span>{fmt(i.precio2)}</span>}
-                      />
-                      <CellInput
-                        i={i}
-                        campo="precio3"
-                        type="number"
+                        onClick={e => startEdit(e, i.id, 'precio2', i.precio2)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio2')
+                          ? renderInput(i.id, 'precio2')
+                          : <span>{fmt(i.precio2)}</span>}
+                      </td>
+
+                      {/* PRECIO3 — input number */}
+                      <td
                         className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
-                        display={<span>{fmt(i.precio3)}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'precio3', i.precio3)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio3')
+                          ? renderInput(i.id, 'precio3')
+                          : <span>{fmt(i.precio3)}</span>}
+                      </td>
 
                       {/* ÚLTIMO PRECIO — display */}
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>
@@ -396,17 +447,19 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       </td>
 
                       {/* SELECTOR — select fijo */}
-                      <CellSelect
-                        i={i}
-                        campo="selector_precio"
-                        options={['Último', 'P1', 'P2', 'P3']}
+                      <td
                         className={tdCls + ' text-center text-xs'}
-                        display={
-                          <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">
-                            {i.selector_precio ?? 'Último'}
-                          </span>
-                        }
-                      />
+                        onClick={e => startEdit(e, i.id, 'selector_precio', selectorDisplay)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'selector_precio')
+                          ? renderSelect(i.id, 'selector_precio', ['Último', 'P1', 'P2', 'P3'])
+                          : (
+                            <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">
+                              {selectorDisplay}
+                            </span>
+                          )}
+                      </td>
 
                       {/* ACTIVO — display */}
                       <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmt(i.precio_activo)}</td>
@@ -420,40 +473,29 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                       <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_min ?? '—'}</td>
 
                       {/* TIPO MERMA — select fijo */}
-                      <CellSelect
-                        i={i}
-                        campo="tipo_merma"
-                        options={['Manual', 'Tecnica']}
+                      <td
                         className={tdCls + ' text-xs text-[var(--sl-text-secondary)]'}
-                        display={<span>{i.tipo_merma ?? '—'}</span>}
-                      />
+                        onClick={e => startEdit(e, i.id, 'tipo_merma', i.tipo_merma)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'tipo_merma')
+                          ? renderSelect(i.id, 'tipo_merma', ['Manual', 'Tecnica'])
+                          : <span>{i.tipo_merma ?? '—'}</span>}
+                      </td>
 
                       {/* MERMA% — editable sólo si Manual */}
                       <td
                         className={tdCls + ' text-right'}
                         onClick={mermaManual ? e => startEdit(e, i.id, 'merma_pct', i.merma_pct) : undefined}
-                        style={{ cursor: mermaManual ? 'pointer' : 'default' }}
+                        style={{ cursor: mermaManual ? 'text' : 'default' }}
                       >
-                        {isEditing(i, 'merma_pct') ? (
-                          <input
-                            autoFocus
-                            type="number"
-                            step="any"
-                            value={editingValue}
-                            onChange={e => setEditingValue(e.target.value)}
-                            onBlur={() => saveEdit(i.id, 'merma_pct', editingValue)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveEdit(i.id, 'merma_pct', editingValue)
-                              if (e.key === 'Escape') cancelEdit()
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            style={{ ...editInputStyle, width: '60px', textAlign: 'right' }}
-                          />
-                        ) : (
-                          <span style={{ color: i.tipo_merma === 'Tecnica' ? '#7080a8' : undefined }}>
-                            {i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}
-                          </span>
-                        )}
+                        {isEditing(i, 'merma_pct')
+                          ? renderInput(i.id, 'merma_pct', { width: '60px', textAlign: 'right' })
+                          : (
+                            <span style={{ color: i.tipo_merma === 'Tecnica' ? '#7080a8' : undefined }}>
+                              {i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}
+                            </span>
+                          )}
                       </td>
 
                       {/* MERMA EF. */}
