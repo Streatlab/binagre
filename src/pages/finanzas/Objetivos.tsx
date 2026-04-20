@@ -41,11 +41,19 @@ const TIPO_LABEL: Record<string, string> = {
   diario: 'Diario', semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
 }
 
+const hoyDate = new Date()
+const dayOfWeek = hoyDate.getDay()
+const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+const monday = new Date(hoyDate); monday.setDate(hoyDate.getDate() + daysToMonday)
+const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
+const fmtShort = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+const weekNum = (() => { const d=new Date(hoyDate); const day=d.getDay()||7; d.setDate(d.getDate()+4-day); const y=d.getFullYear(); const jan1=new Date(y,0,1); return Math.ceil(((d.getTime()-jan1.getTime())/86400000+1)/7) })()
+
 const TIPO_DESC: Record<string, string> = {
-  diario:  'Ventas por día natural',
-  semanal: 'Lunes a domingo',
-  mensual: 'Mes natural completo',
-  anual:   'Año natural 2026',
+  diario: hoyDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),
+  semanal: `S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}`,
+  mensual: hoyDate.toLocaleDateString('es-ES',{month:'long'}),
+  anual: `${hoyDate.getFullYear()}`,
 }
 
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────
@@ -191,38 +199,43 @@ export default function Objetivos() {
     [ventas, currentYear])
 
   const cumplimiento = [
-    { label: `Semanal — S${getWeekNum(hoy)}`, real: ventasSemana, obj: objMap.semanal ?? 5000 },
-    { label: `Mensual — ${new Date().toLocaleDateString('es-ES', { month: 'long' })}`, real: ventasMes, obj: objMap.mensual ?? 20000 },
-    { label: `Anual — ${currentYear}`, real: ventasAno, obj: objMap.anual ?? 240000 },
+    { label: `S${weekNum}`, real: ventasSemana, obj: objMap.semanal ?? 5000 },
+    { label: hoyDate.toLocaleDateString('es-ES',{month:'long'}), real: ventasMes, obj: objMap.mensual ?? 20000 },
+    { label: `${hoyDate.getFullYear()}`, real: ventasAno, obj: objMap.anual ?? 240000 },
   ]
 
   // ─── HISTÓRICO ────────────────────────────────────────────
 
   const historico = useMemo((): VentaHistorico[] => {
     if (histTipo === 'semanas') {
+      const mondayStr = monday.toISOString().slice(0,10)
+      const sundayStr = sunday.toISOString().slice(0,10)
+      const ventasFiltSem = ventas.filter(r => r.fecha < mondayStr || r.fecha > sundayStr)
       const map = new Map<string, number>()
-      for (const r of ventas) {
+      for (const r of ventasFiltSem) {
         const { year, week } = isoWeek(r.fecha)
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + (r.total_bruto || 0))
       }
       return [...map.entries()]
         .sort((a, b) => b[0].localeCompare(a[0]))
-        .slice(1, 13)
+        .slice(0, 12)
         .map(([key, real]) => ({
           label: `S${parseInt(key.split('-')[1])}`,
           real,
           objetivo: objMap.semanal ?? 5000,
         }))
     } else {
+      const currentMonthStr = hoyDate.toISOString().slice(0,7)
+      const ventasFiltMes = ventas.filter(r => !r.fecha.startsWith(currentMonthStr))
       const map = new Map<string, number>()
-      for (const r of ventas) {
+      for (const r of ventasFiltMes) {
         const m = r.fecha.slice(0, 7)
         map.set(m, (map.get(m) || 0) + (r.total_bruto || 0))
       }
       return [...map.entries()]
         .sort((a, b) => b[0].localeCompare(a[0]))
-        .slice(1, 7)
+        .slice(0, 6)
         .map(([key, real]) => {
           const [year, month] = key.split('-')
           const label = new Date(parseInt(year), parseInt(month) - 1, 1)
@@ -242,10 +255,6 @@ export default function Objetivos() {
     const jan1 = new Date(y, 0, 1)
     const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
     return { year: y, week }
-  }
-
-  function getWeekNum(dateStr: string): number {
-    return isoWeek(dateStr).week
   }
 
   // ─── ESTILOS ──────────────────────────────────────────────
