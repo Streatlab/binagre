@@ -36,7 +36,7 @@ export function NavIcon({ section, collapsed, isDark, active = false, size = 18 
     case 'panel':
       return <svg {...svgProps}><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     case 'finanzas':
-      return <svg {...svgProps}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      return <svg {...svgProps}><path d="M19 5a9 9 0 100 14"/><line x1="3" y1="10" x2="15" y2="10"/><line x1="3" y1="14" x2="13" y2="14"/></svg>
     case 'cocina':
       return <svg {...svgProps}><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
     case 'operaciones':
