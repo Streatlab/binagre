@@ -127,12 +127,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }, [])
 
   // tokens
-  const sbBg     = isDark ? '#0a0a0a' : '#ffffff'
-  const sbBorder = isDark ? '#1a1a1a' : '#e5e0d8'
-  const sbText   = isDark ? '#c8d0e8' : '#374151'
-  const sbMuted  = isDark ? '#4a5270' : '#9ca3af'
+  const sbBg     = isDark ? '#0d0d0d' : '#f8f5f0'
+  const sbBorder = isDark ? '#222222' : '#ddd8d0'
+  const sbText   = isDark ? '#d8e0f0' : '#2d3748'
+  const sbMuted  = isDark ? '#6a7a9a' : '#718096'
   const sbActive = isDark ? '#e8f442' : '#7a6200'
-  const sbHover  = isDark ? '#161616' : '#f3f4f6'
+  const sbHover  = isDark ? '#1a1a1a' : '#ede9e2'
 
   // Auto-abrir grupo que contiene la ruta activa
   const groupOfPath = (path: string): string | null => {
@@ -214,20 +214,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
-                    padding: collapsed ? '12px 0' : '11px 16px',
+                    gap: 8,
+                    padding: collapsed ? '13px 0' : '12px 16px',
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     color: active ? sbActive : sbText,
                     borderLeft: active ? `2px solid ${sbActive}` : '2px solid transparent',
                     fontFamily: 'Oswald, sans-serif',
-                    fontSize: '0.82rem',
-                    letterSpacing: '1px',
+                    fontSize: '0.88rem',
+                    letterSpacing: '1.5px',
                     textDecoration: 'none',
                     backgroundColor: active ? sbHover : 'transparent',
                     fontWeight: active ? 600 : 400,
                   }}
                 >
-                  <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: 'center', flexShrink: 0 }}>{entry.icon}</span>
+                  <span style={{ fontSize: '1rem', lineHeight: 1, marginRight: 8, width: 20, textAlign: 'center', flexShrink: 0 }}>{entry.icon}</span>
                   {!collapsed && <span>{entry.label}</span>}
                 </NavLink>
               )
@@ -246,11 +246,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '10px 16px',
+                      padding: '11px 16px',
                       marginTop: 6,
                       color: sbMuted,
                       fontFamily: 'Oswald, sans-serif',
-                      fontSize: '0.62rem',
+                      fontSize: '0.68rem',
                       letterSpacing: '2px',
                       cursor: 'pointer',
                       userSelect: 'none',
@@ -259,10 +259,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, lineHeight: 1 }}>{entry.icon}</span>
+                      <span style={{ fontSize: '1rem', lineHeight: 1 }}>{entry.icon}</span>
                       <span>{entry.label}</span>
                     </span>
-                    <span style={{ fontSize: 10 }}>{isOpenGroup ? '▼' : '▶'}</span>
+                    <span style={{ fontSize: 11 }}>{isOpenGroup ? '▼' : '▶'}</span>
                   </div>
                 ) : (
                   <div
@@ -270,8 +270,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     style={{
                       display: 'flex',
                       justifyContent: 'center',
-                      padding: '8px 0',
-                      fontSize: 14,
+                      padding: '10px 0',
+                      fontSize: '1rem',
                       color: sbMuted,
                       borderTop: `1px solid ${sbBorder}`,
                     }}
@@ -292,19 +292,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           display: 'flex',
                           alignItems: 'center',
                           gap: 8,
-                          padding: collapsed ? '8px 0' : '8px 16px 8px 24px',
+                          padding: collapsed ? '9px 0' : '9px 16px 9px 24px',
                           justifyContent: collapsed ? 'center' : 'flex-start',
                           color: sbMuted,
                           opacity: 0.5,
                           fontFamily: 'Lexend, sans-serif',
-                          fontSize: '0.78rem',
+                          fontSize: '0.82rem',
                           cursor: 'default',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        <span style={{ fontSize: 13, lineHeight: 1, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                        <span style={{ fontSize: '1rem', lineHeight: 1, marginRight: 8, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
                         {!collapsed && <span>{item.label}</span>}
                       </div>
                     )
@@ -319,12 +319,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        padding: collapsed ? '8px 0' : '8px 16px 8px 24px',
+                        padding: collapsed ? '9px 0' : '9px 16px 9px 24px',
                         justifyContent: collapsed ? 'center' : 'flex-start',
                         color: itemActive ? sbActive : sbText,
                         borderLeft: itemActive ? `2px solid ${sbActive}` : '2px solid transparent',
                         fontFamily: 'Lexend, sans-serif',
-                        fontSize: '0.78rem',
+                        fontSize: '0.82rem',
                         cursor: 'pointer',
                         backgroundColor: itemActive ? sbHover : 'transparent',
                         whiteSpace: 'nowrap',
@@ -332,7 +332,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         textOverflow: 'ellipsis',
                       }}
                     >
-                      <span style={{ fontSize: 13, lineHeight: 1, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                      <span style={{ fontSize: '1rem', lineHeight: 1, marginRight: 8, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
                       {!collapsed && <span>{item.label}</span>}
                     </div>
                   )

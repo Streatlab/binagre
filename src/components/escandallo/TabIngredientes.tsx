@@ -28,26 +28,6 @@ const normalizeSelector = (v?: string | null): string => {
 
 const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio']
 
-const CAT_COLOR: Record<string, string> = {
-  'Aceites/Grasas':     '#f5a623',
-  'Carnes':             '#B01D23',
-  'Aves/Carnes':        '#B01D23',
-  'Pescados/Mariscos':  '#66aaff',
-  'Pescado/Marisco':    '#66aaff',
-  'Verduras':           '#06C167',
-  'Frutas/Verduras':    '#06C167',
-  'Lácteos':            '#e8f442',
-  'Lácteos y Huevos':   '#e8f442',
-  'Bebidas':            '#9b59b6',
-  'Congelados':         '#00bcd4',
-  'Condimentos/Salsas': '#f5a623',
-  'Cereales/Legumbres': '#c8a96e',
-  'Panadería':          '#c8a96e',
-  'Conservas/Quinta':   '#8896b0',
-  'Envases':            '#7080a8',
-  'Packaging':          '#7080a8',
-}
-
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
   const [localIngs, setLocalIngs] = useState<Ingrediente[]>(ingredientes)
@@ -309,18 +289,19 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                   const selectorDisplay = normalizeSelector(i.selector_precio)
                   return (
                     <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
-                      {/* IDING — amarillo oscuro / tostado claro, abre modal */}
+                      {/* IDING — mismo tamaño/fuente que ABV, color amarillo/tostado */}
                       <td
                         onClick={() => onSelect?.(i)}
                         style={{
                           color: isDark ? '#e8f442' : '#7a6200',
-                          fontFamily: 'Oswald, sans-serif',
+                          fontFamily: 'Lexend, sans-serif',
+                          fontSize: '0.82rem',
                           fontWeight: 600,
                           cursor: 'pointer',
                           position: 'sticky',
                           left: 0,
                           zIndex: 2,
-                          backgroundColor: isDark ? '#111111' : '#faf9f5',
+                          backgroundColor: isDark ? '#111111' : '#ffffff',
                           padding: '10px 14px',
                           borderBottom: '1px solid var(--sl-border)',
                           whiteSpace: 'nowrap',
@@ -340,14 +321,14 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                           : <span>{i.categoria ?? '—'}</span>}
                       </td>
 
-                      {/* NOMBRE BASE — input text (sticky), color según categoría */}
+                      {/* NOMBRE BASE — input text (sticky), color textPri uniforme */}
                       <td
                         className={tdCls + ' max-w-[220px] truncate' + (isEps ? ' italic' : '')}
                         onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)}
                         style={{
                           ...stickyTdStyle(90),
                           cursor: 'text',
-                          color: isEps ? '#66aaff' : (CAT_COLOR[i.categoria ?? ''] ?? 'var(--sl-text-primary)'),
+                          color: isEps ? '#66aaff' : 'var(--sl-text-primary)',
                           fontWeight: 500,
                         }}
                       >

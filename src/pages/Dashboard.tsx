@@ -125,31 +125,31 @@ export default function Dashboard() {
   const ventasSemana = agSemana.bruto
   const pedidosSemana = agSemana.pedidos
 
-  const agMes = useMemo(
-    () => sumRows(data.filter(r => r.fecha.startsWith(currentMonth))),
+  const rowsMes = useMemo(
+    () => data.filter(r => r.fecha.startsWith(currentMonth)),
     [data, currentMonth]
   )
+  const agMes = useMemo(() => sumRows(rowsMes), [rowsMes])
   const ventasMes = agMes.bruto
 
   const canalStats = useMemo((): CanalStat[] => {
-    const rows = data.filter(r => r.fecha.startsWith(currentMonth))
-    const uber = sumCanal(rows, 'uber_pedidos', 'uber_bruto')
-    const glovo = sumCanal(rows, 'glovo_pedidos', 'glovo_bruto')
-    const je = sumCanal(rows, 'je_pedidos', 'je_bruto')
-    const web = sumCanal(rows, 'web_pedidos', 'web_bruto')
-    const total = rows.reduce((s, r) => s + (r.total_bruto || 0), 0)
-    const directa = Math.max(0, total - uber.bruto - glovo.bruto - je.bruto - web.bruto)
+    const uber = sumCanal(rowsMes, 'uber_pedidos', 'uber_bruto')
+    const glovo = sumCanal(rowsMes, 'glovo_pedidos', 'glovo_bruto')
+    const je = sumCanal(rowsMes, 'je_pedidos', 'je_bruto')
+    const web = sumCanal(rowsMes, 'web_pedidos', 'web_bruto')
+    const directa = Math.max(0, ventasMes - uber.bruto - glovo.bruto - je.bruto - web.bruto)
+    const pct = (v: number) => ventasMes > 0 ? (v / ventasMes) * 100 : 0
     const list: CanalStat[] = [
-      { nombre: 'Uber Eats',  total: uber.bruto,  pct: total > 0 ? (uber.bruto / total) * 100 : 0 },
-      { nombre: 'Glovo',      total: glovo.bruto, pct: total > 0 ? (glovo.bruto / total) * 100 : 0 },
-      { nombre: 'Just Eat',   total: je.bruto,    pct: total > 0 ? (je.bruto / total) * 100 : 0 },
-      { nombre: 'Web Propia', total: web.bruto,   pct: total > 0 ? (web.bruto / total) * 100 : 0 },
+      { nombre: 'Uber Eats',  total: uber.bruto,  pct: pct(uber.bruto) },
+      { nombre: 'Glovo',      total: glovo.bruto, pct: pct(glovo.bruto) },
+      { nombre: 'Just Eat',   total: je.bruto,    pct: pct(je.bruto) },
+      { nombre: 'Web Propia', total: web.bruto,   pct: pct(web.bruto) },
     ]
     if (directa > 0) {
-      list.push({ nombre: 'Venta Directa', total: directa, pct: total > 0 ? (directa / total) * 100 : 0 })
+      list.push({ nombre: 'Venta Directa', total: directa, pct: pct(directa) })
     }
     return list
-  }, [data, currentMonth])
+  }, [rowsMes, ventasMes])
 
   const weekBars = useMemo((): WeekBar[] => {
     const map = new Map<string, number>()
@@ -168,12 +168,12 @@ export default function Dashboard() {
   /* ── tokens tema ───────────────────────────────────────── */
 
   const surface = isDark ? '#111111' : '#ffffff'
-  const border  = isDark ? '#2a2a2a' : '#e5e0d8'
-  const textPri = isDark ? '#f0f0ff' : '#1a1a1a'
-  const textSec = isDark ? '#7080a8' : '#6b7280'
-  const highlight = isDark ? '#e8f442' : '#7a6200'
-  const groupBg = isDark ? '#0d0d0d' : '#fafaf8'
-  const barBgOther = isDark ? '#2a3050' : '#d1d5db'
+  const border  = isDark ? '#2a2a2a' : '#d0cbc0'
+  const textPri = isDark ? '#f0f0ff' : '#111111'
+  const textSec = isDark ? '#9ba8c0' : '#4a5568'
+  const accent  = isDark ? '#e8f442' : '#7a6200'
+  const groupBg = isDark ? '#0d0d0d' : '#faf8f5'
+  const barOther = isDark ? '#2a3050' : '#c8c0b4'
 
   const mesCurso = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
   const mesLabel = mesCurso.charAt(0).toUpperCase() + mesCurso.slice(1)
@@ -186,6 +186,15 @@ export default function Dashboard() {
     letterSpacing: '3px',
     color: textSec,
     marginBottom: 20,
+    textTransform: 'uppercase',
+  }
+
+  const groupLabelStyle: React.CSSProperties = {
+    fontFamily: 'Oswald, sans-serif',
+    fontSize: '0.65rem',
+    letterSpacing: '2px',
+    color: textSec,
+    marginBottom: 14,
     textTransform: 'uppercase',
   }
 
@@ -212,11 +221,10 @@ export default function Dashboard() {
     )
   }
 
-  const kpis = [
-    { label: 'VENTAS SEMANA',  valor: fmtEur(ventasSemana), sub: `S${nSemana} · bruto` },
+  const kpisSemana = [
+    { label: 'VENTAS SEMANA',  valor: fmtEur(ventasSemana), sub: 'bruto' },
     { label: 'PEDIDOS SEMANA', valor: Math.round(pedidosSemana).toString(), sub: 'todos los canales' },
     { label: 'TICKET MEDIO',   valor: pedidosSemana > 0 ? fmtEur(ventasSemana / pedidosSemana) : '—', sub: 'bruto / pedido' },
-    { label: 'VENTAS MES',     valor: fmtEur(ventasMes), sub: mesLabel },
   ]
 
   const totalChart = weekBars.reduce((a, w) => a + w.total, 0)
@@ -225,13 +233,11 @@ export default function Dashboard() {
     <div>
       <h1 style={titleStyle}>Dashboard</h1>
 
-      {/* Sección KPIs semana — agrupados */}
-      <div style={{ border: `1px solid ${border}`, borderRadius: 10, padding: 16, marginBottom: 16, backgroundColor: groupBg }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.55rem', letterSpacing: '2px', color: textSec, marginBottom: 12, textTransform: 'uppercase' }}>
-          Esta semana — S{nSemana}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {kpis.map(k => (
+      {/* GRUPO 1 — Esta semana */}
+      <div style={{ border: `1px solid ${border}`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, backgroundColor: groupBg }}>
+        <div style={groupLabelStyle}>Esta semana — S{nSemana}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {kpisSemana.map(k => (
             <div key={k.label} style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '14px 18px' }}>
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.55rem', letterSpacing: '1.5px', color: textSec, marginBottom: 5, textTransform: 'uppercase' }}>
                 {k.label}
@@ -247,58 +253,71 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Cards canales */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
-        {canalStats.map(canal => {
-          const color = CANAL_COLOR[canal.nombre] ?? '#888'
-          return (
-            <div key={canal.nombre} style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '14px 18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.55rem', letterSpacing: '1.5px', color: textSec, textTransform: 'uppercase' }}>
-                  {canal.nombre}
-                </span>
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.72rem', fontWeight: 600, color }}>
-                  {canal.pct.toFixed(1)}%
-                </span>
+      {/* GRUPO 2 — Este mes */}
+      <div style={{ border: `1px solid ${border}`, borderRadius: 10, padding: '16px 20px', marginBottom: 16, backgroundColor: groupBg }}>
+        <div style={groupLabelStyle}>Este mes — {mesLabel}</div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.6rem', letterSpacing: '1.5px', color: textSec, textTransform: 'uppercase', marginBottom: 4 }}>
+            Ventas totales
+          </div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '1.6rem', fontWeight: 600, color: textPri }}>
+            {fmtEur(ventasMes)}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+          {canalStats.map(canal => {
+            const color = CANAL_COLOR[canal.nombre] ?? '#888'
+            return (
+              <div key={canal.nombre} style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.58rem', letterSpacing: '1px', color: textSec, textTransform: 'uppercase' }}>
+                    {canal.nombre}
+                  </span>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.72rem', fontWeight: 600, color }}>
+                    {canal.pct.toFixed(1)}%
+                  </span>
+                </div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '1.05rem', fontWeight: 600, color: textPri, marginBottom: 6 }}>
+                  {fmtEur(canal.total)}
+                </div>
+                <div style={{ height: 3, backgroundColor: border, borderRadius: 2 }}>
+                  <div style={{ height: 3, width: `${Math.min(canal.pct, 100)}%`, backgroundColor: color, borderRadius: 2 }} />
+                </div>
               </div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '1.15rem', fontWeight: 600, color: textPri, marginBottom: 8 }}>
-                {fmtEur(canal.total)}
-              </div>
-              <div style={{ height: 3, backgroundColor: border, borderRadius: 2 }}>
-                <div style={{ height: 3, width: `${Math.min(canal.pct, 100)}%`, backgroundColor: color, borderRadius: 2 }} />
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
-      {/* Gráfico últimas 4 semanas */}
+      {/* GRUPO 3 — Gráfico últimas 4 semanas */}
       <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 10, padding: '20px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.6rem', letterSpacing: '2px', color: textSec, textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.65rem', letterSpacing: '2px', color: textSec, textTransform: 'uppercase' }}>
             Últimas 4 semanas
           </span>
-          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: '0.72rem', color: textSec }}>
+          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: '0.78rem', color: textSec }}>
             Total: {fmtEur(totalChart)}
           </span>
         </div>
         {weekBars.length === 0 ? (
           <p style={{ color: textSec, fontSize: 13, textAlign: 'center', padding: '32px 0' }}>Sin datos</p>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 160 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, height: 160 }}>
             {weekBars.map((w, idx) => {
               const maxVal = Math.max(...weekBars.map(x => x.total), 1)
               const pct = (w.total / maxVal) * 100
               const isLast = idx === weekBars.length - 1
-              const barColor = isLast ? highlight : barBgOther
-              const textColor = isLast ? highlight : textSec
+              const barColor = isLast ? accent : barOther
+              const labelColor = isLast ? accent : textSec
               return (
                 <div key={w.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: '0.68rem', color: textColor, fontWeight: isLast ? 600 : 400 }}>
+                  <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: '0.75rem', color: isLast ? accent : textPri, fontWeight: isLast ? 600 : 400 }}>
                     {fmtEur(w.total)}
                   </span>
-                  <div style={{ width: '100%', height: `${pct}%`, backgroundColor: barColor, borderRadius: '4px 4px 0 0', minHeight: 4, transition: 'height 0.3s ease' }} />
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.62rem', color: textColor, letterSpacing: '1px', fontWeight: isLast ? 600 : 400 }}>
+                  <div style={{ width: '100%', height: `${pct}%`, backgroundColor: barColor, borderRadius: '4px 4px 0 0', minHeight: 4 }} />
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.68rem', color: labelColor, letterSpacing: '1px', fontWeight: isLast ? 600 : 400 }}>
                     {w.label}
                   </span>
                 </div>
