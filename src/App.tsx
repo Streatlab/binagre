@@ -22,6 +22,9 @@ import VentasMarca from '@/pages/analytics/VentasMarca'
 import RankingProductos from '@/pages/analytics/RankingProductos'
 import PrediccionDemanda from '@/pages/analytics/PrediccionDemanda'
 
+// Cocina
+import CocinaRecetas from '@/pages/CocinaRecetas'
+
 // Operaciones
 import ControlTemperaturas from '@/pages/ops/ControlTemperaturas'
 import ChecklistsAperturaCierre from '@/pages/ops/ChecklistsAperturaCierre'
@@ -125,6 +128,9 @@ function AppRoutes() {
         <Route path="equipo/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="clientes/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="integraciones/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
+
+        {/* Cocina */}
+        <Route path="cocina/recetas" element={<CocinaRecetas />} />
 
         {/* Nuevas secciones acordeón */}
         <Route path="finanzas/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />

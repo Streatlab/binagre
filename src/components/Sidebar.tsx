@@ -127,7 +127,7 @@ const SECTIONS: NavSection[] = [
       { path: '/escandallo', label: 'Escandallo',       emoji: '⚖️',  perfiles: ['admin', 'cocina'] },
       { path: '/escandallo', label: 'Ingredientes',     emoji: '🧂',  perfiles: ['admin', 'cocina'] },
       { path: '/escandallo', label: 'EPS',              emoji: '⚗️',  perfiles: ['admin', 'cocina'] },
-      { path: '/escandallo', label: 'Recetas',          emoji: '📜',  perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/recetas', label: 'Recetas',      emoji: '📜',  perfiles: ['admin', 'cocina'] },
       { path: '/escandallo', label: 'Mermas',           emoji: '📉',  perfiles: ['admin', 'cocina'] },
       { path: '/escandallo', label: 'Índice',           emoji: '🗂️',  perfiles: ['admin', 'cocina'] },
       { path: '/ops/recetas',  label: 'Fichas Técnicas', emoji: '📋',  perfiles: ['admin', 'cocina'] },
