@@ -84,13 +84,15 @@ const NETO_GREEN = '#1D9E75'
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
+// Semana ES: lunes=1 ... domingo=7. getDay() devuelve 0=dom, 1=lun...6=sab.
+// Para alinear lunes como inicio: daysFromMonday = (getDay() + 6) % 7
 function startOfWeekStr(): string {
   const now = new Date()
-  const idx = (now.getDay() + 6) % 7
-  const d = new Date(now)
-  d.setDate(now.getDate() - idx)
-  d.setHours(0,0,0,0)
-  return d.toISOString().slice(0,10)
+  const daysFromMonday = (now.getDay() + 6) % 7
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - daysFromMonday)
+  monday.setHours(0,0,0,0)
+  return monday.toISOString().slice(0,10)
 }
 
 function todayStr(): string {
@@ -279,6 +281,7 @@ export default function Dashboard() {
   const currentMonth = hoy.slice(0,7)
   const currentYear = hoy.slice(0,4)
 
+  // Lun + 6 días = Dom. T12:00:00 evita shift de timezone en ES (UTC+2).
   const weekEnd = useMemo(() => {
     const d = new Date(weekStart + 'T12:00:00')
     d.setDate(d.getDate() + 6)
@@ -306,7 +309,6 @@ export default function Dashboard() {
     return ((ventasPeriodo - prevVentas) / prevVentas) * 100
   }, [data, desde, hasta, ventasPeriodo])
 
-  // 5 canales siempre — no filtrar por bruto > 0
   const canalStats = useMemo((): CanalStat[] => {
     const canalesActivos = canalesFiltro.length > 0
       ? CANALES_DEF.filter(c => canalesFiltro.includes(c.id))
@@ -322,7 +324,7 @@ export default function Dashboard() {
     })
   }, [rowsPeriodo, canalesFiltro, ventasPeriodo])
 
-  // Semana real Lun–Dom (fix días pico)
+  // Semana real Lun–Dom (estrictamente)
   const rowsSemana   = useMemo(() => data.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd), [data, weekStart, weekEnd])
   const ventasSemana = useMemo(() => rowsSemana.reduce((a,r) => a + (r.total_bruto || 0), 0), [rowsSemana])
   const ventasMes    = useMemo(() => data.filter(r => r.fecha.startsWith(currentMonth)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentMonth])
@@ -369,10 +371,10 @@ export default function Dashboard() {
   const badgeStyle = (canalTag: string): CSSProperties => {
     const isGlovo = canalTag === 'GL' || canalTag === 'glovo'
     if (isGlovo) return isDark
-      ? { background:'#e8f442', color:'#1a1a00', fontSize:9, padding:'1px 5px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
-      : { background:'#e8f442', color:'#5a4000', border:'1px solid #8a7800', fontSize:9, padding:'1px 5px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+      ? { background:'#e8f442', color:'#1a1a00', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+      : { background:'#e8f442', color:'#5a4000', border:'1px solid #8a7800', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
     const colors: Record<string,string> = { UE:'#06C167', uber:'#06C167', JE:'#f5a623', je:'#f5a623', WEB:'#B01D23', web:'#B01D23', DIR:'#66aaff', dir:'#66aaff' }
-    return { background: colors[canalTag] || '#888', color:'#ffffff', fontSize:9, padding:'1px 5px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+    return { background: colors[canalTag] || '#888', color:'#ffffff', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
   }
 
   const tabStyle = (active: boolean): CSSProperties => active
@@ -380,7 +382,7 @@ export default function Dashboard() {
     : { background:'none', color: T.sec, border:`0.5px solid ${T.brd}`, padding:'4px 10px', borderRadius:6, fontSize:11, cursor:'pointer', fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
 
   const cardBox: CSSProperties = { background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:10, padding:'14px 16px' }
-  const labelSm: CSSProperties = { fontFamily:'Oswald,sans-serif', fontSize:11, letterSpacing:'2px', textTransform:'uppercase', color:T.mut }
+  const labelSm: CSSProperties = { fontFamily:'Oswald,sans-serif', fontSize:12, letterSpacing:'2px', textTransform:'uppercase', color:T.mut }
 
   /* ── loading / error ───────────────────────────────────── */
 
@@ -405,81 +407,7 @@ export default function Dashboard() {
   return (
     <div style={{ fontFamily: 'Lexend, sans-serif' }}>
 
-      {/* ═══════════ HEADER UNA SOLA LÍNEA ═══════════ */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, flexWrap:'nowrap', overflowX:'auto' }}>
-        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:9, letterSpacing:'2px', textTransform:'uppercase', color:T.mut, whiteSpace:'nowrap', flexShrink:0 }}>
-          {labelPeriodo(periodo, nSemana)}
-        </span>
-        <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, fontWeight:500, color:T.emphasis, whiteSpace:'nowrap', flexShrink:0 }}>
-          {fechasPeriodo(periodo, rangoDesde, rangoHasta)}
-        </span>
-        <span style={{ color:T.brd, flexShrink:0 }}>·</span>
-
-        {/* Marcas */}
-        <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
-          <button
-            onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
-            style={{ padding:'2px 7px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
-          >
-            {marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`} ▾
-          </button>
-          {dropMarcaOpen && (
-            <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-              {MARCAS_MOCK.map(m => (
-                <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
-                  <input type="checkbox" checked={marcasFiltro.includes(m)}
-                    onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
-                    style={{ width:13, height:13 }} />
-                  {m}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Canales */}
-        <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
-          <button
-            onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
-            style={{ padding:'2px 7px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
-          >
-            {canalesFiltro.length === 0 ? 'Todos los canales' : canalesFiltro.length === 1 ? CANALES_DEF.find(c => c.id === canalesFiltro[0])?.label : `${canalesFiltro.length} canales`} ▾
-          </button>
-          {dropCanalOpen && (
-            <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-              {CANALES_DEF.map(c => {
-                const isGlovo = c.id === 'glovo'
-                const dotBg = isGlovo ? glovoStyle.dot : c.color
-                const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
-                return (
-                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
-                    <input type="checkbox" checked={canalesFiltro.includes(c.id)}
-                      onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
-                      style={{ width:13, height:13 }} />
-                    <span style={{ width:8, height:8, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0, display:'inline-block' }} />
-                    {c.label}
-                  </label>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <div style={{ flex:1 }} />
-
-        <select value={periodo} onChange={e => setPeriodo(e.target.value)}
-          style={{ fontSize:10, padding:'2px 6px', maxWidth:130, borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, cursor:'pointer', flexShrink:0 }}>
-          <option value="semana_actual">Semana actual</option>
-          <option value="semana_anterior">Semana anterior</option>
-          <option value="mes_actual">Mes actual</option>
-          <option value="un_mes">Un mes hasta ahora</option>
-          <option value="mes_anterior">Mes anterior</option>
-          <option value="60d">Últimos 60 días</option>
-          <option value="rango">Rango personalizado</option>
-        </select>
-      </div>
-
-      {/* Rango personalizado (fuera del wrapper principal para no invadir visualmente) */}
+      {/* Rango personalizado (fuera del wrapper — para no romper layout al aparecer) */}
       {periodo === 'rango' && (
         <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
           <input type="date" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)}
@@ -491,9 +419,95 @@ export default function Dashboard() {
       )}
 
       {/* ═════════════════════════════════════════════════════
-          UN ÚNICO GRUPO SOMBREADO
+          UN ÚNICO WRAPPER SOMBREADO — todo dentro
           ═════════════════════════════════════════════════════ */}
-      <div style={{ background:T.group, border:`0.5px solid ${T.brd}`, borderRadius:16, padding:'22px 24px' }}>
+      <div style={{ background:T.group, border:`0.5px solid ${T.brd}`, borderRadius:16, padding:'24px 28px' }}>
+
+        {/* ── Título grande: SEMANA ACTUAL — S17 + fechas ── */}
+        <div style={{ marginBottom:16, display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+          <span style={{
+            fontFamily:'Oswald,sans-serif',
+            fontSize:22,
+            letterSpacing:'3px',
+            textTransform:'uppercase',
+            color:T.emphasis,
+            fontWeight:600,
+            lineHeight:1,
+          }}>
+            {labelPeriodo(periodo, nSemana)}
+          </span>
+          <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec }}>
+            {fechasPeriodo(periodo, rangoDesde, rangoHasta)}
+          </span>
+        </div>
+
+        {/* ── Filtros + selector — línea pequeña ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1px', textTransform:'uppercase', color:T.mut }}>Filtrar:</span>
+
+          {/* Marcas */}
+          <div style={{ position:'relative' }} data-drop="marca">
+            <button
+              onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
+              style={{ padding:'3px 9px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
+            >
+              {marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`} ▾
+            </button>
+            {dropMarcaOpen && (
+              <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
+                {MARCAS_MOCK.map(m => (
+                  <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
+                    <input type="checkbox" checked={marcasFiltro.includes(m)}
+                      onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
+                      style={{ width:13, height:13 }} />
+                    {m}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Canales */}
+          <div style={{ position:'relative' }} data-drop="canal">
+            <button
+              onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
+              style={{ padding:'3px 9px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
+            >
+              {canalesFiltro.length === 0 ? 'Todos los canales' : canalesFiltro.length === 1 ? CANALES_DEF.find(c => c.id === canalesFiltro[0])?.label : `${canalesFiltro.length} canales`} ▾
+            </button>
+            {dropCanalOpen && (
+              <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
+                {CANALES_DEF.map(c => {
+                  const isGlovo = c.id === 'glovo'
+                  const dotBg = isGlovo ? glovoStyle.dot : c.color
+                  const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
+                  return (
+                    <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
+                      <input type="checkbox" checked={canalesFiltro.includes(c.id)}
+                        onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
+                        style={{ width:13, height:13 }} />
+                      <span style={{ width:8, height:8, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0, display:'inline-block' }} />
+                      {c.label}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex:1 }} />
+
+          <select value={periodo} onChange={e => setPeriodo(e.target.value)}
+            style={{ fontSize:11, padding:'3px 7px', maxWidth:140, borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, cursor:'pointer' }}>
+            <option value="semana_actual">Semana actual</option>
+            <option value="semana_anterior">Semana anterior</option>
+            <option value="mes_actual">Mes actual</option>
+            <option value="un_mes">Un mes hasta ahora</option>
+            <option value="mes_anterior">Mes anterior</option>
+            <option value="60d">Últimos 60 días</option>
+            <option value="rango">Rango personalizado</option>
+          </select>
+        </div>
 
         {/* ── KPIs: Ventas | Pedidos | TM ── */}
         <div style={{ display:'grid', gridTemplateColumns: grid3, gap:14, marginBottom:22 }}>
@@ -501,7 +515,7 @@ export default function Dashboard() {
           {/* VENTAS */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:8 }}>Ventas</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.2rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
               {fmtEur(ventasPeriodo)}
             </div>
             {variacionPct !== null && (
@@ -524,12 +538,12 @@ export default function Dashboard() {
                 <div key={tipo} style={{ marginBottom:10 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:12, letterSpacing:'1px', textTransform:'uppercase', color:T.pri }}>{label}</span>
-                      <span style={{ fontSize:11, color:T.mut }}>— {sub}</span>
+                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:13, letterSpacing:'1px', textTransform:'uppercase', color:T.pri }}>{label}</span>
+                      <span style={{ fontSize:12, color:T.mut }}>— {sub}</span>
                     </div>
-                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:13, fontWeight:600, color:col }}>{pct}%</span>
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:col }}>{pct}%</span>
                   </div>
-                  <div style={{ fontSize:12, color:T.sec, marginBottom:5 }}>
+                  <div style={{ fontSize:13, color:T.sec, marginBottom:5 }}>
                     Faltan <span style={{ color:col, fontWeight:500 }}>{fmtEur(falta)}</span> de {fmtEur(meta)}
                   </div>
                   <div style={{ height:4, background:T.brd, borderRadius:2 }}>
@@ -543,7 +557,7 @@ export default function Dashboard() {
           {/* PEDIDOS */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:8 }}>Pedidos</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.2rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
+            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
               {Math.round(pedidosPeriodo).toLocaleString('es-ES')}
             </div>
             <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
@@ -552,11 +566,11 @@ export default function Dashboard() {
               const dotBg = isGlovo ? glovoStyle.dot : c.color
               const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
               return (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', fontSize:13 }}>
-                  <span style={{ width:8, height:8, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
+                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 0', fontSize:14 }}>
+                  <span style={{ width:9, height:9, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
                   <span style={{ color:T.pri, flex:1 }}>{c.label}</span>
-                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:14, width:46, textAlign:'right' }}>{Math.round(c.pedidos).toLocaleString('es-ES')}</span>
-                  <span style={{ color:T.mut, fontSize:12, width:36, textAlign:'right' }}>{c.pct.toFixed(0)}%</span>
+                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:15, width:50, textAlign:'right' }}>{Math.round(c.pedidos).toLocaleString('es-ES')}</span>
+                  <span style={{ color:T.mut, fontSize:12, width:38, textAlign:'right' }}>{c.pct.toFixed(0)}%</span>
                 </div>
               )
             })}
@@ -565,7 +579,7 @@ export default function Dashboard() {
           {/* TICKET MEDIO */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:8 }}>TM</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.2rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
+            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
               {fmtEur(ticketMedio)}
             </div>
             <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
@@ -574,10 +588,10 @@ export default function Dashboard() {
               const dotBg = isGlovo ? glovoStyle.dot : c.color
               const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
               return (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', fontSize:13 }}>
-                  <span style={{ width:8, height:8, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
+                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 0', fontSize:14 }}>
+                  <span style={{ width:9, height:9, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
                   <span style={{ color:T.pri, flex:1 }}>{c.label}</span>
-                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:14 }}>
+                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:15 }}>
                     {c.ticket > 0 ? fmtEur(c.ticket) : '—'}
                   </span>
                 </div>
@@ -598,23 +612,36 @@ export default function Dashboard() {
             const tagCol  = isGlovo ? glovoStyle.tag : c.color
             return (
               <div key={c.id} style={{ background:cardBg, border:`1px solid ${cardBrd}`, borderRadius:10, padding:'12px 14px' }}>
-                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:tagCol, marginBottom:8 }}>{c.label}</div>
+                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:tagCol, marginBottom:8 }}>{c.label}</div>
+
+                {/* Bruto */}
                 <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:3 }}>
-                  <span style={{ fontFamily:'Oswald,sans-serif', fontSize:17, fontWeight:600, color:T.pri, lineHeight:1 }}>
-                    {hasData ? fmtEur(c.bruto) : '— €'}
-                  </span>
-                  <span style={{ fontSize:10, color:T.mut }}>bruto</span>
+                  {hasData ? (
+                    <>
+                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, fontWeight:600, color:T.pri, lineHeight:1 }}>{fmtEur(c.bruto)}</span>
+                      <span style={{ fontSize:11, color:T.mut }}>bruto</span>
+                    </>
+                  ) : (
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, color:T.mut, lineHeight:1 }}>—</span>
+                  )}
                 </div>
+
+                {/* Neto — siempre verde cuando hay datos */}
                 <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:10 }}>
-                  <span style={{ fontFamily:'Oswald,sans-serif', fontSize:17, fontWeight:500, color: NETO_GREEN, lineHeight:1 }}>
-                    {hasData ? fmtEur(c.neto) : '— €'}
-                  </span>
-                  <span style={{ fontSize:10, color:T.mut }}>neto</span>
+                  {hasData ? (
+                    <>
+                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, fontWeight:500, color:NETO_GREEN, lineHeight:1 }}>{fmtEur(c.neto)}</span>
+                      <span style={{ fontSize:11, color:T.mut }}>neto</span>
+                    </>
+                  ) : (
+                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, color:T.mut, lineHeight:1 }}>—</span>
+                  )}
                 </div>
+
                 <div style={{ height:3, background:T.brd, borderRadius:2, marginBottom:8 }}>
                   <div style={{ height:3, width:`${hasData ? Math.min(c.pct,100) : 0}%`, background:c.color, borderRadius:2 }} />
                 </div>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:11 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12 }}>
                   {hasData ? (
                     <>
                       <span style={{ color:T.sec }}>Margen</span>
@@ -635,36 +662,48 @@ export default function Dashboard() {
           {/* Días pico */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:14 }}>Días pico — S{nSemana}</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6 }}>
-              {(() => {
-                const ALTURA_MAX = 80
-                const maxVal = Math.max(...diasPico.map(d => d.valor), 1)
-                return diasPico.map(({ nombre, valor }) => {
-                  const hasData = valor > 0
-                  const h = hasData ? Math.max(Math.round((valor / maxVal) * ALTURA_MAX), 8) : 8
-                  const isTop = hasData && valor === maxVal
-                  const barColor = isTop ? T.emphasis : hasData ? '#378ADD' : T.brd
-                  return (
-                    <div key={nombre} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                      <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut }}>{nombre}</div>
-                      <div style={{ height:ALTURA_MAX, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
-                        <div style={{
-                          width:22,
-                          height:h,
-                          background: barColor,
-                          borderRadius:'3px 3px 0 0',
-                          opacity: hasData ? 1 : 0.35,
-                          outline: hasData ? 'none' : `1px dashed ${T.brd}`,
-                        }} />
-                      </div>
-                      <div style={{ fontFamily:'Lexend,sans-serif', fontSize:10, color: isTop ? T.emphasis : T.sec, fontWeight: isTop ? 600 : 400 }}>
-                        {hasData ? fmtEur(valor).replace(' €','') : '—'}
-                      </div>
-                    </div>
-                  )
-                })
-              })()}
-            </div>
+            {(() => {
+              const ALTURA_MAX = 100
+              const maxVal = Math.max(...diasPico.map(d => d.valor), 1)
+              const topVal = Math.max(...diasPico.map(d => d.valor))
+              return (
+                <div style={{ position:'relative', paddingBottom:8 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6, alignItems:'flex-end' }}>
+                    {diasPico.map(({ nombre, valor }) => {
+                      const hasData = valor > 0
+                      const h = hasData ? Math.max(Math.round((valor / maxVal) * ALTURA_MAX), 10) : Math.round(ALTURA_MAX * 0.15)
+                      const isTop = hasData && valor === topVal
+                      const barColor = isTop ? T.emphasis : hasData ? '#378ADD' : T.brd
+                      return (
+                        <div key={nombre} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                          {/* Valor encima */}
+                          <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color: isTop ? T.emphasis : T.sec, fontWeight: isTop ? 600 : 400, minHeight:15, textAlign:'center' }}>
+                            {hasData ? fmtEur(valor).replace(' €','') : ''}
+                          </div>
+                          {/* Barra */}
+                          <div style={{ height:ALTURA_MAX, display:'flex', alignItems:'flex-end', justifyContent:'center', width:'100%' }}>
+                            <div style={{
+                              width:'70%',
+                              height:h,
+                              background:barColor,
+                              borderRadius:'3px 3px 0 0',
+                              opacity: hasData ? 1 : 0.3,
+                              border: hasData ? 'none' : `1px dashed ${T.brd}`,
+                            }} />
+                          </div>
+                          {/* Nombre día */}
+                          <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.mut, textAlign:'center', marginTop:2 }}>{nombre}</div>
+                          {/* "—" bajo si sin datos */}
+                          {!hasData && <div style={{ fontSize:10, color:T.mut }}>—</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* Línea base horizontal */}
+                  <div style={{ height:1, background:T.brd, marginTop:-18, pointerEvents:'none' }} />
+                </div>
+              )
+            })()}
           </div>
 
           {/* Top ventas */}
@@ -678,16 +717,16 @@ export default function Dashboard() {
             </div>
             <div style={{ display:'flex', flexDirection:'column' }}>
               {topItems.map((p, idx) => (
-                <div key={`${topTab}-${idx}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom: idx < topItems.length-1 ? `0.5px solid ${T.brd}` : 'none' }}>
-                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.mut, width:18, textAlign:'right' }}>{idx+1}</span>
-                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:14, color:T.pri, flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.n}</span>
+                <div key={`${topTab}-${idx}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 0', borderBottom: idx < topItems.length-1 ? `0.5px solid ${T.brd}` : 'none' }}>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, width:18, textAlign:'right' }}>{idx+1}</span>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, color:T.pri, flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.n}</span>
                   <span style={badgeStyle(p.canal)}>{p.canal}</span>
-                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.sec, width:34, textAlign:'right' }}>{p.uds}</span>
-                  <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:T.pri, width:60, textAlign:'right' }}>{fmtEur(p.total)}</span>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec, width:36, textAlign:'right' }}>{p.uds}</span>
+                  <span style={{ fontFamily:'Oswald,sans-serif', fontSize:15, fontWeight:600, color:T.pri, width:64, textAlign:'right' }}>{fmtEur(p.total)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize:10, color:T.mut, marginTop:10 }}>* Datos reales disponibles al integrar POS</div>
+            <div style={{ fontSize:11, color:T.mut, marginTop:12 }}>* Datos reales disponibles al integrar POS</div>
           </div>
 
         </div>
