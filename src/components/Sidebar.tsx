@@ -1,12 +1,25 @@
 import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
-const SB_BG = '#1e2233'
+
+function useIsDark() {
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -198,7 +211,7 @@ function LogoSL({ small = false }: { small?: boolean }) {
     )
   }
   return (
-    <img src="/data/streat-icon.svg" onError={() => setFallback(true)} alt="Streat Lab" width={size} height={size} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />
+    <img src="/data/logo-icon.svg" onError={() => setFallback(true)} alt="Streat Lab" width={size} height={size} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />
   )
 }
 
@@ -208,6 +221,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
   const perfil = usuario?.perfil ?? ''
+  const isDark = useIsDark()
+
+  // Tokens adaptativos al tema
+  const sbBg      = isDark ? '#0d0d0d' : '#f0ede8'
+  const sbText    = isDark ? '#e8eaf0' : '#1a202c'
+  const sbMuted   = isDark ? '#7080a8' : '#5a6480'
+  const sbItemTxt = isDark ? '#c8d0e8' : '#2d3748'
+  const sbHdrOpen = isDark ? '#c8d0e8' : '#1a202c'
+  const sbHdrClosed = isDark ? '#7080a8' : '#8896b0'
+  const sbDivider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)'
+  const sbHoverBg = isDark ? '#2a3047' : '#e2ddd6'
 
   // FIFO accordion: max 2 sections open simultaneously
   const [openSections, setOpenSections] = useState<string[]>([])
@@ -228,12 +252,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    padding: isActive ? '8px 8px 8px 16px' : '8px 8px 8px 40px',
-    margin: isActive ? '1px 8px' : '1px 8px',
+    padding: '8px 8px 8px 16px',
+    margin: '1px 8px',
     borderRadius: 6,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
-    color: isActive ? '#1a1a1a' : '#c8d0e8',
+    color: isActive ? '#1a1a1a' : sbItemTxt,
     background: isActive ? ACCENT : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
@@ -242,13 +266,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     overflow: 'hidden',
   })
 
+  // suppress unused warning
+  void sbText; void sbMuted
+
   return (
     <>
       {/* Mobile overlay */}
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: SB_BG }}
+        style={{ background: sbBg }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200 overflow-hidden
@@ -281,16 +308,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
+                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : sbItemTxt, background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
                 {PANEL_GLOBAL.emoji}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => ({ ...itemStyle(isActive), paddingLeft: isActive ? 16 : 16, fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
+                style={({ isActive }) => ({ ...itemStyle(isActive), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
                 {({ isActive }) => (
                   <>
                     <span style={{ fontSize: 16 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ color: isActive ? '#1a1a1a' : '#f0f0ff' }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ color: isActive ? '#1a1a1a' : sbItemTxt }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
@@ -307,7 +334,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <div key={section.key}>
                 {/* Section header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '6px 8px' }} />
+                  <div style={{ height: 1, background: sbDivider, margin: '6px 8px' }} />
                 ) : (
                   <button
                     type="button"
@@ -318,7 +345,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       padding: '10px 16px 10px 12px',
                       fontFamily: 'Oswald, sans-serif', fontSize: 11,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
-                      color: isOpen ? '#c8d0e8' : '#7080a8',
+                      color: isOpen ? sbHdrOpen : sbHdrClosed,
                       transition: 'color 200ms',
                     }}
                   >
@@ -340,7 +367,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         end={item.path === '/'}
                         onClick={onClose}
                         style={({ isActive }) => itemStyle(isActive)}
-                        className={({ isActive }) => isActive ? '' : 'hover:!bg-[#2a3047] hover:!text-[#f0f0ff]'}
+                        className={({ isActive }) => isActive ? '' : ''}
+                        onMouseEnter={e => { if (!(e.currentTarget as HTMLElement).classList.contains('active')) (e.currentTarget as HTMLElement).style.background = sbHoverBg }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                       >
                         {({ isActive }) => (
                           <>
@@ -362,7 +391,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={onClose}
                     title={item.label}
                     className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
+                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : sbItemTxt, background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
                   >
                     {item.emoji}
                   </NavLink>
