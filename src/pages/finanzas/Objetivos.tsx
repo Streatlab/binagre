@@ -26,6 +26,24 @@ interface ObjetivoDia {
 
 const DIA_LABELS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 
+// Calendario laboral Madrid capital 2026
+const FESTIVOS_MADRID_2026 = [
+  { fecha: '2026-01-01', nombre: 'Año Nuevo' },
+  { fecha: '2026-01-06', nombre: 'Reyes' },
+  { fecha: '2026-04-02', nombre: 'Jueves Santo' },
+  { fecha: '2026-04-03', nombre: 'Viernes Santo' },
+  { fecha: '2026-05-01', nombre: 'Día del Trabajo' },
+  { fecha: '2026-05-15', nombre: 'San Isidro' },
+  { fecha: '2026-07-25', nombre: 'Santiago Apóstol' },
+  { fecha: '2026-08-15', nombre: 'Asunción' },
+  { fecha: '2026-10-12', nombre: 'Fiesta Nacional' },
+  { fecha: '2026-11-02', nombre: 'Todos los Santos' },
+  { fecha: '2026-11-09', nombre: 'Almudena' },
+  { fecha: '2026-12-07', nombre: 'Constitución' },
+  { fecha: '2026-12-08', nombre: 'Inmaculada' },
+  { fecha: '2026-12-25', nombre: 'Navidad' },
+]
+
 interface ObjetivoEspecifico {
   id: string
   nombre: string
@@ -91,7 +109,7 @@ export default function Objetivos() {
   const [savingNuevo, setSavingNuevo] = useState(false)
 
   // Histórico
-  const [histTipo, setHistTipo] = useState<'semanas' | 'meses'>('semanas')
+  const [histTipo, setHistTipo] = useState<'semanas' | 'meses' | 'anual'>('semanas')
   const [histAnio, setHistAnio] = useState<number>(new Date().getFullYear())
   const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
 
@@ -279,6 +297,9 @@ export default function Objetivos() {
           real,
           objetivo: objMap.semanal ?? 5000,
         }))
+    } else if (histTipo === 'anual') {
+      const totalAnio = ventasFiltAnio.reduce((a, r) => a + (r.total_bruto || 0), 0)
+      return [{ label: String(histAnio), real: totalAnio, objetivo: objMap.anual ?? 240000 }]
     } else {
       const currentMonthStr = hoyDate.toISOString().slice(0,7)
       const base = esAnioActual
@@ -302,6 +323,14 @@ export default function Objetivos() {
   }, [ventas, histTipo, histAnio, objMap])
 
   // ─── HELPERS ──────────────────────────────────────────────
+
+  function fechaDia(diaNum: number): string {
+    const hoy = new Date()
+    const dow = hoy.getDay() === 0 ? 7 : hoy.getDay()
+    const fecha = new Date(hoy)
+    fecha.setDate(hoy.getDate() + (diaNum - dow))
+    return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  }
 
   function isoWeek(dateStr: string): { year: number; week: number } {
     const d = new Date(dateStr + 'T12:00:00')
@@ -471,23 +500,24 @@ export default function Objetivos() {
 
       {/* Objetivos por día de semana */}
       <div style={sectionLabel}>Objetivos por día de semana</div>
-      <div style={{ ...cardStyle(T), marginBottom: 24 }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 14 }}>
-          Objetivo de ventas estándar para cada día. Úsalos como referencia cuando no hay un objetivo específico activo.
-        </div>
+      <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
           {[...objetivosDia].sort((a,b) => a.dia - b.dia).map(o => {
             const isEditing = editingDiaId === o.id
             const isSaved = savedDiaId === o.id
-            const dayColor = o.dia >= 5 ? '#1D9E75' : T.sec
+            const esFinde = o.dia >= 5
+            const cardBg = esFinde ? (isDark ? '#1a2810' : '#edf7e8') : T.card
+            const cardBrd = isEditing ? T.emphasis : (esFinde ? '#1D9E75' : T.brd)
+            const dayColor = esFinde ? '#1D9E75' : T.sec
             return (
               <div key={o.id} style={{
-                ...cardStyle(T),
+                background: cardBg,
+                border: `0.5px solid ${cardBrd}`,
+                borderRadius: 10,
                 padding: '12px 14px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 6,
-                border: isEditing ? `1px solid ${T.emphasis}` : `0.5px solid ${T.brd}`,
               }}>
                 <div style={{
                   fontFamily: FONT.heading,
@@ -497,6 +527,9 @@ export default function Objetivos() {
                   color: dayColor,
                 }}>
                   {DIA_LABELS[o.dia - 1]}
+                </div>
+                <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: -4 }}>
+                  {fechaDia(o.dia)}
                 </div>
 
                 {!isEditing ? (
@@ -634,11 +667,12 @@ export default function Objetivos() {
         <div style={{ display: 'flex', gap: 8 }}>
           <select
             value={histTipo}
-            onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses')}
+            onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses' | 'anual')}
             style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}
           >
             <option value="semanas">Por semanas</option>
             <option value="meses">Por meses</option>
+            <option value="anual">Todo el año</option>
           </select>
           <select
             value={histAnio}
