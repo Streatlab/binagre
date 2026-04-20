@@ -165,6 +165,118 @@ export const MARCAS = ['Binagre','Ninja Ramen','Mister Katsu','Korean Chicken','
    BADGE (top ventas / tag canal)
    ═══════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════
+   DROPDOWNS
+   ═══════════════════════════════════════════════════════════ */
+
+export const dropdownBtnStyle = (T: TokenSet): CSSProperties => ({
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: `0.5px solid ${T.brd}`,
+  background: T.inp,
+  color: T.pri,
+  fontSize: 13,
+  fontFamily: FONT.body,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  whiteSpace: 'nowrap',
+})
+
+export const dropdownMenuStyle = (T: TokenSet): CSSProperties => ({
+  position: 'absolute',
+  left: 0,
+  top: '110%',
+  background: T.card,
+  border: `0.5px solid ${T.brd}`,
+  borderRadius: 8,
+  minWidth: 170,
+  zIndex: 20,
+  padding: '4px 0',
+})
+
+export const dropdownItemStyle = (T: TokenSet): CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 12px',
+  cursor: 'pointer',
+  fontSize: 13,
+  fontFamily: FONT.body,
+  color: T.pri,
+})
+
+/* ═══════════════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════════════ */
+
+export const tabActiveStyle = (isDark: boolean): CSSProperties => ({
+  padding: '6px 14px',
+  borderRadius: 6,
+  border: 'none',
+  background: isDark ? '#e8f442' : '#B01D23',
+  color: isDark ? '#1a1a00' : '#ffffff',
+  fontFamily: FONT.body,
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background 150ms',
+})
+
+export const tabInactiveStyle = (T: TokenSet): CSSProperties => ({
+  padding: '6px 14px',
+  borderRadius: 6,
+  border: `0.5px solid ${T.brd}`,
+  background: 'none',
+  color: T.sec,
+  fontFamily: FONT.body,
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background 150ms',
+})
+
+/* ═══════════════════════════════════════════════════════════
+   CANAL HEADER (columna tabla con color corporativo)
+   ═══════════════════════════════════════════════════════════ */
+
+export const canalHeaderStyle = (canalId: string, isDark: boolean): CSSProperties => {
+  const canal = CANALES.find(c => c.id === canalId)
+  const color = canal?.color ?? '#888'
+  const isGlovo = canalId === 'glovo'
+  return {
+    fontFamily: FONT.heading,
+    fontSize: 11,
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+    color: isGlovo ? (isDark ? '#e8f442' : '#8a7800') : color,
+    padding: '8px 10px',
+    textAlign: 'center',
+    whiteSpace: 'nowrap',
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORMATO FECHAS
+   ═══════════════════════════════════════════════════════════ */
+
+export const fmtFechaCorta = (dateStr: string): string => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
+
+export const fmtFechaLarga = (dateStr: string): string => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BADGE (top ventas / tag canal)
+   ═══════════════════════════════════════════════════════════ */
+
 export function badgeStyle(canalTag: string, isDark: boolean): CSSProperties {
   const isGlovo = canalTag === 'GL' || canalTag === 'glovo'
   if (isGlovo) return isDark

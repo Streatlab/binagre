@@ -1,7 +1,18 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import { useTheme, FONT } from '@/styles/tokens'
+import {
+  useTheme,
+  cardStyle,
+  FONT,
+  dropdownBtnStyle,
+  dropdownMenuStyle,
+  dropdownItemStyle,
+  tabActiveStyle,
+  tabInactiveStyle,
+  fmtFechaCorta,
+  canalHeaderStyle,
+} from '@/styles/tokens'
 
 // Pedidos siempre enteros
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
@@ -42,11 +53,11 @@ type CanalFilter = 'Todos' | 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web'
    CONSTANTS
    ═══════════════════════════════════════════════════════════ */
 
-const COLS: { label: string; ped: keyof AggRow; bru: keyof AggRow }[] = [
-  { label: 'Uber Eats', ped: 'uber_pedidos', bru: 'uber_bruto' },
-  { label: 'Glovo',     ped: 'glovo_pedidos', bru: 'glovo_bruto' },
-  { label: 'Just Eat',  ped: 'je_pedidos',    bru: 'je_bruto' },
-  { label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto' },
+const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow }[] = [
+  { id: 'uber',  label: 'Uber Eats', ped: 'uber_pedidos',  bru: 'uber_bruto' },
+  { id: 'glovo', label: 'Glovo',     ped: 'glovo_pedidos', bru: 'glovo_bruto' },
+  { id: 'je',    label: 'Just Eat',  ped: 'je_pedidos',    bru: 'je_bruto' },
+  { id: 'web',   label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto' },
 ]
 
 const CANAL_OPTIONS: CanalFilter[] = ['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web']
@@ -198,6 +209,8 @@ export default function Facturacion() {
   const { T, isDark } = useTheme()
   const [tab, setTab] = useState<Tab>('diario')
   const [canal, setCanal] = useState<CanalFilter>('Todos')
+  const [servicioFiltro, setServicioFiltro] = useState<string[]>([])
+  const [dropServOpen, setDropServOpen] = useState(false)
   const [allData, setAllData] = useState<RawDiario[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -207,6 +220,39 @@ export default function Facturacion() {
   const [weekFilter, setWeekFilter] = useState<{ year: number; week: number } | null>(null)
   const [editRow, setEditRow] = useState<RawDiario | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+
+  /* Click fuera cierra dropdown servicio */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      if (!t.closest('[data-drop]')) setDropServOpen(false)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [])
+
+  /* Cálculos de fecha para KPI labels */
+  const hoy = new Date()
+  const dayOfWeek = hoy.getDay()
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const monday = new Date(hoy); monday.setDate(hoy.getDate() + daysToMonday)
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
+  const weekNum = (() => {
+    const d = new Date(hoy); const day = d.getDay()||7
+    d.setDate(d.getDate()+4-day)
+    const y = d.getFullYear()
+    const jan1 = new Date(y,0,1)
+    return Math.ceil(((d.getTime()-jan1.getTime())/86400000+1)/7)
+  })()
+  const mesNombre = hoy.toLocaleDateString('es-ES',{month:'long'}).replace(/^\w/,c=>c.toUpperCase())
+  const fmtCorto = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+
+  const KPI_LABELS = {
+    hoy:     hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}).replace(/^\w/,c=>c.toUpperCase()),
+    semana:  `S${weekNum} · ${fmtCorto(monday)} – ${fmtCorto(sunday)}`,
+    mes:     mesNombre,
+    anio:    `${hoy.getFullYear()}`,
+  }
 
   const refresh = () => setRefreshKey(k => k + 1)
 
@@ -239,81 +285,114 @@ export default function Facturacion() {
   }
   const clearWeekFilter = () => setWeekFilter(null)
 
-  /* KPIs from allData */
+  /* KPIs from allData filtrado por servicio */
   const todayStr = today()
   const currentIso = isoWeek(todayStr)
   const currentMonth = todayStr.slice(0, 7)
   const currentYear = todayStr.slice(0, 4)
 
+  const filteredData = useMemo(() =>
+    servicioFiltro.length === 0 ? allData : allData.filter(r => servicioFiltro.includes(r.servicio)),
+    [allData, servicioFiltro]
+  )
+
   const kpiHoy = useMemo(() => {
-    const rows = allData.filter(r => r.fecha === todayStr)
+    const rows = filteredData.filter(r => r.fecha === todayStr)
     const a = aggregate(rows)
     return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [allData, canal, todayStr])
+  }, [filteredData, canal, todayStr])
 
   const kpiSemana = useMemo(() => {
-    const rows = allData.filter(r => {
+    const rows = filteredData.filter(r => {
       const w = isoWeek(r.fecha)
       return w.year === currentIso.year && w.week === currentIso.week
     })
     const a = aggregate(rows)
     return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [allData, canal, currentIso.year, currentIso.week])
+  }, [filteredData, canal, currentIso.year, currentIso.week])
 
   const kpiMes = useMemo(() => {
-    const rows = allData.filter(r => r.fecha.startsWith(currentMonth))
+    const rows = filteredData.filter(r => r.fecha.startsWith(currentMonth))
     const a = aggregate(rows)
     return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [allData, canal, currentMonth])
+  }, [filteredData, canal, currentMonth])
 
   const kpiAnio = useMemo(() => {
-    const rows = allData.filter(r => r.fecha.startsWith(currentYear))
+    const rows = filteredData.filter(r => r.fecha.startsWith(currentYear))
     const a = aggregate(rows)
     return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [allData, canal, currentYear])
+  }, [filteredData, canal, currentYear])
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[var(--sl-text-primary)] mb-4">Facturacion</h2>
+      <h2 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: T.emphasis, fontWeight: 600, margin: '0 0 18px' }}>
+        Facturación
+      </h2>
 
       {/* Global KPIs */}
       {!loading && !error && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <KpiCard label="Hoy" valor={fmtEur(kpiHoy.bruto)} sub={`${fmtInt(kpiHoy.pedidos)} pedidos`} />
-          <KpiCard label="Semana actual" valor={fmtEur(kpiSemana.bruto)} sub={`${fmtInt(kpiSemana.pedidos)} pedidos`} />
-          <KpiCard label="Mes actual" valor={fmtEur(kpiMes.bruto)} sub={`${fmtInt(kpiMes.pedidos)} pedidos`} />
-          <KpiCard label={`Ano ${currentYear}`} valor={fmtEur(kpiAnio.bruto)} sub={`${fmtInt(kpiAnio.pedidos)} pedidos`} />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14, marginBottom:20 }}>
+          {[
+            { label: KPI_LABELS.hoy,    valor: kpiHoy.bruto,    pedidos: kpiHoy.pedidos },
+            { label: KPI_LABELS.semana, valor: kpiSemana.bruto, pedidos: kpiSemana.pedidos },
+            { label: KPI_LABELS.mes,    valor: kpiMes.bruto,    pedidos: kpiMes.pedidos },
+            { label: KPI_LABELS.anio,   valor: kpiAnio.bruto,   pedidos: kpiAnio.pedidos },
+          ].map((k, idx) => (
+            <div key={idx} style={cardStyle(T)}>
+              <div style={{ fontFamily:FONT.body, fontSize:12, fontWeight:500, color:T.pri, marginBottom:6, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                {k.label}
+              </div>
+              <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+                {fmtEur(k.valor)}
+              </div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, color:T.sec }}>
+                {fmtInt(k.pedidos)} pedidos
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Toolbar: Tabs + Canal filter */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      {/* Toolbar: Tabs + Filtros */}
+      <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:10, marginBottom:18 }}>
         <div style={{ display:'flex', gap:4, background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:10, padding:4 }}>
-          {TABS.map(t => {
-            const active = tab === t.key
-            return (
-              <button
-                key={t.key}
-                onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  border: active ? 'none' : `0.5px solid ${T.brd}`,
-                  background: active ? (isDark ? '#e8f442' : '#B01D23') : 'none',
-                  color: active ? (isDark ? '#1a1a00' : '#ffffff') : T.sec,
-                  fontFamily: FONT.body,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  transition: 'background 150ms',
-                }}
-              >
-                {t.label}
-              </button>
-            )
-          })}
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
+              style={tab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
+        {/* Dropdown servicio */}
+        <div style={{ position:'relative' }} data-drop="serv">
+          <button
+            onClick={e => { e.stopPropagation(); setDropServOpen(p => !p) }}
+            style={dropdownBtnStyle(T)}
+          >
+            {servicioFiltro.length === 0 ? 'Todos los servicios' : servicioFiltro.length === 1 ? servicioFiltro[0] : `${servicioFiltro.length} servicios`} ▾
+          </button>
+          {dropServOpen && (
+            <div style={dropdownMenuStyle(T)}>
+              {['ALM','CENAS','COC','BAR','EVE'].map(s => (
+                <label key={s} style={dropdownItemStyle(T)}>
+                  <input
+                    type="checkbox"
+                    checked={servicioFiltro.includes(s)}
+                    onChange={() => setServicioFiltro(p => p.includes(s) ? p.filter(x=>x!==s) : [...p, s])}
+                    style={{ width:13, height:13 }}
+                  />
+                  {s}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Select canal */}
         <select
           value={canal}
           onChange={e => setCanal(e.target.value as CanalFilter)}
@@ -337,12 +416,12 @@ export default function Facturacion() {
         <>
           {tab === 'diario' && (
             <TabDiario
-              allData={allData} canal={canal} weekFilter={weekFilter}
+              allData={filteredData} canal={canal} weekFilter={weekFilter}
               onRefresh={refresh} onEdit={setEditRow} onAdd={() => setShowAdd(true)}
             />
           )}
-          {tab === 'semanas' && <TabSemanas allData={allData} canal={canal} onDrill={drillWeek} />}
-          {tab === 'meses' && <TabMeses allData={allData} canal={canal} />}
+          {tab === 'semanas' && <TabSemanas allData={filteredData} canal={canal} onDrill={drillWeek} />}
+          {tab === 'meses' && <TabMeses allData={filteredData} canal={canal} />}
         </>
       )}
 
@@ -372,8 +451,9 @@ interface DiarioProps {
 }
 
 function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: DiarioProps) {
-  const { T } = useTheme()
-  const [mesFilter, setMesFilter] = useState('todos')
+  const { T, isDark } = useTheme()
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const [mesFilter, setMesFilter] = useState(currentMonth)
 
   /* apply weekFilter first, then mesFilter */
   const rows = useMemo(() => {
@@ -431,10 +511,10 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
+        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
-        <MiniKpi label="Ticket medio" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
-        <MiniKpi label="Media diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
+        <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
+        <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
       </div>
 
       {/* Table */}
@@ -448,7 +528,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
                     <th rowSpan={2} className="px-3 py-2 text-left sticky left-0 bg-[var(--sl-card)] z-10">Fecha</th>
                     <th rowSpan={2} className="px-3 py-2 text-left">Serv.</th>
                     {COLS.map(c => (
-                      <th key={c.label} colSpan={2} className="px-2 py-2 text-center border-l border-border">{c.label}</th>
+                      <th key={c.label} colSpan={2} className="border-l border-border" style={canalHeaderStyle(c.id, isDark)}>{c.label}</th>
                     ))}
                     <th colSpan={2} className="px-2 py-2 text-center border-l border-border text-[var(--sl-text-primary)] font-bold">Total</th>
                   </tr>
@@ -476,7 +556,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
               {rows.map(r => (
                 <tr key={r.id} onClick={() => onEdit(r)}
                   className="hover:bg-[var(--sl-card)]/[0.03] transition-colors cursor-pointer">
-                  <td className="px-3 py-2 text-[var(--sl-text-primary)] sticky left-0 bg-[var(--sl-card)]">{r.fecha}</td>
+                  <td className="px-3 py-2 text-[var(--sl-text-primary)] sticky left-0 bg-[var(--sl-card)]">{fmtFechaCorta(r.fecha)}</td>
                   <td className="px-3 py-2"><ServicioBadge s={r.servicio} /></td>
                   {showBreakdown ? (
                     <>
@@ -540,8 +620,8 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
    ═══════════════════════════════════════════════════════════ */
 
 function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: CanalFilter; onDrill: (y: number, w: number) => void }) {
-  const { T } = useTheme()
-  const rows = useMemo(() => buildSemanas(allData), [allData])
+  const { T, isDark } = useTheme()
+  const rows = useMemo(() => buildSemanas(allData).slice(0, 12), [allData])
   const totals = useMemo(() => aggregate(allData), [allData])
   const showBreakdown = canal === 'Todos'
 
@@ -562,7 +642,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
     <>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <MiniKpi label="Semanas" valor={String(rows.length)} />
-        <MiniKpi label="Bruto" valor={fmtEur(getBru(totals, canal))} />
+        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
         <button onClick={exportar}
           style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
@@ -581,7 +661,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
                 <th className="px-4 py-3 text-right">Pedidos</th>
                 <th className="px-4 py-3 text-right">Bruto</th>
                 {showBreakdown && COLS.map(c => (
-                  <th key={c.label} className="px-3 py-3 text-right border-l border-border">{c.label}</th>
+                  <th key={c.label} className="border-l border-border" style={{ ...canalHeaderStyle(c.id, isDark), textAlign:'right' }}>{c.label}</th>
                 ))}
               </tr>
             </thead>
@@ -631,7 +711,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
    ═══════════════════════════════════════════════════════════ */
 
 function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter }) {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
   const allRows = useMemo(() => buildMeses(allData), [allData])
 
   const years = useMemo(() => {
@@ -677,9 +757,9 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
-        <MiniKpi label="Bruto anual" valor={fmtEur(getBru(yearTotal, canal))} />
+        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(yearTotal, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(yearTotal, canal))} />
-        <MiniKpi label="Media diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
+        <MiniKpi label="Facturación Diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
         <button onClick={exportar}
           style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
           Exportar CSV
@@ -696,7 +776,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
                 <th className="px-4 py-3 text-right">Pedidos</th>
                 <th className="px-4 py-3 text-right">Bruto</th>
                 {showBreakdown && COLS.map(c => (
-                  <th key={c.label} className="px-3 py-3 text-right border-l border-border">{c.label}</th>
+                  <th key={c.label} className="border-l border-border" style={{ ...canalHeaderStyle(c.id, isDark), textAlign:'right' }}>{c.label}</th>
                 ))}
                 <th className="px-4 py-3 text-right border-l border-border">Media/dia</th>
                 <th className="px-4 py-3 text-right border-l border-border">vs Anterior</th>
@@ -988,16 +1068,6 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
 /* ═══════════════════════════════════════════════════════════
    MICRO-COMPONENTS
    ═══════════════════════════════════════════════════════════ */
-
-function KpiCard({ label, valor, sub }: { label: string; valor: string; sub: string }) {
-  return (
-    <div className="bg-[var(--sl-card)] border border-border rounded-xl p-4">
-      <p className="text-xs text-[var(--sl-text-secondary)] uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-[var(--sl-text-primary)] mt-1">{valor}</p>
-      <p className="text-xs text-[var(--sl-text-secondary)] mt-0.5">{sub}</p>
-    </div>
-  )
-}
 
 function MiniKpi({ label, valor }: { label: string; valor: string }) {
   return (
