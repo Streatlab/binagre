@@ -283,7 +283,6 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
               <tbody>
                 {filtered.map(i => {
                   const isEps = i.abv === 'EPS'
-                  const rowNameCls = isEps ? 'text-[#66aaff] italic font-medium' : 'text-[var(--sl-text-primary)] font-medium'
                   const usos = usosMap[String(i.id)] ?? n(i.usos)
                   const mermaManual = i.tipo_merma === 'Manual'
                   const selectorDisplay = normalizeSelector(i.selector_precio)
