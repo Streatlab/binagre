@@ -315,7 +315,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {/* Panel Global — direct link, no accordion */}
           {PANEL_GLOBAL.perfiles.includes(perfil) && (
             collapsed ? (
-              <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
+              <NavLink to={PANEL_GLOBAL.path} end onClick={() => { toggle(); onClose() }} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
                 style={({ isActive }) => ({ width: 56, height: 44, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
                 {({ isActive }) => <NavIcon section="panel" collapsed isDark={isDark} active={isActive} />}
@@ -345,7 +345,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 {collapsed ? (
                   <button
                     type="button"
-                    onClick={() => toggleSection(section.key)}
+                    onClick={() => {
+                      // Asegurar que la sección queda abierta al expandir
+                      if (!openSections.includes(section.key)) {
+                        setOpenSections(prev => {
+                          const next = [...prev, section.key]
+                          if (next.length > 2) next.shift()
+                          return next
+                        })
+                      }
+                      toggle()
+                    }}
                     title={section.label}
                     style={{
                       width: 56, height: 40, background: 'none', border: 'none', cursor: 'pointer',
@@ -407,7 +417,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     key={`${item.path}-${idx}`}
                     to={item.path}
                     end={item.path === '/'}
-                    onClick={onClose}
+                    onClick={() => { toggle(); onClose() }}
                     title={item.label}
                     className="flex items-center justify-center transition-colors"
                     style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
