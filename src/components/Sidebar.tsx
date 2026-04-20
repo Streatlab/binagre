@@ -187,6 +187,12 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: 'marketing', emoji: '📈', label: 'Marketing', perfiles: ['admin'],
+    items: [
+      { path: '/marketing/embudo', label: 'Embudo', emoji: '🔽', perfiles: ['admin'] },
+    ],
+  },
+  {
     key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
       { path: '/equipo/empleados',    label: 'Fichas Empleados',       emoji: '👤', perfiles: ['admin'] },
