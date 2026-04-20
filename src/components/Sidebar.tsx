@@ -127,6 +127,7 @@ const SECTIONS: NavSection[] = [
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
       { path: '/escandallo', label: 'Escandallo',       emoji: '⚖️',  perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/menu-engineering', label: 'Menu Engineering', emoji: '⚙️', perfiles: ['admin'] },
       { path: '/escandallo', label: 'Ingredientes',     emoji: '🧂',  perfiles: ['admin', 'cocina'] },
       { path: '/escandallo', label: 'EPS',              emoji: '⚗️',  perfiles: ['admin', 'cocina'] },
       { path: '/cocina/recetas', label: 'Recetas',      emoji: '📜',  perfiles: ['admin', 'cocina'] },
@@ -136,7 +137,6 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/pulso',    label: 'Pulso Cocina',    emoji: '🔥',  perfiles: ['admin'] },
       { path: '/cocina/kds',   label: 'KDS Kitchen Display', emoji: '📟', perfiles: ['admin'] },
       { path: '/cocina/carta', label: 'Carta',           emoji: '🍽️',  perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering', label: 'Menu Engineering', emoji: '⚙️', perfiles: ['admin'] },
       { path: '/cocina/historico-recetas', label: 'Histórico Recetas', emoji: '🕰️', perfiles: ['admin', 'cocina'] },
     ],
   },
