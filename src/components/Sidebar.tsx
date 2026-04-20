@@ -1,16 +1,18 @@
-import { NavLink } from 'react-router-dom'
-import { useState, Fragment } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect, Fragment } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
+import { useTheme } from '@/contexts/ThemeContext'
 import { ThemeToggle } from './ThemeToggle'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
 
 interface NavItem {
-  path: string
   label: string
-  icon: string
+  path: string
+  icon?: string
+  placeholder?: boolean
   perfiles: string[]
 }
 
@@ -20,75 +22,43 @@ interface NavGroup {
   items: NavItem[]
 }
 
-
-const PRINCIPAL: NavItem[] = [
-  { path: '/',            label: 'Dashboard',   icon: '📊', perfiles: ['admin', 'cocina'] },
-  { path: '/escandallo',  label: 'Escandallo',  icon: '⚖️', perfiles: ['admin', 'cocina'] },
-  { path: '/facturacion', label: 'Facturación',  icon: '💶', perfiles: ['admin'] },
-]
+const DASHBOARD: NavItem = { label: 'Dashboard', path: '/', icon: '📊', perfiles: ['admin', 'cocina'] }
+const CONFIGURACION: NavItem = { label: 'Configuración', path: '/configuracion', icon: '⚙️', perfiles: ['admin'] }
 
 const GROUPS: NavGroup[] = [
   {
-    key: 'analytics', label: 'ANALYTICS',
+    key: 'facturacion', label: 'FACTURACIÓN',
     items: [
-      { path: '/analytics/revenue',      label: 'Revenue & Ticket Medio', icon: '📈', perfiles: ['admin'] },
-      { path: '/analytics/cogs',         label: 'COGS / Coste MP',        icon: '🧾', perfiles: ['admin'] },
-      { path: '/analytics/margen',       label: 'Margen por Canal',       icon: '💹', perfiles: ['admin'] },
-      { path: '/analytics/ventas-marca', label: 'Ventas por Marca',       icon: '🏪', perfiles: ['admin'] },
-      { path: '/analytics/ranking',      label: 'Ranking Productos',      icon: '🏆', perfiles: ['admin'] },
-      { path: '/analytics/demanda',      label: 'Predicción Demanda',     icon: '🔮', perfiles: ['admin'] },
+      { label: 'Resumen',   path: '/facturacion', icon: '💶', perfiles: ['admin'] },
+      { label: 'Análisis',  path: '/analytics',   icon: '📈', placeholder: true, perfiles: ['admin'] },
+      { label: 'Revenue',   path: '/revenue',     icon: '💹', placeholder: true, perfiles: ['admin'] },
+      { label: 'Running',   path: '/running',     icon: '🏃', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'cocina', label: 'COCINA',
+    items: [
+      { label: 'Escandallo',    path: '/escandallo',           icon: '⚖️', perfiles: ['admin', 'cocina'] },
+      { label: 'Control temp.', path: '/control-temperatura',  icon: '🌡️', placeholder: true, perfiles: ['admin', 'cocina'] },
+      { label: 'Checklists',    path: '/checklists',           icon: '✅', placeholder: true, perfiles: ['admin', 'cocina'] },
     ],
   },
   {
     key: 'operaciones', label: 'OPERACIONES',
     items: [
-      { path: '/ops/temperaturas',   label: 'Control Temperaturas',       icon: '🌡️', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/checklists',     label: 'Checklists Apertura/Cierre', icon: '✅', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/tareas',         label: 'Tareas Operativas',          icon: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/bitacora',       label: 'Bitácora Novedades',         icon: '📓', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/equipos',        label: 'Libro Equipos',              icon: '🔧', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/danos',          label: 'Daños Menaje',               icon: '⚠️', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/pedidos-menaje', label: 'Pedidos Menaje',             icon: '📦', perfiles: ['admin', 'cocina'] },
-      { path: '/ops/pulso',          label: 'Pulso Cocina',               icon: '💓', perfiles: ['admin'] },
-      { path: '/ops/bpm',            label: 'BPM / Calidad',              icon: '⭐', perfiles: ['admin'] },
-      { path: '/ops/reuniones',      label: 'Reuniones Equipo',           icon: '🤝', perfiles: ['admin'] },
-      { path: '/ops/recetas',        label: 'Recetas Fichas Técnicas',    icon: '📖', perfiles: ['admin', 'cocina'] },
+      { label: 'Marcas',        path: '/marcas',         icon: '🏷️', perfiles: ['admin'] },
+      { label: 'POS',           path: '/pos',            icon: '🖥️', placeholder: true, perfiles: ['admin'] },
+      { label: 'Integraciones', path: '/integraciones',  icon: '🔌', placeholder: true, perfiles: ['admin'] },
+      { label: 'Manuales',      path: '/manuales',       icon: '📘', placeholder: true, perfiles: ['admin'] },
     ],
   },
   {
     key: 'equipo', label: 'EQUIPO',
     items: [
-      { path: '/equipo/empleados',     label: 'Fichas Empleados',      icon: '👤', perfiles: ['admin'] },
-      { path: '/equipo/evaluaciones',  label: 'Evaluaciones',          icon: '📊', perfiles: ['admin'] },
-      { path: '/equipo/llamados',      label: 'Llamados Atención',     icon: '🚨', perfiles: ['admin'] },
-      { path: '/equipo/antiguedad',    label: 'Beneficios Antigüedad', icon: '🎖️', perfiles: ['admin'] },
-      { path: '/equipo/celebraciones', label: 'Celebraciones',         icon: '🎉', perfiles: ['admin'] },
-      { path: '/equipo/dotacion',      label: 'Dotación',              icon: '👕', perfiles: ['admin'] },
-      { path: '/equipo/onboarding',    label: 'Onboarding Digital',    icon: '🚀', perfiles: ['admin'] },
-      { path: '/equipo/sgsst',        label: 'SG-SST',                icon: '🦺', perfiles: ['admin'] },
-      { path: '/equipo/metas',        label: 'Mis Ventas / Mis Metas', icon: '🎯', perfiles: ['admin'] },
+      { label: 'Equipo',    path: '/equipo',    icon: '👥', placeholder: true, perfiles: ['admin'] },
+      { label: 'Clientes',  path: '/clientes',  icon: '🤝', placeholder: true, perfiles: ['admin'] },
     ],
   },
-  {
-    key: 'clientes', label: 'CLIENTES',
-    items: [
-      { path: '/clientes/club',    label: 'Club Fidelización',  icon: '💎', perfiles: ['admin'] },
-      { path: '/clientes/crm',     label: 'CRM Tienda Propia',  icon: '🤖', perfiles: ['admin'] },
-      { path: '/clientes/resenas', label: 'Panel Reseñas',       icon: '⭐', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'integraciones', label: 'INTEGRACIONES',
-    items: [
-      { path: '/integraciones/pos', label: 'POS Ventas', icon: '🖥️', perfiles: ['admin'] },
-    ],
-  },
-]
-
-const CONFIG: NavItem[] = [
-  { path: '/configuracion', label: 'Configuración', icon: '⚙️', perfiles: ['admin'] },
-  { path: '/marcas',        label: 'Marcas',         icon: '🏷️', perfiles: ['admin'] },
-  { path: '/running',       label: 'Running',        icon: '🏃', perfiles: ['admin'] },
 ]
 
 function LogoSL({ small = false }: { small?: boolean }) {
@@ -119,23 +89,28 @@ function LogoSL({ small = false }: { small?: boolean }) {
   )
 }
 
-function NavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
+function activeLinkStyle(isActive: boolean, collapsed: boolean, indent: boolean): React.CSSProperties {
+  return {
+    fontFamily: 'Oswald, sans-serif',
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    borderLeft: isActive ? `2px solid ${ACCENT}` : '2px solid transparent',
+    background: isActive ? 'var(--sl-card)' : 'transparent',
+    color: isActive ? ACCENT : 'var(--sl-text-nav)',
+    paddingLeft: collapsed ? undefined : (indent ? 28 : undefined),
+  }
+}
+
+function TopNavLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
   return (
     <NavLink
       to={item.path}
       end={item.path === '/'}
       onClick={onClose}
       title={collapsed ? item.label : undefined}
-      style={({ isActive }) => ({
-        fontFamily: 'Oswald, sans-serif',
-        fontSize: '0.78rem',
-        fontWeight: 500,
-        letterSpacing: '1.5px',
-        textTransform: 'uppercase',
-        borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? 'var(--sl-card)' : 'transparent',
-        color: isActive ? ACCENT : 'var(--sl-text-nav)',
-      })}
+      style={({ isActive }) => activeLinkStyle(isActive, collapsed, false)}
       className={({ isActive }) =>
         `flex items-center gap-3 px-4 py-[11px] transition-colors ${collapsed ? 'justify-center' : ''} ${
           isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
@@ -148,23 +123,29 @@ function NavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: b
   )
 }
 
-function GroupNavItemLink({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
+function GroupChild({ item, collapsed, onClose }: { item: NavItem; collapsed: boolean; onClose: () => void }) {
+  if (item.placeholder) {
+    return (
+      <div
+        title={collapsed ? `${item.label} (próximamente)` : undefined}
+        style={{
+          ...activeLinkStyle(false, collapsed, !collapsed),
+          opacity: 0.4,
+          cursor: 'default',
+        }}
+        className={`flex items-center gap-3 pr-4 py-[11px] ${collapsed ? 'justify-center px-4' : ''}`}
+      >
+        <span style={collapsed ? { fontSize: 20, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' } : { width: 20, textAlign: 'center', flexShrink: 0 }} className={collapsed ? '' : 'text-base flex-shrink-0'}>{item.icon}</span>
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </div>
+    )
+  }
   return (
     <NavLink
       to={item.path}
       onClick={onClose}
       title={collapsed ? item.label : undefined}
-      style={({ isActive }) => ({
-        fontFamily: 'Oswald, sans-serif',
-        fontSize: '0.78rem',
-        fontWeight: 500,
-        letterSpacing: '1.5px',
-        textTransform: 'uppercase',
-        borderLeft: isActive ? `3px solid ${ACCENT}` : '3px solid transparent',
-        background: isActive ? 'var(--sl-card)' : 'transparent',
-        color: isActive ? ACCENT : 'var(--sl-text-nav)',
-        paddingLeft: collapsed ? undefined : 28,
-      })}
+      style={({ isActive }) => activeLinkStyle(isActive, collapsed, !collapsed)}
       className={({ isActive }) =>
         `flex items-center gap-3 pr-4 py-[11px] transition-colors ${collapsed ? 'justify-center px-4' : ''} ${
           isActive ? '' : 'hover:text-[var(--sl-text-primary)] hover:bg-[var(--sl-card)]'
@@ -180,23 +161,37 @@ function GroupNavItemLink({ item, collapsed, onClose }: { item: NavItem; collaps
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const location = useLocation()
   const perfil = usuario?.perfil ?? ''
-
-  // Group open/close state
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    analytics: false,
-    operaciones: false,
-    equipo: false,
-    clientes: false,
-    integraciones: false,
-  })
-
-  const toggleGroup = (key: string) => {
-    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
-  }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
 
+  // Auto-abrir grupo que contiene la ruta activa
+  const initialOpen = (): Record<string, boolean> => {
+    const state: Record<string, boolean> = {}
+    for (const g of GROUPS) {
+      state[g.key] = g.items.some(i => !i.placeholder && location.pathname.startsWith(i.path) && i.path !== '/')
+    }
+    return state
+  }
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(initialOpen)
+
+  useEffect(() => {
+    setOpenGroups(prev => {
+      const next = { ...prev }
+      for (const g of GROUPS) {
+        const hasActive = g.items.some(i => !i.placeholder && location.pathname.startsWith(i.path) && i.path !== '/')
+        if (hasActive) next[g.key] = true
+      }
+      return next
+    })
+  }, [location.pathname])
+
+  const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const groupHeaderColor = isDark ? '#7080a8' : '#9ca3af'
   const width = collapsed ? 'w-[56px]' : 'w-[220px]'
 
   return (
@@ -212,7 +207,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           ${width}
         `}
       >
-        {/* Header logo + nombre */}
+        {/* Header logo */}
         {collapsed ? (
           <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
             <LogoSL small={true} />
@@ -230,12 +225,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
-          {/* PRINCIPAL items */}
-          {filterItems(PRINCIPAL).map(item => (
-            <NavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+          {/* DASHBOARD — siempre visible */}
+          {filterItems([DASHBOARD]).map(item => (
+            <TopNavLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
           ))}
 
-          {/* Collapsable groups */}
+          {/* Grupos colapsables */}
           {GROUPS.map(group => {
             const visibleItems = filterItems(group.items)
             if (visibleItems.length === 0) return null
@@ -243,7 +238,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
             return (
               <Fragment key={group.key}>
-                {/* Group header */}
+                {/* Cabecera de grupo */}
                 {collapsed ? (
                   <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
                 ) : (
@@ -252,8 +247,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={() => toggleGroup(group.key)}
                     style={{
                       fontFamily: 'Oswald, sans-serif',
-                      fontSize: '0.6rem',
-                      color: 'var(--sl-text-disabled)',
+                      fontSize: '0.62rem',
+                      color: groupHeaderColor,
                       textTransform: 'uppercase',
                       letterSpacing: '2px',
                       padding: '10px 18px',
@@ -268,28 +263,28 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     className="hover:!text-[var(--sl-text-primary)] transition-colors"
                   >
                     <span>{group.label}</span>
-                    <span style={{ fontSize: 10 }}>{isOpen ? '▾' : '▸'}</span>
+                    <span style={{ fontSize: 10 }}>{isOpen ? '▼' : '▶'}</span>
                   </button>
                 )}
 
-                {/* Group items */}
+                {/* Items del grupo */}
                 {(collapsed || isOpen) && visibleItems.map(item => (
-                  <GroupNavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+                  <GroupChild key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
                 ))}
               </Fragment>
             )
           })}
 
-          {/* Separator before config */}
+          {/* Separator antes de config */}
           {collapsed ? (
             <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 10px' }} />
           ) : (
             <div style={{ height: 1, background: 'var(--sl-border)', margin: '8px 18px' }} />
           )}
 
-          {/* CONFIG items */}
-          {filterItems(CONFIG).map(item => (
-            <NavItemLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
+          {/* CONFIGURACIÓN — siempre visible al final */}
+          {filterItems([CONFIGURACION]).map(item => (
+            <TopNavLink key={item.path} item={item} collapsed={collapsed} onClose={onClose} />
           ))}
         </nav>
 

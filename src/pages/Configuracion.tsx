@@ -59,6 +59,9 @@ export default function Configuracion() {
 function SecPlataformas() {
   const [rows, setRows] = useState<Canal[]>([])
   const [loading, setLoading] = useState(true)
+  const [guardado, setGuardado] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     let c = false
@@ -77,46 +80,85 @@ function SecPlataformas() {
     return () => { c = true }
   }, [])
 
-  const update = async (id: string, field: string, displayVal: string) => {
+  const updateLocal = (id: string, field: string, displayVal: string) => {
     let numVal = parseFloat(displayVal) || 0
     if (field === 'comision_pct') numVal = numVal / 100
-    await supabase.from('config_canales').update({ [field]: numVal }).eq('id', id)
     setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: numVal } : r))
+  }
+
+  const handleGuardar = async () => {
+    setSaving(true); setErr(null)
+    const payload = rows.map(r => ({
+      id: r.id,
+      canal: r.canal,
+      comision_pct: r.comision_pct,
+      coste_fijo: r.coste_fijo,
+      margen_deseado_pct: r.margen_deseado_pct,
+      activo: r.activo ?? true,
+    }))
+    const { error } = await supabase.from('config_canales').upsert(payload, { onConflict: 'canal' })
+    setSaving(false)
+    if (error) { setErr(error.message); return }
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2000)
   }
 
   if (loading) return <Loader />
 
   return (
-    <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th className={thCfg}>Canal</th>
-            <th className={thCfg + ' text-right'}>Comisión %</th>
-            <th className={thCfg + ' text-right'}>Coste Fijo €</th>
-            <th className={thCfg + ' text-right'}>Margen deseado %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={r.id} className={rowCls(idx)}>
-              <td className={tdCfg + ' text-[var(--sl-text-primary)] font-medium'}>{r.canal}</td>
-              <td className={tdCfg + ' text-right'}>
-                <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
-                  onBlur={e => update(r.id, 'comision_pct', e.target.value)} className={inputSmCls} />
-              </td>
-              <td className={tdCfg + ' text-right'}>
-                <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
-                  onBlur={e => update(r.id, 'coste_fijo', e.target.value)} className={inputSmCls} />
-              </td>
-              <td className={tdCfg + ' text-right'}>
-                <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
-                  onBlur={e => update(r.id, 'margen_deseado_pct', e.target.value)} className={inputSmCls} />
-              </td>
+    <div className="space-y-3">
+      <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              <th className={thCfg}>Canal</th>
+              <th className={thCfg + ' text-right'}>Comisión %</th>
+              <th className={thCfg + ' text-right'}>Coste Fijo €</th>
+              <th className={thCfg + ' text-right'}>Margen deseado %</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={r.id} className={rowCls(idx)}>
+                <td className={tdCfg + ' text-[var(--sl-text-primary)] font-medium'}>{r.canal}</td>
+                <td className={tdCfg + ' text-right'}>
+                  <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
+                    onBlur={e => updateLocal(r.id, 'comision_pct', e.target.value)} className={inputSmCls} />
+                </td>
+                <td className={tdCfg + ' text-right'}>
+                  <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
+                    onBlur={e => updateLocal(r.id, 'coste_fijo', e.target.value)} className={inputSmCls} />
+                </td>
+                <td className={tdCfg + ' text-right'}>
+                  <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
+                    onBlur={e => updateLocal(r.id, 'margen_deseado_pct', e.target.value)} className={inputSmCls} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleGuardar}
+          disabled={saving}
+          style={{
+            background: guardado ? '#16a34a' : '#B01D23',
+            color: '#fff',
+            border: 'none',
+            padding: '10px 24px',
+            borderRadius: '5px',
+            fontFamily: 'Oswald, sans-serif',
+            fontSize: '.78rem',
+            letterSpacing: '1px',
+            cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? 'GUARDANDO…' : guardado ? 'GUARDADO ✓' : 'GUARDAR'}
+        </button>
+        {err && <span className="text-xs text-[#dc2626]">{err}</span>}
+      </div>
     </div>
   )
 }
@@ -127,7 +169,8 @@ function SecCostes() {
   const [estructura, setEstructura] = useState('30')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
+  const [guardado, setGuardado] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     let c = false
@@ -141,13 +184,13 @@ function SecCostes() {
     return () => { c = true }
   }, [])
 
-  const save = async () => {
-    setSaving(true); setMsg(null)
-    try {
-      await supabase.from('configuracion').upsert({ clave: 'estructura_pct', valor: estructura }, { onConflict: 'clave' })
-      setMsg('Guardado')
-    } catch (e: any) { setMsg('Error: ' + e.message) }
-    finally { setSaving(false) }
+  const handleGuardar = async () => {
+    setSaving(true); setErr(null)
+    const { error } = await supabase.from('configuracion').upsert({ clave: 'estructura_pct', valor: estructura }, { onConflict: 'clave' })
+    setSaving(false)
+    if (error) { setErr(error.message); return }
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2000)
   }
 
   if (loading) return <Loader />
@@ -160,8 +203,25 @@ function SecCostes() {
         <p className="text-[11px] text-[var(--sl-text-muted)] mt-1">Se aplica sobre PVP neto (sin IVA) en todas las recetas</p>
       </div>
       <div className="flex items-center gap-3 pt-2">
-        <button onClick={save} disabled={saving} className={btnPrimary + ' disabled:opacity-50'}>{saving ? 'Guardando…' : 'Guardar'}</button>
-        {msg && <span className={'text-xs ' + (msg.startsWith('Error') ? 'text-[#dc2626]' : 'text-[#16a34a]')}>{msg}</span>}
+        <button
+          onClick={handleGuardar}
+          disabled={saving}
+          style={{
+            background: guardado ? '#16a34a' : '#B01D23',
+            color: '#fff',
+            border: 'none',
+            padding: '10px 24px',
+            borderRadius: '5px',
+            fontFamily: 'Oswald, sans-serif',
+            fontSize: '.78rem',
+            letterSpacing: '1px',
+            cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? 'GUARDANDO…' : guardado ? 'GUARDADO ✓' : 'GUARDAR'}
+        </button>
+        {err && <span className="text-xs text-[#dc2626]">{err}</span>}
       </div>
     </div>
   )
