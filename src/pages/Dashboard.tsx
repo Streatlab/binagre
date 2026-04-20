@@ -84,19 +84,32 @@ const NETO_GREEN = '#1D9E75'
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-// Semana ES: lunes=1 ... domingo=7. getDay() devuelve 0=dom, 1=lun...6=sab.
-// Para alinear lunes como inicio: daysFromMonday = (getDay() + 6) % 7
+// Formato local YYYY-MM-DD sin shift de timezone (evita bug de toISOString en UTC+2)
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function parseLocalDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+// Semana ES: lun=0 ... dom=6. getDay() devuelve 0=dom, 1=lun...6=sab.
 function startOfWeekStr(): string {
   const now = new Date()
-  const daysFromMonday = (now.getDay() + 6) % 7
+  const day = now.getDay()
+  // dom(0) → -6; lun(1) → 0; mar(2) → -1 ... sab(6) → -5
+  const diff = day === 0 ? -6 : 1 - day
   const monday = new Date(now)
-  monday.setDate(now.getDate() - daysFromMonday)
-  monday.setHours(0,0,0,0)
-  return monday.toISOString().slice(0,10)
+  monday.setDate(now.getDate() + diff)
+  return toLocalDateStr(monday)
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0,10)
+  return toLocalDateStr(new Date())
 }
 
 function isoWeek(dateStr: string): { year: number; week: number } {
@@ -117,24 +130,22 @@ function semaforo(pct: number): string {
   return pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
 }
 
-function rangoFecha(periodo: string): { desde: string; hasta: string } {
-  const hoy = new Date()
-  const hasta = hoy.toISOString().slice(0,10)
-  const sub = (d: number) => { const x = new Date(hoy); x.setDate(x.getDate()-d); return x.toISOString().slice(0,10) }
-  const mesActual = hasta.slice(0,7)
-  const weekStart = startOfWeekStr()
-  const prevWeekEnd = (() => { const d = new Date(weekStart); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10) })()
-  const prevWeekStart = (() => { const d = new Date(weekStart); d.setDate(d.getDate()-7); return d.toISOString().slice(0,10) })()
-  const mesAnteriorStr = (() => { const x = new Date(hoy); x.setMonth(x.getMonth()-1); return x.toISOString().slice(0,7) })()
+function rangoFecha(periodo: string, weekStart: string, weekEnd: string): { desde: string; hasta: string } {
+  const hoy = todayStr()
+  const sub = (n: number) => { const x = new Date(); x.setDate(x.getDate() - n); return toLocalDateStr(x) }
+  const mesActual = hoy.slice(0, 7)
+  const prevWeekStart = (() => { const d = parseLocalDate(weekStart); d.setDate(d.getDate() - 7); return toLocalDateStr(d) })()
+  const prevWeekEnd   = (() => { const d = parseLocalDate(weekStart); d.setDate(d.getDate() - 1); return toLocalDateStr(d) })()
+  const mesAnteriorStr = (() => { const x = new Date(); x.setMonth(x.getMonth() - 1); return toLocalDateStr(x).slice(0, 7) })()
 
-  switch(periodo) {
-    case 'semana_actual':   return { desde: weekStart, hasta }
+  switch (periodo) {
+    case 'semana_actual':   return { desde: weekStart, hasta: weekEnd }
     case 'semana_anterior': return { desde: prevWeekStart, hasta: prevWeekEnd }
-    case 'mes_actual':      return { desde: mesActual+'-01', hasta }
-    case 'un_mes':          return { desde: sub(30), hasta }
-    case 'mes_anterior':    return { desde: mesAnteriorStr+'-01', hasta: mesAnteriorStr+'-31' }
-    case '60d':             return { desde: sub(60), hasta }
-    default:                return { desde: weekStart, hasta }
+    case 'mes_actual':      return { desde: mesActual + '-01', hasta: hoy }
+    case 'un_mes':          return { desde: sub(30), hasta: hoy }
+    case 'mes_anterior':    return { desde: mesAnteriorStr + '-01', hasta: mesAnteriorStr + '-31' }
+    case '60d':             return { desde: sub(60), hasta: hoy }
+    default:                return { desde: weekStart, hasta: weekEnd }
   }
 }
 
@@ -151,20 +162,21 @@ function labelPeriodo(periodo: string, nSemana: number): string {
   return map[periodo] ?? periodo
 }
 
-function fechasPeriodo(periodo: string, rangoDesde: string, rangoHasta: string): string {
+function fechasPeriodo(periodo: string, weekStart: string, weekEnd: string, rangoDesde: string, rangoHasta: string): string {
   const hoy = new Date()
-  const fmt = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
-  const weekStart = new Date(startOfWeekStr())
-  const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate()-7)
-  const prevWeekEnd = new Date(weekStart); prevWeekEnd.setDate(prevWeekEnd.getDate()-1)
-  const primerMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-  const hace30 = new Date(hoy); hace30.setDate(hoy.getDate()-30)
-  const hace60 = new Date(hoy); hace60.setDate(hoy.getDate()-60)
-  const primerMesAnt = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1)
-  const ultimoMesAnt = new Date(hoy.getFullYear(), hoy.getMonth(), 0)
+  const fmt = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  const weekStartD = parseLocalDate(weekStart)
+  const weekEndD   = parseLocalDate(weekEnd)
+  const prevWeekStart = new Date(weekStartD); prevWeekStart.setDate(weekStartD.getDate() - 7)
+  const prevWeekEnd   = new Date(weekStartD); prevWeekEnd.setDate(weekStartD.getDate() - 1)
+  const primerMes     = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  const hace30        = new Date(hoy); hace30.setDate(hoy.getDate() - 30)
+  const hace60        = new Date(hoy); hace60.setDate(hoy.getDate() - 60)
+  const primerMesAnt  = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
+  const ultimoMesAnt  = new Date(hoy.getFullYear(), hoy.getMonth(), 0)
 
-  switch(periodo) {
-    case 'semana_actual':   return `${fmt(weekStart)} – ${fmt(hoy)} ${hoy.getFullYear()}`
+  switch (periodo) {
+    case 'semana_actual':   return `${fmt(weekStartD)} – ${fmt(weekEndD)} ${hoy.getFullYear()}`
     case 'semana_anterior': return `${fmt(prevWeekStart)} – ${fmt(prevWeekEnd)} ${hoy.getFullYear()}`
     case 'mes_actual':      return `${fmt(primerMes)} – ${fmt(hoy)} ${hoy.getFullYear()}`
     case 'un_mes':          return `${fmt(hace30)} – ${fmt(hoy)} ${hoy.getFullYear()}`
@@ -172,8 +184,8 @@ function fechasPeriodo(periodo: string, rangoDesde: string, rangoHasta: string):
     case '60d':             return `${fmt(hace60)} – ${fmt(hoy)} ${hoy.getFullYear()}`
     case 'rango': {
       if (!rangoDesde || !rangoHasta) return ''
-      const dA = new Date(rangoDesde + 'T12:00:00')
-      const dB = new Date(rangoHasta + 'T12:00:00')
+      const dA = parseLocalDate(rangoDesde)
+      const dB = parseLocalDate(rangoHasta)
       return `${fmt(dA)} – ${fmt(dB)} ${dB.getFullYear()}`
     }
     default: return ''
@@ -181,12 +193,12 @@ function fechasPeriodo(periodo: string, rangoDesde: string, rangoHasta: string):
 }
 
 function rangoPrevio(desde: string, hasta: string): { desde: string; hasta: string } {
-  const dA = new Date(desde + 'T12:00:00')
-  const dB = new Date(hasta + 'T12:00:00')
+  const dA = parseLocalDate(desde)
+  const dB = parseLocalDate(hasta)
   const days = Math.round((dB.getTime() - dA.getTime()) / 86400000) + 1
   const prevHasta = new Date(dA); prevHasta.setDate(dA.getDate() - 1)
   const prevDesde = new Date(prevHasta); prevDesde.setDate(prevHasta.getDate() - (days - 1))
-  return { desde: prevDesde.toISOString().slice(0,10), hasta: prevHasta.toISOString().slice(0,10) }
+  return { desde: toLocalDateStr(prevDesde), hasta: toLocalDateStr(prevHasta) }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -276,22 +288,21 @@ export default function Dashboard() {
   /* ── derived data ──────────────────────────────────────── */
 
   const hoy = todayStr()
-  const weekStart = startOfWeekStr()
-  const nSemana = isoWeek(hoy).week
-  const currentMonth = hoy.slice(0,7)
-  const currentYear = hoy.slice(0,4)
-
-  // Lun + 6 días = Dom. T12:00:00 evita shift de timezone en ES (UTC+2).
+  const weekStart = useMemo(() => startOfWeekStr(), [])
   const weekEnd = useMemo(() => {
-    const d = new Date(weekStart + 'T12:00:00')
-    d.setDate(d.getDate() + 6)
-    return d.toISOString().slice(0,10)
+    const monday = parseLocalDate(weekStart)
+    monday.setDate(monday.getDate() + 6)
+    return toLocalDateStr(monday)
   }, [weekStart])
+
+  const nSemana = isoWeek(hoy).week
+  const currentMonth = hoy.slice(0, 7)
+  const currentYear = hoy.slice(0, 4)
 
   const { desde, hasta } = useMemo(() => {
     if (periodo === 'rango') return { desde: rangoDesde || weekStart, hasta: rangoHasta || hoy }
-    return rangoFecha(periodo)
-  }, [periodo, rangoDesde, rangoHasta, weekStart, hoy])
+    return rangoFecha(periodo, weekStart, weekEnd)
+  }, [periodo, rangoDesde, rangoHasta, weekStart, weekEnd, hoy])
 
   const rowsPeriodo = useMemo(() =>
     data.filter(r => r.fecha >= desde && r.fecha <= hasta),
@@ -324,7 +335,7 @@ export default function Dashboard() {
     })
   }, [rowsPeriodo, canalesFiltro, ventasPeriodo])
 
-  // Semana real Lun–Dom (estrictamente)
+  // Semana real Lun–Dom
   const rowsSemana   = useMemo(() => data.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd), [data, weekStart, weekEnd])
   const ventasSemana = useMemo(() => rowsSemana.reduce((a,r) => a + (r.total_bruto || 0), 0), [rowsSemana])
   const ventasMes    = useMemo(() => data.filter(r => r.fecha.startsWith(currentMonth)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentMonth])
@@ -334,7 +345,7 @@ export default function Dashboard() {
     const nombres = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
     const vals = [0,0,0,0,0,0,0]
     for (const r of rowsSemana) {
-      const d = new Date(r.fecha + 'T12:00:00')
+      const d = parseLocalDate(r.fecha)
       const idx = (d.getDay() + 6) % 7
       vals[idx] += r.total_bruto || 0
     }
@@ -384,6 +395,18 @@ export default function Dashboard() {
   const cardBox: CSSProperties = { background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:10, padding:'14px 16px' }
   const labelSm: CSSProperties = { fontFamily:'Oswald,sans-serif', fontSize:12, letterSpacing:'2px', textTransform:'uppercase', color:T.mut }
 
+  // Dot de canal con tratamiento especial para Glovo en modo claro
+  const dotStyle = (canalId: string, color: string): CSSProperties => {
+    const isGlovo = canalId === 'glovo'
+    return {
+      width: 8, height: 8, borderRadius: '50%',
+      background: isGlovo ? glovoStyle.dot : color,
+      border: isGlovo ? glovoStyle.dotBrd : undefined,
+      display: 'inline-block',
+      flexShrink: 0,
+    }
+  }
+
   /* ── loading / error ───────────────────────────────────── */
 
   if (loading) return (
@@ -407,7 +430,7 @@ export default function Dashboard() {
   return (
     <div style={{ fontFamily: 'Lexend, sans-serif' }}>
 
-      {/* Rango personalizado (fuera del wrapper — para no romper layout al aparecer) */}
+      {/* Rango personalizado (aparece fuera del wrapper) */}
       {periodo === 'rango' && (
         <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
           <input type="date" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)}
@@ -419,12 +442,13 @@ export default function Dashboard() {
       )}
 
       {/* ═════════════════════════════════════════════════════
-          UN ÚNICO WRAPPER SOMBREADO — todo dentro
+          UN ÚNICO WRAPPER SOMBREADO
           ═════════════════════════════════════════════════════ */}
       <div style={{ background:T.group, border:`0.5px solid ${T.brd}`, borderRadius:16, padding:'24px 28px' }}>
 
-        {/* ── Título grande: SEMANA ACTUAL — S17 + fechas ── */}
-        <div style={{ marginBottom:16, display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+        {/* ── HEADER UNA SOLA LÍNEA ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap' }}>
+          {/* Título grande */}
           <span style={{
             fontFamily:'Oswald,sans-serif',
             fontSize:22,
@@ -432,21 +456,49 @@ export default function Dashboard() {
             textTransform:'uppercase',
             color:T.emphasis,
             fontWeight:600,
-            lineHeight:1,
+            whiteSpace:'nowrap',
+            flexShrink:0,
           }}>
             {labelPeriodo(periodo, nSemana)}
           </span>
-          <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec }}>
-            {fechasPeriodo(periodo, rangoDesde, rangoHasta)}
+
+          {/* Fechas */}
+          <span style={{
+            fontFamily:'Lexend,sans-serif',
+            fontSize:12,
+            color:T.sec,
+            whiteSpace:'nowrap',
+            flexShrink:0,
+          }}>
+            {fechasPeriodo(periodo, weekStart, weekEnd, rangoDesde, rangoHasta)}
           </span>
-        </div>
 
-        {/* ── Filtros + selector — línea pequeña ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1px', textTransform:'uppercase', color:T.mut }}>Filtrar:</span>
+          {/* Selector período */}
+          <select
+            value={periodo}
+            onChange={e => setPeriodo(e.target.value)}
+            style={{
+              padding:'3px 7px',
+              borderRadius:6,
+              border:`0.5px solid ${T.brd}`,
+              background:T.inp,
+              color:T.pri,
+              fontSize:11,
+              cursor:'pointer',
+              flexShrink:0,
+            }}
+          >
+            <option value="semana_actual">Semana actual</option>
+            <option value="semana_anterior">Semana anterior</option>
+            <option value="mes_actual">Mes actual</option>
+            <option value="un_mes">Un mes hasta ahora</option>
+            <option value="mes_anterior">Mes anterior</option>
+            <option value="60d">Últimos 60 días</option>
+            <option value="rango">Rango personalizado</option>
+          </select>
 
-          {/* Marcas */}
-          <div style={{ position:'relative' }} data-drop="marca">
+          {/* Dropdown Marcas */}
+          <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button
               onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
               style={{ padding:'3px 9px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
@@ -467,8 +519,8 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Canales */}
-          <div style={{ position:'relative' }} data-drop="canal">
+          {/* Dropdown Canales */}
+          <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button
               onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
               style={{ padding:'3px 9px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
@@ -477,36 +529,18 @@ export default function Dashboard() {
             </button>
             {dropCanalOpen && (
               <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-                {CANALES_DEF.map(c => {
-                  const isGlovo = c.id === 'glovo'
-                  const dotBg = isGlovo ? glovoStyle.dot : c.color
-                  const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
-                  return (
-                    <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
-                      <input type="checkbox" checked={canalesFiltro.includes(c.id)}
-                        onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
-                        style={{ width:13, height:13 }} />
-                      <span style={{ width:8, height:8, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0, display:'inline-block' }} />
-                      {c.label}
-                    </label>
-                  )
-                })}
+                {CANALES_DEF.map(c => (
+                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
+                    <input type="checkbox" checked={canalesFiltro.includes(c.id)}
+                      onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
+                      style={{ width:13, height:13 }} />
+                    <span style={dotStyle(c.id, c.color)} />
+                    {c.label}
+                  </label>
+                ))}
               </div>
             )}
           </div>
-
-          <div style={{ flex:1 }} />
-
-          <select value={periodo} onChange={e => setPeriodo(e.target.value)}
-            style={{ fontSize:11, padding:'3px 7px', maxWidth:140, borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, cursor:'pointer' }}>
-            <option value="semana_actual">Semana actual</option>
-            <option value="semana_anterior">Semana anterior</option>
-            <option value="mes_actual">Mes actual</option>
-            <option value="un_mes">Un mes hasta ahora</option>
-            <option value="mes_anterior">Mes anterior</option>
-            <option value="60d">Últimos 60 días</option>
-            <option value="rango">Rango personalizado</option>
-          </select>
         </div>
 
         {/* ── KPIs: Ventas | Pedidos | TM ── */}
@@ -554,49 +588,56 @@ export default function Dashboard() {
             })}
           </div>
 
-          {/* PEDIDOS */}
+          {/* PEDIDOS — grid compacto */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:8 }}>Pedidos</div>
             <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
               {Math.round(pedidosPeriodo).toLocaleString('es-ES')}
             </div>
             <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
-            {canalStats.map(c => {
-              const isGlovo = c.id === 'glovo'
-              const dotBg = isGlovo ? glovoStyle.dot : c.color
-              const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
+            {canalStats.map((c, idx) => {
+              const pct = Math.round(c.pct)
               return (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 0', fontSize:14 }}>
-                  <span style={{ width:9, height:9, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
-                  <span style={{ color:T.pri, flex:1 }}>{c.label}</span>
-                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:15, width:50, textAlign:'right' }}>{Math.round(c.pedidos).toLocaleString('es-ES')}</span>
-                  <span style={{ color:T.mut, fontSize:12, width:38, textAlign:'right' }}>{c.pct.toFixed(0)}%</span>
+                <div key={c.id} style={{
+                  display:'grid',
+                  gridTemplateColumns:'16px 1fr auto auto',
+                  alignItems:'center',
+                  gap:'0 8px',
+                  padding:'7px 0',
+                  borderBottom: idx < canalStats.length - 1 ? `0.5px solid ${T.brd}` : 'none',
+                }}>
+                  <span style={dotStyle(c.id, c.color)} />
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:14, color:T.sec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.label}</span>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, fontWeight:600, color:T.pri, textAlign:'right' }}>{Math.round(c.pedidos).toLocaleString('es-ES')}</span>
+                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.mut, textAlign:'right', minWidth:32 }}>{pct}%</span>
                 </div>
               )
             })}
           </div>
 
-          {/* TICKET MEDIO */}
+          {/* TICKET MEDIO — grid compacto */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:8 }}>TM</div>
             <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
               {fmtEur(ticketMedio)}
             </div>
             <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
-            {canalStats.map(c => {
-              const isGlovo = c.id === 'glovo'
-              const dotBg = isGlovo ? glovoStyle.dot : c.color
-              const dotBorder = isGlovo ? glovoStyle.dotBrd : undefined
-              return (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 0', fontSize:14 }}>
-                  <span style={{ width:9, height:9, borderRadius:'50%', background:dotBg, border:dotBorder, flexShrink:0 }} />
-                  <span style={{ color:T.pri, flex:1 }}>{c.label}</span>
-                  <span style={{ color:T.pri, fontFamily:'Oswald,sans-serif', fontWeight:500, fontSize:15 }}>
-                    {c.ticket > 0 ? fmtEur(c.ticket) : '—'}
-                  </span>
-                </div>
-              )
-            })}
+            {canalStats.map((c, idx) => (
+              <div key={c.id} style={{
+                display:'grid',
+                gridTemplateColumns:'16px 1fr auto',
+                alignItems:'center',
+                gap:'0 8px',
+                padding:'7px 0',
+                borderBottom: idx < canalStats.length - 1 ? `0.5px solid ${T.brd}` : 'none',
+              }}>
+                <span style={dotStyle(c.id, c.color)} />
+                <span style={{ fontFamily:'Lexend,sans-serif', fontSize:14, color:T.sec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.label}</span>
+                <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, fontWeight:600, color:T.pri, textAlign:'right' }}>
+                  {c.ticket > 0 ? fmtEur(c.ticket) : '—'}
+                </span>
+              </div>
+            ))}
           </div>
 
         </div>
@@ -614,7 +655,6 @@ export default function Dashboard() {
               <div key={c.id} style={{ background:cardBg, border:`1px solid ${cardBrd}`, borderRadius:10, padding:'12px 14px' }}>
                 <div style={{ fontFamily:'Oswald,sans-serif', fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:tagCol, marginBottom:8 }}>{c.label}</div>
 
-                {/* Bruto */}
                 <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:3 }}>
                   {hasData ? (
                     <>
@@ -626,7 +666,6 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                {/* Neto — siempre verde cuando hay datos */}
                 <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:10 }}>
                   {hasData ? (
                     <>
@@ -656,10 +695,9 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── Días pico + Top ventas (66% de ancho) ── */}
+        {/* ── Días pico + Top ventas (66% ancho) ── */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap:14, width: isMobile ? '100%' : '66%' }}>
 
-          {/* Días pico */}
           <div style={cardBox}>
             <div style={{ ...labelSm, marginBottom:14 }}>Días pico — S{nSemana}</div>
             {(() => {
@@ -676,11 +714,9 @@ export default function Dashboard() {
                       const barColor = isTop ? T.emphasis : hasData ? '#378ADD' : T.brd
                       return (
                         <div key={nombre} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                          {/* Valor encima */}
                           <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color: isTop ? T.emphasis : T.sec, fontWeight: isTop ? 600 : 400, minHeight:15, textAlign:'center' }}>
                             {hasData ? fmtEur(valor).replace(' €','') : ''}
                           </div>
-                          {/* Barra */}
                           <div style={{ height:ALTURA_MAX, display:'flex', alignItems:'flex-end', justifyContent:'center', width:'100%' }}>
                             <div style={{
                               width:'70%',
@@ -691,22 +727,18 @@ export default function Dashboard() {
                               border: hasData ? 'none' : `1px dashed ${T.brd}`,
                             }} />
                           </div>
-                          {/* Nombre día */}
                           <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.mut, textAlign:'center', marginTop:2 }}>{nombre}</div>
-                          {/* "—" bajo si sin datos */}
                           {!hasData && <div style={{ fontSize:10, color:T.mut }}>—</div>}
                         </div>
                       )
                     })}
                   </div>
-                  {/* Línea base horizontal */}
                   <div style={{ height:1, background:T.brd, marginTop:-18, pointerEvents:'none' }} />
                 </div>
               )
             })()}
           </div>
 
-          {/* Top ventas */}
           <div style={cardBox}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
               <span style={labelSm}>Top ventas</span>
