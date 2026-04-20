@@ -38,8 +38,7 @@ interface VentaHistorico {
 const TIPO_ORDER: ObjetivoGeneral['tipo'][] = ['diario', 'semanal', 'mensual', 'anual']
 
 const TIPO_LABEL: Record<string, string> = {
-  diario: new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),
-  semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
+  diario: 'Diario', semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
 }
 
 const hoyDate = new Date()
@@ -53,7 +52,7 @@ const weekNum = (() => { const d=new Date(hoyDate); const day=d.getDay()||7; d.s
 const TIPO_DESC: Record<string, string> = {
   diario: hoyDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),
   semanal: `S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}`,
-  mensual: hoyDate.toLocaleDateString('es-ES',{month:'long'}),
+  mensual: hoyDate.toLocaleDateString('es-ES',{month:'long'}).replace(/^\w/,c=>c.toUpperCase()),
   anual: `${hoyDate.getFullYear()}`,
 }
 
@@ -375,8 +374,8 @@ export default function Objetivos() {
           const isSaved = savedId === o.id
           return (
             <div key={o.id} style={cardStyle(T)}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>
-                {TIPO_LABEL[o.tipo]}
+              <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: T.pri, marginBottom: 4 }}>
+                {TIPO_DESC[o.tipo]}
               </div>
               {!isEditing ? (
                 <>
@@ -409,8 +408,8 @@ export default function Objetivos() {
                   </div>
                 </div>
               )}
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8 }}>
-                {TIPO_DESC[o.tipo]}
+              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8, textTransform: 'none' }}>
+                {TIPO_LABEL[o.tipo]}
               </div>
             </div>
           )
