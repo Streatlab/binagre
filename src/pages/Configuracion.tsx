@@ -17,13 +17,13 @@ const SECTIONS: { key: Section; label: string }[] = [
   { key: 'unidades', label: 'Unidades' },
 ]
 
-const inputCls = 'w-full bg-[var(--sl-app)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] focus:outline-none focus:border-accent'
-const inputSmCls = 'w-24 bg-[var(--sl-app)] border border-[var(--sl-border)] rounded px-2 py-1 text-sm text-[var(--sl-text-primary)] text-right'
-const btnPrimary = 'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition'
-const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-lg hover:text-[var(--sl-text-primary)] hover:border-[#555] transition'
-const thCfg = 'px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[var(--sl-text-muted)] font-semibold bg-[var(--sl-thead)] border-b border-[var(--sl-border)]'
+const inputCls = 'w-full bg-[var(--sl-app)] border border-[var(--sl-border)] rounded-md px-3 py-2 text-sm text-[var(--sl-text-primary)] focus:outline-none focus:border-accent font-sans'
+const inputSmCls = 'w-24 bg-[var(--sl-app)] border border-[var(--sl-border)] rounded px-2 py-1 text-sm text-[var(--sl-text-primary)] text-right font-sans'
+const btnPrimary = 'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-md hover:brightness-110 transition font-ui uppercase tracking-wider'
+const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-md hover:text-[var(--sl-text-primary)] hover:border-[#555] transition font-sans'
+const thCfg = 'px-4 py-3 text-left text-[10px] uppercase tracking-[1.5px] text-[var(--sl-text-muted)] font-semibold bg-[var(--sl-thead)] border-b border-[var(--sl-border)] font-ui'
 const rowCls = (idx: number) => idx % 2 === 0 ? 'bg-[var(--sl-card)]' : 'bg-[var(--sl-card-alt)]'
-const tdCfg = 'px-4 py-2.5 border-b border-[var(--sl-border)]'
+const tdCfg = 'px-4 py-2.5 border-b border-[var(--sl-border)] font-sans text-[0.82rem] text-[var(--sl-text-primary)]'
 
 const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
 
@@ -34,16 +34,61 @@ export default function Configuracion() {
   const [refreshKey, setRefreshKey] = useState(0)
   const refresh = () => setRefreshKey(k => k + 1)
 
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
+  const textPri   = isDark ? '#f0f0ff' : '#1a1a1a'
+  const textSec   = isDark ? '#7080a8' : '#6b7280'
+  const border    = isDark ? '#2a2a2a' : '#e5e0d8'
+  const accent    = isDark ? '#e8f442' : '#7a6200'
+  const accentFg  = isDark ? '#111' : '#fff'
+
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-[var(--sl-text-primary)] tracking-tight mb-5">Configuración</h2>
-      <div className="flex gap-1 mb-5 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg p-1 w-fit flex-wrap">
-        {SECTIONS.map(s => (
-          <button key={s.key} onClick={() => setSection(s.key)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${section === s.key ? 'bg-accent text-[#111]' : 'text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)]'}`}>
-            {s.label}
-          </button>
-        ))}
+    <div style={{ fontFamily: 'Lexend, sans-serif', color: textPri }}>
+      <h1 style={{
+        fontFamily: 'Oswald, sans-serif',
+        fontSize: '1.1rem',
+        letterSpacing: '3px',
+        color: textSec,
+        marginBottom: 20,
+        textTransform: 'uppercase',
+      }}>
+        Configuración
+      </h1>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+        {SECTIONS.map(s => {
+          const active = section === s.key
+          return (
+            <button
+              key={s.key}
+              onClick={() => setSection(s.key)}
+              style={{
+                fontFamily: 'Oswald, sans-serif',
+                fontSize: '0.72rem',
+                letterSpacing: '1px',
+                backgroundColor: active ? accent : 'transparent',
+                color: active ? accentFg : textSec,
+                padding: '8px 16px',
+                borderRadius: 6,
+                border: active ? 'none' : `1px solid ${border}`,
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                fontWeight: active ? 600 : 400,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {s.label}
+            </button>
+          )
+        })}
       </div>
       {section === 'plataformas' && <SecPlataformas key={refreshKey} />}
       {section === 'costes' && <SecCostes key={refreshKey} />}

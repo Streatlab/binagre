@@ -28,6 +28,26 @@ const normalizeSelector = (v?: string | null): string => {
 
 const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio']
 
+const CAT_COLOR: Record<string, string> = {
+  'Aceites/Grasas':     '#f5a623',
+  'Carnes':             '#B01D23',
+  'Aves/Carnes':        '#B01D23',
+  'Pescados/Mariscos':  '#66aaff',
+  'Pescado/Marisco':    '#66aaff',
+  'Verduras':           '#06C167',
+  'Frutas/Verduras':    '#06C167',
+  'Lácteos':            '#e8f442',
+  'Lácteos y Huevos':   '#e8f442',
+  'Bebidas':            '#9b59b6',
+  'Congelados':         '#00bcd4',
+  'Condimentos/Salsas': '#f5a623',
+  'Cereales/Legumbres': '#c8a96e',
+  'Panadería':          '#c8a96e',
+  'Conservas/Quinta':   '#8896b0',
+  'Envases':            '#7080a8',
+  'Packaging':          '#7080a8',
+}
+
 export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
   const [localIngs, setLocalIngs] = useState<Ingrediente[]>(ingredientes)
@@ -320,11 +340,16 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
                           : <span>{i.categoria ?? '—'}</span>}
                       </td>
 
-                      {/* NOMBRE BASE — input text (sticky) */}
+                      {/* NOMBRE BASE — input text (sticky), color según categoría */}
                       <td
-                        className={tdCls + ' max-w-[220px] truncate ' + rowNameCls}
+                        className={tdCls + ' max-w-[220px] truncate' + (isEps ? ' italic' : '')}
                         onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)}
-                        style={{ ...stickyTdStyle(90), cursor: 'text' }}
+                        style={{
+                          ...stickyTdStyle(90),
+                          cursor: 'text',
+                          color: isEps ? '#66aaff' : (CAT_COLOR[i.categoria ?? ''] ?? 'var(--sl-text-primary)'),
+                          fontWeight: 500,
+                        }}
                       >
                         {isEditing(i, 'nombre_base')
                           ? renderInput(i.id, 'nombre_base')

@@ -6,7 +6,7 @@ import { ThemeToggle } from './ThemeToggle'
 
 const RED = '#B01D23'
 
-interface NavLink {
+interface NavLinkEntry {
   type: 'link'
   label: string
   path: string
@@ -16,68 +16,69 @@ interface NavLink {
 interface NavItem {
   label: string
   path: string
-  active?: boolean
+  icon: string
   placeholder?: boolean
 }
 
 interface NavGroup {
   type: 'group'
   label: string
+  icon: string
   items: NavItem[]
 }
 
-type NavEntry = NavLink | NavGroup
+type NavEntry = NavLinkEntry | NavGroup
 
 const NAV: NavEntry[] = [
-  { type: 'link', label: 'DASHBOARD', path: '/', icon: '▪' },
+  { type: 'link', label: 'DASHBOARD', path: '/', icon: '🏠' },
   {
-    type: 'group', label: 'FACTURACIÓN',
+    type: 'group', label: 'FACTURACIÓN', icon: '💰',
     items: [
-      { label: 'Resumen',  path: '/facturacion', active: true },
-      { label: 'Análisis', path: '/analytics',   placeholder: true },
-      { label: 'Revenue',  path: '/revenue',     placeholder: true },
-      { label: 'Running',  path: '/running',     active: true },
+      { label: 'Resumen',  path: '/facturacion', icon: '📊' },
+      { label: 'Análisis', path: '/analytics',   icon: '📈', placeholder: true },
+      { label: 'Revenue',  path: '/revenue',     icon: '💹', placeholder: true },
+      { label: 'Running',  path: '/running',     icon: '🏃' },
     ],
   },
   {
-    type: 'group', label: 'COCINA',
+    type: 'group', label: 'COCINA', icon: '🍳',
     items: [
-      { label: 'Escandallo',    path: '/escandallo',          active: true },
-      { label: 'Control Temp.', path: '/control-temperatura', placeholder: true },
-      { label: 'Checklists',    path: '/checklists',          placeholder: true },
-      { label: 'Bitácora',      path: '/bitacora',            placeholder: true },
+      { label: 'Escandallo',    path: '/escandallo',          icon: '⚖️' },
+      { label: 'Control Temp.', path: '/control-temperatura', icon: '🌡️', placeholder: true },
+      { label: 'Checklists',    path: '/checklists',          icon: '✅', placeholder: true },
+      { label: 'Bitácora',      path: '/bitacora',            icon: '📓', placeholder: true },
     ],
   },
   {
-    type: 'group', label: 'OPERACIONES',
+    type: 'group', label: 'OPERACIONES', icon: '⚙️',
     items: [
-      { label: 'Marcas',        path: '/marcas',        active: true },
-      { label: 'POS',           path: '/pos',           placeholder: true },
-      { label: 'Daño Equipo',   path: '/dano-equipo',   placeholder: true },
-      { label: 'Daño Menaje',   path: '/dano-menaje',   placeholder: true },
-      { label: 'Novedades',     path: '/novedades',     placeholder: true },
-      { label: 'Integraciones', path: '/integraciones', placeholder: true },
-      { label: 'Manuales',      path: '/manuales',      placeholder: true },
+      { label: 'Marcas',        path: '/marcas',        icon: '🏷️' },
+      { label: 'POS',           path: '/pos',           icon: '🖥️', placeholder: true },
+      { label: 'Daño Equipo',   path: '/dano-equipo',   icon: '🔧', placeholder: true },
+      { label: 'Daño Menaje',   path: '/dano-menaje',   icon: '🍽️', placeholder: true },
+      { label: 'Novedades',     path: '/novedades',     icon: '📢', placeholder: true },
+      { label: 'Integraciones', path: '/integraciones', icon: '🔌', placeholder: true },
+      { label: 'Manuales',      path: '/manuales',      icon: '📋', placeholder: true },
     ],
   },
   {
-    type: 'group', label: 'EQUIPO',
+    type: 'group', label: 'EQUIPO', icon: '👥',
     items: [
-      { label: 'Mi Equipo',            path: '/equipo',       placeholder: true },
-      { label: 'Evaluaciones',         path: '/evaluaciones', placeholder: true },
-      { label: 'Llamados de atención', path: '/llamados',     placeholder: true },
-      { label: 'Celebraciones',        path: '/celebraciones', placeholder: true },
-      { label: 'Dotación',             path: '/dotacion',     placeholder: true },
+      { label: 'Mi Equipo',            path: '/equipo',       icon: '👤', placeholder: true },
+      { label: 'Evaluaciones',         path: '/evaluaciones', icon: '⭐', placeholder: true },
+      { label: 'Llamados de atención', path: '/llamados',     icon: '⚠️', placeholder: true },
+      { label: 'Celebraciones',        path: '/celebraciones', icon: '🎉', placeholder: true },
+      { label: 'Dotación',             path: '/dotacion',     icon: '👕', placeholder: true },
     ],
   },
   {
-    type: 'group', label: 'CLIENTES',
+    type: 'group', label: 'CLIENTES', icon: '🤝',
     items: [
-      { label: 'Reseñas', path: '/resenas', placeholder: true },
-      { label: 'Quejas',  path: '/quejas',  placeholder: true },
+      { label: 'Reseñas', path: '/resenas', icon: '💬', placeholder: true },
+      { label: 'Quejas',  path: '/quejas',  icon: '📝', placeholder: true },
     ],
   },
-  { type: 'link', label: 'CONFIGURACIÓN', path: '/configuracion', icon: '▪' },
+  { type: 'link', label: 'CONFIGURACIÓN', path: '/configuracion', icon: '⚙️' },
 ]
 
 function LogoSL({ small = false }: { small?: boolean }) {
@@ -118,26 +119,25 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
   )
   useEffect(() => {
-    const observer = new MutationObserver(() =>
+    const obs = new MutationObserver(() =>
       setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
     )
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => observer.disconnect()
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
   }, [])
 
   // tokens
-  const sbBg      = isDark ? '#0a0a0a' : '#ffffff'
-  const sbBorder  = isDark ? '#1a1a1a' : '#e5e0d8'
-  const sbText    = isDark ? '#c8d0e8' : '#374151'
-  const sbMuted   = isDark ? '#4a5270' : '#9ca3af'
-  const sbActive  = '#e8f442'
-  const sbActiveText = isDark ? '#e8f442' : '#7a6200'
-  const activeBg  = isDark ? '#111111' : '#f9f9f7'
+  const sbBg     = isDark ? '#0a0a0a' : '#ffffff'
+  const sbBorder = isDark ? '#1a1a1a' : '#e5e0d8'
+  const sbText   = isDark ? '#c8d0e8' : '#374151'
+  const sbMuted  = isDark ? '#4a5270' : '#9ca3af'
+  const sbActive = isDark ? '#e8f442' : '#7a6200'
+  const sbHover  = isDark ? '#161616' : '#f3f4f6'
 
   // Auto-abrir grupo que contiene la ruta activa
   const groupOfPath = (path: string): string | null => {
     for (const e of NAV) {
-      if (e.type === 'group' && e.items.some(i => i.path === path || (i.path !== '/' && path.startsWith(i.path)))) {
+      if (e.type === 'group' && e.items.some(i => !i.placeholder && (i.path === path || (i.path !== '/' && path.startsWith(i.path))))) {
         return e.label
       }
     }
@@ -215,18 +215,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
-                    padding: collapsed ? '12px 0' : '10px 16px',
+                    padding: collapsed ? '12px 0' : '11px 16px',
                     justifyContent: collapsed ? 'center' : 'flex-start',
-                    color: active ? sbActiveText : sbText,
+                    color: active ? sbActive : sbText,
                     borderLeft: active ? `2px solid ${sbActive}` : '2px solid transparent',
                     fontFamily: 'Oswald, sans-serif',
-                    fontSize: '0.78rem',
+                    fontSize: '0.82rem',
                     letterSpacing: '1px',
                     textDecoration: 'none',
-                    backgroundColor: active ? activeBg : 'transparent',
+                    backgroundColor: active ? sbHover : 'transparent',
+                    fontWeight: active ? 600 : 400,
                   }}
                 >
-                  <span style={{ fontSize: 10, color: active ? sbActive : sbMuted }}>{entry.icon}</span>
+                  <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: 'center', flexShrink: 0 }}>{entry.icon}</span>
                   {!collapsed && <span>{entry.label}</span>}
                 </NavLink>
               )
@@ -238,28 +239,46 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
             return (
               <div key={entry.label}>
-                {!collapsed && (
+                {!collapsed ? (
                   <div
                     onClick={() => setOpenGroup(prev => prev === entry.label ? null : entry.label)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '8px 16px',
+                      padding: '10px 16px',
+                      marginTop: 6,
                       color: sbMuted,
                       fontFamily: 'Oswald, sans-serif',
-                      fontSize: '0.6rem',
+                      fontSize: '0.62rem',
                       letterSpacing: '2px',
                       cursor: 'pointer',
                       userSelect: 'none',
-                      marginTop: 4,
+                      textTransform: 'uppercase',
+                      borderTop: `1px solid ${sbBorder}`,
                     }}
                   >
-                    <span>{entry.label}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14, lineHeight: 1 }}>{entry.icon}</span>
+                      <span>{entry.label}</span>
+                    </span>
                     <span style={{ fontSize: 10 }}>{isOpenGroup ? '▼' : '▶'}</span>
                   </div>
+                ) : (
+                  <div
+                    title={entry.label}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      padding: '8px 0',
+                      fontSize: 14,
+                      color: sbMuted,
+                      borderTop: `1px solid ${sbBorder}`,
+                    }}
+                  >
+                    {entry.icon}
+                  </div>
                 )}
-                {collapsed && <div style={{ height: 1, background: sbBorder, margin: '8px 10px' }} />}
 
                 {isOpenGroup && entry.items.map(item => {
                   const itemActive = !item.placeholder && isPathActive(item.path)
@@ -270,18 +289,23 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         key={item.path}
                         title={collapsed ? `${item.label} (próximamente)` : undefined}
                         style={{
-                          opacity: 0.35,
-                          cursor: 'default',
-                          padding: collapsed ? '7px 10px' : '7px 16px 7px 28px',
-                          fontSize: '0.75rem',
-                          color: sbText,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: collapsed ? '8px 0' : '8px 16px 8px 24px',
+                          justifyContent: collapsed ? 'center' : 'flex-start',
+                          color: sbMuted,
+                          opacity: 0.5,
                           fontFamily: 'Lexend, sans-serif',
+                          fontSize: '0.78rem',
+                          cursor: 'default',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        {collapsed ? item.label.charAt(0) : item.label}
+                        <span style={{ fontSize: 13, lineHeight: 1, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                        {!collapsed && <span>{item.label}</span>}
                       </div>
                     )
                   }
@@ -292,19 +316,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       onClick={() => goTo(item.path)}
                       title={collapsed ? item.label : undefined}
                       style={{
-                        padding: collapsed ? '7px 10px' : '7px 16px 7px 28px',
-                        fontSize: '0.75rem',
-                        color: itemActive ? sbActiveText : sbText,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: collapsed ? '8px 0' : '8px 16px 8px 24px',
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        color: itemActive ? sbActive : sbText,
                         borderLeft: itemActive ? `2px solid ${sbActive}` : '2px solid transparent',
                         fontFamily: 'Lexend, sans-serif',
+                        fontSize: '0.78rem',
                         cursor: 'pointer',
-                        backgroundColor: itemActive ? activeBg : 'transparent',
+                        backgroundColor: itemActive ? sbHover : 'transparent',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                       }}
                     >
-                      {collapsed ? item.label.charAt(0) : item.label}
+                      <span style={{ fontSize: 13, lineHeight: 1, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                      {!collapsed && <span>{item.label}</span>}
                     </div>
                   )
                 })}
