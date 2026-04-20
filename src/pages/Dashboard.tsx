@@ -32,6 +32,10 @@ const CANAL_COLOR: Record<string, string> = {
   'Venta Directa': '#66aaff',
 }
 
+const CANAL_COLOR_LIGHT: Record<string, string> = {
+  'Glovo': '#b8a000',
+}
+
 const COMISION: Record<string, { pct: number; fijo: number }> = {
   'Uber Eats':     { pct: 0.30, fijo: 0.82 },
   'Glovo':         { pct: 0.25, fijo: 0.75 },
@@ -257,7 +261,7 @@ export default function Dashboard() {
     const vals = [0,0,0,0,0,0,0]
     for (const r of rowsSemana) {
       const d = new Date(r.fecha + 'T12:00:00')
-      const idx = (d.getDay() || 7) - 1
+      const idx = (d.getDay() + 6) % 7
       vals[idx] += r.total_bruto || 0
     }
     return dias.map((nombre, i) => ({ nombre, valor: vals[i] }))
@@ -273,7 +277,7 @@ export default function Dashboard() {
   const surface2 = isDark ? '#111827' : '#f8f7f4'
   const border   = isDark ? '#2a3050' : '#e2ddd6'
   const textPri  = isDark ? '#f0f0ff' : '#111111'
-  const textSec  = isDark ? '#9ba8c0' : '#5a6478'
+  const textSec  = isDark ? '#9ba8c0' : '#3a4050'
   const textMut  = isDark ? '#5a6880' : '#9ba0aa'
   const accent   = '#e8f442'
 
@@ -364,15 +368,16 @@ export default function Dashboard() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:16 }}>
             {canalStats.map(c => {
               const color = CANAL_COLOR[c.nombre] ?? '#888'
-              const bg = hexAlpha(color, isDark ? 0.12 : 0.07)
+              const displayColor = isDark ? color : (CANAL_COLOR_LIGHT[c.nombre] ?? color)
+              const bg = hexAlpha(color, isDark ? 0.12 : 0.15)
               const ratio = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
               const semaforoColor = ratio >= 75 ? '#1D9E75' : ratio >= 55 ? '#f5a623' : '#E24B4A'
               const semaforoLabel = ratio >= 75 ? 'Rentable' : ratio >= 55 ? 'Moderado' : 'Bajo margen'
               return (
                 <div key={c.nombre} style={{ borderRadius:10, padding:'14px 16px', backgroundColor:bg, border:`1px solid ${hexAlpha(color, 0.35)}` }}>
-                  <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.62rem', letterSpacing:'1px', color, textTransform:'uppercase', marginBottom:6 }}>{c.nombre}</div>
+                  <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'0.62rem', letterSpacing:'1px', color: displayColor, textTransform:'uppercase', marginBottom:6 }}>{c.nombre}</div>
                   <div style={{ fontFamily:'Oswald, sans-serif', fontSize:'1.1rem', fontWeight:600, color:textPri, marginBottom:2 }}>{fmtEur(c.bruto)}</div>
-                  <div style={{ fontSize:'0.68rem', color:hexAlpha(color, 0.8), marginBottom:8 }}>Neto {fmtEur(c.neto)}</div>
+                  <div style={{ fontSize:'0.68rem', color:hexAlpha(displayColor, 0.85), marginBottom:8 }}>Neto {fmtEur(c.neto)}</div>
                   <div style={{ height:3, backgroundColor:hexAlpha(color,0.2), borderRadius:2, marginBottom:8 }}>
                     <div style={{ height:3, width:`${Math.min(c.pct,100)}%`, backgroundColor:color, borderRadius:2 }} />
                   </div>
@@ -380,7 +385,7 @@ export default function Dashboard() {
                     <span style={{ fontFamily:'Lexend, sans-serif', fontSize:11, color: semaforoColor }}>● {semaforoLabel}</span>
                     <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, color: semaforoColor }}>{ratio.toFixed(1)}% neto</span>
                   </div>
-                  <div style={{ fontSize:'0.65rem', color:textMut, marginTop:6 }}>{c.pedidos} pedidos · {c.pct.toFixed(1)}%</div>
+                  <div style={{ fontSize:'0.65rem', color:textSec, marginTop:6 }}>{c.pedidos} pedidos · {c.pct.toFixed(1)}%</div>
                 </div>
               )
             })}
@@ -530,12 +535,16 @@ export default function Dashboard() {
             <tbody>
               {TOP_PRODUCTOS_MOCK.map((p, idx) => {
                 const color = CANAL_COLOR[p.canal] ?? '#888'
+                const isGlovoLight = !isDark && p.canal === 'Glovo'
+                const badgeBg = isGlovoLight ? '#b8a000' : hexAlpha(color, 0.15)
+                const badgeColor = isGlovoLight ? '#ffffff' : color
+                const badgeBorder = isGlovoLight ? '#b8a000' : hexAlpha(color, 0.3)
                 return (
                   <tr key={idx} style={{ borderBottom:`1px solid ${hexAlpha(border, 0.5)}` }}>
                     <td style={{ fontSize:'0.7rem', color:textMut, textAlign:'right', padding:'7px 8px 7px 0' }}>{idx+1}</td>
                     <td style={{ fontSize:'0.75rem', color:textPri, padding:'7px 8px' }}>{p.nombre}</td>
                     <td style={{ padding:'7px 8px' }}>
-                      <span style={{ fontSize:'0.6rem', backgroundColor:hexAlpha(color,0.15), color, border:`1px solid ${hexAlpha(color,0.3)}`, borderRadius:4, padding:'2px 6px', fontFamily:'Oswald, sans-serif', letterSpacing:'0.5px', whiteSpace:'nowrap' }}>
+                      <span style={{ fontSize:'0.6rem', backgroundColor: badgeBg, color: badgeColor, border:`1px solid ${badgeBorder}`, borderRadius:4, padding:'2px 6px', fontFamily:'Oswald, sans-serif', letterSpacing:'0.5px', whiteSpace:'nowrap' }}>
                         {p.canal.replace(' Eats','').replace(' Propia','').replace(' Directa','')}
                       </span>
                     </td>
