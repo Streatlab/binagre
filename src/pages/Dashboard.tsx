@@ -274,7 +274,6 @@ export default function Dashboard() {
   /* ── tokens ────────────────────────────────────────────── */
 
   const surface  = isDark ? '#1a1f32' : '#ffffff'
-  const surface2 = isDark ? '#111827' : '#f8f7f4'
   const border   = isDark ? '#2a3050' : '#e2ddd6'
   const textPri  = isDark ? '#f0f0ff' : '#111111'
   const textSec  = isDark ? '#9ba8c0' : '#3a4050'
@@ -306,7 +305,6 @@ export default function Dashboard() {
   /* ── chart helpers ─────────────────────────────────────── */
 
   const maxBarTotal = Math.max(...weekBars.map(w => w.total), 1)
-  const CANAL_KEYS: (keyof WeekBar)[] = ['uber','glovo','je','web','directa']
   const CANAL_NAMES = ['Uber Eats','Glovo','Just Eat','Web Propia','Venta Directa']
 
   /* ── render ────────────────────────────────────────────── */
@@ -406,7 +404,7 @@ export default function Dashboard() {
           </div>
           {/* Leyenda */}
           <div style={{ display:'flex', flexWrap:'wrap', gap:'6px 12px', marginBottom:14 }}>
-            {CANAL_NAMES.map((n,i) => (
+            {CANAL_NAMES.map((n) => (
               <div key={n} style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.62rem', color:textSec }}>
                 <div style={{ width:8, height:8, borderRadius:2, backgroundColor:CANAL_COLOR[n] ?? '#888' }} />
                 <span>{n.replace(' Eats','').replace(' Propia','').replace(' Directa','')}</span>
