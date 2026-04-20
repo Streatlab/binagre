@@ -1,6 +1,23 @@
 import { useEffect, useState, useMemo, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
+import {
+  useTheme,
+  groupStyle,
+  cardStyle,
+  sectionLabelStyle,
+  kpiLabelStyle,
+  kpiValueStyle,
+  dividerStyle,
+  progressBgStyle,
+  progressFillStyle,
+  semaforoColor,
+  CANALES,
+  type CanalConfig,
+  badgeStyle,
+  calcNeto,
+  MARCAS,
+} from '@/styles/tokens'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -15,16 +32,6 @@ interface Row {
   web_pedidos: number; web_bruto: number
   directa_pedidos: number; directa_bruto: number
   total_pedidos: number; total_bruto: number
-}
-
-interface CanalDef {
-  id: string
-  label: string
-  color: string
-  pedKey: keyof Row
-  bruKey: keyof Row
-  comisionPct: number
-  comisionFijo: number
 }
 
 interface CanalStat {
@@ -52,16 +59,6 @@ interface Objetivos {
 
 const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 
-const CANALES_DEF: CanalDef[] = [
-  { id:'uber',  label:'Uber Eats', color:'#06C167', pedKey:'uber_pedidos',    bruKey:'uber_bruto',    comisionPct:0.30, comisionFijo:0.82 },
-  { id:'glovo', label:'Glovo',     color:'#e8f442', pedKey:'glovo_pedidos',   bruKey:'glovo_bruto',   comisionPct:0.25, comisionFijo:0.75 },
-  { id:'je',    label:'Just Eat',  color:'#f5a623', pedKey:'je_pedidos',      bruKey:'je_bruto',      comisionPct:0.20, comisionFijo:0.75 },
-  { id:'web',   label:'Web',       color:'#B01D23', pedKey:'web_pedidos',     bruKey:'web_bruto',     comisionPct:0.07, comisionFijo:0.50 },
-  { id:'dir',   label:'Directa',   color:'#66aaff', pedKey:'directa_pedidos', bruKey:'directa_bruto', comisionPct:0.00, comisionFijo:0.00 },
-]
-
-const MARCAS_MOCK = ['Binagre','Ninja Ramen','Mister Katsu','Korean Chicken','Fish & Chips']
-
 const TOP_PRODUCTOS_MOCK = [
   { n:'Ramen Warriors',   canal:'UE',  uds:42, total:796 },
   { n:'Cocido Madrileño', canal:'UE',  uds:29, total:782 },
@@ -84,7 +81,6 @@ const NETO_GREEN = '#1D9E75'
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
-// Formato local YYYY-MM-DD sin shift de timezone (evita bug de toISOString en UTC+2)
 function toLocalDateStr(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -97,11 +93,9 @@ function parseLocalDate(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
-// Semana ES: lun=0 ... dom=6. getDay() devuelve 0=dom, 1=lun...6=sab.
 function startOfWeekStr(): string {
   const now = new Date()
   const day = now.getDay()
-  // dom(0) → -6; lun(1) → 0; mar(2) → -1 ... sab(6) → -5
   const diff = day === 0 ? -6 : 1 - day
   const monday = new Date(now)
   monday.setDate(now.getDate() + diff)
@@ -120,14 +114,6 @@ function isoWeek(dateStr: string): { year: number; week: number } {
   const jan1 = new Date(y, 0, 1)
   const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
   return { year: y, week }
-}
-
-function calcNeto(bruto: number, pedidos: number, canal: CanalDef): number {
-  return Math.max(0, bruto * (1 - canal.comisionPct) - pedidos * canal.comisionFijo)
-}
-
-function semaforo(pct: number): string {
-  return pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
 }
 
 function rangoFecha(periodo: string, weekStart: string, weekEnd: string): { desde: string; hasta: string } {
@@ -206,6 +192,8 @@ function rangoPrevio(desde: string, hasta: string): { desde: string; hasta: stri
    ═══════════════════════════════════════════════════════════ */
 
 export default function Dashboard() {
+  const { T, isDark } = useTheme()
+
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -218,22 +206,11 @@ export default function Dashboard() {
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
   const [objetivos, setObjetivos] = useState<Objetivos>({ diario:700, semanal:5000, mensual:20000, anual:240000 })
-  const [isDark, setIsDark] = useState(
-    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
-  )
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' && window.innerWidth < 768
   )
 
   /* ── efectos ───────────────────────────────────────────── */
-
-  useEffect(() => {
-    const obs = new MutationObserver(() =>
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
-    )
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => obs.disconnect()
-  }, [])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -321,12 +298,12 @@ export default function Dashboard() {
   }, [data, desde, hasta, ventasPeriodo])
 
   const canalStats = useMemo((): CanalStat[] => {
-    const canalesActivos = canalesFiltro.length > 0
-      ? CANALES_DEF.filter(c => canalesFiltro.includes(c.id))
-      : CANALES_DEF
+    const canalesActivos: CanalConfig[] = canalesFiltro.length > 0
+      ? CANALES.filter(c => canalesFiltro.includes(c.id))
+      : CANALES
     return canalesActivos.map(c => {
-      const bruto = rowsPeriodo.reduce((a,r) => a + ((r[c.bruKey] as number) || 0), 0)
-      const pedidos = rowsPeriodo.reduce((a,r) => a + ((r[c.pedKey] as number) || 0), 0)
+      const bruto = rowsPeriodo.reduce((a,r) => a + ((r[c.bruKey as keyof Row] as number) || 0), 0)
+      const pedidos = rowsPeriodo.reduce((a,r) => a + ((r[c.pedKey as keyof Row] as number) || 0), 0)
       const neto = calcNeto(bruto, pedidos, c)
       const pct = ventasPeriodo > 0 ? (bruto / ventasPeriodo) * 100 : 0
       const ticket = pedidos > 0 ? bruto / pedidos : 0
@@ -335,7 +312,6 @@ export default function Dashboard() {
     })
   }, [rowsPeriodo, canalesFiltro, ventasPeriodo])
 
-  // Semana real Lun–Dom
   const rowsSemana   = useMemo(() => data.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd), [data, weekStart, weekEnd])
   const ventasSemana = useMemo(() => rowsSemana.reduce((a,r) => a + (r.total_bruto || 0), 0), [rowsSemana])
   const ventasMes    = useMemo(() => data.filter(r => r.fecha.startsWith(currentMonth)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentMonth])
@@ -357,19 +333,7 @@ export default function Dashboard() {
     return ['mensual','anual']
   }, [periodo])
 
-  /* ── tokens ────────────────────────────────────────────── */
-
-  const T = {
-    bg:       isDark ? '#0d1120' : '#f5f3ef',
-    group:    isDark ? '#131928' : '#ebe8e2',
-    card:     isDark ? '#1a1f32' : '#ffffff',
-    brd:      isDark ? '#2a3050' : '#d0c8bc',
-    pri:      isDark ? '#f0f0ff' : '#111111',
-    sec:      isDark ? '#9ba8c0' : '#3a4050',
-    mut:      isDark ? '#5a6880' : '#7a8090',
-    inp:      isDark ? '#1a1f32' : '#ffffff',
-    emphasis: isDark ? '#e8f442' : '#B01D23',
-  }
+  /* ── estilos locales específicos ──────────────────────── */
 
   const glovoStyle = {
     bg:     isDark ? '#1a1800' : '#fffbe0',
@@ -379,23 +343,10 @@ export default function Dashboard() {
     dotBrd: isDark ? undefined : '1px solid #8a7800',
   }
 
-  const badgeStyle = (canalTag: string): CSSProperties => {
-    const isGlovo = canalTag === 'GL' || canalTag === 'glovo'
-    if (isGlovo) return isDark
-      ? { background:'#e8f442', color:'#1a1a00', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
-      : { background:'#e8f442', color:'#5a4000', border:'1px solid #8a7800', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
-    const colors: Record<string,string> = { UE:'#06C167', uber:'#06C167', JE:'#f5a623', je:'#f5a623', WEB:'#B01D23', web:'#B01D23', DIR:'#66aaff', dir:'#66aaff' }
-    return { background: colors[canalTag] || '#888', color:'#ffffff', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
-  }
-
   const tabStyle = (active: boolean): CSSProperties => active
-    ? { background: isDark ? '#f0f0ff' : '#111111', color: isDark ? '#0d1120' : '#ffffff', border:'none', padding:'4px 10px', borderRadius:6, fontSize:11, cursor:'pointer', fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+    ? { background: T.pri, color: T.bg, border:'none', padding:'4px 10px', borderRadius:6, fontSize:11, cursor:'pointer', fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
     : { background:'none', color: T.sec, border:`0.5px solid ${T.brd}`, padding:'4px 10px', borderRadius:6, fontSize:11, cursor:'pointer', fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
 
-  const cardBox: CSSProperties = { background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:10, padding:'14px 16px' }
-  const labelSm: CSSProperties = { fontFamily:'Oswald,sans-serif', fontSize:12, letterSpacing:'2px', textTransform:'uppercase', color:T.mut }
-
-  // Dot de canal con tratamiento especial para Glovo en modo claro
   const dotStyle = (canalId: string, color: string): CSSProperties => {
     const isGlovo = canalId === 'glovo'
     return {
@@ -416,7 +367,7 @@ export default function Dashboard() {
   )
 
   if (error) return (
-    <div style={{ ...cardBox, textAlign:'center', padding:40 }}>
+    <div style={{ ...cardStyle(T), textAlign:'center', padding:40 }}>
       <p style={{ color:'#E24B4A', fontSize:13 }}>{error}</p>
     </div>
   )
@@ -430,7 +381,7 @@ export default function Dashboard() {
   return (
     <div style={{ fontFamily: 'Lexend, sans-serif' }}>
 
-      {/* Rango personalizado (aparece fuera del wrapper) */}
+      {/* Rango personalizado */}
       {periodo === 'rango' && (
         <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
           <input type="date" value={rangoDesde} onChange={e => setRangoDesde(e.target.value)}
@@ -441,14 +392,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ═════════════════════════════════════════════════════
-          UN ÚNICO WRAPPER SOMBREADO
-          ═════════════════════════════════════════════════════ */}
-      <div style={{ background:T.group, border:`0.5px solid ${T.brd}`, borderRadius:16, padding:'24px 28px' }}>
+      <div style={groupStyle(T)}>
 
-        {/* ── HEADER UNA SOLA LÍNEA ── */}
+        {/* HEADER */}
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap' }}>
-          {/* Título grande */}
           <span style={{
             fontFamily:'Oswald,sans-serif',
             fontSize:22,
@@ -462,7 +409,6 @@ export default function Dashboard() {
             {labelPeriodo(periodo, nSemana)}
           </span>
 
-          {/* Fechas */}
           <span style={{
             fontFamily:'Lexend,sans-serif',
             fontSize:12,
@@ -473,7 +419,6 @@ export default function Dashboard() {
             {fechasPeriodo(periodo, weekStart, weekEnd, rangoDesde, rangoHasta)}
           </span>
 
-          {/* Selector período */}
           <select
             value={periodo}
             onChange={e => setPeriodo(e.target.value)}
@@ -497,7 +442,6 @@ export default function Dashboard() {
             <option value="rango">Rango personalizado</option>
           </select>
 
-          {/* Dropdown Marcas */}
           <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button
               onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
@@ -507,7 +451,7 @@ export default function Dashboard() {
             </button>
             {dropMarcaOpen && (
               <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-                {MARCAS_MOCK.map(m => (
+                {MARCAS.map(m => (
                   <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
                     <input type="checkbox" checked={marcasFiltro.includes(m)}
                       onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
@@ -519,17 +463,16 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Dropdown Canales */}
           <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button
               onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
               style={{ padding:'3px 9px', borderRadius:6, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}
             >
-              {canalesFiltro.length === 0 ? 'Todos los canales' : canalesFiltro.length === 1 ? CANALES_DEF.find(c => c.id === canalesFiltro[0])?.label : `${canalesFiltro.length} canales`} ▾
+              {canalesFiltro.length === 0 ? 'Todos los canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label : `${canalesFiltro.length} canales`} ▾
             </button>
             {dropCanalOpen && (
               <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-                {CANALES_DEF.map(c => (
+                {CANALES.map(c => (
                   <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:12, color:T.pri }}>
                     <input type="checkbox" checked={canalesFiltro.includes(c.id)}
                       onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
@@ -543,13 +486,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── KPIs: Ventas | Pedidos | TM ── */}
+        {/* KPIs */}
         <div style={{ display:'grid', gridTemplateColumns: grid3, gap:14, marginBottom:22 }}>
 
           {/* VENTAS */}
-          <div style={cardBox}>
-            <div style={{ ...labelSm, marginBottom:8 }}>Ventas</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+          <div style={cardStyle(T)}>
+            <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>Ventas</div>
+            <div style={{ ...kpiValueStyle(T), marginBottom:4 }}>
               {fmtEur(ventasPeriodo)}
             </div>
             {variacionPct !== null && (
@@ -558,13 +501,13 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
+            <div style={dividerStyle(T)} />
 
             {objetivosVisibles.map(tipo => {
               const valor = tipo === 'semanal' ? ventasSemana : tipo === 'mensual' ? ventasMes : ventasAno
               const meta  = tipo === 'semanal' ? objetivos.semanal : tipo === 'mensual' ? objetivos.mensual : objetivos.anual
               const pct   = meta > 0 ? Math.min(100, Math.round((valor / meta) * 100)) : 0
-              const col   = semaforo(pct)
+              const col   = semaforoColor(pct)
               const falta = Math.max(0, meta - valor)
               const label = tipo === 'semanal' ? 'Semanal' : tipo === 'mensual' ? 'Mensual' : 'Anual'
               const sub   = tipo === 'semanal' ? `S${nSemana}` : tipo === 'mensual' ? new Date().toLocaleDateString('es-ES',{month:'long'}) : currentYear
@@ -580,21 +523,21 @@ export default function Dashboard() {
                   <div style={{ fontSize:13, color:T.sec, marginBottom:5 }}>
                     Faltan <span style={{ color:col, fontWeight:500 }}>{fmtEur(falta)}</span> de {fmtEur(meta)}
                   </div>
-                  <div style={{ height:4, background:T.brd, borderRadius:2 }}>
-                    <div style={{ height:4, width:`${pct}%`, background:col, borderRadius:2, transition:'width 0.5s ease' }} />
+                  <div style={progressBgStyle(T)}>
+                    <div style={progressFillStyle(pct, col)} />
                   </div>
                 </div>
               )
             })}
           </div>
 
-          {/* PEDIDOS — grid compacto */}
-          <div style={cardBox}>
-            <div style={{ ...labelSm, marginBottom:8 }}>Pedidos</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
+          {/* PEDIDOS */}
+          <div style={cardStyle(T)}>
+            <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>Pedidos</div>
+            <div style={{ ...kpiValueStyle(T), marginBottom:10 }}>
               {Math.round(pedidosPeriodo).toLocaleString('es-ES')}
             </div>
-            <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
+            <div style={dividerStyle(T)} />
             {canalStats.map((c, idx) => {
               const pct = Math.round(c.pct)
               return (
@@ -615,13 +558,13 @@ export default function Dashboard() {
             })}
           </div>
 
-          {/* TICKET MEDIO — grid compacto */}
-          <div style={cardBox}>
-            <div style={{ ...labelSm, marginBottom:8 }}>TM</div>
-            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1, marginBottom:10 }}>
+          {/* TICKET MEDIO */}
+          <div style={cardStyle(T)}>
+            <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>TM</div>
+            <div style={{ ...kpiValueStyle(T), marginBottom:10 }}>
               {fmtEur(ticketMedio)}
             </div>
-            <div style={{ height:1, background:T.brd, margin:'12px 0' }} />
+            <div style={dividerStyle(T)} />
             {canalStats.map((c, idx) => (
               <div key={c.id} style={{
                 display:'grid',
@@ -642,8 +585,8 @@ export default function Dashboard() {
 
         </div>
 
-        {/* ── Facturación por canal (5 cards) ── */}
-        <div style={{ ...labelSm, marginBottom:12 }}>Facturación por canal</div>
+        {/* Facturación por canal */}
+        <div style={{ ...sectionLabelStyle(T), marginBottom:12 }}>Facturación por canal</div>
         <div style={{ display:'grid', gridTemplateColumns: grid5, gap:12, marginBottom:22 }}>
           {canalStats.map(c => {
             const isGlovo = c.id === 'glovo'
@@ -684,7 +627,7 @@ export default function Dashboard() {
                   {hasData ? (
                     <>
                       <span style={{ color:T.sec }}>Margen</span>
-                      <span style={{ fontFamily:'Oswald,sans-serif', fontWeight:600, color: semaforo(c.margen) }}>{c.margen.toFixed(0)}%</span>
+                      <span style={{ fontFamily:'Oswald,sans-serif', fontWeight:600, color: semaforoColor(c.margen) }}>{c.margen.toFixed(0)}%</span>
                     </>
                   ) : (
                     <span style={{ color:T.mut }}>Sin datos</span>
@@ -695,11 +638,11 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── Días pico + Top ventas (66% ancho) ── */}
+        {/* Días pico + Top ventas */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap:14, width: isMobile ? '100%' : '66%' }}>
 
-          <div style={cardBox}>
-            <div style={{ ...labelSm, marginBottom:14 }}>Días pico — S{nSemana}</div>
+          <div style={cardStyle(T)}>
+            <div style={{ ...sectionLabelStyle(T), marginBottom:14 }}>Días pico — S{nSemana}</div>
             {(() => {
               const ALTURA_MAX = 100
               const maxVal = Math.max(...diasPico.map(d => d.valor), 1)
@@ -739,9 +682,9 @@ export default function Dashboard() {
             })()}
           </div>
 
-          <div style={cardBox}>
+          <div style={cardStyle(T)}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
-              <span style={labelSm}>Top ventas</span>
+              <span style={sectionLabelStyle(T)}>Top ventas</span>
               <div style={{ display:'flex', gap:4 }}>
                 <button onClick={() => setTopTab('prod')} style={tabStyle(topTab === 'prod')}>Productos</button>
                 <button onClick={() => setTopTab('mod')}  style={tabStyle(topTab === 'mod')}>Modif.</button>
@@ -752,7 +695,7 @@ export default function Dashboard() {
                 <div key={`${topTab}-${idx}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 0', borderBottom: idx < topItems.length-1 ? `0.5px solid ${T.brd}` : 'none' }}>
                   <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, width:18, textAlign:'right' }}>{idx+1}</span>
                   <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, color:T.pri, flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.n}</span>
-                  <span style={badgeStyle(p.canal)}>{p.canal}</span>
+                  <span style={badgeStyle(p.canal, isDark)}>{p.canal}</span>
                   <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec, width:36, textAlign:'right' }}>{p.uds}</span>
                   <span style={{ fontFamily:'Oswald,sans-serif', fontSize:15, fontWeight:600, color:T.pri, width:64, textAlign:'right' }}>{fmtEur(p.total)}</span>
                 </div>

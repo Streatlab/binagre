@@ -1,0 +1,166 @@
+import type { CSSProperties } from 'react'
+import { useTheme as useThemeContext } from '@/contexts/ThemeContext'
+
+/* ═══════════════════════════════════════════════════════════
+   THEME TOKENS
+   ═══════════════════════════════════════════════════════════ */
+
+export interface TokenSet {
+  bg: string
+  group: string
+  card: string
+  brd: string
+  pri: string
+  sec: string
+  mut: string
+  inp: string
+  emphasis: string
+  accent: string
+}
+
+const darkT: TokenSet = {
+  bg:       '#0d1120',
+  group:    '#131928',
+  card:     '#1a1f32',
+  brd:      '#2a3050',
+  pri:      '#f0f0ff',
+  sec:      '#9ba8c0',
+  mut:      '#5a6880',
+  inp:      '#1a1f32',
+  emphasis: '#e8f442',
+  accent:   '#e8f442',
+}
+
+const lightT: TokenSet = {
+  bg:       '#f5f3ef',
+  group:    '#ebe8e2',
+  card:     '#ffffff',
+  brd:      '#d0c8bc',
+  pri:      '#111111',
+  sec:      '#3a4050',
+  mut:      '#7a8090',
+  inp:      '#ffffff',
+  emphasis: '#B01D23',
+  accent:   '#B01D23',
+}
+
+export function useTheme(): { T: TokenSet; isDark: boolean } {
+  const { theme } = useThemeContext()
+  const isDark = theme === 'dark'
+  return { T: isDark ? darkT : lightT, isDark }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STYLE HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+export const groupStyle = (T: TokenSet): CSSProperties => ({
+  background: T.group,
+  border: `0.5px solid ${T.brd}`,
+  borderRadius: 16,
+  padding: '24px 28px',
+})
+
+export const cardStyle = (T: TokenSet): CSSProperties => ({
+  background: T.card,
+  border: `0.5px solid ${T.brd}`,
+  borderRadius: 10,
+  padding: '14px 16px',
+})
+
+export const sectionLabelStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: 'Oswald,sans-serif',
+  fontSize: 12,
+  letterSpacing: '2px',
+  textTransform: 'uppercase',
+  color: T.mut,
+})
+
+export const kpiLabelStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: 'Oswald,sans-serif',
+  fontSize: 12,
+  letterSpacing: '2px',
+  textTransform: 'uppercase',
+  color: T.mut,
+})
+
+export const kpiValueStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: 'Oswald,sans-serif',
+  fontSize: '2.4rem',
+  fontWeight: 600,
+  color: T.pri,
+  lineHeight: 1,
+})
+
+export const dividerStyle = (T: TokenSet): CSSProperties => ({
+  height: 1,
+  background: T.brd,
+  margin: '12px 0',
+})
+
+export const progressBgStyle = (T: TokenSet): CSSProperties => ({
+  height: 4,
+  background: T.brd,
+  borderRadius: 2,
+})
+
+export const progressFillStyle = (pct: number, color: string): CSSProperties => ({
+  height: 4,
+  width: `${Math.min(pct, 100)}%`,
+  background: color,
+  borderRadius: 2,
+  transition: 'width 0.5s ease',
+})
+
+/* ═══════════════════════════════════════════════════════════
+   SEMAFORO (verde / ámbar / rojo)
+   ═══════════════════════════════════════════════════════════ */
+
+export function semaforoColor(pct: number): string {
+  return pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CANALES
+   ═══════════════════════════════════════════════════════════ */
+
+export interface CanalConfig {
+  id: string
+  label: string
+  color: string
+  pedKey: string
+  bruKey: string
+  comisionPct: number
+  comisionFijo: number
+}
+
+export const CANALES: CanalConfig[] = [
+  { id:'uber',  label:'Uber Eats', color:'#06C167', pedKey:'uber_pedidos',    bruKey:'uber_bruto',    comisionPct:0.30, comisionFijo:0.82 },
+  { id:'glovo', label:'Glovo',     color:'#e8f442', pedKey:'glovo_pedidos',   bruKey:'glovo_bruto',   comisionPct:0.25, comisionFijo:0.75 },
+  { id:'je',    label:'Just Eat',  color:'#f5a623', pedKey:'je_pedidos',      bruKey:'je_bruto',      comisionPct:0.20, comisionFijo:0.75 },
+  { id:'web',   label:'Web',       color:'#B01D23', pedKey:'web_pedidos',     bruKey:'web_bruto',     comisionPct:0.07, comisionFijo:0.50 },
+  { id:'dir',   label:'Directa',   color:'#66aaff', pedKey:'directa_pedidos', bruKey:'directa_bruto', comisionPct:0.00, comisionFijo:0.00 },
+]
+
+export function calcNeto(bruto: number, pedidos: number, canal: Pick<CanalConfig, 'comisionPct' | 'comisionFijo'>): number {
+  return Math.max(0, bruto * (1 - canal.comisionPct) - pedidos * canal.comisionFijo)
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MARCAS (mock hasta integrar)
+   ═══════════════════════════════════════════════════════════ */
+
+export const MARCAS = ['Binagre','Ninja Ramen','Mister Katsu','Korean Chicken','Fish & Chips']
+
+/* ═══════════════════════════════════════════════════════════
+   BADGE (top ventas / tag canal)
+   ═══════════════════════════════════════════════════════════ */
+
+export function badgeStyle(canalTag: string, isDark: boolean): CSSProperties {
+  const isGlovo = canalTag === 'GL' || canalTag === 'glovo'
+  if (isGlovo) return isDark
+    ? { background:'#e8f442', color:'#1a1a00', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+    : { background:'#e8f442', color:'#5a4000', border:'1px solid #8a7800', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+  const colors: Record<string,string> = { UE:'#06C167', uber:'#06C167', JE:'#f5a623', je:'#f5a623', WEB:'#B01D23', web:'#B01D23', DIR:'#66aaff', dir:'#66aaff' }
+  return { background: colors[canalTag] || '#888', color:'#ffffff', fontSize:10, padding:'1px 6px', borderRadius:3, fontFamily:'Oswald,sans-serif', letterSpacing:'0.5px' }
+}
