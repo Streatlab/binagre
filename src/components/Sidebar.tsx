@@ -66,6 +66,8 @@ const SUBITEM_ICONS: Record<string, ReactElement> = {
   'Pedidos a Proveedor':<svg {...svgProps}><path d="M9 11H5l-2 9h16l-2-9h-4"/><path d="M9 11V5a3 3 0 016 0v6"/></svg>,
   'Pedidos de Artículos':<svg {...svgProps}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
   'Albaranes':         <svg {...svgProps}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>,
+  // Marketing
+  'Embudo':            <svg {...svgProps}><path d="M3 4h18"/><path d="M5 10h14l-2 6h-10z"/><line x1="12" y1="16" x2="12" y2="22"/></svg>,
   // POS
   'POS':               <svg {...svgProps}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
   'Pedidos en Curso':  <svg {...svgProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
