@@ -14,6 +14,7 @@ const SECTION_COLORS: Record<string, string> = {
   stock:         '#f5a623',
   pos:           '#66aaff',
   marcas:        '#B01D23',
+  marketing:     '#e8f442',
   equipo:        '#9ba8c0',
   clientes:      '#06C167',
   informes:      '#378ADD',
@@ -56,6 +57,8 @@ export function NavIcon({ section, collapsed, isDark, active = false, size = 24 
       return <svg {...svgProps}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
     case 'marcas':
       return <svg {...svgProps}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    case 'marketing':
+      return <svg {...svgProps}><polyline points="3 7 10 12 3 17"/><polyline points="21 7 14 12 21 17"/><path d="M7 12h10"/></svg>
     case 'equipo':
       return <svg {...svgProps}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
     case 'clientes':
