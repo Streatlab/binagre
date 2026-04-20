@@ -38,7 +38,8 @@ interface VentaHistorico {
 const TIPO_ORDER: ObjetivoGeneral['tipo'][] = ['diario', 'semanal', 'mensual', 'anual']
 
 const TIPO_LABEL: Record<string, string> = {
-  diario: 'Diario', semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
+  diario: new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),
+  semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual',
 }
 
 const hoyDate = new Date()
@@ -219,7 +220,7 @@ export default function Objetivos() {
       }
       return [...map.entries()]
         .sort((a, b) => b[0].localeCompare(a[0]))
-        .slice(0, 12)
+        .slice(0, 6)
         .map(([key, real]) => ({
           label: `S${parseInt(key.split('-')[1])}`,
           real,
@@ -372,7 +373,6 @@ export default function Objetivos() {
         {sorted.map(o => {
           const isEditing = editingId === o.id
           const isSaved = savedId === o.id
-          const lastUpdate = new Date(o.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
           return (
             <div key={o.id} style={cardStyle(T)}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>
@@ -410,7 +410,7 @@ export default function Objetivos() {
                 </div>
               )}
               <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8 }}>
-                {TIPO_DESC[o.tipo]} · Actualizado {lastUpdate}
+                {TIPO_DESC[o.tipo]}
               </div>
             </div>
           )
@@ -545,10 +545,6 @@ export default function Objetivos() {
             </div>
           )
         })}
-      </div>
-
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 16 }}>
-        El histórico excluye la semana/mes actual. Los cambios en objetivos se reflejan inmediatamente en el Dashboard.
       </div>
 
     </div>
