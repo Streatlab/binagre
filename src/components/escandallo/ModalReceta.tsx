@@ -76,6 +76,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     receta ? [] : [{ linea: 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 1, unidad: 'Ud.', eur_ud_neta: 0 }]
   )
   const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
   const [loadingLineas, setLoadingLineas] = useState(!!receta)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -158,7 +159,9 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   }
 
   const handleSave = async () => {
-    if (!nombre.trim()) return
+    setErr(null)
+    if (!nombre.trim()) { setErr('El nombre de la receta es obligatorio'); return }
+    if (pvpGlobal < 0) { setErr('El PVP no puede ser negativo'); return }
     setSaving(true)
     try {
       let rid = receta?.id
@@ -183,7 +186,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         const { error } = await supabase.from('recetas_lineas').insert(rows); if (error) throw error
       }
       onSaved()
-    } catch (e: any) { alert('Error: ' + (e.message || 'Error desconocido')) }
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Error al guardar') }
     finally { setSaving(false) }
   }
 
@@ -553,6 +556,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             )}
           </div>
         </div>
+
+        {err && <p className="px-5 pb-2 text-[#dc2626] text-sm">{err}</p>}
 
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
           <div className="flex items-center gap-2">

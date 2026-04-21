@@ -38,6 +38,7 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved, onDelete
   const [fecha, setFecha] = useState(eps?.fecha ?? '')
   const [lineas, setLineas] = useState<EPSLinea[]>([])
   const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
   const [loadingLineas, setLoadingLineas] = useState(!!eps)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -112,7 +113,9 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved, onDelete
   }
 
   const handleSave = async () => {
-    if (!nombre.trim()) return
+    setErr(null)
+    if (!nombre.trim()) { setErr('El nombre es obligatorio'); return }
+    if (raciones < 1) { setErr('Debe haber al menos 1 ración'); return }
     setSaving(true)
     try {
       let epsId = eps?.id
@@ -149,8 +152,8 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved, onDelete
         if (error) throw error
       }
       onSaved()
-    } catch (e: any) {
-      alert('Error: ' + (e.message || 'Error desconocido'))
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
       setSaving(false)
     }
@@ -256,6 +259,8 @@ export default function ModalEPS({ eps, ingredientes, onClose, onSaved, onDelete
             )}
           </div>
         </div>
+
+        {err && <p className="px-5 pb-2 text-[#dc2626] text-sm">{err}</p>}
 
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
           <div className="flex items-center gap-2">

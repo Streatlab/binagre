@@ -123,6 +123,8 @@ export default function ModalIngrediente({ ingrediente, onClose, onSaved, onDele
   const handleSave = async () => {
     setErr(null)
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
+    if (p1 < 0 || p2 < 0 || p3 < 0) { setErr('Los precios no pueden ser negativos'); return }
+    if (mermaPct < 0 || mermaPct > 100) { setErr('La merma debe estar entre 0% y 100%'); return }
 
     // FIX 7: Técnica → Manual: confirmar borrado subproductos
     const originalTipoMerma = ingrediente?.tipo_merma

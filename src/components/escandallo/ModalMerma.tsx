@@ -125,6 +125,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
   const handleSave = async () => {
     setErr(null)
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
+    if (precioTotal < 0) { setErr('El precio total no puede ser negativo'); return }
+    if (totalG > 0 && (sp1g + sp2g) > totalG) { setErr('El peso de los subproductos supera el peso total del producto'); return }
     setSaving(true)
     try {
       const payload = {
