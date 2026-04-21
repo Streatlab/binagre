@@ -5,8 +5,13 @@ import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, thCls, tdCls, n } from './types'
+import ModalIngrediente from './ModalIngrediente'
+import ModalEPS from './ModalEPS'
+import { parsearIngredientesConClaude } from '@/utils/dictado'
 
-interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
+interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
+
+interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
 // Token styles from design system
 const labelStyle = (_isDark?: boolean): CSSProperties => ({
@@ -89,15 +94,28 @@ function computeWaterfall(costeMP: number, pvp: number, comision: number, estruc
   return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
 }
 
-export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
+export default function ModalReceta({ receta, initialNombre, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
-  const [nombre, setNombre] = useState(receta?.nombre ?? '')
+  const todayISO = new Date().toISOString().split('T')[0]
+
+  const [nombre, setNombre] = useState(receta?.nombre ?? initialNombre ?? '')
   const [categoria, setCategoria] = useState(receta?.categoria ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(receta?.unidad ?? 'Ración')
-  const [fecha, setFecha] = useState(receta?.fecha ?? '')
+  const [fecha, setFecha] = useState(receta?.fecha ?? todayISO)
+  const [fechaOriginal] = useState(receta?.fecha ?? todayISO)
+  const [isDirty, setIsDirty] = useState(false)
   const [categorias, setCategorias] = useState<string[]>([])
+
+  // Dictado
+  const [showDictar, setShowDictar] = useState(false)
+  const [textoDictado, setTextoDictado] = useState('')
+  const [loadingDictado, setLoadingDictado] = useState(false)
+  const [conflictos, setConflictos] = useState<ConflictoItem[]>([])
+  const [showConflictos, setShowConflictos] = useState(false)
+  const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
+  const [showModalCrearEps, setShowModalCrearEps] = useState<ConflictoItem | null>(null)
 
   // PVP único — el mismo valor propaga a todos los canales
   const [pvpGlobal, setPvpGlobal] = useState<number>(() => {
@@ -164,6 +182,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
+  useEffect(() => {
+    if (showConflictos && conflictos.length === 0) {
+      const t = setTimeout(() => setShowConflictos(false), 300)
+      return () => clearTimeout(t)
+    }
+  }, [conflictos, showConflictos])
+
   const lineasCalc = useMemo(() => {
     const items = lineas.map(l => ({ ...l, eur_total: l.cantidad * l.eur_ud_neta }))
     const total = items.reduce((s, i) => s + i.eur_total, 0)
@@ -174,9 +199,13 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   const costeMP = raciones > 0 ? costeTanda / raciones : 0
 
   const updateLinea = useCallback((idx: number, patch: Partial<RecetaLinea>) => {
+    setIsDirty(true)
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
   }, [])
-  const addLinea = () => setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }])
+  const addLinea = () => {
+    setIsDirty(true)
+    setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }])
+  }
   const changeTipo = (idx: number, tipo: 'ING' | 'EPS') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: 'gr.' })
   const selectItem = (idx: number, val: string) => {
     const l = lineas[idx]
@@ -191,6 +220,48 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
     }
   }
 
+  async function procesarDictado() {
+    if (!textoDictado.trim()) return
+    setLoadingDictado(true)
+    try {
+      const parsed = await parsearIngredientesConClaude(textoDictado)
+      const lineasNuevas: RecetaLinea[] = []
+      const noEncontrados: ConflictoItem[] = []
+
+      for (const item of parsed) {
+        const matchIng = ingredientes.find(i =>
+          i.nombre.toLowerCase().includes(item.nombre.toLowerCase()) ||
+          item.nombre.toLowerCase().includes(i.nombre.toLowerCase())
+        )
+        const matchEps = epsList.find(e =>
+          e.nombre.toLowerCase().includes(item.nombre.toLowerCase()) ||
+          item.nombre.toLowerCase().includes(e.nombre.toLowerCase())
+        )
+
+        if (matchIng) {
+          lineasNuevas.push({ linea: 0, tipo: 'ING', ingrediente_id: matchIng.id, eps_id: null, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) })
+        } else if (matchEps) {
+          lineasNuevas.push({ linea: 0, tipo: 'EPS', ingrediente_id: null, eps_id: matchEps.id, ingrediente_nombre: matchEps.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchEps.coste_rac) })
+        } else {
+          noEncontrados.push(item)
+        }
+      }
+
+      if (lineasNuevas.length > 0) {
+        setIsDirty(true)
+        setLineas(prev => [...prev, ...lineasNuevas])
+      }
+      if (noEncontrados.length > 0) {
+        setConflictos(noEncontrados)
+        setShowConflictos(true)
+      }
+    } finally {
+      setLoadingDictado(false)
+      setShowDictar(false)
+      setTextoDictado('')
+    }
+  }
+
   const handleSave = async () => {
     if (!nombre.trim()) return
     setSaving(true)
@@ -201,7 +272,8 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
       }
       const record = {
         nombre, categoria: categoria || null, raciones,
-        tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: fecha || null,
+        tamano_rac: tamanoRac || null, unidad: unidad || null,
+        fecha: isDirty ? todayISO : (fechaOriginal || null),
         coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord,
       }
       if (rid) { const { error } = await supabase.from('recetas').update(record).eq('id', rid); if (error) throw error }
@@ -267,8 +339,9 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl w-full max-w-7xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl w-full max-w-7xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
           <div>
@@ -283,32 +356,32 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 160px' }}>
               <label style={labelStyle()}>Categoría</label>
-              <select style={inputStyle} value={categoria} onChange={e => setCategoria(e.target.value)}>
+              <select style={inputStyle} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}>
                 <option value="">Sin categoría</option>
                 {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle()}>Nombre</label>
-              <input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Smash Burger" />
+              <input style={inputStyle} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Smash Burger" />
             </div>
             <div style={{ flex: '0 0 80px' }}>
               <label style={labelStyle()}>Raciones</label>
-              <input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => setRaciones(parseFloat(e.target.value) || 1)} />
+              <input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} />
             </div>
             <div style={{ flex: '0 0 80px' }}>
               <label style={labelStyle()}>Tamaño rac</label>
-              <input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => setTamanoRac(parseFloat(e.target.value) || 0)} />
+              <input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} />
             </div>
             <div style={{ flex: '0 0 90px' }}>
               <label style={labelStyle()}>Unidad</label>
-              <select style={inputStyle} value={unidad} onChange={e => setUnidad(e.target.value)}>
+              <select style={inputStyle} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>
                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div style={{ flex: '0 0 140px' }}>
               <label style={labelStyle()}>Fecha</label>
-              <input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
+              <input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} />
             </div>
           </div>
 
@@ -316,8 +389,47 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-[var(--sl-text-secondary)] uppercase tracking-wider">Líneas</p>
-              <button onClick={addLinea} className="text-xs font-semibold hover:brightness-110 transition px-3 py-1 rounded-md" style={{ backgroundColor: 'var(--sl-btn-add-alt-bg)', color: 'var(--sl-btn-add-alt-text)' }}>+ Añadir línea</button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={addLinea} className="text-xs font-semibold hover:brightness-110 transition px-3 py-1 rounded-md" style={{ backgroundColor: 'var(--sl-btn-add-alt-bg)', color: 'var(--sl-btn-add-alt-text)' }}>+ Añadir línea</button>
+                <button
+                  onClick={() => setShowDictar(true)}
+                  style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
+                >
+                  ⚡ DICTAR
+                </button>
+              </div>
             </div>
+
+            {/* Panel DICTAR */}
+            {showDictar && (
+              <div style={{ padding: 14, background: 'var(--sl-app)', border: '0.5px solid var(--sl-border)', borderRadius: 8, marginBottom: 8 }}>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)', marginBottom: 8 }}>
+                  Escribe o dicta ingredientes y/o EPS en lenguaje libre:
+                </div>
+                <textarea
+                  value={textoDictado}
+                  onChange={e => setTextoDictado(e.target.value)}
+                  placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..."
+                  style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 13, borderRadius: 8, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={procesarDictado}
+                    disabled={loadingDictado}
+                    style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}
+                  >
+                    {loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDictar(false); setTextoDictado('') }}
+                    style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '7px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, cursor: 'pointer' }}
+                  >
+                    CANCELAR
+                  </button>
+                </div>
+              </div>
+            )}
+
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
             ) : (
@@ -621,7 +733,130 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
             </button>
           </div>
         </div>
+
+        {/* Overlay conflictos */}
+        {showConflictos && conflictos.length > 0 && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 16 }}>
+            <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 20, width: '90%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto' }}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', marginBottom: 12 }}>
+                INGREDIENTES / EPS NO ENCONTRADOS
+              </div>
+              {conflictos.map((item, idx) => (
+                <div key={idx} style={{ background: 'var(--sl-card-alt)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span style={{ background: '#f5a62322', color: '#f5a623', padding: '2px 8px', borderRadius: 99, fontFamily: 'Oswald, sans-serif', fontSize: 10 }}>⚠ NO ENCONTRADO</span>
+                    <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', fontWeight: 500 }}>{item.nombre}</span>
+                    <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)' }}>{item.cantidad} {item.unidad}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => {
+                        setConflictos(prev => prev.filter((_, i) => i !== idx))
+                        setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad })
+                      }}
+                      style={{ background: '#e8f442', color: '#1a1a00', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      + CREAR ING
+                    </button>
+                    <button
+                      onClick={() => {
+                        setConflictos(prev => prev.filter((_, i) => i !== idx))
+                        setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad })
+                      }}
+                      style={{ background: 'none', color: '#66aaff', border: '0.5px solid #66aaff', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      + CREAR EPS
+                    </button>
+                    <select
+                      defaultValue=""
+                      onChange={e => {
+                        if (!e.target.value) return
+                        const [tipo, id] = e.target.value.split('::')
+                        if (tipo === 'ING') {
+                          const ing = ingredientes.find(i => i.id === id)
+                          if (ing) {
+                            setIsDirty(true)
+                            setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }])
+                            setConflictos(prev => prev.filter((_, i) => i !== idx))
+                          }
+                        } else {
+                          const ep = epsList.find(e => e.id === id)
+                          if (ep) {
+                            setIsDirty(true)
+                            setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }])
+                            setConflictos(prev => prev.filter((_, i) => i !== idx))
+                          }
+                        }
+                      }}
+                      style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}
+                    >
+                      <option value="">Elegir existente...</option>
+                      <optgroup label="INGREDIENTES">
+                        {ingredientes.map(i => <option key={i.id} value={`ING::${i.id}`}>{i.nombre}</option>)}
+                      </optgroup>
+                      <optgroup label="EPS">
+                        {epsList.map(e => <option key={e.id} value={`EPS::${e.id}`}>{e.nombre}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
+
+    {/* Modal crear ingrediente (nested) */}
+    {showModalCrearIng && (
+      <ModalIngrediente
+        ingrediente={null}
+        initialNombre={showModalCrearIng.nombre}
+        onClose={() => setShowModalCrearIng(null)}
+        onSaved={async () => {
+          const itemRef = showModalCrearIng
+          setShowModalCrearIng(null)
+          if (!itemRef) return
+          const { data } = await supabase
+            .from('ingredientes')
+            .select('*')
+            .ilike('nombre_base', `%${itemRef.nombre}%`)
+            .order('id', { ascending: false })
+            .limit(1)
+          if (data?.[0]) {
+            const ing = data[0] as Ingrediente
+            setIsDirty(true)
+            setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }])
+          }
+        }}
+      />
+    )}
+
+    {/* Modal crear EPS (nested) */}
+    {showModalCrearEps && (
+      <ModalEPS
+        eps={null}
+        initialNombre={showModalCrearEps.nombre}
+        ingredientes={ingredientes}
+        onClose={() => setShowModalCrearEps(null)}
+        onSaved={async () => {
+          const itemRef = showModalCrearEps
+          setShowModalCrearEps(null)
+          if (!itemRef) return
+          const { data } = await supabase
+            .from('eps')
+            .select('*')
+            .ilike('nombre', `%${itemRef.nombre}%`)
+            .order('id', { ascending: false })
+            .limit(1)
+          if (data?.[0]) {
+            const ep = data[0] as EPS
+            setIsDirty(true)
+            setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ep.coste_rac) }])
+          }
+        }}
+      />
+    )}
+    </>
   )
 }
