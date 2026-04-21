@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import type { Receta } from './types'
-import { thCls, tdCls, fmtEurES, fmtES, fmtPctES, fmtDateES, semaforoClasses, n, ESTRUCTURA_PCT } from './types'
+import { fmtEurES, fmtES, fmtDateES, n, ESTRUCTURA_PCT } from './types'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT } from '@/styles/tokens'
+import { useTheme, FONT, groupStyle, cardStyle, semaforoColor } from '@/styles/tokens'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
-
-type Filter = 'todos' | 'conpvp' | 'sinpvp'
 
 /** Margen% Uber = (PVP/1.1 − coste_rac − estructura(30%) − PVP×0.30) / (PVP/1.1) */
 function margenUber(r: Receta): number {
@@ -19,7 +18,6 @@ function margenUber(r: Receta): number {
 
 export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
-  const [filter, setFilter] = useState<Filter>('todos')
   const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
@@ -36,12 +34,8 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
     load()
   }, [recetasList])
 
-  const total = useMemo(() => recetasList.length, [recetasList])
-  const conPvp = useMemo(() => recetasList.filter(r => n(r.pvp_uber) > 0).length, [recetasList])
   const filtered = useMemo(() => {
     let list = recetasList
-    if (filter === 'conpvp') list = recetasList.filter(r => n(r.pvp_uber) > 0)
-    else if (filter === 'sinpvp') list = recetasList.filter(r => n(r.pvp_uber) === 0)
     const q = busqueda.trim().toLowerCase()
     if (q) {
       list = list.filter(r =>
@@ -52,16 +46,39 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
       )
     }
     return list
-  }, [recetasList, filter, busqueda, ingsPorReceta])
-  const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
+  }, [recetasList, busqueda, ingsPorReceta])
+
+  const thStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    padding: '8px 10px',
+    background: T.group,
+    borderBottom: `0.5px solid ${T.brd}`,
+    fontWeight: 400,
+    textAlign: 'left',
+    whiteSpace: 'nowrap',
+  }
+
+  const tdStyle: CSSProperties = {
+    fontFamily: FONT.body,
+    fontSize: 13,
+    color: T.pri,
+    padding: '8px 10px',
+    borderBottom: `0.5px solid ${T.brd}`,
+    whiteSpace: 'nowrap',
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="CON PVP" value={conPvp} valueClass="eps" active={filter === 'conpvp'} onClick={() => toggle('conpvp')} />
-        <Counter label="SIN PVP" value={total - conPvp} valueClass="rec" active={filter === 'sinpvp'} onClick={() => toggle('sinpvp')} />
-        {onNew && <button onClick={onNew} className="ds-btn-add ml-auto">+ Nueva Receta</button>}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ ...cardStyle(T), padding: '12px 16px', display: 'inline-flex', flexDirection: 'column' }}>
+          <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut }}>TOTAL</span>
+          <span style={{ fontFamily: FONT.heading, fontSize: 22, color: T.pri }}>{recetasList.length}</span>
+        </div>
+        {onNew && <button onClick={onNew} className="ds-btn-add" style={{ marginLeft: 'auto' }}>+ Nueva Receta</button>}
       </div>
 
       {busqueda.trim() && (
@@ -70,82 +87,69 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
         </div>
       )}
 
-      {!filtered.length ? (
-        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">
-          <p className="text-[var(--sl-text-muted)] text-sm">Sin recetas{filter !== 'todos' ? ' en este filtro' : ''}</p>
-        </div>
-      ) : (
-        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
-          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-            <table style={{ tableLayout: 'fixed', width: '1070px' }}>
-              <colgroup>
-                <col style={{ width: 85 }} />
-                <col style={{ width: 250 }} />
-                <col style={{ width: 75 }} />
-                <col style={{ width: 95 }} />
-                <col style={{ width: 65 }} />
-                <col style={{ width: 105 }} />
-                <col style={{ width: 95 }} />
-                <col style={{ width: 65 }} />
-                <col style={{ width: 75 }} />
-                <col style={{ width: 85 }} />
-                <col style={{ width: 75 }} />
-              </colgroup>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={groupStyle(T)}>
+        {!filtered.length ? (
+          <p style={{ color: T.mut, fontFamily: FONT.body, textAlign: 'center', padding: 40, fontSize: 13 }}>
+            Sin recetas
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto', borderRadius: 8, border: `0.5px solid ${T.brd}` }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
+              <thead>
                 <tr>
-                  <th className={thCls}>CÓDIGO</th>
-                  <th className={thCls}>NOMBRE</th>
-                  <th className={thCls}>CATEGORÍA</th>
-                  <th className={thCls + ' text-right'}>RACIONES</th>
-                  <th className={thCls + ' text-right'}>TAMAÑO RAC</th>
-                  <th className={thCls}>UNIDAD</th>
-                  <th className={thCls + ' text-right'}>COSTE TANDA</th>
-                  <th className={thCls + ' text-right'}>COSTE/RAC</th>
-                  <th className={thCls + ' text-right'}>PVP UE</th>
-                  <th className={thCls + ' text-center'}>MARGEN% UE</th>
-                  <th className={thCls}>FECHA</th>
+                  <th style={thStyle}>CÓDIGO</th>
+                  <th style={thStyle}>NOMBRE</th>
+                  <th style={thStyle}>CATEGORÍA</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>RACIONES</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>TAMAÑO</th>
+                  <th style={thStyle}>UNIDAD</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE TANDA</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE/RAC</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>PVP UE</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>MARGEN %</th>
+                  <th style={{ ...thStyle, textAlign: 'center' }}>FECHA</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(r => {
                   const m = margenUber(r)
                   const hasPvp = n(r.pvp_uber) > 0
+                  const col = semaforoColor(m)
                   return (
-                    <tr key={r.id} onClick={() => onSelect(r)} className="cursor-pointer">
-                      <td className={tdCls + ' ds-rec-name font-mono text-xs'}>{r.codigo ?? ''}</td>
-                      <td className={tdCls + ' ds-rec-name'}>{r.nombre}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{r.categoria ?? ''}</td>
-                      <td className={tdCls + ' text-right'}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
-                      <td className={tdCls + ' text-right'}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
-                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{r.unidad ?? ''}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtEurES(r.coste_tanda, 2)}</td>
-                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmtEurES(r.coste_rac, 2)}</td>
-                      <td className={tdCls + ' text-right'}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
-                      <td className={tdCls + ' text-center'}>
+                    <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer' }}>
+                      <td style={{ ...tdStyle, color: T.emphasis, fontWeight: 600 }}>{r.codigo ?? ''}</td>
+                      <td style={{ ...tdStyle, fontWeight: 500 }}>{r.nombre}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{r.categoria ?? ''}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{r.unidad ?? ''}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEurES(r.coste_tanda, 2)}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmtEurES(r.coste_rac, 2)}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>{hasPvp ? fmtEurES(r.pvp_uber, 2) : ''}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
                         {hasPvp ? (
-                          <span className={'inline-block px-2 py-0.5 rounded text-[11px] font-semibold ' + semaforoClasses(m)}>
-                            {fmtPctES(m, 2)}
+                          <span style={{
+                            background: col + '22',
+                            color: col,
+                            padding: '2px 8px',
+                            borderRadius: 99,
+                            fontFamily: FONT.heading,
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}>
+                            {m.toFixed(2)}%
                           </span>
                         ) : ''}
                       </td>
-                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center', color: T.mut, fontSize: 12 }}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  )
-}
-
-function Counter({ label, value, valueClass = '', active, onClick }: { label: string; value: number; valueClass?: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} type="button" className={'ds-counter' + (active ? ' active' : '')}>
-      <div className="label">{label}</div>
-      <div className={'value' + (valueClass ? ' ' + valueClass : '')}>{value}</div>
-    </button>
   )
 }
