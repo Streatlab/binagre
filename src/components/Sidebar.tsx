@@ -31,6 +31,7 @@ const SECTIONS: NavSection[] = [
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
       { path: '/facturacion',             label: 'Facturación',           emoji: '🗂️', perfiles: ['admin'] },
+      { path: '/finanzas/objetivos',      label: 'Objetivos',             emoji: '🎯', perfiles: ['admin'] },
       { path: '/finanzas/analisis',        label: 'Análisis',              emoji: '🔍', perfiles: ['admin'] },
       { path: '/analytics/revenue',        label: 'Revenue & Ticket',      emoji: '🎫', perfiles: ['admin'] },
       { path: '/analytics/cogs',           label: 'COGS / Coste MP',       emoji: '🧾', perfiles: ['admin'] },
