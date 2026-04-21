@@ -49,8 +49,8 @@ const lightT: TokenSet = {
   sec:      '#3a4050',
   mut:      '#7a8090',
   inp:      '#ffffff',
-  emphasis: '#B01D23',
-  accent:   '#B01D23',
+  emphasis: '#e8f442',
+  accent:   '#e8f442',
 }
 
 export function useTheme(): { T: TokenSet; isDark: boolean } {

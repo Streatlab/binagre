@@ -182,7 +182,7 @@ const SECTIONS: NavSection[] = [
 function LogoSL() {
   const { T, isDark } = useTheme()
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 8, background: T.emphasis, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: isDark ? '#0d1120' : '#ffffff', flexShrink: 0 }}>SL</div>
+    <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ width: 32, height: 32, flexShrink: 0 }} />
   )
 }
 
@@ -266,23 +266,27 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Panel Global — direct link, no accordion */}
           {PANEL_GLOBAL.perfiles.includes(perfil) && (
-            collapsed ? (
-              <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
-                className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
-                {PANEL_GLOBAL.emoji}
-              </NavLink>
-            ) : (
-              <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => itemStyle(isActive)}>
-                {({ isActive }) => (
-                  <>
-                    <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#0d1120' : T.sec }}>{PANEL_GLOBAL.label}</span>
-                  </>
+            <div style={{ padding: '0 28px', marginBottom: 8 }}>
+              <div style={{ background: T.group, border: `1px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
+                {collapsed ? (
+                  <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
+                    className="flex items-center justify-center transition-colors"
+                    style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
+                    {PANEL_GLOBAL.emoji}
+                  </NavLink>
+                ) : (
+                  <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
+                    style={({ isActive }) => itemStyle(isActive)}>
+                    {({ isActive }) => (
+                      <>
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? T.pri : T.sec }}>{PANEL_GLOBAL.label}</span>
+                      </>
+                    )}
+                  </NavLink>
                 )}
-              </NavLink>
-            )
+              </div>
+            </div>
           )}
 
           {/* Sections */}
