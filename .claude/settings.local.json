@@ -29,7 +29,13 @@
       "Bash(netstat -ano)",
       "Bash(taskkill /PID 17236 /F)",
       "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx vercel *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(sed -i 's/color: T\\\\.emphasis, margin: 0, marginBottom: 8/color: \"#B01D23\", margin: 0, marginBottom: 8/g' src/pages/CocinaInventario.tsx)",
+      "Bash(sed -i 's/color: T\\\\.emphasis, marginBottom: 4/color: \"#B01D23\", marginBottom: 4/g' src/pages/CocinaRecetas.tsx)",
+      "Bash(sed -i 's/color: T\\\\.emphasis, margin: 0, marginBottom: 8/color: \"#B01D23\", margin: 0, marginBottom: 8/g' src/pages/MarketingEmbudo.tsx)"
     ]
   }
 }
