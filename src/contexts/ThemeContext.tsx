@@ -13,7 +13,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const getDefaultTheme = (): Theme => {
     const saved = localStorage.getItem('sl-theme') as Theme | null;
     if (saved) return saved;
-    return window.innerWidth >= 768 ? 'light' : 'dark';
+    return 'dark';
   };
 
   const [theme, setTheme] = useState<Theme>(getDefaultTheme);
