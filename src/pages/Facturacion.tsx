@@ -209,8 +209,9 @@ export default function Facturacion() {
   const { T, isDark } = useTheme()
   const [tab, setTab] = useState<Tab>('diario')
   const [canal, setCanal] = useState<CanalFilter>('Todos')
-  const [servicioFiltro, setServicioFiltro] = useState<string[]>([])
-  const [dropServOpen, setDropServOpen] = useState(false)
+  const [servicioFiltro, setServicioFiltro] = useState<string>('Todos')
+  const [dropCanalOpen, setDropCanalOpen] = useState(false)
+  const [canalFilterSelected, setCanalFilterSelected] = useState<string[]>(['Todos'])
   const [allData, setAllData] = useState<RawDiario[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -221,11 +222,11 @@ export default function Facturacion() {
   const [editRow, setEditRow] = useState<RawDiario | null>(null)
   const [showAdd, setShowAdd] = useState(false)
 
-  /* Click fuera cierra dropdown servicio */
+  /* Click fuera cierra dropdown canal */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const t = e.target as HTMLElement
-      if (!t.closest('[data-drop]')) setDropServOpen(false)
+      if (!t.closest('[data-drop-canal]')) setDropCanalOpen(false)
     }
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
@@ -248,7 +249,7 @@ export default function Facturacion() {
   const fmtCorto = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
 
   const KPI_LABELS = {
-    hoy:     hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}).replace(/^\w/,c=>c.toUpperCase()),
+    hoy:     hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric'}).replace(/^\w/,c=>c.toUpperCase()),
     semana:  `S${weekNum} · ${fmtCorto(monday)} – ${fmtCorto(sunday)}`,
     mes:     mesNombre,
     anio:    `${hoy.getFullYear()}`,
@@ -292,7 +293,7 @@ export default function Facturacion() {
   const currentYear = todayStr.slice(0, 4)
 
   const filteredData = useMemo(() =>
-    servicioFiltro.length === 0 ? allData : allData.filter(r => servicioFiltro.includes(r.servicio)),
+    servicioFiltro === 'Todos' ? allData : allData.filter(r => r.servicio === servicioFiltro),
     [allData, servicioFiltro]
   )
 
@@ -367,39 +368,54 @@ export default function Facturacion() {
           ))}
         </div>
 
-        {/* Dropdown servicio */}
-        <div style={{ position:'relative' }} data-drop="serv">
+        {/* Botones servicio */}
+        <div style={{ display:'flex', gap:4 }}>
+          {['Todos', 'ALM', 'CENAS'].map(s => (
+            <button
+              key={s}
+              onClick={() => setServicioFiltro(s)}
+              style={servicioFiltro === s
+                ? { background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+                : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+              }
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Dropdown canal multi-select */}
+        <div style={{ position:'relative' }} data-drop-canal="canales">
           <button
-            onClick={e => { e.stopPropagation(); setDropServOpen(p => !p) }}
+            onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }}
             style={dropdownBtnStyle(T)}
           >
-            {servicioFiltro.length === 0 ? 'Todos los servicios' : servicioFiltro.length === 1 ? servicioFiltro[0] : `${servicioFiltro.length} servicios`} ▾
+            {canalFilterSelected.length === 5 ? 'Todos los canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
           </button>
-          {dropServOpen && (
+          {dropCanalOpen && (
             <div style={dropdownMenuStyle(T)}>
-              {['ALM','CENAS','COC','BAR','EVE'].map(s => (
-                <label key={s} style={dropdownItemStyle(T)}>
+              {['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web', 'Directa'].map(c => (
+                <label key={c} style={dropdownItemStyle(T)}>
                   <input
                     type="checkbox"
-                    checked={servicioFiltro.includes(s)}
-                    onChange={() => setServicioFiltro(p => p.includes(s) ? p.filter(x=>x!==s) : [...p, s])}
+                    checked={canalFilterSelected.includes(c)}
+                    onChange={() => {
+                      if (c === 'Todos') {
+                        setCanalFilterSelected(['Todos'])
+                      } else {
+                        const filtered = canalFilterSelected.filter(x => x !== 'Todos')
+                        const updated = filtered.includes(c) ? filtered.filter(x => x !== c) : [...filtered, c]
+                        setCanalFilterSelected(updated.length === 0 ? ['Todos'] : updated.length === 5 ? ['Todos'] : updated)
+                      }
+                    }}
                     style={{ width:13, height:13 }}
                   />
-                  {s}
+                  {c}
                 </label>
               ))}
             </div>
           )}
         </div>
-
-        {/* Select canal */}
-        <select
-          value={canal}
-          onChange={e => setCanal(e.target.value as CanalFilter)}
-          style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}
-        >
-          {CANAL_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
 
         {weekFilter && (
           <button
@@ -518,94 +534,58 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
       </div>
 
       {/* Table */}
-      <div className="bg-[var(--sl-card)] border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap">
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
             <thead>
-              {showBreakdown ? (
-                <>
-                  <tr className="border-b border-border text-[var(--sl-text-secondary)] text-xs uppercase tracking-wide">
-                    <th rowSpan={2} className="px-3 py-2 text-left sticky left-0 bg-[var(--sl-card)] z-10">Fecha</th>
-                    <th rowSpan={2} className="px-3 py-2 text-left">Serv.</th>
-                    {COLS.map(c => (
-                      <th key={c.label} colSpan={2} className="border-l border-border" style={canalHeaderStyle(c.id, isDark)}>{c.label}</th>
-                    ))}
-                    <th colSpan={2} className="px-2 py-2 text-center border-l border-border text-[var(--sl-text-primary)] font-bold">Total</th>
-                  </tr>
-                  <tr className="border-b border-border text-[var(--sl-text-secondary)] text-[10px] uppercase tracking-wider">
-                    {COLS.map(c => (
-                      <Fragment key={c.label}>
-                        <th className="px-2 py-1.5 text-right border-l border-border">Ped</th>
-                        <th className="px-2 py-1.5 text-right">€</th>
-                      </Fragment>
-                    ))}
-                    <th className="px-2 py-1.5 text-right border-l border-border">Ped</th>
-                    <th className="px-2 py-1.5 text-right">€</th>
-                  </tr>
-                </>
-              ) : (
-                <tr className="border-b border-border text-[var(--sl-text-secondary)] text-xs uppercase tracking-wide">
-                  <th className="px-3 py-2 text-left sticky left-0 bg-[var(--sl-card)] z-10">Fecha</th>
-                  <th className="px-3 py-2 text-left">Serv.</th>
-                  <th className="px-3 py-2 text-right">Pedidos</th>
-                  <th className="px-3 py-2 text-right">Bruto</th>
-                </tr>
-              )}
+              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Fecha</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Serv.</th>
+                {COLS.map(c => (
+                  <Fragment key={c.label}>
+                    <th style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Ped</th>
+                    <th style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
+                  </Fragment>
+                ))}
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 600 }}>Ped</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, background: T.group, fontWeight: 600 }}>€</th>
+              </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody>
               {rows.map(r => (
-                <tr key={r.id} onClick={() => onEdit(r)}
-                  className="hover:bg-[var(--sl-card)]/[0.03] transition-colors cursor-pointer">
-                  <td className="px-3 py-2 text-[var(--sl-text-primary)] sticky left-0 bg-[var(--sl-card)]">{fmtFechaCorta(r.fecha)}</td>
-                  <td className="px-3 py-2"><ServicioBadge s={r.servicio} /></td>
-                  {showBreakdown ? (
-                    <>
-                      {COLS.map(c => {
-                        const p = (r[c.ped] as number) || 0
-                        const b = (r[c.bru] as number) || 0
-                        return (
-                          <Fragment key={c.label}>
-                            <td className="px-2 py-2 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
-                              {p > 0 ? Math.round(p) : <Dash />}
-                            </td>
-                            <td className="px-2 py-2 text-right text-neutral-300 tabular-nums">
-                              {b > 0 ? fmtEur(b) : <Dash />}
-                            </td>
-                          </Fragment>
-                        )
-                      })}
-                      <td className="px-2 py-2 text-right text-[var(--sl-text-primary)] font-medium tabular-nums border-l border-border">{fmtInt(r.total_pedidos)}</td>
-                      <td className="px-2 py-2 text-right text-[var(--sl-text-primary)] font-semibold tabular-nums">{fmtEur(r.total_bruto)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-3 py-2 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(r, canal))}</td>
-                      <td className="px-3 py-2 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(getBru(r, canal))}</td>
-                    </>
-                  )}
+                <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }}>{fmtFechaCorta(r.fecha)}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
+                  {COLS.map(c => {
+                    const p = (r[c.ped] as number) || 0
+                    const b = (r[c.bru] as number) || 0
+                    return (
+                      <Fragment key={c.label}>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', color: p > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                          {p > 0 ? Math.round(p) : <Dash />}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                          {b > 0 ? fmtEur(b) : <Dash />}
+                        </td>
+                      </Fragment>
+                    )
+                  })}
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-3 py-2.5 text-[var(--sl-text-primary)] sticky left-0 bg-[var(--sl-card)]" colSpan={2}>TOTAL</td>
-                {showBreakdown ? (
-                  <>
-                    {COLS.map(c => (
-                      <Fragment key={c.label}>
-                        <td className="px-2 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">{fmtInt(totals[c.ped] as number)}</td>
-                        <td className="px-2 py-2.5 text-right text-neutral-200 tabular-nums">{fmtEur(totals[c.bru] as number)}</td>
-                      </Fragment>
-                    ))}
-                    <td className="px-2 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums border-l border-border">{fmtInt(totals.total_pedidos)}</td>
-                    <td className="px-2 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(totals.total_bruto)}</td>
-                  </>
-                ) : (
-                  <>
-                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(totals, canal))}</td>
-                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
-                  </>
-                )}
+              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
+                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }} colSpan={2}>TOTAL</td>
+                {COLS.map(c => (
+                  <Fragment key={c.label}>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(totals[c.ped] as number)}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(totals[c.bru] as number)}</td>
+                  </Fragment>
+                ))}
+                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(totals.total_pedidos)}</td>
+                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(totals.total_bruto)}</td>
               </tr>
             </tfoot>
           </table>
@@ -650,49 +630,38 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
         </button>
       </div>
 
-      <div className="bg-[var(--sl-card)] border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap">
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
             <thead>
-              <tr className="border-b border-border text-[var(--sl-text-secondary)] text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 text-left">Sem</th>
-                <th className="px-4 py-3 text-left">Periodo</th>
-                <th className="px-3 py-3 text-right">Dias</th>
-                <th className="px-4 py-3 text-right">Pedidos</th>
-                <th className="px-4 py-3 text-right">Bruto</th>
-                {showBreakdown && COLS.map(c => (
-                  <th key={c.label} className="border-l border-border" style={{ ...canalHeaderStyle(c.id, isDark), textAlign:'right' }}>{c.label}</th>
+              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Sem</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Periodo</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Dias</th>
+                {COLS.map(c => (
+                  <th key={c.label} style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map(r => {
-                const ped = getPed(r, canal)
-                const bru = getBru(r, canal)
-                return (
-                  <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)}
-                    className="hover:bg-[var(--sl-card)]/[0.03] transition-colors cursor-pointer">
-                    <td className="px-4 py-2.5 text-[var(--sl-text-primary)] font-medium">S{r.week}</td>
-                    <td className="px-4 py-2.5 text-[var(--sl-text-secondary)]">{r.periodo}</td>
-                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(bru)}</td>
-                    {showBreakdown && COLS.map(c => (
-                      <td key={c.label} className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
-                        {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
-                      </td>
-                    ))}
-                  </tr>
-                )
-              })}
+            <tbody>
+              {rows.map(r => (
+                <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>S{r.week}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.sec, borderRight: `0.5px solid ${T.brd}` }}>{r.periodo}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
+                  {COLS.map(c => (
+                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-4 py-2.5 text-[var(--sl-text-primary)]" colSpan={3}>TOTAL</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(totals, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(totals, canal))}</td>
-                {showBreakdown && COLS.map(c => (
-                  <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
+              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
+                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }} colSpan={3}>TOTAL</td>
+                {COLS.map(c => (
+                  <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
                     {fmtEur(totals[c.bru] as number)}
                   </td>
                 ))}
@@ -766,62 +735,52 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         </button>
       </div>
 
-      <div className="bg-[var(--sl-card)] border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap">
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
             <thead>
-              <tr className="border-b border-border text-[var(--sl-text-secondary)] text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 text-left">Mes</th>
-                <th className="px-3 py-3 text-right">Dias</th>
-                <th className="px-4 py-3 text-right">Pedidos</th>
-                <th className="px-4 py-3 text-right">Bruto</th>
-                {showBreakdown && COLS.map(c => (
-                  <th key={c.label} className="border-l border-border" style={{ ...canalHeaderStyle(c.id, isDark), textAlign:'right' }}>{c.label}</th>
+              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Mes</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Dias</th>
+                {COLS.map(c => (
+                  <th key={c.label} style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
                 ))}
-                <th className="px-4 py-3 text-right border-l border-border">Media/dia</th>
-                <th className="px-4 py-3 text-right border-l border-border">vs Anterior</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Media/dia</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, fontWeight: 400 }}>vs Anterior</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map(r => {
-                const ped = getPed(r, canal)
-                const bru = getBru(r, canal)
-                return (
-                  <tr key={r.mes} className="hover:bg-[var(--sl-card)]/[0.02] transition-colors">
-                    <td className="px-4 py-2.5 text-[var(--sl-text-primary)] font-medium">{MES_NOMBRE[r.mes]}</td>
-                    <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{r.dias}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(ped)}</td>
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] font-medium tabular-nums">{fmtEur(bru)}</td>
-                    {showBreakdown && COLS.map(c => (
-                      <td key={c.label} className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
-                        {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
-                      </td>
-                    ))}
-                    <td className="px-4 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
-                      {r.dias > 0 ? fmtEur(r.media_diaria) : '—'}
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.mes} style={{ borderBottom: `0.5px solid ${T.brd}`, transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>{MES_NOMBRE[r.mes]}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
+                  {COLS.map(c => (
+                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
                     </td>
-                    <td className="px-4 py-2.5 text-right border-l border-border">
-                      {r.vs_anterior !== null ? <DesvBadge pct={r.vs_anterior} /> : <Dash />}
-                    </td>
-                  </tr>
-                )
-              })}
+                  ))}
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                    {r.dias > 0 ? fmtEur(r.media_diaria) : '—'}
+                  </td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                    {r.vs_anterior !== null ? <DesvBadge pct={r.vs_anterior} /> : <Dash />}
+                  </td>
+                </tr>
+              ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-accent/30 bg-accent/5 font-semibold">
-                <td className="px-4 py-2.5 text-[var(--sl-text-primary)]">{selYear} TOTAL</td>
-                <td className="px-3 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums">{yearTotal.dias}</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtInt(getPed(yearTotal, canal))}</td>
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-primary)] tabular-nums">{fmtEur(getBru(yearTotal, canal))}</td>
-                {showBreakdown && COLS.map(c => (
-                  <td key={c.label} className="px-3 py-2.5 text-right text-neutral-300 tabular-nums border-l border-border">
+              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
+                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }}>{selYear} TOTAL</td>
+                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{yearTotal.dias}</td>
+                {COLS.map(c => (
+                  <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
                     {fmtEur(yearTotal[c.bru] as number)}
                   </td>
                 ))}
-                <td className="px-4 py-2.5 text-right text-[var(--sl-text-secondary)] tabular-nums border-l border-border">
+                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
                   {yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
                 </td>
-                <td className="px-4 py-2.5 border-l border-border" />
+                <td style={{ padding: '8px 10px', textAlign: 'right' }} />
               </tr>
             </tfoot>
           </table>
@@ -940,17 +899,17 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
   }
 
   const renderCanalCard = (c: typeof FORM_COLS[number]) => (
-    <div key={c.label} className="bg-base/50 border border-border rounded-lg p-3">
-      <p className="text-xs font-medium mb-2" style={c.color ? { color: c.color, fontFamily: 'Oswald, sans-serif', letterSpacing: 1, textTransform: 'uppercase' } : { color: 'var(--sl-text-secondary)' }}>{c.label}</p>
-      <div className="grid grid-cols-2 gap-3">
+    <div key={c.label} style={{ background: `${T.group}55`, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 12 }}>
+      <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, ...(c.color ? { color: c.color, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' } : { color: T.sec, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' }) }}>{c.label}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div>
-          <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Pedidos</label>
+          <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Pedidos</label>
           <input type="number" min="0" placeholder="0" value={fields[c.ped]}
             onChange={e => set(c.ped, e.target.value)}
             style={inputStyle} />
         </div>
         <div>
-          <label className="block text-[10px] text-[var(--sl-text-secondary)] mb-0.5">Bruto (EUR)</label>
+          <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Bruto (EUR)</label>
           <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
             onChange={e => set(c.bru, e.target.value)}
             style={inputStyle} />
@@ -960,39 +919,42 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-[var(--sl-card)] border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="text-[var(--sl-text-primary)] font-semibold">{isEdit ? 'Editar dia' : 'Anadir dia'}</h3>
-          <button onClick={onClose} className="text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)] text-xl leading-none">&times;</button>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={onClose}>
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}` }}>
+          <h3 style={{ color: T.pri, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, margin: 0 }}>{isEdit ? 'EDITAR DÍA' : 'AÑADIR DÍA'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.sec, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="block text-xs text-[var(--sl-text-secondary)] mb-1">Fecha</label>
+              <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
                 style={inputStyle} />
             </div>
             <div>
-              <label className="block text-xs text-[var(--sl-text-secondary)] mb-1">Servicio</label>
-              <div className="flex gap-1">
+              <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Servicio</label>
+              <div style={{ display: 'flex', gap: 6 }}>
                 {SERVICIOS.map(s => (
                   <button key={s} type="button" onClick={() => setServicio(s)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      servicio === s ? 'bg-accent text-black' : 'bg-base border border-border text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)]'
-                    }`}>{s}</button>
+                    style={servicio === s
+                      ? { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
+                      : { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
+                    }>{s}</button>
                 ))}
               </div>
             </div>
           </div>
 
           {/* Uber + Glovo */}
-          {FORM_COLS.slice(0, 2).map(renderCanalCard)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {FORM_COLS.slice(0, 2).map(renderCanalCard)}
+          </div>
 
           {/* Just Eat accumulator */}
-          <div style={{ background: isDark ? '#2a2000' : '#fffbf0', borderRadius: 10, padding: 14, border: '1px solid #f5a623' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10 }}>
-              <span style={{ fontFamily:'Oswald, sans-serif', fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>
+          <div style={{ background: `${T.group}55`, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 14 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 12 }}>
+              <span style={{ fontFamily: FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>
               {jeItems.length > 0 && (
                 <span style={{ fontFamily: FONT.body, fontSize:12, color: T.sec }}>
                   {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
@@ -1001,9 +963,9 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
             </div>
 
             {jeItems.length > 0 && (
-              <div style={{ display:'flex', flexDirection:'column', gap: 4, marginBottom: 10 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap: 6, marginBottom: 12 }}>
                 {jeItems.map((item, idx) => (
-                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', borderRadius: 6, background: T.card, border: `1px solid ${isDark ? '#3a4058' : '#e5d5a0'}` }}>
+                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius: 8, background: T.card, border: `0.5px solid ${T.brd}` }}>
                     <span style={{ fontFamily: FONT.body, fontSize:13, color: T.pri }}>{item.toFixed(2)} €</span>
                     <button type="button" onClick={() => setJeItems(p => p.filter((_,i) => i !== idx))}
                       style={{ background:'none', border:'none', cursor:'pointer', color:'#E24B4A', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
@@ -1012,10 +974,10 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
               </div>
             )}
 
-            <div style={{ display:'flex', gap: 8 }}>
+            <div style={{ display:'flex', gap: 8, marginBottom: 12 }}>
               <input
                 type="number" step="0.01" min="0"
-                placeholder="Importe pedido (€)"
+                placeholder="Importe (€)"
                 value={jeInput}
                 onChange={e => setJeInput(e.target.value)}
                 onKeyDown={e => {
@@ -1033,14 +995,14 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                   const v = parseFloat(jeInput)
                   if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
                 }}
-                style={{ padding: '8px 20px', borderRadius: 8, background: '#e8f442', color: '#1a1a00', border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600 }}
+                style={{ padding: '8px 16px', borderRadius: 8, background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}
               >+</button>
             </div>
 
             {jeItems.length > 0 && (
-              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: isDark ? '#1a1500' : '#fffde0', border: '1px solid #f5a623', display:'flex', justifyContent:'space-between' }}>
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: `${T.emphasis}22`, border: `0.5px solid ${T.emphasis}`, display:'flex', justifyContent:'space-between' }}>
                 <span style={{ fontFamily: FONT.heading, fontSize:11, letterSpacing:1, color:'#f5a623', textTransform:'uppercase' }}>Total</span>
-                <span style={{ fontFamily: FONT.heading, fontSize:14, fontWeight:600, color: T.pri }}>
+                <span style={{ fontFamily: FONT.heading, fontSize:13, fontWeight:600, color: T.pri }}>
                   {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
                 </span>
               </div>
@@ -1048,14 +1010,18 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           </div>
 
           {/* Web + Venta Directa */}
-          {FORM_COLS.slice(2).map(renderCanalCard)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {FORM_COLS.slice(2).map(renderCanalCard)}
+          </div>
 
-          {formError && <p className="text-[#dc2626] text-sm">{formError}</p>}
-          <div className="flex gap-3 pt-2">
+          {formError && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{formError}</p>}
+          <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg text-sm text-[var(--sl-text-secondary)] border border-border hover:text-[var(--sl-text-primary)] transition">Cancelar</button>
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.body, transition: 'color 150ms' }}
+              onMouseEnter={e => e.currentTarget.style.color = T.pri}
+              onMouseLeave={e => e.currentTarget.style.color = T.sec}>Cancelar</button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-accent text-black hover:brightness-110 transition disabled:opacity-50">
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1, transition: 'opacity 150ms' }}>
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
             </button>
           </div>

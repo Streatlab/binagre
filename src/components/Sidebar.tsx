@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useState, type ReactElement } from 'react'
+import { Calculator, Package } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { useTheme } from '../contexts/ThemeContext'
@@ -31,7 +32,7 @@ const SUBITEM_ICONS: Record<string, ReactElement> = {
   'Remesas':           <svg {...svgProps}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>,
   'Running Financiero':<svg {...svgProps}><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>,
   // Cocina
-  'Escandallo':        <svg {...svgProps}><path d="M3 6h18"/><path d="M7 6v14M17 6v14"/><path d="M3 12h18"/></svg>,
+  'Escandallo':        <Calculator size={14} strokeWidth={1.5} style={{ color: 'currentColor' }} />,
   'Ingredientes':      <svg {...svgProps}><path d="M12 2a10 10 0 010 20"/><path d="M12 2c-3 0-6 4-6 10s3 10 6 10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>,
   'EPS':               <svg {...svgProps}><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
   'Recetas':           <svg {...svgProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
@@ -57,7 +58,7 @@ const SUBITEM_ICONS: Record<string, ReactElement> = {
   'Organigrama':       <svg {...svgProps}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   'División Órgano Trabajo':<svg {...svgProps}><rect x="2" y="7" width="20" height="14" rx="2"/><polyline points="16 21 12 17 8 21"/><path d="M12 17V3"/></svg>,
   // Stock
-  'Inventario':        <svg {...svgProps}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  'Inventario':        <Package size={14} strokeWidth={1.5} style={{ color: 'currentColor' }} />,
   'Almacén':           <svg {...svgProps}><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
   'Stock Mínimo Alertas':<svg {...svgProps}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   'Movimientos Stock': <svg {...svgProps}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>,
@@ -152,7 +153,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'stock', emoji: '📦', label: 'Stock & Compras', perfiles: ['admin'],
     items: [
-      { path: '/stock/inventario',        label: 'Inventario',            emoji: '🏪', perfiles: ['admin'] },
+      { path: '/stock/inventario',        label: 'Inventario',            emoji: '📦', perfiles: ['admin'] },
       { path: '/stock/almacen',           label: 'Almacén',               emoji: '🏭', perfiles: ['admin'] },
       { path: '/stock/minimo',            label: 'Stock Mínimo Alertas',  emoji: '⚠️', perfiles: ['admin'] },
       { path: '/stock/movimientos',       label: 'Movimientos Stock',     emoji: '🔄', perfiles: ['admin'] },
