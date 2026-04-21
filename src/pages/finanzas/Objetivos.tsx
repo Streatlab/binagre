@@ -26,24 +26,6 @@ interface ObjetivoDia {
 
 const DIA_LABELS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 
-// Calendario laboral Madrid capital 2026
-const FESTIVOS_MADRID_2026 = [
-  { fecha: '2026-01-01', nombre: 'Año Nuevo' },
-  { fecha: '2026-01-06', nombre: 'Reyes' },
-  { fecha: '2026-04-02', nombre: 'Jueves Santo' },
-  { fecha: '2026-04-03', nombre: 'Viernes Santo' },
-  { fecha: '2026-05-01', nombre: 'Día del Trabajo' },
-  { fecha: '2026-05-15', nombre: 'San Isidro' },
-  { fecha: '2026-07-25', nombre: 'Santiago Apóstol' },
-  { fecha: '2026-08-15', nombre: 'Asunción' },
-  { fecha: '2026-10-12', nombre: 'Fiesta Nacional' },
-  { fecha: '2026-11-02', nombre: 'Todos los Santos' },
-  { fecha: '2026-11-09', nombre: 'Almudena' },
-  { fecha: '2026-12-07', nombre: 'Constitución' },
-  { fecha: '2026-12-08', nombre: 'Inmaculada' },
-  { fecha: '2026-12-25', nombre: 'Navidad' },
-]
-
 interface ObjetivoEspecifico {
   id: string
   nombre: string

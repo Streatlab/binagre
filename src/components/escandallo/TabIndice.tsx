@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useConfig } from '@/hooks/useConfig'
+import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { thCls, tdCls, fmtES, fmtEurES, fmtPctES, fmtDateES, n, semaforoUsos, semaforoClasses } from './types'
 
@@ -34,6 +35,22 @@ const EMPTY = <span></span>
 
 export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenReceta }: Props) {
   const cfg = useConfig()
+  const [usosMap, setUsosMap] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    const loadUsos = async () => {
+      const { data: lineas } = await supabase
+        .from('recetas_lineas')
+        .select('eps_id, ingrediente_id')
+      const map: Record<string, number> = {}
+      for (const l of lineas ?? []) {
+        if (l.eps_id) map[String(l.eps_id)] = (map[String(l.eps_id)] || 0) + 1
+        if (l.ingrediente_id) map[String(l.ingrediente_id)] = (map[String(l.ingrediente_id)] || 0) + 1
+      }
+      setUsosMap(map)
+    }
+    loadUsos()
+  }, [epsList, recetasList])
 
   const rows = useMemo(() => {
     const eps = epsList.map((e, i) => ({ kind: 'EPS' as const, idx: i + 1, data: e }))
@@ -91,7 +108,7 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
                 const pvp = isEps ? 0 : n((d as Receta).pvp_uber)
                 const costeRac = n(d.coste_rac)
                 const calc = !isEps && pvp > 0 ? calcIndice(costeRac, pvp, cfg.estructura_pct) : null
-                const usos = isEps ? n((d as EPS).usos) : 0
+                const usos = usosMap[String(d.id)] ?? (isEps ? n((d as EPS).usos) : 0)
                 const nameCls = isEps ? 'ds-eps-name' : 'ds-rec-name'
                 const costeRacDecimals = isEps ? 4 : 2
                 const fecha = 'fecha' in d ? d.fecha : null
