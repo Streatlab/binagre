@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
+import logoStreatLab from '@/assets/logo-streatlab.jpg'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -245,6 +246,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           ${width}
         `}
       >
+        {/* Logo */}
+        {!collapsed && (
+          <div style={{ padding: '16px 12px 0' }}>
+            <img src={logoStreatLab} alt="Streat Lab" style={{ height: 56, width: 'auto', display: 'block', marginBottom: 24 }} />
+          </div>
+        )}
+
         {/* Header */}
         {collapsed ? (
           <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
