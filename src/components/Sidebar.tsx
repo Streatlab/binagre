@@ -56,6 +56,9 @@ const SECTIONS: NavSection[] = [
       { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️',  perfiles: ['admin'] },
       { path: '/cocina/inventario',       label: 'Inventario',       emoji: '📦',  perfiles: ['admin'] },
       { path: '/cocina/recetas',          label: 'Recetas',          emoji: '📋',  perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/carta',            label: 'Carta',            emoji: '🍽️',  perfiles: ['admin'] },
+      { path: '/cocina/menus',            label: 'Menús',            emoji: '📑',  perfiles: ['admin'] },
+      { path: '/cocina/kds',              label: 'KDS',              emoji: '📟',  perfiles: ['admin'] },
     ],
   },
   {
