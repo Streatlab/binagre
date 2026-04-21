@@ -1,11 +1,24 @@
 import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
+import {
+  LayoutDashboard,
+  TrendingUp,
+  ChefHat,
+  Settings2,
+  ShoppingCart,
+  Tablet,
+  Store,
+  Megaphone,
+  Users,
+  UserCircle,
+  BarChart3,
+  Settings,
+  ChevronRight,
+} from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NavItem {
   path: string
@@ -22,15 +35,12 @@ interface NavSection {
   items: NavItem[]
 }
 
-// ─── Nav data ─────────────────────────────────────────────────────────────────
+interface SectionIconConfig {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>
+  color: string
+}
 
 const SECTIONS: NavSection[] = [
-  {
-    key: 'panel', emoji: '🏠', label: 'Panel Global', perfiles: ['admin', 'cocina'],
-    items: [
-      { path: '/', label: 'Panel Global', emoji: '🏠', perfiles: ['admin', 'cocina'] },
-    ],
-  },
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
@@ -73,7 +83,6 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/bitacora',        label: 'Novedades',                  emoji: '🔔',  perfiles: ['admin', 'cocina'] },
       { path: '/ops/equipos',         label: 'Mantenimiento Equipos',      emoji: '🔧',  perfiles: ['admin', 'cocina'] },
       { path: '/operaciones/organigrama', label: 'Organigrama',            emoji: '🏢',  perfiles: ['admin'] },
-      { path: '/ops/bitacora',        label: 'Bitácora',                   emoji: '📖',  perfiles: ['admin', 'cocina'] },
       { path: '/operaciones/division', label: 'División Órgano Trabajo',   emoji: '🏭',  perfiles: ['admin'] },
     ],
   },
@@ -181,7 +190,19 @@ const SECTIONS: NavSection[] = [
   },
 ]
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+const SECTION_ICONS: Record<string, SectionIconConfig> = {
+  finanzas:       { icon: TrendingUp,      color: '#06C167' },
+  cocina:         { icon: ChefHat,         color: '#f5a623' },
+  operaciones:    { icon: Settings2,       color: '#66aaff' },
+  stock:          { icon: ShoppingCart,    color: '#B01D23' },
+  pos:            { icon: Tablet,          color: '#e8f442' },
+  marcas:         { icon: Store,           color: '#f5a623' },
+  marketing:      { icon: Megaphone,       color: '#06C167' },
+  equipo:         { icon: Users,           color: '#66aaff' },
+  clientes:       { icon: UserCircle,      color: '#B01D23' },
+  informes:       { icon: BarChart3,       color: '#e8f442' },
+  configuracion:  { icon: Settings,        color: '#9ba8c0' },
+}
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
@@ -192,7 +213,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const activeTextColor = isDark ? '#0d1120' : '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
-  // FIFO accordion: max 2 sections open simultaneously
   const [openSections, setOpenSections] = useState<string[]>([])
 
   const toggleSection = (key: string) => {
@@ -205,7 +225,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
-  const width = collapsed ? 'w-[56px]' : 'w-[260px]'
+  const sidebarWidth = collapsed ? 64 : 260
 
   const itemStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
@@ -227,54 +247,86 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <>
-      {/* Mobile overlay */}
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: T.group }}
+        style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200 overflow-hidden
           lg:translate-x-0 lg:static lg:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
-          ${width}
         `}
       >
-        {/* Logo */}
-        {!collapsed && (
-          <div style={{ padding: '16px 12px 0' }}>
-            <img src="/loco-icon.svg.svg" alt="Streat Lab" style={{ height: 56, width: 'auto', display: 'block', marginBottom: 24 }} />
-          </div>
-        )}
-
-        {/* Header */}
         {collapsed ? (
-          <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.mut }} className="hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+          <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 72, padding: '8px 0', gap: 6 }}>
+            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block' }} />
+            <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }} title="Expandir">
+              <ChevronRight size={20} color="#B01D23" />
+            </button>
           </div>
         ) : (
-          <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span style={{ fontFamily: FONT.heading, fontSize: 15, color: '#B01D23', letterSpacing: '3px', fontWeight: 600 }}>STREAT LAB</span>
+          <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 72 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} />
+              <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} style={{ color: T.mut }} className="p-1.5 hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
+            <button onClick={toggle} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden lg:block" title="Colapsar">«</button>
           </div>
         )}
 
-        {/* Nav */}
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
 
-          {/* Sections */}
+          {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
+            <NavLink
+              to="/"
+              end
+              onClick={onClose}
+              style={({ isActive }) => itemStyle(isActive)}
+              className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutDashboard size={16} strokeWidth={1.5} color={isActive ? activeTextColor : '#e8f442'} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>Panel Global</span>
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
+            <NavLink
+              to="/"
+              end
+              onClick={onClose}
+              title="Panel Global"
+              style={{ width: '100%', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <LayoutDashboard size={28} strokeWidth={1.5} color="#B01D23" />
+            </NavLink>
+          )}
+
           {SECTIONS.map(section => {
             const visibleItems = filterItems(section.items)
             if (!section.perfiles.includes(perfil) || visibleItems.length === 0) return null
             const isOpen = openSections.includes(section.key)
+            const IconComponent = SECTION_ICONS[section.key]?.icon
+            const iconColor = SECTION_ICONS[section.key]?.color || '#888'
 
             return (
               <div key={section.key}>
-                {/* Section header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: T.brd, margin: '6px 8px' }} />
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.key)}
+                    title={section.label}
+                    style={{
+                      width: '100%', height: 56, background: 'none', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {IconComponent ? <IconComponent size={28} strokeWidth={1.5} color="#B01D23" /> : <span>{section.emoji}</span>}
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -290,14 +342,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>{section.emoji}</span>
+                      {IconComponent ? <IconComponent size={20} strokeWidth={1.5} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                       <span>{section.label}</span>
                     </div>
                     <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
                   </button>
                 )}
 
-                {/* Section items — animated */}
                 {!collapsed && (
                   <div style={{ maxHeight: isOpen ? `${visibleItems.length * 44}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
                     {visibleItems.map((item, idx) => (
@@ -319,42 +370,25 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     ))}
                   </div>
                 )}
-
-                {/* Collapsed: show icons only when section is "open" (tap) */}
-                {collapsed && isOpen && visibleItems.slice(0, 8).map((item, idx) => (
-                  <NavLink
-                    key={`${item.path}-${idx}`}
-                    to={item.path}
-                    end={item.path === '/'}
-                    onClick={onClose}
-                    title={item.label}
-                    className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}
-                  >
-                    {item.emoji}
-                  </NavLink>
-                ))}
               </div>
             )
           })}
         </nav>
 
-        {/* Theme toggle */}
-        {!collapsed && (
-          <div style={{ padding: '12px', borderTop: `1px solid ${T.brd}` }}>
-            <ThemeToggle />
-          </div>
-        )}
+        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
+          <ThemeToggle />
+        </div>
 
-        {/* Footer user */}
-        <div className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`} style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+        <div style={{ padding: 12, borderTop: `1px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
-              <div className="mb-2 truncate" style={{ color: T.sec }}>{usuario?.nombre} — <span style={{ color: T.emphasis }}>{usuario?.perfil}</span></div>
-              <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }} className="hover:text-[var(--sl-border-error)] transition-colors">Cerrar sesión</button>
+              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
+                {usuario?.nombre} — <span style={{ color: T.emphasis }}>{usuario?.perfil}</span>
+              </div>
+              <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Cerrar sesión</button>
             </>
           ) : (
-            <button onClick={logout} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} className="hover:text-[var(--sl-border-error)] transition-colors" title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>

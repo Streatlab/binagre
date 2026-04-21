@@ -1,32 +1,10 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import {
-  useTheme,
-  cardStyle,
-  semaforoColor,
-  FONT,
-  pageTitleStyle,
-} from '@/styles/tokens'
+import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle } from '@/styles/tokens'
 
-// ─── TIPOS ───────────────────────────────────────────────────
-
-interface ObjetivoGeneral {
-  id: string
-  tipo: 'diario' | 'semanal' | 'mensual' | 'anual'
-  importe: number
-  updated_at: string
-}
-
-interface ObjetivoDia {
-  id: string
-  dia: number  // 1=lunes, 7=domingo
-  importe: number
-  updated_at: string
-}
-
-const DIA_LABELS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
-
+interface ObjetivoGeneral { tipo: string; importe: number; id: string }
+interface ObjetivoDia { dia: number; importe: number; id: string }
 interface ObjetivoEspecifico {
   id: string
   nombre: string
@@ -36,52 +14,70 @@ interface ObjetivoEspecifico {
   importe: number
   activo: boolean
 }
+interface VentaHistorico { label: string; real: number; objetivo: number }
 
-interface VentaHistorico {
-  label: string
-  real: number
-  objetivo: number
-}
+const hoy = new Date()
+const lunes = new Date(hoy)
+lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7))
 
-// ─── CONSTANTES ──────────────────────────────────────────────
-
-const TIPO_ORDER: ObjetivoGeneral['tipo'][] = ['diario', 'semanal', 'mensual', 'anual']
-
-const hoyDate = new Date()
-const dayOfWeek = hoyDate.getDay()
+const monday = new Date(hoy)
+const dayOfWeek = hoy.getDay()
 const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-const monday = new Date(hoyDate); monday.setDate(hoyDate.getDate() + daysToMonday)
-const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
-const fmtShort = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
-const weekNum = (() => { const d=new Date(hoyDate); const day=d.getDay()||7; d.setDate(d.getDate()+4-day); const y=d.getFullYear(); const jan1=new Date(y,0,1); return Math.ceil(((d.getTime()-jan1.getTime())/86400000+1)/7) })()
+monday.setDate(hoy.getDate() + daysToMonday)
+const sunday = new Date(monday)
+sunday.setDate(monday.getDate() + 6)
 
-const TIPO_DESC: Record<string, string> = {
-  diario: hoyDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}).replace(/^\w/, c => c.toUpperCase()),
-  semanal: `S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}`,
-  mensual: hoyDate.toLocaleDateString('es-ES',{month:'long'}).replace(/^\w/,c=>c.toUpperCase()),
-  anual: `${hoyDate.getFullYear()}`,
+const fmtShort = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+const weekNum = (() => {
+  const d = new Date(hoy)
+  const day = d.getDay() || 7
+  d.setDate(d.getDate() + 4 - day)
+  const y = d.getFullYear()
+  const jan1 = new Date(y, 0, 1)
+  return Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
+})()
+
+const getNombreDia = (dia: number) =>
+  ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO'][dia - 1]
+
+const getFechaDia = (dia: number) => {
+  const d = new Date(lunes)
+  d.setDate(lunes.getDate() + dia - 1)
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 }
 
-// ─── COMPONENTE PRINCIPAL ────────────────────────────────────
+const esFinde = (dia: number) => dia >= 5
+
+const FESTIVOS_2026 = [
+  '2026-01-01', '2026-01-06', '2026-03-19', '2026-04-02', '2026-04-03',
+  '2026-05-01', '2026-05-02', '2026-05-15', '2026-07-25', '2026-08-15',
+  '2026-10-12', '2026-11-01', '2026-11-09', '2026-12-08', '2026-12-25',
+]
+
+const esFestivo = (dia: number) => {
+  const d = new Date(lunes)
+  d.setDate(lunes.getDate() + dia - 1)
+  return FESTIVOS_2026.includes(d.toISOString().split('T')[0])
+}
+
+function isoWeek(dateStr: string): { year: number; week: number } {
+  const d = new Date(dateStr + 'T12:00:00')
+  const day = d.getDay() || 7
+  d.setDate(d.getDate() + 4 - day)
+  const y = d.getFullYear()
+  const jan1 = new Date(y, 0, 1)
+  const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
+  return { year: y, week }
+}
 
 export default function Objetivos() {
   const { T, isDark } = useTheme()
 
-  // Estado generales
-  const [generales, setGenerales] = useState<ObjetivoGeneral[]>([])
+  const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
+  const [diasSemana, setDiasSemana] = useState<ObjetivoDia[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [savedId, setSavedId] = useState<string | null>(null)
 
-  // Estado día de semana
-  const [objetivosDia, setObjetivosDia] = useState<ObjetivoDia[]>([])
-  const [editingDiaId, setEditingDiaId] = useState<string | null>(null)
-  const [editDiaValue, setEditDiaValue] = useState('')
-  const [savingDia, setSavingDia] = useState(false)
-  const [savedDiaId, setSavedDiaId] = useState<string | null>(null)
-
-  // Estado específicos
   const [especificos, setEspecificos] = useState<ObjetivoEspecifico[]>([])
   const [showNuevo, setShowNuevo] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
@@ -91,92 +87,40 @@ export default function Objetivos() {
   const [nuevoImporte, setNuevoImporte] = useState('')
   const [savingNuevo, setSavingNuevo] = useState(false)
 
-  // Histórico
   const [histTipo, setHistTipo] = useState<'semanas' | 'meses' | 'anual'>('semanas')
   const [histAnio, setHistAnio] = useState<number>(new Date().getFullYear())
   const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
 
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { loadAll() }, [])
-
-  async function loadAll() {
-    setLoading(true)
-    try {
-      const [g, d, e, v] = await Promise.all([
-        supabase.from('objetivos').select('*').order('tipo'),
-        supabase.from('objetivos_dia_semana').select('*').order('dia'),
-        supabase.from('objetivos_especificos').select('*').eq('activo', true).order('fecha_desde', { ascending: false }),
-        supabase.from('facturacion_diario').select('fecha,total_bruto').order('fecha', { ascending: false }).limit(365),
-      ])
-      if (g.error) throw g.error
-      if (d.error) throw d.error
-      if (e.error) throw e.error
-      setGenerales((g.data as ObjetivoGeneral[]) ?? [])
-      setObjetivosDia((d.data as ObjetivoDia[]) ?? [])
-      setEspecificos((e.data as ObjetivoEspecifico[]) ?? [])
-      setVentas((v.data as { fecha: string; total_bruto: number }[]) ?? [])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al cargar')
-    } finally {
+  useEffect(() => {
+    Promise.all([
+      supabase.from('objetivos').select('*'),
+      supabase.from('objetivos_dia_semana').select('*').order('dia'),
+      supabase.from('objetivos_especificos').select('*').eq('activo', true).order('fecha_desde', { ascending: false }),
+      supabase.from('facturacion_diario').select('fecha,total_bruto').order('fecha', { ascending: false }).limit(365),
+    ]).then(([g, d, e, v]) => {
+      if (g.data) setObjetivos(g.data.map((r: any) => ({ tipo: r.tipo, importe: Number(r.importe), id: r.id })))
+      if (d.data) setDiasSemana(d.data.map((r: any) => ({ dia: r.dia, importe: Number(r.importe), id: r.id })))
+      if (e.data) setEspecificos(e.data as ObjetivoEspecifico[])
+      if (v.data) setVentas(v.data.map((r: any) => ({ fecha: r.fecha, total_bruto: Number(r.total_bruto) || 0 })))
       setLoading(false)
+    }).catch(() => {
+      setLoading(false)
+    })
+  }, [])
+
+  const guardarObjetivo = async (id: string, tabla: 'objetivos' | 'objetivos_dia_semana') => {
+    const val = parseFloat(editValue)
+    if (isNaN(val)) return
+    await supabase.from(tabla).update({ importe: val }).eq('id', id)
+    if (tabla === 'objetivos') {
+      setObjetivos(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
+    } else {
+      setDiasSemana(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
     }
-  }
-
-  // ─── GENERALES: edición ──────────────────────────────────
-
-  function startEdit(o: ObjetivoGeneral) {
-    setEditingId(o.id)
-    setEditValue(o.importe.toString())
-  }
-
-  function cancelEdit() { setEditingId(null); setEditValue('') }
-
-  async function saveEdit(id: string) {
-    const val = parseFloat(editValue.replace(',', '.'))
-    if (isNaN(val) || val < 0) return
-    setSaving(true)
-    const { error: e } = await supabase
-      .from('objetivos')
-      .update({ importe: val, updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (!e) {
-      setGenerales(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
-      setSavedId(id)
-      setTimeout(() => setSavedId(null), 2000)
-    }
-    setSaving(false)
     setEditingId(null)
   }
-
-  // ─── DÍA DE SEMANA: edición ───────────────────────────────
-
-  function startEditDia(o: ObjetivoDia) {
-    setEditingDiaId(o.id)
-    setEditDiaValue(o.importe.toString())
-  }
-
-  function cancelEditDia() { setEditingDiaId(null); setEditDiaValue('') }
-
-  async function saveEditDia(id: string) {
-    const val = parseFloat(editDiaValue.replace(',','.'))
-    if (isNaN(val) || val < 0) return
-    setSavingDia(true)
-    const { error: e } = await supabase
-      .from('objetivos_dia_semana')
-      .update({ importe: val, updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (!e) {
-      setObjetivosDia(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
-      setSavedDiaId(id)
-      setTimeout(() => setSavedDiaId(null), 2000)
-    }
-    setSavingDia(false)
-    setEditingDiaId(null)
-  }
-
-  // ─── ESPECÍFICOS: crear ───────────────────────────────────
 
   async function saveNuevo() {
     const imp = parseFloat(nuevoImporte.replace(',', '.'))
@@ -190,7 +134,8 @@ export default function Objetivos() {
     if (!e) {
       setShowNuevo(false)
       setNuevoNombre(''); setNuevoDesde(''); setNuevoHasta(''); setNuevoImporte('')
-      loadAll()
+      const { data } = await supabase.from('objetivos_especificos').select('*').eq('activo', true).order('fecha_desde', { ascending: false })
+      if (data) setEspecificos(data as ObjetivoEspecifico[])
     }
     setSavingNuevo(false)
   }
@@ -200,13 +145,11 @@ export default function Objetivos() {
     setEspecificos(prev => prev.filter(e => e.id !== id))
   }
 
-  // ─── CUMPLIMIENTO ACTUAL ──────────────────────────────────
+  const hoyStr = new Date().toISOString().slice(0, 10)
+  const currentMonth = hoyStr.slice(0, 7)
+  const currentYear = hoyStr.slice(0, 4)
 
-  const hoy = new Date().toISOString().slice(0, 10)
-  const currentMonth = hoy.slice(0, 7)
-  const currentYear = hoy.slice(0, 4)
-
-  function startOfWeek(): string {
+  const weekStart = (() => {
     const now = new Date()
     const day = now.getDay()
     const diff = day === 0 ? -6 : 1 - day
@@ -214,9 +157,8 @@ export default function Objetivos() {
     mon.setDate(now.getDate() + diff)
     mon.setHours(0, 0, 0, 0)
     return mon.toISOString().slice(0, 10)
-  }
+  })()
 
-  const weekStart = startOfWeek()
   const weekEnd = (() => {
     const d = new Date(weekStart + 'T00:00:00')
     d.setDate(d.getDate() + 6)
@@ -225,9 +167,9 @@ export default function Objetivos() {
 
   const objMap = useMemo(() => {
     const m: Record<string, number> = {}
-    for (const o of generales) m[o.tipo] = o.importe
+    for (const o of objetivos) m[o.tipo] = o.importe
     return m
-  }, [generales])
+  }, [objetivos])
 
   const ventasSemana = useMemo(() =>
     ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + (r.total_bruto || 0), 0),
@@ -243,11 +185,9 @@ export default function Objetivos() {
 
   const cumplimiento = [
     { label: `S${weekNum}`, real: ventasSemana, obj: objMap.semanal ?? 5000 },
-    { label: hoyDate.toLocaleDateString('es-ES',{month:'long'}), real: ventasMes, obj: objMap.mensual ?? 20000 },
-    { label: `${hoyDate.getFullYear()}`, real: ventasAno, obj: objMap.anual ?? 240000 },
+    { label: hoy.toLocaleDateString('es-ES', { month: 'long' }), real: ventasMes, obj: objMap.mensual ?? 20000 },
+    { label: `${hoy.getFullYear()}`, real: ventasAno, obj: objMap.anual ?? 240000 },
   ]
-
-  // ─── HISTÓRICO ────────────────────────────────────────────
 
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
@@ -256,13 +196,13 @@ export default function Objetivos() {
     return arr
   }, [ventas])
 
+  const mondayStr = monday.toISOString().slice(0, 10)
+  const sundayStr = sunday.toISOString().slice(0, 10)
+
   const historico = useMemo((): VentaHistorico[] => {
     const esAnioActual = histAnio === new Date().getFullYear()
     const ventasFiltAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
-
     if (histTipo === 'semanas') {
-      const mondayStr = monday.toISOString().slice(0,10)
-      const sundayStr = sunday.toISOString().slice(0,10)
       const base = esAnioActual
         ? ventasFiltAnio.filter(r => r.fecha < mondayStr || r.fecha > sundayStr)
         : ventasFiltAnio
@@ -275,16 +215,12 @@ export default function Objetivos() {
       return [...map.entries()]
         .sort((a, b) => b[0].localeCompare(a[0]))
         .slice(0, 6)
-        .map(([key, real]) => ({
-          label: `S${parseInt(key.split('-')[1])}`,
-          real,
-          objetivo: objMap.semanal ?? 5000,
-        }))
+        .map(([key, real]) => ({ label: `S${parseInt(key.split('-')[1])}`, real, objetivo: objMap.semanal ?? 5000 }))
     } else if (histTipo === 'anual') {
       const totalAnio = ventasFiltAnio.reduce((a, r) => a + (r.total_bruto || 0), 0)
       return [{ label: String(histAnio), real: totalAnio, objetivo: objMap.anual ?? 240000 }]
     } else {
-      const currentMonthStr = hoyDate.toISOString().slice(0,7)
+      const currentMonthStr = hoy.toISOString().slice(0, 7)
       const base = esAnioActual
         ? ventasFiltAnio.filter(r => !r.fecha.startsWith(currentMonthStr))
         : ventasFiltAnio
@@ -303,31 +239,9 @@ export default function Objetivos() {
           return { label, real, objetivo: objMap.mensual ?? 20000 }
         })
     }
-  }, [ventas, histTipo, histAnio, objMap])
+  }, [ventas, histTipo, histAnio, objMap, mondayStr, sundayStr])
 
-  // ─── HELPERS ──────────────────────────────────────────────
-
-  function fechaDia(diaNum: number): string {
-    const hoy = new Date()
-    const dow = hoy.getDay() === 0 ? 7 : hoy.getDay()
-    const fecha = new Date(hoy)
-    fecha.setDate(hoy.getDate() + (diaNum - dow))
-    return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-  }
-
-  function isoWeek(dateStr: string): { year: number; week: number } {
-    const d = new Date(dateStr + 'T12:00:00')
-    const day = d.getDay() || 7
-    d.setDate(d.getDate() + 4 - day)
-    const y = d.getFullYear()
-    const jan1 = new Date(y, 0, 1)
-    const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
-    return { year: y, week }
-  }
-
-  // ─── ESTILOS ──────────────────────────────────────────────
-
-  const inputStyle: CSSProperties = {
+  const inputStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
     border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
     color: T.pri,
@@ -337,56 +251,47 @@ export default function Objetivos() {
     padding: '6px 10px',
   }
 
-  const btnEditar: CSSProperties = {
-    padding: '5px 12px', borderRadius: 7,
-    border: `0.5px solid ${T.brd}`,
-    background: 'none', color: T.sec,
-    fontFamily: FONT.body, fontSize: 12, cursor: 'pointer',
-  }
-
-  const btnGuardar: CSSProperties = {
-    padding: '5px 14px', borderRadius: 7,
-    border: 'none', background: '#B01D23',
-    color: '#ffffff', fontFamily: FONT.body,
-    fontSize: 12, cursor: 'pointer',
-  }
-
-  const btnCancelar: CSSProperties = {
-    padding: '5px 12px', borderRadius: 7,
-    border: `0.5px solid ${T.brd}`,
-    background: 'none', color: T.sec,
-    fontFamily: FONT.body, fontSize: 12, cursor: 'pointer',
-  }
-
-  const btnAdd: CSSProperties = {
-    padding: '6px 14px', borderRadius: 8,
-    border: 'none', background: '#e8f442',
-    color: '#1a1a00', fontFamily: FONT.body,
-    fontSize: 12, fontWeight: 600, cursor: 'pointer',
-  }
-
-  const sectionLabel: CSSProperties = {
+  const sectionLabel: React.CSSProperties = {
     fontFamily: FONT.heading, fontSize: 10,
-    letterSpacing: '2px', textTransform: 'uppercase' as const,
-    color: T.mut, margin: '20px 0 10px',
+    letterSpacing: '2px', textTransform: 'uppercase',
+    color: T.mut, margin: '24px 0 0',
   }
 
-  // ─── RENDER ───────────────────────────────────────────────
+  const btnAdd = {
+    padding: '6px 14px', borderRadius: 8, border: 'none',
+    background: '#e8f442', color: '#1a1a00',
+    fontFamily: FONT.body, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+  }
 
-  if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
-  if (error) return <div style={{ padding: 32, color: '#E24B4A', fontFamily: FONT.body }}>{error}</div>
+  const btnCancelar = {
+    padding: '5px 12px', borderRadius: 7, border: `0.5px solid ${T.brd}`,
+    background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 12, cursor: 'pointer',
+  }
 
-  const sorted = TIPO_ORDER.map(t => generales.find(o => o.tipo === t)).filter(Boolean) as ObjetivoGeneral[]
+  const btnGuardar = {
+    padding: '5px 14px', borderRadius: 7, border: 'none',
+    background: '#B01D23', color: '#ffffff', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer',
+  }
+
+  if (loading) return (
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%', color: T.sec, fontFamily: FONT.body }}>
+      Cargando…
+    </div>
+  )
+
+  const tiposGenerales = [
+    { tipo: 'diario', label: hoy.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) },
+    { tipo: 'semanal', label: `S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}` },
+    { tipo: 'mensual', label: hoy.toLocaleDateString('es-ES', { month: 'long' }).charAt(0).toUpperCase() + hoy.toLocaleDateString('es-ES', { month: 'long' }).slice(1) },
+    { tipo: 'anual', label: String(hoy.getFullYear()) },
+  ]
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', maxWidth: 900 }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={pageTitleStyle(T)}>
-            Objetivos
-          </h1>
+          <h1 style={pageTitleStyle(T)}>Objetivos</h1>
           <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 6 }}>
             Generales y específicos por período. El Dashboard los usa para calcular cumplimiento.
           </p>
@@ -396,7 +301,6 @@ export default function Objetivos() {
         </button>
       </div>
 
-      {/* Formulario nuevo objetivo específico */}
       {showNuevo && (
         <div style={{ ...cardStyle(T), border: `1px solid ${T.emphasis}`, marginBottom: 16 }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: T.pri, marginBottom: 14 }}>
@@ -434,46 +338,32 @@ export default function Objetivos() {
         </div>
       )}
 
-      {/* Objetivos generales */}
       <div style={sectionLabel}>Objetivos generales</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, marginBottom: 24 }}>
-        {sorted.map(o => {
-          const isEditing = editingId === o.id
-          const isSaved = savedId === o.id
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, width: '100%', marginTop: 12 }}>
+        {tiposGenerales.map(({ tipo, label }) => {
+          const obj = objetivos.find(o => o.tipo === tipo)
           return (
-            <div key={o.id} style={cardStyle(T)}>
-              <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: T.pri, marginBottom: 4 }}>
-                {TIPO_DESC[o.tipo]}
-              </div>
-              {!isEditing ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
-                      {fmtEur(o.importe)}
-                    </div>
-                    <button onClick={() => startEdit(o)} style={btnEditar}>Editar</button>
-                  </div>
-                  {isSaved && <div style={{ fontFamily: FONT.body, fontSize: 11, color: '#1D9E75', marginTop: 4 }}>✓ Guardado</div>}
-                </>
+            <div key={tipo} style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginBottom: 4 }}>{label}</div>
+              {obj && editingId === obj.id ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    style={{ fontFamily: FONT.body, fontSize: 20, fontWeight: 700, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 8, padding: '4px 8px', width: '100%' }}
+                    autoFocus
+                  />
+                  <button onClick={() => guardarObjetivo(obj.id, 'objetivos')} style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontFamily: FONT.heading, fontSize: 11, cursor: 'pointer' }}>OK</button>
+                </div>
               ) : (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(o.id); if (e.key === 'Escape') cancelEdit() }}
-                      autoFocus
-                      style={{ ...inputStyle, width: '100%', textAlign: 'right', fontSize: 16, fontWeight: 600 }}
-                    />
-                    <span style={{ fontFamily: FONT.heading, fontSize: 16, color: T.sec }}>€</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontFamily: FONT.body, fontSize: 22, fontWeight: 700, color: T.pri }}>
+                    {obj ? `${obj.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '— €'}
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => saveEdit(o.id)} disabled={saving} style={{ ...btnGuardar, flex: 1 }}>
-                      {saving ? '…' : 'Guardar'}
-                    </button>
-                    <button onClick={cancelEdit} style={btnCancelar}>Cancelar</button>
-                  </div>
+                  {obj && (
+                    <button onClick={() => { setEditingId(obj.id); setEditValue(String(obj.importe)) }} style={{ background: 'none', border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '4px 12px', fontFamily: FONT.heading, fontSize: 11, color: T.sec, cursor: 'pointer' }}>Editar</button>
+                  )}
                 </div>
               )}
             </div>
@@ -481,125 +371,59 @@ export default function Objetivos() {
         })}
       </div>
 
-      {/* Objetivos por día de semana */}
-      <div style={sectionLabel}>Objetivos por día de semana</div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
-          {[...objetivosDia].sort((a,b) => a.dia - b.dia).map(o => {
-            const isEditing = editingDiaId === o.id
-            const isSaved = savedDiaId === o.id
-            const esFinde = o.dia >= 5
-            const cardBg = esFinde ? (isDark ? '#1a2810' : '#edf7e8') : T.card
-            const cardBrd = isEditing ? T.emphasis : (esFinde ? '#1D9E75' : T.brd)
-            const dayColor = esFinde ? '#1D9E75' : T.sec
-            return (
-              <div key={o.id} style={{
-                background: cardBg,
-                border: `0.5px solid ${cardBrd}`,
-                borderRadius: 10,
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-              }}>
-                <div style={{
-                  fontFamily: FONT.heading,
-                  fontSize: 10,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color: dayColor,
-                }}>
-                  {DIA_LABELS[o.dia - 1]}
+      <div style={{ ...sectionLabel, marginTop: 28 }}>Objetivos por día de semana</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, width: '100%', marginTop: 12 }}>
+        {[1,2,3,4,5,6,7].map(dia => {
+          const diaData = diasSemana.find(d => d.dia === dia)
+          const importe = diaData?.importe ?? 0
+          const id = diaData?.id ?? `empty-${dia}`
+          const finde = esFinde(dia)
+          const festivo = esFestivo(dia)
+          const bgColor = festivo ? '#f5a62318' : finde ? '#1D9E7518' : T.card
+          const borderColor = festivo ? '#f5a623' : finde ? '#1D9E75' : T.brd
+          const labelColor = festivo ? '#f5a623' : finde ? '#1D9E75' : T.mut
+          return (
+            <div key={dia} style={{ background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 12, padding: '14px 12px' }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', color: labelColor, textTransform: 'uppercase' }}>{getNombreDia(dia)}</div>
+              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 8 }}>{getFechaDia(dia)}</div>
+              {diaData && editingId === id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <input
+                    type="number"
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    style={{ fontFamily: FONT.body, fontSize: 16, fontWeight: 700, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 8, padding: '4px 6px', width: '100%' }}
+                    autoFocus
+                  />
+                  <button onClick={() => guardarObjetivo(id, 'objetivos_dia_semana')} style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '4px', fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer' }}>OK</button>
                 </div>
-                <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: -4 }}>
-                  {fechaDia(o.dia)}
-                </div>
-
-                {!isEditing ? (
-                  <>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
-                      {fmtEur(o.importe)}
-                    </div>
-                    {isSaved && (
-                      <div style={{ fontFamily: FONT.body, fontSize: 10, color: '#1D9E75' }}>✓</div>
-                    )}
-                    <button onClick={() => startEditDia(o)} style={{
-                      padding: '4px 0',
-                      borderRadius: 6,
-                      border: `0.5px solid ${T.brd}`,
-                      background: 'none',
-                      color: T.mut,
-                      fontFamily: FONT.body,
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      marginTop: 4,
-                    }}>
-                      Editar
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <input
-                      type="number"
-                      value={editDiaValue}
-                      onChange={e => setEditDiaValue(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEditDia(o.id); if (e.key === 'Escape') cancelEditDia() }}
-                      autoFocus
-                      style={{
-                        background: isDark ? '#3a4058' : '#ffffff',
-                        border: `1px solid ${T.emphasis}`,
-                        borderRadius: 6,
-                        color: T.pri,
-                        fontFamily: FONT.heading,
-                        fontSize: 14,
-                        fontWeight: 600,
-                        padding: '4px 6px',
-                        width: '100%',
-                        textAlign: 'right',
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                      <button
-                        onClick={() => saveEditDia(o.id)}
-                        disabled={savingDia}
-                        style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.body, fontSize: 11, cursor: 'pointer' }}
-                      >
-                        {savingDia ? '…' : '✓'}
-                      </button>
-                      <button
-                        onClick={cancelEditDia}
-                        style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 11, cursor: 'pointer' }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )
-          })}
-        </div>
+              ) : (
+                <>
+                  <div style={{ fontFamily: FONT.body, fontSize: 16, fontWeight: 700, color: T.pri, marginBottom: 8 }}>{importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</div>
+                  {diaData && (
+                    <button onClick={() => { setEditingId(id); setEditValue(String(importe)) }} style={{ background: 'none', border: `0.5px solid ${borderColor}`, borderRadius: 8, padding: '3px 10px', fontFamily: FONT.heading, fontSize: 10, color: labelColor, cursor: 'pointer', width: '100%' }}>Editar</button>
+                  )}
+                </>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      {/* Cumplimiento actual */}
-      <div style={sectionLabel}>Cumplimiento actual</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, marginBottom: 24 }}>
+      <div style={{ ...sectionLabel, marginTop: 28 }}>Cumplimiento actual</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, marginTop: 12, marginBottom: 24 }}>
         {cumplimiento.map(c => {
           const pct = c.obj > 0 ? Math.round((c.real / c.obj) * 100) : 0
           const sc = semaforoColor(pct)
           const falta = Math.max(0, c.obj - c.real)
           return (
             <div key={c.label} style={cardStyle(T)}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
-                {c.label}
-              </div>
+              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{c.label}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 20, fontWeight: 600, color: T.pri }}>{fmtEur(c.real)}</span>
                 <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: sc }}>{pct}%</span>
               </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: sc, marginBottom: 6 }}>
-                Faltan {fmtEur(falta)} de {fmtEur(c.obj)}
-              </div>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: sc, marginBottom: 6 }}>Faltan {fmtEur(falta)} de {fmtEur(c.obj)}</div>
               <div style={{ height: 5, background: T.brd, borderRadius: 3 }}>
                 <div style={{ height: 5, borderRadius: 3, background: sc, width: `${Math.min(pct, 100)}%`, transition: 'width 0.4s ease' }} />
               </div>
@@ -608,11 +432,10 @@ export default function Objetivos() {
         })}
       </div>
 
-      {/* Objetivos específicos activos */}
       {especificos.length > 0 && (
         <>
           <div style={sectionLabel}>Objetivos específicos activos</div>
-          <div style={{ ...cardStyle(T), marginBottom: 24 }}>
+          <div style={{ ...cardStyle(T), marginBottom: 24, marginTop: 12 }}>
             {especificos.map((e, idx) => (
               <div key={e.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -627,9 +450,7 @@ export default function Objetivos() {
                     padding: '2px 8px', borderRadius: 99,
                     background: e.tipo === 'semanal' ? (isDark ? '#0a2e1a' : '#e1f5ee') : (isDark ? '#2a1500' : '#fff3e0'),
                     color: e.tipo === 'semanal' ? '#1D9E75' : '#f5a623',
-                  }}>
-                    {e.tipo}
-                  </span>
+                  }}>{e.tipo}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
@@ -644,53 +465,30 @@ export default function Objetivos() {
         </>
       )}
 
-      {/* Histórico */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={sectionLabel}>Histórico de cumplimiento</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <select
-            value={histTipo}
-            onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses' | 'anual')}
-            style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}
-          >
+          <select value={histTipo} onChange={e => setHistTipo(e.target.value as 'semanas' | 'meses' | 'anual')} style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}>
             <option value="semanas">Por semanas</option>
             <option value="meses">Por meses</option>
             <option value="anual">Todo el año</option>
           </select>
-          <select
-            value={histAnio}
-            onChange={e => setHistAnio(parseInt(e.target.value))}
-            style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}
-          >
-            {aniosDisponibles.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+          <select value={histAnio} onChange={e => setHistAnio(parseInt(e.target.value))} style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}>
+            {aniosDisponibles.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
       </div>
 
       <div style={cardStyle(T)}>
-        {/* Header tabla */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: '140px 1fr 90px 90px 90px',
-          gap: 8, padding: '6px 0 10px',
-          borderBottom: `0.5px solid ${T.brd}`,
-          fontFamily: FONT.heading, fontSize: 9,
-          letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut,
-        }}>
-          <span>Período</span>
-          <span>Progreso</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 90px 90px', gap: 8, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
+          <span>Período</span><span>Progreso</span>
           <span style={{ textAlign: 'right' }}>Real</span>
           <span style={{ textAlign: 'right' }}>Objetivo</span>
           <span style={{ textAlign: 'right' }}>Desviación</span>
         </div>
-
         {historico.length === 0 && (
-          <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: T.mut }}>
-            Sin datos históricos
-          </div>
+          <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: T.mut }}>Sin datos históricos</div>
         )}
-
         {historico.map((h, idx) => {
           const pct = h.objetivo > 0 ? Math.round((h.real / h.objetivo) * 100) : 0
           const sc = semaforoColor(pct)
@@ -698,12 +496,7 @@ export default function Objetivos() {
           const desvColor = desv >= 0 ? '#1D9E75' : '#E24B4A'
           const desvStr = (desv >= 0 ? '+' : '') + fmtEur(desv)
           return (
-            <div key={idx} style={{
-              display: 'grid', gridTemplateColumns: '140px 1fr 90px 90px 90px',
-              gap: 8, alignItems: 'center',
-              padding: '10px 0',
-              borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none',
-            }}>
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 90px 90px', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none' }}>
               <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{h.label}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1, height: 5, background: T.brd, borderRadius: 3 }}>
