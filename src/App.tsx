@@ -24,6 +24,7 @@ import PrediccionDemanda from '@/pages/analytics/PrediccionDemanda'
 
 // Cocina
 import CocinaRecetas from '@/pages/CocinaRecetas'
+import CocinaInventario from '@/pages/CocinaInventario'
 
 // Marketing
 import MarketingEmbudo from '@/pages/MarketingEmbudo'
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="integraciones/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
         {/* Cocina */}
+        <Route path="cocina/inventario" element={<CocinaInventario />} />
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
 
         {/* Nuevas secciones acordeón */}
