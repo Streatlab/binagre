@@ -223,6 +223,7 @@ export default function Facturacion() {
   }
 
   return (
+<<<<<<< HEAD
     <div style={{ background:COLORS.bg, minHeight:'100vh', padding:'24px 28px', fontFamily:FONT.body, color:COLORS.pri }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:18, flexWrap:'wrap', gap:12 }}>
         <div>
@@ -230,6 +231,34 @@ export default function Facturacion() {
           <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
             {fmtFechaCorta(toLocalDateStr(periodoDesde))} — {fmtFechaCorta(toLocalDateStr(periodoHasta))}
           </div>
+=======
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: LAYOUT.pagePadding, maxWidth: LAYOUT.pageMaxWidth }}>
+      <h2 style={{ fontFamily: FONT.pageTitle, fontSize: 28, fontWeight: 700, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 18px' }}>
+        Facturación
+      </h2>
+
+      {/* Global KPIs */}
+      {!loading && !error && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14, marginBottom:20 }}>
+          {[
+            { label: KPI_LABELS.hoy,    valor: kpiHoy.bruto,    pedidos: kpiHoy.pedidos },
+            { label: KPI_LABELS.semana, valor: kpiSemana.bruto, pedidos: kpiSemana.pedidos },
+            { label: KPI_LABELS.mes,    valor: kpiMes.bruto,    pedidos: kpiMes.pedidos },
+            { label: KPI_LABELS.anio,   valor: kpiAnio.bruto,   pedidos: kpiAnio.pedidos },
+          ].map((k, idx) => (
+            <div key={idx} style={cardStyle(T)}>
+              <div style={{ fontFamily:FONT.body, fontSize:12, fontWeight:500, color:T.pri, marginBottom:6, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                {k.label}
+              </div>
+              <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+                {fmtEur(k.valor)}
+              </div>
+              <div style={{ fontFamily:FONT.body, fontSize:12, color:T.sec }}>
+                {fmtInt(k.pedidos)} pedidos
+              </div>
+            </div>
+          ))}
+>>>>>>> 44a13a1 (fix: LAYOUT+FONT tokens, objetivos ancho+titulo homogéneo)
         </div>
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
       </div>
