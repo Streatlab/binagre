@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType>({ theme: 'dark', toggleThem
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const getDefaultTheme = (): Theme => {
     const saved = localStorage.getItem('sl-theme') as Theme | null;
-    if (saved) return saved;
+    // Siempre forzar dark, ignorar valores anteriores guardados
     return 'dark';
   };
 
