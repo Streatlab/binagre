@@ -12,6 +12,7 @@ import {
   tabInactiveStyle,
   fmtFechaCorta,
   canalHeaderStyle,
+  pageTitleStyle,
 } from '@/styles/tokens'
 
 // Pedidos siempre enteros
@@ -325,7 +326,7 @@ export default function Facturacion() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
-      <h2 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: T.emphasis, fontWeight: 600, margin: '0 0 18px' }}>
+      <h2 style={pageTitleStyle(T)}>
         Facturación
       </h2>
 

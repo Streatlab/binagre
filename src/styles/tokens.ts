@@ -8,6 +8,7 @@ import { useTheme as useThemeContext } from '@/contexts/ThemeContext'
 export const FONT = {
   body: 'Lexend, sans-serif',
   heading: 'Oswald, sans-serif',
+  title: 'Oswald, sans-serif',
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -68,6 +69,16 @@ export const groupStyle = (T: TokenSet): CSSProperties => ({
   border: `0.5px solid ${T.brd}`,
   borderRadius: 16,
   padding: '24px 28px',
+})
+
+export const pageTitleStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: FONT.title,
+  fontSize: 22,
+  letterSpacing: '3px',
+  textTransform: 'uppercase',
+  color: T.emphasis,
+  fontWeight: 600,
+  margin: '0 0 18px',
 })
 
 export const cardStyle = (T: TokenSet): CSSProperties => ({

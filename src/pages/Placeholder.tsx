@@ -1,4 +1,5 @@
 import { useParams, useLocation } from 'react-router-dom'
+import { FONT } from '@/styles/tokens'
 
 const LABELS: Record<string, string> = {
   // Analytics
@@ -59,7 +60,7 @@ export default function Placeholder() {
       <h2
         className="mb-2"
         style={{
-          fontFamily: 'Impact, Oswald, sans-serif',
+          fontFamily: FONT.title,
           fontSize: 28,
           color: 'var(--sl-text-primary)',
           letterSpacing: '0.04em',

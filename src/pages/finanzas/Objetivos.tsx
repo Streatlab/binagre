@@ -6,6 +6,7 @@ import {
   cardStyle,
   semaforoColor,
   FONT,
+  pageTitleStyle,
 } from '@/styles/tokens'
 
 // ─── TIPOS ───────────────────────────────────────────────────
@@ -383,7 +384,7 @@ export default function Objetivos() {
       {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: T.emphasis, margin: 0 }}>
+          <h1 style={pageTitleStyle(T)}>
             Objetivos
           </h1>
           <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 6 }}>
