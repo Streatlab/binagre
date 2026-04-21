@@ -5,6 +5,9 @@ import {
   useTheme,
   cardStyle,
   FONT,
+  LAYOUT,
+  kpiLabelStyle,
+  kpiValueStyle,
   dropdownBtnStyle,
   dropdownMenuStyle,
   dropdownItemStyle,
@@ -325,13 +328,13 @@ export default function Facturacion() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
-      <h2 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: T.emphasis, fontWeight: 600, margin: '0 0 18px' }}>
+      <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle, textTransform: 'uppercase', color: T.emphasis, fontWeight: 600 }}>
         Facturación
       </h2>
 
       {/* Global KPIs */}
       {!loading && !error && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14, marginBottom:20 }}>
+        <div style={LAYOUT.kpiGrid}>
           {[
             { label: KPI_LABELS.hoy,    valor: kpiHoy.bruto,    pedidos: kpiHoy.pedidos },
             { label: KPI_LABELS.semana, valor: kpiSemana.bruto, pedidos: kpiSemana.pedidos },
@@ -339,10 +342,10 @@ export default function Facturacion() {
             { label: KPI_LABELS.anio,   valor: kpiAnio.bruto,   pedidos: kpiAnio.pedidos },
           ].map((k, idx) => (
             <div key={idx} style={cardStyle(T)}>
-              <div style={{ fontFamily:FONT.body, fontSize:12, fontWeight:500, color:T.pri, marginBottom:6, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>
                 {k.label}
               </div>
-              <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+              <div style={{ ...kpiValueStyle(T), marginBottom:4 }}>
                 {fmtEur(k.valor)}
               </div>
               <div style={{ fontFamily:FONT.body, fontSize:12, color:T.sec }}>

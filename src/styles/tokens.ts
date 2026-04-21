@@ -8,6 +8,12 @@ import { useTheme as useThemeContext } from '@/contexts/ThemeContext'
 export const FONT = {
   body: 'Lexend, sans-serif',
   heading: 'Oswald, sans-serif',
+  pageTitle: 'Oswald, sans-serif',
+}
+
+export const LAYOUT: Record<string, CSSProperties> = {
+  pageTitle: { fontSize: 22, letterSpacing: '3px', margin: '0 0 18px' } as CSSProperties,
+  kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 20 } as CSSProperties,
 }
 
 /* ═══════════════════════════════════════════════════════════
