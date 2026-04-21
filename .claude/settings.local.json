@@ -28,7 +28,8 @@
       "Bash(pkill -f \"vite\")",
       "Bash(netstat -ano)",
       "Bash(taskkill /PID 17236 /F)",
-      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)"
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(npm run *)"
     ]
   }
 }

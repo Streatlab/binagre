@@ -248,7 +248,7 @@ export default function Facturacion() {
   const fmtCorto = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
 
   const KPI_LABELS = {
-    hoy:     hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric'}).replace(/^\w/,c=>c.toUpperCase()),
+    hoy:     new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' }).replace(/^\w/, c => c.toUpperCase()),
     semana:  `S${weekNum} · ${fmtCorto(monday)} – ${fmtCorto(sunday)}`,
     mes:     mesNombre,
     anio:    `${hoy.getFullYear()}`,
