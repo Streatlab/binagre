@@ -3,10 +3,7 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
-
-const ACCENT = '#e8f442'
-const RED = '#B01D23'
-const SB_BG = '#1e2233'
+import { useTheme, FONT } from '@/styles/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,13 +49,10 @@ const SECTIONS: NavSection[] = [
   {
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️',  perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️',  perfiles: ['admin'] },
-      { path: '/cocina/inventario',       label: 'Inventario',       emoji: '📦',  perfiles: ['admin'] },
-      { path: '/cocina/recetas',          label: 'Fichas Técnicas',  emoji: '📋',  perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/carta',            label: 'Carta',            emoji: '🍽️',  perfiles: ['admin'] },
-      { path: '/cocina/menus',            label: 'Menús',            emoji: '📑',  perfiles: ['admin'] },
-      { path: '/cocina/kds',              label: 'KDS',              emoji: '📟',  perfiles: ['admin'] },
+      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/cocina/inventario',       label: 'Inventario',       emoji: '📦', perfiles: ['admin'] },
+      { path: '/cocina/recetas',          label: 'Recetas',          emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -184,16 +178,20 @@ const SECTIONS: NavSection[] = [
 
 // ─── LogoSL ───────────────────────────────────────────────────────────────────
 
-function LogoSL({ small = false }: { small?: boolean }) {
-  const size = small ? 32 : 36
-  const [fallback, setFallback] = useState(false)
-  if (fallback) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: '50%', background: RED, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Impact, sans-serif', fontSize: 13, letterSpacing: '0.02em', flexShrink: 0 }}>SL</div>
-    )
-  }
+function LogoSL() {
+  const { T, isDark } = useTheme()
   return (
-    <img src="/data/streat-icon.svg" onError={() => setFallback(true)} alt="Streat Lab" width={size} height={size} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />
+    <div style={{
+      width: 32, height: 32, borderRadius: 8,
+      background: T.emphasis,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: FONT.heading,
+      fontSize: 14, fontWeight: 700, letterSpacing: '1px',
+      color: isDark ? '#0d1120' : '#ffffff',
+      flexShrink: 0,
+    }}>
+      SL
+    </div>
   )
 }
 
@@ -202,7 +200,11 @@ function LogoSL({ small = false }: { small?: boolean }) {
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
   const { collapsed, toggle } = useSidebarState()
+  const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
+
+  const activeTextColor = isDark ? '#0d1120' : '#ffffff'
+  const hoverBg = isDark ? T.card : T.group
 
   // FIFO accordion: max 2 sections open simultaneously
   const [openSections, setOpenSections] = useState<string[]>([])
@@ -223,13 +225,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    padding: isActive ? '8px 8px 8px 16px' : '8px 8px 8px 40px',
-    margin: isActive ? '1px 8px' : '1px 8px',
+    padding: '8px 8px 8px 16px',
+    margin: '1px 8px',
     borderRadius: 6,
-    fontFamily: 'Lexend, sans-serif',
+    fontFamily: FONT.body,
     fontSize: 13,
-    color: isActive ? '#1a1a1a' : '#c8d0e8',
-    background: isActive ? ACCENT : 'transparent',
+    color: isActive ? activeTextColor : T.sec,
+    background: isActive ? T.emphasis : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -243,7 +245,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: SB_BG }}
+        style={{ background: T.group }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200 overflow-hidden
@@ -255,16 +257,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {/* Header */}
         {collapsed ? (
           <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
-            <LogoSL small />
-            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
+            <LogoSL />
+            <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.mut }} className="hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
           <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <LogoSL />
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: ACCENT, letterSpacing: '3px' }}>STREAT LAB</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 15, color: T.emphasis, letterSpacing: '3px' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} className="p-1.5 text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
+            <button onClick={toggle} style={{ color: T.mut }} className="p-1.5 hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
           </div>
         )}
 
@@ -276,16 +278,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
+                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
                 {PANEL_GLOBAL.emoji}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => ({ ...itemStyle(isActive), paddingLeft: isActive ? 16 : 16, fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
+                style={({ isActive }) => ({ ...itemStyle(isActive), paddingLeft: 16, fontFamily: FONT.heading, fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
                 {({ isActive }) => (
                   <>
                     <span style={{ fontSize: 16 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ color: isActive ? '#1a1a1a' : '#f0f0ff' }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ color: isActive ? activeTextColor : T.pri }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
@@ -302,7 +304,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <div key={section.key}>
                 {/* Section header */}
                 {collapsed ? (
-                  <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '6px 8px' }} />
+                  <div style={{ height: 1, background: T.brd, margin: '6px 8px' }} />
                 ) : (
                   <button
                     type="button"
@@ -311,9 +313,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       width: '100%', background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 16px 10px 12px',
-                      fontFamily: 'Oswald, sans-serif', fontSize: 11,
+                      fontFamily: FONT.heading, fontSize: 11,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
-                      color: isOpen ? '#c8d0e8' : '#7080a8',
+                      color: isOpen ? T.sec : T.mut,
                       transition: 'color 200ms',
                     }}
                   >
@@ -335,12 +337,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         end={item.path === '/'}
                         onClick={onClose}
                         style={({ isActive }) => itemStyle(isActive)}
-                        className={({ isActive }) => isActive ? '' : 'hover:!bg-[#2a3047] hover:!text-[#f0f0ff]'}
+                        className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
                       >
                         {({ isActive }) => (
                           <>
-                            <span style={{ fontSize: 14, flexShrink: 0, ...(isActive ? {} : { paddingLeft: 16 }) }}>{item.emoji}</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>{item.label}</span>
                           </>
                         )}
                       </NavLink>
@@ -357,7 +359,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={onClose}
                     title={item.label}
                     className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
+                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}
                   >
                     {item.emoji}
                   </NavLink>
@@ -369,20 +371,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Theme toggle */}
         {!collapsed && (
-          <div style={{ padding: '12px', borderTop: '1px solid var(--sl-border)' }}>
+          <div style={{ padding: '12px', borderTop: `1px solid ${T.brd}` }}>
             <ThemeToggle />
           </div>
         )}
 
         {/* Footer user */}
-        <div className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`} style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)' }}>
+        <div className={`p-3 border-t border-[var(--sl-border)] ${collapsed ? 'text-center' : ''}`} style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
           {!collapsed ? (
             <>
-              <div className="mb-2 truncate">{usuario?.nombre} — <span style={{ color: ACCENT }}>{usuario?.perfil}</span></div>
-              <button onClick={logout} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-xs">Cerrar sesión</button>
+              <div className="mb-2 truncate" style={{ color: T.sec }}>{usuario?.nombre} — <span style={{ color: T.emphasis }}>{usuario?.perfil}</span></div>
+              <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }} className="hover:text-[var(--sl-border-error)] transition-colors">Cerrar sesión</button>
             </>
           ) : (
-            <button onClick={logout} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-border-error)] transition-colors text-sm" title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} className="hover:text-[var(--sl-border-error)] transition-colors" title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>
