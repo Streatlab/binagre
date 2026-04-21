@@ -69,13 +69,6 @@ export default function Escandallo() {
 
   useEffect(() => { fetchData() }, [])
 
-  const q = busqueda.toLowerCase().trim()
-  const match = (s?: string | null) => (s ?? '').toLowerCase().includes(q)
-  const filteredIng = !q ? ingredientes : ingredientes.filter(i => match(i.nombre) || match(i.nombre_base) || match(i.categoria) || match(i.abv))
-  const filteredMermas = !q ? mermas : mermas.filter(m => match(m.nombre) || match(m.nombre_base) || match(m.abv))
-  const filteredEps = !q ? epsList : epsList.filter(e => match(e.nombre) || match(e.codigo) || match(e.categoria))
-  const filteredRec = !q ? recetasList : recetasList.filter(r => match(r.nombre) || match(r.codigo) || match(r.categoria))
-
   const handleSaved = () => {
     setModalEPS({ open: false, eps: null })
     setModalReceta({ open: false, receta: null })
