@@ -24,9 +24,13 @@ interface NavSection {
 
 // ─── Nav data ─────────────────────────────────────────────────────────────────
 
-const PANEL_GLOBAL: NavItem = { path: '/', label: 'Panel Global', emoji: '🏠', perfiles: ['admin', 'cocina'] }
-
 const SECTIONS: NavSection[] = [
+  {
+    key: 'panel', emoji: '🏠', label: 'Panel Global', perfiles: ['admin', 'cocina'],
+    items: [
+      { path: '/', label: 'Panel Global', emoji: '🏠', perfiles: ['admin', 'cocina'] },
+    ],
+  },
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
@@ -177,15 +181,6 @@ const SECTIONS: NavSection[] = [
   },
 ]
 
-// ─── LogoSL ───────────────────────────────────────────────────────────────────
-
-function LogoSL() {
-  const { T, isDark } = useTheme()
-  return (
-    <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ width: 32, height: 32, flexShrink: 0 }} />
-  )
-}
-
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -221,8 +216,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     borderRadius: 6,
     fontFamily: FONT.body,
     fontSize: 13,
-    color: isActive ? activeTextColor : T.sec,
-    background: isActive ? T.emphasis : 'transparent',
+    color: isActive ? '#1a1a1a' : T.sec,
+    background: isActive ? '#e8f442' : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -255,14 +250,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {/* Header */}
         {collapsed ? (
           <div className="border-b border-[var(--sl-border)] flex flex-col items-center justify-center min-h-[72px] py-2 gap-1">
-            <LogoSL />
             <button onClick={toggle} style={{ width: 44, height: 44, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.mut }} className="hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:flex" title="Expandir">»</button>
           </div>
         ) : (
           <div className="p-3 border-b border-[var(--sl-border)] flex items-center min-h-[72px]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <LogoSL />
-              <span style={{ fontFamily: FONT.heading, fontSize: 15, color: T.emphasis, letterSpacing: '3px' }}>STREAT LAB</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 15, color: '#B01D23', letterSpacing: '3px', fontWeight: 600 }}>STREAT LAB</span>
             </div>
             <button onClick={toggle} style={{ color: T.mut }} className="p-1.5 hover:text-[var(--sl-text-primary)] rounded transition-colors hidden lg:block flex-shrink-0" title="Colapsar">«</button>
           </div>
@@ -270,31 +263,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
-
-          {/* Panel Global — direct link, no accordion */}
-          {PANEL_GLOBAL.perfiles.includes(perfil) && (
-            <div style={{ padding: '0 28px', marginBottom: 8 }}>
-              <div style={{ background: T.group, border: `1px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
-                {collapsed ? (
-                  <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
-                    className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
-                    {PANEL_GLOBAL.emoji}
-                  </NavLink>
-                ) : (
-                  <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                    style={({ isActive }) => itemStyle(isActive)}>
-                    {({ isActive }) => (
-                      <>
-                        <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? T.pri : T.sec }}>{PANEL_GLOBAL.label}</span>
-                      </>
-                    )}
-                  </NavLink>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Sections */}
           {SECTIONS.map(section => {

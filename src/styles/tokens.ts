@@ -12,7 +12,7 @@ export const FONT = {
 }
 
 export const LAYOUT: Record<string, CSSProperties> = {
-  pageTitle: { fontSize: 22, letterSpacing: '3px', margin: '0 0 18px' } as CSSProperties,
+  pageTitle: { fontSize: 22, letterSpacing: '3px', margin: '0 0 18px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', fontFamily: 'Oswald,sans-serif' } as CSSProperties,
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 20 } as CSSProperties,
 }
 

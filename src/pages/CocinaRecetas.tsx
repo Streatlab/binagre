@@ -203,7 +203,7 @@ export default function CocinaRecetas() {
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 20, letterSpacing: '2px', textTransform: 'uppercase', color: T.emphasis, marginBottom: 4 }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 20, letterSpacing: '2px', textTransform: 'uppercase', color: "#B01D23", marginBottom: 4 }}>
                 {selected.nombre}
               </div>
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>

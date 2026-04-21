@@ -328,7 +328,7 @@ export default function Facturacion() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
-      <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle, textTransform: 'uppercase', color: T.emphasis, fontWeight: 600 }}>
+      <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle }}>
         Facturación
       </h2>
 
