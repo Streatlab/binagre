@@ -9,6 +9,12 @@ export const FONT = {
   body: 'Lexend, sans-serif',
   heading: 'Oswald, sans-serif',
   title: 'Oswald, sans-serif',
+  pageTitle: 'Oswald, sans-serif',
+}
+
+export const LAYOUT: Record<string, CSSProperties> = {
+  pageTitle: { fontSize: 22, letterSpacing: '3px', margin: '0 0 18px' } as CSSProperties,
+  kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 20 } as CSSProperties,
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -50,8 +56,8 @@ const lightT: TokenSet = {
   sec:      '#3a4050',
   mut:      '#7a8090',
   inp:      '#ffffff',
-  emphasis: '#B01D23',
-  accent:   '#B01D23',
+  emphasis: '#e8f442',
+  accent:   '#e8f442',
 }
 
 export function useTheme(): { T: TokenSet; isDark: boolean } {

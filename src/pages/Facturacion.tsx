@@ -5,6 +5,9 @@ import {
   useTheme,
   cardStyle,
   FONT,
+  LAYOUT,
+  kpiLabelStyle,
+  kpiValueStyle,
   dropdownBtnStyle,
   dropdownMenuStyle,
   dropdownItemStyle,
@@ -249,7 +252,7 @@ export default function Facturacion() {
   const fmtCorto = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
 
   const KPI_LABELS = {
-    hoy:     hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric'}).replace(/^\w/,c=>c.toUpperCase()),
+    hoy:     new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' }).replace(/^\w/, c => c.toUpperCase()),
     semana:  `S${weekNum} · ${fmtCorto(monday)} – ${fmtCorto(sunday)}`,
     mes:     mesNombre,
     anio:    `${hoy.getFullYear()}`,
@@ -332,7 +335,7 @@ export default function Facturacion() {
 
       {/* Global KPIs */}
       {!loading && !error && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14, marginBottom:20 }}>
+        <div style={LAYOUT.kpiGrid}>
           {[
             { label: KPI_LABELS.hoy,    valor: kpiHoy.bruto,    pedidos: kpiHoy.pedidos },
             { label: KPI_LABELS.semana, valor: kpiSemana.bruto, pedidos: kpiSemana.pedidos },
@@ -340,10 +343,10 @@ export default function Facturacion() {
             { label: KPI_LABELS.anio,   valor: kpiAnio.bruto,   pedidos: kpiAnio.pedidos },
           ].map((k, idx) => (
             <div key={idx} style={cardStyle(T)}>
-              <div style={{ fontFamily:FONT.body, fontSize:12, fontWeight:500, color:T.pri, marginBottom:6, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>
                 {k.label}
               </div>
-              <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:T.pri, lineHeight:1, marginBottom:4 }}>
+              <div style={{ ...kpiValueStyle(T), marginBottom:4 }}>
                 {fmtEur(k.valor)}
               </div>
               <div style={{ fontFamily:FONT.body, fontSize:12, color:T.sec }}>
