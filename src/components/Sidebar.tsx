@@ -180,9 +180,8 @@ const SECTIONS: NavSection[] = [
 // ─── LogoSL ───────────────────────────────────────────────────────────────────
 
 function LogoSL() {
-  const { T, isDark } = useTheme()
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 8, background: T.emphasis, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: isDark ? '#0d1120' : '#ffffff', flexShrink: 0 }}>SL</div>
+    <img src="/data/STREAT LAB LOGO-04.jpg" alt="Streat Lab" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
   )
 }
 
@@ -230,13 +229,31 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     overflow: 'hidden',
   })
 
+  const panelGlobalStyle = (isActive: boolean): React.CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 8px 8px 16px',
+    margin: '1px 8px',
+    borderRadius: 6,
+    fontFamily: FONT.body,
+    fontSize: 13,
+    color: isActive ? '#1a1a1a' : T.sec,
+    background: isActive ? '#e8f442' : 'transparent',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    transition: 'background 150ms',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
+  })
+
   return (
     <>
       {/* Mobile overlay */}
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: T.group }}
+        style={{ background: '#1e2233' }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200 overflow-hidden
@@ -269,16 +286,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
+                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? '#1a1a1a' : T.sec, background: isActive ? '#e8f442' : 'transparent' })}>
                 {PANEL_GLOBAL.emoji}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => itemStyle(isActive)}>
+                style={({ isActive }) => panelGlobalStyle(isActive)}>
                 {({ isActive }) => (
                   <>
                     <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#0d1120' : T.sec }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#1a1a1a' : T.sec }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
