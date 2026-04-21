@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
 import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
+import { useTheme, FONT } from '@/styles/tokens'
 import ModalIngrediente from './ModalIngrediente'
-import { parsearIngredientesConClaude } from '@/utils/dictado'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)',
@@ -43,6 +43,7 @@ interface Props {
 
 export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, onSaved, onDelete }: Props) {
   const todayISO = new Date().toISOString().split('T')[0]
+  const { T } = useTheme()
 
   const [nombre, setNombre] = useState(eps?.nombre ?? initialNombre ?? '')
   const [raciones, setRaciones] = useState(eps?.raciones ?? 1)
@@ -59,6 +60,9 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const [conflictos, setConflictos] = useState<ConflictoItem[]>([])
   const [showConflictos, setShowConflictos] = useState(false)
   const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
+
+  const [todosIngredientes, setTodosIngredientes] = useState<any[]>([])
+  const [todasEps, setTodasEps] = useState<any[]>([])
 
   const [lineas, setLineas] = useState<EPSLinea[]>([])
   const [saving, setSaving] = useState(false)
@@ -78,6 +82,11 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
       setDeleting(false)
     }
   }
+
+  useEffect(() => {
+    supabase.from('ingredientes').select('*').then(({ data }) => { if (data) setTodosIngredientes(data) })
+    supabase.from('eps').select('id,nombre,coste_rac').then(({ data }) => { if (data) setTodasEps(data) })
+  }, [])
 
   useEffect(() => {
     if (!eps) return
@@ -156,27 +165,47 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     if (!textoDictado.trim()) return
     setLoadingDictado(true)
     try {
-      const parsed = await parsearIngredientesConClaude(textoDictado)
+      let parsed: Array<{ nombre: string; cantidad: number; unidad: string }> = []
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (apiKey) {
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 512,
+              system: 'Eres un parser de ingredientes de cocina. Recibes texto libre en español con ingredientes y cantidades. Devuelve SOLO un JSON array sin markdown, sin explicación, sin backticks. Formato exacto: [{"nombre":"string","cantidad":number,"unidad":"string"}] Normaliza unidades: gramos→"g", mililitros→"ml", unidades→"ud", litros→"l", kilos→"kg". Si no hay unidad clara, usa "ud".',
+              messages: [{ role: 'user', content: textoDictado }],
+            }),
+          })
+          const data = await resp.json()
+          const text: string = data.content?.[0]?.text ?? '[]'
+          try { parsed = JSON.parse(text) } catch { parsed = [] }
+        } catch { parsed = [] }
+      }
+
       const lineasNuevas: EPSLinea[] = []
       const noEncontrados: ConflictoItem[] = []
 
       for (const item of parsed) {
-        const matchIng = ingredientes.find(i =>
-          i.nombre.toLowerCase().includes(item.nombre.toLowerCase()) ||
-          item.nombre.toLowerCase().includes(i.nombre.toLowerCase())
+        const matchIng = todosIngredientes.find((i: any) =>
+          i.nombre?.toLowerCase().includes(item.nombre.toLowerCase()) ||
+          item.nombre.toLowerCase().includes(i.nombre?.toLowerCase() ?? '')
         )
         if (matchIng) {
-          lineasNuevas.push({
-            linea: 0,
-            ingrediente_id: matchIng.id,
-            ingrediente_nombre: matchIng.nombre,
-            cantidad: item.cantidad,
-            unidad: item.unidad,
-            eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std),
-          })
-        } else {
-          noEncontrados.push(item)
+          lineasNuevas.push({ linea: 0, ingrediente_id: matchIng.id, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) })
+          continue
         }
+        const matchEps = todasEps.find((e: any) =>
+          e.nombre?.toLowerCase().includes(item.nombre.toLowerCase()) ||
+          item.nombre.toLowerCase().includes(e.nombre?.toLowerCase() ?? '')
+        )
+        if (matchEps) {
+          lineasNuevas.push({ linea: 0, ingrediente_id: null, ingrediente_nombre: matchEps.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchEps.coste_rac) })
+          continue
+        }
+        noEncontrados.push(item)
       }
 
       if (lineasNuevas.length > 0) {
@@ -434,7 +463,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                       <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', fontWeight: 500 }}>{item.nombre}</span>
                       <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)' }}>{item.cantidad} {item.unidad}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => {
                           setConflictos(prev => prev.filter((_, i) => i !== idx))
@@ -444,30 +473,50 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                       >
                         + CREAR ING
                       </button>
+                      <button
+                        onClick={() => { alert('TODO: crear EPS') }}
+                        style={{ background: 'transparent', color: T.emphasis, border: `1px solid ${T.emphasis}`, borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        + CREAR EPS
+                      </button>
                       <select
                         defaultValue=""
                         onChange={e => {
                           if (!e.target.value) return
-                          const ing = ingredientes.find(i => i.id === e.target.value)
-                          if (ing) {
-                            setIsDirty(true)
-                            setLineas(prev => [...prev, {
-                              linea: prev.length + 1,
-                              ingrediente_id: ing.id,
-                              ingrediente_nombre: ing.nombre,
-                              cantidad: item.cantidad,
-                              unidad: item.unidad,
-                              eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
-                            }])
-                            setConflictos(prev => prev.filter((_, i) => i !== idx))
+                          const [type, id] = e.target.value.split(':')
+                          if (type === 'ing') {
+                            const ing = todosIngredientes.find((i: any) => i.id === id)
+                            if (ing) {
+                              setIsDirty(true)
+                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: ing.id, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }])
+                              setConflictos(prev => prev.filter((_, i) => i !== idx))
+                            }
+                          } else if (type === 'eps') {
+                            const ep = todasEps.find((e: any) => e.id === id)
+                            if (ep) {
+                              setIsDirty(true)
+                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: null, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }])
+                              setConflictos(prev => prev.filter((_, i) => i !== idx))
+                            }
                           }
                         }}
-                        style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
+                        style={{ background: T.inp, border: `1px solid ${T.brd}`, color: T.pri, fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
                       >
                         <option value="">Elegir existente...</option>
-                        {ingredientes.map(i => (
-                          <option key={i.id} value={i.id}>{i.nombre}</option>
-                        ))}
+                        {todosIngredientes.length > 0 && (
+                          <optgroup label="Ingredientes">
+                            {todosIngredientes.map((i: any) => (
+                              <option key={i.id} value={`ing:${i.id}`}>{i.nombre}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {todasEps.length > 0 && (
+                          <optgroup label="EPS">
+                            {todasEps.map((e: any) => (
+                              <option key={e.id} value={`eps:${e.id}`}>{e.nombre}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                   </div>
