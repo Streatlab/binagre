@@ -7,7 +7,6 @@ import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, thCls, tdCls, n } from './types'
 import ModalIngrediente from './ModalIngrediente'
 import ModalEPS from './ModalEPS'
-import { parsearIngredientesConClaude } from '@/utils/dictado'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -224,7 +223,26 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     if (!textoDictado.trim()) return
     setLoadingDictado(true)
     try {
-      const parsed = await parsearIngredientesConClaude(textoDictado)
+      let parsed: Array<{ nombre: string; cantidad: number; unidad: string }> = []
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (apiKey) {
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 512,
+              system: 'Eres un parser de ingredientes de cocina. Recibes texto libre en español con ingredientes y cantidades. Devuelve SOLO un JSON array sin markdown, sin explicación, sin backticks. Formato exacto: [{"nombre":"string","cantidad":number,"unidad":"string"}] Normaliza unidades: gramos→"g", mililitros→"ml", unidades→"ud", litros→"l", kilos→"kg". Si no hay unidad clara, usa "ud".',
+              messages: [{ role: 'user', content: textoDictado }],
+            }),
+          })
+          const data = await resp.json()
+          const text: string = data.content?.[0]?.text ?? '[]'
+          try { parsed = JSON.parse(text) } catch { parsed = [] }
+        } catch { parsed = [] }
+      }
+
       const lineasNuevas: RecetaLinea[] = []
       const noEncontrados: ConflictoItem[] = []
 
