@@ -6,7 +6,6 @@ import { ThemeToggle } from './ThemeToggle'
 
 const ACCENT = '#e8f442'
 const RED = '#B01D23'
-const SB_BG = '#1e2233'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -232,7 +231,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     borderRadius: 6,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
-    color: isActive ? '#1a1a1a' : '#c8d0e8',
+    color: isActive ? '#1a1a1a' : 'var(--sl-text-nav)',
     background: isActive ? ACCENT : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
@@ -247,7 +246,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        style={{ background: SB_BG }}
+        style={{ background: 'var(--sl-sidebar)' }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-200 overflow-hidden
@@ -280,7 +279,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
+                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}>
                 {PANEL_GLOBAL.emoji}
               </NavLink>
             ) : (
@@ -289,7 +288,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 {({ isActive }) => (
                   <>
                     <span style={{ fontSize: 16 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ color: isActive ? '#1a1a1a' : '#f0f0ff' }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ color: isActive ? '#1a1a1a' : 'var(--sl-text-primary)' }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
@@ -317,7 +316,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       padding: '10px 16px 10px 12px',
                       fontFamily: 'Oswald, sans-serif', fontSize: 11,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
-                      color: isOpen ? '#c8d0e8' : '#7080a8',
+                      color: isOpen ? 'var(--sl-text-secondary)' : 'var(--sl-text-muted)',
                       transition: 'color 200ms',
                     }}
                   >
@@ -339,7 +338,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         end={item.path === '/'}
                         onClick={onClose}
                         style={({ isActive }) => itemStyle(isActive)}
-                        className={({ isActive }) => isActive ? '' : 'hover:!bg-[#2a3047] hover:!text-[#f0f0ff]'}
+                        className={({ isActive }) => isActive ? '' : 'hover:!bg-[var(--sl-hover)] hover:!text-[var(--sl-text-primary)]'}
                       >
                         {({ isActive }) => (
                           <>
@@ -361,7 +360,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={onClose}
                     title={item.label}
                     className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : '#c8d0e8', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
+                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? ACCENT : 'var(--sl-text-nav)', background: isActive ? 'rgba(232,244,66,0.12)' : 'transparent' })}
                   >
                     {item.emoji}
                   </NavLink>
