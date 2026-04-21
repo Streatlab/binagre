@@ -7,13 +7,14 @@ import { useTheme, FONT, groupStyle } from '@/styles/tokens'
 
 interface Props {
   ingredientes: Ingrediente[]
+  busqueda?: string
   onSelect?: (i: Ingrediente) => void
   onNew?: () => void
 }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props) {
+export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
@@ -45,8 +46,19 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
     let filteredList = base
     if (filter === 'enuso') filteredList = base.filter(i => getUsos(i) > 0)
     else if (filter === 'sinuso') filteredList = base.filter(i => getUsos(i) === 0)
+    const q = busqueda.trim().toLowerCase()
+    if (q) {
+      filteredList = filteredList.filter(i =>
+        (i.nombre ?? '').toLowerCase().includes(q) ||
+        (i.nombre_base ?? '').toLowerCase().includes(q) ||
+        (i.categoria ?? '').toLowerCase().includes(q) ||
+        (i.abv ?? '').toLowerCase().includes(q) ||
+        (i.marca ?? '').toLowerCase().includes(q) ||
+        (i.formato ?? '').toLowerCase().includes(q)
+      )
+    }
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
-  }, [ingredientes, usosMap, filter])
+  }, [ingredientes, usosMap, filter, busqueda])
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
@@ -82,6 +94,12 @@ export default function TabIngredientes({ ingredientes, onSelect, onNew }: Props
           <button onClick={onNew} className="ds-btn-add ml-auto">+ Nuevo Ingrediente</button>
         )}
       </div>
+
+      {busqueda.trim() && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
+        </div>
+      )}
 
       <div style={groupStyle(T)}>
         {!filtered.length ? (

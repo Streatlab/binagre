@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Receta } from './types'
 import { thCls, tdCls, fmtEurES, fmtES, fmtPctES, fmtDateES, semaforoClasses, n, ESTRUCTURA_PCT } from './types'
+import { supabase } from '@/lib/supabase'
+import { useTheme, FONT } from '@/styles/tokens'
 
-interface Props { recetasList: Receta[]; onSelect: (r: Receta) => void; onNew?: () => void }
+interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
 
 type Filter = 'todos' | 'conpvp' | 'sinpvp'
 
@@ -15,15 +17,42 @@ function margenUber(r: Receta): number {
   return ((neto - n(r.coste_rac) - estructura - pvp * 0.30) / neto) * 100
 }
 
-export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
+export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew }: Props) {
+  const { T } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
+  const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from('recetas_lineas').select('receta_id, ingrediente_nombre')
+      const map: Record<string, string[]> = {}
+      for (const l of data ?? []) {
+        if (!l.receta_id) continue
+        if (!map[l.receta_id]) map[l.receta_id] = []
+        map[l.receta_id].push((l.ingrediente_nombre ?? '').toLowerCase())
+      }
+      setIngsPorReceta(map)
+    }
+    load()
+  }, [recetasList])
+
   const total = useMemo(() => recetasList.length, [recetasList])
   const conPvp = useMemo(() => recetasList.filter(r => n(r.pvp_uber) > 0).length, [recetasList])
   const filtered = useMemo(() => {
-    if (filter === 'conpvp') return recetasList.filter(r => n(r.pvp_uber) > 0)
-    if (filter === 'sinpvp') return recetasList.filter(r => n(r.pvp_uber) === 0)
-    return recetasList
-  }, [recetasList, filter])
+    let list = recetasList
+    if (filter === 'conpvp') list = recetasList.filter(r => n(r.pvp_uber) > 0)
+    else if (filter === 'sinpvp') list = recetasList.filter(r => n(r.pvp_uber) === 0)
+    const q = busqueda.trim().toLowerCase()
+    if (q) {
+      list = list.filter(r =>
+        (r.nombre ?? '').toLowerCase().includes(q) ||
+        (r.codigo ?? '').toLowerCase().includes(q) ||
+        (r.categoria ?? '').toLowerCase().includes(q) ||
+        (ingsPorReceta[r.id] ?? []).some(ing => ing.includes(q))
+      )
+    }
+    return list
+  }, [recetasList, filter, busqueda, ingsPorReceta])
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   return (
@@ -34,6 +63,12 @@ export default function TabRecetas({ recetasList, onSelect, onNew }: Props) {
         <Counter label="SIN PVP" value={total - conPvp} valueClass="rec" active={filter === 'sinpvp'} onClick={() => toggle('sinpvp')} />
         {onNew && <button onClick={onNew} className="ds-btn-add ml-auto">+ Nueva Receta</button>}
       </div>
+
+      {busqueda.trim() && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
+        </div>
+      )}
 
       {!filtered.length ? (
         <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">

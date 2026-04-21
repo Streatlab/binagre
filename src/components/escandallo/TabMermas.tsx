@@ -6,13 +6,14 @@ import { useTheme, FONT, groupStyle } from '@/styles/tokens'
 
 interface Props {
   mermas: Merma[]
+  busqueda?: string
   onSelect?: (m: Merma) => void
   onNew?: () => void
 }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-export default function TabMermas({ mermas, onSelect, onNew }: Props) {
+export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
 
@@ -20,10 +21,20 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
   const enUso = useMemo(() => mermas.filter(m => n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0).length, [mermas])
   const sinUso = total - enUso
   const filtered = useMemo(() => {
-    if (filter === 'enuso') return mermas.filter(m => n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0)
-    if (filter === 'sinuso') return mermas.filter(m => !(n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0))
-    return mermas
-  }, [mermas, filter])
+    let list = mermas
+    if (filter === 'enuso') list = mermas.filter(m => n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0)
+    else if (filter === 'sinuso') list = mermas.filter(m => !(n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0))
+    const q = busqueda.trim().toLowerCase()
+    if (q) {
+      list = list.filter(m =>
+        (m.nombre ?? '').toLowerCase().includes(q) ||
+        (m.nombre_base ?? '').toLowerCase().includes(q) ||
+        (m.abv ?? '').toLowerCase().includes(q) ||
+        (m.categoria ?? '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [mermas, filter, busqueda])
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   const thStyle: CSSProperties = {
@@ -56,6 +67,12 @@ export default function TabMermas({ mermas, onSelect, onNew }: Props) {
         <Counter label="SIN USO" value={sinUso} valueClass="rec" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && <button onClick={onNew} className="ds-btn-add ml-auto">+ Nueva Merma</button>}
       </div>
+
+      {busqueda.trim() && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
+        </div>
+      )}
 
       <div style={groupStyle(T)}>
         {!filtered.length ? (

@@ -1,13 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { EPS } from './types'
 import { thCls, tdCls, fmtEurES, fmtES, fmtDateES, n, semaforoUsos } from './types'
+import { supabase } from '@/lib/supabase'
+import { useTheme, FONT } from '@/styles/tokens'
 
-interface Props { epsList: EPS[]; onSelect: (eps: EPS) => void; onNew?: () => void }
+interface Props { epsList: EPS[]; busqueda?: string; onSelect: (eps: EPS) => void; onNew?: () => void }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-export default function TabEPS({ epsList, onSelect, onNew }: Props) {
+export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Props) {
+  const { T } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
+  const [ingsPorEps, setIngsPorEps] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from('eps_lineas').select('eps_id, ingrediente_nombre')
+      const map: Record<string, string[]> = {}
+      for (const l of data ?? []) {
+        if (!l.eps_id) continue
+        if (!map[l.eps_id]) map[l.eps_id] = []
+        map[l.eps_id].push((l.ingrediente_nombre ?? '').toLowerCase())
+      }
+      setIngsPorEps(map)
+    }
+    load()
+  }, [epsList])
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
     const total = epsList.length
@@ -16,8 +34,17 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
     let filtered = epsList
     if (filter === 'enuso') filtered = epsList.filter(e => n(e.usos) > 0)
     else if (filter === 'sinuso') filtered = epsList.filter(e => n(e.usos) === 0)
+    const q = busqueda.trim().toLowerCase()
+    if (q) {
+      filtered = filtered.filter(e =>
+        (e.nombre ?? '').toLowerCase().includes(q) ||
+        (e.codigo ?? '').toLowerCase().includes(q) ||
+        (e.categoria ?? '').toLowerCase().includes(q) ||
+        (ingsPorEps[e.id] ?? []).some(ing => ing.includes(q))
+      )
+    }
     return { total, enUso, sinUso, filtered }
-  }, [epsList, filter])
+  }, [epsList, filter, busqueda, ingsPorEps])
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
@@ -29,6 +56,12 @@ export default function TabEPS({ epsList, onSelect, onNew }: Props) {
         <Counter label="SIN USO" value={sinUso} valueClass="rec" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && <button onClick={onNew} className="ds-btn-add ml-auto">+ Nueva EPS</button>}
       </div>
+
+      {busqueda.trim() && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
+        </div>
+      )}
 
       {!filtered.length ? (
         <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">

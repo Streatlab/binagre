@@ -103,14 +103,12 @@ export default function Escandallo() {
             </button>
           ))}
         </div>
-        {tab !== 'indice' && (
-          <input
-            className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
-            placeholder="Buscar..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-          />
-        )}
+        <input
+          className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
+          placeholder="Buscar..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+        />
       </div>
 
       {/* Contenido */}
@@ -129,34 +127,39 @@ export default function Escandallo() {
             <TabIndice
               epsList={epsList}
               recetasList={recetasList}
+              busqueda={busqueda}
               onOpenEps={eps => setModalEPS({ open: true, eps })}
               onOpenReceta={receta => setModalReceta({ open: true, receta })}
             />
           )}
           {tab === 'ingredientes' && (
             <TabIngredientes
-              ingredientes={filteredIng}
+              ingredientes={ingredientes}
+              busqueda={busqueda}
               onSelect={ing => setModalIng({ open: true, ing })}
               onNew={() => setModalIng({ open: true, ing: null })}
             />
           )}
           {tab === 'mermas' && (
             <TabMermas
-              mermas={filteredMermas}
+              mermas={mermas}
+              busqueda={busqueda}
               onSelect={merma => setModalMerma({ open: true, merma })}
               onNew={() => setModalMerma({ open: true, merma: null })}
             />
           )}
           {tab === 'eps' && (
             <TabEPS
-              epsList={filteredEps}
+              epsList={epsList}
+              busqueda={busqueda}
               onSelect={eps => setModalEPS({ open: true, eps })}
               onNew={() => setModalEPS({ open: true, eps: null })}
             />
           )}
           {tab === 'recetas' && (
             <TabRecetas
-              recetasList={filteredRec}
+              recetasList={recetasList}
+              busqueda={busqueda}
               onSelect={receta => setModalReceta({ open: true, receta })}
               onNew={() => setModalReceta({ open: true, receta: null })}
             />

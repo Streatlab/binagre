@@ -3,10 +3,12 @@ import { useConfig } from '@/hooks/useConfig'
 import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { thCls, tdCls, fmtES, fmtEurES, fmtPctES, fmtDateES, n, semaforoUsos, semaforoClasses } from './types'
+import { useTheme, FONT } from '@/styles/tokens'
 
 interface Props {
   epsList: EPS[]
   recetasList: Receta[]
+  busqueda?: string
   onOpenEps: (eps: EPS) => void
   onOpenReceta: (r: Receta) => void
 }
@@ -33,30 +35,57 @@ function calcIndice(costeRac: number, pvp: number, estructuraPct: number) {
 
 const EMPTY = <span></span>
 
-export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenReceta }: Props) {
+export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenEps, onOpenReceta }: Props) {
   const cfg = useConfig()
+  const { T } = useTheme()
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
+  const [ingsPorEps, setIngsPorEps] = useState<Record<string, string[]>>({})
+  const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
-    const loadUsos = async () => {
-      const { data: lineas } = await supabase
-        .from('recetas_lineas')
-        .select('eps_id, ingrediente_id')
-      const map: Record<string, number> = {}
-      for (const l of lineas ?? []) {
-        if (l.eps_id) map[String(l.eps_id)] = (map[String(l.eps_id)] || 0) + 1
-        if (l.ingrediente_id) map[String(l.ingrediente_id)] = (map[String(l.ingrediente_id)] || 0) + 1
+    const load = async () => {
+      const [{ data: recLin }, { data: epsLin }] = await Promise.all([
+        supabase.from('recetas_lineas').select('receta_id, eps_id, ingrediente_id, ingrediente_nombre'),
+        supabase.from('eps_lineas').select('eps_id, ingrediente_nombre'),
+      ])
+      const usos: Record<string, number> = {}
+      const recMap: Record<string, string[]> = {}
+      for (const l of recLin ?? []) {
+        if (l.eps_id) usos[String(l.eps_id)] = (usos[String(l.eps_id)] || 0) + 1
+        if (l.ingrediente_id) usos[String(l.ingrediente_id)] = (usos[String(l.ingrediente_id)] || 0) + 1
+        if (l.receta_id) {
+          if (!recMap[l.receta_id]) recMap[l.receta_id] = []
+          recMap[l.receta_id].push((l.ingrediente_nombre ?? '').toLowerCase())
+        }
       }
-      setUsosMap(map)
+      const epsMap: Record<string, string[]> = {}
+      for (const l of epsLin ?? []) {
+        if (!l.eps_id) continue
+        if (!epsMap[l.eps_id]) epsMap[l.eps_id] = []
+        epsMap[l.eps_id].push((l.ingrediente_nombre ?? '').toLowerCase())
+      }
+      setUsosMap(usos)
+      setIngsPorEps(epsMap)
+      setIngsPorReceta(recMap)
     }
-    loadUsos()
+    load()
   }, [epsList, recetasList])
 
   const rows = useMemo(() => {
     const eps = epsList.map((e, i) => ({ kind: 'EPS' as const, idx: i + 1, data: e }))
     const rec = recetasList.map((r, i) => ({ kind: 'REC' as const, idx: epsList.length + i + 1, data: r }))
-    return [...eps, ...rec]
-  }, [epsList, recetasList])
+    const all = [...eps, ...rec]
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return all
+    return all.filter(row => {
+      const d = row.data
+      if ((d.nombre ?? '').toLowerCase().includes(q)) return true
+      if ((d.codigo ?? '').toLowerCase().includes(q)) return true
+      if ((d.categoria ?? '').toLowerCase().includes(q)) return true
+      const ings = row.kind === 'EPS' ? ingsPorEps[d.id] : ingsPorReceta[d.id]
+      return (ings ?? []).some(ing => ing.includes(q))
+    })
+  }, [epsList, recetasList, busqueda, ingsPorEps, ingsPorReceta])
 
   return (
     <div className="space-y-4">
@@ -65,6 +94,12 @@ export default function TabIndice({ epsList, recetasList, onOpenEps, onOpenRecet
         <Counter label="EPS" value={epsList.length} valueClass="eps" />
         <Counter label="RECETAS" value={recetasList.length} valueClass="rec" />
       </div>
+
+      {busqueda.trim() && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+          {rows.length} resultado{rows.length !== 1 ? 's' : ''} para "{busqueda}"
+        </div>
+      )}
 
       <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
