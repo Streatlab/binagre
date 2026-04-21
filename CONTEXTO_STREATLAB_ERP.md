@@ -249,3 +249,5 @@ ALC=Alcampo, MER=Mercadona, CHI=China veldula, JAS=Jasa, PAM=Pampols, ENV=Envapr
 
 ## USUARIOS
 Ruben (admin, todos los módulos) / Emilio (cocina — Dashboard + Escandallo)
+REPO GITHUB: https://github.com/Streatlab/binagre.git
+Remote correcto: git remote set-url origin https://github.com/Streatlab/binagre.git
