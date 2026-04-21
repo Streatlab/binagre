@@ -1,3 +1,29 @@
+# PROTOCOLO DE INICIO — LEE ESTO PRIMERO
+
+## Si Rubén cambia de ordenador o abre un chat nuevo:
+1. Ejecutar en CMD:
+   ```
+   cd C:\streatlab-erp && git pull origin master
+   ```
+   (En el bar: `cd C:\Users\ruben\streatlab-erp && git pull origin master`)
+
+2. Primera línea de cualquier prompt nuevo en Claude Code:
+   ```
+   cat CONTEXTO_STREATLAB_ERP.md
+   ```
+
+3. URL del contexto completo (para chats web sin acceso al filesystem):
+   https://streatlab-erp.vercel.app/CONTEXTO_STREATLAB_ERP.md
+
+## Reglas de trabajo
+- Respuestas: listas numeradas, sin párrafos, directas
+- Prompts para Claude Code → siempre como archivo descargable
+- Scripts GAS: siempre completos
+- NUNCA usar @/integrations/supabase/client → siempre @/lib/supabase
+- Siempre terminar con: git add . && git commit -m "..." && git push origin master
+
+---
+
 # CONTEXTO STREAT LAB ERP — Actualizado 2026-04-21
 
 ## STACK
