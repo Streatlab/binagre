@@ -553,7 +553,7 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
                   <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }}>{fmtFechaCorta(r.fecha)}</td>
                   <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
                   {COLS.map(c => {
@@ -645,7 +645,7 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
                   <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>S{r.week}</td>
                   <td style={{ padding: '8px 10px', textAlign: 'left', color: T.sec, borderRight: `0.5px solid ${T.brd}` }}>{r.periodo}</td>
                   <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
@@ -751,7 +751,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.mes} style={{ borderBottom: `0.5px solid ${T.brd}`, transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = `${T.group}33`} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={r.mes} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                   <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>{MES_NOMBRE[r.mes]}</td>
                   <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
                   {COLS.map(c => (
