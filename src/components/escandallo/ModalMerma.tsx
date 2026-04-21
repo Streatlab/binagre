@@ -424,17 +424,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+const calcFieldStyle: CSSProperties = {
+  width: '100%', padding: '8px 12px', borderRadius: '8px',
+  fontSize: '0.875rem', fontFamily: 'Lexend, sans-serif', minHeight: '36px',
+  backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa',
+}
+
 function Field({ label, value, onChange, type, step, disabled, highlight, list, placeholder, style }: {
   label: string; value: string; onChange: (v: string) => void;
   type?: string; step?: string; disabled?: boolean; highlight?: boolean; list?: string; placeholder?: string; style?: React.CSSProperties
 }) {
+  if (disabled) {
+    return (
+      <div style={style}>
+        <label className={labelCls}>{label}</label>
+        <div style={calcFieldStyle}>{value || placeholder || ''}</div>
+      </div>
+    )
+  }
   return (
     <div style={style}>
       <label className={labelCls}>{label}</label>
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
-        disabled={disabled} list={list} placeholder={placeholder}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[var(--sl-text-primary)] font-bold' : '')}
+        list={list} placeholder={placeholder}
+        className={inputCls + (highlight ? ' text-[var(--sl-text-primary)] font-bold' : '')}
       />
     </div>
   )

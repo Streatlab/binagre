@@ -33,12 +33,16 @@ export interface AppConfig {
   refresh: () => void
 }
 
+function normPct(v: number): number {
+  return v > 1 ? v / 100 : v
+}
+
 const DEFAULT_CANALES: ConfigCanal[] = [
-  { id: '', canal: 'Uber Eats', comision_pct: 30, coste_fijo: 0.82, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Glovo', comision_pct: 30, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Just Eat', comision_pct: 30, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Web Propia', comision_pct: 7, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Venta Directa', comision_pct: 0, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Uber Eats', comision_pct: 0.30, coste_fijo: 0.82, margen_deseado_pct: 0.15, activo: true },
+  { id: '', canal: 'Glovo', comision_pct: 0.30, coste_fijo: 0, margen_deseado_pct: 0.15, activo: true },
+  { id: '', canal: 'Just Eat', comision_pct: 0.30, coste_fijo: 0, margen_deseado_pct: 0.15, activo: true },
+  { id: '', canal: 'Web Propia', comision_pct: 0.07, coste_fijo: 0, margen_deseado_pct: 0.15, activo: true },
+  { id: '', canal: 'Venta Directa', comision_pct: 0, coste_fijo: 0, margen_deseado_pct: 0.15, activo: true },
 ]
 
 const DEFAULT_PROVEEDORES: ConfigProveedor[] = [
@@ -65,8 +69,8 @@ const DEFAULT_FORMATS = ['Garrafa', 'Caja', 'Bandeja', 'Bolsa/Malla', 'Bote', 'E
 export function useConfig(): AppConfig {
   const [canales, setCanales] = useState<ConfigCanal[]>(DEFAULT_CANALES)
   const [proveedores, setProveedores] = useState<ConfigProveedor[]>(DEFAULT_PROVEEDORES)
-  const [estructuraPct, setEstructuraPct] = useState(30)
-  const [margenPct, setMargenPct] = useState(15)
+  const [estructuraPct, setEstructuraPct] = useState(0.30)
+  const [margenPct, setMargenPct] = useState(0.15)
   const [categorias, setCategorias] = useState<string[]>(DEFAULT_CATS)
   const [unidades, setUnidades] = useState<string[]>(DEFAULT_UNS)
   const [unidadesStd, setUnidadesStd] = useState<string[]>(DEFAULT_UNS_STD)
@@ -89,9 +93,9 @@ export function useConfig(): AppConfig {
         if (canalRes.data && canalRes.data.length > 0) {
           setCanales(canalRes.data.map((c: any) => ({
             id: c.id, canal: c.canal,
-            comision_pct: c.comision_pct ?? 0,
+            comision_pct: normPct(c.comision_pct ?? 0),
             coste_fijo: c.coste_fijo ?? 0,
-            margen_deseado_pct: c.margen_deseado_pct ?? 15,
+            margen_deseado_pct: normPct(c.margen_deseado_pct ?? 0.15),
             activo: c.activo ?? true,
           })))
         }
@@ -106,9 +110,9 @@ export function useConfig(): AppConfig {
             map.set(r.clave, r.valor)
           }
           const e = map.get('estructura_pct')
-          if (e) setEstructuraPct(parseFloat(e))
+          if (e) setEstructuraPct(normPct(parseFloat(e)))
           const m = map.get('margen_deseado_pct')
-          if (m) setMargenPct(parseFloat(m))
+          if (m) setMargenPct(normPct(parseFloat(m)))
           try {
             const cats = JSON.parse(map.get('categorias') || '[]')
             if (Array.isArray(cats) && cats.length) setCategorias(cats)
@@ -156,61 +160,3 @@ export function useConfig(): AppConfig {
   }
 }
 
-/** Calcula waterfall para un canal concreto. margen_deseado viene del canal (no global) */
-export function calcWaterfall(
-  costeRac: number,
-  pvp: number,
-  comisionPct: number,
-  costeFijo: number,
-  estructuraPct: number,
-  margenDeseadoPct: number,
-) {
-  // Normaliza: acepta tanto 30 (%) como 0.30 (decimal)
-  const com = comisionPct > 1 ? comisionPct / 100 : comisionPct
-  const estr = estructuraPct > 1 ? estructuraPct / 100 : estructuraPct
-  const margenD = margenDeseadoPct > 1 ? margenDeseadoPct / 100 : margenDeseadoPct
-
-  const neto = pvp > 0 ? pvp / 1.1 : 0
-  const costeMP = costeRac
-  const costeEstructura = estr * neto
-  const costePlatR = pvp * com + costeFijo
-  const costePlatC = pvp * com * 1.21 + costeFijo
-  const costeTotalR = costeMP + costeEstructura + costePlatR
-  const costeTotalC = costeMP + costeEstructura + costePlatC
-
-  const denomR = 1 - estr - com - margenD
-  const denomC = 1 - estr - com * 1.21 - margenD
-  const pvpRecR = denomR > 0 ? (costeMP * 1.1) / denomR : 0
-  const pvpRecC = denomC > 0 ? (costeMP * 1.1) / denomC : 0
-
-  const k = costeMP > 0 && pvp > 0 ? pvp / costeMP : 0
-
-  const margenR = neto - costeTotalR
-  const margenC = neto - costeTotalC
-  const pctMargenR = neto > 0 ? (margenR / neto) * 100 : 0
-  const pctMargenC = neto > 0 ? (margenC / neto) * 100 : 0
-
-  // IVA neto = (PVP - PVP×comision%×1.21)/1.1 × 0.10 - PVP×comision%×0.21
-  const ivaNeto = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 - pvp * com * 0.21 : 0
-  const provIva = pvp * com * 0.21
-  const ivaRepercutido = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 : 0
-  const ivaSoportado = provIva
-
-  // Margen deseado en € (objetivo): pvp × margenD (mismo target para Real y Cash)
-  const margenDeseadoR = pvp * margenD
-  const margenDeseadoC = pvp * margenD
-
-  return {
-    neto, costeMP, costeEstructura,
-    costePlatR, costePlatC,
-    costeTotalR, costeTotalC,
-    pvpRecR, pvpRecC,
-    k,
-    margenR, margenC,
-    pctMargenR, pctMargenC,
-    ivaNeto, provIva,
-    ivaRepercutido, ivaSoportado,
-    margenDeseadoR, margenDeseadoC,
-    margenDeseadoPct,
-  }
-}
