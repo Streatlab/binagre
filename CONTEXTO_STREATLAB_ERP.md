@@ -22,6 +22,32 @@
 - NUNCA usar @/integrations/supabase/client → siempre @/lib/supabase
 - Siempre terminar con: git add . && git commit -m "..." && git push origin master
 
+## Cuando Rubén diga "estoy en casa" o "estoy en el bar":
+
+**EN CASA:**
+```
+cd C:\streatlab-erp && git pull origin master && claude --dangerously-skip-permissions
+```
+
+**EN EL BAR:**
+```
+cd C:\Users\ruben\streatlab-erp && git pull origin master && claude --dangerously-skip-permissions
+```
+
+Después de arrancar Claude Code, dile:
+```
+cat CONTEXTO_STREATLAB_ERP.md
+```
+
+Para el siguiente chat web, dile a Rubén que pegue esto al inicio:
+```
+Lee el contexto antes de empezar: https://streatlab-erp.vercel.app/CONTEXTO_STREATLAB_ERP.md
+```
+O si no funciona Vercel:
+```
+https://gist.githubusercontent.com/Streatlab/5c4164392ba1dc220c897fda6a3adf96/raw/CONTEXTO_STREATLAB_ERP.md
+```
+
 ---
 
 # CONTEXTO STREAT LAB ERP — Actualizado 2026-04-21
