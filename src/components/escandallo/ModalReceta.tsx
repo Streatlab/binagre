@@ -4,12 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
-import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
+import { UNIDADES, thCls, tdCls, n } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
 // Token styles from design system
-const labelStyle = (isDark?: boolean): CSSProperties => ({
+const labelStyle = (_isDark?: boolean): CSSProperties => ({
   fontFamily: 'Oswald, sans-serif',
   fontSize: 10,
   fontWeight: 700,

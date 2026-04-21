@@ -60,7 +60,6 @@ const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow }[
   { id: 'web',   label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto' },
 ]
 
-const CANAL_OPTIONS: CanalFilter[] = ['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web']
 const SERVICIOS = ['ALM', 'CENAS'] as const
 const TABS: { key: Tab; label: string }[] = [
   { key: 'diario', label: 'Diario' },
@@ -208,7 +207,7 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
 export default function Facturacion() {
   const { T, isDark } = useTheme()
   const [tab, setTab] = useState<Tab>('diario')
-  const [canal, setCanal] = useState<CanalFilter>('Todos')
+  const [canal, _setCanal] = useState<CanalFilter>('Todos')
   const [servicioFiltro, setServicioFiltro] = useState<string>('Todos')
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
   const [canalFilterSelected, setCanalFilterSelected] = useState<string[]>(['Todos'])
