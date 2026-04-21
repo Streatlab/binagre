@@ -179,19 +179,8 @@ const SECTIONS: NavSection[] = [
 // ─── LogoSL ───────────────────────────────────────────────────────────────────
 
 function LogoSL() {
-  const { T, isDark } = useTheme()
   return (
-    <div style={{
-      width: 32, height: 32, borderRadius: 8,
-      background: T.emphasis,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: FONT.heading,
-      fontSize: 14, fontWeight: 700, letterSpacing: '1px',
-      color: isDark ? '#0d1120' : '#ffffff',
-      flexShrink: 0,
-    }}>
-      SL
-    </div>
+    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e8f442', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: '#0d1120', flexShrink: 0 }}>SL</div>
   )
 }
 
@@ -203,7 +192,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
-  const activeTextColor = isDark ? '#1a1a00' : '#ffffff'
+  const activeTextColor = '#0d1120'
   const hoverBg = isDark ? T.card : T.group
 
   // FIFO accordion: max 2 sections open simultaneously
@@ -230,8 +219,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     borderRadius: 6,
     fontFamily: FONT.body,
     fontSize: 13,
-    color: isActive ? activeTextColor : T.sec,
-    background: isActive ? T.emphasis : 'transparent',
+    color: isActive ? '#0d1120' : T.sec,
+    background: isActive ? '#e8f442' : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -283,11 +272,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => ({ ...itemStyle(isActive), paddingLeft: 16, fontFamily: FONT.heading, fontSize: '0.8rem', letterSpacing: '1px', textTransform: 'uppercase' as const })}>
+                style={({ isActive }) => itemStyle(isActive)}>
                 {({ isActive }) => (
                   <>
-                    <span style={{ fontSize: 16 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ color: isActive ? activeTextColor : T.pri }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#0d1120' : T.sec }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
