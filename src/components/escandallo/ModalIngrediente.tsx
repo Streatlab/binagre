@@ -31,19 +31,20 @@ import type { Ingrediente, Merma } from './types'
 
 interface Props {
   ingrediente: Ingrediente | null
+  initialNombre?: string
   onClose: () => void
   onSaved: () => void
   onDelete?: () => void
   onOpenMerma?: (m: Merma | null) => void
 }
 
-export default function ModalIngrediente({ ingrediente, onClose, onSaved, onDelete, onOpenMerma }: Props) {
+export default function ModalIngrediente({ ingrediente, initialNombre, onClose, onSaved, onDelete, onOpenMerma }: Props) {
   const isEdit = !!ingrediente
   const cfg = useConfig()
   const [f, setF] = useState({
     iding: ingrediente?.iding ?? '',
     categoria: ingrediente?.categoria ?? '',
-    nombre_base: ingrediente?.nombre_base ?? '',
+    nombre_base: ingrediente?.nombre_base ?? initialNombre ?? '',
     abv: ingrediente?.abv ?? '',
     nombre: ingrediente?.nombre ?? '',
     marca: ingrediente?.marca ?? '',
