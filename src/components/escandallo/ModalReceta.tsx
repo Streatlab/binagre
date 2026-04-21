@@ -92,7 +92,7 @@ function computeWaterfall(costeMP: number, pvp: number, comision: number, estruc
 export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
   const [nombre, setNombre] = useState(receta?.nombre ?? '')
-  const [categoria, setCategoria] = useState('')
+  const [categoria, setCategoria] = useState(receta?.categoria ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(receta?.unidad ?? 'Ración')
@@ -200,7 +200,7 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         pvp_uber: pvpGlobal, pvp_glovo: pvpGlobal, pvp_je: pvpGlobal, pvp_web: pvpGlobal, pvp_directa: pvpGlobal,
       }
       const record = {
-        nombre, raciones,
+        nombre, categoria: categoria || null, raciones,
         tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: fecha || null,
         coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord,
       }
