@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useState, type ReactElement } from 'react'
-import { Calculator } from 'lucide-react'
+import { Calculator, Package } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { useTheme } from '../contexts/ThemeContext'
@@ -58,7 +58,7 @@ const SUBITEM_ICONS: Record<string, ReactElement> = {
   'Organigrama':       <svg {...svgProps}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   'División Órgano Trabajo':<svg {...svgProps}><rect x="2" y="7" width="20" height="14" rx="2"/><polyline points="16 21 12 17 8 21"/><path d="M12 17V3"/></svg>,
   // Stock
-  'Inventario':        <svg {...svgProps}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  'Inventario':        <Package size={14} strokeWidth={1.5} style={{ color: 'currentColor' }} />,
   'Almacén':           <svg {...svgProps}><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
   'Stock Mínimo Alertas':<svg {...svgProps}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   'Movimientos Stock': <svg {...svgProps}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>,
