@@ -179,8 +179,9 @@ const SECTIONS: NavSection[] = [
 // ─── LogoSL ───────────────────────────────────────────────────────────────────
 
 function LogoSL() {
+  const { T, isDark } = useTheme()
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e8f442', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: '#0d1120', flexShrink: 0 }}>SL</div>
+    <div style={{ width: 32, height: 32, borderRadius: 8, background: T.emphasis, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: isDark ? '#0d1120' : '#ffffff', flexShrink: 0 }}>SL</div>
   )
 }
 
@@ -192,7 +193,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
-  const activeTextColor = '#0d1120'
+  const activeTextColor = isDark ? '#0d1120' : '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
   // FIFO accordion: max 2 sections open simultaneously
@@ -219,8 +220,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     borderRadius: 6,
     fontFamily: FONT.body,
     fontSize: 13,
-    color: isActive ? '#0d1120' : T.sec,
-    background: isActive ? '#e8f442' : 'transparent',
+    color: isActive ? activeTextColor : T.sec,
+    background: isActive ? T.emphasis : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
