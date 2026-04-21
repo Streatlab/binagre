@@ -10,10 +10,7 @@ export default function Login() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (pin.length !== 4) {
-      setError('El PIN debe tener 4 dígitos')
-      return
-    }
+    if (pin.length !== 4) { setError('El PIN debe tener 4 dígitos'); return }
     setLoading(true)
     setError('')
     const err = await login(nombre.trim(), pin)
@@ -21,25 +18,48 @@ export default function Login() {
     setLoading(false)
   }
 
+  const inputStyle = (focused: boolean): React.CSSProperties => ({
+    fontFamily: 'Lexend, sans-serif',
+    fontSize: 13,
+    backgroundColor: '#1e1e1e',
+    border: `1px solid ${focused ? '#e8f442' : '#383838'}`,
+    borderRadius: 6,
+    padding: '8px 10px',
+    color: '#ffffff',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  })
+
+  const [focusNombre, setFocusNombre] = useState(false)
+  const [focusPin, setFocusPin] = useState(false)
+
   return (
-    <div className="min-h-screen bg-base flex items-center justify-center p-4 font-sans">
+    <div style={{ minHeight: '100vh', backgroundColor: '#111111', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-xs bg-[var(--sl-card)] border border-border rounded-xl p-6 space-y-5"
+        style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 28, width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 20 }}
       >
-        <div className="text-center">
-          <h1 className="text-[var(--sl-text-primary)] font-bold text-2xl tracking-tight">Streat Lab</h1>
-          <p className="text-[var(--sl-text-secondary)] text-sm mt-1">Acceso ERP</p>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#ffffff', letterSpacing: '3px', textTransform: 'uppercase', margin: 0 }}>
+            STREAT LAB
+          </h1>
+          <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#999999', marginTop: 4, marginBottom: 0 }}>
+            Acceso ERP
+          </p>
         </div>
 
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input
             type="text"
             placeholder="Nombre"
             value={nombre}
             onChange={e => setNombre(e.target.value)}
+            onFocus={() => setFocusNombre(true)}
+            onBlur={() => setFocusNombre(false)}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[var(--sl-text-primary)] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors"
+            style={inputStyle(focusNombre)}
           />
           <input
             type="password"
@@ -48,21 +68,25 @@ export default function Login() {
             placeholder="PIN (4 dígitos)"
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onFocus={() => setFocusPin(true)}
+            onBlur={() => setFocusPin(false)}
             required
-            className="w-full bg-base border border-border rounded-lg px-3 py-2.5 text-sm text-[var(--sl-text-primary)] placeholder-neutral-600 focus:outline-none focus:border-accent transition-colors tracking-[0.5em] text-center"
+            style={{ ...inputStyle(focusPin), letterSpacing: '0.5em', textAlign: 'center' }}
           />
         </div>
 
         {error && (
-          <p className="text-[#dc2626] text-xs text-center">{error}</p>
+          <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#cc4444', textAlign: 'center', margin: 0 }}>
+            {error}
+          </p>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-accent text-base font-semibold rounded-lg py-2.5 text-sm hover:brightness-110 transition disabled:opacity-50"
+          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, backgroundColor: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, padding: '10px 0', width: '100%', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, letterSpacing: '1px', textTransform: 'uppercase', transition: 'filter 0.15s' }}
         >
-          {loading ? 'Entrando...' : 'Entrar'}
+          {loading ? 'Entrando…' : 'Entrar'}
         </button>
       </form>
     </div>
