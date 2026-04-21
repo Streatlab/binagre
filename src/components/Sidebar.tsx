@@ -86,7 +86,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'stock', emoji: '📦', label: 'Stock & Compras', perfiles: ['admin'],
     items: [
-      { path: '/stock/inventario',        label: 'Inventario',            emoji: '🏪', perfiles: ['admin'] },
+      { path: '/stock/inventario',        label: 'Inventario',            emoji: '📦', perfiles: ['admin'] },
       { path: '/stock/almacen',           label: 'Almacén',               emoji: '🏭', perfiles: ['admin'] },
       { path: '/stock/minimo',            label: 'Stock Mínimo Alertas',  emoji: '⚠️', perfiles: ['admin'] },
       { path: '/stock/movimientos',       label: 'Movimientos Stock',     emoji: '🔄', perfiles: ['admin'] },
