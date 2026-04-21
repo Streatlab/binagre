@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useState, type ReactElement } from 'react'
+import { Calculator } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { useTheme } from '../contexts/ThemeContext'
@@ -31,7 +32,7 @@ const SUBITEM_ICONS: Record<string, ReactElement> = {
   'Remesas':           <svg {...svgProps}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>,
   'Running Financiero':<svg {...svgProps}><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>,
   // Cocina
-  'Escandallo':        <svg {...svgProps}><path d="M3 6h18"/><path d="M7 6v14M17 6v14"/><path d="M3 12h18"/></svg>,
+  'Escandallo':        <Calculator size={14} strokeWidth={1.5} style={{ color: 'currentColor' }} />,
   'Ingredientes':      <svg {...svgProps}><path d="M12 2a10 10 0 010 20"/><path d="M12 2c-3 0-6 4-6 10s3 10 6 10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>,
   'EPS':               <svg {...svgProps}><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
   'Recetas':           <svg {...svgProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
