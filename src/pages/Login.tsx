@@ -1,59 +1,112 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
+
+const BG = '#f5f3ef'
+const CARD = '#ffffff'
+const BRD = '#d0c8bc'
+const PRI = '#111111'
+const MUT = '#7a8090'
+const RED = '#B01D23'
+const FONT_BODY = 'Lexend, sans-serif'
+const FONT_HEADING = 'Oswald, sans-serif'
 
 export default function Login() {
   const { login } = useAuth()
   const [nombre, setNombre] = useState('')
-  const [pin, setPin] = useState('')
+  const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusNombre, setFocusNombre] = useState(false)
+  const [focusPinIdx, setFocusPinIdx] = useState<number | null>(null)
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const pinValue = pin.join('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (pin.length !== 4) { setError('El PIN debe tener 4 dígitos'); return }
+    if (pinValue.length !== 4) { setError('El PIN debe tener 4 dígitos'); return }
     setLoading(true)
     setError('')
-    const err = await login(nombre.trim(), pin)
+    const err = await login(nombre.trim(), pinValue)
     if (err) setError(err)
     setLoading(false)
   }
 
-  const inputStyle = (focused: boolean): React.CSSProperties => ({
-    fontFamily: 'Lexend, sans-serif',
+  const handlePinChange = (idx: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1)
+    const next = [...pin]
+    next[idx] = digit
+    setPin(next)
+    if (digit && idx < 3) pinRefs.current[idx + 1]?.focus()
+  }
+
+  const handlePinKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !pin[idx] && idx > 0) {
+      pinRefs.current[idx - 1]?.focus()
+    }
+  }
+
+  const labelStyle: CSSProperties = {
+    fontFamily: FONT_HEADING,
+    fontSize: 10,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+    color: MUT,
+    marginBottom: 6,
+    display: 'block',
+  }
+
+  const inputStyle = (focused: boolean): CSSProperties => ({
+    fontFamily: FONT_BODY,
     fontSize: 13,
-    backgroundColor: '#1e1e1e',
-    border: `1px solid ${focused ? '#e8f442' : '#383838'}`,
-    borderRadius: 6,
-    padding: '8px 10px',
-    color: '#ffffff',
+    backgroundColor: CARD,
+    border: `1px solid ${focused ? RED : BRD}`,
+    borderRadius: 8,
+    padding: '10px 12px',
+    color: PRI,
     outline: 'none',
     width: '100%',
     boxSizing: 'border-box',
     transition: 'border-color 0.15s',
   })
 
-  const [focusNombre, setFocusNombre] = useState(false)
-  const [focusPin, setFocusPin] = useState(false)
+  const pinInputStyle = (focused: boolean): CSSProperties => ({
+    fontFamily: FONT_BODY,
+    fontSize: 20,
+    backgroundColor: CARD,
+    border: `1px solid ${focused ? RED : BRD}`,
+    borderRadius: 8,
+    padding: '10px 0',
+    color: PRI,
+    outline: 'none',
+    width: '100%',
+    textAlign: 'center',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  })
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#111111', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ minHeight: '100vh', backgroundColor: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <form
         onSubmit={handleSubmit}
-        style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 28, width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 20 }}
+        style={{ backgroundColor: CARD, border: `0.5px solid ${BRD}`, borderRadius: 16, padding: 32, width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 20 }}
       >
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#ffffff', letterSpacing: '3px', textTransform: 'uppercase', margin: 0 }}>
-            STREAT LAB
-          </h1>
-          <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#999999', marginTop: 4, marginBottom: 0 }}>
+          <img
+            src="/data/STREAT LAB LOGO-04.jpg"
+            alt="STREAT LAB"
+            style={{ maxWidth: 180, width: '100%', height: 'auto', display: 'block', margin: '0 auto' }}
+          />
+          <p style={{ fontFamily: FONT_HEADING, fontSize: 10, color: MUT, letterSpacing: '2px', textTransform: 'uppercase', marginTop: 12, marginBottom: 0 }}>
             Acceso ERP
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <label style={labelStyle}>Usuario</label>
           <input
             type="text"
-            placeholder="Nombre"
             value={nombre}
             onChange={e => setNombre(e.target.value)}
             onFocus={() => setFocusNombre(true)}
@@ -61,22 +114,31 @@ export default function Login() {
             required
             style={inputStyle(focusNombre)}
           />
-          <input
-            type="password"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="PIN (4 dígitos)"
-            value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            onFocus={() => setFocusPin(true)}
-            onBlur={() => setFocusPin(false)}
-            required
-            style={{ ...inputStyle(focusPin), letterSpacing: '0.5em', textAlign: 'center' }}
-          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>PIN</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {pin.map((digit, idx) => (
+              <input
+                key={idx}
+                ref={el => { pinRefs.current[idx] = el }}
+                type="password"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={e => handlePinChange(idx, e.target.value)}
+                onKeyDown={e => handlePinKeyDown(idx, e)}
+                onFocus={() => setFocusPinIdx(idx)}
+                onBlur={() => setFocusPinIdx(null)}
+                style={pinInputStyle(focusPinIdx === idx)}
+              />
+            ))}
+          </div>
         </div>
 
         {error && (
-          <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#cc4444', textAlign: 'center', margin: 0 }}>
+          <p style={{ fontFamily: FONT_BODY, fontSize: 12, color: RED, textAlign: 'center', margin: 0 }}>
             {error}
           </p>
         )}
@@ -84,7 +146,22 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, backgroundColor: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, padding: '10px 0', width: '100%', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, letterSpacing: '1px', textTransform: 'uppercase', transition: 'filter 0.15s' }}
+          style={{
+            fontFamily: FONT_HEADING,
+            fontSize: 14,
+            fontWeight: 700,
+            backgroundColor: RED,
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '12px 0',
+            width: '100%',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.5 : 1,
+            letterSpacing: '2px',
+            textTransform: 'uppercase',
+            transition: 'filter 0.15s',
+          }}
         >
           {loading ? 'Entrando…' : 'Entrar'}
         </button>
