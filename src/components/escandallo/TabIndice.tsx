@@ -17,7 +17,6 @@ type Kind = 'EPS' | 'REC'
 type FiltroKind = 'todos' | 'eps' | 'recetas'
 
 export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenEps, onOpenReceta }: Props) {
-  const cfg = useConfig()
   const { T, isDark } = useTheme()
   const [filtro, setFiltro] = useState<FiltroKind>('todos')
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})

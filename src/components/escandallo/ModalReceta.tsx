@@ -8,6 +8,30 @@ import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 
 interface Props { receta: Receta | null; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
+// Token styles from design system
+const labelStyle = (isDark?: boolean): CSSProperties => ({
+  fontFamily: 'Oswald, sans-serif',
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '2px',
+  color: 'var(--sl-text-muted)',
+  marginBottom: 6,
+})
+
+const inputStyle: CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  background: 'var(--sl-input-bg)',
+  border: '1px solid var(--sl-border)',
+  borderRadius: 4,
+  fontFamily: 'Lexend, sans-serif',
+  fontSize: 13,
+  color: 'var(--sl-text-primary)',
+  outline: 'none',
+  transition: 'border-color 200ms',
+}
+
 // Colores fijos por canal (no cambian con el tema — son marca)
 const CHANNELS = [
   { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: '#06C167', fg: '#ffffff' },
@@ -68,10 +92,12 @@ function computeWaterfall(costeMP: number, pvp: number, comision: number, estruc
 export default function ModalReceta({ receta, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
   const [nombre, setNombre] = useState(receta?.nombre ?? '')
+  const [categoria, setCategoria] = useState('')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(receta?.unidad ?? 'Ración')
   const [fecha, setFecha] = useState(receta?.fecha ?? '')
+  const [categorias, setCategorias] = useState<string[]>([])
 
   // PVP único — el mismo valor propaga a todos los canales
   const [pvpGlobal, setPvpGlobal] = useState<number>(() => {
@@ -100,6 +126,22 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
       setDeleting(false)
     }
   }
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await supabase.from('configuracion').select('valor').eq('clave', 'categorias_recetas').single()
+        if (!cancelled && data?.valor) {
+          const cats = JSON.parse(data.valor)
+          setCategorias(Array.isArray(cats) ? cats : [])
+        }
+      } catch (e) {
+        console.warn('Error cargando categorías:', e)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (!receta) return
@@ -237,29 +279,36 @@ export default function ModalReceta({ receta, ingredientes, epsList, onClose, on
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Cabecera */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-            <div className="sm:col-span-2">
-              <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Nombre</label>
-              <input className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Smash Burger" />
+          {/* Cabecera — una línea: CATEGORÍA · NOMBRE · RACIONES · TAMAÑO RAC · UNIDAD · FECHA */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: '0 0 160px' }}>
+              <label style={labelStyle()}>Categoría</label>
+              <select style={inputStyle} value={categoria} onChange={e => setCategoria(e.target.value)}>
+                <option value="">Sin categoría</option>
+                {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Raciones</label>
-              <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => setRaciones(parseFloat(e.target.value) || 1)} />
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle()}>Nombre</label>
+              <input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Smash Burger" />
             </div>
-            <div>
-              <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Tamaño rac</label>
-              <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => setTamanoRac(parseFloat(e.target.value) || 0)} />
+            <div style={{ flex: '0 0 80px' }}>
+              <label style={labelStyle()}>Raciones</label>
+              <input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => setRaciones(parseFloat(e.target.value) || 1)} />
             </div>
-            <div>
-              <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Unidad</label>
-              <select className={inputCls} value={unidad} onChange={e => setUnidad(e.target.value)}>
+            <div style={{ flex: '0 0 80px' }}>
+              <label style={labelStyle()}>Tamaño rac</label>
+              <input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => setTamanoRac(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div style={{ flex: '0 0 90px' }}>
+              <label style={labelStyle()}>Unidad</label>
+              <select style={inputStyle} value={unidad} onChange={e => setUnidad(e.target.value)}>
                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div>
-              <label className="block text-sm text-[var(--sl-text-secondary)] mb-1 uppercase tracking-wider">Fecha</label>
-              <input type="date" className={inputCls} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
+            <div style={{ flex: '0 0 140px' }}>
+              <label style={labelStyle()}>Fecha</label>
+              <input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => setFecha(e.target.value)} />
             </div>
           </div>
 
