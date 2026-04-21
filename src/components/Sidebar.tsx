@@ -180,9 +180,8 @@ const SECTIONS: NavSection[] = [
 // ─── LogoSL ───────────────────────────────────────────────────────────────────
 
 function LogoSL() {
-  const { T, isDark } = useTheme()
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 8, background: T.emphasis, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald,sans-serif', fontSize: 13, fontWeight: 700, color: isDark ? '#0d1120' : '#ffffff', flexShrink: 0 }}>SL</div>
+    <img src="/loco-icon.svg.svg" alt="Streat Lab" style={{ height: 32, width: 32, objectFit: 'contain', flexShrink: 0 }} />
   )
 }
 
@@ -194,7 +193,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
-  const activeTextColor = isDark ? '#0d1120' : '#ffffff'
+  const activeTextColor = '#1a1a1a'
+  const activeBg = '#e8f442'
   const hoverBg = isDark ? T.card : T.group
 
   // FIFO accordion: max 2 sections open simultaneously
@@ -222,7 +222,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     fontFamily: FONT.body,
     fontSize: 13,
     color: isActive ? activeTextColor : T.sec,
-    background: isActive ? T.emphasis : 'transparent',
+    background: isActive ? activeBg : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -269,16 +269,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             collapsed ? (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose} title={PANEL_GLOBAL.label}
                 className="flex items-center justify-center transition-colors"
-                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}>
+                style={({ isActive }) => ({ width: 56, height: 44, fontSize: 20, color: isActive ? T.emphasis : T.sec, background: isActive ? activeBg + '1f' : 'transparent' })}>
                 {PANEL_GLOBAL.emoji}
               </NavLink>
             ) : (
               <NavLink to={PANEL_GLOBAL.path} end onClick={onClose}
-                style={({ isActive }) => itemStyle(isActive)}>
+                style={({ isActive }) => ({
+                  ...itemStyle(isActive),
+                  margin: '1px 8px 1px 0',
+                  padding: '8px 8px 8px 12px',
+                })}>
                 {({ isActive }) => (
                   <>
                     <span style={{ fontSize: 14, flexShrink: 0 }}>{PANEL_GLOBAL.emoji}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#0d1120' : T.sec }}>{PANEL_GLOBAL.label}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>{PANEL_GLOBAL.label}</span>
                   </>
                 )}
               </NavLink>
@@ -350,7 +354,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={onClose}
                     title={item.label}
                     className="flex items-center justify-center transition-colors"
-                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? T.emphasis : T.sec, background: isActive ? T.emphasis + '1f' : 'transparent' })}
+                    style={({ isActive }) => ({ width: 56, height: 40, fontSize: 16, color: isActive ? T.emphasis : T.sec, background: isActive ? activeBg + '1f' : 'transparent' })}
                   >
                     {item.emoji}
                   </NavLink>
