@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
+import GlobalSearch from '@/components/GlobalSearch'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -20,12 +21,26 @@ export default function Layout() {
             </svg>
           </button>
           <span className="ml-3 text-[var(--sl-text-primary)] text-sm" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.08em' }}>STREAT LAB · ERP</span>
+          <button
+            onClick={() => {
+              const ev = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })
+              window.dispatchEvent(ev)
+            }}
+            className="ml-auto text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] flex items-center gap-1"
+            style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <span className="hidden sm:inline">Buscar</span>
+          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />
         </main>
       </div>
+      <GlobalSearch />
     </div>
   )
 }

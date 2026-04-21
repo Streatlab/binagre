@@ -62,6 +62,24 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
+  const exportCSV = () => {
+    const headers = ['IDING', 'Categoría', 'Nombre Base', 'ABV', 'Nombre', 'Proveedor', 'Marca', 'Formato', 'UDS', 'UD STD', 'UD MIN', 'Precio']
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [
+      headers.map(esc).join(';'),
+      ...filtered.map(i => [
+        i.iding, i.categoria, i.nombre_base, i.abv, i.nombre,
+        getProveedor(i.abv), i.marca, i.formato,
+        fmt(i.uds), i.ud_std, i.ud_min,
+        fmt(i.precio_activo ?? i.ultimo_precio),
+      ].map(esc).join(';')),
+    ]
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'ingredientes.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const thStyle: CSSProperties = {
     fontFamily: FONT.heading,
     fontSize: 11,
@@ -90,6 +108,9 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
         <Counter label="EN USO" value={enUso} valueClass="eps" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
         <Counter label="SIN USO" value={sinUso} valueClass="rec" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        <button onClick={exportCSV} style={{ marginLeft: onNew ? 0 : 'auto', background: '#222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.5px', cursor: 'pointer' }}>
+          ↓ CSV
+        </button>
         {onNew && (
           <button onClick={onNew} className="ds-btn-add ml-auto">+ Nuevo Ingrediente</button>
         )}

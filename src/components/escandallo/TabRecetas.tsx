@@ -71,6 +71,28 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
     whiteSpace: 'nowrap',
   }
 
+  const exportCSV = () => {
+    const headers = ['Código', 'Nombre', 'Categoría', 'Raciones', 'Tamaño', 'Unidad', 'Coste Tanda', 'Coste/Rac', 'PVP UE', 'Margen %', 'Fecha']
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [
+      headers.map(esc).join(';'),
+      ...filtered.map(r => {
+        const m = margenUber(r)
+        return [
+          r.codigo, r.nombre, r.categoria, r.raciones, r.tamano_rac, r.unidad,
+          fmtEurES(r.coste_tanda, 2), fmtEurES(r.coste_rac, 2),
+          fmtEurES(r.pvp_uber, 2),
+          n(r.pvp_uber) > 0 ? m.toFixed(2) + '%' : '',
+          r.fecha ?? '',
+        ].map(esc).join(';')
+      }),
+    ]
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'recetas.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-4">
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -78,6 +100,9 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
           <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut }}>TOTAL</span>
           <span style={{ fontFamily: FONT.heading, fontSize: 22, color: T.pri }}>{recetasList.length}</span>
         </div>
+        <button onClick={exportCSV} style={{ background: '#222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.5px', cursor: 'pointer' }}>
+          ↓ CSV
+        </button>
         {onNew && <button onClick={onNew} className="ds-btn-add" style={{ marginLeft: 'auto' }}>+ Nueva Receta</button>}
       </div>
 
