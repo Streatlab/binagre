@@ -203,7 +203,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
-  const activeTextColor = isDark ? '#0d1120' : '#ffffff'
+  const activeTextColor = isDark ? '#1a1a00' : '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
   // FIFO accordion: max 2 sections open simultaneously
