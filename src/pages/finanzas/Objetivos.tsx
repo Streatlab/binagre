@@ -364,7 +364,13 @@ export default function Objetivos() {
               let diaColor = T.sec
               if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
               else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
-              if (hoyFlag) { rowBg = '#FF475710'; rowBorderLeft = '3px solid #FF4757'; diaColor = '#FF4757' }
+              // HOY: mantiene fondo finde/festivo pero sobrescribe borde y añade ring
+              const hoyRing = hoyFlag ? `inset 0 0 0 1.5px #FF4757` : 'none'
+              if (hoyFlag) {
+                rowBorderLeft = '3px solid #FF4757'
+                // NO tocar rowBg: mantiene el del finde/festivo si aplica
+                // NO tocar diaColor: mantiene color finde/festivo para coherencia
+              }
 
               const fecha = fechaDia(dia)
               const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
@@ -382,22 +388,24 @@ export default function Objetivos() {
                   borderLeft: rowBorderLeft,
                   borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
                   borderRadius: hoyFlag ? 8 : 0,
+                  boxShadow: hoyRing,
+                  position: 'relative',
                 }}>
                   <div>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#FF4757' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
                       {NOMBRES_DIA[dia - 1]}
                     </div>
-                    <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? diaColor : T.mut, marginTop: 1, fontWeight: hoyFlag ? 500 : 400 }}>
+                    <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#FF4757' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400 }}>
                       {fechaStr}{hoyFlag ? ' · HOY' : ''}
                     </div>
                   </div>
                   <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
-                    {importe > 0 && ventasDia > 0 && (
+                    {importe > 0 ? (
                       <>
                         <div style={{ height: 5, background: col, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
                         <div style={{ height: 5, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                       </>
-                    )}
+                    ) : null}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     {editingId === editId ? (
@@ -416,7 +424,7 @@ export default function Objetivos() {
                     ) : (
                       <span
                         onClick={() => { setEditingId(editId); setEditValue(String(importe)) }}
-                        style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#FF4757' : T.pri, cursor: 'pointer' }}
+                        style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: T.pri, cursor: 'pointer' }}
                       >
                         {fmtEur(importe)}
                       </span>
@@ -425,6 +433,34 @@ export default function Objetivos() {
                 </div>
               )
             })}
+          </div>
+
+          {/* FOOTER: Suma semanal de días */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '70px 1fr 90px',
+            alignItems: 'center',
+            gap: 14,
+            padding: '14px 14px 2px',
+            margin: '8px -14px 0',
+            borderTop: `1px solid ${T.brd}`,
+          }}>
+            <div>
+              <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: T.pri, textTransform: 'uppercase', fontWeight: 700 }}>
+                Total
+              </div>
+              <div style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginTop: 1 }}>
+                Suma semana
+              </div>
+            </div>
+            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, textAlign: 'left' }}>
+              {objSemanalOverride !== undefined && objSemanalOverride !== sumaSemana && (
+                <span style={{ color: '#f5a623', fontWeight: 500 }}>Override activo · suma natural {fmtEur(sumaSemana)}</span>
+              )}
+            </div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: T.pri, textAlign: 'right' }}>
+              {fmtEur(sumaSemana)}
+            </div>
           </div>
         </div>
 
