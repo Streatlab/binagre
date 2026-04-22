@@ -30,6 +30,7 @@ interface AggRow {
   glovo_pedidos: number; glovo_bruto: number
   je_pedidos: number; je_bruto: number
   web_pedidos: number; web_bruto: number
+  directa_pedidos: number; directa_bruto: number
   total_pedidos: number; total_bruto: number
 }
 
@@ -57,11 +58,12 @@ type CanalFilter = 'Todos' | 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web'
    CONSTANTS
    ═══════════════════════════════════════════════════════════ */
 
-const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow }[] = [
-  { id: 'uber',  label: 'Uber Eats', ped: 'uber_pedidos',  bru: 'uber_bruto' },
-  { id: 'glovo', label: 'Glovo',     ped: 'glovo_pedidos', bru: 'glovo_bruto' },
-  { id: 'je',    label: 'Just Eat',  ped: 'je_pedidos',    bru: 'je_bruto' },
-  { id: 'web',   label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto' },
+const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow; color: string; bg: string }[] = [
+  { id: 'uber',  label: 'Uber Eats', ped: 'uber_pedidos',  bru: 'uber_bruto',  color: '#06C167', bg: '#06C16710' },
+  { id: 'glovo', label: 'Glovo',     ped: 'glovo_pedidos', bru: 'glovo_bruto', color: '#8a7800', bg: '#e8f44210' },
+  { id: 'je',    label: 'Just Eat',  ped: 'je_pedidos',    bru: 'je_bruto',    color: '#f5a623', bg: '#f5a62310' },
+  { id: 'web',   label: 'Web',       ped: 'web_pedidos',   bru: 'web_bruto',   color: '#B01D23', bg: '#B01D2310' },
+  { id: 'dir',   label: 'Directa',   ped: 'directa_pedidos' as keyof AggRow, bru: 'directa_bruto' as keyof AggRow, color: '#66aaff', bg: '#66aaff10' },
 ]
 
 const SERVICIOS = ['ALM', 'CENAS'] as const
@@ -103,6 +105,7 @@ function aggregate(rows: RawDiario[]): AggRow {
   const a: AggRow = {
     uber_pedidos: 0, uber_bruto: 0, glovo_pedidos: 0, glovo_bruto: 0,
     je_pedidos: 0, je_bruto: 0, web_pedidos: 0, web_bruto: 0,
+    directa_pedidos: 0, directa_bruto: 0,
     total_pedidos: 0, total_bruto: 0,
   }
   for (const r of rows) {
@@ -511,89 +514,100 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
 
   return (
     <>
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <select value={mesFilter} onChange={e => setMesFilter(e.target.value)}
-          style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}>
-          <option value="todos">Todos los meses</option>
-          {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <button onClick={exportar}
-          style={{ padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
-          Exportar CSV
-        </button>
-        <button onClick={onAdd}
-          className="ml-auto px-4 py-2 bg-accent text-black text-sm font-semibold rounded-lg hover:brightness-110 transition">
-          ＋ Anadir dia
-        </button>
-      </div>
-
-      {/* Summary strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
-        <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
-        <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
-      </div>
-
-      {/* Table */}
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
-            <thead>
-              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Fecha</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Serv.</th>
-                {COLS.map(c => (
-                  <Fragment key={c.label}>
-                    <th style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Ped</th>
-                    <th style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
-                  </Fragment>
-                ))}
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 600 }}>Ped</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, background: T.group, fontWeight: 600 }}>€</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }}>{fmtFechaCorta(r.fecha)}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
-                  {COLS.map(c => {
-                    const p = (r[c.ped] as number) || 0
-                    const b = (r[c.bru] as number) || 0
-                    return (
-                      <Fragment key={c.label}>
-                        <td style={{ padding: '8px 10px', textAlign: 'right', color: p > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
-                          {p > 0 ? Math.round(p) : <Dash />}
-                        </td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
-                          {b > 0 ? fmtEur(b) : <Dash />}
-                        </td>
-                      </Fragment>
-                    )
-                  })}
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }} colSpan={2}>TOTAL</td>
-                {COLS.map(c => (
-                  <Fragment key={c.label}>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(totals[c.ped] as number)}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(totals[c.bru] as number)}</td>
-                  </Fragment>
-                ))}
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{fmtInt(totals.total_pedidos)}</td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontFamily: 'monospace', fontSize: 13 }}>{fmtEur(totals.total_bruto)}</td>
-              </tr>
-            </tfoot>
-          </table>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <select value={mesFilter} onChange={e => setMesFilter(e.target.value)}
+            style={{ background: T.inp, color: T.pri, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 10px', fontSize: 13, fontFamily: FONT.body, cursor: 'pointer' }}>
+            <option value="todos">Todos los meses</option>
+            {mesesDisponibles.map(m => {
+              const [y, mm] = m.split('-')
+              return <option key={m} value={m}>{MES_NOMBRE[Number(mm)]} {y}</option>
+            })}
+          </select>
+          <button onClick={exportar}
+            style={{ padding: '6px 12px', fontSize: 12, color: T.sec, background: 'none', border: `0.5px solid ${T.brd}`, borderRadius: 8, cursor: 'pointer', fontFamily: FONT.body }}>
+            Exportar CSV
+          </button>
         </div>
-      </div>
+
+        {/* Summary strip + Añadir día en la misma línea */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto', gap: 12, marginBottom: 16, alignItems: 'stretch' }}>
+          <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
+          <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
+          <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
+          <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
+          <button onClick={onAdd}
+            style={{ padding: '0 20px', borderRadius: 10, background: '#FF4757', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            + Añadir día
+          </button>
+        </div>
+
+        {/* Table */}
+        <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
+              <thead>
+                <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                  <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Fecha</th>
+                  <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Serv.</th>
+                  {COLS.map(c => (
+                    <th key={c.label} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>
+                      {c.label}
+                    </th>
+                  ))}
+                  <th colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', background: T.group, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Total</th>
+                </tr>
+                <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                  {COLS.map(c => (
+                    <Fragment key={c.label}>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>Ped</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', background: c.bg, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>€</th>
+                    </Fragment>
+                  ))}
+                  <th style={{ padding: '6px 8px', textAlign: 'center', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>Ped</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', background: T.group, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>€</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{fmtFechaCorta(r.fecha)}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
+                    {COLS.map(c => {
+                      const p = (r[c.ped] as number) || 0
+                      const b = (r[c.bru] as number) || 0
+                      return (
+                        <Fragment key={c.label}>
+                          <td style={{ padding: '8px 10px', textAlign: 'center', color: p > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
+                            {p > 0 ? Math.round(p) : <Dash />}
+                          </td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
+                            {b > 0 ? fmtEur(b) : <Dash />}
+                          </td>
+                        </Fragment>
+                      )
+                    })}
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
+                  <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }} colSpan={2}>Total</td>
+                  {COLS.map(c => (
+                    <Fragment key={c.label}>
+                      <td style={{ padding: '10px 10px', textAlign: 'center', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtInt(totals[c.ped] as number)}</td>
+                      <td style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals[c.bru] as number)}</td>
+                    </Fragment>
+                  ))}
+                  <td style={{ padding: '10px 10px', textAlign: 'center', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtInt(totals.total_pedidos)}</td>
+                  <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals.total_bruto)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
     </>
   )
 }
@@ -696,7 +710,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
     if (years.length > 0 && !years.includes(selYear)) setSelYear(years[0])
   }, [years, selYear])
 
-  const rows = useMemo(() => allRows.filter(r => r.anio === selYear).reverse(), [allRows, selYear])
+  const rows = useMemo(() => allRows.filter(r => r.anio === selYear), [allRows, selYear])
   const showBreakdown = canal === 'Todos'
 
   const yearTotal = useMemo(() => {
@@ -1010,6 +1024,17 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
 
           {formError && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{formError}</p>}
           <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
+            {isEdit && (
+              <button type="button" onClick={async () => {
+                if (!confirm('¿Eliminar este día?')) return
+                const { error: e } = await supabase.from('facturacion_diario').delete().eq('id', existing!.id)
+                if (e) { setFormError(e.message); return }
+                onSaved()
+              }}
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `1px solid #FF4757`, background: 'none', color: '#FF4757', cursor: 'pointer', fontFamily: FONT.body }}>
+                Eliminar
+              </button>
+            )}
             <button type="button" onClick={onClose}
               style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.body }}>Cancelar</button>
             <button type="submit" disabled={saving}
