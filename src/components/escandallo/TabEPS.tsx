@@ -85,7 +85,7 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
 
   const btnActive: CSSProperties = {
     background: T.emphasis,
-    color: isDark ? '#1a1a00' : '#ffffff',
+    color: isDark ? '#ffffff' : '#ffffff',
     border: 'none',
     borderRadius: 8,
     padding: '8px 16px',

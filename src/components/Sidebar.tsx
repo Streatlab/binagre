@@ -195,12 +195,12 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   cocina:         { icon: ChefHat,         color: '#f5a623' },
   operaciones:    { icon: Settings2,       color: '#66aaff' },
   stock:          { icon: ShoppingCart,    color: '#B01D23' },
-  pos:            { icon: Tablet,          color: '#e8f442' },
+  pos:            { icon: Tablet,          color: '#FF4757' },
   marcas:         { icon: Store,           color: '#f5a623' },
   marketing:      { icon: Megaphone,       color: '#06C167' },
   equipo:         { icon: Users,           color: '#66aaff' },
   clientes:       { icon: UserCircle,      color: '#B01D23' },
-  informes:       { icon: BarChart3,       color: '#e8f442' },
+  informes:       { icon: BarChart3,       color: '#FF4757' },
   configuracion:  { icon: Settings,        color: '#9ba8c0' },
 }
 
@@ -210,7 +210,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
-  const activeTextColor = isDark ? '#0d1120' : '#ffffff'
+  const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
   const [openSections, setOpenSections] = useState<string[]>([])
@@ -225,18 +225,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
-  const sidebarWidth = collapsed ? 64 : 260
+  const sidebarWidth = collapsed ? 56 : 220
 
   const itemStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    padding: '8px 8px 8px 16px',
+    gap: 10,
+    padding: '9px 10px 9px 16px',
     margin: '1px 8px',
     borderRadius: 6,
     fontFamily: FONT.body,
-    fontSize: 13,
-    color: isActive ? '#ffffff' : T.pri,
+    fontSize: 14,
+    color: isActive ? activeTextColor : T.pri,
     background: isActive ? '#FF4757' : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
@@ -259,15 +259,15 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {collapsed ? (
-          <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 72, padding: '8px 0', gap: 6 }}>
-            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block' }} />
+          <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block' }} />
             <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }} title="Expandir">
-              <ChevronRight size={20} color="#B01D23" />
+              <ChevronRight size={18} color="#FF4757" />
             </button>
           </div>
         ) : (
-          <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 72 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+          <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
@@ -287,8 +287,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={16} strokeWidth={1.5} color={isActive ? activeTextColor : '#FF4757'} style={{ flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>Panel Global</span>
+                  <LayoutDashboard size={17} strokeWidth={1.8} color={isActive ? activeTextColor : '#FF4757'} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>Panel Global</span>
                 </>
               )}
             </NavLink>
@@ -300,9 +300,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               end
               onClick={onClose}
               title="Panel Global"
-              style={{ width: '100%', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             >
-              <LayoutDashboard size={28} strokeWidth={1.5} color="#B01D23" />
+              <LayoutDashboard size={20} strokeWidth={1.8} color="#FF4757" />
             </NavLink>
           )}
 
@@ -321,11 +321,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={() => toggleSection(section.key)}
                     title={section.label}
                     style={{
-                      width: '100%', height: 56, background: 'none', border: 'none', cursor: 'pointer',
+                      width: '100%', height: 44, background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    {IconComponent ? <IconComponent size={28} strokeWidth={1.5} color="#B01D23" /> : <span>{section.emoji}</span>}
+                    {IconComponent ? <IconComponent size={20} strokeWidth={1.8} color={iconColor} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button
@@ -334,15 +334,15 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     style={{
                       width: '100%', background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 16px 10px 12px',
-                      fontFamily: FONT.heading, fontSize: 11,
+                      padding: '10px 14px 10px 12px',
+                      fontFamily: FONT.heading, fontSize: 12,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
                       color: isOpen ? T.pri : T.sec,
                       transition: 'color 200ms',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {IconComponent ? <IconComponent size={20} strokeWidth={1.5} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {IconComponent ? <IconComponent size={17} strokeWidth={1.8} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                       <span>{section.label}</span>
                     </div>
                     <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
@@ -350,7 +350,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 )}
 
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 44}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 42}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
                     {visibleItems.map((item, idx) => (
                       <NavLink
                         key={`${item.path}-${idx}`}
@@ -363,7 +363,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         {({ isActive }) => (
                           <>
                             <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>{item.label}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
                           </>
                         )}
                       </NavLink>
@@ -383,7 +383,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed ? (
             <>
               <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
-                {usuario?.nombre} — <span style={{ color: T.emphasis }}>{usuario?.perfil}</span>
+                {usuario?.nombre} — <span style={{ color: '#FF4757' }}>{usuario?.perfil}</span>
               </div>
               <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Cerrar sesión</button>
             </>

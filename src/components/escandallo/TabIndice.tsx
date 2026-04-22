@@ -104,7 +104,7 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
 
   const btnActive: CSSProperties = {
     background: T.emphasis,
-    color: isDark ? '#1a1a00' : '#ffffff',
+    color: isDark ? '#ffffff' : '#ffffff',
     border: 'none',
     borderRadius: 8,
     padding: '8px 16px',

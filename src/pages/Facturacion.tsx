@@ -378,7 +378,7 @@ export default function Facturacion() {
               key={s}
               onClick={() => setServicioFiltro(s)}
               style={servicioFiltro === s
-                ? { background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+                ? { background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
                 : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
               }
             >
@@ -941,7 +941,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                 {SERVICIOS.map(s => (
                   <button key={s} type="button" onClick={() => setServicio(s)}
                     style={servicio === s
-                      ? { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
+                      ? { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
                       : { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
                     }>{s}</button>
                 ))}
@@ -998,7 +998,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                   const v = parseFloat(jeInput)
                   if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
                 }}
-                style={{ padding: '8px 16px', borderRadius: 8, background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}
+                style={{ padding: '8px 16px', borderRadius: 8, background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}
               >+</button>
             </div>
 
@@ -1024,7 +1024,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
               onMouseEnter={e => e.currentTarget.style.color = T.pri}
               onMouseLeave={e => e.currentTarget.style.color = T.sec}>Cancelar</button>
             <button type="submit" disabled={saving}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#1a1a00' : '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1, transition: 'opacity 150ms' }}>
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1, transition: 'opacity 150ms' }}>
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
             </button>
           </div>

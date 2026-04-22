@@ -48,7 +48,7 @@ export default function Configuracion() {
   const textPri   = isDark ? '#f0f0ff' : '#1a1a1a'
   const textSec   = isDark ? '#7080a8' : '#6b7280'
   const border    = isDark ? '#2a2a2a' : '#e5e0d8'
-  const accent    = isDark ? '#e8f442' : '#7a6200'
+  const accent    = isDark ? '#FF4757' : '#7a6200'
   const accentFg  = isDark ? '#111' : '#fff'
 
   return (

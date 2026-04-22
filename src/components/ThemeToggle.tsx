@@ -1,29 +1,29 @@
-import { useTheme } from '../contexts/ThemeContext';
+import { Sun, Moon } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
   return (
     <button
       onClick={toggleTheme}
-      title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       style={{
         background: 'none',
         border: '1px solid var(--sl-border)',
-        borderRadius: '20px',
-        padding: '4px 10px',
+        borderRadius: 999,
+        padding: 8,
         cursor: 'pointer',
-        fontSize: '0.75rem',
-        fontFamily: 'Oswald, sans-serif',
-        letterSpacing: '1px',
-        color: 'var(--sl-text-muted)',
+        color: '#FF4757',
         display: 'flex',
         alignItems: 'center',
-        gap: '6px',
-        minHeight: '32px',
+        justifyContent: 'center',
+        width: 36,
+        height: 36,
         transition: 'border-color 0.15s',
       }}
     >
-      {theme === 'dark' ? '☀ CLARO' : '☽ OSCURO'}
+      {isDark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
     </button>
-  );
+  )
 }

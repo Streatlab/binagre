@@ -259,7 +259,7 @@ export default function Objetivos() {
 
   const btnAdd = {
     padding: '6px 14px', borderRadius: 8, border: 'none',
-    background: '#e8f442', color: '#1a1a00',
+    background: '#FF4757', color: '#ffffff',
     fontFamily: FONT.body, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   }
 
