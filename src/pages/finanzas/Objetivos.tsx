@@ -354,7 +354,7 @@ export default function Objetivos() {
               const ventasDia = ventasPorDiaSemana[dia] || 0
               const pct = importe > 0 ? Math.round((ventasDia / importe) * 100) : 0
               const pctCap = Math.min(pct, 100)
-              const col = semaforoColor(pct)
+              const col = ventasDia > 0 ? semaforoColor(pct) : '#E24B4A'
               const finde = esFinde(dia)
               const festivo = esFestivo(dia)
               const hoyFlag = esHoy(dia)
