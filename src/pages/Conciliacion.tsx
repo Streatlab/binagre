@@ -109,6 +109,59 @@ const MOCK: Movimiento[] = [
   /* Web directa */
   { id: '40', fecha: daysAgo(17), concepto: 'Venta web directa',      importe: 425.60, categoria_id: 'ing-web', contraparte: 'Web' },
   { id: '41', fecha: daysAgo(26), concepto: 'Venta web directa',      importe: 312.80, categoria_id: 'ing-web', contraparte: 'Web' },
+
+  /* ═════════════ PERÍODO ANTERIOR (días 32-58) para comparativas ═════════════ */
+  /* Uber Eats */
+  { id: '50', fecha: daysAgo(36), concepto: 'Liquidación Uber Eats semana 11', importe: 2980.40, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+  { id: '51', fecha: daysAgo(43), concepto: 'Liquidación Uber Eats semana 10', importe: 2765.20, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+  { id: '52', fecha: daysAgo(50), concepto: 'Liquidación Uber Eats semana 09', importe: 2842.90, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+  { id: '53', fecha: daysAgo(57), concepto: 'Liquidación Uber Eats semana 08', importe: 2594.15, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+
+  /* Glovo */
+  { id: '54', fecha: daysAgo(37), concepto: 'Liquidación Glovo semana 11', importe: 1890.70, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '55', fecha: daysAgo(44), concepto: 'Liquidación Glovo semana 10', importe: 1745.30, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '56', fecha: daysAgo(51), concepto: 'Liquidación Glovo semana 09', importe: 2010.50, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+
+  /* Just Eat */
+  { id: '57', fecha: daysAgo(41), concepto: 'Liquidación Just Eat semana 11', importe: 1485.20, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
+  { id: '58', fecha: daysAgo(48), concepto: 'Liquidación Just Eat semana 10', importe: 1398.75, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
+
+  /* Web directa */
+  { id: '59', fecha: daysAgo(45), concepto: 'Venta web directa', importe: 384.20, categoria_id: 'ing-web', contraparte: 'Web' },
+  { id: '60', fecha: daysAgo(54), concepto: 'Venta web directa', importe: 295.60, categoria_id: 'ing-web', contraparte: 'Web' },
+
+  /* Alcampo */
+  { id: '61', fecha: daysAgo(33), concepto: 'Pedido Alcampo producto fresco', importe: -445.80, categoria_id: 'prov', contraparte: 'Alcampo' },
+  { id: '62', fecha: daysAgo(40), concepto: 'Pedido Alcampo producto fresco', importe: -412.30, categoria_id: 'prov', contraparte: 'Alcampo' },
+  { id: '63', fecha: daysAgo(54), concepto: 'Pedido Alcampo producto fresco', importe: -398.50, categoria_id: 'prov', contraparte: 'Alcampo' },
+
+  /* Jasa */
+  { id: '64', fecha: daysAgo(38), concepto: 'Pedido Jasa pollo',  importe: -612.40, categoria_id: 'prov', contraparte: 'Jasa' },
+  { id: '65', fecha: daysAgo(52), concepto: 'Pedido Jasa cerdo',  importe: -548.90, categoria_id: 'prov', contraparte: 'Jasa' },
+
+  /* Pampols */
+  { id: '66', fecha: daysAgo(42), concepto: 'Pedido Pampols pescado', importe: -472.30, categoria_id: 'prov', contraparte: 'Pampols' },
+
+  /* RRHH */
+  { id: '67', fecha: daysAgo(34), concepto: 'Nómina cocinero jefe',   importe: -1850.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '68', fecha: daysAgo(34), concepto: 'Nómina ayudante cocina', importe: -1320.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '69', fecha: daysAgo(34), concepto: 'Nómina encargado sala',  importe: -1680.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+
+  /* Alquiler */
+  { id: '70', fecha: daysAgo(34), concepto: 'Alquiler local marzo', importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
+
+  /* Suministros */
+  { id: '71', fecha: daysAgo(35), concepto: 'Luz Iberdrola febrero',   importe: -578.90, categoria_id: 'sum', contraparte: 'Iberdrola' },
+  { id: '72', fecha: daysAgo(47), concepto: 'Agua Canal de Isabel II', importe: -72.40,  categoria_id: 'sum', contraparte: 'Canal II' },
+  { id: '73', fecha: daysAgo(48), concepto: 'Gas Naturgy febrero',     importe: -235.70, categoria_id: 'sum', contraparte: 'Naturgy' },
+  { id: '74', fecha: daysAgo(46), concepto: 'Teléfono Movistar marzo', importe: -89.90,  categoria_id: 'sum', contraparte: 'Movistar' },
+
+  /* Marketing */
+  { id: '75', fecha: daysAgo(42), concepto: 'Google Ads febrero',      importe: -180.00, categoria_id: 'mkt', contraparte: 'Google Ads' },
+  { id: '76', fecha: daysAgo(55), concepto: 'Campaña Instagram Ads',   importe: -295.00, categoria_id: 'mkt', contraparte: 'Meta Ads' },
+
+  /* Otros */
+  { id: '77', fecha: daysAgo(50), concepto: 'Reparación campana extractora', importe: -240.00, categoria_id: 'otros', contraparte: 'Técnico SAT' },
 ]
 
 /* ═══════════════════════════════════════════════════════════
@@ -154,7 +207,7 @@ function calcularLabelPeriodo(periodo: string): string {
    ═══════════════════════════════════════════════════════════ */
 
 type Tab = 'resumen' | 'movimientos'
-type PeriodoFiltro = 'mes' | 'mes_anterior' | 'trimestre' | 'anio' | 'personalizado'
+type PeriodoFiltro = 'mes' | 'mes_anterior' | '30d' | 'trimestre' | 'anio' | 'personalizado'
 
 export default function Conciliacion() {
   const { T } = useTheme()
@@ -338,57 +391,60 @@ export default function Conciliacion() {
         })}
       </div>
 
-      {/* FILTROS: Período + Categoría + Buscar */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 10,
-          background: T.card,
-          border: `0.5px solid ${T.brd}`,
-          borderRadius: 10,
-          padding: 14,
-          marginBottom: 18,
-        }}
-      >
-        <div>
-          <label style={labelStyle}>Período</label>
-          <select value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoFiltro)} style={inputStyle}>
-            <option value="mes">Este mes</option>
-            <option value="mes_anterior">Mes anterior</option>
-            <option value="trimestre">Trimestre</option>
-            <option value="anio">Año</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-        </div>
-        <div>
-          <label style={labelStyle}>Categoría</label>
-          <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
-            <option value="todas">Todas</option>
-            {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={labelStyle}>Buscar concepto</label>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
-            <input
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Ej: Uber, Alcampo..."
-              style={{ ...inputStyle, paddingLeft: 32 }}
-            />
+      {/* FILTROS: Categoría + Buscar (solo en Movimientos) */}
+      {tab === 'movimientos' && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 10,
+            background: T.card,
+            border: `0.5px solid ${T.brd}`,
+            borderRadius: 10,
+            padding: 14,
+            marginBottom: 18,
+          }}
+        >
+          <div>
+            <label style={labelStyle}>Período</label>
+            <select value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoFiltro)} style={inputStyle}>
+              <option value="mes">Este mes</option>
+              <option value="mes_anterior">Mes anterior</option>
+              <option value="30d">Últimos 30 días</option>
+              <option value="trimestre">Trimestre</option>
+              <option value="anio">Año</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Categoría</label>
+            <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
+              <option value="todas">Todas</option>
+              {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Buscar concepto</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
+              <input
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder="Ej: Uber, Alcampo..."
+                style={{ ...inputStyle, paddingLeft: 32 }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Pestaña Resumen */}
       {tab === 'resumen' && (
         <ResumenDashboard
-          movimientos={movimientosFiltrados}
+          movimientos={movimientos}
           categorias={CATEGORIAS}
-          datos={datos}
-          periodoLabel={periodoLabel}
+          periodo={periodo}
+          setPeriodo={setPeriodo}
         />
       )}
 
