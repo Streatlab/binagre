@@ -457,6 +457,8 @@ export default function Conciliacion() {
           mesNombre={mesNombre}
           anio={anioActual}
           diasRestantes={diasRestantes}
+          periodo={periodo}
+          setPeriodo={setPeriodo}
         />
       )}
 

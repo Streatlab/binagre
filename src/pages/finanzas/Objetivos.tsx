@@ -134,7 +134,8 @@ export default function Objetivos() {
   // Objetivos: override o suma de días
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + d.importe, 0), [diasSemana])
   const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
-  const objSemanal = objSemanalOverride ?? sumaSemana
+  // Siempre priorizar la suma de los días de semana; el override solo se usa si el usuario ha editado explícitamente y la suma es 0
+  const objSemanal = sumaSemana > 0 ? sumaSemana : (objSemanalOverride ?? 0)
 
   const sumaMes = useMemo(() => {
     const ano = hoy.getFullYear()
@@ -354,7 +355,7 @@ export default function Objetivos() {
               const ventasDia = ventasPorDiaSemana[dia] || 0
               const pct = importe > 0 ? Math.round((ventasDia / importe) * 100) : 0
               const pctCap = Math.min(pct, 100)
-              const col = ventasDia > 0 ? semaforoColor(pct) : '#E24B4A'
+              const col = '#1D9E75'
               const finde = esFinde(dia)
               const festivo = esFestivo(dia)
               const hoyFlag = esHoy(dia)
@@ -435,33 +436,6 @@ export default function Objetivos() {
             })}
           </div>
 
-          {/* FOOTER: Suma semanal de días */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '70px 1fr 90px',
-            alignItems: 'center',
-            gap: 14,
-            padding: '14px 14px 2px',
-            margin: '8px -14px 0',
-            borderTop: `1px solid ${T.brd}`,
-          }}>
-            <div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: T.pri, textTransform: 'uppercase', fontWeight: 700 }}>
-                Total
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginTop: 1 }}>
-                Suma semana
-              </div>
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, textAlign: 'left' }}>
-              {objSemanalOverride !== undefined && objSemanalOverride !== sumaSemana && (
-                <span style={{ color: '#f5a623', fontWeight: 500 }}>Override activo · suma natural {fmtEur(sumaSemana)}</span>
-              )}
-            </div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: T.pri, textAlign: 'right' }}>
-              {fmtEur(sumaSemana)}
-            </div>
-          </div>
         </div>
 
       </div>
