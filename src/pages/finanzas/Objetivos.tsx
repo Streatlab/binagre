@@ -150,7 +150,7 @@ export default function Objetivos() {
     return total
   }, [diasSemana])
   const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
-  const objMensual = objMensualOverride ?? sumaMes
+  const objMensual = sumaMes > 0 ? sumaMes : (objMensualOverride ?? 0)
 
   const sumaAno = useMemo(() => {
     const ano = hoy.getFullYear()
@@ -167,7 +167,7 @@ export default function Objetivos() {
     return total
   }, [diasSemana])
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
-  const objAnual = objAnualOverride ?? sumaAno
+  const objAnual = sumaAno > 0 ? sumaAno : (objAnualOverride ?? 0)
 
   // Histórico
   const aniosDisponibles = useMemo(() => {
