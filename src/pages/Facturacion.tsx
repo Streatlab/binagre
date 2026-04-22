@@ -530,14 +530,14 @@ function TabDiario({ allData, canal, weekFilter, onRefresh: _, onEdit, onAdd }: 
           </button>
         </div>
 
-        {/* Summary strip + Añadir día en la misma línea */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto', gap: 12, marginBottom: 16, alignItems: 'stretch' }}>
+        {/* Summary strip + Añadir día horizontal */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
           <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
           <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
           <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
           <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
           <button onClick={onAdd}
-            style={{ padding: '0 20px', borderRadius: 10, background: '#FF4757', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            style={{ padding: '0 22px', borderRadius: 10, background: '#FF4757', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             + Añadir día
           </button>
         </div>
