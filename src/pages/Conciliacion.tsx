@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
 import { fmtEur } from '@/utils/format'
-import { useTheme, FONT, LAYOUT } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
@@ -256,25 +256,67 @@ export default function Conciliacion() {
     }
   }
 
-  /* — Filtrado principal: últimos 31 días + filtros UI — */
-  const movimientosFiltrados = useMemo(() => {
+  /* — Cálculo rango actual / anterior según período — */
+  const { rangoActual, rangoAnterior, rangoFechasLegible } = useMemo(() => {
     const hoy = new Date()
     hoy.setHours(23, 59, 59, 999)
-    const hace31 = new Date()
-    hace31.setDate(hace31.getDate() - 30)
-    hace31.setHours(0, 0, 0, 0)
+    let inicio: Date
+    let fin: Date = new Date(hoy)
 
+    if (periodo === 'mes') {
+      inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+    } else if (periodo === 'mes_anterior') {
+      inicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
+      fin = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59)
+    } else if (periodo === 'trimestre') {
+      inicio = new Date(hoy)
+      inicio.setDate(inicio.getDate() - 89)
+    } else if (periodo === 'anio') {
+      inicio = new Date(hoy.getFullYear(), 0, 1)
+    } else {
+      // '30d' | 'personalizado'
+      inicio = new Date(hoy)
+      inicio.setDate(inicio.getDate() - 30)
+    }
+    inicio.setHours(0, 0, 0, 0)
+
+    const duracionMs = fin.getTime() - inicio.getTime()
+    const finAnt = new Date(inicio.getTime() - 24 * 60 * 60 * 1000)
+    finAnt.setHours(23, 59, 59, 999)
+    const inicioAnt = new Date(finAnt.getTime() - duracionMs)
+    inicioAnt.setHours(0, 0, 0, 0)
+
+    const fmt = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+    const legible = `${fmt(inicio)} — ${fmt(fin)} ${fin.getFullYear()}`
+
+    return {
+      rangoActual: { inicio, fin },
+      rangoAnterior: { inicio: inicioAnt, fin: finAnt },
+      rangoFechasLegible: legible,
+    }
+  }, [periodo])
+
+  /* — Filtrado principal — */
+  const movimientosFiltrados = useMemo(() => {
     return movimientos
       .filter(m => {
         const f = new Date(m.fecha + 'T12:00:00')
-        return f >= hace31 && f <= hoy
+        return f >= rangoActual.inicio && f <= rangoActual.fin
       })
       .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
       .filter(m => !busqueda || m.concepto.toLowerCase().includes(busqueda.toLowerCase()))
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos, catFiltro, busqueda])
+  }, [movimientos, catFiltro, busqueda, rangoActual])
 
-  /* — Derivados reactivos — */
+  /* — Movimientos del período anterior (comparativas) — */
+  const movimientosAnterior = useMemo(() => {
+    return movimientos.filter(m => {
+      const f = new Date(m.fecha + 'T12:00:00')
+      return f >= rangoAnterior.inicio && f <= rangoAnterior.fin
+    })
+  }, [movimientos, rangoAnterior])
+
+  /* — Derivados reactivos (KPIs Movimientos) — */
   const datos = useMemo(() => {
     const ingresos = movimientosFiltrados.filter(m => m.importe > 0)
     const gastos = movimientosFiltrados.filter(m => m.importe < 0)
@@ -286,6 +328,14 @@ export default function Conciliacion() {
   }, [movimientosFiltrados])
 
   const periodoLabel = calcularLabelPeriodo(periodo)
+
+  /* — Mes/año/días restantes (presupuestos) — */
+  const hoyDate = new Date()
+  const mesNombreRaw = hoyDate.toLocaleDateString('es-ES', { month: 'long' })
+  const mesNombre = mesNombreRaw.charAt(0).toUpperCase() + mesNombreRaw.slice(1)
+  const anioActual = hoyDate.getFullYear()
+  const ultimoDiaMes = new Date(anioActual, hoyDate.getMonth() + 1, 0).getDate()
+  const diasRestantes = Math.max(0, ultimoDiaMes - hoyDate.getDate())
 
   /* ═══════════════════════════════════════════════════════════
      STYLES INLINE
@@ -344,22 +394,44 @@ export default function Conciliacion() {
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
 
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
-        <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle }}>Conciliación bancaria</h2>
-        <ImportDropzone onFileLoaded={(rows: ParsedRow[]) => {
-          const nuevos: Movimiento[] = rows.map(r => ({
-            id: crypto.randomUUID(),
-            fecha: r.fecha,
-            concepto: r.concepto,
-            importe: r.importe,
-            categoria_id: null,
-            contraparte: r.contraparte ?? '',
-            auto_categorizado: false,
-          }))
-          setMovimientos(prev => [...nuevos, ...prev])
-          aplicarReglasExistentes(nuevos)
-        }} />
+      {/* HEADER — título + rango fechas + selector período (común a ambas pestañas) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{
+          color: '#B01D23',
+          fontFamily: FONT.heading,
+          fontSize: 22,
+          fontWeight: 500,
+          letterSpacing: '1px',
+          margin: 0,
+          textTransform: 'uppercase',
+        }}>
+          Resumen · Conciliación
+        </h2>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: T.mut, fontFamily: FONT.body }}>{rangoFechasLegible}</span>
+          <select
+            value={periodo}
+            onChange={e => setPeriodo(e.target.value as PeriodoFiltro)}
+            style={{
+              padding: '8px 14px',
+              border: `1px solid ${T.brd}`,
+              borderRadius: 8,
+              backgroundColor: T.card,
+              fontSize: 13,
+              color: T.pri,
+              fontFamily: FONT.body,
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="mes">Este mes</option>
+            <option value="mes_anterior">Mes anterior</option>
+            <option value="30d">Últimos 30 días</option>
+            <option value="trimestre">Trimestre</option>
+            <option value="anio">Año</option>
+            <option value="personalizado">Personalizado</option>
+          </select>
+        </div>
       </div>
 
       {/* TABS: Resumen → Movimientos */}
@@ -391,66 +463,58 @@ export default function Conciliacion() {
         })}
       </div>
 
-      {/* FILTROS: Categoría + Buscar (solo en Movimientos) */}
-      {tab === 'movimientos' && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 10,
-            background: T.card,
-            border: `0.5px solid ${T.brd}`,
-            borderRadius: 10,
-            padding: 14,
-            marginBottom: 18,
-          }}
-        >
-          <div>
-            <label style={labelStyle}>Período</label>
-            <select value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoFiltro)} style={inputStyle}>
-              <option value="mes">Este mes</option>
-              <option value="mes_anterior">Mes anterior</option>
-              <option value="30d">Últimos 30 días</option>
-              <option value="trimestre">Trimestre</option>
-              <option value="anio">Año</option>
-              <option value="personalizado">Personalizado</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Categoría</label>
-            <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
-              <option value="todas">Todas</option>
-              {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Buscar concepto</label>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
-              <input
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                placeholder="Ej: Uber, Alcampo..."
-                style={{ ...inputStyle, paddingLeft: 32 }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Pestaña Resumen */}
       {tab === 'resumen' && (
         <ResumenDashboard
-          movimientos={movimientos}
+          movimientos={movimientosFiltrados}
+          movimientosAnterior={movimientosAnterior}
           categorias={CATEGORIAS}
-          periodo={periodo}
-          setPeriodo={setPeriodo}
+          periodoLabel={periodoLabel}
+          mesNombre={mesNombre}
+          anio={anioActual}
+          diasRestantes={diasRestantes}
         />
       )}
 
       {/* Pestaña Movimientos */}
       {tab === 'movimientos' && (
         <>
+          {/* Sub-header: Dropzone + Filtros Categoría/Buscar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
+            <ImportDropzone onFileLoaded={(rows: ParsedRow[]) => {
+              const nuevos: Movimiento[] = rows.map(r => ({
+                id: crypto.randomUUID(),
+                fecha: r.fecha,
+                concepto: r.concepto,
+                importe: r.importe,
+                categoria_id: null,
+                contraparte: r.contraparte ?? '',
+                auto_categorizado: false,
+              }))
+              setMovimientos(prev => [...nuevos, ...prev])
+              aplicarReglasExistentes(nuevos)
+            }} />
+            <div>
+              <label style={labelStyle}>Categoría</label>
+              <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
+                <option value="todas">Todas</option>
+                {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Buscar concepto</label>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
+                <input
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Ej: Uber, Alcampo..."
+                  style={{ ...inputStyle, paddingLeft: 32 }}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* KPIs Movimientos */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
             <KpiCard
@@ -582,7 +646,7 @@ export default function Conciliacion() {
               fontSize: 12,
               textAlign: 'center',
             }}>
-              Mostrando los últimos 31 días · {movimientosFiltrados.length} movimientos
+              {periodoLabel} · {movimientosFiltrados.length} movimientos
             </div>
           </div>
         </>
