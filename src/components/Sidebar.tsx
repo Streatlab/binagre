@@ -260,7 +260,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         {collapsed ? (
           <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
-            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block' }} />
+            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
             <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }} title="Expandir">
               <ChevronRight size={18} color="#FF4757" />
             </button>
@@ -268,7 +268,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         ) : (
           <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} />
+              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
             <button onClick={toggle} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden lg:block" title="Colapsar">«</button>
@@ -282,13 +282,29 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               to="/"
               end
               onClick={onClose}
-              style={({ isActive }) => itemStyle(isActive)}
-              className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#FF4757' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={17} strokeWidth={1.8} color={isActive ? activeTextColor : '#FF4757'} style={{ flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>Panel Global</span>
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#FF4757'} style={{ flexShrink: 0 }} />
+                  <span>Panel Global</span>
                 </>
               )}
             </NavLink>
@@ -335,14 +351,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       width: '100%', background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 14px 10px 12px',
-                      fontFamily: FONT.heading, fontSize: 12,
+                      fontFamily: FONT.heading, fontSize: 13,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
                       color: isOpen ? T.pri : T.sec,
                       transition: 'color 200ms',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {IconComponent ? <IconComponent size={17} strokeWidth={1.8} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                      {IconComponent ? <IconComponent size={18} strokeWidth={1.8} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                       <span>{section.label}</span>
                     </div>
                     <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
