@@ -6,6 +6,7 @@ export type KpiAccent = 'success' | 'danger' | 'warning' | 'info' | 'default'
 interface KpiCardProps {
   label: string
   value: string
+  period?: string
   delta?: { value: string; trend: 'up' | 'down' | 'neutral' }
   accent?: KpiAccent
   highlighted?: boolean
@@ -13,14 +14,14 @@ interface KpiCardProps {
 }
 
 const ACCENT_COLOR: Record<KpiAccent, string | null> = {
-  success: '#1D9E75',
-  danger:  '#E24B4A',
+  success: '#06C167',
+  danger:  '#B01D23',
   warning: '#f5a623',
   info:    '#66aaff',
   default: null,
 }
 
-export function KpiCard({ label, value, delta, accent = 'default', highlighted = false, subtitle }: KpiCardProps) {
+export function KpiCard({ label, value, period, delta, accent = 'default', highlighted = false, subtitle }: KpiCardProps) {
   const { T } = useTheme()
 
   const valueColor = ACCENT_COLOR[accent] ?? T.pri
@@ -28,15 +29,15 @@ export function KpiCard({ label, value, delta, accent = 'default', highlighted =
   const wrap: CSSProperties = {
     ...cardStyle(T),
     background: highlighted ? T.group : T.card,
-    minHeight: 92,
+    minHeight: 96,
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
+    gap: 4,
   }
 
   const trendColor =
-    delta?.trend === 'up'   ? '#1D9E75' :
-    delta?.trend === 'down' ? '#E24B4A' :
+    delta?.trend === 'up'   ? '#06C167' :
+    delta?.trend === 'down' ? '#B01D23' :
                               T.mut
 
   const trendIcon =
@@ -46,6 +47,19 @@ export function KpiCard({ label, value, delta, accent = 'default', highlighted =
   return (
     <div style={wrap}>
       <div style={{ ...kpiLabelStyle(T) }}>{label}</div>
+      {period && (
+        <div style={{
+          fontFamily: FONT.body,
+          fontSize: 10,
+          color: T.mut,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginTop: -2,
+          marginBottom: 2,
+        }}>
+          {period}
+        </div>
+      )}
       <div style={{ ...kpiValueStyle(T), color: valueColor, fontSize: '1.8rem' }}>{value}</div>
       {delta && (
         <div style={{ fontFamily: FONT.body, fontSize: 11, color: trendColor, marginTop: 2 }}>

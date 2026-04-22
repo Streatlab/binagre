@@ -637,12 +637,12 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto', gap: 12, marginBottom: 16, alignItems: 'stretch' }}>
         <MiniKpi label="Semanas" valor={String(rows.length)} />
         <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
         <button onClick={exportar}
-          style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
+          style={{ padding: '0 20px', borderRadius: 10, background: 'none', border: `0.5px solid ${T.brd}`, color: T.sec, cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
           Exportar CSV
         </button>
       </div>
@@ -651,43 +651,48 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
             <thead>
-              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Sem</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Periodo</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Dias</th>
+              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Sem</th>
+                <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Periodo</th>
+                <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'center', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Días</th>
                 {COLS.map(c => (
-                  <th key={c.label} style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
+                  <th key={c.label} style={{ padding: '10px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>
+                    {c.label}
+                  </th>
                 ))}
+                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(r => (
                 <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>S{r.week}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.sec, borderRight: `0.5px solid ${T.brd}` }}>{r.periodo}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>S{r.week}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{r.periodo}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'center', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{r.dias}</td>
                   {COLS.map(c => (
-                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
                       {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
                     </td>
                   ))}
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }} colSpan={3}>TOTAL</td>
+              <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
+                <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }} colSpan={3}>Total</td>
                 {COLS.map(c => (
-                  <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                  <td key={c.label} style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
                     {fmtEur(totals[c.bru] as number)}
                   </td>
                 ))}
+                <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals.total_bruto)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
-      <p className="text-[10px] text-[var(--sl-text-secondary)] mt-2">Haz clic en una semana para ver el detalle diario</p>
+      <p style={{ fontSize: 10, color: T.mut, marginTop: 8, fontFamily: FONT.body }}>Haz clic en una semana para ver el detalle diario</p>
     </>
   )
 }
@@ -736,10 +741,10 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto', gap: 12, marginBottom: 16, alignItems: 'stretch' }}>
         {years.length > 1 && (
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            style={{ background:T.inp, color:T.pri, border:`0.5px solid ${T.brd}`, borderRadius:8, padding:'6px 10px', fontSize:13, fontFamily:FONT.body, cursor:'pointer' }}>
+            style={{ background: T.inp, color: T.pri, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '6px 12px', fontSize: 13, fontFamily: FONT.body, cursor: 'pointer' }}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
@@ -747,7 +752,7 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(yearTotal, canal))} />
         <MiniKpi label="Facturación Diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
         <button onClick={exportar}
-          style={{ marginLeft:'auto', padding:'6px 12px', fontSize:12, color:T.sec, background:'none', border:`0.5px solid ${T.brd}`, borderRadius:8, cursor:'pointer', fontFamily:FONT.body }}>
+          style={{ padding: '0 20px', borderRadius: 10, background: 'none', border: `0.5px solid ${T.brd}`, color: T.sec, cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
           Exportar CSV
         </button>
       </div>
@@ -756,27 +761,29 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
             <thead>
-              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Mes</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Dias</th>
+              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <th style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Mes</th>
+                <th style={{ padding: '10px 10px', textAlign: 'center', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Días</th>
                 {COLS.map(c => (
-                  <th key={c.label} style={{ ...canalHeaderStyle(c.id, isDark), padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>€</th>
+                  <th key={c.label} style={{ padding: '10px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>
+                    {c.label}
+                  </th>
                 ))}
-                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400 }}>Media/dia</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', background: T.group, fontWeight: 400 }}>vs Anterior</th>
+                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Media/día</th>
+                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, fontWeight: 400, fontFamily: FONT.heading, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>vs Anterior</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.mes} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}` }}>{MES_NOMBRE[r.mes]}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{r.dias}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{MES_NOMBRE[r.mes]}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'center', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{r.dias}</td>
                   {COLS.map(c => (
-                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
                       {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash />}
                     </td>
                   ))}
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>
                     {r.dias > 0 ? fmtEur(r.media_diaria) : '—'}
                   </td>
                   <td style={{ padding: '8px 10px', textAlign: 'right' }}>
@@ -786,18 +793,18 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, background: `${T.emphasis}22`, fontWeight: 600 }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}` }}>{selYear} TOTAL</td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>{yearTotal.dias}</td>
+              <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
+                <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }}>{selYear} Total</td>
+                <td style={{ padding: '10px 10px', textAlign: 'center', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{yearTotal.dias}</td>
                 {COLS.map(c => (
-                  <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                  <td key={c.label} style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
                     {fmtEur(yearTotal[c.bru] as number)}
                   </td>
                 ))}
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: 'monospace', fontSize: 13 }}>
+                <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
                   {yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
                 </td>
-                <td style={{ padding: '8px 10px', textAlign: 'right' }} />
+                <td style={{ padding: '10px 10px', textAlign: 'right' }} />
               </tr>
             </tfoot>
           </table>
@@ -1053,10 +1060,11 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
    ═══════════════════════════════════════════════════════════ */
 
 function MiniKpi({ label, valor }: { label: string; valor: string }) {
+  const { T } = useTheme()
   return (
-    <div className="bg-[var(--sl-card)] border border-border rounded-lg px-3 py-2">
-      <p className="text-[10px] text-[var(--sl-text-secondary)] uppercase">{label}</p>
-      <p className="text-sm font-bold text-[var(--sl-text-primary)]">{valor}</p>
+    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '10px 14px' }}>
+      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{valor}</div>
     </div>
   )
 }
