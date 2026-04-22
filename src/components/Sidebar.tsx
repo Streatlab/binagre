@@ -74,6 +74,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', emoji: '⚙️', label: 'Operaciones', perfiles: ['admin', 'cocina'],
     items: [
+      { path: '/ops/reembolsos',      label: 'Reclamación Reembolsos',     emoji: '💸',  perfiles: ['admin', 'cocina'] },
       { path: '/ops/checklists',      label: 'Checklists Apertura/Cierre', emoji: '✅',  perfiles: ['admin', 'cocina'] },
       { path: '/ops/tareas',          label: 'Tareas Operativas',          emoji: '📝',  perfiles: ['admin', 'cocina'] },
       { path: '/ops/temperaturas',    label: 'Control Temperaturas BPM',   emoji: '🌡️',  perfiles: ['admin', 'cocina'] },
