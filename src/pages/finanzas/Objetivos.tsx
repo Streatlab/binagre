@@ -134,8 +134,8 @@ export default function Objetivos() {
   // Objetivos: override o suma de días
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + d.importe, 0), [diasSemana])
   const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
-  // Siempre priorizar la suma de los días de semana; el override solo se usa si el usuario ha editado explícitamente y la suma es 0
-  const objSemanal = sumaSemana > 0 ? sumaSemana : (objSemanalOverride ?? 0)
+  // Si existe override explícito, usarlo (el usuario ha machacado la suma). Si no, usar suma natural de días.
+  const objSemanal = objSemanalOverride !== undefined ? objSemanalOverride : sumaSemana
 
   const sumaMes = useMemo(() => {
     const ano = hoy.getFullYear()
@@ -150,7 +150,7 @@ export default function Objetivos() {
     return total
   }, [diasSemana])
   const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
-  const objMensual = sumaMes > 0 ? sumaMes : (objMensualOverride ?? 0)
+  const objMensual = objMensualOverride !== undefined ? objMensualOverride : sumaMes
 
   const sumaAno = useMemo(() => {
     const ano = hoy.getFullYear()
@@ -167,7 +167,7 @@ export default function Objetivos() {
     return total
   }, [diasSemana])
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
-  const objAnual = sumaAno > 0 ? sumaAno : (objAnualOverride ?? 0)
+  const objAnual = objAnualOverride !== undefined ? objAnualOverride : sumaAno
 
   // Histórico
   const aniosDisponibles = useMemo(() => {
