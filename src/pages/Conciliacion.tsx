@@ -1,362 +1,411 @@
 import { useMemo, useState, type CSSProperties } from 'react'
-import {
-  Plus,
-  Upload,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Paperclip,
-  Pencil,
-  Trash2,
-  FileText,
-  Filter,
-  ChevronDown,
-  UploadCloud,
-} from 'lucide-react'
+import { Upload, Search, Pencil, Zap } from 'lucide-react'
 import { fmtEur } from '@/utils/format'
+import { useTheme, FONT, LAYOUT } from '@/styles/tokens'
+import { KpiCard } from '@/components/KpiCard'
+import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
+import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
 
 /* ═══════════════════════════════════════════════════════════
-   PALETA LOCAL (Conciliación)
+   CATEGORÍAS
    ═══════════════════════════════════════════════════════════ */
 
-const P = {
-  app:       '#2e3347',
-  card:      '#484f66',
-  inp:       '#3a4058',
-  inpRo:     '#333848',
-  rowOdd:    '#484f66',
-  rowEven:   '#404558',
-  thead:     '#353a50',
-  brd:       '#4a5270',
-  focus:     '#e8f442',
-  pri:       '#f0f0ff',
-  sec:       '#c8d0e8',
-  mut:       '#7080a8',
-  accent:    '#e8f442',
-  red:       '#B01D23',
-  green:     '#06C167',
-  amber:     '#f5a623',
-  blue:      '#66aaff',
-  pink:      '#ff6b70',
-}
-
-const FONT_BODY = 'Lexend, sans-serif'
-const FONT_HEAD = 'Oswald, sans-serif'
-
-/* ═══════════════════════════════════════════════════════════
-   TIPOS
-   ═══════════════════════════════════════════════════════════ */
-
-type Categoria =
-  | 'Ingresos plataformas'
-  | 'Proveedores'
-  | 'RRHH'
-  | 'Alquiler'
-  | 'Suministros'
-  | 'Marketing'
-  | 'Otros'
-
-type Estado = 'CONCILIADO' | 'PENDIENTE' | 'SIN FACTURA'
-
-interface Movimiento {
-  id: number
-  fecha: string
-  concepto: string
-  importe: number
-  categoria: Categoria
-  proveedor: string
-  factura: boolean
-  estado: Estado
-}
-
-/* ═══════════════════════════════════════════════════════════
-   MOCK DATA
-   ═══════════════════════════════════════════════════════════ */
-
-const MOCK_MOVIMIENTOS: Movimiento[] = [
-  { id: 1,  fecha: '2026-04-21', concepto: 'Liquidación Uber Eats semana 16',  importe:  3284.55, categoria: 'Ingresos plataformas', proveedor: 'Uber Eats',      factura: true,  estado: 'CONCILIADO'  },
-  { id: 2,  fecha: '2026-04-20', concepto: 'Liquidación Glovo semana 16',      importe:  2145.30, categoria: 'Ingresos plataformas', proveedor: 'Glovo',          factura: true,  estado: 'CONCILIADO'  },
-  { id: 3,  fecha: '2026-04-19', concepto: 'Pedido Alcampo producto fresco',   importe:  -428.92, categoria: 'Proveedores',           proveedor: 'Alcampo',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 4,  fecha: '2026-04-18', concepto: 'Nómina cocinero jefe',             importe: -1850.00, categoria: 'RRHH',                  proveedor: 'Nóminas',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 5,  fecha: '2026-04-18', concepto: 'Alquiler local abril',             importe: -2400.00, categoria: 'Alquiler',              proveedor: 'Inmobiliaria SL',factura: true,  estado: 'CONCILIADO'  },
-  { id: 6,  fecha: '2026-04-17', concepto: 'Luz Iberdrola marzo',              importe:  -612.40, categoria: 'Suministros',           proveedor: 'Iberdrola',      factura: true,  estado: 'CONCILIADO'  },
-  { id: 7,  fecha: '2026-04-16', concepto: 'Pedido Mercadona stock semanal',   importe:  -284.15, categoria: 'Proveedores',           proveedor: 'Mercadona',      factura: false, estado: 'SIN FACTURA' },
-  { id: 8,  fecha: '2026-04-15', concepto: 'Liquidación Just Eat semana 15',   importe:  1820.75, categoria: 'Ingresos plataformas', proveedor: 'Just Eat',       factura: true,  estado: 'CONCILIADO'  },
-  { id: 9,  fecha: '2026-04-14', concepto: 'Pedido Jasa carnes',               importe:  -786.20, categoria: 'Proveedores',           proveedor: 'Jasa',           factura: true,  estado: 'PENDIENTE'   },
-  { id: 10, fecha: '2026-04-14', concepto: 'Pedido Pampols pescado',           importe:  -542.80, categoria: 'Proveedores',           proveedor: 'Pampols',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 11, fecha: '2026-04-13', concepto: 'Envapro packaging abril',          importe:  -368.90, categoria: 'Proveedores',           proveedor: 'Envapro',        factura: false, estado: 'SIN FACTURA' },
-  { id: 12, fecha: '2026-04-12', concepto: 'Liquidación Uber Eats semana 15',  importe:  2956.40, categoria: 'Ingresos plataformas', proveedor: 'Uber Eats',      factura: true,  estado: 'CONCILIADO'  },
-  { id: 13, fecha: '2026-04-11', concepto: 'Pedido Pascual lácteos',           importe:  -192.45, categoria: 'Proveedores',           proveedor: 'Pascual',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 14, fecha: '2026-04-10', concepto: 'Campaña Instagram Ads',            importe:  -320.00, categoria: 'Marketing',             proveedor: 'Meta Ads',       factura: true,  estado: 'CONCILIADO'  },
-  { id: 15, fecha: '2026-04-09', concepto: 'Pedido Lidl complementos',         importe:  -156.30, categoria: 'Proveedores',           proveedor: 'Lidl',           factura: false, estado: 'SIN FACTURA' },
-  { id: 16, fecha: '2026-04-08', concepto: 'Liquidación Glovo semana 14',      importe:  1987.20, categoria: 'Ingresos plataformas', proveedor: 'Glovo',          factura: true,  estado: 'CONCILIADO'  },
-  { id: 17, fecha: '2026-04-07', concepto: 'Nómina ayudante cocina',           importe: -1320.00, categoria: 'RRHH',                  proveedor: 'Nóminas',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 18, fecha: '2026-04-06', concepto: 'Agua Canal de Isabel II',          importe:   -78.50, categoria: 'Suministros',           proveedor: 'Canal II',       factura: true,  estado: 'PENDIENTE'   },
-  { id: 19, fecha: '2026-04-05', concepto: 'Liquidación Just Eat semana 14',   importe:  1654.85, categoria: 'Ingresos plataformas', proveedor: 'Just Eat',       factura: true,  estado: 'CONCILIADO'  },
-  { id: 20, fecha: '2026-04-04', concepto: 'Pedido Alcampo reposición',        importe:  -389.40, categoria: 'Proveedores',           proveedor: 'Alcampo',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 21, fecha: '2026-04-03', concepto: 'Gas Naturgy marzo',                importe:  -248.10, categoria: 'Suministros',           proveedor: 'Naturgy',        factura: true,  estado: 'CONCILIADO'  },
-  { id: 22, fecha: '2026-04-02', concepto: 'Pedido Jasa pollo',                importe:  -524.70, categoria: 'Proveedores',           proveedor: 'Jasa',           factura: false, estado: 'SIN FACTURA' },
-  { id: 23, fecha: '2026-04-01', concepto: 'Reparación horno cocina',          importe:  -185.00, categoria: 'Otros',                 proveedor: 'Técnico SAT',    factura: true,  estado: 'PENDIENTE'   },
-  { id: 24, fecha: '2026-03-31', concepto: 'Liquidación Uber Eats semana 13',  importe:  3102.60, categoria: 'Ingresos plataformas', proveedor: 'Uber Eats',      factura: true,  estado: 'CONCILIADO'  },
-  { id: 25, fecha: '2026-03-30', concepto: 'Google Ads marzo',                 importe:  -210.00, categoria: 'Marketing',             proveedor: 'Google Ads',     factura: true,  estado: 'CONCILIADO'  },
+const CATEGORIAS: Categoria[] = [
+  { id: 'ing-plat', nombre: 'Ingresos plataformas', tipo: 'ingreso', color: '#06C167' },
+  { id: 'prov',     nombre: 'Proveedores',          tipo: 'gasto',   color: '#66aaff' },
+  { id: 'rrhh',     nombre: 'RRHH',                 tipo: 'gasto',   color: '#f5a623' },
+  { id: 'alq',      nombre: 'Alquiler',             tipo: 'gasto',   color: '#B01D23' },
+  { id: 'sum',      nombre: 'Suministros',          tipo: 'gasto',   color: '#ff6b70' },
+  { id: 'mkt',      nombre: 'Marketing',            tipo: 'gasto',   color: '#FF4757' },
+  { id: 'otros',    nombre: 'Otros',                tipo: 'mixto',   color: '#9aa0c0' },
 ]
 
-const CATEGORIAS: Categoria[] = ['Ingresos plataformas', 'Proveedores', 'RRHH', 'Alquiler', 'Suministros', 'Marketing', 'Otros']
-
-const CAT_COLORS: Record<Categoria, string> = {
-  'Ingresos plataformas': '#06C167',
-  'Proveedores':           '#66aaff',
-  'RRHH':                  '#f5a623',
-  'Alquiler':              '#B01D23',
-  'Suministros':           '#ff6b70',
-  'Marketing':             '#e8f442',
-  'Otros':                 '#9aa0c0',
-}
-
-const PROVEEDORES_UNICOS = Array.from(new Set(MOCK_MOVIMIENTOS.map(m => m.proveedor))).sort()
+const CAT_BY_ID: Record<string, Categoria> = Object.fromEntries(CATEGORIAS.map(c => [c.id, c]))
 
 /* ═══════════════════════════════════════════════════════════
-   ESTILOS
+   MOCK MOVIMIENTOS (60 en 90 días)
    ═══════════════════════════════════════════════════════════ */
 
-const labelStyle: CSSProperties = {
-  fontFamily: FONT_HEAD,
-  fontSize: 11,
-  letterSpacing: '1.5px',
-  textTransform: 'uppercase',
-  color: P.sec,
-  marginBottom: 6,
-  display: 'block',
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() - n)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-const inputStyle: CSSProperties = {
-  width: '100%',
-  backgroundColor: P.inp,
-  color: P.pri,
-  border: `1px solid ${P.brd}`,
-  borderRadius: 6,
-  padding: '9px 12px',
-  fontSize: 13,
-  fontFamily: FONT_BODY,
-  outline: 'none',
-  minHeight: 40,
+const MOCK: Movimiento[] = [
+  /* Uber Eats — patrón "uber" repetido; primeros sin cat para demo regla */
+  { id: '1',  fecha: daysAgo(1),  concepto: 'Liquidación Uber Eats semana 16', importe: 3284.55, categoria_id: null,       contraparte: 'Uber Eats' },
+  { id: '2',  fecha: daysAgo(8),  concepto: 'Liquidación Uber Eats semana 15', importe: 2956.40, categoria_id: null,       contraparte: 'Uber Eats' },
+  { id: '3',  fecha: daysAgo(15), concepto: 'Liquidación Uber Eats semana 14', importe: 3102.60, categoria_id: null,       contraparte: 'Uber Eats' },
+  { id: '4',  fecha: daysAgo(22), concepto: 'Liquidación Uber Eats semana 13', importe: 2845.80, categoria_id: null,       contraparte: 'Uber Eats' },
+  { id: '5',  fecha: daysAgo(29), concepto: 'Liquidación Uber Eats semana 12', importe: 3125.10, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+  { id: '52', fecha: daysAgo(38), concepto: 'Liquidación Uber Eats semana 11', importe: 2768.40, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+  { id: '53', fecha: daysAgo(45), concepto: 'Liquidación Uber Eats semana 10', importe: 2890.20, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
+
+  /* Glovo */
+  { id: '6',  fecha: daysAgo(2),  concepto: 'Liquidación Glovo semana 16', importe: 2145.30, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '7',  fecha: daysAgo(9),  concepto: 'Liquidación Glovo semana 15', importe: 1987.20, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '8',  fecha: daysAgo(16), concepto: 'Liquidación Glovo semana 14', importe: 2254.75, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '9',  fecha: daysAgo(23), concepto: 'Liquidación Glovo semana 13', importe: 2012.90, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '54', fecha: daysAgo(40), concepto: 'Liquidación Glovo semana 12', importe: 2098.60, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+  { id: '55', fecha: daysAgo(47), concepto: 'Liquidación Glovo semana 11', importe: 1956.80, categoria_id: 'ing-plat', contraparte: 'Glovo' },
+
+  /* Just Eat */
+  { id: '10', fecha: daysAgo(6),  concepto: 'Liquidación Just Eat semana 16', importe: 1820.75, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
+  { id: '11', fecha: daysAgo(13), concepto: 'Liquidación Just Eat semana 15', importe: 1654.85, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
+  { id: '12', fecha: daysAgo(20), concepto: 'Liquidación Just Eat semana 14', importe: 1745.30, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
+
+  /* Pedido Alcampo — patrón "alcampo" repetido */
+  { id: '13', fecha: daysAgo(3),  concepto: 'Pedido Alcampo producto fresco', importe: -428.92, categoria_id: null,   contraparte: 'Alcampo' },
+  { id: '14', fecha: daysAgo(10), concepto: 'Pedido Alcampo producto fresco', importe: -389.40, categoria_id: null,   contraparte: 'Alcampo' },
+  { id: '15', fecha: daysAgo(17), concepto: 'Pedido Alcampo reposición',      importe: -512.70, categoria_id: 'prov', contraparte: 'Alcampo' },
+  { id: '16', fecha: daysAgo(24), concepto: 'Pedido Alcampo producto fresco', importe: -402.15, categoria_id: null,   contraparte: 'Alcampo' },
+  { id: '56', fecha: daysAgo(37), concepto: 'Pedido Alcampo producto fresco', importe: -415.60, categoria_id: null,   contraparte: 'Alcampo' },
+
+  /* Jasa */
+  { id: '17', fecha: daysAgo(4),  concepto: 'Pedido Jasa carnes', importe: -786.20, categoria_id: 'prov', contraparte: 'Jasa' },
+  { id: '18', fecha: daysAgo(11), concepto: 'Pedido Jasa pollo',  importe: -524.70, categoria_id: 'prov', contraparte: 'Jasa' },
+  { id: '19', fecha: daysAgo(25), concepto: 'Pedido Jasa cerdo',  importe: -687.35, categoria_id: 'prov', contraparte: 'Jasa' },
+  { id: '57', fecha: daysAgo(44), concepto: 'Pedido Jasa carnes', importe: -720.45, categoria_id: 'prov', contraparte: 'Jasa' },
+
+  /* Mercadona */
+  { id: '20', fecha: daysAgo(5),  concepto: 'Pedido Mercadona stock semanal', importe: -284.15, categoria_id: 'prov', contraparte: 'Mercadona' },
+  { id: '21', fecha: daysAgo(12), concepto: 'Pedido Mercadona complementos',  importe: -198.50, categoria_id: null,   contraparte: 'Mercadona' },
+  { id: '22', fecha: daysAgo(26), concepto: 'Pedido Mercadona stock semanal', importe: -305.80, categoria_id: 'prov', contraparte: 'Mercadona' },
+
+  /* Pampols */
+  { id: '23', fecha: daysAgo(7),  concepto: 'Pedido Pampols pescado', importe: -542.80, categoria_id: 'prov', contraparte: 'Pampols' },
+  { id: '24', fecha: daysAgo(14), concepto: 'Pedido Pampols marisco', importe: -385.20, categoria_id: 'prov', contraparte: 'Pampols' },
+  { id: '25', fecha: daysAgo(28), concepto: 'Pedido Pampols pescado', importe: -498.90, categoria_id: 'prov', contraparte: 'Pampols' },
+
+  /* Envapro */
+  { id: '26', fecha: daysAgo(9),  concepto: 'Envapro packaging abril', importe: -368.90, categoria_id: 'prov', contraparte: 'Envapro' },
+  { id: '27', fecha: daysAgo(30), concepto: 'Envapro packaging marzo', importe: -345.70, categoria_id: 'prov', contraparte: 'Envapro' },
+
+  /* Pascual */
+  { id: '28', fecha: daysAgo(13), concepto: 'Pedido Pascual lácteos', importe: -192.45, categoria_id: 'prov', contraparte: 'Pascual' },
+  { id: '29', fecha: daysAgo(27), concepto: 'Pedido Pascual lácteos', importe: -178.30, categoria_id: 'prov', contraparte: 'Pascual' },
+
+  /* Lidl */
+  { id: '30', fecha: daysAgo(16), concepto: 'Pedido Lidl complementos', importe: -156.30, categoria_id: null, contraparte: 'Lidl' },
+
+  /* RRHH */
+  { id: '31', fecha: daysAgo(4),  concepto: 'Nómina cocinero jefe',       importe: -1850.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '32', fecha: daysAgo(4),  concepto: 'Nómina ayudante cocina',     importe: -1320.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '33', fecha: daysAgo(4),  concepto: 'Nómina encargado sala',      importe: -1680.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '34', fecha: daysAgo(35), concepto: 'Nómina cocinero jefe marzo', importe: -1850.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+  { id: '35', fecha: daysAgo(35), concepto: 'Nómina ayudante cocina mar', importe: -1320.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
+
+  /* Alquiler */
+  { id: '36', fecha: daysAgo(4),  concepto: 'Alquiler local abril',   importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
+  { id: '37', fecha: daysAgo(34), concepto: 'Alquiler local marzo',   importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
+  { id: '38', fecha: daysAgo(64), concepto: 'Alquiler local febrero', importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
+
+  /* Suministros */
+  { id: '39', fecha: daysAgo(5),  concepto: 'Luz Iberdrola marzo',         importe: -612.40, categoria_id: 'sum', contraparte: 'Iberdrola' },
+  { id: '40', fecha: daysAgo(35), concepto: 'Luz Iberdrola febrero',       importe: -589.20, categoria_id: 'sum', contraparte: 'Iberdrola' },
+  { id: '41', fecha: daysAgo(18), concepto: 'Agua Canal de Isabel II',     importe: -78.50,  categoria_id: 'sum', contraparte: 'Canal II' },
+  { id: '42', fecha: daysAgo(48), concepto: 'Agua Canal de Isabel II feb', importe: -82.30,  categoria_id: 'sum', contraparte: 'Canal II' },
+  { id: '43', fecha: daysAgo(21), concepto: 'Gas Naturgy marzo',           importe: -248.10, categoria_id: 'sum', contraparte: 'Naturgy' },
+  { id: '44', fecha: daysAgo(51), concepto: 'Gas Naturgy febrero',         importe: -271.50, categoria_id: 'sum', contraparte: 'Naturgy' },
+  { id: '45', fecha: daysAgo(19), concepto: 'Teléfono Movistar abril',     importe: -89.90,  categoria_id: 'sum', contraparte: 'Movistar' },
+
+  /* Marketing */
+  { id: '46', fecha: daysAgo(14), concepto: 'Campaña Instagram Ads',       importe: -320.00, categoria_id: 'mkt', contraparte: 'Meta Ads' },
+  { id: '47', fecha: daysAgo(25), concepto: 'Google Ads marzo',            importe: -210.00, categoria_id: 'mkt', contraparte: 'Google Ads' },
+  { id: '48', fecha: daysAgo(42), concepto: 'Campaña Instagram Ads marzo', importe: -280.00, categoria_id: 'mkt', contraparte: 'Meta Ads' },
+
+  /* Otros */
+  { id: '49', fecha: daysAgo(22), concepto: 'Reparación horno cocina',      importe: -185.00, categoria_id: 'otros', contraparte: 'Técnico SAT' },
+  { id: '50', fecha: daysAgo(45), concepto: 'Mantenimiento freidora',       importe: -120.00, categoria_id: null,    contraparte: 'Técnico SAT' },
+  { id: '51', fecha: daysAgo(52), concepto: 'Cambio cerradura',             importe: -75.00,  categoria_id: 'otros', contraparte: 'Cerrajero' },
+  { id: '58', fecha: daysAgo(60), concepto: 'Seguro responsabilidad civil', importe: -280.00, categoria_id: 'otros', contraparte: 'Mapfre' },
+  { id: '59', fecha: daysAgo(72), concepto: 'Asesoría fiscal febrero',      importe: -250.00, categoria_id: 'otros', contraparte: 'Asesoría XYZ' },
+  { id: '60', fecha: daysAgo(85), concepto: 'Devolución depósito fianza',   importe: 800.00,  categoria_id: 'otros', contraparte: 'Banco' },
+]
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+const STOP_WORDS = new Set(['liquidacion','pedido','nomina','del','de','la','el','por','para','con','sin','abril','marzo','febrero','enero','semana'])
+
+function extraerPatron(concepto: string): string {
+  const w = concepto.toLowerCase().split(/\s+/).find(x => x.length > 3 && !STOP_WORDS.has(x))
+  return w ?? concepto.slice(0, 10).toLowerCase()
 }
 
-const btnPrimary: CSSProperties = {
-  backgroundColor: P.accent,
-  color: '#1a1a1a',
-  fontFamily: FONT_HEAD,
-  letterSpacing: '1px',
-  padding: '9px 16px',
-  borderRadius: 6,
-  border: 'none',
-  cursor: 'pointer',
-  minHeight: 40,
-  fontSize: 12,
-  textTransform: 'uppercase' as const,
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-}
-
-const btnOutline: CSSProperties = {
-  background: 'none',
-  color: P.sec,
-  border: `1px solid ${P.brd}`,
-  fontFamily: FONT_HEAD,
-  letterSpacing: '1px',
-  padding: '9px 16px',
-  borderRadius: 6,
-  cursor: 'pointer',
-  minHeight: 40,
-  fontSize: 12,
-  textTransform: 'uppercase' as const,
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-}
-
-const btnSave: CSSProperties = {
-  backgroundColor: P.red,
-  color: '#ffffff',
-  fontFamily: FONT_HEAD,
-  letterSpacing: '1px',
-  padding: '9px 24px',
-  borderRadius: 6,
-  border: 'none',
-  cursor: 'pointer',
-  minHeight: 40,
-  fontSize: 12,
-  textTransform: 'uppercase' as const,
-}
-
-const btnCancel: CSSProperties = {
-  backgroundColor: '#555e7a',
-  color: P.pri,
-  fontFamily: FONT_HEAD,
-  letterSpacing: '1px',
-  padding: '9px 24px',
-  borderRadius: 6,
-  border: 'none',
-  cursor: 'pointer',
-  minHeight: 40,
-  fontSize: 12,
-  textTransform: 'uppercase' as const,
+function fmtFecha(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y.slice(2)}`
 }
 
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════ */
 
+type Tab = 'listado' | 'resumen'
+type EstadoFiltro = 'Todos' | 'Categorizado' | 'Sin categorizar'
+type PeriodoFiltro = 'Este mes' | 'Mes anterior' | 'Trimestre' | 'Año' | 'Personalizado'
+
 export default function Conciliacion() {
-  const [periodo, setPeriodo]     = useState('Este mes')
-  const [categoria, setCategoria] = useState<'Todas' | Categoria>('Todas')
-  const [estado, setEstado]       = useState<'Todos' | Estado>('Todos')
-  const [proveedor, setProveedor] = useState<string>('Todos')
-  const [busqueda, setBusqueda]   = useState('')
+  const { T } = useTheme()
 
-  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
-  const [panelAbierto,    setPanelAbierto]    = useState(false)
+  const [tab, setTab]           = useState<Tab>('listado')
+  const [periodo, setPeriodo]   = useState<PeriodoFiltro>('Este mes')
+  const [catFiltro, setCatFiltro] = useState<string>('Todas')
+  const [estado, setEstado]     = useState<EstadoFiltro>('Todos')
+  const [busqueda, setBusqueda] = useState('')
+  const [pageOffset, setPageOffset] = useState(0)
 
-  const [modalNuevo,    setModalNuevo]    = useState(false)
-  const [modalImportar, setModalImportar] = useState(false)
+  const [movimientos, setMovimientos] = useState<Movimiento[]>(MOCK)
+  const [reglas, setReglas] = useState<Regla[]>([])
+  void reglas
 
-  /* — filtrado — */
+  /* — Categorización inline + regla automática — */
+  const handleCategorizar = (movId: string, catId: string, concepto: string) => {
+    const normalizedCat = catId === '' ? null : catId
+    setMovimientos(prev => {
+      const base = prev.map(m => m.id === movId ? { ...m, categoria_id: normalizedCat, auto_categorizado: false } : m)
+      if (!normalizedCat) return base
+      const patron = extraerPatron(concepto)
+      return base.map(m => {
+        if (m.id === movId) return m
+        if (!m.categoria_id && m.concepto.toLowerCase().includes(patron)) {
+          return { ...m, categoria_id: normalizedCat, auto_categorizado: true }
+        }
+        return m
+      })
+    })
+    if (normalizedCat) {
+      const patron = extraerPatron(concepto)
+      setReglas(prev => [...prev, { patron, categoria_id: normalizedCat }])
+    }
+  }
+
+  /* — Filtros globales (aplican a ambas pestañas) — */
   const filtrados = useMemo(() => {
-    return MOCK_MOVIMIENTOS.filter(m => {
-      if (categoria !== 'Todas' && m.categoria !== categoria) return false
-      if (estado    !== 'Todos' && m.estado    !== estado)    return false
-      if (proveedor !== 'Todos' && m.proveedor !== proveedor) return false
+    return movimientos.filter(m => {
+      if (catFiltro !== 'Todas' && m.categoria_id !== catFiltro) return false
+      if (estado === 'Categorizado' && m.categoria_id === null) return false
+      if (estado === 'Sin categorizar' && m.categoria_id !== null) return false
       if (busqueda && !m.concepto.toLowerCase().includes(busqueda.toLowerCase())) return false
       return true
     })
-  }, [categoria, estado, proveedor, busqueda])
+  }, [movimientos, catFiltro, estado, busqueda])
+
+  /* — Paginación 31 días (solo listado) — */
+  const { listadoPagina, rangoTexto } = useMemo(() => {
+    const hoy = new Date()
+    hoy.setHours(12, 0, 0, 0)
+    const fin = new Date(hoy); fin.setDate(hoy.getDate() - 31 * pageOffset)
+    const ini = new Date(fin); ini.setDate(fin.getDate() - 30)
+    const isoIni = ini.toISOString().slice(0, 10)
+    const isoFin = fin.toISOString().slice(0, 10)
+    const lista = filtrados.filter(m => m.fecha >= isoIni && m.fecha <= isoFin)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    return { listadoPagina: lista, rangoTexto: `${fmtFecha(isoIni)} – ${fmtFecha(isoFin)}` }
+  }, [filtrados, pageOffset])
 
   /* — KPIs — */
-  const ingresos = filtrados.filter(m => m.importe > 0).reduce((a, m) => a + m.importe, 0)
-  const gastos   = filtrados.filter(m => m.importe < 0).reduce((a, m) => a + m.importe, 0)
-  const balance  = ingresos + gastos
-  const pendientes = filtrados.filter(m => m.estado !== 'CONCILIADO').length
+  const ingresos    = filtrados.filter(m => m.importe > 0).reduce((a, m) => a + m.importe, 0)
+  const gastos      = filtrados.filter(m => m.importe < 0).reduce((a, m) => a + m.importe, 0)
+  const balance     = ingresos + gastos
+  const pendientes  = filtrados.filter(m => m.categoria_id === null).length
 
-  /* — Mocks de variación — */
-  const varIngresos = 12.4
-  const varGastos   = -3.2
-
-  /* — Resumen por categoría — */
+  /* — Resumen por categoría (panel lateral) — */
   const resumenCategorias = useMemo(() => {
     const totales: Record<string, number> = {}
-    filtrados.forEach(m => {
-      if (m.importe < 0) totales[m.categoria] = (totales[m.categoria] ?? 0) + Math.abs(m.importe)
-    })
+    for (const m of filtrados) {
+      if (m.importe < 0 && m.categoria_id) {
+        totales[m.categoria_id] = (totales[m.categoria_id] ?? 0) + Math.abs(m.importe)
+      }
+    }
     const totalGastos = Object.values(totales).reduce((a, b) => a + b, 0) || 1
     return Object.entries(totales)
-      .map(([cat, total]) => ({ cat, total, pct: (total / totalGastos) * 100 }))
+      .map(([catId, total]) => ({
+        catId,
+        nombre: CAT_BY_ID[catId]?.nombre ?? catId,
+        color: CAT_BY_ID[catId]?.color ?? T.mut,
+        total,
+        pct: (total / totalGastos) * 100,
+      }))
       .sort((a, b) => b.total - a.total)
-  }, [filtrados])
+  }, [filtrados, T.mut])
 
-  /* — Top proveedores — */
-  const topProveedores = useMemo(() => {
-    const totales: Record<string, number> = {}
-    filtrados.forEach(m => {
-      if (m.importe < 0) totales[m.proveedor] = (totales[m.proveedor] ?? 0) + Math.abs(m.importe)
-    })
-    return Object.entries(totales)
-      .map(([prov, total]) => ({ prov, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
-  }, [filtrados])
+  /* ═══════════════════════════════════════════════════════════
+     STYLES INLINE
+     ═══════════════════════════════════════════════════════════ */
 
-  const facturasPendientes = filtrados.filter(m => !m.factura).length
+  const labelStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 11,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    marginBottom: 6,
+    display: 'block',
+  }
+
+  const inputStyle: CSSProperties = {
+    width: '100%',
+    backgroundColor: T.inp,
+    color: T.pri,
+    border: `1px solid ${T.brd}`,
+    borderRadius: 8,
+    padding: '9px 12px',
+    fontSize: 13,
+    fontFamily: FONT.body,
+    outline: 'none',
+    minHeight: 40,
+  }
+
+  const panelCardStyle: CSSProperties = {
+    background: T.card,
+    border: `0.5px solid ${T.brd}`,
+    borderRadius: 10,
+    padding: 16,
+  }
+
+  const panelTitleStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 12,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    margin: '0 0 14px 0',
+    fontWeight: 500,
+  }
+
+  const thStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    padding: '10px 12px',
+    textAlign: 'left',
+    background: T.group,
+    borderBottom: `0.5px solid ${T.brd}`,
+    fontWeight: 400,
+    whiteSpace: 'nowrap',
+  }
+
+  const tdStyle: CSSProperties = {
+    padding: '10px 12px',
+    fontSize: 13,
+    fontFamily: FONT.body,
+    color: T.pri,
+    borderBottom: `0.5px solid ${T.brd}`,
+    whiteSpace: 'nowrap',
+  }
 
   /* ═══════════════════════════════════════════════════════════
      RENDER
      ═══════════════════════════════════════════════════════════ */
 
   return (
-    <div style={{ background: P.app, minHeight: '100%', margin: -24, padding: 24, color: P.pri, fontFamily: FONT_BODY }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
 
-      {/* ═══ HEADER ═══ */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT_HEAD, fontSize: 24, letterSpacing: '3px', textTransform: 'uppercase', color: P.pri, fontWeight: 600, margin: 0 }}>
-            Conciliación Bancaria
-          </h1>
-          <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: P.sec, marginTop: 4 }}>
-            Movimientos, categorización y control de facturas
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={btnPrimary} onClick={() => setModalNuevo(true)}>
-            <Plus size={16} strokeWidth={2.2} /> Nuevo movimiento
-          </button>
-          <button style={btnOutline} onClick={() => setModalImportar(true)}>
-            <Upload size={16} strokeWidth={2} /> Importar extracto
-          </button>
-        </div>
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+        <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle }}>Conciliación bancaria</h2>
+        <button
+          style={{
+            backgroundColor: '#FF4757',
+            color: '#ffffff',
+            fontFamily: FONT.heading,
+            letterSpacing: '1.5px',
+            padding: '9px 16px',
+            borderRadius: 8,
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 12,
+            textTransform: 'uppercase',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <Upload size={15} strokeWidth={2} /> Importar extracto
+        </button>
       </div>
 
-      {/* ═══ FILTROS (toggle móvil) ═══ */}
-      <button
-        onClick={() => setFiltrosAbiertos(v => !v)}
-        style={{ ...btnOutline, marginBottom: 12, width: '100%', justifyContent: 'space-between' }}
-        className="flex lg:!hidden"
-      >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <Filter size={14} /> Filtros
-        </span>
-        <ChevronDown size={14} style={{ transform: filtrosAbiertos ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
-      </button>
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${T.brd}`, marginBottom: 18 }}>
+        {(['listado', 'resumen'] as Tab[]).map(k => {
+          const active = tab === k
+          return (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              style={{
+                padding: '8px 18px',
+                background: 'none',
+                border: 'none',
+                borderBottom: active ? `2px solid ${T.accent}` : '2px solid transparent',
+                marginBottom: -1,
+                color: active ? T.accent : T.mut,
+                fontFamily: FONT.heading,
+                fontSize: 12,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                transition: 'color 150ms, border-color 150ms',
+              }}
+            >
+              {k === 'listado' ? 'Movimientos' : 'Resumen'}
+            </button>
+          )
+        })}
+      </div>
 
+      {/* FILTROS GLOBALES */}
       <div
-        className={filtrosAbiertos ? 'grid' : 'hidden lg:grid'}
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: 10,
-          marginBottom: 20,
-          background: P.card,
-          border: `1px solid ${P.brd}`,
+          background: T.card,
+          border: `0.5px solid ${T.brd}`,
           borderRadius: 10,
           padding: 14,
+          marginBottom: 18,
         }}
       >
         <div>
           <label style={labelStyle}>Período</label>
-          <select value={periodo} onChange={e => setPeriodo(e.target.value)} style={inputStyle}>
+          <select value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoFiltro)} style={inputStyle}>
             <option>Este mes</option>
             <option>Mes anterior</option>
             <option>Trimestre</option>
             <option>Año</option>
-            <option>Rango custom</option>
+            <option>Personalizado</option>
           </select>
         </div>
         <div>
           <label style={labelStyle}>Categoría</label>
-          <select value={categoria} onChange={e => setCategoria(e.target.value as any)} style={inputStyle}>
-            <option>Todas</option>
-            {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+          <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
+            <option value="Todas">Todas</option>
+            {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
         <div>
           <label style={labelStyle}>Estado</label>
-          <select value={estado} onChange={e => setEstado(e.target.value as any)} style={inputStyle}>
+          <select value={estado} onChange={e => setEstado(e.target.value as EstadoFiltro)} style={inputStyle}>
             <option>Todos</option>
-            <option>CONCILIADO</option>
-            <option>PENDIENTE</option>
-            <option>SIN FACTURA</option>
+            <option>Categorizado</option>
+            <option>Sin categorizar</option>
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Proveedor</label>
-          <select value={proveedor} onChange={e => setProveedor(e.target.value)} style={inputStyle}>
-            <option>Todos</option>
-            {PROVEEDORES_UNICOS.map(p => <option key={p}>{p}</option>)}
-          </select>
-        </div>
-        <div style={{ gridColumn: 'span 1' }}>
           <label style={labelStyle}>Buscar concepto</label>
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: P.mut }} />
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
@@ -367,455 +416,204 @@ export default function Conciliacion() {
         </div>
       </div>
 
-      {/* ═══ KPIs ═══ */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 14,
-          marginBottom: 20,
-        }}
-      >
-        <KPICard label="Ingresos mes" value={fmtEur(ingresos)} color={P.green} variacion={varIngresos} />
-        <KPICard label="Gastos mes"   value={fmtEur(Math.abs(gastos))} color={P.red} variacion={varGastos} />
-        <KPICard label="Balance neto" value={fmtEur(balance)} color={balance >= 0 ? P.green : P.red} />
-        <KPICard label="Pendientes conciliar" value={String(pendientes)} color={P.amber} subtitle="movimientos" />
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+        <KpiCard
+          label="Ingresos mes"
+          value={fmtEur(ingresos)}
+          delta={{ value: '+12.4% vs mes anterior', trend: 'up' }}
+          accent="success"
+        />
+        <KpiCard
+          label="Gastos mes"
+          value={fmtEur(Math.abs(gastos))}
+          delta={{ value: '-5.2% vs mes anterior', trend: 'down' }}
+          accent="danger"
+        />
+        <KpiCard
+          label="Balance neto"
+          value={fmtEur(balance)}
+          accent={balance >= 0 ? 'success' : 'danger'}
+        />
+        <KpiCard
+          label="Pendientes categorizar"
+          value={pendientes === 0 ? 'Todo al día ✓' : String(pendientes)}
+          subtitle={pendientes === 0 ? undefined : 'movimientos'}
+          accent="warning"
+          highlighted
+        />
       </div>
 
-      {/* ═══ GRID PRINCIPAL: TABLA + PANEL LATERAL ═══ */}
-      <div className="grid gap-5" style={{ gridTemplateColumns: '1fr', alignItems: 'flex-start' }}>
-        <div className="lg:grid lg:gap-5" style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px', display: 'grid', gap: 20 }}>
+      {tab === 'listado' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 20, alignItems: 'flex-start' }}>
 
-          {/* ─── TABLA ─── */}
-          <div style={{ background: P.card, border: `1px solid ${P.brd}`, borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
+          {/* TABLA */}
+          <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
                 <thead>
-                  <tr style={{ background: P.thead }}>
-                    {['Fecha', 'Concepto', 'Importe', 'Categoría', 'Proveedor', 'Factura', 'Estado', 'Acciones'].map(h => (
-                      <th
-                        key={h}
-                        style={{
-                          fontFamily: FONT_HEAD,
-                          fontSize: 11,
-                          letterSpacing: '1.5px',
-                          textTransform: 'uppercase',
-                          color: P.sec,
-                          padding: '12px 14px',
-                          textAlign: h === 'Importe' ? 'right' : 'left',
-                          whiteSpace: 'nowrap',
-                          borderBottom: `1px solid ${P.brd}`,
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                  <tr>
+                    <th style={thStyle}>Fecha</th>
+                    <th style={thStyle}>Concepto</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>Importe</th>
+                    <th style={thStyle}>Categoría</th>
+                    <th style={thStyle}>Contraparte</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtrados.map((m, i) => (
-                    <tr key={m.id} style={{ background: i % 2 === 0 ? P.rowOdd : P.rowEven }}>
-                      <td style={tdStyle}>{formatFecha(m.fecha)}</td>
-                      <td style={{ ...tdStyle, color: P.pri }}>{m.concepto}</td>
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: 'right',
-                          color: m.importe >= 0 ? P.green : P.red,
-                          fontFamily: FONT_HEAD,
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                  {listadoPagina.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: T.mut, padding: '28px 12px' }}>
+                        Sin movimientos en este rango
+                      </td>
+                    </tr>
+                  ) : listadoPagina.map(m => (
+                    <tr key={m.id}>
+                      <td style={{ ...tdStyle, color: T.sec }}>{fmtFecha(m.fecha)}</td>
+                      <td style={{ ...tdStyle, color: T.pri, whiteSpace: 'normal' }}>{m.concepto}</td>
+                      <td style={{
+                        ...tdStyle,
+                        textAlign: 'right',
+                        color: m.importe >= 0 ? '#1D9E75' : '#E24B4A',
+                        fontFamily: FONT.heading,
+                        fontWeight: 600,
+                      }}>
                         {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
                       </td>
                       <td style={tdStyle}>
-                        <span
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <select
+                            value={m.categoria_id ?? ''}
+                            onChange={e => handleCategorizar(m.id, e.target.value, m.concepto)}
+                            style={{
+                              backgroundColor: T.inp,
+                              color: m.categoria_id ? T.pri : T.mut,
+                              border: `1px solid ${m.categoria_id ? T.brd : '#f5a623'}`,
+                              borderRadius: 6,
+                              padding: '4px 8px',
+                              fontFamily: FONT.heading,
+                              fontSize: 11,
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                              cursor: 'pointer',
+                              outline: 'none',
+                            }}
+                          >
+                            <option value="">— Categorizar —</option>
+                            {CATEGORIAS.map(c => (
+                              <option key={c.id} value={c.id}>{c.nombre}</option>
+                            ))}
+                          </select>
+                          {m.auto_categorizado && (
+                            <Zap size={12} color="#f5a623" aria-label="Auto: regla aplicada" />
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{m.contraparte}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <button
+                          title="Editar"
                           style={{
-                            display: 'inline-block',
-                            padding: '3px 8px',
-                            borderRadius: 4,
-                            background: CAT_COLORS[m.categoria] + '22',
-                            color: CAT_COLORS[m.categoria],
-                            fontFamily: FONT_HEAD,
-                            fontSize: 10,
-                            letterSpacing: '1px',
-                            textTransform: 'uppercase',
-                            border: `1px solid ${CAT_COLORS[m.categoria]}55`,
-                            whiteSpace: 'nowrap',
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            background: T.inp,
+                            border: `1px solid ${T.brd}`,
+                            color: T.sec,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                         >
-                          {m.categoria}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>{m.proveedor}</td>
-                      <td style={tdStyle}>
-                        {m.factura ? (
-                          <a href="#" onClick={e => e.preventDefault()} style={{ color: P.green, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
-                            <CheckCircle2 size={14} /> <span style={{ fontSize: 11 }}>Ver</span>
-                          </a>
-                        ) : (
-                          <span style={{ color: P.amber, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AlertTriangle size={14} /> <span style={{ fontSize: 11 }}>Falta</span>
-                          </span>
-                        )}
-                      </td>
-                      <td style={tdStyle}>
-                        <EstadoBadge estado={m.estado} />
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <IconBtn title="Editar"><Pencil size={14} /></IconBtn>
-                          <IconBtn title="Adjuntar factura"><Paperclip size={14} /></IconBtn>
-                          <IconBtn title="Eliminar" danger><Trash2 size={14} /></IconBtn>
-                        </div>
+                          <Pencil size={13} />
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr style={{ background: P.thead }}>
-                    <td colSpan={2} style={{ ...tdStyle, fontFamily: FONT_HEAD, textTransform: 'uppercase', letterSpacing: '1px', color: P.sec, fontSize: 11 }}>
-                      Totales filtrados ({filtrados.length} movimientos)
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <div style={{ color: P.green, fontFamily: FONT_HEAD, fontWeight: 600 }}>+{fmtEur(ingresos)}</div>
-                      <div style={{ color: P.red, fontFamily: FONT_HEAD, fontWeight: 600 }}>{fmtEur(gastos)}</div>
-                      <div style={{ color: balance >= 0 ? P.green : P.red, fontFamily: FONT_HEAD, fontWeight: 700, borderTop: `1px solid ${P.brd}`, paddingTop: 4, marginTop: 4 }}>
-                        = {fmtEur(balance)}
-                      </div>
-                    </td>
-                    <td colSpan={5} />
-                  </tr>
-                </tfoot>
               </table>
             </div>
+
+            {/* PAGINACIÓN */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 10,
+              padding: '12px 16px',
+              borderTop: `1px solid ${T.brd}`,
+            }}>
+              <span style={{ color: T.mut, fontSize: 12, fontFamily: FONT.body }}>
+                Mostrando {rangoTexto} · {listadoPagina.length} movimientos
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setPageOffset(o => o + 1)}
+                  style={{
+                    padding: '6px 12px',
+                    background: T.inp,
+                    color: T.pri,
+                    borderRadius: 6,
+                    border: `1px solid ${T.brd}`,
+                    fontFamily: FONT.heading,
+                    fontSize: 11,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => setPageOffset(o => Math.max(0, o - 1))}
+                  disabled={pageOffset === 0}
+                  style={{
+                    padding: '6px 12px',
+                    background: T.inp,
+                    color: T.pri,
+                    borderRadius: 6,
+                    border: `1px solid ${T.brd}`,
+                    fontFamily: FONT.heading,
+                    fontSize: 11,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    cursor: pageOffset === 0 ? 'not-allowed' : 'pointer',
+                    opacity: pageOffset === 0 ? 0.4 : 1,
+                  }}
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* ─── PANEL LATERAL (acordeón en móvil) ─── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-
-            <button
-              onClick={() => setPanelAbierto(v => !v)}
-              style={{ ...btnOutline, width: '100%', justifyContent: 'space-between' }}
-              className="flex lg:!hidden"
-            >
-              <span>Resumen</span>
-              <ChevronDown size={14} style={{ transform: panelAbierto ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
-            </button>
-
-            <div className={panelAbierto ? 'flex flex-col gap-4' : 'hidden lg:flex lg:flex-col lg:gap-4'}>
-
-              {/* Resumen por categoría */}
-              <div style={panelCardStyle}>
-                <h3 style={panelTitleStyle}>Resumen por categoría</h3>
-                {resumenCategorias.length === 0 && <div style={{ color: P.mut, fontSize: 12 }}>Sin datos</div>}
-                {resumenCategorias.map(r => (
-                  <div key={r.cat} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: P.sec, marginBottom: 4 }}>
-                      <span>{r.cat}</span>
-                      <span style={{ color: P.pri, fontFamily: FONT_HEAD }}>{r.pct.toFixed(0)}%</span>
-                    </div>
-                    <div style={{ height: 6, background: P.inpRo, borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${r.pct}%`, background: CAT_COLORS[r.cat as Categoria], transition: 'width 0.4s' }} />
-                    </div>
-                    <div style={{ fontSize: 11, color: P.mut, marginTop: 3, textAlign: 'right' }}>{fmtEur(r.total)}</div>
+          {/* PANEL LATERAL: RESUMEN CATEGORÍA */}
+          <aside style={{ minWidth: 0 }}>
+            <div style={panelCardStyle}>
+              <h3 style={panelTitleStyle}>Resumen por categoría</h3>
+              {resumenCategorias.length === 0 && (
+                <div style={{ color: T.mut, fontSize: 12 }}>Sin datos</div>
+              )}
+              {resumenCategorias.map(r => (
+                <div key={r.catId} style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: T.sec, marginBottom: 4 }}>
+                    <span>{r.nombre}</span>
+                    <span style={{ color: T.pri, fontFamily: FONT.heading }}>{r.pct.toFixed(0)}%</span>
                   </div>
-                ))}
-              </div>
-
-              {/* Top proveedores */}
-              <div style={panelCardStyle}>
-                <h3 style={panelTitleStyle}>Top 5 proveedores</h3>
-                {topProveedores.length === 0 && <div style={{ color: P.mut, fontSize: 12 }}>Sin datos</div>}
-                {topProveedores.map((p, i) => (
-                  <div key={p.prov} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < topProveedores.length - 1 ? `1px solid ${P.brd}` : 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 4, background: P.inp, color: P.sec, fontSize: 11, fontFamily: FONT_HEAD, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {i + 1}
-                      </div>
-                      <span style={{ color: P.pri, fontSize: 13 }}>{p.prov}</span>
-                    </div>
-                    <span style={{ color: P.red, fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 13 }}>{fmtEur(p.total)}</span>
+                  <div style={{ height: 6, background: T.inp, borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${r.pct}%`, background: r.color, transition: 'width 0.4s' }} />
                   </div>
-                ))}
-              </div>
-
-              {/* Facturas pendientes */}
-              <div style={{ ...panelCardStyle, borderColor: P.red + '66' }}>
-                <h3 style={panelTitleStyle}>Facturas pendientes</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 22,
-                      background: P.red,
-                      color: '#ffffff',
-                      fontFamily: FONT_HEAD,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {facturasPendientes}
-                  </div>
-                  <div style={{ fontSize: 12, color: P.sec }}>
-                    movimientos sin factura adjunta
-                  </div>
+                  <div style={{ fontSize: 11, color: T.mut, marginTop: 3, textAlign: 'right' }}>{fmtEur(r.total)}</div>
                 </div>
-              </div>
-
+              ))}
             </div>
-          </div>
+          </aside>
         </div>
-      </div>
-
-      {/* ═══ MODAL NUEVO MOVIMIENTO ═══ */}
-      {modalNuevo && (
-        <ModalShell onClose={() => setModalNuevo(false)} title="Nuevo movimiento">
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-            <div>
-              <label style={labelStyle}>Fecha</label>
-              <input type="date" defaultValue="2026-04-22" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Importe</label>
-              <input type="number" placeholder="0,00" style={inputStyle} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>Concepto</label>
-            <input placeholder="Ej: Pedido Alcampo" style={inputStyle} />
-          </div>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginTop: 12 }}>
-            <div>
-              <label style={labelStyle}>Categoría</label>
-              <select style={inputStyle}>{CATEGORIAS.map(c => <option key={c}>{c}</option>)}</select>
-            </div>
-            <div>
-              <label style={labelStyle}>Proveedor</label>
-              <select style={inputStyle}>{PROVEEDORES_UNICOS.map(p => <option key={p}>{p}</option>)}</select>
-            </div>
-            <div>
-              <label style={labelStyle}>Estado</label>
-              <select style={inputStyle}>
-                <option>CONCILIADO</option>
-                <option>PENDIENTE</option>
-                <option>SIN FACTURA</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>Notas</label>
-            <textarea rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Observaciones opcionales..." />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>Adjuntar factura</label>
-            <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-              <Paperclip size={14} color={P.mut} />
-              <span style={{ color: P.mut, fontSize: 13 }}>Seleccionar archivo…</span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button style={btnCancel} onClick={() => setModalNuevo(false)}>Cancelar</button>
-            <button style={btnSave}   onClick={() => setModalNuevo(false)}>Guardar</button>
-          </div>
-        </ModalShell>
-      )}
-
-      {/* ═══ MODAL IMPORTAR EXTRACTO ═══ */}
-      {modalImportar && (
-        <ModalShell onClose={() => setModalImportar(false)} title="Importar extracto bancario">
-          <div
-            style={{
-              border: `2px dashed ${P.brd}`,
-              borderRadius: 10,
-              padding: '40px 20px',
-              textAlign: 'center',
-              background: P.inpRo,
-              cursor: 'pointer',
-            }}
-          >
-            <UploadCloud size={56} color={P.sec} style={{ margin: '0 auto 14px' }} />
-            <div style={{ color: P.pri, fontFamily: FONT_HEAD, letterSpacing: '1px', fontSize: 14, textTransform: 'uppercase', marginBottom: 8 }}>
-              Arrastra tu extracto aquí
-            </div>
-            <div style={{ color: P.sec, fontSize: 13 }}>
-              o haz click para seleccionar un archivo CSV / XLSX
-            </div>
-            <div style={{ marginTop: 18, display: 'inline-flex', alignItems: 'center', gap: 8, color: P.mut, fontSize: 12, background: P.card, padding: '6px 12px', borderRadius: 16, border: `1px solid ${P.brd}` }}>
-              <FileText size={12} /> La lógica de parseo se activa en la tanda 3/3
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button style={btnCancel} onClick={() => setModalImportar(false)}>Cancelar</button>
-            <button style={{ ...btnSave, opacity: 0.45, cursor: 'not-allowed' }} disabled>Continuar</button>
-          </div>
-        </ModalShell>
+      ) : (
+        <ResumenDashboard movimientos={filtrados} categorias={CATEGORIAS} />
       )}
     </div>
   )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   SUBCOMPONENTES
-   ═══════════════════════════════════════════════════════════ */
-
-function KPICard({ label, value, color, variacion, subtitle }: { label: string; value: string; color: string; variacion?: number; subtitle?: string }) {
-  return (
-    <div style={{ background: P.card, border: `1px solid ${P.brd}`, borderRadius: 10, padding: '14px 18px', minHeight: 92 }}>
-      <div style={{ fontFamily: FONT_HEAD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: P.sec, marginBottom: 8 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: FONT_HEAD, fontSize: 26, fontWeight: 600, color, lineHeight: 1 }}>
-        {value}
-      </div>
-      {variacion !== undefined && (
-        <div style={{ fontSize: 11, color: variacion >= 0 ? P.green : P.red, marginTop: 8, fontFamily: FONT_BODY }}>
-          {variacion >= 0 ? '▲' : '▼'} {Math.abs(variacion).toFixed(1)}% vs mes ant.
-        </div>
-      )}
-      {subtitle && (
-        <div style={{ fontSize: 11, color: P.mut, marginTop: 8 }}>{subtitle}</div>
-      )}
-    </div>
-  )
-}
-
-function EstadoBadge({ estado }: { estado: Estado }) {
-  const cfg: Record<Estado, { bg: string; color: string; icon: React.ReactNode }> = {
-    CONCILIADO:   { bg: P.green + '22', color: P.green, icon: <CheckCircle2 size={12} /> },
-    PENDIENTE:    { bg: P.amber + '22', color: P.amber, icon: <AlertTriangle size={12} /> },
-    'SIN FACTURA':{ bg: P.red + '22',   color: P.red,   icon: <XCircle size={12} /> },
-  }
-  const c = cfg[estado]
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 9px',
-        borderRadius: 4,
-        background: c.bg,
-        color: c.color,
-        fontFamily: FONT_HEAD,
-        fontSize: 10,
-        letterSpacing: '1px',
-        border: `1px solid ${c.color}55`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {c.icon} {estado}
-    </span>
-  )
-}
-
-function IconBtn({ children, title, danger }: { children: React.ReactNode; title: string; danger?: boolean }) {
-  return (
-    <button
-      title={title}
-      style={{
-        width: 30,
-        height: 30,
-        borderRadius: 5,
-        background: P.inp,
-        border: `1px solid ${P.brd}`,
-        color: danger ? P.red : P.sec,
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          backgroundColor: '#484f66',
-          border: `1px solid ${P.brd}`,
-          borderRadius: 12,
-          width: '100%',
-          maxWidth: 560,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: 24,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <h2 style={{ fontFamily: FONT_HEAD, fontSize: 18, letterSpacing: '2px', textTransform: 'uppercase', color: P.pri, fontWeight: 600, margin: 0 }}>
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: P.mut, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
-          >
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ESTILOS TABLA + PANEL
-   ═══════════════════════════════════════════════════════════ */
-
-const tdStyle: CSSProperties = {
-  padding: '11px 14px',
-  fontSize: 13,
-  fontFamily: FONT_BODY,
-  color: P.sec,
-  borderBottom: `1px solid ${P.brd}55`,
-  whiteSpace: 'nowrap',
-}
-
-const panelCardStyle: CSSProperties = {
-  background: P.card,
-  border: `1px solid ${P.brd}`,
-  borderRadius: 10,
-  padding: 16,
-}
-
-const panelTitleStyle: CSSProperties = {
-  fontFamily: FONT_HEAD,
-  fontSize: 12,
-  letterSpacing: '1.5px',
-  textTransform: 'uppercase',
-  color: P.sec,
-  margin: '0 0 12px 0',
-  fontWeight: 500,
-}
-
-/* ═══════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════ */
-
-function formatFecha(s: string): string {
-  const [y, m, d] = s.split('-')
-  return `${d}/${m}/${y.slice(2)}`
 }
