@@ -59,6 +59,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/presupuestos',    label: 'Presupuestos',          emoji: '📋', perfiles: ['admin'] },
       { path: '/finanzas/remesas',         label: 'Remesas',               emoji: '🏦', perfiles: ['admin'] },
       { path: '/running',                  label: 'Running Financiero',    emoji: '📊', perfiles: ['admin'] },
+      { path: '/facturacion/conciliacion', label: 'Conciliación',          emoji: '🏦', perfiles: ['admin'] },
     ],
   },
   {
