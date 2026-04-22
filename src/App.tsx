@@ -42,6 +42,7 @@ import PulsoCocina from '@/pages/ops/PulsoCocina'
 import BpmCalidad from '@/pages/ops/BpmCalidad'
 import ReunionesEquipo from '@/pages/ops/ReunionesEquipo'
 import RecetasFichasTecnicas from '@/pages/ops/RecetasFichasTecnicas'
+import ReclamacionReembolsos from '@/pages/ops/ReclamacionReembolsos'
 
 // Equipo
 import FichasEmpleados from '@/pages/equipo/FichasEmpleados'
@@ -97,6 +98,7 @@ function AppRoutes() {
         <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
 
         {/* Operaciones */}
+        <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
         <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
         <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
         <Route path="ops/tareas" element={<TareasOperativas />} />
