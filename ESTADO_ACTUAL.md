@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-04-16
 **Repo:** https://github.com/Streatlab/streatlab-erp
-**Deploy:** https://streatlab-erp.vercel.app
+**Deploy:** https://binagre.vercel.app
 **Supabase:** https://eryauogxcpbgdryeimdq.supabase.co
 
 ## Para continuar en casa

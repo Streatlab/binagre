@@ -13,7 +13,7 @@
    ```
 
 3. URL del contexto completo (para chats web sin acceso al filesystem):
-   https://streatlab-erp.vercel.app/CONTEXTO_STREATLAB_ERP.md
+   https://binagre.vercel.app/CONTEXTO_STREATLAB_ERP.md
 
 ## Reglas de trabajo
 - Respuestas: listas numeradas, sin párrafos, directas
@@ -41,7 +41,7 @@ cat CONTEXTO_STREATLAB_ERP.md
 
 Para el siguiente chat web, dile a Rubén que pegue esto al inicio:
 ```
-Lee el contexto antes de empezar: https://streatlab-erp.vercel.app/CONTEXTO_STREATLAB_ERP.md
+Lee el contexto antes de empezar: https://binagre.vercel.app/CONTEXTO_STREATLAB_ERP.md
 ```
 O si no funciona Vercel:
 ```
@@ -55,7 +55,7 @@ https://gist.githubusercontent.com/Streatlab/5c4164392ba1dc220c897fda6a3adf96/ra
 ## STACK
 React 19 + TypeScript + Vite + Tailwind + Supabase + Vercel
 - Repo: github.com/Streatlab/streatlab-erp
-- Deploy: streatlab-erp.vercel.app
+- Deploy: binagre.vercel.app
 - Supabase: eryauogxcpbgdryeimdq.supabase.co
 - Rama: master (Production Branch en Vercel)
 - Rutas: Casa C:\streatlab-erp | Bar C:\Users\ruben\streatlab-erp
