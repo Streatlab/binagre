@@ -43,8 +43,8 @@ const darkT: TokenSet = {
   sec:      '#9ba8c0',
   mut:      '#5a6880',
   inp:      '#1a1f32',
-  emphasis: '#e8f442',
-  accent:   '#e8f442',
+  emphasis: '#FF4757',
+  accent:   '#FF4757',
 }
 
 const lightT: TokenSet = {
@@ -56,8 +56,8 @@ const lightT: TokenSet = {
   sec:      '#3a4050',
   mut:      '#7a8090',
   inp:      '#ffffff',
-  emphasis: '#e8f442',
-  accent:   '#e8f442',
+  emphasis: '#FF4757',
+  accent:   '#FF4757',
 }
 
 export function useTheme(): { T: TokenSet; isDark: boolean } {
@@ -232,8 +232,8 @@ export const tabActiveStyle = (isDark: boolean): CSSProperties => ({
   padding: '6px 14px',
   borderRadius: 6,
   border: 'none',
-  background: isDark ? '#e8f442' : '#B01D23',
-  color: isDark ? '#1a1a00' : '#ffffff',
+  background: '#FF4757',
+  color: '#ffffff',
   fontFamily: FONT.body,
   fontSize: 13,
   fontWeight: 500,

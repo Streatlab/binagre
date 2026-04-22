@@ -236,8 +236,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     borderRadius: 6,
     fontFamily: FONT.body,
     fontSize: 13,
-    color: isActive ? '#1a1a1a' : T.sec,
-    background: isActive ? '#e8f442' : 'transparent',
+    color: isActive ? '#ffffff' : T.pri,
+    background: isActive ? '#FF4757' : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -287,7 +287,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={16} strokeWidth={1.5} color={isActive ? activeTextColor : '#e8f442'} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={16} strokeWidth={1.5} color={isActive ? activeTextColor : '#FF4757'} style={{ flexShrink: 0 }} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.sec }}>Panel Global</span>
                 </>
               )}
@@ -337,7 +337,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       padding: '10px 16px 10px 12px',
                       fontFamily: FONT.heading, fontSize: 11,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
-                      color: isOpen ? T.sec : T.mut,
+                      color: isOpen ? T.pri : T.sec,
                       transition: 'color 200ms',
                     }}
                   >
