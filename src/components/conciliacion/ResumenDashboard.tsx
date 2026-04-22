@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import {
   BarChart, Bar,
   LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
 } from 'recharts'
 import { fmtEur } from '@/utils/format'
-import { useTheme, FONT } from '@/styles/tokens'
+import { useTheme, FONT, kpiValueStyle } from '@/styles/tokens'
 import type { Movimiento, Categoria } from '@/types/conciliacion'
 
 /* ═══════════════════════════════════════════════════════════
@@ -13,11 +13,11 @@ import type { Movimiento, Categoria } from '@/types/conciliacion'
    ═══════════════════════════════════════════════════════════ */
 
 interface Props {
-  movimientos: Movimiento[]           // período actual
-  movimientosAnterior: Movimiento[]   // período anterior (mismo tamaño)
+  movimientos: Movimiento[]
+  movimientosAnterior: Movimiento[]
   categorias: Categoria[]
   periodoLabel: string
-  mesNombre: string                   // ej: "Abril"
+  mesNombre: string
   anio: number
   diasRestantes: number
 }
@@ -35,13 +35,13 @@ const COLOR_CANAL: Record<string, string> = {
 }
 
 const COLOR_CATEGORIA: Record<string, string> = {
-  'RRHH':                  '#B01D23',
-  'Proveedores':           '#D85A30',
-  'Alquiler':              '#F59E0B',
-  'Suministros':           '#7F77DD',
-  'Marketing':             '#D4537E',
-  'Otros':                 '#888780',
-  'Sin categoría':         '#888780',
+  'RRHH':          '#B01D23',
+  'Proveedores':   '#D85A30',
+  'Alquiler':      '#F59E0B',
+  'Suministros':   '#7F77DD',
+  'Marketing':     '#D4537E',
+  'Otros':         '#888780',
+  'Sin categoría': '#888780',
 }
 
 const VERDE_OK   = '#1D9E75'
@@ -60,6 +60,25 @@ const PALETA_PRESUPUESTO: Record<string, { bg: string; border: string; text: str
   rrhh:        { bg: '#FAEEDA', border: '#FAC775', text: '#412402', subtext: '#854F0B', valor: '#BA7517', barra: '#BA7517' },
   marketing:   { bg: '#FBEAF0', border: '#F4C0D1', text: '#4B1528', subtext: '#993556', valor: '#D4537E', barra: '#D4537E' },
   suministros: { bg: '#FAECE7', border: '#F5C4B3', text: '#4A1B0C', subtext: '#993C1D', valor: '#D85A30', barra: '#D85A30' },
+}
+
+/* — Mock período anterior coherente (FIX 6) — */
+const MOCK_ANT = {
+  canales: {
+    'Uber Eats': 9000,
+    'Glovo':     5600,
+    'Just Eat':  3080,
+    'Web':        315,
+    'Directa':      0,
+  } as Record<string, number>,
+  categorias: {
+    'RRHH':          4850,
+    'Proveedores':   3320,
+    'Alquiler':      2400,
+    'Sin categoría':  400,
+    'Suministros':    577,
+    'Marketing':      390,
+  } as Record<string, number>,
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -114,6 +133,13 @@ function calcularPosicionIndicador(ratio: number): number {
   return Math.max(0, Math.min(100, pos))
 }
 
+function estadoPresupuesto(pct: number): { label: string; bg: string; fg: string } {
+  if (pct > 100) return { label: 'Superado',  bg: '#FCEBEB', fg: '#A32D2D' }
+  if (pct >= 90) return { label: 'Al límite', bg: '#FAEEDA', fg: '#854F0B' }
+  if (pct >= 50) return { label: 'En ritmo',  bg: '#EAF3DE', fg: '#3B6D11' }
+  return              { label: 'Holgado',   bg: '#E6F1FB', fg: '#0C447C' }
+}
+
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════ */
@@ -143,8 +169,19 @@ export function ResumenDashboard({
     }
   }, [movimientos, categorias])
 
-  /* — Datos período anterior — */
+  /* — Datos período anterior: si llega data real la uso, si no uso MOCK coherente (FIX 6) — */
   const datosAnt = useMemo(() => {
+    const tieneData = movimientosAnterior && movimientosAnterior.length > 0
+    if (!tieneData) {
+      const sumIng = Object.values(MOCK_ANT.canales).reduce((s, v) => s + v, 0)
+      const sumGst = Object.values(MOCK_ANT.categorias).reduce((s, v) => s + v, 0)
+      return {
+        sumIng, sumGst,
+        balance: sumIng - sumGst,
+        porCanal: { ...MOCK_ANT.canales },
+        porCategoria: { ...MOCK_ANT.categorias },
+      }
+    }
     const ingresos = movimientosAnterior.filter(m => m.importe > 0)
     const gastos   = movimientosAnterior.filter(m => m.importe < 0)
     const sumIng = ingresos.reduce((s, m) => s + m.importe, 0)
@@ -250,64 +287,78 @@ export function ResumenDashboard({
   const proy7d  = balanceDisponible + Math.round((datos.balance / 31) * 7)
   const proy30d = balanceDisponible + Math.round((datos.balance / 31) * 30)
 
+  /* — Delta caja (FIX 7): balance hoy vs hace 30 días (mock fijo coherente) — */
+  const balanceHace30d = 11800
+  const varCaja = variacion(balanceDisponible, balanceHace30d, true)
+
   /* — Ratio — */
   const estadoRatio = calcularEstadoRatio(datos.ratio)
   const posicionIndicador = calcularPosicionIndicador(datos.ratio)
+  const ratioAnt = datosAnt.sumGst > 0 ? datosAnt.sumIng / datosAnt.sumGst : 0
+  const varRatio = variacion(datos.ratio, ratioAnt, true)
 
   /* — Variaciones totales — */
   const varIngTotal = variacion(datos.sumIng, datosAnt.sumIng, true)
   const varGstTotal = variacion(datos.sumGst, datosAnt.sumGst, false)
   const varBalance  = variacion(datos.balance, datosAnt.balance, true)
 
+  /* — % proyección (para la barra de Tesorería) — */
+  const porcentajeProyeccion = Math.max(0, Math.min(100, cajaLiquida > 0 ? (proy30d / cajaLiquida) * 100 : 100))
+
+  /* — Ritmo diario presupuestos (FIX 11.2) — */
+  const diasEnMes = new Date(anio, new Date().getMonth() + 1, 0).getDate()
+  const diasTranscurridos = Math.max(1, diasEnMes - diasRestantes)
+
   /* ═══════════════════════════════════════════════════════════
      STYLES
      ═══════════════════════════════════════════════════════════ */
 
-  const cardWrap = {
+  const cardWrap: CSSProperties = {
     backgroundColor: T.card,
     borderRadius: 14,
     padding: '22px 24px',
     border: `1px solid ${T.brd}`,
-  } as const
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+  }
 
-  const labelSection = {
+  const labelSection: CSSProperties = {
     fontFamily: FONT.heading,
     fontSize: 11,
     color: T.mut,
     letterSpacing: '1.3px',
-    textTransform: 'uppercase' as const,
+    textTransform: 'uppercase',
     fontWeight: 500,
   }
 
-  const bigValue = {
-    fontFamily: FONT.heading,
-    fontSize: 36,
-    fontWeight: 500,
-    color: T.pri,
-    lineHeight: 1,
-    letterSpacing: '-0.5px',
-    marginTop: 6,
-  } as const
+  /* FIX 1 — copia EXACTA del número gigante del Dashboard */
+  const STYLE_NUMERO_GIGANTE: CSSProperties = {
+    ...kpiValueStyle(T),
+    marginTop: 4,
+  }
 
-  const divider = { height: 1, backgroundColor: T.brd, margin: '16px 0' } as const
+  const divider: CSSProperties = { height: 1, backgroundColor: T.brd, margin: '16px 0' }
 
-  const pctCell = { fontSize: 10, width: 48, textAlign: 'right' as const, fontFamily: FONT.heading, letterSpacing: '0.5px' }
-
-  /* ═══════════════════════════════════════════════════════════
-     RENDER
-     ═══════════════════════════════════════════════════════════ */
+  /* FIX 4 — rejilla fija para columnas importe / variación / pct */
+  const FILA_COLS: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '90px 60px 40px',
+    gap: 12,
+    alignItems: 'center',
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* FILA 1 — INGRESOS · GASTOS · TESORERÍA */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+      {/* ═══ FILA 1 — INGRESOS · GASTOS · TESORERÍA ═══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'stretch' }}>
 
         {/* CARD INGRESOS */}
         <div style={cardWrap}>
           <div style={labelSection}>Ingresos</div>
-          <div style={bigValue}>{fmtEur(datos.sumIng)}</div>
-          <div style={{ fontSize: 12, color: varIngTotal.color, marginTop: 6, fontFamily: FONT.body }}>
+          <div style={STYLE_NUMERO_GIGANTE}>{fmtEur(datos.sumIng)}</div>
+          <div style={{ fontSize: 12, color: varIngTotal.color, marginTop: 6, fontFamily: FONT.body, fontWeight: 500 }}>
             {varIngTotal.txt} vs período anterior
           </div>
           <div style={divider} />
@@ -316,15 +367,23 @@ export function ResumenDashboard({
               <div style={{ fontSize: 12, color: T.mut, padding: '7px 0', fontFamily: FONT.body }}>Sin ingresos</div>
             )}
             {filasIngresos.map(f => (
-              <div key={f.canal} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: f.color, display: 'inline-block' }} />
-                  {f.canal}
+              <div key={f.canal}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: f.color, flexShrink: 0 }} />
+                    <span>{f.canal}</span>
+                  </div>
+                  <div style={FILA_COLS}>
+                    <span style={{ fontSize: 13, color: T.pri, fontWeight: 500, textAlign: 'right', fontFamily: FONT.body }}>{fmtEur(f.total)}</span>
+                    <span style={{ fontSize: 11, fontFamily: FONT.heading, letterSpacing: '0.5px', color: f.variacion.color, textAlign: 'right' }}>{f.variacion.txt}</span>
+                    <span style={{ fontSize: 11, fontFamily: FONT.heading, letterSpacing: '0.5px', color: T.mut, textAlign: 'right' }}>{f.pct}%</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: T.pri, fontWeight: 500, width: 72, textAlign: 'right', fontFamily: FONT.body }}>{fmtEur(f.total)}</span>
-                  <span style={{ ...pctCell, color: f.variacion.color }}>{f.variacion.txt}</span>
-                  <span style={{ ...pctCell, color: T.mut }}>{f.pct}%</span>
+                {/* FIX 5 — mini-barra de progreso */}
+                <div style={{ marginTop: 2, marginBottom: 6 }}>
+                  <div style={{ height: 3, backgroundColor: T.bg, borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: `${f.pct}%`, height: '100%', backgroundColor: f.color }} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -334,8 +393,8 @@ export function ResumenDashboard({
         {/* CARD GASTOS */}
         <div style={cardWrap}>
           <div style={labelSection}>Gastos</div>
-          <div style={bigValue}>{fmtEur(datos.sumGst)}</div>
-          <div style={{ fontSize: 12, color: varGstTotal.color, marginTop: 6, fontFamily: FONT.body }}>
+          <div style={STYLE_NUMERO_GIGANTE}>{fmtEur(datos.sumGst)}</div>
+          <div style={{ fontSize: 12, color: varGstTotal.color, marginTop: 6, fontFamily: FONT.body, fontWeight: 500 }}>
             {varGstTotal.txt} vs período anterior
           </div>
           <div style={divider} />
@@ -344,15 +403,23 @@ export function ResumenDashboard({
               <div style={{ fontSize: 12, color: T.mut, padding: '7px 0', fontFamily: FONT.body }}>Sin gastos</div>
             )}
             {filasGastos.map(f => (
-              <div key={f.categoria} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: f.color, display: 'inline-block' }} />
-                  {f.categoria}
+              <div key={f.categoria}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: f.color, flexShrink: 0 }} />
+                    <span>{f.categoria}</span>
+                  </div>
+                  <div style={FILA_COLS}>
+                    <span style={{ fontSize: 13, color: T.pri, fontWeight: 500, textAlign: 'right', fontFamily: FONT.body }}>{fmtEur(f.total)}</span>
+                    <span style={{ fontSize: 11, fontFamily: FONT.heading, letterSpacing: '0.5px', color: f.variacion.color, textAlign: 'right' }}>{f.variacion.txt}</span>
+                    <span style={{ fontSize: 11, fontFamily: FONT.heading, letterSpacing: '0.5px', color: T.mut, textAlign: 'right' }}>{f.pct}%</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: T.pri, fontWeight: 500, width: 72, textAlign: 'right', fontFamily: FONT.body }}>{fmtEur(f.total)}</span>
-                  <span style={{ ...pctCell, color: f.variacion.color }}>{f.variacion.txt}</span>
-                  <span style={{ ...pctCell, color: T.mut }}>{f.pct}%</span>
+                {/* FIX 5 — mini-barra de progreso */}
+                <div style={{ marginTop: 2, marginBottom: 6 }}>
+                  <div style={{ height: 3, backgroundColor: T.bg, borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: `${f.pct}%`, height: '100%', backgroundColor: f.color }} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -362,58 +429,84 @@ export function ResumenDashboard({
         {/* CARD TESORERÍA */}
         <div style={cardWrap}>
           <div style={labelSection}>Tesorería · Hoy</div>
-          <div style={bigValue}>{fmtEur(balanceDisponible)}</div>
-          <div style={{ fontSize: 12, color: T.mut, marginTop: 6, fontFamily: FONT.body }}>
+          <div style={STYLE_NUMERO_GIGANTE}>{fmtEur(balanceDisponible)}</div>
+          {/* FIX 7 — delta vs hace 30 días */}
+          <div style={{ fontSize: 12, color: varCaja.color, marginTop: 4, fontWeight: 500, fontFamily: FONT.body }}>
+            {varCaja.txt} vs hace 30 días
+          </div>
+          <div style={{ fontSize: 12, color: T.mut, marginTop: 4, fontFamily: FONT.body }}>
             Balance disponible
           </div>
           <div style={divider} />
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
-              <span>Caja líquida</span>
-              <span style={{ fontWeight: 500 }}>{fmtEur(cajaLiquida)}</span>
+
+          {/* FIX 3 — Caja líquida destacada */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${T.brd}` }}>
+            <span style={{ fontFamily: FONT.heading, fontSize: 12, color: T.pri, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Caja líquida</span>
+            <span style={{ fontFamily: FONT.heading, fontSize: 18, color: T.pri, fontWeight: 500 }}>{fmtEur(cajaLiquida)}</span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: VERDE_OK, fontFamily: FONT.body }}>
+            <span>Cobros pendientes</span>
+            <span style={{ fontWeight: 500 }}>+{fmtEur(cobrosPendientes)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: ACCENT_RED, fontFamily: FONT.body }}>
+            <span>Pagos pendientes</span>
+            <span style={{ fontWeight: 500 }}>−{fmtEur(pagosPendientes)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
+            <span>Proyección 7d</span>
+            <span style={{ fontWeight: 500 }}>{fmtEur(proy7d)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
+            <span>Proyección 30d</span>
+            <span style={{ fontWeight: 500 }}>{fmtEur(proy30d)}</span>
+          </div>
+
+          {/* FIX 2 — bloque de proyección visual que rellena altura */}
+          <div style={{ marginTop: 'auto', paddingTop: 14, borderTop: `1px solid ${T.brd}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.mut, marginBottom: 6, fontFamily: FONT.body }}>
+              <span>Hoy</span>
+              <span>30d</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: VERDE_OK, fontFamily: FONT.body }}>
-              <span>Cobros pendientes</span>
-              <span style={{ fontWeight: 500 }}>+{fmtEur(cobrosPendientes)}</span>
+            <div style={{ height: 6, backgroundColor: T.bg, borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                position: 'absolute', left: 0, top: 0, height: '100%',
+                width: `${porcentajeProyeccion}%`,
+                backgroundColor: proy30d >= cajaLiquida ? VERDE_OK : ACCENT_RED,
+              }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: ACCENT_RED, fontFamily: FONT.body }}>
-              <span>Pagos pendientes</span>
-              <span style={{ fontWeight: 500 }}>−{fmtEur(pagosPendientes)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
-              <span>Proyección 7d</span>
-              <span style={{ fontWeight: 500 }}>{fmtEur(proy7d)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
-              <span>Proyección 30d</span>
-              <span style={{ fontWeight: 500 }}>{fmtEur(proy30d)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 6, fontFamily: FONT.body }}>
+              <span style={{ color: T.pri, fontWeight: 500 }}>{fmtEur(cajaLiquida)}</span>
+              <span style={{ color: proy30d >= cajaLiquida ? VERDE_OK : ACCENT_RED, fontWeight: 500 }}>{fmtEur(proy30d)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* FILA 2 — RATIO + BALANCE NETO */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      {/* ═══ FILA 2 — RATIO + BALANCE NETO ═══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 16 }}>
 
         {/* CARD RATIO */}
         <div style={{
-          flex: '2 1 480px',
+          backgroundColor: T.card,
+          borderRadius: 14,
+          border: `1px solid ${T.brd}`,
+          padding: '24px 30px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 30,
-          padding: '24px 30px',
-          backgroundColor: T.card,
-          borderRadius: 14,
-          border: `1px solid ${T.brd}`,
           flexWrap: 'wrap',
         }}>
           <div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, letterSpacing: '1.3px', textTransform: 'uppercase', marginBottom: 8 }}>
-              Ratio Ingresos / Gastos
-            </div>
+            <div style={{ ...labelSection, marginBottom: 8 }}>Ratio Ingresos / Gastos</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 54, fontWeight: 500, color: T.pri, letterSpacing: '-1px', lineHeight: 1 }}>
+              <span style={{
+                ...kpiValueStyle(T),
+                fontSize: 64,
+                lineHeight: 1,
+                letterSpacing: '-1.5px',
+              }}>
                 {datos.ratio.toFixed(2)}
               </span>
               <span style={{ backgroundColor: estadoRatio.bg, color: estadoRatio.fg, fontSize: 11, padding: '4px 12px', borderRadius: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: FONT.heading }}>
@@ -421,13 +514,28 @@ export function ResumenDashboard({
               </span>
             </div>
             <div style={{ fontSize: 12, color: T.mut, marginTop: 8, fontFamily: FONT.body }}>Objetivo ≥ 1.25</div>
+            {/* FIX 8.3 — delta ratio */}
+            <div style={{ fontSize: 12, color: varRatio.color, marginTop: 6, fontWeight: 500, fontFamily: FONT.body }}>
+              {varRatio.txt} vs período anterior
+            </div>
           </div>
           <div style={{ flex: 1, maxWidth: 320, minWidth: 240 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.mut, marginBottom: 6, fontFamily: FONT.heading, letterSpacing: '0.8px' }}>
               <span>Crítico</span><span>Alerta</span><span>OK</span><span>Saludable</span>
             </div>
             <div style={{ position: 'relative', height: 10, background: 'linear-gradient(to right, #F09595 0%, #F09595 25%, #FAC775 25%, #FAC775 50%, #C0DD97 50%, #C0DD97 75%, #5DCAA5 75%, #5DCAA5 100%)', borderRadius: 5 }}>
-              <div style={{ position: 'absolute', left: `${posicionIndicador}%`, top: -4, width: 3, height: 18, backgroundColor: T.pri, borderRadius: 2, transform: 'translateX(-50%)' }} />
+              {/* FIX 8.2 — indicador más grueso con contorno */}
+              <div style={{
+                position: 'absolute',
+                left: `${posicionIndicador}%`,
+                top: -5,
+                width: 4,
+                height: 20,
+                backgroundColor: T.pri,
+                borderRadius: 2,
+                boxShadow: `0 0 0 2px ${T.card}`,
+                transform: 'translateX(-2px)',
+              }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.mut, marginTop: 4, fontFamily: FONT.body }}>
               <span>0.5</span><span>1.0</span><span>1.25</span><span>2.0</span>
@@ -436,29 +544,26 @@ export function ResumenDashboard({
         </div>
 
         {/* CARD BALANCE NETO */}
-        <div style={{ ...cardWrap, flex: '1 1 240px' }}>
+        <div style={cardWrap}>
           <div style={labelSection}>Balance neto</div>
           <div style={{
-            fontFamily: FONT.heading,
-            fontSize: 36,
-            fontWeight: 500,
+            ...STYLE_NUMERO_GIGANTE,
             color: datos.balance >= 0 ? VERDE_OK : ACCENT_RED,
-            lineHeight: 1,
-            letterSpacing: '-0.5px',
-            marginTop: 6,
           }}>
             {datos.balance >= 0 ? '+' : ''}{fmtEur(datos.balance)}
           </div>
-          <div style={{ fontSize: 12, color: T.mut, marginTop: 6, fontFamily: FONT.body }}>Ingresos − Gastos</div>
+          {/* FIX 10 — más espacio antes del subtítulo */}
+          <div style={{ fontSize: 12, color: T.mut, marginTop: 8, fontFamily: FONT.body }}>Ingresos − Gastos</div>
           <div style={divider} />
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, color: T.pri, fontFamily: FONT.body }}>
             <span>vs período anterior</span>
+            {/* FIX 9 — esIngreso=true: bajar = rojo */}
             <span style={{ color: varBalance.color, fontWeight: 500 }}>{varBalance.txt}</span>
           </div>
         </div>
       </div>
 
-      {/* FILA 3 — PRESUPUESTOS */}
+      {/* ═══ FILA 3 — PRESUPUESTOS ═══ */}
       <div>
         <div style={{ fontFamily: FONT.heading, fontSize: 12, color: T.pri, letterSpacing: '1.3px', textTransform: 'uppercase', marginBottom: 12, fontWeight: 500 }}>
           Presupuestos · {mesNombre} {anio} · {diasRestantes} días restantes
@@ -470,6 +575,8 @@ export function ResumenDashboard({
             const superado = p.consumido > p.tope
             const pctDisplay = superado ? 100 : Math.min(100, pct)
             const colorBarra = superado ? ROJO : pal.barra
+            const badge = estadoPresupuesto(pct)
+            const ritmoDiario = p.consumido / Math.max(diasTranscurridos, 1)
             return (
               <div key={p.categoria} style={{
                 backgroundColor: pal.bg,
@@ -477,8 +584,24 @@ export function ResumenDashboard({
                 padding: '16px 18px',
                 border: `1px solid ${pal.border}`,
               }}>
-                <div style={{ fontFamily: FONT.heading, fontSize: 12, color: pal.text, textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 500, marginBottom: 10 }}>
-                  {p.nombre}
+                {/* FIX 11.1 — badge estado */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 12, color: pal.text, textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 500 }}>
+                    {p.nombre}
+                  </div>
+                  <span style={{
+                    fontSize: 9,
+                    padding: '2px 7px',
+                    borderRadius: 8,
+                    fontFamily: FONT.heading,
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase',
+                    fontWeight: 500,
+                    backgroundColor: badge.bg,
+                    color: badge.fg,
+                  }}>
+                    {badge.label}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 500, color: pal.text }}>{fmtEur(p.consumido)}</span>
@@ -496,13 +619,17 @@ export function ResumenDashboard({
                 <div style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
                   <div style={{ width: `${pctDisplay}%`, height: '100%', backgroundColor: colorBarra, transition: 'width 0.4s ease' }} />
                 </div>
+                {/* FIX 11.2 — ritmo diario */}
+                <div style={{ fontSize: 10, color: pal.subtext, marginTop: 6, textAlign: 'right', fontFamily: FONT.body }}>
+                  Ritmo: {fmtEur(ritmoDiario)} /día · quedan {diasRestantes}d
+                </div>
               </div>
             )
           })}
         </div>
       </div>
 
-      {/* FILA 4 — GRÁFICOS */}
+      {/* ═══ FILA 4 — GRÁFICOS ═══ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
 
         {/* CARD BARRAS SEMANALES */}
@@ -553,7 +680,14 @@ export function ResumenDashboard({
             <LineChart data={datosEvolucion}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.brd} />
               <XAxis dataKey="fecha" stroke={T.mut} tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }} interval="preserveStartEnd" />
-              <YAxis stroke={T.mut} tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }} domain={['auto', 'auto']} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+              {/* FIX 13 — dominio ajustado, 6 ticks */}
+              <YAxis
+                stroke={T.mut}
+                tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }}
+                domain={[(dataMin: number) => Math.floor((dataMin - 500) / 500) * 500, (dataMax: number) => Math.ceil((dataMax + 500) / 500) * 500]}
+                tickCount={6}
+                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+              />
               <Tooltip
                 contentStyle={{ backgroundColor: T.card, border: `1px solid ${T.brd}`, color: T.pri, fontFamily: FONT.body, borderRadius: 8 }}
                 formatter={(v) => fmtEur(Number(v))}

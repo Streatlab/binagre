@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
 import { fmtEur } from '@/utils/format'
-import { useTheme, FONT } from '@/styles/tokens'
+import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
@@ -210,7 +210,7 @@ type Tab = 'resumen' | 'movimientos'
 type PeriodoFiltro = 'mes' | 'mes_anterior' | '30d' | 'trimestre' | 'anio' | 'personalizado'
 
 export default function Conciliacion() {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
 
   const [tab, setTab]           = useState<Tab>('resumen')
   const [periodo, setPeriodo]   = useState<PeriodoFiltro>('mes')
@@ -435,32 +435,16 @@ export default function Conciliacion() {
       </div>
 
       {/* TABS: Resumen → Movimientos */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${T.brd}`, marginBottom: 18 }}>
-        {(['resumen', 'movimientos'] as Tab[]).map(k => {
-          const active = tab === k
-          return (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              style={{
-                padding: '8px 18px',
-                background: 'none',
-                border: 'none',
-                borderBottom: active ? `2px solid ${T.accent}` : '2px solid transparent',
-                marginBottom: -1,
-                color: active ? T.accent : T.mut,
-                fontFamily: FONT.heading,
-                fontSize: 12,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                transition: 'color 150ms, border-color 150ms',
-              }}
-            >
-              {k === 'resumen' ? 'Resumen' : 'Movimientos'}
-            </button>
-          )
-        })}
+      <div style={{ display: 'flex', gap: 4, background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 18 }}>
+        {(['resumen', 'movimientos'] as Tab[]).map(k => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            style={tab === k ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
+          >
+            {k === 'resumen' ? 'Resumen' : 'Movimientos'}
+          </button>
+        ))}
       </div>
 
       {/* Pestaña Resumen */}
