@@ -7,12 +7,9 @@ interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
 
 const hoy = new Date()
-const lunes = new Date(hoy)
-lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7))
-
-const monday = new Date(hoy)
 const dayOfWeek = hoy.getDay()
 const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+const monday = new Date(hoy)
 monday.setDate(hoy.getDate() + daysToMonday)
 const sunday = new Date(monday)
 sunday.setDate(monday.getDate() + 6)
@@ -27,16 +24,13 @@ const weekNum = (() => {
   return Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + 1) / 7)
 })()
 
-const getNombreDia = (dia: number) =>
-  ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'][dia - 1]
+const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 
-const getFechaDia = (dia: number) => {
-  const d = new Date(lunes)
-  d.setDate(lunes.getDate() + dia - 1)
-  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+const fechaDia = (dia: number) => {
+  const d = new Date(monday)
+  d.setDate(monday.getDate() + dia - 1)
+  return d
 }
-
-const esFinde = (dia: number) => dia >= 5
 
 const FESTIVOS_2026 = [
   '2026-01-01', '2026-01-06', '2026-03-19', '2026-04-02', '2026-04-03',
@@ -44,11 +38,9 @@ const FESTIVOS_2026 = [
   '2026-10-12', '2026-11-01', '2026-11-09', '2026-12-08', '2026-12-25',
 ]
 
-const esFestivo = (dia: number) => {
-  const d = new Date(lunes)
-  d.setDate(lunes.getDate() + dia - 1)
-  return FESTIVOS_2026.includes(d.toISOString().split('T')[0])
-}
+const esFinde = (dia: number) => dia >= 5
+const esFestivo = (dia: number) => FESTIVOS_2026.includes(fechaDia(dia).toISOString().split('T')[0])
+const esHoy = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
 function isoWeek(dateStr: string): { year: number; week: number } {
   const d = new Date(dateStr + 'T12:00:00')
@@ -86,65 +78,31 @@ export default function Objetivos() {
     }).catch(() => setLoading(false))
   }, [])
 
-  const guardarDiaSemana = async (id: string, val: number) => {
-    await supabase.from('objetivos_dia_semana').update({ importe: val }).eq('id', id)
-    setDiasSemana(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
+  const saveObjetivoGeneral = async (tipo: string, val: number) => {
+    const existing = objetivos.find(o => o.tipo === tipo)
+    if (existing) {
+      await supabase.from('objetivos').update({ importe: val }).eq('id', existing.id)
+      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: val } : o))
+    } else {
+      const { data } = await supabase.from('objetivos').insert({ tipo, importe: val }).select()
+      if (data && data[0]) setObjetivos(prev => [...prev, { tipo, importe: val, id: data[0].id }])
+    }
     setEditingId(null)
   }
 
-  const guardarObjetivo = async (id: string, val: number) => {
-    await supabase.from('objetivos').update({ importe: val }).eq('id', id)
-    setObjetivos(prev => prev.map(o => o.id === id ? { ...o, importe: val } : o))
+  const saveDiaSemana = async (dia: number, val: number) => {
+    const existing = diasSemana.find(d => d.dia === dia)
+    if (existing) {
+      await supabase.from('objetivos_dia_semana').update({ importe: val }).eq('id', existing.id)
+      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: val } : o))
+    } else {
+      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: val }).select()
+      if (data && data[0]) setDiasSemana(prev => [...prev, { dia, importe: val, id: data[0].id }])
+    }
     setEditingId(null)
   }
 
-  const handleGuardar = (id: string, tipo: 'dia' | 'objetivo') => {
-    const v = parseFloat(editValue.replace(',', '.'))
-    if (isNaN(v)) { setEditingId(null); return }
-    if (tipo === 'dia') guardarDiaSemana(id, v)
-    else guardarObjetivo(id, v)
-  }
-
-  // Objetivo semanal = override de tabla objetivos.tipo='semanal' o suma días
-  const objSemanalObj = objetivos.find(o => o.tipo === 'semanal')
-  const objMensualObj = objetivos.find(o => o.tipo === 'mensual')
-  const objAnualObj = objetivos.find(o => o.tipo === 'anual')
-
-  const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + d.importe, 0), [diasSemana])
-  const objSemanal = objSemanalObj?.importe ?? sumaSemana
-
-  const sumaMes = useMemo(() => {
-    const ano = hoy.getFullYear()
-    const mes = hoy.getMonth()
-    const diasEnMes = new Date(ano, mes + 1, 0).getDate()
-    let total = 0
-    for (let d = 1; d <= diasEnMes; d++) {
-      const fecha = new Date(ano, mes, d)
-      const diaSemana = fecha.getDay() === 0 ? 7 : fecha.getDay()
-      const obj = diasSemana.find(ds => ds.dia === diaSemana)
-      total += obj?.importe || 0
-    }
-    return total
-  }, [diasSemana])
-  const objMensual = objMensualObj?.importe ?? sumaMes
-
-  const sumaAno = useMemo(() => {
-    const ano = hoy.getFullYear()
-    const esBisiesto = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
-    const diasAno = esBisiesto ? 366 : 365
-    let total = 0
-    const inicioAno = new Date(ano, 0, 1)
-    for (let i = 0; i < diasAno; i++) {
-      const f = new Date(inicioAno)
-      f.setDate(inicioAno.getDate() + i)
-      const diaSemana = f.getDay() === 0 ? 7 : f.getDay()
-      const obj = diasSemana.find(ds => ds.dia === diaSemana)
-      total += obj?.importe || 0
-    }
-    return total
-  }, [diasSemana])
-  const objAnual = objAnualObj?.importe ?? sumaAno
-
+  // Cálculos
   const hoyStr = hoy.toISOString().slice(0, 10)
   const diaSemanaHoy = hoy.getDay() === 0 ? 7 : hoy.getDay()
   const objHoy = diasSemana.find(d => d.dia === diaSemanaHoy)?.importe || 0
@@ -155,19 +113,62 @@ export default function Objetivos() {
   const weekEnd = sunday.toISOString().slice(0, 10)
   const ventasSemana = useMemo(() => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0), [ventas, weekStart, weekEnd])
 
+  const ventasPorDiaSemana = useMemo(() => {
+    const map: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 }
+    for (const r of ventas) {
+      if (r.fecha >= weekStart && r.fecha <= weekEnd) {
+        const d = new Date(r.fecha + 'T12:00:00')
+        const ds = d.getDay() === 0 ? 7 : d.getDay()
+        map[ds] += r.total_bruto
+      }
+    }
+    return map
+  }, [ventas, weekStart, weekEnd])
+
   const currentMonth = hoyStr.slice(0, 7)
   const ventasMes = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentMonth)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentMonth])
 
   const currentYear = hoyStr.slice(0, 4)
   const ventasAno = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentYear])
 
-  const cumplimiento = [
-    { label: `HOY · ${hoy.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}`, real: ventasHoy, obj: objHoy },
-    { label: `S${weekNum}`, real: ventasSemana, obj: objSemanal },
-    { label: hoy.toLocaleDateString('es-ES', { month: 'long' }).toUpperCase(), real: ventasMes, obj: objMensual },
-    { label: `${hoy.getFullYear()}`, real: ventasAno, obj: objAnual },
-  ]
+  // Objetivos: override o suma de días
+  const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + d.importe, 0), [diasSemana])
+  const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
+  const objSemanal = objSemanalOverride ?? sumaSemana
 
+  const sumaMes = useMemo(() => {
+    const ano = hoy.getFullYear()
+    const mes = hoy.getMonth()
+    const diasEnMes = new Date(ano, mes + 1, 0).getDate()
+    let total = 0
+    for (let d = 1; d <= diasEnMes; d++) {
+      const fecha = new Date(ano, mes, d)
+      const ds = fecha.getDay() === 0 ? 7 : fecha.getDay()
+      total += diasSemana.find(x => x.dia === ds)?.importe || 0
+    }
+    return total
+  }, [diasSemana])
+  const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
+  const objMensual = objMensualOverride ?? sumaMes
+
+  const sumaAno = useMemo(() => {
+    const ano = hoy.getFullYear()
+    const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
+    const dAno = esBis ? 366 : 365
+    let total = 0
+    const ini = new Date(ano, 0, 1)
+    for (let i = 0; i < dAno; i++) {
+      const f = new Date(ini)
+      f.setDate(ini.getDate() + i)
+      const ds = f.getDay() === 0 ? 7 : f.getDay()
+      total += diasSemana.find(x => x.dia === ds)?.importe || 0
+    }
+    return total
+  }, [diasSemana])
+  const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
+  const objAnual = objAnualOverride ?? sumaAno
+
+  // Histórico
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
     const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
@@ -184,15 +185,11 @@ export default function Objetivos() {
 
     if (histTipo === 'dias') {
       const base = esAnioActual ? ventasFiltAnio.filter(r => r.fecha !== hoyStr) : ventasFiltAnio
-      return [...base]
-        .sort((a, b) => b.fecha.localeCompare(a.fecha))
-        .slice(0, 14)
-        .map(r => {
-          const d = new Date(r.fecha + 'T12:00:00')
-          const diaSemana = d.getDay() === 0 ? 7 : d.getDay()
-          const obj = diasSemana.find(ds => ds.dia === diaSemana)?.importe || 0
-          return { label: d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }), real: r.total_bruto, objetivo: obj }
-        })
+      return [...base].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
+        const d = new Date(r.fecha + 'T12:00:00')
+        const ds = d.getDay() === 0 ? 7 : d.getDay()
+        return { label: d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }), real: r.total_bruto, objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0 }
+      })
     }
 
     if (histTipo === 'semanas') {
@@ -203,9 +200,7 @@ export default function Objetivos() {
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + r.total_bruto)
       }
-      return [...map.entries()]
-        .sort((a, b) => b[0].localeCompare(a[0]))
-        .slice(0, 12)
+      return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12)
         .map(([key, real]) => ({ label: `S${parseInt(key.split('-')[1])}`, real, objetivo: objSemanal }))
     }
 
@@ -221,159 +216,231 @@ export default function Objetivos() {
       const m = r.fecha.slice(0, 7)
       map.set(m, (map.get(m) || 0) + r.total_bruto)
     }
-    return [...map.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .slice(0, 12)
-      .map(([key, real]) => {
-        const [year, month] = key.split('-')
-        const label = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-        return { label, real, objetivo: objMensual }
-      })
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
+      const [y, mm] = key.split('-')
+      const label = new Date(parseInt(y), parseInt(mm) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+      return { label, real, objetivo: objMensual }
+    })
   }, [ventas, histTipo, histAnio, diasSemana, objSemanal, objMensual, objAnual, mondayStr, sundayStr, hoyStr])
 
-  const inputStyle = {
-    background: isDark ? '#3a4058' : '#ffffff',
-    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
-    color: T.pri,
-    fontFamily: FONT.body,
-    fontSize: 13,
-    borderRadius: 8,
-    padding: '6px 10px',
-  }
-
-  const sectionLabel: React.CSSProperties = {
-    fontFamily: FONT.heading, fontSize: 10,
-    letterSpacing: '2px', textTransform: 'uppercase',
-    color: T.mut, margin: '20px 0 10px',
-  }
-
   if (loading) return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%', color: T.sec, fontFamily: FONT.body }}>
-      Cargando…
-    </div>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
   )
 
-  const renderGeneralCard = (label: string, importe: number, id: string, tipo: 'objetivo' | 'dia') => {
-    const isEditing = editingId === id
+  // Helpers de render
+  const pctHoy = objHoy > 0 ? Math.round((ventasHoy / objHoy) * 100) : 0
+  const pctSem = objSemanal > 0 ? Math.round((ventasSemana / objSemanal) * 100) : 0
+  const pctMes = objMensual > 0 ? Math.round((ventasMes / objMensual) * 100) : 0
+  const pctAno = objAnual > 0 ? Math.round((ventasAno / objAnual) * 100) : 0
+  const colHoy = semaforoColor(pctHoy)
+  const colSem = semaforoColor(pctSem)
+  const colMes = semaforoColor(pctMes)
+  const colAno = semaforoColor(pctAno)
+  const INCUMPLIDO = '#E24B4A'
+
+  const editableNumberStyle = (color: string = T.pri) => ({
+    color,
+    fontWeight: 600 as const,
+    cursor: 'pointer',
+    borderBottom: `1px dashed ${T.mut}`,
+    paddingBottom: 1,
+  })
+
+  const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, color: string = T.pri) => {
+    if (editingId === id) {
+      return (
+        <input
+          type="number"
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onBlur={() => { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) onSave(v); else setEditingId(null) }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) onSave(v); else setEditingId(null) }
+            if (e.key === 'Escape') setEditingId(null)
+          }}
+          autoFocus
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 90, textAlign: 'right' }}
+        />
+      )
+    }
     return (
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{label}</div>
-        {isEditing ? (
-          <input
-            type="number"
-            value={editValue}
-            onChange={e => setEditValue(e.target.value)}
-            onBlur={() => handleGuardar(id, tipo)}
-            onKeyDown={e => { if (e.key === 'Enter') handleGuardar(id, tipo); if (e.key === 'Escape') setEditingId(null) }}
-            autoFocus
-            style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: '100%' }}
-          />
-        ) : (
-          <div
-            onClick={() => { setEditingId(id); setEditValue(String(importe)) }}
-            style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri, cursor: 'pointer', lineHeight: 1.2 }}
-          >
-            {fmtEur(importe)}
-          </div>
-        )}
+      <span
+        onClick={() => { setEditingId(id); setEditValue(String(currentVal)) }}
+        style={editableNumberStyle(color)}
+      >
+        {fmtEur(currentVal)}
+      </span>
+    )
+  }
+
+  const renderPeriodRow = (titulo: string, sub: string, real: number, obj: number, pct: number, color: string, editId: string, onSave: (v: number) => void) => {
+    const pctCap = Math.min(pct, 100)
+    const falta = Math.max(0, obj - real)
+    return (
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase' }}>
+            {titulo} <span style={{ color: T.mut, fontWeight: 400, opacity: 0.7 }}>— {sub}</span>
+          </span>
+          <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color }}>{pct}%</span>
+        </div>
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 6 }}>
+          Faltan <span style={{ color, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave)}
+        </div>
+        <div style={{ height: 4, background: T.brd, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ height: 4, background: color, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
+          <div style={{ height: 4, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
+        </div>
       </div>
     )
   }
 
-  // Obtener IDs de objetivos para edición (crear si no existen)
-  const getOrCreateObjId = (tipo: string): string => {
-    const existing = objetivos.find(o => o.tipo === tipo)
-    return existing?.id ?? `pending-${tipo}`
+  const inputSelectStyle = {
+    background: isDark ? '#3a4058' : '#ffffff',
+    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
+    color: T.pri,
+    fontFamily: FONT.body,
+    fontSize: 12,
+    borderRadius: 8,
+    padding: '4px 10px',
+    cursor: 'pointer',
+  }
+
+  const sectionLabel = {
+    fontFamily: FONT.heading, fontSize: 10,
+    letterSpacing: '2px', textTransform: 'uppercase' as const,
+    color: T.mut, margin: '24px 0 10px',
   }
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={pageTitleStyle(T)}>Objetivos</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={pageTitleStyle(T)}>Objetivos — S{weekNum}</h1>
+        <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{fmtShort(monday)} — {fmtShort(sunday)} {hoy.getFullYear()}</span>
       </div>
 
-      {/* Cards generales: SEMANAL · MENSUAL · ANUAL editables */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {renderGeneralCard(`S${weekNum} · ${fmtShort(monday)} – ${fmtShort(sunday)}`, objSemanal, getOrCreateObjId('semanal'), 'objetivo')}
-        {renderGeneralCard(hoy.toLocaleDateString('es-ES', { month: 'long' }).toUpperCase(), objMensual, getOrCreateObjId('mensual'), 'objetivo')}
-        {renderGeneralCard(String(hoy.getFullYear()), objAnual, getOrCreateObjId('anual'), 'objetivo')}
-      </div>
+      {/* DOS CARDS PRINCIPALES */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
-      {/* Días de semana */}
-      <div style={sectionLabel}>Objetivos por día de semana</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
-        {[1,2,3,4,5,6,7].map(dia => {
-          const diaData = diasSemana.find(d => d.dia === dia)
-          const importe = diaData?.importe ?? 0
-          const id = diaData?.id ?? `empty-${dia}`
-          const finde = esFinde(dia)
-          const festivo = esFestivo(dia)
-          const bgColor = festivo ? '#f5a62318' : finde ? '#1D9E7518' : T.card
-          const borderColor = festivo ? '#f5a623' : finde ? '#1D9E75' : T.brd
-          const labelColor = festivo ? '#f5a623' : finde ? '#1D9E75' : T.mut
-          const isEditing = editingId === id
-          return (
-            <div key={dia} style={{ background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 10, padding: '10px 10px' }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', color: labelColor, textTransform: 'uppercase' }}>{getNombreDia(dia)}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginBottom: 6 }}>{getFechaDia(dia)}</div>
-              {isEditing && diaData ? (
-                <input
-                  type="number"
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
-                  onBlur={() => handleGuardar(id, 'dia')}
-                  onKeyDown={e => { if (e.key === 'Enter') handleGuardar(id, 'dia'); if (e.key === 'Escape') setEditingId(null) }}
-                  autoFocus
-                  style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 5px', width: '100%' }}
-                />
-              ) : (
-                <div
-                  onClick={() => { if (diaData) { setEditingId(id); setEditValue(String(importe)) } }}
-                  style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, cursor: diaData ? 'pointer' : 'default', lineHeight: 1.2 }}
-                >
-                  {fmtEur(importe)}
+        {/* IZQUIERDA: Hero HOY + 3 periodos editables */}
+        <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
+            Ventas · Hoy {hoy.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).toUpperCase()}
+          </div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 36, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px', marginBottom: 6 }}>
+            {fmtEur(ventasHoy)}
+          </div>
+          <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: colHoy, marginBottom: 22 }}>
+            {pctHoy >= 100 ? '▲' : '▼'} {pctHoy}% del objetivo diario · {fmtEur(objHoy)}
+          </div>
+
+          {renderPeriodRow('Semanal', `S${weekNum}`, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v))}
+          {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v))}
+          {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v))}
+        </div>
+
+        {/* DERECHA: Semana vertical L-D */}
+        <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>Objetivo por día · S{weekNum}</span>
+            <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase', opacity: 0.7 }}>click editar</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {[1,2,3,4,5,6,7].map((dia, idx) => {
+              const diaData = diasSemana.find(d => d.dia === dia)
+              const importe = diaData?.importe ?? 0
+              const ventasDia = ventasPorDiaSemana[dia] || 0
+              const pct = importe > 0 ? Math.round((ventasDia / importe) * 100) : 0
+              const pctCap = Math.min(pct, 100)
+              const col = semaforoColor(pct)
+              const finde = esFinde(dia)
+              const festivo = esFestivo(dia)
+              const hoyFlag = esHoy(dia)
+
+              let rowBg = 'transparent'
+              let rowBorderLeft = '3px solid transparent'
+              let diaColor = T.sec
+              if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
+              else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
+              if (hoyFlag) { rowBg = '#FF475710'; rowBorderLeft = '3px solid #FF4757'; diaColor = '#FF4757' }
+
+              const fecha = fechaDia(dia)
+              const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
+              const editId = `dia-${dia}`
+
+              return (
+                <div key={dia} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '70px 1fr 90px',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: hoyFlag ? '12px 14px' : '10px 14px',
+                  margin: '0 -14px',
+                  background: rowBg,
+                  borderLeft: rowBorderLeft,
+                  borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
+                  borderRadius: hoyFlag ? 8 : 0,
+                }}>
+                  <div>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
+                      {NOMBRES_DIA[dia - 1]}
+                    </div>
+                    <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? diaColor : T.mut, marginTop: 1, fontWeight: hoyFlag ? 500 : 400 }}>
+                      {fechaStr}{hoyFlag ? ' · HOY' : ''}
+                    </div>
+                  </div>
+                  <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
+                    {importe > 0 && ventasDia > 0 && (
+                      <>
+                        <div style={{ height: 5, background: col, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
+                        <div style={{ height: 5, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
+                      </>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {editingId === editId ? (
+                      <input
+                        type="number"
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={() => { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) saveDiaSemana(dia, v); else setEditingId(null) }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) saveDiaSemana(dia, v); else setEditingId(null) }
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        autoFocus
+                        style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#FF4757' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingId(editId); setEditValue(String(importe)) }}
+                        style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#FF4757' : T.pri, cursor: 'pointer' }}
+                      >
+                        {fmtEur(importe)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        </div>
+
       </div>
 
-      {/* Cumplimiento */}
-      <div style={sectionLabel}>Cumplimiento actual</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, marginBottom: 16 }}>
-        {cumplimiento.map(c => {
-          const pct = c.obj > 0 ? Math.round((c.real / c.obj) * 100) : 0
-          const sc = semaforoColor(pct)
-          const falta = Math.max(0, c.obj - c.real)
-          return (
-            <div key={c.label} style={cardStyle(T)}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{c.label}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>{fmtEur(c.real)}</span>
-                <span style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: sc }}>{pct}%</span>
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color: sc, marginBottom: 6 }}>Faltan {fmtEur(falta)} de {fmtEur(c.obj)}</div>
-              <div style={{ height: 5, background: T.brd, borderRadius: 3 }}>
-                <div style={{ height: 5, borderRadius: 3, background: sc, width: `${Math.min(pct, 100)}%`, transition: 'width 0.4s ease' }} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Histórico */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+      {/* HISTÓRICO */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <select value={histTipo} onChange={e => setHistTipo(e.target.value as any)} style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}>
+          <select value={histTipo} onChange={e => setHistTipo(e.target.value as any)} style={inputSelectStyle}>
             <option value="dias">Por días</option>
             <option value="semanas">Por semanas</option>
             <option value="meses">Por meses</option>
             <option value="anual">Todo el año</option>
           </select>
-          <select value={histAnio} onChange={e => setHistAnio(parseInt(e.target.value))} style={{ ...inputStyle, padding: '4px 10px', fontSize: 12 }}>
+          <select value={histAnio} onChange={e => setHistAnio(parseInt(e.target.value))} style={inputSelectStyle}>
             {aniosDisponibles.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
@@ -394,7 +461,6 @@ export default function Objetivos() {
           const pct = h.objetivo > 0 ? Math.round((h.real / h.objetivo) * 100) : 0
           const pctCap = Math.min(pct, 100)
           const sc = semaforoColor(pct)
-          const incumplidoColor = '#E24B4A'
           const desv = h.real - h.objetivo
           const desvColor = desv >= 0 ? '#1D9E75' : '#E24B4A'
           const desvStr = (desv >= 0 ? '+' : '') + fmtEur(desv)
@@ -404,7 +470,7 @@ export default function Objetivos() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
                   <div style={{ height: 8, background: sc, width: `${pctCap}%` }} />
-                  <div style={{ height: 8, background: incumplidoColor, width: `${100 - pctCap}%` }} />
+                  <div style={{ height: 8, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                 </div>
                 <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: sc, minWidth: 40, textAlign: 'right' }}>{pct}%</span>
               </div>
