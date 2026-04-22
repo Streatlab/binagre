@@ -90,6 +90,15 @@ export default function Objetivos() {
     setEditingId(null)
   }
 
+  const deleteObjetivoGeneral = async (tipo: string) => {
+    const existing = objetivos.find(o => o.tipo === tipo)
+    if (existing) {
+      await supabase.from('objetivos').delete().eq('id', existing.id)
+      setObjetivos(prev => prev.filter(o => o.id !== existing.id))
+    }
+    setEditingId(null)
+  }
+
   const saveDiaSemana = async (dia: number, val: number) => {
     const existing = diasSemana.find(d => d.dia === dia)
     if (existing) {
@@ -247,20 +256,28 @@ export default function Objetivos() {
     paddingBottom: 1,
   })
 
-  const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, color: string = T.pri) => {
+  const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
+    const commit = () => {
+      const trimmed = editValue.trim()
+      if (trimmed === '' && onReset) { onReset(); return }
+      const v = parseFloat(trimmed.replace(',', '.'))
+      if (!isNaN(v)) onSave(v)
+      else setEditingId(null)
+    }
     if (editingId === id) {
       return (
         <input
           type="number"
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
-          onBlur={() => { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) onSave(v); else setEditingId(null) }}
+          onBlur={commit}
           onKeyDown={e => {
-            if (e.key === 'Enter') { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) onSave(v); else setEditingId(null) }
+            if (e.key === 'Enter') commit()
             if (e.key === 'Escape') setEditingId(null)
           }}
           autoFocus
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 90, textAlign: 'right' }}
+          placeholder="vacío = reset"
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
         />
       )
     }
@@ -274,7 +291,7 @@ export default function Objetivos() {
     )
   }
 
-  const renderPeriodRow = (titulo: string, sub: string, real: number, obj: number, pct: number, color: string, editId: string, onSave: (v: number) => void) => {
+  const renderPeriodRow = (titulo: string, sub: string, real: number, obj: number, pct: number, color: string, editId: string, onSave: (v: number) => void, onReset?: () => void) => {
     const pctCap = Math.min(pct, 100)
     const falta = Math.max(0, obj - real)
     return (
@@ -286,7 +303,7 @@ export default function Objetivos() {
           <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color }}>{pct}%</span>
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 6 }}>
-          Faltan <span style={{ color, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave)}
+          Faltan <span style={{ color, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave, onReset)}
         </div>
         <div style={{ height: 4, background: T.brd, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
           <div style={{ height: 4, background: color, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
@@ -336,9 +353,9 @@ export default function Objetivos() {
             {pctHoy >= 100 ? '▲' : '▼'} {pctHoy}% del objetivo diario · {fmtEur(objHoy)}
           </div>
 
-          {renderPeriodRow('Semanal', `S${weekNum}`, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v))}
-          {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v))}
-          {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v))}
+          {renderPeriodRow('Semanal', `S${weekNum}`, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
+          {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
+          {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
         </div>
 
         {/* DERECHA: Semana vertical L-D */}
