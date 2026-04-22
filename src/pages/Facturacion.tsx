@@ -814,29 +814,27 @@ const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields; 
 
 function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!existing
-  const [fecha, setFecha] = useState(existing?.fecha ?? '')
-  const [servicio, setServicio] = useState(existing?.servicio ?? 'ALM')
+  const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10))
+  const [servicio, setServicio] = useState(existing?.servicio ?? 'TODO')
   const [fields, setFields] = useState<FormFields>(() => {
     if (!existing) return {
-      uber_pedidos: '',  uber_bruto: '',
+      uber_pedidos: '', uber_bruto: '',
       glovo_pedidos: '', glovo_bruto: '',
-      je_ped: '',        je_bru: '',
-      web_pedidos: '',   web_bruto: '',
-      directa_ped: '0',  directa_bru: '0.00',
+      je_ped: '', je_bru: '',
+      web_pedidos: '', web_bruto: '',
+      directa_ped: '0', directa_bru: '0.00',
     }
     return {
-      uber_pedidos: String(existing.uber_pedidos || ''),   uber_bruto: String(existing.uber_bruto || ''),
+      uber_pedidos: String(existing.uber_pedidos || ''), uber_bruto: String(existing.uber_bruto || ''),
       glovo_pedidos: String(existing.glovo_pedidos || ''), glovo_bruto: String(existing.glovo_bruto || ''),
-      je_ped: String(existing.je_pedidos || ''),           je_bru: String(existing.je_bruto || ''),
-      web_pedidos: String(existing.web_pedidos || ''),     web_bruto: String(existing.web_bruto || ''),
-      directa_ped: String(existing.directa_pedidos || 0),  directa_bru: String(existing.directa_bruto || 0),
+      je_ped: String(existing.je_pedidos || ''), je_bru: String(existing.je_bruto || ''),
+      web_pedidos: String(existing.web_pedidos || ''), web_bruto: String(existing.web_bruto || ''),
+      directa_ped: String(existing.directa_pedidos || 0), directa_bru: String(existing.directa_bruto || 0),
     }
   })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
   const { T, isDark } = useTheme()
-
   const [jeItems, setJeItems] = useState<number[]>(
     existing && (existing.je_bruto ?? 0) > 0 ? [existing.je_bruto] : []
   )
@@ -853,7 +851,6 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     e.preventDefault()
     setFormError(null)
     if (!fecha) { setFormError('Selecciona una fecha'); return }
-
     const uber_ped = Math.round(parseFloat(fields.uber_pedidos) || 0)
     const uber_bru = parseFloat(fields.uber_bruto) || 0
     const glovo_ped = Math.round(parseFloat(fields.glovo_pedidos) || 0)
@@ -866,25 +863,22 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     const directa_bru = parseFloat(fields.directa_bru) || 0
     const tot_ped = uber_ped + glovo_ped + je_ped + web_ped + directa_ped
     const tot_bru = uber_bru + glovo_bru + je_bru + web_bru + directa_bru
-
     if (tot_ped === 0 && tot_bru === 0) { setFormError('Introduce datos en al menos un canal'); return }
-
+    const servicioGuardar = servicio === 'TODO' ? 'TODO' : servicio
     const payload = {
-      fecha, servicio,
-      uber_pedidos: uber_ped,       uber_bruto: uber_bru,
-      glovo_pedidos: glovo_ped,     glovo_bruto: glovo_bru,
-      je_pedidos: je_ped,           je_bruto: je_bru,
-      web_pedidos: web_ped,         web_bruto: web_bru,
+      fecha, servicio: servicioGuardar,
+      uber_pedidos: uber_ped, uber_bruto: uber_bru,
+      glovo_pedidos: glovo_ped, glovo_bruto: glovo_bru,
+      je_pedidos: je_ped, je_bruto: je_bru,
+      web_pedidos: web_ped, web_bruto: web_bru,
       directa_pedidos: directa_ped, directa_bruto: directa_bru,
-      total_pedidos: tot_ped,       total_bruto: tot_bru,
+      total_pedidos: tot_ped, total_bruto: tot_bru,
     }
-
     setSaving(true)
     const { error } = isEdit
       ? await supabase.from('facturacion_diario').update(payload).eq('id', existing!.id)
       : await supabase.from('facturacion_diario').insert(payload)
     setSaving(false)
-
     if (error) { setFormError(error.message); return }
     onSaved()
   }
@@ -901,49 +895,58 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     outline: 'none',
   }
 
-  const renderCanalCard = (c: typeof FORM_COLS[number]) => (
-    <div key={c.label} style={{ background: `${T.group}55`, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 12 }}>
-      <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, ...(c.color ? { color: c.color, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' } : { color: T.sec, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' }) }}>{c.label}</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Pedidos</label>
-          <input type="number" min="0" placeholder="0" value={fields[c.ped]}
-            onChange={e => set(c.ped, e.target.value)}
-            style={inputStyle} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Bruto (EUR)</label>
-          <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
-            onChange={e => set(c.bru, e.target.value)}
-            style={inputStyle} />
+  const CANAL_COLORS: Record<string, { bg: string; border: string; label: string }> = {
+    'Uber Eats':     { bg: '#06C16712', border: '#06C167', label: '#06C167' },
+    'Glovo':         { bg: isDark ? '#e8f44212' : '#8a780012', border: isDark ? '#e8f442' : '#8a7800', label: isDark ? '#e8f442' : '#8a7800' },
+    'Web':           { bg: '#B01D2312', border: '#B01D23', label: '#B01D23' },
+    'Venta Directa': { bg: '#66aaff12', border: '#66aaff', label: '#66aaff' },
+  }
+
+  const renderCanalCard = (c: typeof FORM_COLS[number]) => {
+    const cc = CANAL_COLORS[c.label]
+    return (
+      <div key={c.label} style={{ background: cc?.bg ?? `${T.group}55`, border: `1px solid ${cc?.border ?? T.brd}`, borderRadius: 10, padding: 12 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, color: cc?.label ?? T.sec, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' }}>{c.label}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Pedidos</label>
+            <input type="number" min="0" placeholder="0" value={fields[c.ped]}
+              onChange={e => set(c.ped, e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Bruto (EUR)</label>
+            <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]}
+              onChange={e => set(c.bru, e.target.value)} style={inputStyle} />
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={onClose}>
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}` }}>
           <h3 style={{ color: T.pri, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, margin: 0 }}>{isEdit ? 'EDITAR DÍA' : 'AÑADIR DÍA'}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.sec, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Fecha + Servicio */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-                style={inputStyle} />
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Servicio</label>
               <div style={{ display: 'flex', gap: 6 }}>
-                {SERVICIOS.map(s => (
+                {(['TODO', 'ALM', 'CENAS'] as string[]).map(s => (
                   <button key={s} type="button" onClick={() => setServicio(s)}
                     style={servicio === s
-                      ? { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
-                      : { flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
-                    }>{s}</button>
+                      ? { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: 'none', background: '#FF4757', color: '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
+                      : { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
+                    }>{s === 'TODO' ? 'TODOS' : s}</button>
                 ))}
               </div>
             </div>
@@ -954,35 +957,31 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
             {FORM_COLS.slice(0, 2).map(renderCanalCard)}
           </div>
 
-          {/* Just Eat accumulator */}
-          <div style={{ background: `${T.group}55`, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 14 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 12 }}>
-              <span style={{ fontFamily: FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>
+          {/* Just Eat */}
+          <div style={{ background: '#f5a62312', border: '1px solid #f5a623', borderRadius: 10, padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 2, color: '#f5a623', textTransform: 'uppercase' }}>Just Eat</span>
               {jeItems.length > 0 && (
-                <span style={{ fontFamily: FONT.body, fontSize:12, color: T.sec }}>
-                  {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
+                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
+                  {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a, b) => a + b, 0).toFixed(2)} €
                 </span>
               )}
             </div>
-
             {jeItems.length > 0 && (
-              <div style={{ display:'flex', flexDirection:'column', gap: 6, marginBottom: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
                 {jeItems.map((item, idx) => (
-                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius: 8, background: T.card, border: `0.5px solid ${T.brd}` }}>
-                    <span style={{ fontFamily: FONT.body, fontSize:13, color: T.pri }}>{item.toFixed(2)} €</span>
-                    <button type="button" onClick={() => setJeItems(p => p.filter((_,i) => i !== idx))}
-                      style={{ background:'none', border:'none', cursor:'pointer', color:'#E24B4A', fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: T.card, border: `0.5px solid ${T.brd}` }}>
+                    <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{item.toFixed(2)} €</span>
+                    <button type="button" onClick={() => setJeItems(p => p.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E24B4A', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
                   </div>
                 ))}
               </div>
             )}
-
-            <div style={{ display:'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
-                type="number" step="0.01" min="0"
-                placeholder="Importe (€)"
-                value={jeInput}
-                onChange={e => setJeInput(e.target.value)}
+                type="number" step="0.01" min="0" placeholder="Importe (€)"
+                value={jeInput} onChange={e => setJeInput(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -990,24 +989,16 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                     if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
                   }
                 }}
-                style={{ ...inputStyle, flex: 1, width: 'auto' }}
+                style={{ ...inputStyle, flex: 1, width: 'auto', padding: '6px 10px' }}
               />
-              <button
-                type="button"
-                onClick={() => {
-                  const v = parseFloat(jeInput)
-                  if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
-                }}
-                style={{ padding: '8px 16px', borderRadius: 8, background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}
-              >+</button>
+              <button type="button"
+                onClick={() => { const v = parseFloat(jeInput); if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') } }}
+                style={{ padding: '6px 14px', borderRadius: 8, background: '#f5a623', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, flexShrink: 0 }}>+</button>
             </div>
-
             {jeItems.length > 0 && (
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: `${T.emphasis}22`, border: `0.5px solid ${T.emphasis}`, display:'flex', justifyContent:'space-between' }}>
-                <span style={{ fontFamily: FONT.heading, fontSize:11, letterSpacing:1, color:'#f5a623', textTransform:'uppercase' }}>Total</span>
-                <span style={{ fontFamily: FONT.heading, fontSize:13, fontWeight:600, color: T.pri }}>
-                  {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €
-                </span>
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#f5a62322', border: '0.5px solid #f5a623', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1, color: '#f5a623', textTransform: 'uppercase' }}>Total</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: T.pri }}>{jeItems.reduce((a, b) => a + b, 0).toFixed(2)} €</span>
               </div>
             )}
           </div>
@@ -1020,11 +1011,9 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           {formError && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{formError}</p>}
           <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
             <button type="button" onClick={onClose}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.body, transition: 'color 150ms' }}
-              onMouseEnter={e => e.currentTarget.style.color = T.pri}
-              onMouseLeave={e => e.currentTarget.style.color = T.sec}>Cancelar</button>
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.body }}>Cancelar</button>
             <button type="submit" disabled={saving}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: T.emphasis, color: isDark ? '#ffffff' : '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1, transition: 'opacity 150ms' }}>
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: '#FF4757', color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
             </button>
           </div>
