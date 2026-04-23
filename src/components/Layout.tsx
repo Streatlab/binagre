@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
+import ToastHost from '@/components/ui/ToastHost'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -26,6 +27,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <ToastHost />
     </div>
   )
 }

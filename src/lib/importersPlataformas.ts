@@ -281,9 +281,13 @@ export interface UpsertResult {
   saltadas: number  // por falta de marca_id
 }
 
-export async function upsertFacturacionDiario(rows: ParsedRow[]): Promise<UpsertResult> {
+export async function upsertFacturacionDiario(
+  rows: ParsedRow[],
+  onProgress?: (current: number, total: number) => void,
+): Promise<UpsertResult> {
   const validRows = rows.filter(r => r.marca_id)
   let upserted = 0
+  onProgress?.(0, validRows.length)
 
   for (const r of validRows) {
     const { data: existing, error: selErr } = await supabase
@@ -327,6 +331,9 @@ export async function upsertFacturacionDiario(rows: ParsedRow[]): Promise<Upsert
       if (error) throw error
     }
     upserted++
+    if (upserted % 10 === 0 || upserted === validRows.length) {
+      onProgress?.(upserted, validRows.length)
+    }
   }
   return { upserted, saltadas: rows.length - validRows.length }
 }

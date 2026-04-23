@@ -8,6 +8,7 @@ import {
   upsertFacturacionDiario, logImport, readWorkbookFromArrayBuffer, sheetToRows, csvToRows,
   type Plataforma, type ImportSummary,
 } from '@/lib/importersPlataformas'
+import { toast } from '@/lib/toastStore'
 
 interface ImportLog {
   id: string
@@ -54,6 +55,7 @@ export default function ImportarPlataformas() {
 
   async function handleFile(plataforma: Plataforma, file: File) {
     setBusy(plataforma)
+    const toastId = toast.loading(`📥 Procesando ${file.name}...\n   Leyendo archivo`)
     try {
       const isCsv = file.name.toLowerCase().endsWith('.csv')
       const buf = await file.arrayBuffer()
@@ -65,6 +67,7 @@ export default function ImportarPlataformas() {
         const wb = readWorkbookFromArrayBuffer(buf)
         rows = sheetToRows(wb)
       }
+      toast.loading(`📥 Procesando ${file.name}...\n   Parseando ${rows.length} filas`, { id: toastId })
 
       const marcaMap = await buildMarcaMap()
       let summary: ImportSummary
@@ -80,12 +83,14 @@ export default function ImportarPlataformas() {
           plataforma, archivo: file.name, filas: 0, totalPedidos: 0, totalBruto: 0,
           estado: 'error', error: 'No se detectaron filas (cabecera o columnas no reconocidas)',
         })
-        alert(`${file.name}: no se detectaron filas. Comprueba que el archivo tiene cabecera y columnas reconocibles.`)
+        toast.error(`✗ ${file.name}\n   No se detectaron filas. Comprueba la cabecera y las columnas.`, { id: toastId })
         setLastResult(p => ({ ...p, [plataforma]: summary }))
         return
       }
 
-      const { upserted, saltadas } = await upsertFacturacionDiario(summary.rows)
+      const { upserted, saltadas } = await upsertFacturacionDiario(summary.rows, (current, total) => {
+        toast.loading(`📥 Procesando ${file.name}...\n   Guardando ${current} / ${total} en BD`, { id: toastId })
+      })
       await logImport({
         plataforma, archivo: file.name,
         filas: summary.filas, totalPedidos: summary.totalPedidos, totalBruto: summary.totalBruto,
@@ -93,19 +98,26 @@ export default function ImportarPlataformas() {
       })
       setLastResult(p => ({ ...p, [plataforma]: summary }))
 
-      const partes: string[] = [`${upserted} filas guardadas en facturación diaria`]
-      if (saltadas > 0) partes.push(`${saltadas} sin marca encontrada (omitidas)`)
+      const partes = [
+        `✓ Importación completada`,
+        `   ${summary.totalPedidos} pedidos · ${fmtEur(summary.totalBruto)}`,
+        `   ${upserted} filas guardadas en facturación diaria`,
+      ]
+      if (saltadas > 0) partes.push(`   ${saltadas} sin marca encontrada (omitidas)`)
       if (summary.marcasNoMatcheadas.length > 0) {
-        partes.push(`marcas no encontradas: ${summary.marcasNoMatcheadas.slice(0, 5).join(', ')}${summary.marcasNoMatcheadas.length > 5 ? '…' : ''}`)
+        partes.push(`   marcas sin match: ${summary.marcasNoMatcheadas.slice(0, 3).join(', ')}${summary.marcasNoMatcheadas.length > 3 ? '…' : ''}`)
       }
-      alert(partes.join(' · '))
+      toast.success(partes.join('\n'), { id: toastId })
     } catch (e: any) {
       console.error('Import error:', e)
       await logImport({
         plataforma, archivo: file.name, filas: 0, totalPedidos: 0, totalBruto: 0,
         estado: 'error', error: e?.message ?? 'Error desconocido',
       })
-      alert(`Error: ${e?.message ?? e}`)
+      toast.error(`✗ Error al importar\n   ${e?.message ?? e}`, {
+        id: toastId,
+        action: { label: 'Reintentar', onClick: () => handleFile(plataforma, file) },
+      })
     } finally {
       setBusy(null)
       await refetchLogs()

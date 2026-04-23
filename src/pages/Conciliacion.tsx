@@ -5,6 +5,7 @@ import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/token
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
+import { toast } from '@/lib/toastStore'
 import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
 
@@ -379,7 +380,7 @@ export default function Conciliacion() {
         <>
           {/* Sub-header: Dropzone + Filtros Categoría/Buscar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
-            <ImportDropzone onFileLoaded={(rows: ParsedRow[]) => {
+            <ImportDropzone onFileLoaded={(rows: ParsedRow[], { fileName }) => {
               const toInsert = rows.map(r => ({
                 fecha: r.fecha,
                 concepto: r.concepto,
@@ -392,14 +393,29 @@ export default function Conciliacion() {
                 link_factura: null,
                 notas: r.notas ?? null,
               }))
-              insertMovimientos(toInsert)
+              const toastId = toast.loading(`📥 Procesando ${fileName}...\n   Parseadas ${rows.length} filas`)
+              insertMovimientos(toInsert, (stage, current, total) => {
+                if (stage === 'saving') {
+                  toast.loading(`📥 Procesando ${fileName}...\n   Guardando ${current} / ${total} en BD`, { id: toastId })
+                } else {
+                  toast.loading(`⚙️ Aplicando reglas automáticas...\n   ${current} / ${total}`, { id: toastId })
+                }
+              })
                 .then(({ insertados, autoCategorizados, ignorados }) => {
-                  const partes: string[] = [`${insertados} movimientos importados`]
-                  if (ignorados > 0) partes.push(`${ignorados} ya existían (omitidos)`)
-                  if (autoCategorizados > 0) partes.push(`${autoCategorizados} categorizados automáticamente`)
-                  if (ignorados > 0 || autoCategorizados > 0) alert(partes.join(' · '))
+                  const pendientes = Math.max(0, insertados - autoCategorizados)
+                  const partes = [
+                    `✓ Importación completada`,
+                    `   ${rows.length} movimientos leídos`,
+                  ]
+                  if (autoCategorizados > 0) partes.push(`   ${autoCategorizados} categorizados automáticamente`)
+                  if (ignorados > 0)        partes.push(`   ${ignorados} ignorados (duplicados)`)
+                  if (pendientes > 0)       partes.push(`   ${pendientes} pendientes de categorizar`)
+                  toast.success(partes.join('\n'), { id: toastId })
                 })
-                .catch(err => console.error('Error importando:', err))
+                .catch(err => {
+                  console.error('Error importando:', err)
+                  toast.error(`✗ Error al importar\n   ${err?.message ?? err}`, { id: toastId })
+                })
             }} />
             <div>
               <label style={labelStyle}>Categoría</label>

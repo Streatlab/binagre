@@ -12,7 +12,7 @@ export interface ParsedRow {
 }
 
 interface Props {
-  onFileLoaded: (rows: ParsedRow[]) => void
+  onFileLoaded: (rows: ParsedRow[], meta: { fileName: string }) => void
 }
 
 /* ─────────────────────────  HELPERS  ───────────────────────── */
@@ -152,14 +152,14 @@ export default function ImportDropzone({ onFileLoaded }: Props) {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const rows = parseXLSX(wb)
-        onFileLoaded(rows)
+        onFileLoaded(rows, { fileName: file.name })
       }
       reader.readAsArrayBuffer(file)
     } else {
       reader.onload = (e) => {
         const text = String(e.target?.result ?? '')
         const rows = parseCSV(text)
-        onFileLoaded(rows)
+        onFileLoaded(rows, { fileName: file.name })
       }
       reader.readAsText(file, 'UTF-8')
     }

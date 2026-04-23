@@ -77,7 +77,10 @@ export function useConciliacion() {
     return () => { cancel = true }
   }, [tick])
 
-  async function insertMovimientos(rows: Omit<Movimiento, 'id'>[]): Promise<{ insertados: number; autoCategorizados: number; ignorados: number }> {
+  async function insertMovimientos(
+    rows: Omit<Movimiento, 'id'>[],
+    onProgress?: (stage: 'saving' | 'rules', current: number, total: number) => void,
+  ): Promise<{ insertados: number; autoCategorizados: number; ignorados: number }> {
     if (rows.length === 0) return { insertados: 0, autoCategorizados: 0, ignorados: 0 }
 
     // 1. Resolver órdenes ya usados en BD para los días del batch
@@ -117,6 +120,7 @@ export function useConciliacion() {
     })
 
     // 3. Upsert con ignoreDuplicates: si la dedup_key ya existe en BD, salta la fila
+    onProgress?.('saving', 0, rowsConKey.length)
     const { data: insertados, error } = await supabase
       .from('conciliacion')
       .upsert(rowsConKey, { onConflict: 'dedup_key', ignoreDuplicates: true })
@@ -124,30 +128,39 @@ export function useConciliacion() {
     if (error) throw error
     const insertedRows = (insertados ?? []) as Movimiento[]
     const ignorados = rows.length - insertedRows.length
+    onProgress?.('saving', rowsConKey.length, rowsConKey.length)
 
     // Aplicar reglas activas a los recién insertados
     let autoCategorizados = 0
-    if (insertedRows.length > 0 && reglas.length > 0) {
+    const candidatosRules = insertedRows.filter(m => !m.categoria)
+    if (candidatosRules.length > 0 && reglas.length > 0) {
       const reglasOrdenadas = [...reglas].filter(r => r.activa).sort((a, b) => b.prioridad - a.prioridad)
-      for (const m of insertedRows) {
-        if (m.categoria) continue
+      onProgress?.('rules', 0, candidatosRules.length)
+      let processed = 0
+      for (const m of candidatosRules) {
+        processed++
         const conceptoNorm = normalizarConcepto(m.concepto ?? '')
-        if (!conceptoNorm) continue
-        const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
-        if (!regla || !regla.categoria_codigo) continue
-        try {
-          let gastoId: string | null = null
-          try {
-            gastoId = await syncGasto(m, regla.categoria_codigo, regla.tipo_categoria)
-          } catch (e: any) {
-            console.error('syncGasto (auto-import) failed:', e?.message ?? e)
+        if (conceptoNorm) {
+          const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
+          if (regla && regla.categoria_codigo) {
+            try {
+              let gastoId: string | null = null
+              try {
+                gastoId = await syncGasto(m, regla.categoria_codigo, regla.tipo_categoria)
+              } catch (e: any) {
+                console.error('syncGasto (auto-import) failed:', e?.message ?? e)
+              }
+              const { error: upErr } = await supabase.from('conciliacion')
+                .update({ categoria: regla.categoria_codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
+                .eq('id', m.id)
+              if (!upErr) autoCategorizados++
+            } catch (e: any) {
+              console.error('auto-categorizar failed:', e?.message ?? e)
+            }
           }
-          const { error: upErr } = await supabase.from('conciliacion')
-            .update({ categoria: regla.categoria_codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
-            .eq('id', m.id)
-          if (!upErr) autoCategorizados++
-        } catch (e: any) {
-          console.error('auto-categorizar failed:', e?.message ?? e)
+        }
+        if (processed % 25 === 0 || processed === candidatosRules.length) {
+          onProgress?.('rules', processed, candidatosRules.length)
         }
       }
     }
