@@ -45,7 +45,13 @@ export interface RunningState {
   reload: () => void;
 }
 
-export function useRunning(periodo: PeriodoRango, anio: number, marcaId?: string | null, marcaNombre?: string | null): RunningState {
+export function useRunning(
+  periodo: PeriodoRango,
+  anio: number,
+  marcaId?: string | null,
+  marcaNombre?: string | null,
+  modoIVA: 'sin' | 'con' = 'con',
+): RunningState {
   const [state, setState] = useState<Omit<RunningState, 'reload'>>({
     loading: true, error: null,
     gastos: [], gastosAnt: [], ingresosMes: [],
@@ -64,9 +70,12 @@ export function useRunning(periodo: PeriodoRango, anio: number, marcaId?: string
         const hastaAnt = new Date(periodo.desde); hastaAnt.setDate(hastaAnt.getDate()-1);
         const desdeAnt = new Date(hastaAnt.getTime() - ms);
 
-        let gQ = supabase.from('gastos').select('fecha,categoria:grupo,subcategoria,proveedor,concepto,importe,marca')
+        const gastosCols = modoIVA === 'sin'
+          ? 'fecha,categoria:grupo,subcategoria,proveedor,concepto,importe:base_imponible,marca'
+          : 'fecha,categoria:grupo,subcategoria,proveedor,concepto,importe,marca';
+        let gQ = supabase.from('gastos').select(gastosCols)
           .gte('fecha', fechaISO(periodo.desde)).lte('fecha', fechaISO(periodo.hasta));
-        let gaQ = supabase.from('gastos').select('fecha,categoria:grupo,subcategoria,proveedor,concepto,importe,marca')
+        let gaQ = supabase.from('gastos').select(gastosCols)
           .gte('fecha', fechaISO(desdeAnt)).lte('fecha', fechaISO(hastaAnt));
         if (marcaNombre) {
           gQ = gQ.eq('marca', marcaNombre);
@@ -87,7 +96,9 @@ export function useRunning(periodo: PeriodoRango, anio: number, marcaId?: string
         const [{data: g, error: e1}, {data: ga, error: e2}, {data: im, error: e3}, {data: r, error: e4}, {data: fd, error: e5}, {data: fda, error: e6}] = await Promise.all([
           gQ,
           gaQ,
-          supabase.from('ingresos_mensuales').select('anio,mes,canal,tipo,importe').eq('anio', anio),
+          supabase.from('ingresos_mensuales').select(
+            modoIVA === 'sin' ? 'anio,mes,canal,tipo,importe:base_imponible' : 'anio,mes,canal,tipo,importe'
+          ).eq('anio', anio),
           supabase.from('categorias_rango').select('categoria,pct_min,pct_max,orden').order('orden'),
           fQ,
           faQ,
@@ -110,7 +121,7 @@ export function useRunning(periodo: PeriodoRango, anio: number, marcaId?: string
       }
     })();
     return () => { cancel = true; };
-  }, [periodo.desde.getTime(), periodo.hasta.getTime(), anio, marcaId, marcaNombre, tick]);
+  }, [periodo.desde.getTime(), periodo.hasta.getTime(), anio, marcaId, marcaNombre, modoIVA, tick]);
 
   return { ...state, reload };
 }

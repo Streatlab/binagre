@@ -4,6 +4,9 @@ import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
+import { useIVA } from '@/contexts/IVAContext';
+import IVAToggle from '@/components/IVAToggle';
+import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
 import {
   CATEGORIAS_ORDEN, CATEGORIA_COLOR, MESES_CORTO,
   type Categoria, type PeriodoRango,
@@ -106,8 +109,11 @@ export default function Running() {
   }, []);
   const marcaSelNombre = marcaSel ? (marcasOpts.find(m => m.id === marcaSel)?.nombre ?? null) : null;
 
+  const { modo: modoIVA } = useIVA();
+  const brutoFactor = modoIVA === 'sin' ? 1 / 1.10 : 1; // hostelería 10%
+
   const { loading, error, gastos, gastosAnt, ingresosMes, facturacion, facturacionAnt, rangos, reload } = useRunning(
-    periodo, anio, marcaSel || null, marcaSelNombre,
+    periodo, anio, marcaSel || null, marcaSelNombre, modoIVA,
   );
 
   /* — Meses del periodo — */
@@ -152,21 +158,21 @@ export default function Running() {
     return Array.from(byCanal.entries()).map(([canal, importe]) => ({ canal, importe }));
   }, [ingresosMes, mesesDelPeriodo]);
 
-  /* — Facturación bruta desde facturacion_diario (REAL) — */
+  /* — Facturación bruta desde facturacion_diario (REAL) — sin IVA usa /1.10 — */
   const totalBruto = useMemo(
-    () => facturacion.reduce((a, f) => a + Number(f.total_bruto || 0), 0),
-    [facturacion],
+    () => facturacion.reduce((a, f) => a + Number(f.total_bruto || 0), 0) * brutoFactor,
+    [facturacion, brutoFactor],
   );
   const totalBrutoAnt = useMemo(
-    () => facturacionAnt.reduce((a, f) => a + Number(f.total_bruto || 0), 0),
-    [facturacionAnt],
+    () => facturacionAnt.reduce((a, f) => a + Number(f.total_bruto || 0), 0) * brutoFactor,
+    [facturacionAnt, brutoFactor],
   );
   const rowsIngresosBruto = useMemo(() => {
     return CANAL_LABEL.map(c => ({
       canal: c.label,
-      importe: facturacion.reduce((a, f) => a + Number((f as any)[c.key] || 0), 0),
+      importe: facturacion.reduce((a, f) => a + Number((f as any)[c.key] || 0), 0) * brutoFactor,
     }));
-  }, [facturacion]);
+  }, [facturacion, brutoFactor]);
   const hayBruto = totalBruto > 0;
 
   /* — Total gastos periodo y anterior — */
@@ -398,6 +404,7 @@ export default function Running() {
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{periodo.label}</span>
+          <IVAToggle />
           <select
             value={marcaSel}
             onChange={e => setMarcaSel(e.target.value)}
@@ -434,6 +441,11 @@ export default function Running() {
             + Añadir gasto
           </button>
         </div>
+      </div>
+
+      {/* Cashflow Real — fuera del toggle IVA, siempre con IVA (caja real) */}
+      <div style={{ marginBottom: 16 }}>
+        <CashflowRealCard periodoDesde={periodo.desde} periodoHasta={periodo.hasta} />
       </div>
 
       {/* KPIs (4 cards; 5 si hay facturación bruta) */}

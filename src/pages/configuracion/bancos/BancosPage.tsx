@@ -6,14 +6,16 @@ import CategoriasPanel from './CategoriasPanel'
 import ReglasPanel from './ReglasPanel'
 import CuentasPanel from './CuentasPanel'
 import PresupuestosPanel from './PresupuestosPanel'
+import ProvisionesPanel from './ProvisionesPanel'
 
-type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos'
+type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos' | 'provisiones'
 
 const PILLS: { id: Sub; label: string }[] = [
   { id: 'categorias',   label: 'Categorías de conciliación' },
   { id: 'reglas',       label: 'Reglas automáticas' },
   { id: 'cuentas',      label: 'Cuentas bancarias' },
   { id: 'presupuestos', label: 'Presupuestos mensuales' },
+  { id: 'provisiones',  label: 'Provisiones IVA/IRPF' },
 ]
 
 export default function BancosPage() {
@@ -52,6 +54,7 @@ export default function BancosPage() {
       {sub === 'reglas' && <ReglasPanel />}
       {sub === 'cuentas' && <CuentasPanel />}
       {sub === 'presupuestos' && <PresupuestosPanel />}
+      {sub === 'provisiones' && <ProvisionesPanel />}
     </ConfigShell>
   )
 }
