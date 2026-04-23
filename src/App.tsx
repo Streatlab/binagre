@@ -7,7 +7,6 @@ import Escandallo from '@/pages/Escandallo'
 import Facturacion from '@/pages/Facturacion'
 import Conciliacion from '@/pages/Conciliacion'
 import POS from '@/pages/POS'
-import Running from '@/pages/Running'
 import Configuracion from '@/pages/Configuracion'
 import Placeholder from '@/pages/Placeholder'
 
@@ -24,13 +23,16 @@ import TabConciliacion from '@/pages/configuracion/bancos/TabConciliacion'
 
 // Configuración · Compras
 import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
-import TabEscandalloParams from '@/pages/configuracion/compras/TabEscandalloParams'
+import TabCostes from '@/pages/configuracion/compras/TabCostes'
 import TabProveedores from '@/pages/configuracion/compras/TabProveedores'
-import TabFormatos from '@/pages/configuracion/compras/TabFormatos'
 import TabCategorias from '@/pages/configuracion/compras/TabCategorias'
+import TabUnidades from '@/pages/configuracion/compras/TabUnidades'
 
 // Configuración · Usuarios
 import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
+
+// Configuración · Dashboard
+import ConfiguracionIndex from '@/pages/configuracion/ConfiguracionIndex'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -102,8 +104,12 @@ function AppRoutes() {
         <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
         <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
-        <Route path="running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
-        <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+
+        {/* Configuración · Dashboard */}
+        <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionIndex /></ProtectedRoute>} />
+
+        {/* Configuración · Legacy (accesible solo por URL directa) */}
+        <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
 
         {/* Configuración · Marcas */}
         <Route path="configuracion/marcas" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
@@ -120,11 +126,11 @@ function AppRoutes() {
 
         {/* Configuración · Compras */}
         <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>
-          <Route index element={<Navigate to="escandallo" replace />} />
-          <Route path="escandallo"  element={<TabEscandalloParams />} />
+          <Route index element={<Navigate to="costes" replace />} />
+          <Route path="costes"      element={<TabCostes />} />
           <Route path="proveedores" element={<TabProveedores />} />
-          <Route path="formatos"    element={<TabFormatos />} />
           <Route path="categorias"  element={<TabCategorias />} />
+          <Route path="unidades"    element={<TabUnidades />} />
         </Route>
 
         {/* Configuración · Usuarios */}

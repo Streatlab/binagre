@@ -143,3 +143,38 @@ export interface PermisoRol {
   permitido: boolean
   orden: number
 }
+
+export type PlataformaAbv = 'UE' | 'GL' | 'JE'
+
+export interface MarcaPlataformaAcceso {
+  id: string
+  marca_id: string
+  plataforma: PlataformaAbv
+  email_acceso: string | null
+  activo: boolean
+}
+
+export interface CategoriaContableIngreso {
+  id: string
+  codigo: string
+  nombre: string
+  canal_abv: string | null
+  orden: number
+}
+
+export interface CategoriaContableGasto {
+  id: string
+  codigo: string
+  nombre: string
+  tipo: 'fijo' | 'var' | 'pers' | 'mkt'
+  orden: number
+}
+
+export interface ReglaConciliacion {
+  id: string
+  patron: string
+  tipo_categoria: 'ingreso' | 'gasto'
+  categoria_id: string
+  prioridad: number
+  activa: boolean
+}
