@@ -2,7 +2,8 @@
 
 ## STACK
 React + TypeScript + Vite + Tailwind + Supabase + Vercel
-Repo: github.com/Streatlab/streatlab-erp
+Repo: github.com/Streatlab/binagre
+Producción: https://binagre.vercel.app  (Vercel project: streatlabs-projects/binagre)
 Supabase: eryauogxcpbgdryeimdq.supabase.co
 
 ## REGLAS ABSOLUTAS — SIEMPRE

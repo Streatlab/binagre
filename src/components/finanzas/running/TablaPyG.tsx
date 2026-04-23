@@ -45,7 +45,10 @@ export default function TablaPyG({ ingresosPorMes, gastosPorMes, mesActual }: Pr
   const rows: Row[] = useMemo(() => {
     const rs: Row[] = [];
     const valsIn = (fn: (im: IngresoMes) => number): number[] => {
-      const arr = meses.map((m) => fn(ingresosPorMes[m - 1]));
+      const arr = meses.map((m) => {
+        const r = ingresosPorMes[m - 1];
+        return r ? fn(r) : 0;
+      });
       const ytd = arr.reduce((a, b) => a + b, 0);
       return [...arr, ytd];
     };
