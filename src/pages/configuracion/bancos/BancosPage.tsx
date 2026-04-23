@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ModTitle } from '@/components/configuracion/ModTitle'
-import CategoriasContablesPanel from './CategoriasContablesPanel'
-import ReglasAutomaticasPanel from './ReglasAutomaticasPanel'
+import { ConfigShell } from '@/components/configuracion/ConfigShell'
+import CategoriasPanel from './CategoriasPanel'
+import ReglasPanel from './ReglasPanel'
 import CuentasPanel from './CuentasPanel'
 
 type Sub = 'categorias' | 'reglas' | 'cuentas'
 
 const PILLS: { id: Sub; label: string }[] = [
-  { id: 'categorias', label: 'Categorías' },
+  { id: 'categorias', label: 'Categorías de conciliación' },
   { id: 'reglas',     label: 'Reglas automáticas' },
   { id: 'cuentas',    label: 'Cuentas bancarias' },
 ]
@@ -15,7 +16,7 @@ const PILLS: { id: Sub; label: string }[] = [
 export default function BancosPage() {
   const [sub, setSub] = useState<Sub>('categorias')
   return (
-    <>
+    <ConfigShell>
       <ModTitle>Bancos y cuentas</ModTitle>
       <div className="flex gap-1.5 flex-wrap mb-[18px]">
         {PILLS.map(p => (
@@ -28,9 +29,9 @@ export default function BancosPage() {
           >{p.label}</button>
         ))}
       </div>
-      {sub === 'categorias' && <CategoriasContablesPanel />}
-      {sub === 'reglas' && <ReglasAutomaticasPanel />}
+      {sub === 'categorias' && <CategoriasPanel />}
+      {sub === 'reglas' && <ReglasPanel />}
       {sub === 'cuentas' && <CuentasPanel />}
-    </>
+    </ConfigShell>
   )
 }

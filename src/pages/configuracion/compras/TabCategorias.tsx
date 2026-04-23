@@ -3,11 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { BigCard } from '@/components/configuracion/BigCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
-interface CategoriaReceta { id: string; nombre: string; orden: number }
+interface Cat { id: string; nombre: string; orden: number }
 
 export default function TabCategorias() {
-  const [recetas, setRecetas] = useState<CategoriaReceta[]>([])
-  const [ingredientes, setIngredientes] = useState<string[]>([])
+  const [recetas, setRecetas] = useState<Cat[]>([])
+  const [ingredientes, setIngredientes] = useState<Cat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [newRec, setNewRec] = useState('')
@@ -16,16 +16,12 @@ export default function TabCategorias() {
   async function refetch() {
     const [r, i] = await Promise.all([
       supabase.from('categorias_recetas').select('*').order('orden'),
-      supabase.from('configuracion').select('valor').eq('clave', 'categorias').maybeSingle(),
+      supabase.from('categorias_ingredientes_config').select('*').order('orden'),
     ])
     if (r.error) throw r.error
     if (i.error) throw i.error
-    setRecetas((r.data ?? []) as CategoriaReceta[])
-    let parsed: string[] = []
-    if (i.data?.valor) {
-      try { parsed = JSON.parse(i.data.valor) as string[] } catch { parsed = [] }
-    }
-    setIngredientes(Array.isArray(parsed) ? parsed : [])
+    setRecetas((r.data ?? []) as Cat[])
+    setIngredientes((i.data ?? []) as Cat[])
   }
 
   useEffect(() => {
@@ -36,7 +32,6 @@ export default function TabCategorias() {
     })()
   }, [])
 
-  // Recetas (tabla)
   async function addRec() {
     if (!newRec.trim()) return
     const maxOrden = recetas.reduce((m, c) => Math.max(m, c.orden ?? 0), 0)
@@ -50,38 +45,29 @@ export default function TabCategorias() {
     if (error) { setError(error.message); return }
     await refetch()
   }
-  async function renameRec(id: string, n: string) {
+  async function renRec(id: string, n: string) {
     const { error } = await supabase.from('categorias_recetas').update({ nombre: n.trim() }).eq('id', id)
     if (error) { setError(error.message); return }
     await refetch()
   }
 
-  // Ingredientes (JSON en configuracion.categorias)
-  async function persistIng(next: string[]) {
-    const { error } = await supabase
-      .from('configuracion')
-      .upsert({ clave: 'categorias', valor: JSON.stringify(next) }, { onConflict: 'clave' })
-    if (error) setError(error.message)
-  }
   async function addIng() {
-    const v = newIng.trim()
-    if (!v || ingredientes.includes(v)) { setNewIng(''); return }
-    const next = [...ingredientes, v]
-    setIngredientes(next); setNewIng('')
-    await persistIng(next)
+    if (!newIng.trim()) return
+    const maxOrden = ingredientes.reduce((m, c) => Math.max(m, c.orden ?? 0), 0)
+    const { error } = await supabase.from('categorias_ingredientes_config').insert({ nombre: newIng.trim(), orden: maxOrden + 1 })
+    if (error) { setError(error.message); return }
+    setNewIng(''); await refetch()
   }
-  async function delIng(idx: number) {
+  async function delIng(id: string) {
     if (!confirm('Eliminar?')) return
-    const next = ingredientes.filter((_, i) => i !== idx)
-    setIngredientes(next)
-    await persistIng(next)
+    const { error } = await supabase.from('categorias_ingredientes_config').delete().eq('id', id)
+    if (error) { setError(error.message); return }
+    await refetch()
   }
-  async function renameIng(idx: number, n: string) {
-    const v = n.trim()
-    if (!v) return
-    const next = ingredientes.map((x, i) => i === idx ? v : x)
-    setIngredientes(next)
-    await persistIng(next)
+  async function renIng(id: string, n: string) {
+    const { error } = await supabase.from('categorias_ingredientes_config').update({ nombre: n.trim() }).eq('id', id)
+    if (error) { setError(error.message); return }
+    await refetch()
   }
 
   if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
@@ -90,35 +76,35 @@ export default function TabCategorias() {
   return (
     <div className="grid grid-cols-2 gap-3.5">
       <BigCard title="Categorías de recetas" count={`${recetas.length}`}>
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="space-y-2 mb-4">
           {recetas.map(c => (
-            <span key={c.id} className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg text-[12.5px] font-medium">
-              <InlineEdit value={c.nombre} type="text" onSubmit={(v) => renameRec(c.id, String(v))} />
-              <button onClick={() => delRec(c.id)} className="text-[#9E9588] text-[15px] leading-none hover:text-[#B01D23] bg-transparent border-0">×</button>
-            </span>
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+              <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renRec(c.id, String(v))} /></div>
+              <button onClick={() => delRec(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+            </div>
           ))}
         </div>
         <div className="flex gap-2">
-          <input value={newRec} onChange={(e) => setNewRec(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRec()} placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[12.5px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addRec} className="px-3.5 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E]">+ Añadir</button>
+          <input value={newRec} onChange={(e) => setNewRec(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRec()}
+            placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+          <button onClick={addRec} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
-        <p className="mt-3 text-[11px] text-[#9E9588]">Se usa en Escandallo y en Cocina / Fichas Técnicas.</p>
       </BigCard>
 
       <BigCard title="Categorías de ingredientes" count={`${ingredientes.length}`}>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {ingredientes.map((c, idx) => (
-            <span key={`${c}-${idx}`} className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg text-[12.5px] font-medium">
-              <InlineEdit value={c} type="text" onSubmit={(v) => renameIng(idx, String(v))} />
-              <button onClick={() => delIng(idx)} className="text-[#9E9588] text-[15px] leading-none hover:text-[#B01D23] bg-transparent border-0">×</button>
-            </span>
+        <div className="space-y-2 mb-4">
+          {ingredientes.map(c => (
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+              <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renIng(c.id, String(v))} /></div>
+              <button onClick={() => delIng(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+            </div>
           ))}
         </div>
         <div className="flex gap-2">
-          <input value={newIng} onChange={(e) => setNewIng(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addIng()} placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[12.5px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addIng} className="px-3.5 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E]">+ Añadir</button>
+          <input value={newIng} onChange={(e) => setNewIng(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addIng()}
+            placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+          <button onClick={addIng} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
-        <p className="mt-3 text-[11px] text-[#9E9588]">Se usa en Escandallo al clasificar ingredientes.</p>
       </BigCard>
     </div>
   )

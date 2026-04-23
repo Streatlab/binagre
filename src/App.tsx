@@ -13,7 +13,7 @@ import Placeholder from '@/pages/Placeholder'
 // Configuración · Marcas
 import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
 import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
-import TabUsuariosMarcas from '@/pages/configuracion/marcas/TabUsuariosMarcas'
+import TabAccesosUber from '@/pages/configuracion/marcas/TabAccesosUber'
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Configuración · Bancos
@@ -113,7 +113,7 @@ function AppRoutes() {
         {/* Configuración · Marcas */}
         <Route path="configuracion/marcas" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
-          <Route path="usuarios" element={<TabUsuariosMarcas />} />
+          <Route path="accesos-uber" element={<TabAccesosUber />} />
           <Route path="canales" element={<TabCanales />} />
           <Route path="tipos-cocina" element={<TabTiposCocina />} />
         </Route>

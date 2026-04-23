@@ -1,11 +1,9 @@
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { ModTitle } from '@/components/configuracion/ModTitle'
+import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import { useIsDark } from '@/hooks/useIsDark'
 
-interface Pill {
-  id: string
-  label: string
-}
+interface Pill { id: string; label: string }
 
 const PILLS: Pill[] = [
   { id: 'costes',      label: 'Costes' },
@@ -31,7 +29,7 @@ export default function ComprasPage() {
   const inactiveBorder = isDark ? '#2a2a2a' : '#E9E1D0'
 
   return (
-    <div>
+    <ConfigShell>
       <ModTitle>Compras</ModTitle>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         {PILLS.map(p => {
@@ -55,13 +53,11 @@ export default function ComprasPage() {
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
-            >
-              {p.label}
-            </button>
+            >{p.label}</button>
           )
         })}
       </div>
       <Outlet />
-    </div>
+    </ConfigShell>
   )
 }
