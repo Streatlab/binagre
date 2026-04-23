@@ -392,7 +392,13 @@ export default function Conciliacion() {
                 link_factura: null,
                 notas: r.notas ?? null,
               }))
-              insertMovimientos(toInsert).catch(err => console.error('Error importando:', err))
+              insertMovimientos(toInsert)
+                .then(({ insertados, autoCategorizados }) => {
+                  if (autoCategorizados > 0) {
+                    alert(`${insertados} movimientos importados · ${autoCategorizados} categorizados automáticamente según tus reglas`)
+                  }
+                })
+                .catch(err => console.error('Error importando:', err))
             }} />
             <div>
               <label style={labelStyle}>Categoría</label>

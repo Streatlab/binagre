@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapping'
+import { normalizarConcepto, matchPatron } from '@/lib/normalizarConcepto'
 
 export interface Movimiento {
   id: string
@@ -21,7 +22,8 @@ export interface Regla {
   id: string
   patron: string
   tipo_categoria: 'ingreso' | 'gasto'
-  categoria_id: string
+  categoria_id: string | null
+  categoria_codigo: string | null
   activa: boolean
   prioridad: number
 }
@@ -50,7 +52,7 @@ export function useConciliacion() {
       try {
         const [mov, reg, cIng, cGas] = await Promise.all([
           supabase.from('conciliacion').select('*').order('fecha', { ascending: false }),
-          supabase.from('reglas_conciliacion').select('*').order('prioridad', { ascending: false }),
+          supabase.from('reglas_conciliacion').select('id, patron, tipo_categoria, categoria_id, categoria_codigo, activa, prioridad').order('prioridad', { ascending: false }),
           supabase.from('categorias_contables_ingresos').select('id, codigo, nombre'),
           supabase.from('categorias_contables_gastos').select('id, codigo, nombre, grupo'),
         ])
@@ -75,11 +77,40 @@ export function useConciliacion() {
     return () => { cancel = true }
   }, [tick])
 
-  async function insertMovimientos(rows: Omit<Movimiento, 'id'>[]) {
-    if (rows.length === 0) return
-    const { error } = await supabase.from('conciliacion').insert(rows)
+  async function insertMovimientos(rows: Omit<Movimiento, 'id'>[]): Promise<{ insertados: number; autoCategorizados: number }> {
+    if (rows.length === 0) return { insertados: 0, autoCategorizados: 0 }
+    const { data: insertados, error } = await supabase.from('conciliacion').insert(rows).select('*')
     if (error) throw error
+    const insertedRows = (insertados ?? []) as Movimiento[]
+
+    // Aplicar reglas activas a los recién insertados
+    let autoCategorizados = 0
+    if (insertedRows.length > 0 && reglas.length > 0) {
+      const reglasOrdenadas = [...reglas].filter(r => r.activa).sort((a, b) => b.prioridad - a.prioridad)
+      for (const m of insertedRows) {
+        if (m.categoria) continue
+        const conceptoNorm = normalizarConcepto(m.concepto ?? '')
+        if (!conceptoNorm) continue
+        const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
+        if (!regla || !regla.categoria_codigo) continue
+        try {
+          let gastoId: string | null = null
+          try {
+            gastoId = await syncGasto(m, regla.categoria_codigo, regla.tipo_categoria)
+          } catch (e: any) {
+            console.error('syncGasto (auto-import) failed:', e?.message ?? e)
+          }
+          const { error: upErr } = await supabase.from('conciliacion')
+            .update({ categoria: regla.categoria_codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
+            .eq('id', m.id)
+          if (!upErr) autoCategorizados++
+        } catch (e: any) {
+          console.error('auto-categorizar failed:', e?.message ?? e)
+        }
+      }
+    }
     refresh()
+    return { insertados: insertedRows.length, autoCategorizados }
   }
 
   /**
@@ -146,6 +177,30 @@ export function useConciliacion() {
       .update({ categoria: codigo_categoria, tipo, gasto_id: nuevoGastoId })
       .eq('id', id)
     if (error) throw error
+
+    // 3. Aprender: upsert de regla por patrón normalizado
+    if (codigo_categoria && tipo) {
+      const patron = normalizarConcepto(mov.concepto ?? '')
+      if (patron) {
+        try {
+          const { error: rErr } = await supabase
+            .from('reglas_conciliacion')
+            .upsert({
+              patron,
+              tipo_categoria: tipo,
+              asigna_como: tipo,
+              categoria_codigo: codigo_categoria,
+              categoria_id: null,
+              activa: true,
+              prioridad: 0,
+            }, { onConflict: 'patron' })
+          if (rErr) console.error('upsert regla:', rErr.message)
+        } catch (e: any) {
+          console.error('upsert regla failed:', e?.message ?? e)
+        }
+      }
+    }
+
     refresh()
   }
 
@@ -163,24 +218,31 @@ export function useConciliacion() {
 
   async function aplicarReglas() {
     const sinCat = movimientos.filter(m => !m.categoria)
+    const reglasOrdenadas = [...reglas].filter(r => r.activa).sort((a, b) => b.prioridad - a.prioridad)
     let aplicados = 0
     for (const m of sinCat) {
-      const concepto = (m.concepto ?? '').toLowerCase()
-      const regla = reglas.find(r => r.activa && concepto.includes(r.patron.toLowerCase()))
+      const conceptoNorm = normalizarConcepto(m.concepto ?? '')
+      if (!conceptoNorm) continue
+      const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
       if (!regla) continue
-      const cat = categorias.find(c => c.id === regla.categoria_id)
-      if (!cat) continue
 
-      // Sync gasto si procede
+      // Resolver código: priorizar categoria_codigo (nuevo), fallback a categoria_id legacy
+      let codigo = regla.categoria_codigo
+      if (!codigo && regla.categoria_id) {
+        const cat = categorias.find(c => c.id === regla.categoria_id)
+        codigo = cat?.codigo ?? null
+      }
+      if (!codigo) continue
+
       let gastoId: string | null = null
       try {
-        gastoId = await syncGasto(m, cat.codigo, regla.tipo_categoria)
+        gastoId = await syncGasto(m, codigo, regla.tipo_categoria)
       } catch (e: any) {
         console.error('syncGasto (aplicarReglas) failed:', e?.message ?? e)
       }
 
       const { error } = await supabase.from('conciliacion')
-        .update({ categoria: cat.codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
+        .update({ categoria: codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
         .eq('id', m.id)
       if (!error) aplicados++
     }

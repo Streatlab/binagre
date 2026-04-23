@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MESES_CORTO, CATEGORIA_NOMBRE, CATEGORIA_COLOR } from '@/lib/running';
 import type { Categoria } from '@/lib/running';
 import type { GastoRaw, IngresoMensualRaw, RangoCategoria } from '@/hooks/useRunning';
+import { normalizarConcepto } from '@/lib/normalizarConcepto';
 
 interface Props {
   anio: number;
@@ -36,8 +37,22 @@ function arr12(): number[] { return [0,0,0,0,0,0,0,0,0,0,0,0]; }
 
 function valFmt(v: number): string {
   if (!v) return '—';
-  const abs = Math.abs(v).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return v < 0 ? `−${abs}` : abs;
+  const [int, dec] = Math.abs(v).toFixed(2).split('.');
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const out = `${intFmt},${dec}`;
+  return v < 0 ? `−${out}` : out;
+}
+
+function proveedorKey(g: { proveedor: string | null; concepto: string | null }): string {
+  if (g.proveedor && g.proveedor.trim()) return g.proveedor.trim().toLowerCase();
+  return normalizarConcepto(g.concepto ?? '') || (g.concepto ?? '').toLowerCase().slice(0, 20);
+}
+
+function proveedorLabel(g: { proveedor: string | null; concepto: string | null }): string {
+  if (g.proveedor && g.proveedor.trim()) return g.proveedor.trim();
+  const norm = normalizarConcepto(g.concepto ?? '');
+  if (norm) return norm.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return (g.concepto ?? '(sin concepto)').slice(0, 30);
 }
 
 export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
@@ -73,7 +88,8 @@ export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
       MARKETING: arr12(), SUMINISTROS: arr12(), INTERNET_VENTAS: arr12(), ADMIN_GENERALES: arr12(),
     };
     const perSubcat: Record<string, number[]> = {};
-    const perConcepto: Record<string, { subcat: string; categoria: Categoria; vals: number[] }> = {};
+    // Agrupado por proveedor normalizado (no por concepto bruto)
+    const perProveedor: Record<string, { subcat: string; categoria: Categoria; label: string; vals: number[] }> = {};
     gastosAnio.forEach(g => {
       const idx = Number(g.fecha.slice(5,7)) - 1;
       const cat = g.categoria as Categoria;
@@ -83,13 +99,21 @@ export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
         perSubcat[k] = perSubcat[k] || arr12();
         perSubcat[k][idx] += g.importe;
       }
-      if (g.concepto) {
-        const k = `${cat}::${g.subcategoria || '_'}::${g.concepto}`;
-        if (!perConcepto[k]) perConcepto[k] = { subcat: g.subcategoria || '', categoria: cat, vals: arr12() };
-        perConcepto[k].vals[idx] += g.importe;
+      const provKey = proveedorKey(g);
+      if (provKey) {
+        const k = `${cat}::${g.subcategoria || '_'}::${provKey}`;
+        if (!perProveedor[k]) {
+          perProveedor[k] = {
+            subcat: g.subcategoria || '',
+            categoria: cat,
+            label: proveedorLabel(g),
+            vals: arr12(),
+          };
+        }
+        perProveedor[k].vals[idx] += g.importe;
       }
     });
-    return { perCat, perSubcat, perConcepto };
+    return { perCat, perSubcat, perProveedor };
   }, [gastosAnio]);
 
   const totalGastos = useMemo(() => {
@@ -176,11 +200,11 @@ export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
         const subcatVals = gastos.perSubcat[subcatKey] || arr12();
         const subcatRowKey = `${grp.id}-${sc.code}`;
         out.push({ key: subcatRowKey, kind: 'h2', label: sc.label, parent: grp.id, monthly: subcatVals });
-        Object.entries(gastos.perConcepto).forEach(([k, c]) => {
-          if (c.categoria === grp.cat && c.subcat === sc.code) {
-            const label = k.split('::').pop() || '';
-            out.push({ key: `${subcatRowKey}-${label}`, kind: 'detail', label, parent: subcatRowKey, monthly: c.vals });
-          }
+        const proveedoresSubcat = Object.entries(gastos.perProveedor)
+          .filter(([, c]) => c.categoria === grp.cat && c.subcat === sc.code)
+          .sort(([, a], [, b]) => b.vals.reduce((s, v) => s + v, 0) - a.vals.reduce((s, v) => s + v, 0));
+        proveedoresSubcat.forEach(([k, c]) => {
+          out.push({ key: `${subcatRowKey}-${k}`, kind: 'detail', label: c.label, parent: subcatRowKey, monthly: c.vals });
         });
       });
     });
