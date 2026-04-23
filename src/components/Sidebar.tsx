@@ -113,7 +113,6 @@ const SECTIONS: NavSection[] = [
   {
     key: 'marcas', emoji: '🏷️', label: 'Marcas', perfiles: ['admin'],
     items: [
-      { path: '/marcas',                  label: 'Marcas',             emoji: '🏷️', perfiles: ['admin'] },
       { path: '/marcas/ranking',          label: 'Ranking Marcas',     emoji: '📊', perfiles: ['admin'] },
       { path: '/marcas/ranking-canales',  label: 'Ranking Canales',    emoji: '📡', perfiles: ['admin'] },
       { path: '/integraciones/pos',       label: 'Integraciones',      emoji: '🔌', perfiles: ['admin'] },
@@ -181,6 +180,7 @@ const SECTIONS: NavSection[] = [
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
       { path: '/configuracion',               label: 'Configuración',                emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/configuracion/marcas',        label: 'Marcas',                       emoji: '🏷️', perfiles: ['admin'] },
       { path: '/configuracion/roles',         label: 'Roles y Permisos',             emoji: '🔐', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',      label: 'Usuarios',                     emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/filtros',       label: 'Filtros Múltiples',            emoji: '🔍', perfiles: ['admin'] },

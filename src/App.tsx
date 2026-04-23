@@ -7,10 +7,15 @@ import Escandallo from '@/pages/Escandallo'
 import Facturacion from '@/pages/Facturacion'
 import Conciliacion from '@/pages/Conciliacion'
 import POS from '@/pages/POS'
-import Marcas from '@/pages/Marcas'
 import Running from '@/pages/Running'
 import Configuracion from '@/pages/Configuracion'
 import Placeholder from '@/pages/Placeholder'
+
+// Configuración · Marcas
+import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
+import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
+import TabUsuariosMarcas from '@/pages/configuracion/marcas/TabUsuariosMarcas'
+import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -82,9 +87,15 @@ function AppRoutes() {
         <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
         <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
-        <Route path="marcas" element={<ProtectedRoute solo={['admin']}><Marcas /></ProtectedRoute>} />
         <Route path="running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+
+        {/* Configuración · Marcas */}
+        <Route path="configuracion/marcas" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
+          <Route index element={<TabMarcas />} />
+          <Route path="usuarios" element={<TabUsuariosMarcas />} />
+          <Route path="canales" element={<TabCanales />} />
+        </Route>
 
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
