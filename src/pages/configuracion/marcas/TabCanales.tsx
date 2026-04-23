@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTheme, cardStyle, kpiLabelStyle, kpiValueStyle, dividerStyle, FONT, CANALES } from '@/styles/tokens'
 import { rangoPeriodo } from '@/lib/dateRange'
-import { BigCard } from '@/components/configuracion/BigCard'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
 interface ConfigCanal {
@@ -15,32 +16,22 @@ interface ConfigCanal {
 
 type Platform = 'UE' | 'GL' | 'JE'
 
-// Colores por canal en formato CSS var() para adaptarse a light/dark desde design-system.css
-const COLOR: Record<string, string> = {
-  UE:  'var(--sl-uber-text)',
-  GL:  'var(--sl-glovo-text)',
-  JE:  'var(--sl-je-text)',
-  WEB: 'var(--sl-web)',
-  DIR: 'var(--sl-direct-text)',
-}
-const COLOR_DOT: Record<string, string> = {
-  UE:  'var(--sl-uber)',
-  GL:  'var(--sl-glovo-dot)',
-  JE:  'var(--sl-je)',
-  WEB: 'var(--sl-web-dot)',
-  DIR: 'var(--sl-direct)',
-}
-const LABEL: Record<string, string> = {
-  UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat', WEB: 'Web', DIR: 'Directa',
-}
+const LABEL: Record<Platform, string> = { UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat' }
 
 function colorPorNombre(n: string): string {
   const s = n.toLowerCase()
-  if (s.includes('uber')) return 'var(--sl-uber)'
-  if (s.includes('glovo')) return 'var(--sl-glovo-dot)'
-  if (s.includes('just')) return 'var(--sl-je)'
-  if (s.includes('web') || s.includes('rushour')) return 'var(--sl-web-dot)'
-  return 'var(--sl-direct)'
+  if (s.includes('uber')) return CANALES.find(c => c.id === 'uber')?.color ?? '#06C167'
+  if (s.includes('glovo')) return CANALES.find(c => c.id === 'glovo')?.color ?? '#e8f442'
+  if (s.includes('just')) return CANALES.find(c => c.id === 'je')?.color ?? '#f5a623'
+  if (s.includes('web') || s.includes('rushour')) return CANALES.find(c => c.id === 'web')?.color ?? '#B01D23'
+  return CANALES.find(c => c.id === 'dir')?.color ?? '#66aaff'
+}
+
+function matchCanal(c: ConfigCanal, key: Platform): boolean {
+  const s = c.canal.toLowerCase()
+  if (key === 'UE') return s.includes('uber')
+  if (key === 'GL') return s.includes('glovo')
+  return s.includes('just')
 }
 
 function fmtPct(n: number): string {
@@ -48,15 +39,15 @@ function fmtPct(n: number): string {
   return n.toFixed(2).replace('.', ',') + '%'
 }
 
-function matchCanal(c: ConfigCanal, key: Platform): boolean {
-  const s = c.canal.toLowerCase()
-  if (key === 'UE') return s.includes('uber')
-  if (key === 'GL') return s.includes('glovo')
-  if (key === 'JE') return s.includes('just')
-  return false
+function colorPlat(key: Platform, isDark: boolean): string {
+  if (key === 'UE') return CANALES.find(c => c.id === 'uber')!.color
+  if (key === 'JE') return CANALES.find(c => c.id === 'je')!.color
+  // Glovo tiene texto específico según tema
+  return isDark ? '#e8f442' : '#8a7800'
 }
 
 export default function TabCanales() {
+  const { T, isDark } = useTheme()
   const [canales, setCanales] = useState<ConfigCanal[]>([])
   const [tms, setTms] = useState<Record<Platform, number>>({ UE: 0, GL: 0, JE: 0 })
   const [loading, setLoading] = useState(true)
@@ -79,20 +70,20 @@ export default function TabCanales() {
 
     const fact = (fRes.data ?? []) as any[]
     const sum = (k: string) => fact.reduce((a, x) => a + Number(x[k] ?? 0), 0)
-    const totalPedidos = fact.reduce((a, x) => a + Number(x.total_pedidos ?? 0), 0)
+    const pedidos = fact.reduce((a, x) => a + Number(x.total_pedidos ?? 0), 0)
     const ventas = { UE: sum('ue_bruto'), GL: sum('gl_bruto'), JE: sum('je_bruto') }
     const totalVentas = ventas.UE + ventas.GL + ventas.JE
     const TM_FALLBACK = 20
-    const nextTms: Record<Platform, number> = { UE: TM_FALLBACK, GL: TM_FALLBACK, JE: TM_FALLBACK }
-    if (totalVentas > 0 && totalPedidos > 0) {
-      const pedUE = totalPedidos * (ventas.UE / totalVentas)
-      const pedGL = totalPedidos * (ventas.GL / totalVentas)
-      const pedJE = totalPedidos * (ventas.JE / totalVentas)
-      if (pedUE > 0) nextTms.UE = ventas.UE / pedUE
-      if (pedGL > 0) nextTms.GL = ventas.GL / pedGL
-      if (pedJE > 0) nextTms.JE = ventas.JE / pedJE
+    const next: Record<Platform, number> = { UE: TM_FALLBACK, GL: TM_FALLBACK, JE: TM_FALLBACK }
+    if (totalVentas > 0 && pedidos > 0) {
+      const pedUE = pedidos * (ventas.UE / totalVentas)
+      const pedGL = pedidos * (ventas.GL / totalVentas)
+      const pedJE = pedidos * (ventas.JE / totalVentas)
+      if (pedUE > 0) next.UE = ventas.UE / pedUE
+      if (pedGL > 0) next.GL = ventas.GL / pedGL
+      if (pedJE > 0) next.JE = ventas.JE / pedJE
     }
-    setTms(nextTms)
+    setTms(next)
   }
 
   useEffect(() => {
@@ -110,10 +101,10 @@ export default function TabCanales() {
   }
 
   const comisionNeta = useMemo<Record<Platform, number>>(() => {
-    const calc = (key: Platform): number => {
-      const c = canales.find(x => matchCanal(x, key))
+    const calc = (k: Platform): number => {
+      const c = canales.find(x => matchCanal(x, k))
       if (!c) return NaN
-      const tm = tms[key]
+      const tm = tms[k]
       if (tm <= 0) return c.comision_pct
       return c.comision_pct + (c.coste_fijo / tm) * 100
     }
@@ -122,81 +113,139 @@ export default function TabCanales() {
 
   const mejorCanal: Platform = useMemo(() => {
     const vals: [Platform, number][] = [
-      ['UE', comisionNeta.UE],
-      ['GL', comisionNeta.GL],
-      ['JE', comisionNeta.JE],
+      ['UE', comisionNeta.UE], ['GL', comisionNeta.GL], ['JE', comisionNeta.JE],
     ]
     return vals.filter(([, v]) => Number.isFinite(v)).sort((a, b) => a[1] - b[1])[0]?.[0] ?? 'UE'
   }, [comisionNeta])
 
-  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando canales…</div>
-  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando canales…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
 
   const margenNetoMejor = 100 - (comisionNeta[mejorCanal] ?? 0)
 
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    color: T.mut,
+    fontWeight: 400,
+    background: T.group,
+    textAlign: 'left',
+  }
+  const thNum: React.CSSProperties = { ...th, textAlign: 'right' }
+  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-3.5 mb-5">
-        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
-          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Comisión óptima neta</div>
-          <div className="space-y-2">
-            {(['UE','GL','JE'] as const).map(k => (
-              <div key={k} className="flex items-center justify-between">
-                <span className="text-[13px] font-medium" style={{ color: COLOR[k] }}>{LABEL[k]}</span>
-                <span className="text-[18px] font-extrabold tabular-nums" style={{ color: COLOR[k] }}>
-                  {fmtPct(comisionNeta[k])}
-                </span>
-              </div>
-            ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 22 }}>
+        <div style={cardStyle(T)}>
+          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Comisión óptima neta</div>
+          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 10 }}>
+            real sobre ticket medio últimos 30 días
           </div>
-          <div className="text-xs text-[var(--sl-text-muted)] mt-3">real sobre ticket medio últimos 30 días</div>
+          <div style={dividerStyle(T)} />
+          {(['UE', 'GL', 'JE'] as const).map((k, idx, arr) => (
+            <div
+              key={k}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '7px 0',
+                borderBottom: idx < arr.length - 1 ? `0.5px solid ${T.brd}` : 'none',
+              }}
+            >
+              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>{LABEL[k]}</span>
+              <span
+                style={{
+                  fontFamily: FONT.heading,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: colorPlat(k, isDark),
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {fmtPct(comisionNeta[k])}
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
-          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Mejor margen plataforma</div>
-          <div className="text-[38px] font-extrabold leading-none tracking-[-0.02em]" style={{ color: COLOR[mejorCanal] }}>
+        <div style={cardStyle(T)}>
+          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Mejor margen plataforma</div>
+          <div style={{ ...kpiValueStyle(T), marginBottom: 4, color: colorPlat(mejorCanal, isDark) }}>
             {LABEL[mejorCanal]}
           </div>
-          <div className="text-[13px] text-[var(--sl-text-secondary)] mt-3">
-            margen neto real: <strong className="tabular-nums">{fmtPct(margenNetoMejor)}</strong>
+          <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 10 }}>
+            margen neto real{' '}
+            <strong style={{ color: T.pri, fontVariantNumeric: 'tabular-nums' }}>{fmtPct(margenNetoMejor)}</strong>
           </div>
         </div>
       </div>
 
-      <BigCard title="Canales de venta" count={`${canales.length}`}>
-        <table className="sl-cfg-table">
-          <thead>
-            <tr>
-              <th>Canal</th>
-              <th className="num">Comisión</th>
-              <th className="num">Coste fijo</th>
-              <th className="num">Margen deseado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {canales.map(c => (
-              <tr key={c.id}>
-                <td>
-                  <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: colorPorNombre(c.canal) }} />
-                  <strong>{c.canal}</strong>
-                </td>
-                <td className="num">
-                  <InlineEdit value={c.comision_pct} type="percent" align="right" min={0} max={100} step={0.01}
-                    onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
-                </td>
-                <td className="num">
-                  <InlineEdit value={c.coste_fijo} type="currency" align="right" min={0} step={0.01}
-                    onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))} />
-                </td>
-                <td className="num">
-                  <InlineEdit value={c.margen_obj_pct} type="percent" align="right" min={0} max={100} step={0.01}
-                    onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
-                </td>
+      <ConfigGroupCard title="Canales de venta" subtitle={`${canales.length}`}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <th style={th}>Canal</th>
+                <th style={thNum}>Comisión</th>
+                <th style={thNum}>Coste fijo</th>
+                <th style={thNum}>Margen deseado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </BigCard>
+            </thead>
+            <tbody>
+              {canales.map(c => (
+                <tr key={c.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                  <td style={{ ...td, fontWeight: 600 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: colorPorNombre(c.canal),
+                        marginRight: 10,
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                    {c.canal}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <InlineEdit
+                      value={c.comision_pct}
+                      type="percent" align="right" min={0} max={100} step={0.01}
+                      onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))}
+                    />
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <InlineEdit
+                      value={c.coste_fijo}
+                      type="currency" align="right" min={0} step={0.01}
+                      onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))}
+                    />
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <InlineEdit
+                      value={c.margen_obj_pct}
+                      type="percent" align="right" min={0} max={100} step={0.01}
+                      onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </ConfigGroupCard>
     </>
   )
 }

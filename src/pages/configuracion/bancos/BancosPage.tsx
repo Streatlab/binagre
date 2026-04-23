@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import CategoriasPanel from './CategoriasPanel'
@@ -14,20 +15,36 @@ const PILLS: { id: Sub; label: string }[] = [
 ]
 
 export default function BancosPage() {
+  const { T } = useTheme()
   const [sub, setSub] = useState<Sub>('categorias')
+
   return (
     <ConfigShell>
       <ModTitle>Bancos y cuentas</ModTitle>
-      <div className="flex gap-1.5 flex-wrap mb-[18px]">
-        {PILLS.map(p => (
-          <button
-            key={p.id}
-            onClick={() => setSub(p.id)}
-            className={sub === p.id
-              ? 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[#FFF3B8] border border-[#E8D066] text-[#5a4d0a]'
-              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[var(--sl-card)] border border-[var(--sl-border)] text-[var(--sl-text-secondary)] hover:bg-[var(--sl-hover)]'}
-          >{p.label}</button>
-        ))}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+        {PILLS.map(p => {
+          const isActive = sub === p.id
+          return (
+            <button
+              key={p.id}
+              onClick={() => setSub(p.id)}
+              style={{
+                padding: '7px 14px',
+                borderRadius: 6,
+                fontFamily: FONT.heading,
+                fontSize: 11,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                fontWeight: isActive ? 600 : 500,
+                background: isActive ? '#B01D23' : T.card,
+                color: isActive ? '#ffffff' : T.sec,
+                border: `0.5px solid ${isActive ? '#B01D23' : T.brd}`,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >{p.label}</button>
+          )
+        })}
       </div>
       {sub === 'categorias' && <CategoriasPanel />}
       {sub === 'reglas' && <ReglasPanel />}

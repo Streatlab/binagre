@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BigCard } from '@/components/configuracion/BigCard'
+import { useTheme, FONT } from '@/styles/tokens'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 import type { TipoCocina } from '@/types/configuracion'
 
 interface TipoConCount extends TipoCocina { count_marcas: number }
 
 export default function TabTiposCocina() {
+  const { T } = useTheme()
   const [tipos, setTipos] = useState<TipoConCount[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -16,11 +18,11 @@ export default function TabTiposCocina() {
     const { data: t, error } = await supabase.from('tipos_cocina').select('*').order('orden')
     if (error) throw error
     const { data: m } = await supabase.from('marcas').select('tipo_cocina_id')
-    const countMap = new Map<string, number>()
+    const count = new Map<string, number>()
     for (const x of (m ?? []) as any[]) {
-      if (x.tipo_cocina_id) countMap.set(x.tipo_cocina_id, (countMap.get(x.tipo_cocina_id) ?? 0) + 1)
+      if (x.tipo_cocina_id) count.set(x.tipo_cocina_id, (count.get(x.tipo_cocina_id) ?? 0) + 1)
     }
-    setTipos(((t ?? []) as TipoCocina[]).map(x => ({ ...x, count_marcas: countMap.get(x.id) ?? 0 })))
+    setTipos(((t ?? []) as TipoCocina[]).map(x => ({ ...x, count_marcas: count.get(x.id) ?? 0 })))
   }
 
   useEffect(() => {
@@ -51,39 +53,121 @@ export default function TabTiposCocina() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
+
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    color: T.mut,
+    fontWeight: 400,
+    background: T.group,
+    textAlign: 'left',
+  }
+  const td: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.body,
+    fontSize: 13,
+    color: T.pri,
+  }
 
   return (
-    <BigCard title="Tipos de cocina" count={`${tipos.length}`}>
-      <div className="space-y-2 mb-4">
-        {tipos.map(t => (
-          <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)] transition-colors">
-            <div className="flex-1">
-              <InlineEdit value={t.nombre} type="text" onSubmit={(v) => handleRename(t, String(v))} />
-            </div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--sl-text-muted)] mr-4">
-              {t.count_marcas} marca{t.count_marcas !== 1 ? 's' : ''}
-            </div>
-            <button
-              onClick={() => handleDelete(t)}
-              disabled={t.count_marcas > 0}
-              className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
-              title={t.count_marcas > 0 ? 'Usado por marcas' : 'Eliminar'}
-            >×</button>
-          </div>
-        ))}
+    <ConfigGroupCard title="Tipos de cocina" subtitle={`${tipos.length}`}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+              <th style={th}>Tipo</th>
+              <th style={{ ...th, textAlign: 'right' }}>Marcas</th>
+              <th style={{ ...th, textAlign: 'right', width: 80 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {tipos.map(t => (
+              <tr key={t.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                <td style={{ ...td, fontWeight: 600 }}>
+                  <InlineEdit value={t.nombre} type="text" onSubmit={(v) => handleRename(t, String(v))} />
+                </td>
+                <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: t.count_marcas > 0 ? T.pri : T.mut }}>
+                  {t.count_marcas}
+                </td>
+                <td style={{ ...td, textAlign: 'right' }}>
+                  <button
+                    onClick={() => handleDelete(t)}
+                    disabled={t.count_marcas > 0}
+                    title={t.count_marcas > 0 ? 'Usado por marcas' : 'Eliminar'}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: t.count_marcas > 0 ? T.mut : '#B01D23',
+                      fontSize: 11,
+                      cursor: t.count_marcas > 0 ? 'not-allowed' : 'pointer',
+                      fontFamily: FONT.heading,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      fontWeight: 600,
+                      opacity: t.count_marcas > 0 ? 0.4 : 1,
+                      padding: 0,
+                    }}
+                  >Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <div className="flex gap-2">
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          padding: '14px 22px 18px',
+          borderTop: `0.5px solid ${T.brd}`,
+          background: T.bg,
+        }}
+      >
         <input
           value={nuevo}
           onChange={(e) => setNuevo(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
           placeholder="Nuevo tipo de cocina..."
-          className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]"
+          style={{
+            flex: 1,
+            padding: '7px 12px',
+            border: `0.5px dashed ${T.brd}`,
+            borderRadius: 6,
+            background: T.inp,
+            color: T.pri,
+            fontSize: 13,
+            fontFamily: FONT.body,
+            outline: 'none',
+          }}
         />
-        <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+        <button
+          onClick={handleAdd}
+          style={{
+            padding: '7px 14px',
+            borderRadius: 6,
+            border: 'none',
+            background: '#B01D23',
+            color: '#ffffff',
+            fontFamily: FONT.heading,
+            fontSize: 11,
+            letterSpacing: '1px',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >+ Añadir</button>
       </div>
-    </BigCard>
+    </ConfigGroupCard>
   )
 }

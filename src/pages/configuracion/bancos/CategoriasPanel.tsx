@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BigCard } from '@/components/configuracion/BigCard'
+import { useTheme, FONT } from '@/styles/tokens'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
 interface Cat {
@@ -12,6 +13,7 @@ interface Cat {
 }
 
 export default function CategoriasPanel() {
+  const { T, isDark } = useTheme()
   const [cats, setCats] = useState<Cat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,60 +59,185 @@ export default function CategoriasPanel() {
     setNuevo(''); await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
+
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    color: T.mut,
+    fontWeight: 400,
+    background: T.group,
+    textAlign: 'left',
+  }
+  const td: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.body,
+    fontSize: 13,
+    color: T.pri,
+  }
+
+  const grupos: { label: string; items: Cat[] }[] = [
+    { label: 'Ingresos',         items: cats.filter(c => c.es_ingreso && !c.es_gasto) },
+    { label: 'Gastos',           items: cats.filter(c => c.es_gasto && !c.es_ingreso) },
+    { label: 'Ingreso y gasto',  items: cats.filter(c => c.es_ingreso && c.es_gasto) },
+    { label: 'Sin asignar',      items: cats.filter(c => !c.es_ingreso && !c.es_gasto) },
+  ]
+
+  // Colores soft-wash dark-aware
+  const inColor = isDark ? '#22B573' : '#027b4b'
+  const inBg = isDark ? 'rgba(34, 181, 115, 0.15)' : '#D4F0E0'
+  const gaColor = isDark ? '#ff8080' : '#B01D23'
+  const gaBg = isDark ? 'rgba(176, 29, 35, 0.22)' : '#FCE0E2'
 
   return (
-    <BigCard title="Categorías de conciliación" count={`${cats.length}`}>
-      <table className="sl-cfg-table">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th style={{ textAlign: "center" }}>Tipo</th>
-            <th className="num" style={{ width: "80px" }}>—</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(() => {
-            const grupos: { label: string; items: Cat[] }[] = [
-              { label: 'Ingresos', items: cats.filter(c => c.es_ingreso && !c.es_gasto) },
-              { label: 'Gastos', items: cats.filter(c => c.es_gasto && !c.es_ingreso) },
-              { label: 'Ingreso y gasto', items: cats.filter(c => c.es_ingreso && c.es_gasto) },
-              { label: 'Sin asignar', items: cats.filter(c => !c.es_ingreso && !c.es_gasto) },
-            ]
-            return grupos.flatMap(g => g.items.length === 0 ? [] : [
-              <tr key={`g-${g.label}`} className="sl-cfg-group-header"><td colSpan={3}>{g.label} · {g.items.length}</td></tr>,
-              ...g.items.map(c => (
-            <tr key={c.id}>
-              <td>
-                <InlineEdit value={c.nombre} type="text" onSubmit={(v) => renombrar(c, String(v))} />
-              </td>
-              <td style={{ textAlign: "center" }}>
-                <div className="inline-flex gap-2">
-                  <button
-                    onClick={() => togglePin(c, 'es_ingreso')}
-                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_ingreso ? 'bg-[var(--sl-uber)]/15 text-[var(--sl-uber-text)]' : 'bg-transparent text-[var(--sl-text-muted)] border border-dashed border-[var(--sl-border)] hover:border-[var(--sl-uber)]'}`}
-                  >Ingreso</button>
-                  <button
-                    onClick={() => togglePin(c, 'es_gasto')}
-                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_gasto ? 'bg-[var(--sl-border-error)]/20 text-[var(--sl-text-calc)]' : 'bg-transparent text-[var(--sl-text-muted)] border border-dashed border-[var(--sl-border)] hover:border-[var(--sl-border-focus)]'}`}
-                  >Gasto</button>
-                </div>
-              </td>
-              <td className="num">
-                <button onClick={() => eliminar(c)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-xs">Eliminar</button>
-              </td>
+    <ConfigGroupCard title="Categorías de conciliación" subtitle={`${cats.length}`}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+              <th style={th}>Nombre</th>
+              <th style={{ ...th, textAlign: 'center' }}>Tipo</th>
+              <th style={{ ...th, textAlign: 'right', width: 90 }}>—</th>
             </tr>
-              ))
-            ])
-          })()}
-        </tbody>
-      </table>
-      <div className="flex gap-2">
-        <input value={nuevo} onChange={(e) => setNuevo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && añadir()}
-          placeholder="Nueva categoría..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
-        <button onClick={añadir} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva categoría</button>
+          </thead>
+          <tbody>
+            {grupos.flatMap(g => g.items.length === 0 ? [] : [
+              <tr key={`g-${g.label}`} style={{ background: T.bg }}>
+                <td
+                  colSpan={3}
+                  style={{
+                    padding: '8px 14px',
+                    fontFamily: FONT.heading,
+                    fontSize: 10,
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    color: T.sec,
+                    fontWeight: 600,
+                    borderBottom: `0.5px solid ${T.brd}`,
+                  }}
+                >
+                  {g.label} · {g.items.length}
+                </td>
+              </tr>,
+              ...g.items.map(c => (
+                <tr key={c.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                  <td style={{ ...td, fontWeight: 600 }}>
+                    <InlineEdit value={c.nombre} type="text" onSubmit={(v) => renombrar(c, String(v))} />
+                  </td>
+                  <td style={{ ...td, textAlign: 'center' }}>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button
+                        onClick={() => togglePin(c, 'es_ingreso')}
+                        style={{
+                          padding: '3px 9px',
+                          borderRadius: 4,
+                          fontFamily: FONT.heading,
+                          fontSize: 10,
+                          letterSpacing: '0.6px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          background: c.es_ingreso ? inBg : 'transparent',
+                          color: c.es_ingreso ? inColor : T.mut,
+                          border: c.es_ingreso ? `0.5px solid ${inColor}` : `0.5px dashed ${T.brd}`,
+                        }}
+                      >Ingreso</button>
+                      <button
+                        onClick={() => togglePin(c, 'es_gasto')}
+                        style={{
+                          padding: '3px 9px',
+                          borderRadius: 4,
+                          fontFamily: FONT.heading,
+                          fontSize: 10,
+                          letterSpacing: '0.6px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          background: c.es_gasto ? gaBg : 'transparent',
+                          color: c.es_gasto ? gaColor : T.mut,
+                          border: c.es_gasto ? `0.5px solid ${gaColor}` : `0.5px dashed ${T.brd}`,
+                        }}
+                      >Gasto</button>
+                    </div>
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <button
+                      onClick={() => eliminar(c)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: T.mut,
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        fontFamily: FONT.heading,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        fontWeight: 600,
+                        padding: 0,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
+                    >Eliminar</button>
+                  </td>
+                </tr>
+              )),
+            ])}
+          </tbody>
+        </table>
       </div>
-    </BigCard>
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          padding: '14px 22px 18px',
+          borderTop: `0.5px solid ${T.brd}`,
+          background: T.bg,
+        }}
+      >
+        <input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && añadir()}
+          placeholder="Nueva categoría..."
+          style={{
+            flex: 1,
+            padding: '7px 12px',
+            border: `0.5px dashed ${T.brd}`,
+            borderRadius: 6,
+            background: T.inp,
+            color: T.pri,
+            fontSize: 13,
+            fontFamily: FONT.body,
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={añadir}
+          style={{
+            padding: '7px 14px',
+            borderRadius: 6,
+            border: 'none',
+            background: '#B01D23',
+            color: '#ffffff',
+            fontFamily: FONT.heading,
+            fontSize: 11,
+            letterSpacing: '1px',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >+ Nueva categoría</button>
+      </div>
+    </ConfigGroupCard>
   )
 }

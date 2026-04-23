@@ -1,4 +1,4 @@
-import { useIsDark } from '@/hooks/useIsDark'
+import { useTheme, FONT } from '@/styles/tokens'
 
 interface Tab {
   id: string
@@ -14,11 +14,7 @@ export function TabPills({
   active: string
   onChange: (id: string) => void
 }) {
-  const isDark = useIsDark()
-
-  const inactiveBg = isDark ? '#141414' : '#ffffff'
-  const inactiveColor = isDark ? '#cccccc' : '#1A1A1A'
-  const inactiveBorder = isDark ? '#2a2a2a' : '#E9E1D0'
+  const { T } = useTheme()
 
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -33,13 +29,13 @@ export function TabPills({
               padding: '8px 20px',
               borderRadius: 8,
               fontSize: 13,
-              fontFamily: 'Oswald, sans-serif',
+              fontFamily: FONT.heading,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               fontWeight: isActive ? 600 : 500,
-              background: isActive ? '#B01D23' : inactiveBg,
-              color: isActive ? '#ffffff' : inactiveColor,
-              border: `1px solid ${isActive ? '#B01D23' : inactiveBorder}`,
+              background: isActive ? '#B01D23' : T.card,
+              color: isActive ? '#ffffff' : T.sec,
+              border: `0.5px solid ${isActive ? '#B01D23' : T.brd}`,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
