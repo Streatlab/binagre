@@ -36,6 +36,7 @@ import ConfiguracionIndex from '@/pages/configuracion/ConfiguracionIndex'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
+import RunningFinanciero from '@/pages/finanzas/Running'
 
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -138,6 +139,7 @@ function AppRoutes() {
 
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
+        <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><RunningFinanciero /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
