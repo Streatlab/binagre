@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BigCard } from '@/components/configuracion/BigCard'
+import { useTheme, FONT } from '@/styles/tokens'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
 interface ConfigRow {
@@ -12,6 +13,7 @@ interface ConfigRow {
 }
 
 export default function TabCostes() {
+  const { T } = useTheme()
   const [row, setRow] = useState<ConfigRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +26,6 @@ export default function TabCostes() {
       .maybeSingle()
     if (error) throw error
     if (!data) {
-      // crear row si no existe
       const { data: inserted, error: insErr } = await supabase
         .from('configuracion')
         .insert({ clave: 'estructura_pct', valor: '30' })
@@ -56,7 +57,6 @@ export default function TabCostes() {
     if (error) { setError(error.message); return }
     await refetch()
   }
-
   async function resetRunning() {
     if (!row) return
     const { error } = await supabase
@@ -67,31 +67,59 @@ export default function TabCostes() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
   if (!row) return null
 
   const esManual = row.coste_estructura_fuente === 'manual' && row.coste_estructura_override != null
   const valorEfectivo = row.coste_estructura_override ?? parseFloat(row.valor ?? '30') ?? 30
 
   return (
-    <BigCard title="Coste estructura">
-      <div className="flex items-center gap-4">
-        <div style={{ width: '180px' }}>
+    <ConfigGroupCard title="Coste estructura" padded>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ width: 180 }}>
           <InlineEdit value={valorEfectivo} type="percent" onSubmit={handleOverride} min={0} max={100} step={0.01} />
         </div>
-        <span className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: esManual ? '#B01D23' : '#9E9588' }}>
+        <span
+          style={{
+            fontFamily: FONT.heading,
+            fontSize: 11,
+            letterSpacing: '1.5px',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            color: esManual ? '#B01D23' : T.mut,
+          }}
+        >
           {esManual ? 'Manual *' : 'Calculado desde Running *'}
         </span>
         {esManual && (
-          <button onClick={resetRunning} className="ml-auto text-xs text-[var(--sl-text-calc)] hover:underline">
-            Volver a valor del Running
-          </button>
+          <button
+            onClick={resetRunning}
+            style={{
+              marginLeft: 'auto',
+              background: 'transparent',
+              border: 'none',
+              color: '#B01D23',
+              fontFamily: FONT.heading,
+              fontSize: 11,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >Volver a valor del Running</button>
         )}
       </div>
-      <p className="mt-4 text-[11px] text-[var(--sl-text-muted)]">
+      <p style={{ marginTop: 14, fontSize: 12, color: T.mut, fontFamily: FONT.body }}>
         * El valor por defecto se calcula desde una celda del módulo Running. Puedes sobrescribirlo manualmente editando el campo.
       </p>
-    </BigCard>
+    </ConfigGroupCard>
   )
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
-import { BigCard } from '@/components/configuracion/BigCard'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { Avatar } from '@/components/configuracion/Avatar'
 import { useAuth } from '@/context/AuthContext'
@@ -28,7 +29,15 @@ const ROLES: { value: Rol; label: string }[] = [
   { value: 'cocina', label: 'Cocina' },
 ]
 
+function rolColor(rol: Rol | null): string {
+  if (rol === 'admin') return '#B01D23'
+  if (rol === 'gestor') return '#66aaff'
+  if (rol === 'cocina') return '#e8f442'
+  return '#7080a8'
+}
+
 export default function UsuariosPage() {
+  const { T, isDark } = useTheme()
   const { usuario: usuarioLogueado } = useAuth()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [permisos, setPermisos] = useState<Permiso[]>([])
@@ -39,7 +48,7 @@ export default function UsuariosPage() {
   const [fNombre, setFNombre] = useState('')
   const [fRol, setFRol] = useState<Rol>('cocina')
   const [fPin, setFPin] = useState('')
-  const [fColor, setFColor] = useState('#06C167')
+  const [fColor, setFColor] = useState('#22B573')
   const [saving, setSaving] = useState(false)
 
   async function refetch() {
@@ -64,10 +73,10 @@ export default function UsuariosPage() {
   function open(u?: Usuario) {
     if (u) {
       setEditing(u); setCreating(false)
-      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#06C167')
+      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#22B573')
     } else {
       setCreating(true); setEditing(null)
-      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#06C167')
+      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#22B573')
     }
   }
   function close() { setEditing(null); setCreating(false) }
@@ -109,8 +118,17 @@ export default function UsuariosPage() {
     await refetch()
   }
 
-  if (loading) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div></ConfigShell>
-  if (error) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div></ConfigShell>
+  if (loading) {
+    return <ConfigShell><ModTitle>Usuarios</ModTitle><div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div></ConfigShell>
+  }
+  if (error) {
+    return (
+      <ConfigShell>
+        <ModTitle>Usuarios</ModTitle>
+        <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
+      </ConfigShell>
+    )
+  }
 
   const modulos = Array.from(new Set(permisos.map(p => p.modulo)))
     .map(m => ({ m, o: permisos.find(p => p.modulo === m)?.orden ?? 999 }))
@@ -119,69 +137,134 @@ export default function UsuariosPage() {
 
   const esAdmin = (usuarioLogueado?.rol ?? usuarioLogueado?.perfil) === 'admin'
 
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    color: T.mut,
+    fontWeight: 400,
+    background: T.group,
+    textAlign: 'left',
+  }
+  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+
+  const okBg = isDark ? 'rgba(34, 181, 115, 0.22)' : '#D4F0E0'
+  const okFg = isDark ? '#22B573' : '#027b4b'
+  const offBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+
   return (
     <ConfigShell>
       <ModTitle>Usuarios</ModTitle>
 
-      <div className="grid grid-cols-2 gap-3.5">
-        <BigCard title="Usuarios y roles">
-          <table className="sl-cfg-table">
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                {esAdmin && <th>PIN</th>}
-                <th>Última conexión</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usuarios.map(u => (
-                <tr key={u.id} onClick={() => open(u)} className="row-click">
-                  <td>
-                    <Avatar letter={u.nombre.charAt(0).toUpperCase()} color={u.avatar_color ?? '#B01D23'} />
-                    <strong>{u.nombre}</strong>
-                  </td>
-                  <td><RolPill rol={u.rol} /></td>
-                  {esAdmin && <td style={{ fontFamily: "ui-monospace,monospace" }}>{u.pin ?? '—'}</td>}
-                  <td>{fmtFechaMadrid(u.ultima_conexion)}</td>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
+        {/* Usuarios y roles */}
+        <ConfigGroupCard title="Usuarios y roles">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                  <th style={th}>Usuario</th>
+                  <th style={th}>Rol</th>
+                  {esAdmin && <th style={th}>PIN</th>}
+                  <th style={{ ...th, textAlign: 'right' }}>Última conexión</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo usuario</button>
-        </BigCard>
-
-        <BigCard title="Matriz de permisos por rol">
-          <table className="sl-cfg-table">
-            <thead>
-              <tr>
-                <th>Módulo</th>
-                {ROLES.map(r => (
-                  <th key={r.value} className="py-3.5 px-3.5 border-b border-[var(--sl-border)] text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium text-center">{r.label}</th>
+              </thead>
+              <tbody>
+                {usuarios.length === 0 ? (
+                  <tr>
+                    <td colSpan={esAdmin ? 4 : 3} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
+                      Sin usuarios.
+                    </td>
+                  </tr>
+                ) : usuarios.map(u => (
+                  <tr key={u.id} onClick={() => open(u)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                    <td style={td}>
+                      <Avatar letter={u.nombre.charAt(0).toUpperCase()} color={u.avatar_color ?? rolColor(u.rol)} />
+                      <strong style={{ color: T.pri }}>{u.nombre}</strong>
+                    </td>
+                    <td style={td}><RolPill rol={u.rol} isDark={isDark} /></td>
+                    {esAdmin && <td style={{ ...td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: T.sec, letterSpacing: 2 }}>{u.pin ?? '—'}</td>}
+                    <td style={{ ...td, textAlign: 'right', color: T.sec }}>{fmtFechaMadrid(u.ultima_conexion)}</td>
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {modulos.map(mod => (
-                <tr key={mod}>
-                  <td>{mod}</td>
-                  {ROLES.map(r => {
-                    const p = permisos.find(x => x.rol === r.value && x.modulo === mod)
-                    const on = p?.permitido ?? false
-                    return (
-                      <td key={r.value} className="py-3.5 px-3.5 text-center">
-                        <button onClick={() => togglePermiso(r.value, mod)}
-                          className={`w-6 h-6 rounded-md font-bold text-sm transition ${on ? 'bg-[var(--sl-uber)] text-white hover:bg-[var(--sl-uber-text)]' : 'bg-[var(--sl-border)] text-[var(--sl-text-muted)] hover:bg-[var(--sl-border)]'}`}>
-                          {on ? '✓' : '—'}
-                        </button>
-                      </td>
-                    )
-                  })}
+              </tbody>
+            </table>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              padding: '14px 22px 18px',
+              borderTop: `0.5px solid ${T.brd}`,
+              background: T.bg,
+            }}
+          >
+            <button
+              onClick={() => open()}
+              style={{
+                padding: '7px 14px',
+                borderRadius: 6,
+                border: 'none',
+                background: '#B01D23',
+                color: '#ffffff',
+                fontFamily: FONT.heading,
+                fontSize: 11,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >+ Nuevo usuario</button>
+          </div>
+        </ConfigGroupCard>
+
+        {/* Matriz de permisos */}
+        <ConfigGroupCard title="Matriz de permisos por rol">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                  <th style={th}>Módulo</th>
+                  {ROLES.map(r => (
+                    <th key={r.value} style={{ ...th, textAlign: 'center' }}>{r.label}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </BigCard>
+              </thead>
+              <tbody>
+                {modulos.map(mod => (
+                  <tr key={mod} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                    <td style={{ ...td, fontWeight: 600 }}>{mod}</td>
+                    {ROLES.map(r => {
+                      const p = permisos.find(x => x.rol === r.value && x.modulo === mod)
+                      const on = p?.permitido ?? false
+                      return (
+                        <td key={r.value} style={{ ...td, textAlign: 'center' }}>
+                          <button
+                            onClick={() => togglePermiso(r.value, mod)}
+                            style={{
+                              width: 26,
+                              height: 26,
+                              borderRadius: 6,
+                              border: 'none',
+                              fontSize: 14,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              background: on ? okBg : offBg,
+                              color: on ? okFg : T.mut,
+                              transition: 'all 0.15s',
+                            }}
+                          >{on ? '✓' : '—'}</button>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </ConfigGroupCard>
       </div>
 
       {(editing || creating) && (
@@ -205,11 +288,31 @@ export default function UsuariosPage() {
   )
 }
 
-function RolPill({ rol }: { rol: string | null }) {
-  if (!rol) return <span className="text-[var(--sl-text-muted)]">—</span>
+function RolPill({ rol, isDark }: { rol: Rol | null; isDark: boolean }) {
+  if (!rol) return <span style={{ color: '#7080a8' }}>—</span>
   const label = rol.charAt(0).toUpperCase() + rol.slice(1)
-  const cls = rol === 'admin' ? 'bg-[var(--sl-btn-save-bg)] text-white' : rol === 'gestor' ? 'bg-[var(--sl-direct)] text-white' : 'bg-[var(--sl-glovo-dot)] text-[var(--sl-glovo-text)]'
-  return <span className={`inline-flex px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase ${cls}`}>{label}</span>
+  const palette: Record<Rol, { bg: string; fg: string }> = {
+    admin:  { bg: '#B01D23', fg: '#ffffff' },
+    gestor: { bg: isDark ? 'rgba(102,170,255,0.22)' : '#DDE7F0', fg: isDark ? '#66aaff' : '#0C447C' },
+    cocina: { bg: isDark ? 'rgba(232,244,66,0.22)' : '#F4EEBC', fg: isDark ? '#e8f442' : '#5c550d' },
+  }
+  const p = palette[rol]
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        padding: '3px 10px',
+        borderRadius: 5,
+        fontSize: 10,
+        letterSpacing: '0.06em',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        background: p.bg,
+        color: p.fg,
+        fontFamily: FONT.heading,
+      }}
+    >{label}</span>
+  )
 }
 
 function fmtFechaMadrid(iso: string | null): string {

@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
+import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
-import { useIsDark } from '@/hooks/useIsDark'
 
 interface Pill { id: string; label: string }
 
@@ -13,9 +13,9 @@ const PILLS: Pill[] = [
 ]
 
 export default function ComprasPage() {
+  const { T } = useTheme()
   const loc = useLocation()
   const nav = useNavigate()
-  const isDark = useIsDark()
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
   const active =
@@ -23,10 +23,6 @@ export default function ComprasPage() {
     seg === 'categorias'  ? 'categorias'  :
     seg === 'unidades'    ? 'unidades'    :
     'costes'
-
-  const inactiveBg = isDark ? '#141414' : '#ffffff'
-  const inactiveColor = isDark ? '#cccccc' : '#1A1A1A'
-  const inactiveBorder = isDark ? '#2a2a2a' : '#E9E1D0'
 
   return (
     <ConfigShell>
@@ -42,14 +38,14 @@ export default function ComprasPage() {
               style={{
                 padding: '8px 20px',
                 borderRadius: 8,
+                fontFamily: FONT.heading,
                 fontSize: 13,
-                fontFamily: 'Oswald, sans-serif',
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 fontWeight: isActive ? 600 : 500,
-                background: isActive ? '#B01D23' : inactiveBg,
-                color: isActive ? '#ffffff' : inactiveColor,
-                border: `1px solid ${isActive ? '#B01D23' : inactiveBorder}`,
+                background: isActive ? '#B01D23' : T.card,
+                color: isActive ? '#ffffff' : T.sec,
+                border: `0.5px solid ${isActive ? '#B01D23' : T.brd}`,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}

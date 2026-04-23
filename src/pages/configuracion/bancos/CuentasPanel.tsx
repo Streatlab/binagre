@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BigCard } from '@/components/configuracion/BigCard'
+import { useTheme, FONT } from '@/styles/tokens'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 
 interface Cuenta {
@@ -12,6 +13,7 @@ interface Cuenta {
 }
 
 export default function CuentasPanel() {
+  const { T } = useTheme()
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,13 +40,8 @@ export default function CuentasPanel() {
   }, [])
 
   function open(c?: Cuenta) {
-    if (c) {
-      setEditing(c); setCreating(false)
-      setFAlias(c.alias); setFBanco(c.banco); setFIban(c.iban ?? ''); setFSwift(c.swift ?? '')
-    } else {
-      setCreating(true); setEditing(null)
-      setFAlias(''); setFBanco(''); setFIban(''); setFSwift('')
-    }
+    if (c) { setEditing(c); setCreating(false); setFAlias(c.alias); setFBanco(c.banco); setFIban(c.iban ?? ''); setFSwift(c.swift ?? '') }
+    else { setCreating(true); setEditing(null); setFAlias(''); setFBanco(''); setFIban(''); setFSwift('') }
   }
   function close() { setEditing(null); setCreating(false) }
 
@@ -72,34 +69,87 @@ export default function CuentasPanel() {
     await refetch(); close()
   }
 
-  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
+
+  const th: React.CSSProperties = {
+    padding: '10px 14px',
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    color: T.mut,
+    fontWeight: 400,
+    background: T.group,
+    textAlign: 'left',
+  }
+  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const mono: React.CSSProperties = { ...td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 }
 
   return (
     <>
-      <BigCard title="Cuentas bancarias" count={`${cuentas.length}`}>
-        <table className="sl-cfg-table">
-          <thead>
-            <tr>
-              <th>Alias</th>
-              <th>Banco</th>
-              <th>IBAN</th>
-              <th>SWIFT</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cuentas.map(c => (
-              <tr key={c.id} onClick={() => open(c)} className="row-click">
-                <td><strong>{c.alias}</strong></td>
-                <td>{c.banco}</td>
-                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.iban ?? '—'}</td>
-                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.swift ?? '—'}</td>
+      <ConfigGroupCard title="Cuentas bancarias" subtitle={`${cuentas.length}`}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <th style={th}>Alias</th>
+                <th style={th}>Banco</th>
+                <th style={th}>IBAN</th>
+                <th style={th}>SWIFT</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva cuenta</button>
-      </BigCard>
+            </thead>
+            <tbody>
+              {cuentas.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
+                    Sin cuentas registradas.
+                  </td>
+                </tr>
+              ) : cuentas.map(c => (
+                <tr key={c.id} onClick={() => open(c)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                  <td style={{ ...td, fontWeight: 600 }}>{c.alias}</td>
+                  <td style={td}>{c.banco}</td>
+                  <td style={mono}>{c.iban ?? '—'}</td>
+                  <td style={mono}>{c.swift ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            padding: '14px 22px 18px',
+            borderTop: `0.5px solid ${T.brd}`,
+            background: T.bg,
+          }}
+        >
+          <button
+            onClick={() => open()}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 6,
+              border: 'none',
+              background: '#B01D23',
+              color: '#ffffff',
+              fontFamily: FONT.heading,
+              fontSize: 11,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >+ Nueva cuenta</button>
+        </div>
+      </ConfigGroupCard>
 
       {(editing || creating) && (
         <EditModal
