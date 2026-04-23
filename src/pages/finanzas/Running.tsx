@@ -1,7 +1,8 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell } from 'recharts';
 import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
+import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
 import {
   CATEGORIAS_ORDEN, CATEGORIA_COLOR, statusRango, MESES_CORTO,
@@ -156,6 +157,62 @@ export default function Running() {
       .reduce((a, r) => a + r.importe, 0);
   }, [periodo, ingresosMes, anio]);
   const resultadoAnt = totalNetoAnt - totalGastoAnt;
+
+  /* — Ventas por marca (Card MarcasCard) — */
+  interface MarcaRow { marca: string; bruto: number; pedidos: number; tm: number; deltaPct: number | null }
+  const [marcasRows, setMarcasRows] = useState<MarcaRow[]>([])
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      const ms = periodo.hasta.getTime() - periodo.desde.getTime()
+      const hastaAnt = new Date(periodo.desde); hastaAnt.setDate(hastaAnt.getDate() - 1)
+      const desdeAnt = new Date(hastaAnt.getTime() - ms)
+      const fmtISO = (d: Date) => {
+        const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0')
+        return `${y}-${m}-${day}`
+      }
+      const [act, ant] = await Promise.all([
+        supabase.from('facturacion_diario')
+          .select('marca_id, total_pedidos, total_bruto, marcas(nombre)')
+          .gte('fecha', fmtISO(periodo.desde)).lte('fecha', fmtISO(periodo.hasta)),
+        supabase.from('facturacion_diario')
+          .select('marca_id, total_bruto')
+          .gte('fecha', fmtISO(desdeAnt)).lte('fecha', fmtISO(hastaAnt)),
+      ])
+      if (cancel) return
+      if (act.error || ant.error) { console.error(act.error ?? ant.error); return }
+
+      type Row = { marca_id: string | null; total_pedidos: number | null; total_bruto: number | string | null; marcas: { nombre: string } | { nombre: string }[] | null }
+      const porMarca = new Map<string, { nombre: string; bruto: number; pedidos: number }>()
+      for (const r of (act.data ?? []) as unknown as Row[]) {
+        if (!r.marca_id) continue
+        const m = Array.isArray(r.marcas) ? r.marcas[0] : r.marcas
+        const nombre = m?.nombre ?? '(sin marca)'
+        const acc = porMarca.get(r.marca_id) ?? { nombre, bruto: 0, pedidos: 0 }
+        acc.bruto += Number(r.total_bruto ?? 0)
+        acc.pedidos += Number(r.total_pedidos ?? 0)
+        porMarca.set(r.marca_id, acc)
+      }
+      const porMarcaAnt = new Map<string, number>()
+      for (const r of (ant.data ?? []) as unknown as Row[]) {
+        if (!r.marca_id) continue
+        porMarcaAnt.set(r.marca_id, (porMarcaAnt.get(r.marca_id) ?? 0) + Number(r.total_bruto ?? 0))
+      }
+      const rows: MarcaRow[] = Array.from(porMarca.entries()).map(([id, v]) => {
+        const brutoAnt = porMarcaAnt.get(id) ?? 0
+        const deltaPct = brutoAnt > 0 ? ((v.bruto - brutoAnt) / brutoAnt) * 100 : null
+        return {
+          marca: v.nombre,
+          bruto: v.bruto,
+          pedidos: v.pedidos,
+          tm: v.pedidos > 0 ? v.bruto / v.pedidos : 0,
+          deltaPct,
+        }
+      }).sort((a, b) => b.bruto - a.bruto)
+      setMarcasRows(rows)
+    })()
+    return () => { cancel = true }
+  }, [periodo.desde.getTime(), periodo.hasta.getTime()])
 
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
@@ -360,8 +417,8 @@ export default function Running() {
         <TablaPyG anio={anio} gastosAnio={gastos} ingresosAnio={ingresosMes} rangos={rangos} />
       </div>
 
-      {/* Ingresos por marca (placeholder) */}
-      <MarcasCard periodoLabel={periodo.label} />
+      {/* Ingresos por marca */}
+      <MarcasCard periodoLabel={periodo.label} rows={marcasRows} />
 
       {loading && (
         <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>

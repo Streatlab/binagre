@@ -35,6 +35,7 @@ import TabTiposCocina from '@/pages/configuracion/marcas/TabTiposCocina'
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
 import Running from '@/pages/finanzas/Running'
+import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -136,6 +137,7 @@ function AppRoutes() {
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
+        <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
