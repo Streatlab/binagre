@@ -16,6 +16,10 @@ import TablaPyG from '@/components/finanzas/running/TablaPyG';
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown';
 import MarcasCard from '@/components/finanzas/running/MarcasCard';
+import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupuestoCard';
+import TopProveedoresCard from '@/components/finanzas/running/TopProveedoresCard';
+import RitmoMesCard from '@/components/finanzas/running/RitmoMesCard';
+import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMensualCard';
 
 const VERDE = '#06C167';
 const ROJO  = '#B01D23';
@@ -406,6 +410,17 @@ export default function Running() {
         />
       </div>
 
+      {/* Cards inteligentes (4 medianas) */}
+      <div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, marginBottom: 32, alignItems: 'stretch' }}
+        className="rf-smart-row"
+      >
+        <AlertasPresupuestoCard gastos={gastos} />
+        <TopProveedoresCard periodoLabel={periodo.label} gastos={gastos} />
+        <RitmoMesCard />
+        <ComparativaMensualCard />
+      </div>
+
       {/* Tabla PyG */}
       <div style={{
         fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
@@ -429,12 +444,16 @@ export default function Running() {
       <ModalAddGasto open={modalOpen} onClose={() => setModalOpen(false)} onSaved={reload} />
 
       <style>{`
+        @media (max-width: 1280px) {
+          .rf-smart-row { grid-template-columns: 1fr 1fr !important; }
+        }
         @media (max-width: 1024px) {
           .rf-kpi-row { grid-template-columns: 1fr 1fr !important; }
           .rf-big-row { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 600px) {
           .rf-kpi-row { grid-template-columns: 1fr !important; }
+          .rf-smart-row { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
