@@ -17,6 +17,15 @@ import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
 import TabUsuariosMarcas from '@/pages/configuracion/marcas/TabUsuariosMarcas'
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
+// Configuración · Bancos
+import BancosPage from '@/pages/configuracion/bancos/BancosPage'
+import TabInformacion from '@/pages/configuracion/bancos/TabInformacion'
+import TabConciliacion from '@/pages/configuracion/bancos/TabConciliacion'
+
+// Configuración · Compras
+import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
+import TabEscandalloParams from '@/pages/configuracion/compras/TabEscandalloParams'
+
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
 
@@ -95,6 +104,18 @@ function AppRoutes() {
           <Route index element={<TabMarcas />} />
           <Route path="usuarios" element={<TabUsuariosMarcas />} />
           <Route path="canales" element={<TabCanales />} />
+        </Route>
+
+        {/* Configuración · Bancos */}
+        <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>}>
+          <Route index element={<TabInformacion />} />
+          <Route path="conciliacion" element={<TabConciliacion />} />
+        </Route>
+
+        {/* Configuración · Compras */}
+        <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>
+          <Route index element={<Navigate to="escandallo" replace />} />
+          <Route path="escandallo" element={<TabEscandalloParams />} />
         </Route>
 
         {/* Finanzas */}

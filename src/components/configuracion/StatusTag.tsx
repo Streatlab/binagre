@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
-type Variant = 'ok' | 'off' | 'admin' | 'cocina'
+type Variant = 'ok' | 'off' | 'admin' | 'cocina' | 'fijo' | 'var' | 'pers' | 'mkt'
 
 export function StatusTag({
   variant,
@@ -17,6 +17,10 @@ export function StatusTag({
     off:    { bg: isDark ? '#2a2a2a' : '#ebe5d8', color: isDark ? '#777777' : '#9E9588' },
     admin:  { bg: '#B01D23', color: '#ffffff' },
     cocina: { bg: '#e8f442', color: isDark ? '#1a1a00' : '#5c550d' },
+    fijo:   { bg: '#E6DFFF', color: '#5A4ABF' },
+    var:    { bg: '#FFE6D9', color: '#B8561F' },
+    pers:   { bg: '#D9EFFF', color: '#1F6CB8' },
+    mkt:    { bg: '#FFD9E9', color: '#B8266E' },
   }
   const s = styles[variant]
 

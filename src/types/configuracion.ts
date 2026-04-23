@@ -45,3 +45,56 @@ export interface UsuarioResponsable {
   rol: RolUsuario
   avatar_color: string | null
 }
+
+export type TipoMovimiento =
+  | 'ingresos'
+  | 'gastos_fijos'
+  | 'gastos_variables'
+  | 'personal'
+  | 'marketing'
+  | 'impuestos'
+
+export type TipoGasto = 'fijo' | 'var' | 'pers' | 'mkt'
+
+export interface CuentaBancaria {
+  id: string
+  alias: string
+  banco: string
+  iban_mask: string
+  uso_principal: string | null
+  saldo: number
+  activa: boolean
+  es_principal: boolean
+}
+
+export interface CategoriaIngreso {
+  id: string
+  codigo: string
+  nombre: string
+  canal_abv: CanalAbv | null
+  importe_mes: number
+  pct_mes: number
+}
+
+export interface CategoriaGasto {
+  id: string
+  codigo: string
+  nombre: string
+  tipo: TipoGasto
+  importe_mes: number
+}
+
+export interface CuentaCategoria {
+  cuenta_id: string
+  tipo_movimiento: TipoMovimiento
+  categoria_codigo: string
+}
+
+export interface ParametrosEscandallo {
+  id: string
+  margen_deseado_pct: number
+  estructura_pct: number
+  merma_default_pct: number
+  semaforo_verde_pct: number
+  semaforo_amarillo_pct: number
+}

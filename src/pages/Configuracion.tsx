@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 
 interface Proveedor { id: string; abv: string; nombre_completo: string; categoria: string | null; marca_asociada?: string | null; activo: boolean }
 interface Canal { id: string; canal: string; comision_pct: number | null; coste_fijo: number | null; margen_deseado_pct?: number | null; activo?: boolean }
-interface ConfigItem { id: string; clave: string; valor: string }
 
 type Section = 'plataformas' | 'costes' | 'proveedores' | 'categorias' | 'unidades'
 
@@ -212,6 +211,7 @@ function SecPlataformas() {
 
 function SecCostes() {
   const [estructura, setEstructura] = useState('30')
+  const [paramsId, setParamsId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [guardado, setGuardado] = useState(false)
@@ -220,9 +220,12 @@ function SecCostes() {
   useEffect(() => {
     let c = false
     ;(async () => {
-      const { data } = await supabase.from('configuracion').select('*').eq('clave', 'estructura_pct').maybeSingle()
+      const { data } = await supabase.from('parametros_escandallo').select('id, estructura_pct').limit(1).maybeSingle()
       if (!c) {
-        if (data) setEstructura((data as ConfigItem).valor)
+        if (data) {
+          setParamsId((data as { id: string }).id)
+          setEstructura(String((data as { estructura_pct: number | string }).estructura_pct))
+        }
         setLoading(false)
       }
     })()
@@ -230,8 +233,12 @@ function SecCostes() {
   }, [])
 
   const handleGuardar = async () => {
+    if (!paramsId) { setErr('Sin registro de parámetros'); return }
     setSaving(true); setErr(null)
-    const { error } = await supabase.from('configuracion').upsert({ clave: 'estructura_pct', valor: estructura }, { onConflict: 'clave' })
+    const { error } = await supabase
+      .from('parametros_escandallo')
+      .update({ estructura_pct: Number(estructura) || 0, updated_at: new Date().toISOString() })
+      .eq('id', paramsId)
     setSaving(false)
     if (error) { setErr(error.message); return }
     setGuardado(true)
