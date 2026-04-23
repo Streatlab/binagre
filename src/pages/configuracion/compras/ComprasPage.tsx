@@ -10,9 +10,9 @@ interface Pill {
 
 const PILLS: Pill[] = [
   { id: 'escandallo',  label: 'Escandallo',  enabled: true },
-  { id: 'proveedores', label: 'Proveedores', enabled: false },
-  { id: 'formatos',    label: 'Formatos',    enabled: false },
-  { id: 'categorias',  label: 'Categorías',  enabled: false },
+  { id: 'proveedores', label: 'Proveedores', enabled: true },
+  { id: 'formatos',    label: 'Formatos',    enabled: true },
+  { id: 'categorias',  label: 'Categorías',  enabled: true },
 ]
 
 export default function ComprasPage() {
@@ -21,7 +21,11 @@ export default function ComprasPage() {
   const isDark = useIsDark()
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
-  const active = seg === 'escandallo' ? 'escandallo' : 'escandallo'
+  const active =
+    seg === 'proveedores' ? 'proveedores' :
+    seg === 'formatos'    ? 'formatos'    :
+    seg === 'categorias'  ? 'categorias'  :
+    'escandallo'
 
   const inactiveBg = isDark ? '#141414' : '#ffffff'
   const inactiveColor = isDark ? '#cccccc' : '#1A1A1A'
@@ -30,7 +34,7 @@ export default function ComprasPage() {
 
   const handleClick = (p: Pill) => {
     if (!p.enabled) return
-    if (p.id === 'escandallo') nav('/configuracion/compras/escandallo')
+    nav(`/configuracion/compras/${p.id}`)
   }
 
   return (

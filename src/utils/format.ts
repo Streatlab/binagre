@@ -23,3 +23,15 @@ export const fmtPct = (v?: number | string | null) => {
 
 export const fmtDate = (d?: string | Date | null) =>
   d ? new Date(d).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'}) : ''
+
+export function fmtFechaRelativa(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const now = new Date()
+  const hh = d.toTimeString().slice(0, 5)
+  if (now.toDateString() === d.toDateString()) return `Hoy ${hh}`
+  const y = new Date(now)
+  y.setDate(y.getDate() - 1)
+  if (y.toDateString() === d.toDateString()) return `Ayer ${hh}`
+  return fmtDate(iso)
+}

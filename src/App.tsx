@@ -25,6 +25,12 @@ import TabConciliacion from '@/pages/configuracion/bancos/TabConciliacion'
 // Configuración · Compras
 import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
 import TabEscandalloParams from '@/pages/configuracion/compras/TabEscandalloParams'
+import TabProveedores from '@/pages/configuracion/compras/TabProveedores'
+import TabFormatos from '@/pages/configuracion/compras/TabFormatos'
+import TabCategorias from '@/pages/configuracion/compras/TabCategorias'
+
+// Configuración · Usuarios
+import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -115,8 +121,14 @@ function AppRoutes() {
         {/* Configuración · Compras */}
         <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>
           <Route index element={<Navigate to="escandallo" replace />} />
-          <Route path="escandallo" element={<TabEscandalloParams />} />
+          <Route path="escandallo"  element={<TabEscandalloParams />} />
+          <Route path="proveedores" element={<TabProveedores />} />
+          <Route path="formatos"    element={<TabFormatos />} />
+          <Route path="categorias"  element={<TabCategorias />} />
         </Route>
+
+        {/* Configuración · Usuarios */}
+        <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
 
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
