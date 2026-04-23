@@ -34,6 +34,16 @@ function extraerPatron(concepto: string): string {
   return w ?? concepto.slice(0, 10).toLowerCase()
 }
 
+function matchPatron(concepto: string, patron: string): boolean {
+  if (!patron) return false
+  const c = concepto.toLowerCase()
+  const p = patron.toLowerCase()
+  if (!p.includes('*') && !p.includes('?')) return c.includes(p)
+  const esc = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  const rx = new RegExp('^' + esc.replace(/\*/g, '.*').replace(/\?/g, '.') + '$')
+  return rx.test(c)
+}
+
 function fmtFecha(iso: string): string {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y.slice(2)}`
@@ -115,7 +125,7 @@ export default function Conciliacion() {
       const similares = movimientos.filter(m =>
         m.id !== movId &&
         !m.categoria_id &&
-        m.concepto.toLowerCase().includes(patron)
+        matchPatron(m.concepto, patron)
       )
       for (const s of similares) {
         const sTipo: 'ingreso' | 'gasto' = s.importe >= 0 ? 'ingreso' : 'gasto'
@@ -177,7 +187,7 @@ export default function Conciliacion() {
         return f >= rangoActual.inicio && f <= rangoActual.fin
       })
       .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
-      .filter(m => !busqueda || m.concepto.toLowerCase().includes(busqueda.toLowerCase()))
+      .filter(m => !busqueda || matchPatron(m.concepto, busqueda))
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
   }, [movimientos, catFiltro, busqueda, rangoActual])
 
