@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/lib/format'
 import { rangoPeriodo } from '@/lib/dateRange'
@@ -47,6 +48,22 @@ const ABV_TO_BRUTO: Record<CanalAbv, keyof FacturacionMarcaAgregada> = {
   DIR: 'dir_bruto',
 }
 
+const CANALES_MARCA: { abv: CanalAbv; label: string; color: string }[] = [
+  { abv: 'UE',  label: 'Uber Eats', color: CANALES.find(c => c.id === 'uber')!.color },
+  { abv: 'GL',  label: 'Glovo',     color: CANALES.find(c => c.id === 'glovo')!.color },
+  { abv: 'JE',  label: 'Just Eat',  color: CANALES.find(c => c.id === 'je')!.color },
+  { abv: 'WEB', label: 'Web',       color: CANALES.find(c => c.id === 'web')!.color },
+  { abv: 'DIR', label: 'Directa',   color: CANALES.find(c => c.id === 'dir')!.color },
+]
+
+function hexToRgb(hex: string): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `${r},${g},${b}`
+}
+
 export default function TabMarcas() {
   const { T, isDark } = useTheme()
 
@@ -68,6 +85,7 @@ export default function TabMarcas() {
   const [fCocina, setFCocina] = useState('')
   const [fEstado, setFEstado] = useState<EstadoMarca>('activa')
   const [fMargen, setFMargen] = useState('70')
+  const [fCanales, setFCanales] = useState<CanalAbv[]>([])
   const [saving, setSaving] = useState(false)
 
   async function loadBase() {
@@ -183,12 +201,32 @@ export default function TabMarcas() {
   function openNueva() {
     setCreating(true); setEditing(null)
     setFNombre(''); setFCocina(''); setFEstado('activa'); setFMargen('70')
+    setFCanales([])
   }
   function openEdit(m: MarcaRow) {
     setEditing(m); setCreating(false)
     setFNombre(m.nombre); setFCocina(m.tipo_cocina_id ?? ''); setFEstado(m.estado); setFMargen(String(m.margen_deseado_pct))
+    setFCanales((m.accesos || []).filter(a => a.activo).map(a => a.plataforma as CanalAbv))
   }
   function close() { setEditing(null); setCreating(false) }
+
+  async function syncCanales(marcaId: string, canalesActivos: CanalAbv[]) {
+    const plataformas: CanalAbv[] = ['UE', 'GL', 'JE', 'WEB', 'DIR']
+    const { data: existentes } = await supabase
+      .from('marca_plataforma_acceso')
+      .select('plataforma, email_acceso')
+      .eq('marca_id', marcaId)
+    const emailMap = new Map((existentes ?? []).map((x: any) => [x.plataforma as string, x.email_acceso as string | null]))
+    await supabase.from('marca_plataforma_acceso').delete().eq('marca_id', marcaId)
+    const rows = plataformas.map(p => ({
+      marca_id: marcaId,
+      plataforma: p,
+      activo: canalesActivos.includes(p),
+      email_acceso: emailMap.get(p) ?? null,
+    }))
+    const { error } = await supabase.from('marca_plataforma_acceso').insert(rows)
+    if (error) throw error
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -199,11 +237,16 @@ export default function TabMarcas() {
         estado: fEstado,
         margen_deseado_pct: parseFloat(fMargen.replace(',', '.')) || 70,
       }
-      const q = editing
-        ? supabase.from('marcas').update(payload).eq('id', editing.id)
-        : supabase.from('marcas').insert(payload)
-      const { error } = await q
-      if (error) throw error
+      let marcaId: string | undefined = editing?.id
+      if (editing) {
+        const { error } = await supabase.from('marcas').update(payload).eq('id', editing.id)
+        if (error) throw error
+      } else {
+        const { data, error } = await supabase.from('marcas').insert(payload).select('id').single()
+        if (error) throw error
+        marcaId = (data as any)?.id
+      }
+      if (marcaId) await syncCanales(marcaId, fCanales)
       await refetch(); close()
     } catch (e: any) { setError(e?.message ?? 'Error') } finally { setSaving(false) }
   }
@@ -636,6 +679,50 @@ export default function TabMarcas() {
               step="0.01" min="0" max="100"
               className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]"
             />
+          </Field>
+          <Field label="Canales activos">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {CANALES_MARCA.map(c => {
+                const activo = fCanales.includes(c.abv)
+                const rgb = hexToRgb(c.color)
+                return (
+                  <button
+                    key={c.abv}
+                    type="button"
+                    onClick={() =>
+                      setFCanales(prev =>
+                        prev.includes(c.abv) ? prev.filter(x => x !== c.abv) : [...prev, c.abv],
+                      )
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: `1px solid ${activo ? c.color : T.brd}`,
+                      background: activo
+                        ? (isDark ? `rgba(${rgb},0.22)` : `rgba(${rgb},0.12)`)
+                        : 'transparent',
+                      color: activo
+                        ? (isDark
+                          ? (c.abv === 'GL' ? '#e8f442' : c.color)
+                          : (c.abv === 'GL' ? '#8a7800' : c.color))
+                        : T.mut,
+                      fontFamily: FONT.heading,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {activo && <Check size={12} strokeWidth={3} />}
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
           </Field>
         </EditModal>
       )}

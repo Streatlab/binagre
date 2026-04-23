@@ -101,12 +101,13 @@ export default function TabCanales() {
   }
 
   const comisionNeta = useMemo<Record<Platform, number>>(() => {
+    // comision_pct se almacena en decimal (0.30 = 30%). Devolvemos % (× 100).
     const calc = (k: Platform): number => {
       const c = canales.find(x => matchCanal(x, k))
       if (!c) return NaN
       const tm = tms[k]
-      if (tm <= 0) return c.comision_pct
-      return c.comision_pct + (c.coste_fijo / tm) * 100
+      if (tm <= 0) return c.comision_pct * 100
+      return (c.comision_pct + c.coste_fijo / tm) * 100
     }
     return { UE: calc('UE'), GL: calc('GL'), JE: calc('JE') }
   }, [canales, tms])
@@ -144,11 +145,11 @@ export default function TabCanales() {
   const thNum: React.CSSProperties = { ...th, textAlign: 'right' }
   const td: React.CSSProperties = { padding: '12px 16px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
-  // Semáforo comisión neta (FIX 1.9)
+  // Semáforo comisión neta (en %): verde ≤30, naranja ≤35, rojo >35
   const colorComision = (pct: number): string => {
     if (!Number.isFinite(pct)) return T.mut
-    if (pct <= 3.5) return isDark ? '#5DCAA5' : '#1D9E75'
-    if (pct <= 4.5) return isDark ? '#F5C36B' : '#BA7517'
+    if (pct <= 30) return isDark ? '#5DCAA5' : '#1D9E75'
+    if (pct <= 35) return isDark ? '#F5C36B' : '#BA7517'
     return isDark ? '#F09595' : '#A32D2D'
   }
 
@@ -239,9 +240,12 @@ export default function TabCanales() {
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>
                     <InlineEdit
-                      value={c.comision_pct}
+                      value={c.comision_pct * 100}
                       type="percent" align="right" min={0} max={100} step={0.01}
-                      onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))}
+                      onSubmit={(v) => {
+                        const n = typeof v === 'number' ? v : parseFloat(String(v))
+                        return update(c.id, 'comision_pct', Number.isFinite(n) ? n / 100 : 0)
+                      }}
                     />
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>
@@ -253,9 +257,12 @@ export default function TabCanales() {
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>
                     <InlineEdit
-                      value={c.margen_obj_pct}
+                      value={c.margen_obj_pct * 100}
                       type="percent" align="right" min={0} max={100} step={0.01}
-                      onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))}
+                      onSubmit={(v) => {
+                        const n = typeof v === 'number' ? v : parseFloat(String(v))
+                        return update(c.id, 'margen_obj_pct', Number.isFinite(n) ? n / 100 : 0)
+                      }}
                     />
                   </td>
                 </tr>
