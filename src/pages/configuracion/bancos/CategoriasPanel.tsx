@@ -21,21 +21,34 @@ interface CatGasto {
   orden: number
 }
 
+type TipoGasto = 'fijo' | 'var' | 'pers' | 'mkt'
+type GrupoGasto = 'PRODUCTO' | 'RRHH' | 'ALQUILER' | 'CONTROLABLES'
+
+const TIPO_OPCIONES: { value: TipoGasto; label: string }[] = [
+  { value: 'fijo', label: 'Fijo' },
+  { value: 'var',  label: 'Variable' },
+  { value: 'pers', label: 'Personal' },
+  { value: 'mkt',  label: 'Marketing' },
+]
+const GRUPO_OPCIONES: GrupoGasto[] = ['PRODUCTO', 'RRHH', 'ALQUILER', 'CONTROLABLES']
+
 type ModalForm = {
   open: boolean
-  tipo: 'ingreso' | 'gasto'
+  tipoFila: 'ingreso' | 'gasto'
   codigo: string
   nombre: string
-  grupo: string
+  grupo: GrupoGasto | ''
+  tipoGasto: TipoGasto | ''
   canal_abv: string
 }
 
 const EMPTY_FORM: ModalForm = {
   open: false,
-  tipo: 'gasto',
+  tipoFila: 'gasto',
   codigo: '',
   nombre: '',
   grupo: '',
+  tipoGasto: '',
   canal_abv: '',
 }
 
@@ -75,11 +88,6 @@ export default function CategoriasPanel() {
     return Object.keys(m).sort().map(grupo => ({ grupo, items: m[grupo] }))
   }, [gastos])
 
-  const grupoOpciones = useMemo(() => {
-    const set = new Set<string>()
-    gastos.forEach(g => g.grupo && set.add(g.grupo))
-    return Array.from(set).sort()
-  }, [gastos])
 
   /* ────────── EDIT INLINE ────────── */
   async function patchIngreso(id: string, campo: keyof CatIngreso, value: any) {
@@ -118,22 +126,35 @@ export default function CategoriasPanel() {
       alert('Código y nombre son obligatorios.')
       return
     }
-    if (form.tipo === 'gasto') {
-      if (!form.grupo.trim()) { alert('Grupo es obligatorio para gastos.'); return }
+    if (form.tipoFila === 'gasto') {
+      if (!form.grupo) { alert('Grupo es obligatorio para gastos.'); return }
+      if (!form.tipoGasto) { alert('Tipo (fijo/var/pers/mkt) es obligatorio para gastos.'); return }
       const maxOrden = gastos.filter(g => g.grupo === form.grupo).reduce((m, g) => Math.max(m, g.orden ?? 0), 0)
       const { error } = await supabase.from('categorias_contables_gastos').insert({
-        codigo, nombre, grupo: form.grupo.trim().toUpperCase(), orden: maxOrden + 10, tipo: 'controlable',
+        codigo, nombre, grupo: form.grupo, tipo: form.tipoGasto, orden: maxOrden + 10,
       })
-      if (error) { setError(error.message); return }
+      if (error) { mostrarErrorSupabase(error.message); return }
     } else {
       const maxOrden = ingresos.reduce((m, c) => Math.max(m, c.orden ?? 0), 0)
       const { error } = await supabase.from('categorias_contables_ingresos').insert({
         codigo, nombre, canal_abv: form.canal_abv.trim() || null, orden: maxOrden + 10,
       })
-      if (error) { setError(error.message); return }
+      if (error) { mostrarErrorSupabase(error.message); return }
     }
     setForm(EMPTY_FORM)
     await refetch()
+  }
+
+  function mostrarErrorSupabase(msg: string) {
+    if (msg.includes('categorias_contables_gastos_tipo_check')) {
+      alert('Tipo no válido. Debe ser uno de: fijo, var, pers, mkt.')
+    } else if (msg.includes('duplicate key') && msg.includes('codigo')) {
+      alert('Ya existe una categoría con ese código.')
+    } else if (msg.includes('check constraint')) {
+      alert(`Restricción de BD violada: ${msg}`)
+    } else {
+      setError(msg)
+    }
   }
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
@@ -337,40 +358,50 @@ export default function CategoriasPanel() {
                 {(['ingreso', 'gasto'] as const).map(t => (
                   <button
                     key={t}
-                    onClick={() => setForm(f => ({ ...f, tipo: t }))}
+                    onClick={() => setForm(f => ({ ...f, tipoFila: t, grupo: '', tipoGasto: '' }))}
                     style={{
                       padding: '6px 14px', borderRadius: 6, fontFamily: FONT.heading,
                       fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 600,
                       cursor: 'pointer',
-                      background: form.tipo === t ? '#B01D23' : 'transparent',
-                      color: form.tipo === t ? '#fff' : T.mut,
-                      border: form.tipo === t ? 'none' : `1px solid ${T.brd}`,
+                      background: form.tipoFila === t ? '#B01D23' : 'transparent',
+                      color: form.tipoFila === t ? '#fff' : T.mut,
+                      border: form.tipoFila === t ? 'none' : `1px solid ${T.brd}`,
                     }}
                   >{t}</button>
                 ))}
               </div>
             </Field>
 
-            {form.tipo === 'gasto' && (
-              <Field label="Grupo">
-                <input
-                  list="grupo-options"
-                  value={form.grupo}
-                  onChange={e => setForm(f => ({ ...f, grupo: e.target.value.toUpperCase() }))}
-                  placeholder="PRD / RRHH / ALQ / CTR..."
-                  style={inputStyle(T)}
-                />
-                <datalist id="grupo-options">
-                  {grupoOpciones.map(g => <option key={g} value={g} />)}
-                </datalist>
-              </Field>
+            {form.tipoFila === 'gasto' && (
+              <>
+                <Field label="Grupo">
+                  <select
+                    value={form.grupo}
+                    onChange={e => setForm(f => ({ ...f, grupo: e.target.value as GrupoGasto | '' }))}
+                    style={inputStyle(T)}
+                  >
+                    <option value="">— Selecciona grupo —</option>
+                    {GRUPO_OPCIONES.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </Field>
+                <Field label="Tipo">
+                  <select
+                    value={form.tipoGasto}
+                    onChange={e => setForm(f => ({ ...f, tipoGasto: e.target.value as TipoGasto | '' }))}
+                    style={inputStyle(T)}
+                  >
+                    <option value="">— Selecciona tipo —</option>
+                    {TIPO_OPCIONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </Field>
+              </>
             )}
 
             <Field label="Código">
               <input
                 value={form.codigo}
                 onChange={e => setForm(f => ({ ...f, codigo: e.target.value.toUpperCase() }))}
-                placeholder={form.tipo === 'gasto' ? 'PRD-XXX' : 'ING-XXX'}
+                placeholder={form.tipoFila === 'gasto' ? 'PRD-XXX' : 'ING-XXX'}
                 style={inputStyle(T)}
               />
             </Field>
@@ -383,7 +414,7 @@ export default function CategoriasPanel() {
               />
             </Field>
 
-            {form.tipo === 'ingreso' && (
+            {form.tipoFila === 'ingreso' && (
               <Field label="Canal ABV (opcional)">
                 <input
                   value={form.canal_abv}
