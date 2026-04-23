@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, Tooltip, ReferenceLine, AreaChart, Area } from 'recharts';
 import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
@@ -8,7 +8,7 @@ import { useIVA } from '@/contexts/IVAContext';
 import IVAToggle from '@/components/IVAToggle';
 import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
 import {
-  CATEGORIAS_ORDEN, CATEGORIA_COLOR, MESES_CORTO,
+  CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE, MESES_CORTO,
   type Categoria, type PeriodoRango,
 } from '@/lib/running';
 
@@ -21,14 +21,13 @@ import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles';
 import MarcasCard from '@/components/finanzas/running/MarcasCard';
 import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupuestoCard';
-import TopProveedoresCard from '@/components/finanzas/running/TopProveedoresCard';
 import RitmoMesCard from '@/components/finanzas/running/RitmoMesCard';
 import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMensualCard';
 
-const VERDE = '#06C167';
-const ROJO  = '#B01D23';
-const AMBAR = '#f5a623';
-const NARANJA = '#E8440A';
+const VERDE = '#10B981';
+const ROJO  = '#C4372C';
+const AMBAR = '#F4C542';
+const NARANJA = '#FF8C42';
 
 const CANAL_LABEL: { key: 'uber_bruto'|'glovo_bruto'|'je_bruto'|'web_bruto'|'directa_bruto'; label: string }[] = [
   { key: 'uber_bruto',    label: 'Uber Eats' },
@@ -270,75 +269,140 @@ export default function Running() {
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
 
-  /* — Sparkline facturación bruta desde facturacion_diario (últimos 6 meses) — */
-  const [sparkBrutoData, setSparkBrutoData] = useState<{ m: string; v: number }[]>([]);
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const hoy = new Date();
-      const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
-      const hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-      const fmtISO = (d: Date) => {
-        const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${dd}`;
-      };
-      let q = supabase.from('facturacion_diario').select('fecha, total_bruto, marca_id')
-        .gte('fecha', fmtISO(desde)).lte('fecha', fmtISO(hasta));
-      if (marcaSel) q = q.eq('marca_id', marcaSel);
-      const { data } = await q;
-      if (cancel) return;
-      const out: { m: string; v: number }[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const ref = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-        const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
-        const v = (data ?? []).filter((r: any) => (r.fecha || '').startsWith(key))
-          .reduce((a, r: any) => a + Number(r.total_bruto || 0), 0);
-        out.push({ m: MESES_CORTO[ref.getMonth()], v });
-      }
-      setSparkBrutoData(out);
-    })();
-    return () => { cancel = true };
-  }, [marcaSel]);
+  /* — Label amigable para fecha ISO — */
+  const fmtDiaCorto = (iso: string): string => {
+    const [, m, d] = iso.split('-');
+    return `${Number(d)}/${Number(m)}`;
+  };
 
-  const sparkNeto = useMemo(() => {
-    const hoy = new Date();
-    const out: { m: string; v: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const ref = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-      if (ref.getFullYear() !== anio) { out.push({ m: MESES_CORTO[ref.getMonth()], v: 0 }); continue; }
-      const v = ingresosMes
-        .filter(r => r.tipo === 'neto' && r.mes === ref.getMonth() + 1)
-        .reduce((a, r) => a + r.importe, 0);
-      out.push({ m: MESES_CORTO[ref.getMonth()], v });
+  /* — Sparkline facturación bruta: diario del periodo desde `facturacion` ya cargada — */
+  const sparkBrutoDiario = useMemo(() => {
+    const byDate = new Map<string, number>();
+    for (const r of facturacion) {
+      const v = Number(r.total_bruto || 0) * brutoFactor;
+      byDate.set(r.fecha, (byDate.get(r.fecha) ?? 0) + v);
     }
-    return out;
-  }, [ingresosMes, anio]);
+    return Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([fecha, v]) => ({ m: fmtDiaCorto(fecha), v: Math.round(v * 100) / 100, iso: fecha }));
+  }, [facturacion, brutoFactor]);
 
-  const barrasGastos = useMemo(() => {
-    return CATEGORIAS_ORDEN.map(cat => ({
-      cat,
-      total: gastos.filter(g => g.categoria === cat).reduce((a, g) => a + g.importe, 0),
-      color: CATEGORIA_COLOR[cat] ?? T.mut,
+  /* — Sparkline neto: mensual del año (12 puntos, siempre tiene forma) — */
+  const sparkNeto = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const v = ingresosMes
+        .filter(r => r.tipo === 'neto' && r.mes === i + 1)
+        .reduce((a, r) => a + r.importe, 0);
+      return { m: MESES_CORTO[i], v: Math.round(v * 100) / 100 };
+    });
+  }, [ingresosMes]);
+
+  /* — Sparkline gastos: stacked por grupo principal, diario del periodo — */
+  const GRUPOS_STACK: Categoria[] = ['PRODUCTO', 'RRHH', 'ALQUILER', 'MARKETING', 'ADMIN_GENERALES', 'SUMINISTROS', 'INTERNET_VENTAS'];
+  const sparkGastosDiario = useMemo(() => {
+    const byDate = new Map<string, Record<string, number>>();
+    for (const g of gastos) {
+      const row = byDate.get(g.fecha) ?? {};
+      row[g.categoria] = (row[g.categoria] ?? 0) + Number(g.importe || 0);
+      byDate.set(g.fecha, row);
+    }
+    return Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([fecha, row]) => {
+        const entry: Record<string, number | string> = { m: fmtDiaCorto(fecha), iso: fecha };
+        for (const cat of GRUPOS_STACK) entry[cat] = Math.round((row[cat] ?? 0) * 100) / 100;
+        return entry;
+      });
+  }, [gastos]);
+
+  /* — Sparkline resultado: diario del periodo (bruto*0.70 - gastos) — */
+  const sparkResultadoDiario = useMemo(() => {
+    const COMISION_EST = 0.30;
+    const bruto = new Map<string, number>();
+    const gasto = new Map<string, number>();
+    for (const f of facturacion) {
+      bruto.set(f.fecha, (bruto.get(f.fecha) ?? 0) + Number(f.total_bruto || 0) * brutoFactor);
+    }
+    for (const g of gastos) {
+      gasto.set(g.fecha, (gasto.get(g.fecha) ?? 0) + Number(g.importe || 0));
+    }
+    const todas = new Set<string>([...bruto.keys(), ...gasto.keys()]);
+    return Array.from(todas).sort().map(fecha => ({
+      m: fmtDiaCorto(fecha),
+      v: Math.round(((bruto.get(fecha) ?? 0) * (1 - COMISION_EST) - (gasto.get(fecha) ?? 0)) * 100) / 100,
+      iso: fecha,
     }));
-  }, [gastos, T.mut]);
+  }, [facturacion, gastos, brutoFactor]);
 
-  const SparkLine = ({ data, color }: { data: { v: number }[]; color: string }) => (
-    <ResponsiveContainer width="100%" height={36}>
-      <LineChart data={data}>
-        <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
-      </LineChart>
+  const sparkTooltip = {
+    contentStyle: {
+      backgroundColor: '#1A1A1A',
+      border: 'none',
+      color: '#ffffff',
+      fontFamily: FONT.body,
+      borderRadius: 6,
+      fontSize: 11,
+      padding: '4px 8px',
+    } as React.CSSProperties,
+    labelStyle: { color: '#ffffff', fontSize: 10 } as React.CSSProperties,
+    itemStyle: { color: '#ffffff' } as React.CSSProperties,
+    cursor: { fill: 'rgba(196,55,44,0.06)' } as any,
+  };
+
+  const SparkArea = ({ data, color, zero = false }: { data: { m: string; v: number }[]; color: string; zero?: boolean }) => (
+    <ResponsiveContainer width="100%" height={100}>
+      <AreaChart data={data} margin={{ top: 6, right: 4, bottom: 4, left: 4 }}>
+        <defs>
+          <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor={color} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {zero && <ReferenceLine y={0} stroke={T.brd} strokeDasharray="2 2" />}
+        <Tooltip
+          {...sparkTooltip}
+          formatter={(v) => [fmtEur(Number(v)), '']}
+          labelFormatter={(l) => l}
+        />
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2}
+          fill={`url(#grad-${color.replace('#','')})`} isAnimationActive={false} dot={false} />
+      </AreaChart>
     </ResponsiveContainer>
   );
 
-  const MiniBars = ({ data }: { data: { cat: string; total: number; color: string }[] }) => (
-    <ResponsiveContainer width="100%" height={36}>
-      <BarChart data={data}>
-        <Bar dataKey="total" radius={[2, 2, 0, 0]} isAnimationActive={false}>
-          {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-        </Bar>
+  const StackedGastosBars = ({ data }: { data: any[] }) => (
+    <ResponsiveContainer width="100%" height={100}>
+      <BarChart data={data} margin={{ top: 6, right: 4, bottom: 4, left: 4 }}>
+        <Tooltip
+          {...sparkTooltip}
+          formatter={(v, n) => [fmtEur(Number(v)), CATEGORIA_NOMBRE[n as Categoria] ?? String(n)]}
+          labelFormatter={(l) => l}
+        />
+        {GRUPOS_STACK.map(cat => (
+          <Bar key={cat} dataKey={cat} stackId="g" fill={CATEGORIA_COLOR[cat]} isAnimationActive={false} />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
+
+  const SparkLineResultado = ({ data }: { data: { m: string; v: number }[] }) => {
+    const dataCol = data.map(d => ({ ...d, color: d.v >= 0 ? VERDE : ROJO }));
+    return (
+      <ResponsiveContainer width="100%" height={100}>
+        <BarChart data={dataCol} margin={{ top: 6, right: 4, bottom: 4, left: 4 }}>
+          <ReferenceLine y={0} stroke={T.brd} strokeDasharray="2 2" />
+          <Tooltip
+            {...sparkTooltip}
+            formatter={(v) => [fmtEur(Number(v)), 'resultado']}
+            labelFormatter={(l) => l}
+          />
+          <Bar dataKey="v" isAnimationActive={false} radius={[2, 2, 0, 0]}>
+            {dataCol.map((d, i) => <Cell key={i} fill={d.color} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   const Semaforo = () => (
     <div style={{ height: 36, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -458,7 +522,7 @@ export default function Running() {
             label="Facturación bruta"
             value={fmtEur(totalBruto)}
             delta={{ value: dPct(totalBruto, totalBrutoAnt), sign: sgn(dPct(totalBruto, totalBrutoAnt)), favorable: 'up' }}
-            chart={<SparkLine data={sparkBrutoData} color={ROJO} />}
+            chart={<SparkArea data={sparkBrutoDiario} color={VERDE} />}
           />
         )}
         <KpiCardConSparkline
@@ -466,27 +530,27 @@ export default function Running() {
           value={fmtEur(totalNeto)}
           delta={{ value: dPct(totalNeto, totalNetoAnt), sign: sgn(dPct(totalNeto, totalNetoAnt)), favorable: 'up' }}
           legend={!hayBruto ? 'Importa plataformas para ver bruto' : undefined}
-          chart={<SparkLine data={sparkNeto} color={ROJO} />}
+          chart={<SparkArea data={sparkNeto} color={VERDE} />}
         />
         <KpiCardConSparkline
           label="Total gastos"
           value={fmtEur(totalGasto)}
           valueColor={NARANJA}
           delta={{ value: dPct(totalGasto, totalGastoAnt), sign: sgn(dPct(totalGasto, totalGastoAnt)), favorable: 'down' }}
-          chart={<MiniBars data={barrasGastos} />}
+          chart={<StackedGastosBars data={sparkGastosDiario} />}
         />
         <KpiCardConSparkline
           label="Resultado"
           value={(resultado >= 0 ? '+' : '−') + fmtEur(Math.abs(resultado)).replace('−', '')}
           valueColor={resultado >= 0 ? VERDE : ROJO}
           delta={{ value: dPct(resultado, resultadoAnt), sign: sgn(dPct(resultado, resultadoAnt)), favorable: 'up' }}
-          chart={<SparkLine data={sparkNeto} color={resultado >= 0 ? VERDE : ROJO} />}
+          chart={<SparkLineResultado data={sparkResultadoDiario} />}
         />
         <KpiCardConSparkline
           label="Ratio gastos / netos"
           value={`${ratio.toFixed(1)}%`}
           valueColor={estadoRatio.color}
-          legend={estadoRatio.label}
+          legend={`${estadoRatio.label} · objetivo ≤ 85%`}
           chart={<Semaforo />}
         />
       </div>
@@ -515,13 +579,12 @@ export default function Running() {
         />
       </div>
 
-      {/* Cards inteligentes (4 medianas) */}
+      {/* Cards inteligentes (3 medianas) */}
       <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, marginBottom: 32, alignItems: 'stretch' }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 32, alignItems: 'stretch' }}
         className="rf-smart-row"
       >
         <AlertasPresupuestoCard gastos={gastos} />
-        <TopProveedoresCard periodoLabel={periodo.label} gastos={gastos} />
         <RitmoMesCard />
         <ComparativaMensualCard />
       </div>
@@ -551,6 +614,7 @@ export default function Running() {
       <style>{`
         @media (max-width: 1280px) {
           .rf-smart-row { grid-template-columns: 1fr 1fr !important; }
+          .rf-kpi-row { grid-template-columns: repeat(3, 1fr) !important; }
         }
         @media (max-width: 1024px) {
           .rf-kpi-row { grid-template-columns: 1fr 1fr !important; }
