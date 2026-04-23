@@ -444,7 +444,7 @@ export function ResumenDashboard({
       }}>
         {/* CARD INGRESOS */}
         <div style={cardBase}>
-          <div style={labelCard}>INGRESOS</div>
+          <div style={labelCard}>INGRESOS NETOS</div>
           <div style={STYLE_NUM_GIGANTE_DASHBOARD}>{fmtEur(sumIng)}</div>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: ingDeltaColor, marginTop: 4, fontWeight: 500 }}>
             {ingDeltaTxt}

@@ -397,6 +397,7 @@ export default function Running() {
           label="Ingresos netos"
           value={fmtEur(totalNeto)}
           delta={{ value: dPct(totalNeto, totalNetoAnt), sign: sgn(dPct(totalNeto, totalNetoAnt)), favorable: 'up' }}
+          legend={!hayBruto ? 'Importa plataformas para ver bruto' : undefined}
           chart={<SparkLine data={sparkNeto} color={ROJO} />}
         />
         <KpiCardConSparkline
