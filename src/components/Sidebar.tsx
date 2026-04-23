@@ -47,6 +47,7 @@ const SECTIONS: NavSection[] = [
       { path: '/facturacion',             label: 'Facturación',           emoji: '🗂️', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',      label: 'Objetivos',             emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion', label: 'Conciliación',          emoji: '🏦', perfiles: ['admin'] },
+      { path: '/finanzas/running',         label: 'Running Financiero',    emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/analisis',        label: 'Análisis',              emoji: '🔍', perfiles: ['admin'] },
       { path: '/analytics/revenue',        label: 'Revenue & Ticket',      emoji: '🎫', perfiles: ['admin'] },
       { path: '/analytics/cogs',           label: 'COGS / Coste MP',       emoji: '🧾', perfiles: ['admin'] },
@@ -59,7 +60,6 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/pagos',           label: 'Pagos',                 emoji: '💵', perfiles: ['admin'] },
       { path: '/finanzas/presupuestos',    label: 'Presupuestos',          emoji: '📋', perfiles: ['admin'] },
       { path: '/finanzas/remesas',         label: 'Remesas',               emoji: '🏦', perfiles: ['admin'] },
-      { path: '/finanzas/running',         label: 'Running Financiero',    emoji: '📊', perfiles: ['admin'] },
     ],
   },
   {
