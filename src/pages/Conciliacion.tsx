@@ -223,7 +223,7 @@ export default function Conciliacion() {
         return true
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos, catFiltro, busqueda, rangoActual])
+  }, [movimientos, catFiltro, busqueda, rangoActual, filtroCard])
 
   /* — Movimientos del período anterior (comparativas) — */
   const movimientosAnterior = useMemo(() => {
@@ -429,7 +429,16 @@ export default function Conciliacion() {
             }} />
             <div>
               <label style={labelStyle}>Categoría</label>
-              <select value={catFiltro} onChange={e => setCatFiltro(e.target.value)} style={inputStyle}>
+              <select
+                value={catFiltro}
+                onChange={e => setCatFiltro(e.target.value)}
+                disabled={filtroCard === 'pendientes'}
+                style={{
+                  ...inputStyle,
+                  opacity: filtroCard === 'pendientes' ? 0.5 : 1,
+                  cursor: filtroCard === 'pendientes' ? 'not-allowed' : undefined,
+                }}
+              >
                 <option value="todas">Todas</option>
                 {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
@@ -448,36 +457,92 @@ export default function Conciliacion() {
             </div>
           </div>
 
-          {/* KPIs Movimientos */}
+          {/* KPIs Movimientos (clickeables → filtran tabla) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
-            <KpiCard
-              label="Ingresos"
-              period={periodoLabel}
-              value={fmtEur(datos.sumIng)}
-              delta={{ value: '+12.4% vs anterior', trend: 'up' }}
-              accent="success"
-            />
-            <KpiCard
-              label="Gastos"
-              period={periodoLabel}
-              value={fmtEur(datos.sumGst)}
-              delta={{ value: '-5.2% vs anterior', trend: 'down' }}
-              accent="danger"
-            />
+            <KpiClickable
+              activo={filtroCard === 'ingreso'}
+              onClick={() => toggleFiltroCard('ingreso')}
+              T={T}
+            >
+              <KpiCard
+                label="Ingresos"
+                period={periodoLabel}
+                value={fmtEur(datos.sumIng)}
+                delta={{ value: '+12.4% vs anterior', trend: 'up' }}
+                accent="success"
+              />
+            </KpiClickable>
+            <KpiClickable
+              activo={filtroCard === 'gasto'}
+              onClick={() => toggleFiltroCard('gasto')}
+              T={T}
+            >
+              <KpiCard
+                label="Gastos"
+                period={periodoLabel}
+                value={fmtEur(datos.sumGst)}
+                delta={{ value: '-5.2% vs anterior', trend: 'down' }}
+                accent="danger"
+              />
+            </KpiClickable>
             <KpiCard
               label="Balance neto"
               period={periodoLabel}
               value={fmtEur(datos.balance)}
               accent={datos.balance >= 0 ? 'default' : 'danger'}
             />
-            <KpiCard
-              label="Pendientes categorizar"
-              period={periodoLabel}
-              value={datos.pendientes > 0 ? String(datos.pendientes) : 'Todo al día ✓'}
-              accent="warning"
-              highlighted
-            />
+            <KpiClickable
+              activo={filtroCard === 'pendientes'}
+              onClick={() => toggleFiltroCard('pendientes')}
+              T={T}
+            >
+              <KpiCard
+                label="Pendientes categorizar"
+                period={periodoLabel}
+                value={datos.pendientes > 0 ? String(datos.pendientes) : 'Todo al día ✓'}
+                accent="warning"
+                highlighted
+              />
+            </KpiClickable>
           </div>
+
+          {/* Banner filtro activo */}
+          {filtroCard && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 16px', marginBottom: 14,
+              background: T.group, border: `1px solid ${T.brd}`, borderLeft: '3px solid #B01D23',
+              borderRadius: 8, fontFamily: FONT.body, fontSize: 13, color: T.pri,
+            }}>
+              <span>🔍</span>
+              <span>
+                Mostrando: <strong>{
+                  filtroCard === 'pendientes' ? 'Pendientes categorizar' :
+                  filtroCard === 'ingreso' ? 'Solo ingresos' : 'Solo gastos'
+                }</strong>
+                <span style={{ color: T.mut, marginLeft: 6 }}>
+                  ({movimientosFiltrados.length} {movimientosFiltrados.length === 1 ? 'movimiento' : 'movimientos'})
+                </span>
+              </span>
+              <button
+                onClick={() => setFiltroCard(null)}
+                style={{
+                  marginLeft: 'auto',
+                  background: 'transparent',
+                  border: `1px solid ${T.brd}`,
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  color: T.pri,
+                  fontFamily: FONT.heading,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >Quitar filtro ×</button>
+            </div>
+          )}
 
           {/* TABLA */}
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -618,6 +683,58 @@ export default function Conciliacion() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/* ─────────────  Wrapper clickeable para KpiCard  ───────────── */
+
+interface KpiClickableProps {
+  activo: boolean
+  onClick: () => void
+  T: ReturnType<typeof useTheme>['T']
+  children: React.ReactNode
+}
+
+function KpiClickable({ activo, onClick, T, children }: KpiClickableProps) {
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{
+        position: 'relative',
+        cursor: 'pointer',
+        borderRadius: 10,
+        outline: activo ? `2px solid #B01D23` : 'none',
+        outlineOffset: -1,
+        transition: 'transform 120ms, opacity 120ms',
+        opacity: activo ? 1 : 0.97,
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)' }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' }}
+    >
+      {children}
+      {activo && (
+        <span style={{
+          position: 'absolute', top: 8, right: 8,
+          background: '#B01D23', color: '#fff',
+          fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: 0.6,
+          textTransform: 'uppercase', fontWeight: 600,
+          padding: '2px 7px', borderRadius: 4,
+          pointerEvents: 'none',
+        }}>
+          ✓ Filtrando
+        </span>
+      )}
+      <span style={{
+        position: 'absolute', bottom: 6, right: 10,
+        fontSize: 10, color: T.mut, fontFamily: 'Lexend, sans-serif',
+        opacity: activo ? 0 : 0.6, pointerEvents: 'none',
+      }}>
+        Click para filtrar
+      </span>
     </div>
   )
 }
