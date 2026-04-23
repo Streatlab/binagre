@@ -11,7 +11,7 @@ interface MarcaAccesoUE {
 }
 
 export default function TabAccesosUber() {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
   const [marcas, setMarcas] = useState<MarcaAccesoUE[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,31 +54,34 @@ export default function TabAccesosUber() {
   }
 
   const th: React.CSSProperties = {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontFamily: FONT.heading,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
+    letterSpacing: '1.3px',
     color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    fontWeight: 500,
+    background: T.bg,
+    borderBottom: `1px solid ${T.brd}`,
     textAlign: 'left',
   }
+  const thRight: React.CSSProperties = { ...th, textAlign: 'right' }
   const td: React.CSSProperties = {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontFamily: FONT.body,
     fontSize: 13,
     color: T.pri,
   }
+  const rowAlt = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
 
   return (
     <ConfigGroupCard title="Accesos Uber" subtitle={`${marcas.length} marcas`}>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+            <tr>
               <th style={th}>Marca</th>
-              <th style={th}>Usuario Uber Eats</th>
+              <th style={thRight}>Usuario Uber Eats</th>
             </tr>
           </thead>
           <tbody>
@@ -88,10 +91,16 @@ export default function TabAccesosUber() {
                   Ninguna marca con acceso UE activo.
                 </td>
               </tr>
-            ) : marcas.map(m => (
-              <tr key={m.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+            ) : marcas.map((m, i) => (
+              <tr
+                key={m.id}
+                style={{
+                  borderBottom: `0.5px solid ${T.brd}`,
+                  background: i % 2 === 1 ? rowAlt : 'transparent',
+                }}
+              >
                 <td style={{ ...td, fontWeight: 600 }}>{m.nombre}</td>
-                <td style={td}>
+                <td style={{ ...td, textAlign: 'right' }}>
                   <input
                     defaultValue={m.email_acceso ?? ''}
                     onBlur={(e) => updateEmail(m.acceso_id, e.target.value.trim())}
@@ -104,7 +113,8 @@ export default function TabAccesosUber() {
                       background: 'transparent',
                       color: T.pri,
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                      fontSize: 12.5,
+                      fontSize: 12,
+                      textAlign: 'right',
                       outline: 'none',
                       transition: 'border-color 0.15s, background 0.15s',
                     }}

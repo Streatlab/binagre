@@ -185,7 +185,11 @@ export default function UsuariosPage() {
                       <strong style={{ color: T.pri }}>{u.nombre}</strong>
                     </td>
                     <td style={td}><RolPill rol={u.rol} isDark={isDark} /></td>
-                    {esAdmin && <td style={{ ...td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: T.sec, letterSpacing: 2 }}>{u.pin ?? '—'}</td>}
+                    {esAdmin && (
+                      <td style={{ ...td, fontFamily: FONT.body, color: u.pin ? T.pri : T.mut, letterSpacing: u.pin ? 2 : 0 }}>
+                        {u.pin ? '••••' : '—'}
+                      </td>
+                    )}
                     <td style={{ ...td, textAlign: 'right', color: T.sec }}>{fmtFechaMadrid(u.ultima_conexion)}</td>
                   </tr>
                 ))}
@@ -234,7 +238,12 @@ export default function UsuariosPage() {
               </thead>
               <tbody>
                 {modulos.map(mod => (
-                  <tr key={mod} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                  <tr
+                    key={mod}
+                    style={{ borderBottom: `0.5px solid ${T.brd}` }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
                     <td style={{ ...td, fontWeight: 600 }}>{mod}</td>
                     {ROLES.map(r => {
                       const p = permisos.find(x => x.rol === r.value && x.modulo === mod)
@@ -244,8 +253,8 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => togglePermiso(r.value, mod)}
                             style={{
-                              width: 26,
-                              height: 26,
+                              width: 28,
+                              height: 28,
                               borderRadius: 6,
                               border: 'none',
                               fontSize: 14,
@@ -292,18 +301,18 @@ function RolPill({ rol, isDark }: { rol: Rol | null; isDark: boolean }) {
   if (!rol) return <span style={{ color: '#7080a8' }}>—</span>
   const label = rol.charAt(0).toUpperCase() + rol.slice(1)
   const palette: Record<Rol, { bg: string; fg: string }> = {
-    admin:  { bg: '#B01D23', fg: '#ffffff' },
-    gestor: { bg: isDark ? 'rgba(102,170,255,0.22)' : '#DDE7F0', fg: isDark ? '#66aaff' : '#0C447C' },
-    cocina: { bg: isDark ? 'rgba(232,244,66,0.22)' : '#F4EEBC', fg: isDark ? '#e8f442' : '#5c550d' },
+    admin:  { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
+    gestor: { bg: isDark ? 'rgba(12,68,124,0.30)' : '#E6F1FB', fg: isDark ? '#89B5DF' : '#0C447C' },
+    cocina: { bg: isDark ? 'rgba(186,117,23,0.26)' : '#FAEEDA', fg: isDark ? '#F5C36B' : '#854F0B' },
   }
   const p = palette[rol]
   return (
     <span
       style={{
         display: 'inline-flex',
-        padding: '3px 10px',
+        padding: '5px 14px',
         borderRadius: 5,
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.06em',
         fontWeight: 600,
         textTransform: 'uppercase',

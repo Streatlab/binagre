@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
+import { StatusTag } from '@/components/configuracion/StatusTag'
 
 interface Prov {
   id: string
@@ -12,10 +13,11 @@ interface Prov {
   nombre_completo: string
   marca_principal: string | null
   marca_asociada: string | null
+  activo: boolean
 }
 
 export default function TabProveedores() {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
   const [provs, setProvs] = useState<Prov[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +27,7 @@ export default function TabProveedores() {
   const [fCat, setFCat] = useState('')
   const [fNom, setFNom] = useState('')
   const [fMarca, setFMarca] = useState('')
+  const [fActivo, setFActivo] = useState(true)
   const [saving, setSaving] = useState(false)
 
   async function refetch() {
@@ -45,8 +48,14 @@ export default function TabProveedores() {
   function marcaDe(p: Prov): string { return p.marca_principal ?? p.marca_asociada ?? '' }
 
   function open(p?: Prov) {
-    if (p) { setEditing(p); setCreating(false); setFAbv(p.abv); setFCat(p.categoria ?? ''); setFNom(nomDe(p)); setFMarca(marcaDe(p)) }
-    else { setCreating(true); setEditing(null); setFAbv(''); setFCat(''); setFNom(''); setFMarca('') }
+    if (p) {
+      setEditing(p); setCreating(false)
+      setFAbv(p.abv); setFCat(p.categoria ?? ''); setFNom(nomDe(p)); setFMarca(marcaDe(p))
+      setFActivo(p.activo ?? true)
+    } else {
+      setCreating(true); setEditing(null)
+      setFAbv(''); setFCat(''); setFNom(''); setFMarca(''); setFActivo(true)
+    }
   }
   function close() { setEditing(null); setCreating(false) }
 
@@ -62,6 +71,7 @@ export default function TabProveedores() {
         nombre_completo: nom,
         marca_principal: marca || null,
         marca_asociada: marca || null,
+        activo: fActivo,
       }
       const q = editing
         ? supabase.from('config_proveedores').update(payload).eq('id', editing.id)
@@ -90,15 +100,16 @@ export default function TabProveedores() {
   const th: React.CSSProperties = {
     padding: '10px 14px',
     fontFamily: FONT.heading,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
+    letterSpacing: '1.3px',
     color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    fontWeight: 500,
+    background: T.bg,
+    borderBottom: `1px solid ${T.brd}`,
     textAlign: 'left',
   }
-  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
   return (
     <>
@@ -106,33 +117,40 @@ export default function TabProveedores() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+              <tr>
                 <th style={th}>ABV</th>
                 <th style={th}>Categoría</th>
                 <th style={th}>Nombre</th>
                 <th style={th}>Marca principal</th>
+                <th style={th}>Estado</th>
               </tr>
             </thead>
             <tbody>
               {provs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
+                  <td colSpan={5} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
                     Sin proveedores.
                   </td>
                 </tr>
               ) : provs.map(p => (
-                <tr key={p.id} onClick={() => open(p)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                <tr
+                  key={p.id}
+                  onClick={() => open(p)}
+                  style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 0.15s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
                   <td style={td}>
                     <span
                       style={{
                         display: 'inline-block',
-                        padding: '3px 8px',
-                        background: T.pri,
-                        color: T.bg,
-                        borderRadius: 4,
-                        fontSize: 10,
-                        letterSpacing: '0.04em',
-                        fontWeight: 700,
+                        padding: '4px 10px',
+                        background: isDark ? T.card : T.pri,
+                        color: isDark ? T.pri : T.bg,
+                        borderRadius: 6,
+                        fontSize: 11,
+                        letterSpacing: '0.8px',
+                        fontWeight: 600,
                         fontFamily: FONT.heading,
                       }}
                     >
@@ -142,6 +160,9 @@ export default function TabProveedores() {
                   <td style={{ ...td, color: T.sec }}>{p.categoria ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{nomDe(p)}</td>
                   <td style={{ ...td, color: T.sec }}>{marcaDe(p) || '—'}</td>
+                  <td style={td}>
+                    <StatusTag variant={p.activo ? 'ok' : 'off'}>{p.activo ? 'Activo' : 'Inactivo'}</StatusTag>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -186,6 +207,12 @@ export default function TabProveedores() {
           <Field label="Categoría"><input value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="Nombre"><input value={fNom} onChange={(e) => setFNom(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="Marca principal"><input value={fMarca} onChange={(e) => setFMarca(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="Estado">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={fActivo} onChange={(e) => setFActivo(e.target.checked)} />
+              <span>Proveedor activo</span>
+            </label>
+          </Field>
         </EditModal>
       )}
     </>

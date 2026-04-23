@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Wand2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
@@ -106,8 +107,13 @@ export default function ReglasPanel() {
   }
   const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
-  const helpBg = isDark ? 'rgba(255,255,255,0.03)' : '#FAF4E4'
-  const codeBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff'
+  // Card "Cómo usar patrones" con paleta glovo dark-aware
+  const washBg     = isDark ? 'rgba(186,117,23,0.18)'  : '#FAEEDA'
+  const washBrd    = isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'
+  const washTxt    = isDark ? '#FAC775'                 : '#412402'
+  const washSub    = isDark ? '#F5C36B'                 : '#854F0B'
+  const codeBg     = isDark ? 'rgba(255,255,255,0.06)' : '#ffffff'
+  const codeBrd    = isDark ? 'rgba(250,199,117,0.22)' : '#E9D9A6'
 
   return (
     <>
@@ -116,20 +122,20 @@ export default function ReglasPanel() {
           style={{
             margin: '0 22px 14px',
             padding: 14,
-            background: helpBg,
-            border: `0.5px solid ${T.brd}`,
+            background: washBg,
+            border: `1px solid ${washBrd}`,
             borderRadius: 8,
             fontSize: 12.5,
-            color: T.sec,
+            color: washSub,
             fontFamily: FONT.body,
           }}
         >
-          <strong style={{ color: T.pri }}>Cómo usar patrones:</strong>
+          <strong style={{ color: washTxt }}>Cómo usar patrones:</strong>
           <ul style={{ paddingLeft: 20, marginTop: 8, marginBottom: 0, display: 'grid', gap: 4 }}>
-            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${T.brd}` }}>*uber*</code> — contiene "uber"</li>
-            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${T.brd}` }}>glov*</code> — empieza por "glov"</li>
-            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${T.brd}` }}>*eats</code> — termina en "eats"</li>
-            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${T.brd}` }}>factura?.pdf</code> — <code>?</code> = un carácter</li>
+            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt }}>*uber*</code> — contiene "uber"</li>
+            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt }}>glov*</code> — empieza por "glov"</li>
+            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt }}>*eats</code> — termina en "eats"</li>
+            <li><code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt }}>factura?.pdf</code> — <code>?</code> = un carácter</li>
           </ul>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -144,8 +150,14 @@ export default function ReglasPanel() {
             <tbody>
               {reglas.length === 0 ? (
                 <tr>
-                  <td colSpan={3} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
-                    Sin reglas aún. Al crear una, los movimientos que coincidan se categorizarán automáticamente.
+                  <td colSpan={3} style={{ padding: '40px 22px', textAlign: 'center' }}>
+                    <Wand2 size={32} color={T.mut} style={{ marginBottom: 12 }} />
+                    <div style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, letterSpacing: '1.3px', textTransform: 'uppercase', marginBottom: 6 }}>
+                      Sin reglas aún
+                    </div>
+                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, maxWidth: 400, margin: '0 auto' }}>
+                      Crea una regla y los movimientos que coincidan se categorizarán automáticamente al importar extractos.
+                    </div>
                   </td>
                 </tr>
               ) : reglas.map(r => (

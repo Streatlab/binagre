@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Lock, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
@@ -100,25 +101,50 @@ export default function TabTiposCocina() {
                 <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: t.count_marcas > 0 ? T.pri : T.mut }}>
                   {t.count_marcas}
                 </td>
-                <td style={{ ...td, textAlign: 'right' }}>
-                  <button
-                    onClick={() => handleDelete(t)}
-                    disabled={t.count_marcas > 0}
-                    title={t.count_marcas > 0 ? 'Usado por marcas' : 'Eliminar'}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: t.count_marcas > 0 ? T.mut : '#B01D23',
-                      fontSize: 11,
-                      cursor: t.count_marcas > 0 ? 'not-allowed' : 'pointer',
-                      fontFamily: FONT.heading,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      fontWeight: 600,
-                      opacity: t.count_marcas > 0 ? 0.4 : 1,
-                      padding: 0,
-                    }}
-                  >Eliminar</button>
+                <td style={{ ...td, textAlign: 'right', paddingRight: 20 }}>
+                  {t.count_marcas === 0 ? (
+                    <button
+                      onClick={() => handleDelete(t)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '6px 12px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#B01D23',
+                        fontFamily: FONT.heading,
+                        fontSize: 11,
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Trash2 size={12} /> Eliminar
+                    </button>
+                  ) : (
+                    <span
+                      title={`${t.count_marcas} marca${t.count_marcas !== 1 ? 's' : ''} usan este tipo`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '6px 12px',
+                        color: T.mut,
+                        fontFamily: FONT.heading,
+                        fontSize: 11,
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                        fontWeight: 600,
+                        opacity: 0.6,
+                        cursor: 'not-allowed',
+                      }}
+                    >
+                      <Lock size={12} /> En uso
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

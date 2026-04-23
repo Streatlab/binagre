@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTheme, FONT } from '@/styles/tokens'
 
 interface Opt { value: string; label: string }
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function MultiSelectDropdown({ label, options, selected, onChange }: Props) {
+  const { T, isDark } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -31,23 +33,56 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
       ? options.find(o => o.value === selected[0])?.label ?? label
       : `${label} (${selected.length})`
 
+  const activeBg = isDark ? 'rgba(176,29,35,0.22)' : '#FCE0E2'
+  const hoverBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`px-3 py-2 rounded-lg text-[13px] border flex items-center gap-2 ${
-          selected.length > 0
-            ? 'border-[#B01D23] bg-[#FCE0E2] text-[#B01D23] font-medium'
-            : 'border-[#E9E1D0] bg-white text-[#1A1A1A]'
-        } hover:border-[#B01D23]`}
+        style={{
+          padding: '8px 14px',
+          border: `1px solid ${selected.length > 0 ? '#B01D23' : T.brd}`,
+          borderRadius: 8,
+          background: selected.length > 0 ? activeBg : T.card,
+          color: selected.length > 0 ? '#B01D23' : T.pri,
+          fontFamily: FONT.heading,
+          fontSize: 12,
+          letterSpacing: '0.5px',
+          textTransform: 'uppercase',
+          fontWeight: selected.length > 0 ? 600 : 500,
+          cursor: 'pointer',
+          minHeight: 36,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          transition: 'all 0.15s',
+        }}
       >
         {summary}
-        <span className="text-[9px] text-[#9E9588]">▾</span>
+        <span style={{ fontSize: 9, color: T.mut }}>▾</span>
       </button>
       {open && (
-        <div className="absolute left-0 mt-2 w-[260px] max-h-[320px] overflow-y-auto bg-white border border-[#E9E1D0] rounded-lg shadow-lg z-20 p-1">
-          {options.length === 0 && <div className="p-3 text-xs text-[#9E9588]">Sin opciones</div>}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            marginTop: 8,
+            width: 260,
+            maxHeight: 320,
+            overflowY: 'auto',
+            background: T.card,
+            border: `1px solid ${T.brd}`,
+            borderRadius: 10,
+            boxShadow: isDark ? '0 12px 24px rgba(0,0,0,0.5)' : '0 12px 24px rgba(0,0,0,0.12)',
+            zIndex: 20,
+            padding: 4,
+          }}
+        >
+          {options.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: T.mut, fontFamily: FONT.body }}>Sin opciones</div>
+          )}
           {options.map(o => {
             const on = selected.includes(o.value)
             return (
@@ -55,25 +90,67 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                 key={o.value}
                 type="button"
                 onClick={() => toggle(o.value)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-[13px] rounded hover:bg-[#FAF4E4] text-left"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  borderRadius: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  color: T.pri,
+                  fontFamily: FONT.body,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = hoverBg)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <span
-                  className={`inline-block w-4 h-4 rounded border ${
-                    on ? 'border-[#B01D23] bg-[#B01D23]' : 'border-[#DDD4BF] bg-white'
-                  } flex items-center justify-center`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    height: 16,
+                    borderRadius: 3,
+                    border: `1px solid ${on ? '#B01D23' : T.brd}`,
+                    background: on ? '#B01D23' : 'transparent',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    lineHeight: 1,
+                  }}
                 >
-                  {on && <span className="text-white text-[10px] leading-none">✓</span>}
+                  {on ? '✓' : ''}
                 </span>
                 {o.label}
               </button>
             )
           })}
           {selected.length > 0 && (
-            <div className="border-t border-[#E9E1D0] mt-1 pt-1">
+            <div style={{ borderTop: `1px solid ${T.brd}`, marginTop: 4, paddingTop: 4 }}>
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="w-full px-3 py-1.5 text-xs text-[#B01D23] hover:bg-[#FCE0E2] rounded"
+                style={{
+                  width: '100%',
+                  padding: '7px 12px',
+                  fontSize: 11,
+                  color: '#B01D23',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontFamily: FONT.heading,
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = activeBg)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >Limpiar</button>
             </div>
           )}

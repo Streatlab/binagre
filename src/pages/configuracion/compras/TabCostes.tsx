@@ -13,7 +13,7 @@ interface ConfigRow {
 }
 
 export default function TabCostes() {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
   const [row, setRow] = useState<ConfigRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,23 +80,35 @@ export default function TabCostes() {
   const esManual = row.coste_estructura_fuente === 'manual' && row.coste_estructura_override != null
   const valorEfectivo = row.coste_estructura_override ?? parseFloat(row.valor ?? '30') ?? 30
 
+  const tagBg = esManual
+    ? (isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB')
+    : (isDark ? 'rgba(102,160,214,0.22)' : '#E6F1FB')
+  const tagFg = esManual
+    ? (isDark ? '#F09595' : '#A32D2D')
+    : (isDark ? '#89B5DF' : '#0C447C')
+
   return (
     <ConfigGroupCard title="Coste estructura" padded>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ width: 180 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ width: 200 }}>
           <InlineEdit value={valorEfectivo} type="percent" onSubmit={handleOverride} min={0} max={100} step={0.01} />
         </div>
         <span
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '5px 14px',
+            borderRadius: 5,
             fontFamily: FONT.heading,
             fontSize: 11,
-            letterSpacing: '1.5px',
+            letterSpacing: '0.5px',
             textTransform: 'uppercase',
             fontWeight: 600,
-            color: esManual ? '#B01D23' : T.mut,
+            background: tagBg,
+            color: tagFg,
           }}
         >
-          {esManual ? 'Manual *' : 'Calculado desde Running *'}
+          {esManual ? 'Manual' : 'Calculado desde Running'}
         </span>
         {esManual && (
           <button
@@ -114,11 +126,13 @@ export default function TabCostes() {
               cursor: 'pointer',
               padding: 0,
             }}
-          >Volver a valor del Running</button>
+          >Volver al valor del Running</button>
         )}
       </div>
-      <p style={{ marginTop: 14, fontSize: 12, color: T.mut, fontFamily: FONT.body }}>
-        * El valor por defecto se calcula desde una celda del módulo Running. Puedes sobrescribirlo manualmente editando el campo.
+      <p style={{ margin: 0, fontSize: 12, color: T.mut, fontFamily: FONT.body, maxWidth: 560 }}>
+        {esManual
+          ? 'Valor manual sobrescribiendo el cálculo. Pulsa arriba para volver al cálculo del módulo Running.'
+          : 'Se recalcula automáticamente desde el módulo Running. Edita el campo para sobrescribir manualmente.'}
       </p>
     </ConfigGroupCard>
   )

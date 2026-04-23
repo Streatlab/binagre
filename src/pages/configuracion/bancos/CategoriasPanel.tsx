@@ -69,18 +69,19 @@ export default function CategoriasPanel() {
   }
 
   const th: React.CSSProperties = {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontFamily: FONT.heading,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
+    letterSpacing: '1.3px',
     color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    fontWeight: 500,
+    background: T.bg,
+    borderBottom: `1px solid ${T.brd}`,
     textAlign: 'left',
   }
   const td: React.CSSProperties = {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontFamily: FONT.body,
     fontSize: 13,
     color: T.pri,
@@ -104,31 +105,45 @@ export default function CategoriasPanel() {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+            <tr>
               <th style={th}>Nombre</th>
               <th style={{ ...th, textAlign: 'center' }}>Tipo</th>
-              <th style={{ ...th, textAlign: 'right', width: 90 }}>—</th>
+              <th style={{ ...th, textAlign: 'right', width: 90 }}></th>
             </tr>
           </thead>
           <tbody>
             {grupos.flatMap(g => g.items.length === 0 ? [] : [
-              <tr key={`g-${g.label}`} style={{ background: T.bg }}>
-                <td
-                  colSpan={3}
-                  style={{
-                    padding: '8px 14px',
-                    fontFamily: FONT.heading,
-                    fontSize: 10,
-                    letterSpacing: '1.5px',
-                    textTransform: 'uppercase',
-                    color: T.sec,
-                    fontWeight: 600,
-                    borderBottom: `0.5px solid ${T.brd}`,
-                  }}
-                >
-                  {g.label} · {g.items.length}
-                </td>
-              </tr>,
+              (() => {
+                const isIng = g.label === 'Ingresos'
+                const isGas = g.label === 'Gastos'
+                const color = isIng
+                  ? (isDark ? '#5DCAA5' : '#3B6D11')
+                  : isGas
+                    ? (isDark ? '#F09595' : '#A32D2D')
+                    : T.sec
+                return (
+                  <tr
+                    key={`g-${g.label}`}
+                    style={{ background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
+                  >
+                    <td
+                      colSpan={3}
+                      style={{
+                        padding: '10px 16px',
+                        fontFamily: FONT.heading,
+                        fontSize: 11,
+                        letterSpacing: '1.3px',
+                        textTransform: 'uppercase',
+                        color,
+                        fontWeight: 600,
+                        borderBottom: `0.5px solid ${T.brd}`,
+                      }}
+                    >
+                      {g.label} · {g.items.length}
+                    </td>
+                  </tr>
+                )
+              })(),
               ...g.items.map(c => (
                 <tr key={c.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                   <td style={{ ...td, fontWeight: 600 }}>
@@ -139,38 +154,38 @@ export default function CategoriasPanel() {
                       <button
                         onClick={() => togglePin(c, 'es_ingreso')}
                         style={{
-                          padding: '3px 9px',
-                          borderRadius: 4,
+                          padding: '5px 14px',
+                          borderRadius: 6,
                           fontFamily: FONT.heading,
                           fontSize: 10,
-                          letterSpacing: '0.6px',
+                          letterSpacing: '0.5px',
                           textTransform: 'uppercase',
                           fontWeight: 600,
                           cursor: 'pointer',
                           background: c.es_ingreso ? inBg : 'transparent',
                           color: c.es_ingreso ? inColor : T.mut,
-                          border: c.es_ingreso ? `0.5px solid ${inColor}` : `0.5px dashed ${T.brd}`,
+                          border: c.es_ingreso ? 'none' : `1px dashed ${T.brd}`,
                         }}
                       >Ingreso</button>
                       <button
                         onClick={() => togglePin(c, 'es_gasto')}
                         style={{
-                          padding: '3px 9px',
-                          borderRadius: 4,
+                          padding: '5px 14px',
+                          borderRadius: 6,
                           fontFamily: FONT.heading,
                           fontSize: 10,
-                          letterSpacing: '0.6px',
+                          letterSpacing: '0.5px',
                           textTransform: 'uppercase',
                           fontWeight: 600,
                           cursor: 'pointer',
                           background: c.es_gasto ? gaBg : 'transparent',
                           color: c.es_gasto ? gaColor : T.mut,
-                          border: c.es_gasto ? `0.5px solid ${gaColor}` : `0.5px dashed ${T.brd}`,
+                          border: c.es_gasto ? 'none' : `1px dashed ${T.brd}`,
                         }}
                       >Gasto</button>
                     </div>
                   </td>
-                  <td style={{ ...td, textAlign: 'right' }}>
+                  <td style={{ ...td, textAlign: 'right', paddingRight: 20 }}>
                     <button
                       onClick={() => eliminar(c)}
                       style={{

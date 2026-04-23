@@ -130,18 +130,27 @@ export default function TabCanales() {
   const margenNetoMejor = 100 - (comisionNeta[mejorCanal] ?? 0)
 
   const th: React.CSSProperties = {
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontFamily: FONT.heading,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
+    letterSpacing: '1.3px',
     color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    fontWeight: 500,
+    background: T.bg,
+    borderBottom: `1px solid ${T.brd}`,
     textAlign: 'left',
   }
   const thNum: React.CSSProperties = { ...th, textAlign: 'right' }
-  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const td: React.CSSProperties = { padding: '12px 16px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+
+  // Semáforo comisión neta (FIX 1.9)
+  const colorComision = (pct: number): string => {
+    if (!Number.isFinite(pct)) return T.mut
+    if (pct <= 3.5) return isDark ? '#5DCAA5' : '#1D9E75'
+    if (pct <= 4.5) return isDark ? '#F5C36B' : '#BA7517'
+    return isDark ? '#F09595' : '#A32D2D'
+  }
 
   return (
     <>
@@ -163,13 +172,13 @@ export default function TabCanales() {
                 borderBottom: idx < arr.length - 1 ? `0.5px solid ${T.brd}` : 'none',
               }}
             >
-              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>{LABEL[k]}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{LABEL[k]}</span>
               <span
                 style={{
                   fontFamily: FONT.heading,
                   fontSize: 16,
                   fontWeight: 600,
-                  color: colorPlat(k, isDark),
+                  color: colorComision(comisionNeta[k]),
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
@@ -181,12 +190,21 @@ export default function TabCanales() {
 
         <div style={cardStyle(T)}>
           <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Mejor margen plataforma</div>
-          <div style={{ ...kpiValueStyle(T), marginBottom: 4, color: colorPlat(mejorCanal, isDark) }}>
-            {LABEL[mejorCanal]}
+          <div
+            style={{
+              fontFamily: FONT.heading,
+              fontSize: 64,
+              fontWeight: 500,
+              color: T.pri,
+              lineHeight: 1,
+              letterSpacing: '-0.02em',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {fmtPct(margenNetoMejor)}
           </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 10 }}>
-            margen neto real{' '}
-            <strong style={{ color: T.pri, fontVariantNumeric: 'tabular-nums' }}>{fmtPct(margenNetoMejor)}</strong>
+          <div style={{ fontFamily: FONT.body, fontSize: 14, color: colorPlat(mejorCanal, isDark), marginTop: 8, fontWeight: 500 }}>
+            {LABEL[mejorCanal]}
           </div>
         </div>
       </div>
@@ -195,7 +213,7 @@ export default function TabCanales() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+              <tr>
                 <th style={th}>Canal</th>
                 <th style={thNum}>Comisión</th>
                 <th style={thNum}>Coste fijo</th>

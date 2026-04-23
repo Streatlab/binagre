@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Star, Landmark } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
+import { fmtEur } from '@/lib/format'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
+import { StatusTag } from '@/components/configuracion/StatusTag'
 
 interface Cuenta {
   id: string
@@ -10,10 +13,20 @@ interface Cuenta {
   banco: string
   iban: string | null
   swift: string | null
+  saldo_actual: number | null
+  activa: boolean
+  es_principal: boolean
+}
+
+function maskIban(iban: string | null | undefined): string {
+  if (!iban) return '—'
+  const clean = iban.replace(/\s+/g, '')
+  if (clean.length < 6) return clean
+  return '•••• •••• •••• ' + clean.slice(-4)
 }
 
 export default function CuentasPanel() {
-  const { T } = useTheme()
+  const { T, isDark } = useTheme()
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,10 +36,16 @@ export default function CuentasPanel() {
   const [fBanco, setFBanco] = useState('')
   const [fIban, setFIban] = useState('')
   const [fSwift, setFSwift] = useState('')
+  const [fSaldo, setFSaldo] = useState('0')
+  const [fActiva, setFActiva] = useState(true)
+  const [fPrincipal, setFPrincipal] = useState(false)
   const [saving, setSaving] = useState(false)
 
   async function refetch() {
-    const { data, error } = await supabase.from('cuentas_bancarias').select('id, alias, banco, iban, swift').order('alias')
+    const { data, error } = await supabase
+      .from('cuentas_bancarias')
+      .select('id, alias, banco, iban, swift, saldo_actual, activa, es_principal')
+      .order('alias')
     if (error) throw error
     setCuentas((data ?? []) as Cuenta[])
   }
@@ -40,8 +59,17 @@ export default function CuentasPanel() {
   }, [])
 
   function open(c?: Cuenta) {
-    if (c) { setEditing(c); setCreating(false); setFAlias(c.alias); setFBanco(c.banco); setFIban(c.iban ?? ''); setFSwift(c.swift ?? '') }
-    else { setCreating(true); setEditing(null); setFAlias(''); setFBanco(''); setFIban(''); setFSwift('') }
+    if (c) {
+      setEditing(c); setCreating(false)
+      setFAlias(c.alias); setFBanco(c.banco); setFIban(c.iban ?? ''); setFSwift(c.swift ?? '')
+      setFSaldo(String(c.saldo_actual ?? 0))
+      setFActiva(c.activa ?? true)
+      setFPrincipal(c.es_principal ?? false)
+    } else {
+      setCreating(true); setEditing(null)
+      setFAlias(''); setFBanco(''); setFIban(''); setFSwift('')
+      setFSaldo('0'); setFActiva(true); setFPrincipal(false)
+    }
   }
   function close() { setEditing(null); setCreating(false) }
 
@@ -53,6 +81,9 @@ export default function CuentasPanel() {
         banco: fBanco.trim(),
         iban: fIban.trim() || null,
         swift: fSwift.trim() || null,
+        saldo_actual: parseFloat(fSaldo.replace(',', '.')) || 0,
+        activa: fActiva,
+        es_principal: fPrincipal,
       }
       const q = editing
         ? supabase.from('cuentas_bancarias').update(payload).eq('id', editing.id)
@@ -81,15 +112,18 @@ export default function CuentasPanel() {
   const th: React.CSSProperties = {
     padding: '10px 14px',
     fontFamily: FONT.heading,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
+    letterSpacing: '1.3px',
     color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    fontWeight: 500,
+    background: T.bg,
     textAlign: 'left',
+    borderBottom: `1px solid ${T.brd}`,
   }
-  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const thNum: React.CSSProperties = { ...th, textAlign: 'right' }
+  const thCenter: React.CSSProperties = { ...th, textAlign: 'center' }
+  const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
   const mono: React.CSSProperties = { ...td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 }
 
   return (
@@ -98,26 +132,54 @@ export default function CuentasPanel() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+              <tr>
                 <th style={th}>Alias</th>
                 <th style={th}>Banco</th>
                 <th style={th}>IBAN</th>
                 <th style={th}>SWIFT</th>
+                <th style={thNum}>Saldo</th>
+                <th style={th}>Estado</th>
+                <th style={thCenter}>Principal</th>
               </tr>
             </thead>
             <tbody>
               {cuentas.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
-                    Sin cuentas registradas.
+                  <td colSpan={7} style={{ padding: '48px 22px', textAlign: 'center' }}>
+                    <Landmark size={32} color={T.mut} style={{ marginBottom: 12 }} />
+                    <div style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, letterSpacing: '1.3px', textTransform: 'uppercase', marginBottom: 6 }}>
+                      Sin cuentas registradas
+                    </div>
+                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, maxWidth: 400, margin: '0 auto' }}>
+                      Añade tu primera cuenta bancaria para poder conciliar movimientos importados.
+                    </div>
                   </td>
                 </tr>
               ) : cuentas.map(c => (
-                <tr key={c.id} onClick={() => open(c)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                <tr
+                  key={c.id}
+                  onClick={() => open(c)}
+                  style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 0.15s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
                   <td style={{ ...td, fontWeight: 600 }}>{c.alias}</td>
                   <td style={td}>{c.banco}</td>
-                  <td style={mono}>{c.iban ?? '—'}</td>
+                  <td style={mono}>{maskIban(c.iban)}</td>
                   <td style={mono}>{c.swift ?? '—'}</td>
+                  <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                    {c.saldo_actual != null ? fmtEur(c.saldo_actual) : '—'}
+                  </td>
+                  <td style={td}>
+                    <StatusTag variant={c.activa ? 'ok' : 'off'}>{c.activa ? 'Activa' : 'Inactiva'}</StatusTag>
+                  </td>
+                  <td style={{ ...td, textAlign: 'center' }}>
+                    {c.es_principal ? (
+                      <Star size={16} fill="#F5C36B" color="#F5C36B" />
+                    ) : (
+                      <span style={{ color: T.mut }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -162,6 +224,27 @@ export default function CuentasPanel() {
           <Field label="Banco"><input value={fBanco} onChange={(e) => setFBanco(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="IBAN"><input value={fIban} onChange={(e) => setFIban(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="SWIFT"><input value={fSwift} onChange={(e) => setFSwift(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="Saldo actual (€)">
+            <input
+              value={fSaldo}
+              onChange={(e) => setFSaldo(e.target.value)}
+              inputMode="decimal"
+              placeholder="0,00"
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]"
+            />
+          </Field>
+          <Field label="Estado">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={fActiva} onChange={(e) => setFActiva(e.target.checked)} />
+              <span>Cuenta activa</span>
+            </label>
+          </Field>
+          <Field label="Principal">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={fPrincipal} onChange={(e) => setFPrincipal(e.target.checked)} />
+              <span>Marcar como cuenta principal</span>
+            </label>
+          </Field>
         </EditModal>
       )}
     </>

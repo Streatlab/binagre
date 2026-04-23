@@ -34,7 +34,7 @@ function Lista({ titulo, items, onAdd, onDel, onRen, placeholder }: ListaProps) 
 
   return (
     <ConfigGroupCard title={titulo} subtitle={`${items.length}`}>
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', maxHeight: 480, overflowY: 'auto' }}>
         <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
