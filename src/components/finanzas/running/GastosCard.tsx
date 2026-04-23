@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTheme, FONT, kpiValueStyle } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import type { Categoria } from '@/lib/running';
@@ -8,19 +8,12 @@ const VERDE = '#06C167';
 const ROJO  = '#B01D23';
 const AMBAR = '#f5a623';
 
-const STATUS_COLOR: Record<'ok'|'warn'|'bad', string> = {
-  ok:   VERDE,
-  warn: AMBAR,
-  bad:  ROJO,
-};
-
 interface Row {
   categoria: Categoria;
   total: number;
-  pctSobreBruto: number;
+  pctReal: number;
   pctMin: number;
   pctMax: number;
-  status: 'ok'|'warn'|'bad';
 }
 
 interface Props {
@@ -28,10 +21,17 @@ interface Props {
   totalGasto: number;
   totalGastoAnt: number;
   rows: Row[];
-  ratio: number;
+  onUpdateRango?: (cat: Categoria, pctMin: number, pctMax: number) => Promise<void> | void;
 }
 
-export default function GastosCard({ periodoLabel, totalGasto, totalGastoAnt, rows, ratio }: Props) {
+function statusColor(pctReal: number, pctMin: number, pctMax: number): string {
+  if (pctReal >= pctMin && pctReal <= pctMax) return VERDE;
+  const dist = pctReal < pctMin ? pctMin - pctReal : pctReal - pctMax;
+  if (dist <= 5) return AMBAR;
+  return ROJO;
+}
+
+export default function GastosCard({ periodoLabel, totalGasto, totalGastoAnt, rows, onUpdateRango }: Props) {
   const { T } = useTheme();
 
   const deltaPct = totalGastoAnt !== 0 ? ((totalGasto - totalGastoAnt) / totalGastoAnt) * 100 : 0;
@@ -66,22 +66,6 @@ export default function GastosCard({ periodoLabel, totalGasto, totalGastoAnt, ro
         {deltaSym} {Math.abs(Math.round(deltaPct))}% vs periodo anterior
       </div>
 
-      <div style={{
-        marginTop: 12,
-        padding: '8px 12px',
-        background: T.group,
-        borderRadius: 8,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontFamily: FONT.body,
-        fontSize: 12,
-        color: T.pri,
-      }}>
-        <span style={{ color: T.mut }}>Ratio gastos / facturación bruta</span>
-        <span style={{ fontFamily: FONT.heading, fontWeight: 500, letterSpacing: 0.5 }}>{ratio.toFixed(1)}%</span>
-      </div>
-
       <div style={{ height: 1, backgroundColor: T.brd, margin: '14px 0' }} />
 
       {rows.length === 0 ? (
@@ -90,34 +74,121 @@ export default function GastosCard({ periodoLabel, totalGasto, totalGastoAnt, ro
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {rows.map(r => {
-            const colorBarra = STATUS_COLOR[r.status];
-            const fillPct = Math.min(100, (r.pctSobreBruto / Math.max(r.pctMax, 1)) * 100);
-            return (
-              <div key={r.categoria}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: CATEGORIA_COLOR[r.categoria], flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
-                    {CATEGORIA_NOMBRE[r.categoria]}
-                    <span style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginLeft: 6 }}>
-                      objetivo {r.pctMin}-{r.pctMax}%
-                    </span>
-                  </span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 500, minWidth: 86, textAlign: 'right' }}>
-                    {fmtEur(r.total)}
-                  </span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 11, color: colorBarra, fontWeight: 500, minWidth: 50, textAlign: 'right', letterSpacing: 0.5 }}>
-                    {r.pctSobreBruto.toFixed(1)}%
-                  </span>
-                </div>
-                <div style={{ height: 3, background: T.bg, borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${fillPct}%`, background: colorBarra, borderRadius: 2 }} />
-                </div>
-              </div>
-            );
-          })}
+          {rows.map(r => (
+            <CategoriaFila
+              key={r.categoria}
+              row={r}
+              onUpdate={onUpdateRango}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CategoriaFila({ row, onUpdate }: { row: Row; onUpdate?: Props['onUpdateRango'] }) {
+  const { T } = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [min, setMin] = useState(String(row.pctMin));
+  const [max, setMax] = useState(String(row.pctMax));
+  const [flash, setFlash] = useState(false);
+  const saving = useRef(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setMin(String(row.pctMin));
+      setMax(String(row.pctMax));
+    }
+  }, [row.pctMin, row.pctMax, editing]);
+
+  const color = statusColor(row.pctReal, row.pctMin, row.pctMax);
+  const barraMax = Math.max(row.pctMax, row.pctReal, 1);
+  const fillPct = Math.min(100, (row.pctReal / barraMax) * 100);
+  const rangoFillStart = Math.min(100, (row.pctMin / barraMax) * 100);
+  const rangoFillEnd = Math.min(100, (row.pctMax / barraMax) * 100);
+
+  async function commit() {
+    if (saving.current) return;
+    const nMin = parseFloat(min.replace(',', '.'));
+    const nMax = parseFloat(max.replace(',', '.'));
+    if (!Number.isFinite(nMin) || !Number.isFinite(nMax) || nMin < 0 || nMax < nMin) {
+      setMin(String(row.pctMin)); setMax(String(row.pctMax));
+      setEditing(false);
+      return;
+    }
+    if (nMin === row.pctMin && nMax === row.pctMax) { setEditing(false); return; }
+    saving.current = true;
+    try {
+      await onUpdate?.(row.categoria, nMin, nMax);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 250);
+    } finally {
+      saving.current = false;
+      setEditing(false);
+    }
+  }
+
+  const inputStyle: CSSProperties = {
+    width: 34,
+    padding: '1px 4px',
+    border: `1px solid ${T.brd}`,
+    borderRadius: 4,
+    background: T.inp,
+    color: T.pri,
+    fontFamily: FONT.body,
+    fontSize: 10,
+    textAlign: 'center',
+    outline: 'none',
+  };
+
+  return (
+    <div style={{ transition: 'background 250ms', background: flash ? `${VERDE}22` : 'transparent', borderRadius: 6, padding: flash ? '2px 4px' : 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: CATEGORIA_COLOR[row.categoria], flexShrink: 0 }} />
+        <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
+          {CATEGORIA_NOMBRE[row.categoria]}
+          {editing ? (
+            <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, color: T.mut }}>
+              objetivo
+              <input type="number" step="0.5" min="0" value={min} onChange={e => setMin(e.target.value)}
+                onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+                autoFocus style={inputStyle} />
+              <span>-</span>
+              <input type="number" step="0.5" min="0" value={max} onChange={e => setMax(e.target.value)}
+                onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+                style={inputStyle} />
+              <span>%</span>
+            </span>
+          ) : (
+            <span
+              onClick={() => onUpdate && setEditing(true)}
+              title={onUpdate ? 'Click para editar objetivo' : undefined}
+              style={{
+                fontFamily: FONT.body, fontSize: 10, color: T.mut, marginLeft: 6,
+                cursor: onUpdate ? 'pointer' : 'default',
+                textDecoration: onUpdate ? 'underline dotted' : 'none',
+                textUnderlineOffset: 2,
+              }}
+            >
+              objetivo {row.pctMin}-{row.pctMax}%
+            </span>
+          )}
+        </span>
+        <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 500, minWidth: 86, textAlign: 'right' }}>
+          {fmtEur(row.total)}
+        </span>
+        <span style={{ fontFamily: FONT.heading, fontSize: 11, color, fontWeight: 500, minWidth: 50, textAlign: 'right', letterSpacing: 0.5 }}>
+          {row.pctReal.toFixed(1)}%
+        </span>
+      </div>
+      <div style={{ height: 5, background: T.bg, borderRadius: 3, overflow: 'hidden', position: 'relative' }}>
+        <div style={{
+          position: 'absolute', left: `${rangoFillStart}%`, width: `${Math.max(0, rangoFillEnd - rangoFillStart)}%`,
+          height: '100%', background: `${VERDE}33`, borderLeft: `1px dashed ${VERDE}88`, borderRight: `1px dashed ${VERDE}88`,
+        }} />
+        <div style={{ height: '100%', width: `${fillPct}%`, background: color, borderRadius: 3, position: 'relative', zIndex: 1 }} />
+      </div>
     </div>
   );
 }

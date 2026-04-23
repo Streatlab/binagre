@@ -51,27 +51,25 @@ export default function ComparativaMensualCard() {
 
     let cancel = false
     ;(async () => {
-      const aniosUnicos = Array.from(new Set(meses.map(m => m.anio)))
-      const [ing, gas] = await Promise.all([
-        supabase.from('ingresos_mensuales')
-          .select('anio, mes, tipo, importe')
-          .in('anio', aniosUnicos)
-          .eq('tipo', 'bruto'),
+      const [fact, gas] = await Promise.all([
+        supabase.from('facturacion_diario')
+          .select('fecha, total_bruto')
+          .gte('fecha', fmtISO(desde)).lte('fecha', fmtISO(hasta)),
         supabase.from('gastos')
           .select('fecha, importe')
           .gte('fecha', fmtISO(desde)).lte('fecha', fmtISO(hasta)),
       ])
       if (cancel) return
-      if (ing.error || gas.error) {
-        console.error(ing.error ?? gas.error)
+      if (fact.error || gas.error) {
+        console.error(fact.error ?? gas.error)
         setLoading(false); return
       }
 
       const indexMap = new Map(meses.map((m, i) => [m.key, i]))
-      for (const r of (ing.data ?? []) as { anio: number; mes: number; importe: number | string }[]) {
-        const k = `${r.anio}-${String(r.mes).padStart(2, '0')}`
-        const idx = indexMap.get(k)
-        if (idx !== undefined) meses[idx].ingresos += Number(r.importe ?? 0)
+      for (const r of (fact.data ?? []) as { fecha: string; total_bruto: number | string | null }[]) {
+        const k = r.fecha?.slice(0, 7)
+        const idx = k ? indexMap.get(k) : undefined
+        if (idx !== undefined) meses[idx].ingresos += Number(r.total_bruto ?? 0)
       }
       for (const r of (gas.data ?? []) as { fecha: string; importe: number | string }[]) {
         const k = r.fecha?.slice(0, 7)
@@ -108,6 +106,9 @@ export default function ComparativaMensualCard() {
   return (
     <div style={wrap}>
       <div style={labelStyle}>Comparativa · últimos 6 meses</div>
+      <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: -8, marginBottom: 10 }}>
+        Facturación bruta vs gastos reales
+      </div>
 
       {loading ? (
         <div style={{ flex: 1, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>Cargando…</div>

@@ -37,7 +37,7 @@ export default function TopProveedoresCard({ periodoLabel, gastos }: Props) {
       acc.count += 1
       map.set(k, acc)
     }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 5)
+    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 10)
   }, [gastos])
 
   const max = rows[0]?.total ?? 1
@@ -52,31 +52,39 @@ export default function TopProveedoresCard({ periodoLabel, gastos }: Props) {
 
   return (
     <div style={wrap}>
-      <div style={labelStyle}>Top proveedores · {periodoLabel}</div>
+      <div style={labelStyle}>Ranking de gastos · {periodoLabel}</div>
       {rows.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
           Sin gastos en este periodo
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {rows.map(r => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map((r, i) => {
             const pct = max > 0 ? (r.total / max) * 100 : 0
             return (
-              <div key={r.nombre}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                    {r.nombre}
-                  </span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, fontWeight: 500, letterSpacing: 0.3 }}>
-                    {fmtEur(r.total)}
-                  </span>
+              <div key={r.nombre} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 10, alignItems: 'center' }}>
+                <span style={{
+                  fontFamily: FONT.heading, fontSize: 11, color: T.mut,
+                  fontWeight: 600, textAlign: 'right', letterSpacing: 0.3,
+                }}>
+                  #{i + 1}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.pri, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.nombre}
+                    </span>
+                    <span style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, flexShrink: 0 }}>
+                      {r.count} {r.count === 1 ? 'compra' : 'compras'}
+                    </span>
+                  </div>
+                  <div style={{ height: 3, background: T.bg, borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: '#E8440A', borderRadius: 2 }} />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 4 }}>
-                  <span>{r.count} {r.count === 1 ? 'compra' : 'compras'}</span>
-                </div>
-                <div style={{ height: 3, background: T.bg, borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: '#E8440A', borderRadius: 2 }} />
-                </div>
+                <span style={{ fontFamily: FONT.heading, fontSize: 12.5, color: T.pri, fontWeight: 500, letterSpacing: 0.3, minWidth: 62, textAlign: 'right' }}>
+                  {fmtEur(r.total)}
+                </span>
               </div>
             )
           })}

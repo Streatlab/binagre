@@ -5,8 +5,8 @@ import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
 import {
-  CATEGORIAS_ORDEN, CATEGORIA_COLOR, statusRango, MESES_CORTO,
-  type PeriodoRango,
+  CATEGORIAS_ORDEN, CATEGORIA_COLOR, MESES_CORTO,
+  type Categoria, type PeriodoRango,
 } from '@/lib/running';
 
 import KpiCardConSparkline from '@/components/finanzas/running/KpiCardConSparkline';
@@ -24,7 +24,16 @@ import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMen
 
 const VERDE = '#06C167';
 const ROJO  = '#B01D23';
+const AMBAR = '#f5a623';
 const NARANJA = '#E8440A';
+
+const CANAL_LABEL: { key: 'uber_bruto'|'glovo_bruto'|'je_bruto'|'web_bruto'|'directa_bruto'; label: string }[] = [
+  { key: 'uber_bruto',    label: 'Uber Eats' },
+  { key: 'glovo_bruto',   label: 'Glovo' },
+  { key: 'je_bruto',      label: 'Just Eat' },
+  { key: 'web_bruto',     label: 'Web' },
+  { key: 'directa_bruto', label: 'Directa' },
+];
 
 function calcularPeriodo(key: PeriodoKey, customDesde?: string, customHasta?: string): PeriodoRango {
   const hoy = new Date();
@@ -55,17 +64,19 @@ function calcularPeriodo(key: PeriodoKey, customDesde?: string, customHasta?: st
     const hasta = new Date(customHasta + 'T23:59:59');
     return { desde, hasta, key, label: `${fmt(desde)} – ${fmt(hasta)} ${hasta.getFullYear()}` };
   }
-  // 'mes' y 'personalizado' sin rango → mes actual
   const desde = new Date(y, m, 1);
   const hasta = new Date(y, m + 1, 0);
   return { desde, hasta, key, label: `${fmt(desde)} – ${fmt(hasta)} ${y}` };
 }
 
 function calcularEstadoRatio(pct: number): { label: string; color: string } {
-  if (pct >= 90) return { label: 'Crítico',    color: ROJO };
-  if (pct >= 75) return { label: 'Al límite',  color: '#f5a623' };
-  return                { label: 'Saludable', color: VERDE };
+  if (pct > 100) return { label: 'Crítico',    color: ROJO };
+  if (pct >= 90) return { label: 'Al límite',  color: NARANJA };
+  if (pct >= 70) return { label: 'Atención',   color: AMBAR };
+  return              { label: 'Saludable',    color: VERDE };
 }
+
+interface MarcaOption { id: string; nombre: string }
 
 export default function Running() {
   const { T } = useTheme();
@@ -80,9 +91,26 @@ export default function Running() {
   const [modalOpen, setModalOpen] = useState(false);
   const aniosDisponibles = useAniosDisponibles();
 
-  const { loading, error, gastos, gastosAnt, ingresosMes, rangos, reload } = useRunning(periodo, anio);
+  /* — Marcas activas para filtro — */
+  const [marcasOpts, setMarcasOpts] = useState<MarcaOption[]>([]);
+  const [marcaSel, setMarcaSel] = useState<string>(''); // '' = todas
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase.from('marcas').select('id, nombre, activa, estado').order('nombre');
+      if (cancel) return;
+      const activas = (data ?? []).filter((m: any) => m.activa !== false && m.estado !== 'pausada');
+      setMarcasOpts(activas.map((m: any) => ({ id: m.id, nombre: m.nombre })));
+    })();
+    return () => { cancel = true };
+  }, []);
+  const marcaSelNombre = marcaSel ? (marcasOpts.find(m => m.id === marcaSel)?.nombre ?? null) : null;
 
-  /* — Meses dentro del periodo (para agregar ingresos mensuales) — */
+  const { loading, error, gastos, gastosAnt, ingresosMes, facturacion, facturacionAnt, rangos, reload } = useRunning(
+    periodo, anio, marcaSel || null, marcaSelNombre,
+  );
+
+  /* — Meses del periodo — */
   const mesesDelPeriodo = useMemo(() => {
     const set = new Set<number>();
     const cur = new Date(periodo.desde);
@@ -93,76 +121,13 @@ export default function Running() {
     return Array.from(set);
   }, [periodo, anio]);
 
-  /* — Agregado ingresos por canal en el periodo — */
-  const ingresosPeriodo = useMemo(() => {
-    const byCanal: Record<string, { bruto: number; neto: number }> = {};
-    ingresosMes.forEach(r => {
-      if (!mesesDelPeriodo.includes(r.mes)) return;
-      byCanal[r.canal] = byCanal[r.canal] || { bruto: 0, neto: 0 };
-      byCanal[r.canal][r.tipo] += r.importe;
-    });
-    return byCanal;
+  /* — Ingresos netos desde ingresos_mensuales — */
+  const totalNeto = useMemo(() => {
+    return ingresosMes
+      .filter(r => r.tipo === 'neto' && mesesDelPeriodo.includes(r.mes))
+      .reduce((a, r) => a + r.importe, 0);
   }, [ingresosMes, mesesDelPeriodo]);
 
-  const totalBruto = Object.values(ingresosPeriodo).reduce((a, r) => a + r.bruto, 0);
-  const totalNeto  = Object.values(ingresosPeriodo).reduce((a, r) => a + r.neto, 0);
-
-  const rowsIngresosBruto = Object.entries(ingresosPeriodo).map(([canal, v]) => ({
-    canal, importe: v.bruto,
-  }));
-  const rowsIngresosNeto = Object.entries(ingresosPeriodo).map(([canal, v]) => ({
-    canal, importe: v.neto,
-  }));
-  const hayBruto = totalBruto > 0;
-
-  /* — Periodo anterior: aproximamos bruto/neto (ingresos mensuales del año) — */
-  const totalBrutoAnt = useMemo(() => {
-    const ms = periodo.hasta.getTime() - periodo.desde.getTime();
-    const hastaAnt = new Date(periodo.desde); hastaAnt.setDate(hastaAnt.getDate() - 1);
-    const desdeAnt = new Date(hastaAnt.getTime() - ms);
-    const set = new Set<number>();
-    const cur = new Date(desdeAnt);
-    while (cur <= hastaAnt) {
-      if (cur.getFullYear() === anio) set.add(cur.getMonth() + 1);
-      cur.setDate(cur.getDate() + 1);
-    }
-    return ingresosMes
-      .filter(r => r.tipo === 'bruto' && set.has(r.mes))
-      .reduce((a, r) => a + r.importe, 0);
-  }, [periodo, ingresosMes, anio]);
-
-  /* — Total gastos periodo y anterior — */
-  const totalGasto    = gastos.reduce((a, g) => a + g.importe, 0);
-  const totalGastoAnt = gastosAnt.reduce((a, g) => a + g.importe, 0);
-
-  /* — Filas gastos por categoría — */
-  const rangoMap = useMemo(() => {
-    const m: Record<string, { min: number; max: number }> = {};
-    rangos.forEach(r => { m[r.categoria] = { min: r.pct_min, max: r.pct_max }; });
-    return m;
-  }, [rangos]);
-
-  const rowsGastos = useMemo(() => {
-    return CATEGORIAS_ORDEN.map(cat => {
-      const total = gastos.filter(g => g.categoria === cat).reduce((a, g) => a + g.importe, 0);
-      const pct = totalBruto ? (total / totalBruto) * 100 : 0;
-      const rango = rangoMap[cat] || { min: 0, max: 999 };
-      return {
-        categoria: cat,
-        total,
-        pctSobreBruto: pct,
-        pctMin: rango.min,
-        pctMax: rango.max,
-        status: statusRango(pct, rango.min, rango.max),
-      };
-    }).filter(r => r.total > 0);
-  }, [gastos, totalBruto, rangoMap]);
-
-  /* — Resultado y ratio — */
-  const resultado = totalNeto - totalGasto;
-  const ratio     = totalBruto ? (totalGasto / totalBruto) * 100 : 0;
-
-  /* — Resultado anterior (estimado) — */
   const totalNetoAnt = useMemo(() => {
     const ms = periodo.hasta.getTime() - periodo.desde.getTime();
     const hastaAnt = new Date(periodo.desde); hastaAnt.setDate(hastaAnt.getDate() - 1);
@@ -177,83 +142,152 @@ export default function Running() {
       .filter(r => r.tipo === 'neto' && set.has(r.mes))
       .reduce((a, r) => a + r.importe, 0);
   }, [periodo, ingresosMes, anio]);
+
+  const rowsIngresosNeto = useMemo(() => {
+    const byCanal = new Map<string, number>();
+    for (const r of ingresosMes) {
+      if (r.tipo !== 'neto' || !mesesDelPeriodo.includes(r.mes)) continue;
+      byCanal.set(r.canal, (byCanal.get(r.canal) ?? 0) + Number(r.importe || 0));
+    }
+    return Array.from(byCanal.entries()).map(([canal, importe]) => ({ canal, importe }));
+  }, [ingresosMes, mesesDelPeriodo]);
+
+  /* — Facturación bruta desde facturacion_diario (REAL) — */
+  const totalBruto = useMemo(
+    () => facturacion.reduce((a, f) => a + Number(f.total_bruto || 0), 0),
+    [facturacion],
+  );
+  const totalBrutoAnt = useMemo(
+    () => facturacionAnt.reduce((a, f) => a + Number(f.total_bruto || 0), 0),
+    [facturacionAnt],
+  );
+  const rowsIngresosBruto = useMemo(() => {
+    return CANAL_LABEL.map(c => ({
+      canal: c.label,
+      importe: facturacion.reduce((a, f) => a + Number((f as any)[c.key] || 0), 0),
+    }));
+  }, [facturacion]);
+  const hayBruto = totalBruto > 0;
+
+  /* — Total gastos periodo y anterior — */
+  const totalGasto    = gastos.reduce((a, g) => a + g.importe, 0);
+  const totalGastoAnt = gastosAnt.reduce((a, g) => a + g.importe, 0);
+
+  /* — Rangos por categoría — */
+  const rangoMap = useMemo(() => {
+    const m: Record<string, { min: number; max: number }> = {};
+    rangos.forEach(r => { m[r.categoria] = { min: r.pct_min, max: r.pct_max }; });
+    return m;
+  }, [rangos]);
+
+  /* — Filas gastos (pctReal = sobre ingresos netos) — */
+  const rowsGastos = useMemo(() => {
+    const denominador = totalNeto > 0 ? totalNeto : totalBruto;
+    return CATEGORIAS_ORDEN.map(cat => {
+      const total = gastos.filter(g => g.categoria === cat).reduce((a, g) => a + g.importe, 0);
+      const pctReal = denominador > 0 ? (total / denominador) * 100 : 0;
+      const rango = rangoMap[cat] || { min: 0, max: 999 };
+      return {
+        categoria: cat,
+        total,
+        pctReal,
+        pctMin: rango.min,
+        pctMax: rango.max,
+      };
+    }).filter(r => r.total > 0);
+  }, [gastos, totalNeto, totalBruto, rangoMap]);
+
+  async function handleUpdateRango(cat: Categoria, pctMin: number, pctMax: number) {
+    const { error } = await supabase.from('categorias_rango')
+      .upsert({ categoria: cat, pct_min: pctMin, pct_max: pctMax }, { onConflict: 'categoria' });
+    if (error) { console.error(error); return; }
+    reload();
+  }
+
+  /* — Resultado y ratio — */
+  const resultado    = totalNeto - totalGasto;
   const resultadoAnt = totalNetoAnt - totalGastoAnt;
+  const ratio = totalNeto > 0 ? (totalGasto / totalNeto) * 100 : 0;
+  const estadoRatio = calcularEstadoRatio(ratio);
+  const semaforoPos = Math.min(100, Math.max(0, ratio));
 
-  /* — Ventas por marca (Card MarcasCard) — */
+  /* — Ventas por marca (derivado de facturacion del hook) — */
   interface MarcaRow { marca: string; bruto: number; pedidos: number; tm: number; deltaPct: number | null }
-  const [marcasRows, setMarcasRows] = useState<MarcaRow[]>([])
+  const [marcaIdToNombre, setMarcaIdToNombre] = useState<Record<string, string>>({});
   useEffect(() => {
-    let cancel = false
-    ;(async () => {
-      const ms = periodo.hasta.getTime() - periodo.desde.getTime()
-      const hastaAnt = new Date(periodo.desde); hastaAnt.setDate(hastaAnt.getDate() - 1)
-      const desdeAnt = new Date(hastaAnt.getTime() - ms)
-      const fmtISO = (d: Date) => {
-        const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0')
-        return `${y}-${m}-${day}`
-      }
-      const [act, ant] = await Promise.all([
-        supabase.from('facturacion_diario')
-          .select('marca_id, total_pedidos, total_bruto, marcas(nombre)')
-          .gte('fecha', fmtISO(periodo.desde)).lte('fecha', fmtISO(periodo.hasta)),
-        supabase.from('facturacion_diario')
-          .select('marca_id, total_bruto')
-          .gte('fecha', fmtISO(desdeAnt)).lte('fecha', fmtISO(hastaAnt)),
-      ])
-      if (cancel) return
-      if (act.error || ant.error) { console.error(act.error ?? ant.error); return }
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase.from('marcas').select('id, nombre');
+      if (cancel) return;
+      const m: Record<string, string> = {};
+      for (const r of (data ?? []) as { id: string; nombre: string }[]) m[r.id] = r.nombre;
+      setMarcaIdToNombre(m);
+    })();
+    return () => { cancel = true };
+  }, []);
 
-      type Row = { marca_id: string | null; total_pedidos: number | null; total_bruto: number | string | null; marcas: { nombre: string } | { nombre: string }[] | null }
-      const porMarca = new Map<string, { nombre: string; bruto: number; pedidos: number }>()
-      for (const r of (act.data ?? []) as unknown as Row[]) {
-        if (!r.marca_id) continue
-        const m = Array.isArray(r.marcas) ? r.marcas[0] : r.marcas
-        const nombre = m?.nombre ?? '(sin marca)'
-        const acc = porMarca.get(r.marca_id) ?? { nombre, bruto: 0, pedidos: 0 }
-        acc.bruto += Number(r.total_bruto ?? 0)
-        acc.pedidos += Number(r.total_pedidos ?? 0)
-        porMarca.set(r.marca_id, acc)
-      }
-      const porMarcaAnt = new Map<string, number>()
-      for (const r of (ant.data ?? []) as unknown as Row[]) {
-        if (!r.marca_id) continue
-        porMarcaAnt.set(r.marca_id, (porMarcaAnt.get(r.marca_id) ?? 0) + Number(r.total_bruto ?? 0))
-      }
-      const rows: MarcaRow[] = Array.from(porMarca.entries()).map(([id, v]) => {
-        const brutoAnt = porMarcaAnt.get(id) ?? 0
-        const deltaPct = brutoAnt > 0 ? ((v.bruto - brutoAnt) / brutoAnt) * 100 : null
+  const marcasRows: MarcaRow[] = useMemo(() => {
+    const porMarca = new Map<string, { bruto: number; pedidos: number }>();
+    for (const r of facturacion) {
+      if (!r.marca_id) continue;
+      const acc = porMarca.get(r.marca_id) ?? { bruto: 0, pedidos: 0 };
+      acc.bruto += Number(r.total_bruto || 0);
+      acc.pedidos += Number(r.total_pedidos || 0);
+      porMarca.set(r.marca_id, acc);
+    }
+    const porMarcaAnt = new Map<string, number>();
+    for (const r of facturacionAnt) {
+      if (!r.marca_id) continue;
+      porMarcaAnt.set(r.marca_id, (porMarcaAnt.get(r.marca_id) ?? 0) + Number(r.total_bruto || 0));
+    }
+    return Array.from(porMarca.entries())
+      .map(([id, v]) => {
+        const brutoAnt = porMarcaAnt.get(id) ?? 0;
+        const deltaPct = brutoAnt > 0 ? ((v.bruto - brutoAnt) / brutoAnt) * 100 : null;
         return {
-          marca: v.nombre,
+          marca: marcaIdToNombre[id] ?? '(sin nombre)',
           bruto: v.bruto,
           pedidos: v.pedidos,
           tm: v.pedidos > 0 ? v.bruto / v.pedidos : 0,
           deltaPct,
-        }
-      }).sort((a, b) => b.bruto - a.bruto)
-      setMarcasRows(rows)
-    })()
-    return () => { cancel = true }
-  }, [periodo.desde.getTime(), periodo.hasta.getTime()])
+        };
+      })
+      .sort((a, b) => b.bruto - a.bruto);
+  }, [facturacion, facturacionAnt, marcaIdToNombre]);
 
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
 
-  /* — Sparkline facturación bruta: últimos 6 meses — */
-  const sparkBruto = useMemo(() => {
-    const hoy = new Date();
-    const out: { m: string; v: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const ref = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-      if (ref.getFullYear() !== anio) { out.push({ m: MESES_CORTO[ref.getMonth()], v: 0 }); continue; }
-      const v = ingresosMes
-        .filter(r => r.tipo === 'bruto' && r.mes === ref.getMonth() + 1)
-        .reduce((a, r) => a + r.importe, 0);
-      out.push({ m: MESES_CORTO[ref.getMonth()], v });
-    }
-    return out;
-  }, [ingresosMes, anio]);
+  /* — Sparkline facturación bruta desde facturacion_diario (últimos 6 meses) — */
+  const [sparkBrutoData, setSparkBrutoData] = useState<{ m: string; v: number }[]>([]);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const hoy = new Date();
+      const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
+      const hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+      const fmtISO = (d: Date) => {
+        const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      };
+      let q = supabase.from('facturacion_diario').select('fecha, total_bruto, marca_id')
+        .gte('fecha', fmtISO(desde)).lte('fecha', fmtISO(hasta));
+      if (marcaSel) q = q.eq('marca_id', marcaSel);
+      const { data } = await q;
+      if (cancel) return;
+      const out: { m: string; v: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const ref = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+        const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
+        const v = (data ?? []).filter((r: any) => (r.fecha || '').startsWith(key))
+          .reduce((a, r: any) => a + Number(r.total_bruto || 0), 0);
+        out.push({ m: MESES_CORTO[ref.getMonth()], v });
+      }
+      setSparkBrutoData(out);
+    })();
+    return () => { cancel = true };
+  }, [marcaSel]);
 
-  /* — Sparkline ingresos netos: últimos 6 meses — */
   const sparkNeto = useMemo(() => {
     const hoy = new Date();
     const out: { m: string; v: number }[] = [];
@@ -268,7 +302,6 @@ export default function Running() {
     return out;
   }, [ingresosMes, anio]);
 
-  /* — Mini-barras gastos por categoría (periodo) — */
   const barrasGastos = useMemo(() => {
     return CATEGORIAS_ORDEN.map(cat => ({
       cat,
@@ -277,10 +310,6 @@ export default function Running() {
     }));
   }, [gastos, T.mut]);
 
-  const estadoRatio = calcularEstadoRatio(ratio);
-  const semaforoPos = Math.min(100, Math.max(0, (ratio / 100) * 100));
-
-  /* — Mini-charts inline — */
   const SparkLine = ({ data, color }: { data: { v: number }[]; color: string }) => (
     <ResponsiveContainer width="100%" height={36}>
       <LineChart data={data}>
@@ -304,12 +333,12 @@ export default function Running() {
       <div style={{
         position: 'relative',
         height: 8,
-        background: 'linear-gradient(to right, #C0DD97 0%, #C0DD97 50%, #FAC775 50%, #FAC775 75%, #F09595 75%, #F09595 100%)',
+        background: `linear-gradient(to right, ${VERDE} 0%, ${VERDE} 70%, ${AMBAR} 70%, ${AMBAR} 90%, ${NARANJA} 90%, ${NARANJA} 100%, ${ROJO} 100%)`,
         borderRadius: 4,
       }}>
         <div style={{
           position: 'absolute',
-          left: `${semaforoPos}%`,
+          left: `${Math.min(100, semaforoPos)}%`,
           top: -4,
           width: 3,
           height: 16,
@@ -339,6 +368,18 @@ export default function Running() {
     padding: '24px 28px',
   };
 
+  const selectBase: CSSProperties = {
+    padding: '8px 14px',
+    border: `1px solid ${T.brd}`,
+    borderRadius: 8,
+    backgroundColor: T.card,
+    color: T.pri,
+    fontFamily: FONT.body,
+    fontSize: 13,
+    cursor: 'pointer',
+    outline: 'none',
+  };
+
   return (
     <div style={wrapPage}>
       {/* HEADER */}
@@ -351,6 +392,15 @@ export default function Running() {
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{periodo.label}</span>
+          <select
+            value={marcaSel}
+            onChange={e => setMarcaSel(e.target.value)}
+            style={selectBase}
+            title="Filtrar por marca"
+          >
+            <option value="">Todas las marcas</option>
+            {marcasOpts.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+          </select>
           <SelectorPeriodoDropdown
             value={periodoKey}
             onChange={setPeriodoKey}
@@ -390,7 +440,7 @@ export default function Running() {
             label="Facturación bruta"
             value={fmtEur(totalBruto)}
             delta={{ value: dPct(totalBruto, totalBrutoAnt), sign: sgn(dPct(totalBruto, totalBrutoAnt)), favorable: 'up' }}
-            chart={<SparkLine data={sparkBruto} color={ROJO} />}
+            chart={<SparkLine data={sparkBrutoData} color={ROJO} />}
           />
         )}
         <KpiCardConSparkline
@@ -415,7 +465,7 @@ export default function Running() {
           chart={<SparkLine data={sparkNeto} color={resultado >= 0 ? VERDE : ROJO} />}
         />
         <KpiCardConSparkline
-          label="Ratio gastos / facturación"
+          label="Ratio gastos / netos"
           value={`${ratio.toFixed(1)}%`}
           valueColor={estadoRatio.color}
           legend={estadoRatio.label}
@@ -423,7 +473,7 @@ export default function Running() {
         />
       </div>
 
-      {/* INGRESOS (donut) + GASTOS (lista) */}
+      {/* INGRESOS + GASTOS */}
       <div
         style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32, alignItems: 'stretch' }}
         className="rf-big-row"
@@ -442,7 +492,7 @@ export default function Running() {
           totalGasto={totalGasto}
           totalGastoAnt={totalGastoAnt}
           rows={rowsGastos}
-          ratio={ratio}
+          onUpdateRango={handleUpdateRango}
         />
       </div>
 

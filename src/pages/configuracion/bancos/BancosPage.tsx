@@ -5,13 +5,15 @@ import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import CategoriasPanel from './CategoriasPanel'
 import ReglasPanel from './ReglasPanel'
 import CuentasPanel from './CuentasPanel'
+import PresupuestosPanel from './PresupuestosPanel'
 
-type Sub = 'categorias' | 'reglas' | 'cuentas'
+type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos'
 
 const PILLS: { id: Sub; label: string }[] = [
-  { id: 'categorias', label: 'Categorías de conciliación' },
-  { id: 'reglas',     label: 'Reglas automáticas' },
-  { id: 'cuentas',    label: 'Cuentas bancarias' },
+  { id: 'categorias',   label: 'Categorías de conciliación' },
+  { id: 'reglas',       label: 'Reglas automáticas' },
+  { id: 'cuentas',      label: 'Cuentas bancarias' },
+  { id: 'presupuestos', label: 'Presupuestos mensuales' },
 ]
 
 export default function BancosPage() {
@@ -49,6 +51,7 @@ export default function BancosPage() {
       {sub === 'categorias' && <CategoriasPanel />}
       {sub === 'reglas' && <ReglasPanel />}
       {sub === 'cuentas' && <CuentasPanel />}
+      {sub === 'presupuestos' && <PresupuestosPanel />}
     </ConfigShell>
   )
 }
