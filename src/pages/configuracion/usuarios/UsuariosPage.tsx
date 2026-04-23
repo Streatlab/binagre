@@ -39,7 +39,7 @@ export default function UsuariosPage() {
   const [fNombre, setFNombre] = useState('')
   const [fRol, setFRol] = useState<Rol>('cocina')
   const [fPin, setFPin] = useState('')
-  const [fColor, setFColor] = useState('#22B573')
+  const [fColor, setFColor] = useState('#06C167')
   const [saving, setSaving] = useState(false)
 
   async function refetch() {
@@ -64,10 +64,10 @@ export default function UsuariosPage() {
   function open(u?: Usuario) {
     if (u) {
       setEditing(u); setCreating(false)
-      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#22B573')
+      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#06C167')
     } else {
       setCreating(true); setEditing(null)
-      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#22B573')
+      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#06C167')
     }
   }
   function close() { setEditing(null); setCreating(false) }
@@ -109,8 +109,8 @@ export default function UsuariosPage() {
     await refetch()
   }
 
-  if (loading) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 text-[#9E9588]">Cargando...</div></ConfigShell>
-  if (error) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div></ConfigShell>
+  if (loading) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div></ConfigShell>
+  if (error) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div></ConfigShell>
 
   const modulos = Array.from(new Set(permisos.map(p => p.modulo)))
     .map(m => ({ m, o: permisos.find(p => p.modulo === m)?.orden ?? 999 }))
@@ -125,53 +125,53 @@ export default function UsuariosPage() {
 
       <div className="grid grid-cols-2 gap-3.5">
         <BigCard title="Usuarios y roles">
-          <table className="w-full border-collapse text-[13.5px] mb-4">
+          <table className="sl-cfg-table">
             <thead>
               <tr>
-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Usuario</th>
-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Rol</th>
-                {esAdmin && <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">PIN</th>}
-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Última conexión</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                {esAdmin && <th>PIN</th>}
+                <th>Última conexión</th>
               </tr>
             </thead>
             <tbody>
               {usuarios.map(u => (
-                <tr key={u.id} onClick={() => open(u)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
-                  <td className="py-3.5 px-3.5">
+                <tr key={u.id} onClick={() => open(u)} className="row-click">
+                  <td>
                     <Avatar letter={u.nombre.charAt(0).toUpperCase()} color={u.avatar_color ?? '#B01D23'} />
                     <strong>{u.nombre}</strong>
                   </td>
-                  <td className="py-3.5 px-3.5"><RolPill rol={u.rol} /></td>
-                  {esAdmin && <td className="py-3.5 px-3.5 font-mono">{u.pin ?? '—'}</td>}
-                  <td className="py-3.5 px-3.5">{fmtFechaMadrid(u.ultima_conexion)}</td>
+                  <td><RolPill rol={u.rol} /></td>
+                  {esAdmin && <td style={{ fontFamily: "ui-monospace,monospace" }}>{u.pin ?? '—'}</td>}
+                  <td>{fmtFechaMadrid(u.ultima_conexion)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo usuario</button>
+          <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo usuario</button>
         </BigCard>
 
         <BigCard title="Matriz de permisos por rol">
-          <table className="w-full border-collapse text-[13.5px]">
+          <table className="sl-cfg-table">
             <thead>
               <tr>
-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Módulo</th>
+                <th>Módulo</th>
                 {ROLES.map(r => (
-                  <th key={r.value} className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-center">{r.label}</th>
+                  <th key={r.value} className="py-3.5 px-3.5 border-b border-[var(--sl-border)] text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium text-center">{r.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {modulos.map(mod => (
-                <tr key={mod} className="border-b border-[#F0E8D5]">
-                  <td className="py-3.5 px-3.5">{mod}</td>
+                <tr key={mod}>
+                  <td>{mod}</td>
                   {ROLES.map(r => {
                     const p = permisos.find(x => x.rol === r.value && x.modulo === mod)
                     const on = p?.permitido ?? false
                     return (
                       <td key={r.value} className="py-3.5 px-3.5 text-center">
                         <button onClick={() => togglePermiso(r.value, mod)}
-                          className={`w-6 h-6 rounded-md font-bold text-sm transition ${on ? 'bg-[#22B573] text-white hover:bg-[#1a9259]' : 'bg-[#F0E8D5] text-[#9E9588] hover:bg-[#E9E1D0]'}`}>
+                          className={`w-6 h-6 rounded-md font-bold text-sm transition ${on ? 'bg-[var(--sl-uber)] text-white hover:bg-[var(--sl-uber-text)]' : 'bg-[var(--sl-border)] text-[var(--sl-text-muted)] hover:bg-[var(--sl-border)]'}`}>
                           {on ? '✓' : '—'}
                         </button>
                       </td>
@@ -191,14 +191,14 @@ export default function UsuariosPage() {
           onDelete={editing ? handleDelete : undefined}
           saving={saving} canSave={!!fNombre.trim()}
         >
-          <Field label="Nombre"><input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
+          <Field label="Nombre"><input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="Rol">
-            <select value={fRol} onChange={(e) => setFRol(e.target.value as Rol)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
+            <select value={fRol} onChange={(e) => setFRol(e.target.value as Rol)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </Field>
-          <Field label="PIN"><input value={fPin} onChange={(e) => setFPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
-          <Field label="Color avatar"><input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} className="w-full h-10 border border-[#E9E1D0] rounded-lg" /></Field>
+          <Field label="PIN"><input value={fPin} onChange={(e) => setFPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="Color avatar"><input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} className="w-full h-10 border border-[var(--sl-border)] rounded-lg" /></Field>
         </EditModal>
       )}
     </ConfigShell>
@@ -206,9 +206,9 @@ export default function UsuariosPage() {
 }
 
 function RolPill({ rol }: { rol: string | null }) {
-  if (!rol) return <span className="text-[#9E9588]">—</span>
+  if (!rol) return <span className="text-[var(--sl-text-muted)]">—</span>
   const label = rol.charAt(0).toUpperCase() + rol.slice(1)
-  const cls = rol === 'admin' ? 'bg-[#B01D23] text-white' : rol === 'gestor' ? 'bg-[#6AA0D6] text-white' : 'bg-[#DCCF2A] text-[#5c550d]'
+  const cls = rol === 'admin' ? 'bg-[var(--sl-btn-save-bg)] text-white' : rol === 'gestor' ? 'bg-[var(--sl-direct)] text-white' : 'bg-[var(--sl-glovo-dot)] text-[var(--sl-glovo-text)]'
   return <span className={`inline-flex px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase ${cls}`}>{label}</span>
 }
 

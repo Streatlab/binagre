@@ -84,8 +84,8 @@ export default function ReglasPanel() {
     await refetch(); close()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   const catNombre = (id: string) => cats.find(c => c.id === id)?.nombre ?? '—'
   const catsFiltradas = cats.filter(c => fAsigna === 'ingreso' ? c.es_ingreso : c.es_gasto)
@@ -93,34 +93,34 @@ export default function ReglasPanel() {
   return (
     <>
       <BigCard title="Reglas de asignación automática" count={`${reglas.length} reglas`}>
-        <div className="mb-4 p-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg text-[12.5px] text-[#6E6656]">
-          <strong className="text-[#1A1A1A]">Cómo usar patrones:</strong>
+        <div className="mb-4 p-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg text-[12.5px] text-[var(--sl-text-secondary)]">
+          <strong className="text-[var(--sl-text-primary)]">Cómo usar patrones:</strong>
           <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">*uber*</code> — contiene "uber"</li>
-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">glov*</code> — empieza por "glov"</li>
-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">*eats</code> — termina en "eats"</li>
-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">factura?.pdf</code> — <code>?</code> = un carácter</li>
+            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">*uber*</code> — contiene "uber"</li>
+            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">glov*</code> — empieza por "glov"</li>
+            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">*eats</code> — termina en "eats"</li>
+            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">factura?.pdf</code> — <code>?</code> = un carácter</li>
           </ul>
         </div>
-        <table className="w-full border-collapse text-[13.5px] mb-3">
+        <table className="sl-cfg-table">
           <thead>
             <tr>
-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Si concepto contiene</th>
-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Asigna como</th>
-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Categoría</th>
+              <th>Si concepto contiene</th>
+              <th>Asigna como</th>
+              <th>Categoría</th>
             </tr>
           </thead>
           <tbody>
             {reglas.map(r => (
-              <tr key={r.id} onClick={() => open(r)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
-                <td className="py-3 px-3 font-mono text-[12.5px]">{r.patron}</td>
-                <td className="py-3 px-3 capitalize">{r.asigna_como}</td>
-                <td className="py-3 px-3">{catNombre(r.categoria_id)}</td>
+              <tr key={r.id} onClick={() => open(r)} className="row-click">
+                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{r.patron}</td>
+                <td style={{ textTransform: "capitalize" }}>{r.asigna_como}</td>
+                <td>{catNombre(r.categoria_id)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva regla</button>
+        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva regla</button>
       </BigCard>
 
       {(editing || creating) && (
@@ -132,7 +132,7 @@ export default function ReglasPanel() {
         >
           <Field label="Patrón (wildcards * y ?)">
             <input value={fPatron} onChange={(e) => setFPatron(e.target.value)} placeholder="*uber*" autoFocus
-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" />
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" />
           </Field>
           <Field label="Asignar como">
             <div className="flex gap-3">
@@ -146,7 +146,7 @@ export default function ReglasPanel() {
           </Field>
           <Field label="Categoría">
             <select value={fCat} onChange={(e) => setFCat(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
               <option value="">—</option>
               {catsFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>

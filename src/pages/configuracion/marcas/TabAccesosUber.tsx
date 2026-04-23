@@ -42,28 +42,28 @@ export default function TabAccesosUber() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <BigCard title="Accesos Uber" count={`${marcas.length} marcas`}>
-      <table className="w-full border-collapse text-[13.5px]">
+      <table className="sl-cfg-table">
         <thead>
           <tr>
-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Usuario</th>
+            <th>Marca</th>
+            <th>Usuario</th>
           </tr>
         </thead>
         <tbody>
           {marcas.map(m => (
-            <tr key={m.id} className="border-b border-[#F0E8D5]">
-              <td className="py-3.5 px-3.5"><strong>{m.nombre}</strong></td>
-              <td className="py-3.5 px-3.5">
+            <tr key={m.id}>
+              <td><strong>{m.nombre}</strong></td>
+              <td>
                 <input
                   defaultValue={m.email_acceso ?? ''}
                   onBlur={(e) => updateEmail(m.acceso_id, e.target.value.trim())}
                   placeholder="email@ubereats.com"
-                  className="w-full px-2 py-1 rounded-md border border-transparent hover:border-[#E9E1D0] focus:border-[#B01D23] focus:bg-white text-[12.5px] font-mono bg-transparent focus:outline-none"
+                  className="w-full px-2 py-1 rounded-md border border-transparent hover:border-[var(--sl-border)] focus:border-[var(--sl-border-focus)] focus:bg-[var(--sl-card)] text-[12.5px] font-mono bg-transparent focus:outline-none"
                 />
               </td>
             </tr>

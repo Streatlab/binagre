@@ -161,8 +161,8 @@ export default function TabMarcas() {
     await refetch(); close()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando marcas…</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando marcas…</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <>
@@ -172,9 +172,9 @@ export default function TabMarcas() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar marca..."
-            className="pl-9 pr-3 py-2 bg-white border border-[#E9E1D0] rounded-lg text-[13px] text-[#1A1A1A] w-[220px] focus:outline-none focus:border-[#B01D23]"
+            className="pl-9 pr-3 py-2 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg text-[13px] text-[var(--sl-text-primary)] w-[220px] focus:outline-none focus:border-[var(--sl-border-focus)]"
           />
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9588]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--sl-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z" />
           </svg>
         </div>
@@ -203,19 +203,19 @@ export default function TabMarcas() {
 
         <button
           onClick={openNueva}
-          className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]"
+          className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]"
         >+ Nueva marca</button>
       </div>
 
       <BigCard title="Portfolio de marcas" count={`${filtradas.length} marcas`}>
-        <table className="w-full border-collapse text-[13.5px]">
+        <table className="sl-cfg-table">
           <thead>
             <tr>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Canales</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Facturación</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Margen</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Estado</th>
+              <th>Marca</th>
+              <th>Canales</th>
+              <th className="num">Facturación</th>
+              <th className="num">Margen</th>
+              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -223,21 +223,21 @@ export default function TabMarcas() {
               const f = factMap.get(m.id) ?? { total_bruto: 0 } as any
               const canales = (m.accesos || []).filter(a => a.activo).map(a => a.plataforma as CanalAbv)
               return (
-                <tr key={m.id} className="border-b border-[#F0E8D5] hover:bg-[#FAF4E4] cursor-pointer" onClick={() => openEdit(m)}>
-                  <td className="py-3.5 px-3.5"><strong>{m.nombre}</strong></td>
-                  <td className="py-3.5 px-3.5">
-                    {canales.length === 0 ? <span className="text-[#9E9588]">—</span> :
+                <tr key={m.id} className="row-click" onClick={() => openEdit(m)}>
+                  <td><strong>{m.nombre}</strong></td>
+                  <td>
+                    {canales.length === 0 ? <span className="text-[var(--sl-text-muted)]">—</span> :
                       canales.map(c => <Ctag key={c} abv={c} />)}
                   </td>
-                  <td className="py-3.5 px-3.5 text-right tabular-nums font-bold">{fmtEur(f.total_bruto)}</td>
-                  <td className="py-3.5 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="num">{fmtEur(f.total_bruto)}</td>
+                  <td className="num" onClick={(e) => e.stopPropagation()}>
                     <InlineEdit
                       value={m.margen_deseado_pct}
                       type="percent" align="right" min={0} max={100} step={0.01}
                       onSubmit={async (v) => { await supabase.from('marcas').update({ margen_deseado_pct: v }).eq('id', m.id); refetch() }}
                     />
                   </td>
-                  <td className="py-3.5 px-3.5">
+                  <td>
                     <StatusTag variant={m.estado === 'activa' ? 'ok' : 'off'}>
                       {m.estado === 'activa' ? 'Activa' : 'Pausada'}
                     </StatusTag>
@@ -253,24 +253,24 @@ export default function TabMarcas() {
         <PeriodDropdown value={periodo} onChange={handleChangePeriodo} customRange={custom} />
       }>
         {top10.length === 0 || top10.every(t => t.total_bruto === 0) ? (
-          <div className="py-8 text-center text-[#9E9588]">Sin datos de facturación en el periodo</div>
+          <div className="py-8 text-center text-[var(--sl-text-muted)]">Sin datos de facturación en el periodo</div>
         ) : (
-          <table className="w-full border-collapse text-[13.5px]">
+          <table className="sl-cfg-table">
             <thead>
               <tr>
-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">#</th>
-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Facturación</th>
-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Pedidos</th>
+                <th>#</th>
+                <th>Marca</th>
+                <th className="num">Facturación</th>
+                <th className="num">Pedidos</th>
               </tr>
             </thead>
             <tbody>
               {top10.map((m, i) => (
-                <tr key={m.marca_id} className="border-b border-[#F0E8D5]">
-                  <td className="py-3 px-3 font-bold text-[#9E9588]">{i + 1}</td>
-                  <td className="py-3 px-3"><strong>{m.marca_nombre}</strong></td>
-                  <td className="py-3 px-3 text-right tabular-nums font-bold">{fmtEur(m.total_bruto)}</td>
-                  <td className="py-3 px-3 text-right tabular-nums font-bold">{m.total_pedidos}</td>
+                <tr key={m.marca_id}>
+                  <td style={{ color: "var(--sl-text-muted)", fontWeight: 700 }}>{i + 1}</td>
+                  <td><strong>{m.marca_nombre}</strong></td>
+                  <td className="num">{fmtEur(m.total_bruto)}</td>
+                  <td className="num">{m.total_pedidos}</td>
                 </tr>
               ))}
             </tbody>
@@ -289,11 +289,11 @@ export default function TabMarcas() {
         >
           <Field label="Nombre">
             <input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus
-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" />
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" />
           </Field>
           <Field label="Tipo de cocina">
             <select value={fCocina} onChange={(e) => setFCocina(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
               <option value="">—</option>
               {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
@@ -311,7 +311,7 @@ export default function TabMarcas() {
           <Field label="Margen deseado (%)">
             <input type="number" value={fMargen} onChange={(e) => setFMargen(e.target.value)}
               step="0.01" min="0" max="100"
-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" />
+              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" />
           </Field>
         </EditModal>
       )}

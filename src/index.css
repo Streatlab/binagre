@@ -161,22 +161,24 @@ button, input, select, textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-/* ============ RUNNING FINANCIERO ============ */
+/* ============ RUNNING FINANCIERO V2 ============ */
 :root {
   --rf-bg-page: #f4e9e5;
   --rf-bg-card: #ffffff;
   --rf-bg-panel: #f8f3f0;
-  --rf-border-card: #e5d9d3;
+  --rf-border: #e5d9d3;
   --rf-border-input: #d5c9c3;
-  --rf-text-primary: #1a1a1a;
-  --rf-text-secondary: #6b6560;
+  --rf-text: #1a1a1a;
+  --rf-text-2: #6b6560;
   --rf-text-muted: #a8a09a;
   --rf-text-label: #9a928a;
-  --rf-red: #c4302b;
+
+  --rf-red: #B01D23;
   --rf-red-soft: #fde8e7;
   --rf-green: #1a8754;
-  --rf-yellow: #d4a017;
+  --rf-yellow: #e8c547;
   --rf-orange: #e89a3c;
+
   --rf-ch-uber: #06C167;
   --rf-ch-uber-bg: #e8f5ec;
   --rf-ch-glovo: #e8f442;
@@ -186,62 +188,43 @@ button, input, select, textarea {
   --rf-ch-web: #B01D23;
   --rf-ch-web-bg: #f9e8e8;
   --rf-ch-directa: #66aaff;
-  --rf-gasto-producto: #e89a3c;
-  --rf-gasto-rrhh: #c4302b;
-  --rf-gasto-alquiler: #8b5a9f;
-  --rf-gasto-sumin: #4a90d9;
-  --rf-gasto-mkt: #e8a4a0;
-  --rf-bar-good: #1a8754;
-  --rf-bar-warn: #e89a3c;
-  --rf-bar-bad: #c4302b;
-  --rf-current-bg: rgba(232,244,66,0.10);
-  --rf-presup-ok-bg: #e8f5ec;
-  --rf-presup-ok-border: #c8e6d4;
-  --rf-presup-warn-bg: #fdf3e4;
-  --rf-presup-warn-border: #f5d7a7;
-  --rf-presup-bad-bg: #f9e8e8;
-  --rf-presup-bad-border: #f0c2c2;
+  --rf-ch-directa-bg: #e8f1fc;
+
+  --rf-q1-bg: #f0f7ff;
+  --rf-q2-bg: #f0fff4;
+  --rf-q3-bg: #fffdf0;
+  --rf-q4-bg: #fff5f0;
+  --rf-year-bg: rgba(232,244,66,0.18);
 }
 
 [data-theme="dark"] {
   --rf-bg-page: #2e3347;
   --rf-bg-card: #484f66;
   --rf-bg-panel: #3a4058;
-  --rf-border-card: #4a5270;
+  --rf-border: #4a5270;
   --rf-border-input: #4a5270;
-  --rf-text-primary: #f0f0ff;
-  --rf-text-secondary: #c8d0e8;
+  --rf-text: #f0f0ff;
+  --rf-text-2: #c8d0e8;
   --rf-text-muted: #7080a8;
   --rf-text-label: #7080a8;
+
   --rf-red: #e8524c;
   --rf-red-soft: rgba(232,82,76,0.15);
   --rf-green: #4ade80;
   --rf-yellow: #fbbf24;
   --rf-orange: #fb923c;
-  --rf-ch-uber: #06C167;
+
   --rf-ch-uber-bg: rgba(6,193,103,0.12);
-  --rf-ch-glovo: #e8f442;
   --rf-ch-glovo-bg: rgba(232,244,66,0.10);
-  --rf-ch-justeat: #f5a623;
   --rf-ch-justeat-bg: rgba(245,166,35,0.12);
-  --rf-ch-web: #ff6b6b;
   --rf-ch-web-bg: rgba(176,29,35,0.18);
-  --rf-ch-directa: #66aaff;
-  --rf-gasto-producto: #fb923c;
-  --rf-gasto-rrhh: #e8524c;
-  --rf-gasto-alquiler: #b57ac4;
-  --rf-gasto-sumin: #66aaff;
-  --rf-gasto-mkt: #f5a7a3;
-  --rf-bar-good: #4ade80;
-  --rf-bar-warn: #fb923c;
-  --rf-bar-bad: #e8524c;
-  --rf-current-bg: rgba(232,244,66,0.06);
-  --rf-presup-ok-bg: rgba(74,222,128,0.10);
-  --rf-presup-ok-border: rgba(74,222,128,0.25);
-  --rf-presup-warn-bg: rgba(251,191,36,0.10);
-  --rf-presup-warn-border: rgba(251,191,36,0.25);
-  --rf-presup-bad-bg: rgba(232,82,76,0.12);
-  --rf-presup-bad-border: rgba(232,82,76,0.30);
+  --rf-ch-directa-bg: rgba(102,170,255,0.12);
+
+  --rf-q1-bg: rgba(102,170,255,0.08);
+  --rf-q2-bg: rgba(74,222,128,0.08);
+  --rf-q3-bg: rgba(232,197,71,0.08);
+  --rf-q4-bg: rgba(232,82,76,0.08);
+  --rf-year-bg: rgba(232,244,66,0.10);
 }
 
 .rf-font-header { font-family: 'Oswald', sans-serif; }

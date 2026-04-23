@@ -73,49 +73,49 @@ export default function TabUnidades() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <div className="grid grid-cols-2 gap-3.5">
       <BigCard title="Formatos de compra" count={`${formatos.length}`}>
         <div className="space-y-2 mb-4">
           {formatos.map(f => (
-            <div key={f.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+            <div key={f.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
               <div className="flex-1"><InlineEdit value={f.nombre} type="text" onSubmit={(v) => renFmt(f.id, String(v))} /></div>
-              <button onClick={() => delFmt(f.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+              <button onClick={() => delFmt(f.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <input value={newFmt} onChange={(e) => setNewFmt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFmt()}
-            placeholder="Nuevo formato de compra..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addFmt} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+            placeholder="Nuevo formato de compra..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
+          <button onClick={addFmt} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
       </BigCard>
 
       <BigCard title="Unidades estándar y mínimas" count={`${relaciones.length}`}>
         <div className="space-y-2 mb-4">
           {relaciones.map(r => (
-            <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+            <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
               <div style={{ width: '100px' }}>
                 <InlineEdit value={r.unidad_estandar} type="text" onSubmit={(v) => updRel(r.id, 'unidad_estandar', String(v))} />
               </div>
-              <span className="text-[#9E9588] text-sm">↔</span>
+              <span className="text-[var(--sl-text-muted)] text-sm">↔</span>
               <div style={{ width: '100px' }}>
                 <InlineEdit value={r.unidad_minima} type="text" onSubmit={(v) => updRel(r.id, 'unidad_minima', String(v))} />
               </div>
               <div className="flex-1" />
-              <button onClick={() => delRel(r.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+              <button onClick={() => delRel(r.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <input value={newEst} onChange={(e) => setNewEst(e.target.value)} placeholder="Estándar (ej: Kg)"
-            className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+            className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
           <input value={newMin} onChange={(e) => setNewMin(e.target.value)} placeholder="Mínima (ej: gr)"
-            className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addRel} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+            className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
+          <button onClick={addRel} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
       </BigCard>
     </div>

@@ -25,7 +25,7 @@ export default function BancosPage() {
             onClick={() => setSub(p.id)}
             className={sub === p.id
               ? 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[#FFF3B8] border border-[#E8D066] text-[#5a4d0a]'
-              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-white border border-[#E9E1D0] text-[#555] hover:bg-[#FAF4E4]'}
+              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[var(--sl-card)] border border-[var(--sl-border)] text-[var(--sl-text-secondary)] hover:bg-[var(--sl-hover)]'}
           >{p.label}</button>
         ))}
       </div>

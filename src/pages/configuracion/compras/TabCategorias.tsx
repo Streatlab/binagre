@@ -70,40 +70,40 @@ export default function TabCategorias() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <div className="grid grid-cols-2 gap-3.5">
       <BigCard title="Categorías de recetas" count={`${recetas.length}`}>
         <div className="space-y-2 mb-4">
           {recetas.map(c => (
-            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
               <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renRec(c.id, String(v))} /></div>
-              <button onClick={() => delRec(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+              <button onClick={() => delRec(c.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <input value={newRec} onChange={(e) => setNewRec(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRec()}
-            placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addRec} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+            placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
+          <button onClick={addRec} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
       </BigCard>
 
       <BigCard title="Categorías de ingredientes" count={`${ingredientes.length}`}>
         <div className="space-y-2 mb-4">
           {ingredientes.map(c => (
-            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
               <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renIng(c.id, String(v))} /></div>
-              <button onClick={() => delIng(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
+              <button onClick={() => delIng(c.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <input value={newIng} onChange={(e) => setNewIng(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addIng()}
-            placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
-          <button onClick={addIng} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+            placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
+          <button onClick={addIng} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
         </div>
       </BigCard>
     </div>

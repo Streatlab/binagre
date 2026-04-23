@@ -1,0 +1,1080 @@
+diff --git a/src/components/configuracion/ConfigShell.tsx b/src/components/configuracion/ConfigShell.tsx
+index 4bd1e84..b4e6dbf 100644
+--- a/src/components/configuracion/ConfigShell.tsx
++++ b/src/components/configuracion/ConfigShell.tsx
+@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
+ 
+ export function ConfigShell({ children }: { children: ReactNode }) {
+   return (
+-    <div className="bg-[#F1EADD] rounded-2xl p-6 mx-2 my-2 min-h-[calc(100vh-80px)]">
++    <div className="bg-[var(--sl-sidebar)] rounded-2xl p-6 mx-2 my-2 min-h-[calc(100vh-80px)]">
+       {children}
+     </div>
+   )
+diff --git a/src/pages/Conciliacion.tsx b/src/pages/Conciliacion.tsx
+index 8cd525d..89e7106 100644
+--- a/src/pages/Conciliacion.tsx
++++ b/src/pages/Conciliacion.tsx
+@@ -221,13 +221,25 @@ export default function Conciliacion() {
+   const [reglas, setReglas] = useState<Regla[]>([])
+ 
+   /* — Aplicar reglas existentes a movimientos recién importados — */
++  function matchPatron(concepto: string, patron: string): boolean {
++    if (!patron) return false
++    const c = concepto.toLowerCase()
++    const p = patron.toLowerCase()
++    // Si no contiene wildcards, match por inclusión
++    if (!p.includes('*') && !p.includes('?')) return c.includes(p)
++    // Convertir wildcards a regex: * = .*, ? = .
++    const esc = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
++    const rx = new RegExp('^' + esc.replace(/\*/g, '.*').replace(/\?/g, '.') + '$')
++    return rx.test(c)
++  }
++
+   function aplicarReglasExistentes(nuevos: Movimiento[]) {
+     void nuevos
+     if (reglas.length === 0) return
+     setMovimientos(prev => prev.map(m => {
+       if (m.categoria_id) return m
+       for (const r of reglas) {
+-        if (m.concepto.toLowerCase().includes(r.patron.toLowerCase())) {
++        if (matchPatron(m.concepto, r.patron)) {
+           return { ...m, categoria_id: r.categoria_id, auto_categorizado: true }
+         }
+       }
+diff --git a/src/pages/configuracion/bancos/BancosPage.tsx b/src/pages/configuracion/bancos/BancosPage.tsx
+index 33a216e..02677ff 100644
+--- a/src/pages/configuracion/bancos/BancosPage.tsx
++++ b/src/pages/configuracion/bancos/BancosPage.tsx
+@@ -25,7 +25,7 @@ export default function BancosPage() {
+             onClick={() => setSub(p.id)}
+             className={sub === p.id
+               ? 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[#FFF3B8] border border-[#E8D066] text-[#5a4d0a]'
+-              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-white border border-[#E9E1D0] text-[#555] hover:bg-[#FAF4E4]'}
++              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[var(--sl-card)] border border-[var(--sl-border)] text-[var(--sl-text-secondary)] hover:bg-[var(--sl-hover)]'}
+           >{p.label}</button>
+         ))}
+       </div>
+diff --git a/src/pages/configuracion/bancos/CategoriasPanel.tsx b/src/pages/configuracion/bancos/CategoriasPanel.tsx
+index 9e563e6..fd7bc81 100644
+--- a/src/pages/configuracion/bancos/CategoriasPanel.tsx
++++ b/src/pages/configuracion/bancos/CategoriasPanel.tsx
+@@ -57,48 +57,59 @@ export default function CategoriasPanel() {
+     setNuevo(''); await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <BigCard title="Categorías de conciliación" count={`${cats.length}`}>
+-      <table className="w-full border-collapse text-[13.5px] mb-4">
++      <table className="sl-cfg-table">
+         <thead>
+           <tr>
+-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Nombre</th>
+-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-center">Tipo</th>
+-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right" style={{ width: '80px' }}>—</th>
++            <th>Nombre</th>
++            <th style={{ textAlign: "center" }}>Tipo</th>
++            <th className="num" style={{ width: "80px" }}>—</th>
+           </tr>
+         </thead>
+         <tbody>
+-          {cats.map(c => (
+-            <tr key={c.id} className="border-b border-[#F0E8D5]">
+-              <td className="py-3.5 px-3.5">
++          {(() => {
++            const grupos: { label: string; items: Cat[] }[] = [
++              { label: 'Ingresos', items: cats.filter(c => c.es_ingreso && !c.es_gasto) },
++              { label: 'Gastos', items: cats.filter(c => c.es_gasto && !c.es_ingreso) },
++              { label: 'Ingreso y gasto', items: cats.filter(c => c.es_ingreso && c.es_gasto) },
++              { label: 'Sin asignar', items: cats.filter(c => !c.es_ingreso && !c.es_gasto) },
++            ]
++            return grupos.flatMap(g => g.items.length === 0 ? [] : [
++              <tr key={`g-${g.label}`} className="sl-cfg-group-header"><td colSpan={3}>{g.label} · {g.items.length}</td></tr>,
++              ...g.items.map(c => (
++            <tr key={c.id}>
++              <td>
+                 <InlineEdit value={c.nombre} type="text" onSubmit={(v) => renombrar(c, String(v))} />
+               </td>
+-              <td className="py-3.5 px-3.5 text-center">
++              <td style={{ textAlign: "center" }}>
+                 <div className="inline-flex gap-2">
+                   <button
+                     onClick={() => togglePin(c, 'es_ingreso')}
+-                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_ingreso ? 'bg-[#D4F0E0] text-[#027b4b]' : 'bg-transparent text-[#9E9588] border border-dashed border-[#DDD4BF] hover:border-[#22B573]'}`}
++                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_ingreso ? 'bg-[var(--sl-uber)]/15 text-[var(--sl-uber-text)]' : 'bg-transparent text-[var(--sl-text-muted)] border border-dashed border-[var(--sl-border)] hover:border-[var(--sl-uber)]'}`}
+                   >Ingreso</button>
+                   <button
+                     onClick={() => togglePin(c, 'es_gasto')}
+-                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_gasto ? 'bg-[#FCE0E2] text-[#B01D23]' : 'bg-transparent text-[#9E9588] border border-dashed border-[#DDD4BF] hover:border-[#B01D23]'}`}
++                    className={`inline-flex items-center px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase transition ${c.es_gasto ? 'bg-[var(--sl-border-error)]/20 text-[var(--sl-text-calc)]' : 'bg-transparent text-[var(--sl-text-muted)] border border-dashed border-[var(--sl-border)] hover:border-[var(--sl-border-focus)]'}`}
+                   >Gasto</button>
+                 </div>
+               </td>
+-              <td className="py-3.5 px-3.5 text-right">
+-                <button onClick={() => eliminar(c)} className="text-[#9E9588] hover:text-[#B01D23] text-xs">Eliminar</button>
++              <td className="num">
++                <button onClick={() => eliminar(c)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-xs">Eliminar</button>
+               </td>
+             </tr>
+-          ))}
++              ))
++            ])
++          })()}
+         </tbody>
+       </table>
+       <div className="flex gap-2">
+         <input value={nuevo} onChange={(e) => setNuevo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && añadir()}
+-          placeholder="Nueva categoría..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+-        <button onClick={añadir} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva categoría</button>
++          placeholder="Nueva categoría..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
++        <button onClick={añadir} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva categoría</button>
+       </div>
+     </BigCard>
+   )
+diff --git a/src/pages/configuracion/bancos/CuentasPanel.tsx b/src/pages/configuracion/bancos/CuentasPanel.tsx
+index 76f1a62..e0cbf3e 100644
+--- a/src/pages/configuracion/bancos/CuentasPanel.tsx
++++ b/src/pages/configuracion/bancos/CuentasPanel.tsx
+@@ -72,33 +72,33 @@ export default function CuentasPanel() {
+     await refetch(); close()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <>
+       <BigCard title="Cuentas bancarias" count={`${cuentas.length}`}>
+-        <table className="w-full border-collapse text-[13.5px] mb-4">
++        <table className="sl-cfg-table">
+           <thead>
+             <tr>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Alias</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Banco</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">IBAN</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">SWIFT</th>
++              <th>Alias</th>
++              <th>Banco</th>
++              <th>IBAN</th>
++              <th>SWIFT</th>
+             </tr>
+           </thead>
+           <tbody>
+             {cuentas.map(c => (
+-              <tr key={c.id} onClick={() => open(c)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
+-                <td className="py-3.5 px-3.5"><strong>{c.alias}</strong></td>
+-                <td className="py-3.5 px-3.5">{c.banco}</td>
+-                <td className="py-3.5 px-3.5 font-mono text-[12.5px]">{c.iban ?? '—'}</td>
+-                <td className="py-3.5 px-3.5 font-mono text-[12.5px]">{c.swift ?? '—'}</td>
++              <tr key={c.id} onClick={() => open(c)} className="row-click">
++                <td><strong>{c.alias}</strong></td>
++                <td>{c.banco}</td>
++                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.iban ?? '—'}</td>
++                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.swift ?? '—'}</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva cuenta</button>
++        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva cuenta</button>
+       </BigCard>
+ 
+       {(editing || creating) && (
+@@ -108,10 +108,10 @@ export default function CuentasPanel() {
+           onDelete={editing ? handleDelete : undefined}
+           saving={saving} canSave={!!fAlias.trim() && !!fBanco.trim()}
+         >
+-          <Field label="Alias"><input value={fAlias} onChange={(e) => setFAlias(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="Banco"><input value={fBanco} onChange={(e) => setFBanco(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="IBAN"><input value={fIban} onChange={(e) => setFIban(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="SWIFT"><input value={fSwift} onChange={(e) => setFSwift(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
++          <Field label="Alias"><input value={fAlias} onChange={(e) => setFAlias(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="Banco"><input value={fBanco} onChange={(e) => setFBanco(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="IBAN"><input value={fIban} onChange={(e) => setFIban(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="SWIFT"><input value={fSwift} onChange={(e) => setFSwift(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+         </EditModal>
+       )}
+     </>
+diff --git a/src/pages/configuracion/bancos/ReglasPanel.tsx b/src/pages/configuracion/bancos/ReglasPanel.tsx
+index 6e33271..780b80a 100644
+--- a/src/pages/configuracion/bancos/ReglasPanel.tsx
++++ b/src/pages/configuracion/bancos/ReglasPanel.tsx
+@@ -84,8 +84,8 @@ export default function ReglasPanel() {
+     await refetch(); close()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   const catNombre = (id: string) => cats.find(c => c.id === id)?.nombre ?? '—'
+   const catsFiltradas = cats.filter(c => fAsigna === 'ingreso' ? c.es_ingreso : c.es_gasto)
+@@ -93,34 +93,34 @@ export default function ReglasPanel() {
+   return (
+     <>
+       <BigCard title="Reglas de asignación automática" count={`${reglas.length} reglas`}>
+-        <div className="mb-4 p-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg text-[12.5px] text-[#6E6656]">
+-          <strong className="text-[#1A1A1A]">Cómo usar patrones:</strong>
++        <div className="mb-4 p-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg text-[12.5px] text-[var(--sl-text-secondary)]">
++          <strong className="text-[var(--sl-text-primary)]">Cómo usar patrones:</strong>
+           <ul className="list-disc pl-5 mt-2 space-y-1">
+-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">*uber*</code> — contiene "uber"</li>
+-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">glov*</code> — empieza por "glov"</li>
+-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">*eats</code> — termina en "eats"</li>
+-            <li><code className="bg-white px-1.5 py-0.5 rounded border border-[#E9E1D0]">factura?.pdf</code> — <code>?</code> = un carácter</li>
++            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">*uber*</code> — contiene "uber"</li>
++            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">glov*</code> — empieza por "glov"</li>
++            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">*eats</code> — termina en "eats"</li>
++            <li><code className="bg-[var(--sl-card)] px-1.5 py-0.5 rounded border border-[var(--sl-border)]">factura?.pdf</code> — <code>?</code> = un carácter</li>
+           </ul>
+         </div>
+-        <table className="w-full border-collapse text-[13.5px] mb-3">
++        <table className="sl-cfg-table">
+           <thead>
+             <tr>
+-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Si concepto contiene</th>
+-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Asigna como</th>
+-              <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Categoría</th>
++              <th>Si concepto contiene</th>
++              <th>Asigna como</th>
++              <th>Categoría</th>
+             </tr>
+           </thead>
+           <tbody>
+             {reglas.map(r => (
+-              <tr key={r.id} onClick={() => open(r)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
+-                <td className="py-3 px-3 font-mono text-[12.5px]">{r.patron}</td>
+-                <td className="py-3 px-3 capitalize">{r.asigna_como}</td>
+-                <td className="py-3 px-3">{catNombre(r.categoria_id)}</td>
++              <tr key={r.id} onClick={() => open(r)} className="row-click">
++                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{r.patron}</td>
++                <td style={{ textTransform: "capitalize" }}>{r.asigna_como}</td>
++                <td>{catNombre(r.categoria_id)}</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva regla</button>
++        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva regla</button>
+       </BigCard>
+ 
+       {(editing || creating) && (
+@@ -132,7 +132,7 @@ export default function ReglasPanel() {
+         >
+           <Field label="Patrón (wildcards * y ?)">
+             <input value={fPatron} onChange={(e) => setFPatron(e.target.value)} placeholder="*uber*" autoFocus
+-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" />
++              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" />
+           </Field>
+           <Field label="Asignar como">
+             <div className="flex gap-3">
+@@ -146,7 +146,7 @@ export default function ReglasPanel() {
+           </Field>
+           <Field label="Categoría">
+             <select value={fCat} onChange={(e) => setFCat(e.target.value)}
+-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
++              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
+               <option value="">—</option>
+               {catsFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+             </select>
+diff --git a/src/pages/configuracion/compras/TabCategorias.tsx b/src/pages/configuracion/compras/TabCategorias.tsx
+index 8a8335e..844dedd 100644
+--- a/src/pages/configuracion/compras/TabCategorias.tsx
++++ b/src/pages/configuracion/compras/TabCategorias.tsx
+@@ -70,40 +70,40 @@ export default function TabCategorias() {
+     await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <div className="grid grid-cols-2 gap-3.5">
+       <BigCard title="Categorías de recetas" count={`${recetas.length}`}>
+         <div className="space-y-2 mb-4">
+           {recetas.map(c => (
+-            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
++            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
+               <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renRec(c.id, String(v))} /></div>
+-              <button onClick={() => delRec(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
++              <button onClick={() => delRec(c.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
+             </div>
+           ))}
+         </div>
+         <div className="flex gap-2">
+           <input value={newRec} onChange={(e) => setNewRec(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRec()}
+-            placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+-          <button onClick={addRec} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
++            placeholder="Nueva categoría de receta..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
++          <button onClick={addRec} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+         </div>
+       </BigCard>
+ 
+       <BigCard title="Categorías de ingredientes" count={`${ingredientes.length}`}>
+         <div className="space-y-2 mb-4">
+           {ingredientes.map(c => (
+-            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
++            <div key={c.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
+               <div className="flex-1"><InlineEdit value={c.nombre} type="text" onSubmit={(v) => renIng(c.id, String(v))} /></div>
+-              <button onClick={() => delIng(c.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
++              <button onClick={() => delIng(c.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
+             </div>
+           ))}
+         </div>
+         <div className="flex gap-2">
+           <input value={newIng} onChange={(e) => setNewIng(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addIng()}
+-            placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+-          <button onClick={addIng} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
++            placeholder="Nueva categoría de ingrediente..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
++          <button onClick={addIng} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+         </div>
+       </BigCard>
+     </div>
+diff --git a/src/pages/configuracion/compras/TabCostes.tsx b/src/pages/configuracion/compras/TabCostes.tsx
+index be838ab..2874b48 100644
+--- a/src/pages/configuracion/compras/TabCostes.tsx
++++ b/src/pages/configuracion/compras/TabCostes.tsx
+@@ -67,8 +67,8 @@ export default function TabCostes() {
+     await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+   if (!row) return null
+ 
+   const esManual = row.coste_estructura_fuente === 'manual' && row.coste_estructura_override != null
+@@ -84,12 +84,12 @@ export default function TabCostes() {
+           {esManual ? 'Manual *' : 'Calculado desde Running *'}
+         </span>
+         {esManual && (
+-          <button onClick={resetRunning} className="ml-auto text-xs text-[#B01D23] hover:underline">
++          <button onClick={resetRunning} className="ml-auto text-xs text-[var(--sl-text-calc)] hover:underline">
+             Volver a valor del Running
+           </button>
+         )}
+       </div>
+-      <p className="mt-4 text-[11px] text-[#9E9588]">
++      <p className="mt-4 text-[11px] text-[var(--sl-text-muted)]">
+         * El valor por defecto se calcula desde una celda del módulo Running. Puedes sobrescribirlo manualmente editando el campo.
+       </p>
+     </BigCard>
+diff --git a/src/pages/configuracion/compras/TabProveedores.tsx b/src/pages/configuracion/compras/TabProveedores.tsx
+index 96b3021..8f8516e 100644
+--- a/src/pages/configuracion/compras/TabProveedores.tsx
++++ b/src/pages/configuracion/compras/TabProveedores.tsx
+@@ -81,35 +81,35 @@ export default function TabProveedores() {
+     await refetch(); close()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <>
+       <BigCard title="Proveedores" count={`${provs.length}`}>
+-        <table className="w-full border-collapse text-[13.5px] mb-4">
++        <table className="sl-cfg-table">
+           <thead>
+             <tr>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">ABV</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Categoría</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Nombre</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca principal</th>
++              <th>ABV</th>
++              <th>Categoría</th>
++              <th>Nombre</th>
++              <th>Marca principal</th>
+             </tr>
+           </thead>
+           <tbody>
+             {provs.map(p => (
+-              <tr key={p.id} onClick={() => open(p)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
+-                <td className="py-3.5 px-3.5">
++              <tr key={p.id} onClick={() => open(p)} className="row-click">
++                <td>
+                   <span className="inline-block px-2 py-[3px] rounded bg-[#1A1A1A] text-white text-[10px] tracking-[0.04em] font-bold">{p.abv}</span>
+                 </td>
+-                <td className="py-3.5 px-3.5">{p.categoria ?? '—'}</td>
+-                <td className="py-3.5 px-3.5"><strong>{nomDe(p)}</strong></td>
+-                <td className="py-3.5 px-3.5">{marcaDe(p) || '—'}</td>
++                <td>{p.categoria ?? '—'}</td>
++                <td><strong>{nomDe(p)}</strong></td>
++                <td>{marcaDe(p) || '—'}</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo proveedor</button>
++        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo proveedor</button>
+       </BigCard>
+ 
+       {(editing || creating) && (
+@@ -119,10 +119,10 @@ export default function TabProveedores() {
+           onDelete={editing ? handleDelete : undefined}
+           saving={saving} canSave={!!fAbv.trim() && !!fNom.trim()}
+         >
+-          <Field label="ABV"><input value={fAbv} onChange={(e) => setFAbv(e.target.value)} autoFocus maxLength={5} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono uppercase focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="Categoría"><input value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="Nombre"><input value={fNom} onChange={(e) => setFNom(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="Marca principal"><input value={fMarca} onChange={(e) => setFMarca(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
++          <Field label="ABV"><input value={fAbv} onChange={(e) => setFAbv(e.target.value)} autoFocus maxLength={5} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono uppercase focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="Categoría"><input value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="Nombre"><input value={fNom} onChange={(e) => setFNom(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="Marca principal"><input value={fMarca} onChange={(e) => setFMarca(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+         </EditModal>
+       )}
+     </>
+diff --git a/src/pages/configuracion/compras/TabUnidades.tsx b/src/pages/configuracion/compras/TabUnidades.tsx
+index d4933b0..2cf2ccc 100644
+--- a/src/pages/configuracion/compras/TabUnidades.tsx
++++ b/src/pages/configuracion/compras/TabUnidades.tsx
+@@ -73,49 +73,49 @@ export default function TabUnidades() {
+     await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <div className="grid grid-cols-2 gap-3.5">
+       <BigCard title="Formatos de compra" count={`${formatos.length}`}>
+         <div className="space-y-2 mb-4">
+           {formatos.map(f => (
+-            <div key={f.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
++            <div key={f.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
+               <div className="flex-1"><InlineEdit value={f.nombre} type="text" onSubmit={(v) => renFmt(f.id, String(v))} /></div>
+-              <button onClick={() => delFmt(f.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
++              <button onClick={() => delFmt(f.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
+             </div>
+           ))}
+         </div>
+         <div className="flex gap-2">
+           <input value={newFmt} onChange={(e) => setNewFmt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFmt()}
+-            placeholder="Nuevo formato de compra..." className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+-          <button onClick={addFmt} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
++            placeholder="Nuevo formato de compra..." className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
++          <button onClick={addFmt} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+         </div>
+       </BigCard>
+ 
+       <BigCard title="Unidades estándar y mínimas" count={`${relaciones.length}`}>
+         <div className="space-y-2 mb-4">
+           {relaciones.map(r => (
+-            <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23]">
++            <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)]">
+               <div style={{ width: '100px' }}>
+                 <InlineEdit value={r.unidad_estandar} type="text" onSubmit={(v) => updRel(r.id, 'unidad_estandar', String(v))} />
+               </div>
+-              <span className="text-[#9E9588] text-sm">↔</span>
++              <span className="text-[var(--sl-text-muted)] text-sm">↔</span>
+               <div style={{ width: '100px' }}>
+                 <InlineEdit value={r.unidad_minima} type="text" onSubmit={(v) => updRel(r.id, 'unidad_minima', String(v))} />
+               </div>
+               <div className="flex-1" />
+-              <button onClick={() => delRel(r.id)} className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none">×</button>
++              <button onClick={() => delRel(r.id)} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none">×</button>
+             </div>
+           ))}
+         </div>
+         <div className="flex gap-2">
+           <input value={newEst} onChange={(e) => setNewEst(e.target.value)} placeholder="Estándar (ej: Kg)"
+-            className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
++            className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
+           <input value={newMin} onChange={(e) => setNewMin(e.target.value)} placeholder="Mínima (ej: gr)"
+-            className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]" />
+-          <button onClick={addRel} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
++            className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]" />
++          <button onClick={addRel} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+         </div>
+       </BigCard>
+     </div>
+diff --git a/src/pages/configuracion/marcas/TabAccesosUber.tsx b/src/pages/configuracion/marcas/TabAccesosUber.tsx
+index 3d0a766..b367322 100644
+--- a/src/pages/configuracion/marcas/TabAccesosUber.tsx
++++ b/src/pages/configuracion/marcas/TabAccesosUber.tsx
+@@ -42,28 +42,28 @@ export default function TabAccesosUber() {
+     await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <BigCard title="Accesos Uber" count={`${marcas.length} marcas`}>
+-      <table className="w-full border-collapse text-[13.5px]">
++      <table className="sl-cfg-table">
+         <thead>
+           <tr>
+-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
+-            <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Usuario</th>
++            <th>Marca</th>
++            <th>Usuario</th>
+           </tr>
+         </thead>
+         <tbody>
+           {marcas.map(m => (
+-            <tr key={m.id} className="border-b border-[#F0E8D5]">
+-              <td className="py-3.5 px-3.5"><strong>{m.nombre}</strong></td>
+-              <td className="py-3.5 px-3.5">
++            <tr key={m.id}>
++              <td><strong>{m.nombre}</strong></td>
++              <td>
+                 <input
+                   defaultValue={m.email_acceso ?? ''}
+                   onBlur={(e) => updateEmail(m.acceso_id, e.target.value.trim())}
+                   placeholder="email@ubereats.com"
+-                  className="w-full px-2 py-1 rounded-md border border-transparent hover:border-[#E9E1D0] focus:border-[#B01D23] focus:bg-white text-[12.5px] font-mono bg-transparent focus:outline-none"
++                  className="w-full px-2 py-1 rounded-md border border-transparent hover:border-[var(--sl-border)] focus:border-[var(--sl-border-focus)] focus:bg-[var(--sl-card)] text-[12.5px] font-mono bg-transparent focus:outline-none"
+                 />
+               </td>
+             </tr>
+diff --git a/src/pages/configuracion/marcas/TabCanales.tsx b/src/pages/configuracion/marcas/TabCanales.tsx
+index 07965a5..b455974 100644
+--- a/src/pages/configuracion/marcas/TabCanales.tsx
++++ b/src/pages/configuracion/marcas/TabCanales.tsx
+@@ -15,8 +15,20 @@ interface ConfigCanal {
+ 
+ type Platform = 'UE' | 'GL' | 'JE'
+ 
++// Colores por canal en formato CSS var() para adaptarse a light/dark desde design-system.css
+ const COLOR: Record<string, string> = {
+-  UE: '#22B573', GL: '#DCCF2A', JE: '#E89A2B', WEB: '#C94E5A', DIR: '#6AA0D6',
++  UE:  'var(--sl-uber-text)',
++  GL:  'var(--sl-glovo-text)',
++  JE:  'var(--sl-je-text)',
++  WEB: 'var(--sl-web)',
++  DIR: 'var(--sl-direct-text)',
++}
++const COLOR_DOT: Record<string, string> = {
++  UE:  'var(--sl-uber)',
++  GL:  'var(--sl-glovo-dot)',
++  JE:  'var(--sl-je)',
++  WEB: 'var(--sl-web-dot)',
++  DIR: 'var(--sl-direct)',
+ }
+ const LABEL: Record<string, string> = {
+   UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat', WEB: 'Web', DIR: 'Directa',
+@@ -24,11 +36,11 @@ const LABEL: Record<string, string> = {
+ 
+ function colorPorNombre(n: string): string {
+   const s = n.toLowerCase()
+-  if (s.includes('uber')) return '#22B573'
+-  if (s.includes('glovo')) return '#DCCF2A'
+-  if (s.includes('just')) return '#E89A2B'
+-  if (s.includes('web') || s.includes('rushour')) return '#C94E5A'
+-  return '#6AA0D6'
++  if (s.includes('uber')) return 'var(--sl-uber)'
++  if (s.includes('glovo')) return 'var(--sl-glovo-dot)'
++  if (s.includes('just')) return 'var(--sl-je)'
++  if (s.includes('web') || s.includes('rushour')) return 'var(--sl-web-dot)'
++  return 'var(--sl-direct)'
+ }
+ 
+ function fmtPct(n: number): string {
+@@ -117,16 +129,16 @@ export default function TabCanales() {
+     return vals.filter(([, v]) => Number.isFinite(v)).sort((a, b) => a[1] - b[1])[0]?.[0] ?? 'UE'
+   }, [comisionNeta])
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando canales…</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando canales…</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   const margenNetoMejor = 100 - (comisionNeta[mejorCanal] ?? 0)
+ 
+   return (
+     <>
+       <div className="grid grid-cols-2 gap-3.5 mb-5">
+-        <div className="bg-white rounded-xl px-[26px] py-6 border border-[#E9E1D0]">
+-          <div className="text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium mb-3">Comisión óptima neta</div>
++        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
++          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Comisión óptima neta</div>
+           <div className="space-y-2">
+             {(['UE','GL','JE'] as const).map(k => (
+               <div key={k} className="flex items-center justify-between">
+@@ -137,46 +149,46 @@ export default function TabCanales() {
+               </div>
+             ))}
+           </div>
+-          <div className="text-xs text-[#9E9588] mt-3">real sobre ticket medio últimos 30 días</div>
++          <div className="text-xs text-[var(--sl-text-muted)] mt-3">real sobre ticket medio últimos 30 días</div>
+         </div>
+ 
+-        <div className="bg-white rounded-xl px-[26px] py-6 border border-[#E9E1D0]">
+-          <div className="text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium mb-3">Mejor margen plataforma</div>
++        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
++          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Mejor margen plataforma</div>
+           <div className="text-[38px] font-extrabold leading-none tracking-[-0.02em]" style={{ color: COLOR[mejorCanal] }}>
+             {LABEL[mejorCanal]}
+           </div>
+-          <div className="text-[13px] text-[#6E6656] mt-3">
++          <div className="text-[13px] text-[var(--sl-text-secondary)] mt-3">
+             margen neto real: <strong className="tabular-nums">{fmtPct(margenNetoMejor)}</strong>
+           </div>
+         </div>
+       </div>
+ 
+       <BigCard title="Canales de venta" count={`${canales.length}`}>
+-        <table className="w-full border-collapse text-[13.5px]">
++        <table className="sl-cfg-table">
+           <thead>
+             <tr>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Canal</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Comisión</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Coste fijo</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Margen deseado</th>
++              <th>Canal</th>
++              <th className="num">Comisión</th>
++              <th className="num">Coste fijo</th>
++              <th className="num">Margen deseado</th>
+             </tr>
+           </thead>
+           <tbody>
+             {canales.map(c => (
+-              <tr key={c.id} className="border-b border-[#F0E8D5]">
+-                <td className="py-3.5 px-3.5">
++              <tr key={c.id}>
++                <td>
+                   <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: colorPorNombre(c.canal) }} />
+                   <strong>{c.canal}</strong>
+                 </td>
+-                <td className="py-3.5 px-3.5 text-right">
++                <td className="num">
+                   <InlineEdit value={c.comision_pct} type="percent" align="right" min={0} max={100} step={0.01}
+                     onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                 </td>
+-                <td className="py-3.5 px-3.5 text-right">
++                <td className="num">
+                   <InlineEdit value={c.coste_fijo} type="currency" align="right" min={0} step={0.01}
+                     onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                 </td>
+-                <td className="py-3.5 px-3.5 text-right">
++                <td className="num">
+                   <InlineEdit value={c.margen_obj_pct} type="percent" align="right" min={0} max={100} step={0.01}
+                     onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                 </td>
+diff --git a/src/pages/configuracion/marcas/TabMarcas.tsx b/src/pages/configuracion/marcas/TabMarcas.tsx
+index 9525d41..cda9c74 100644
+--- a/src/pages/configuracion/marcas/TabMarcas.tsx
++++ b/src/pages/configuracion/marcas/TabMarcas.tsx
+@@ -161,8 +161,8 @@ export default function TabMarcas() {
+     await refetch(); close()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando marcas…</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando marcas…</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <>
+@@ -172,9 +172,9 @@ export default function TabMarcas() {
+             value={search}
+             onChange={(e) => setSearch(e.target.value)}
+             placeholder="Buscar marca..."
+-            className="pl-9 pr-3 py-2 bg-white border border-[#E9E1D0] rounded-lg text-[13px] text-[#1A1A1A] w-[220px] focus:outline-none focus:border-[#B01D23]"
++            className="pl-9 pr-3 py-2 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg text-[13px] text-[var(--sl-text-primary)] w-[220px] focus:outline-none focus:border-[var(--sl-border-focus)]"
+           />
+-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9588]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--sl-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z" />
+           </svg>
+         </div>
+@@ -203,19 +203,19 @@ export default function TabMarcas() {
+ 
+         <button
+           onClick={openNueva}
+-          className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]"
++          className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]"
+         >+ Nueva marca</button>
+       </div>
+ 
+       <BigCard title="Portfolio de marcas" count={`${filtradas.length} marcas`}>
+-        <table className="w-full border-collapse text-[13.5px]">
++        <table className="sl-cfg-table">
+           <thead>
+             <tr>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Canales</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Facturación</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Margen</th>
+-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Estado</th>
++              <th>Marca</th>
++              <th>Canales</th>
++              <th className="num">Facturación</th>
++              <th className="num">Margen</th>
++              <th>Estado</th>
+             </tr>
+           </thead>
+           <tbody>
+@@ -223,21 +223,21 @@ export default function TabMarcas() {
+               const f = factMap.get(m.id) ?? { total_bruto: 0 } as any
+               const canales = (m.accesos || []).filter(a => a.activo).map(a => a.plataforma as CanalAbv)
+               return (
+-                <tr key={m.id} className="border-b border-[#F0E8D5] hover:bg-[#FAF4E4] cursor-pointer" onClick={() => openEdit(m)}>
+-                  <td className="py-3.5 px-3.5"><strong>{m.nombre}</strong></td>
+-                  <td className="py-3.5 px-3.5">
+-                    {canales.length === 0 ? <span className="text-[#9E9588]">—</span> :
++                <tr key={m.id} className="row-click" onClick={() => openEdit(m)}>
++                  <td><strong>{m.nombre}</strong></td>
++                  <td>
++                    {canales.length === 0 ? <span className="text-[var(--sl-text-muted)]">—</span> :
+                       canales.map(c => <Ctag key={c} abv={c} />)}
+                   </td>
+-                  <td className="py-3.5 px-3.5 text-right tabular-nums font-bold">{fmtEur(f.total_bruto)}</td>
+-                  <td className="py-3.5 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
++                  <td className="num">{fmtEur(f.total_bruto)}</td>
++                  <td className="num" onClick={(e) => e.stopPropagation()}>
+                     <InlineEdit
+                       value={m.margen_deseado_pct}
+                       type="percent" align="right" min={0} max={100} step={0.01}
+                       onSubmit={async (v) => { await supabase.from('marcas').update({ margen_deseado_pct: v }).eq('id', m.id); refetch() }}
+                     />
+                   </td>
+-                  <td className="py-3.5 px-3.5">
++                  <td>
+                     <StatusTag variant={m.estado === 'activa' ? 'ok' : 'off'}>
+                       {m.estado === 'activa' ? 'Activa' : 'Pausada'}
+                     </StatusTag>
+@@ -253,24 +253,24 @@ export default function TabMarcas() {
+         <PeriodDropdown value={periodo} onChange={handleChangePeriodo} customRange={custom} />
+       }>
+         {top10.length === 0 || top10.every(t => t.total_bruto === 0) ? (
+-          <div className="py-8 text-center text-[#9E9588]">Sin datos de facturación en el periodo</div>
++          <div className="py-8 text-center text-[var(--sl-text-muted)]">Sin datos de facturación en el periodo</div>
+         ) : (
+-          <table className="w-full border-collapse text-[13.5px]">
++          <table className="sl-cfg-table">
+             <thead>
+               <tr>
+-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">#</th>
+-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Marca</th>
+-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Facturación</th>
+-                <th className="py-3 px-3 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Pedidos</th>
++                <th>#</th>
++                <th>Marca</th>
++                <th className="num">Facturación</th>
++                <th className="num">Pedidos</th>
+               </tr>
+             </thead>
+             <tbody>
+               {top10.map((m, i) => (
+-                <tr key={m.marca_id} className="border-b border-[#F0E8D5]">
+-                  <td className="py-3 px-3 font-bold text-[#9E9588]">{i + 1}</td>
+-                  <td className="py-3 px-3"><strong>{m.marca_nombre}</strong></td>
+-                  <td className="py-3 px-3 text-right tabular-nums font-bold">{fmtEur(m.total_bruto)}</td>
+-                  <td className="py-3 px-3 text-right tabular-nums font-bold">{m.total_pedidos}</td>
++                <tr key={m.marca_id}>
++                  <td style={{ color: "var(--sl-text-muted)", fontWeight: 700 }}>{i + 1}</td>
++                  <td><strong>{m.marca_nombre}</strong></td>
++                  <td className="num">{fmtEur(m.total_bruto)}</td>
++                  <td className="num">{m.total_pedidos}</td>
+                 </tr>
+               ))}
+             </tbody>
+@@ -289,11 +289,11 @@ export default function TabMarcas() {
+         >
+           <Field label="Nombre">
+             <input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus
+-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" />
++              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" />
+           </Field>
+           <Field label="Tipo de cocina">
+             <select value={fCocina} onChange={(e) => setFCocina(e.target.value)}
+-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
++              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
+               <option value="">—</option>
+               {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+             </select>
+@@ -311,7 +311,7 @@ export default function TabMarcas() {
+           <Field label="Margen deseado (%)">
+             <input type="number" value={fMargen} onChange={(e) => setFMargen(e.target.value)}
+               step="0.01" min="0" max="100"
+-              className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" />
++              className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" />
+           </Field>
+         </EditModal>
+       )}
+diff --git a/src/pages/configuracion/marcas/TabTiposCocina.tsx b/src/pages/configuracion/marcas/TabTiposCocina.tsx
+index 3f27a4e..e1bc233 100644
+--- a/src/pages/configuracion/marcas/TabTiposCocina.tsx
++++ b/src/pages/configuracion/marcas/TabTiposCocina.tsx
+@@ -51,24 +51,24 @@ export default function TabTiposCocina() {
+     await refetch()
+   }
+ 
+-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
++  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
++  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
+ 
+   return (
+     <BigCard title="Tipos de cocina" count={`${tipos.length}`}>
+       <div className="space-y-2 mb-4">
+         {tipos.map(t => (
+-          <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23] transition-colors">
++          <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)] transition-colors">
+             <div className="flex-1">
+               <InlineEdit value={t.nombre} type="text" onSubmit={(v) => handleRename(t, String(v))} />
+             </div>
+-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#9E9588] mr-4">
++            <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--sl-text-muted)] mr-4">
+               {t.count_marcas} marca{t.count_marcas !== 1 ? 's' : ''}
+             </div>
+             <button
+               onClick={() => handleDelete(t)}
+               disabled={t.count_marcas > 0}
+-              className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
++              className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+               title={t.count_marcas > 0 ? 'Usado por marcas' : 'Eliminar'}
+             >×</button>
+           </div>
+@@ -80,9 +80,9 @@ export default function TabTiposCocina() {
+           onChange={(e) => setNuevo(e.target.value)}
+           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+           placeholder="Nuevo tipo de cocina..."
+-          className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]"
++          className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]"
+         />
+-        <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
++        <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+       </div>
+     </BigCard>
+   )
+diff --git a/src/pages/configuracion/usuarios/UsuariosPage.tsx b/src/pages/configuracion/usuarios/UsuariosPage.tsx
+index 1df75ed..25a933a 100644
+--- a/src/pages/configuracion/usuarios/UsuariosPage.tsx
++++ b/src/pages/configuracion/usuarios/UsuariosPage.tsx
+@@ -39,7 +39,7 @@ export default function UsuariosPage() {
+   const [fNombre, setFNombre] = useState('')
+   const [fRol, setFRol] = useState<Rol>('cocina')
+   const [fPin, setFPin] = useState('')
+-  const [fColor, setFColor] = useState('#22B573')
++  const [fColor, setFColor] = useState('#06C167')
+   const [saving, setSaving] = useState(false)
+ 
+   async function refetch() {
+@@ -64,10 +64,10 @@ export default function UsuariosPage() {
+   function open(u?: Usuario) {
+     if (u) {
+       setEditing(u); setCreating(false)
+-      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#22B573')
++      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#06C167')
+     } else {
+       setCreating(true); setEditing(null)
+-      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#22B573')
++      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#06C167')
+     }
+   }
+   function close() { setEditing(null); setCreating(false) }
+@@ -109,8 +109,8 @@ export default function UsuariosPage() {
+     await refetch()
+   }
+ 
+-  if (loading) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 text-[#9E9588]">Cargando...</div></ConfigShell>
+-  if (error) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div></ConfigShell>
++  if (loading) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div></ConfigShell>
++  if (error) return <ConfigShell><ModTitle>Usuarios</ModTitle><div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div></ConfigShell>
+ 
+   const modulos = Array.from(new Set(permisos.map(p => p.modulo)))
+     .map(m => ({ m, o: permisos.find(p => p.modulo === m)?.orden ?? 999 }))
+@@ -125,53 +125,53 @@ export default function UsuariosPage() {
+ 
+       <div className="grid grid-cols-2 gap-3.5">
+         <BigCard title="Usuarios y roles">
+-          <table className="w-full border-collapse text-[13.5px] mb-4">
++          <table className="sl-cfg-table">
+             <thead>
+               <tr>
+-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Usuario</th>
+-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Rol</th>
+-                {esAdmin && <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">PIN</th>}
+-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Última conexión</th>
++                <th>Usuario</th>
++                <th>Rol</th>
++                {esAdmin && <th>PIN</th>}
++                <th>Última conexión</th>
+               </tr>
+             </thead>
+             <tbody>
+               {usuarios.map(u => (
+-                <tr key={u.id} onClick={() => open(u)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
+-                  <td className="py-3.5 px-3.5">
++                <tr key={u.id} onClick={() => open(u)} className="row-click">
++                  <td>
+                     <Avatar letter={u.nombre.charAt(0).toUpperCase()} color={u.avatar_color ?? '#B01D23'} />
+                     <strong>{u.nombre}</strong>
+                   </td>
+-                  <td className="py-3.5 px-3.5"><RolPill rol={u.rol} /></td>
+-                  {esAdmin && <td className="py-3.5 px-3.5 font-mono">{u.pin ?? '—'}</td>}
+-                  <td className="py-3.5 px-3.5">{fmtFechaMadrid(u.ultima_conexion)}</td>
++                  <td><RolPill rol={u.rol} /></td>
++                  {esAdmin && <td style={{ fontFamily: "ui-monospace,monospace" }}>{u.pin ?? '—'}</td>}
++                  <td>{fmtFechaMadrid(u.ultima_conexion)}</td>
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+-          <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo usuario</button>
++          <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nuevo usuario</button>
+         </BigCard>
+ 
+         <BigCard title="Matriz de permisos por rol">
+-          <table className="w-full border-collapse text-[13.5px]">
++          <table className="sl-cfg-table">
+             <thead>
+               <tr>
+-                <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Módulo</th>
++                <th>Módulo</th>
+                 {ROLES.map(r => (
+-                  <th key={r.value} className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-center">{r.label}</th>
++                  <th key={r.value} className="py-3.5 px-3.5 border-b border-[var(--sl-border)] text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium text-center">{r.label}</th>
+                 ))}
+               </tr>
+             </thead>
+             <tbody>
+               {modulos.map(mod => (
+-                <tr key={mod} className="border-b border-[#F0E8D5]">
+-                  <td className="py-3.5 px-3.5">{mod}</td>
++                <tr key={mod}>
++                  <td>{mod}</td>
+                   {ROLES.map(r => {
+                     const p = permisos.find(x => x.rol === r.value && x.modulo === mod)
+                     const on = p?.permitido ?? false
+                     return (
+                       <td key={r.value} className="py-3.5 px-3.5 text-center">
+                         <button onClick={() => togglePermiso(r.value, mod)}
+-                          className={`w-6 h-6 rounded-md font-bold text-sm transition ${on ? 'bg-[#22B573] text-white hover:bg-[#1a9259]' : 'bg-[#F0E8D5] text-[#9E9588] hover:bg-[#E9E1D0]'}`}>
++                          className={`w-6 h-6 rounded-md font-bold text-sm transition ${on ? 'bg-[var(--sl-uber)] text-white hover:bg-[var(--sl-uber-text)]' : 'bg-[var(--sl-border)] text-[var(--sl-text-muted)] hover:bg-[var(--sl-border)]'}`}>
+                           {on ? '✓' : '—'}
+                         </button>
+                       </td>
+@@ -191,14 +191,14 @@ export default function UsuariosPage() {
+           onDelete={editing ? handleDelete : undefined}
+           saving={saving} canSave={!!fNombre.trim()}
+         >
+-          <Field label="Nombre"><input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
++          <Field label="Nombre"><input value={fNombre} onChange={(e) => setFNombre(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+           <Field label="Rol">
+-            <select value={fRol} onChange={(e) => setFRol(e.target.value as Rol)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm bg-white focus:outline-none focus:border-[#B01D23]">
++            <select value={fRol} onChange={(e) => setFRol(e.target.value as Rol)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
+               {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+             </select>
+           </Field>
+-          <Field label="PIN"><input value={fPin} onChange={(e) => setFPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
+-          <Field label="Color avatar"><input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} className="w-full h-10 border border-[#E9E1D0] rounded-lg" /></Field>
++          <Field label="PIN"><input value={fPin} onChange={(e) => setFPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
++          <Field label="Color avatar"><input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} className="w-full h-10 border border-[var(--sl-border)] rounded-lg" /></Field>
+         </EditModal>
+       )}
+     </ConfigShell>
+@@ -206,9 +206,9 @@ export default function UsuariosPage() {
+ }
+ 
+ function RolPill({ rol }: { rol: string | null }) {
+-  if (!rol) return <span className="text-[#9E9588]">—</span>
++  if (!rol) return <span className="text-[var(--sl-text-muted)]">—</span>
+   const label = rol.charAt(0).toUpperCase() + rol.slice(1)
+-  const cls = rol === 'admin' ? 'bg-[#B01D23] text-white' : rol === 'gestor' ? 'bg-[#6AA0D6] text-white' : 'bg-[#DCCF2A] text-[#5c550d]'
++  const cls = rol === 'admin' ? 'bg-[var(--sl-btn-save-bg)] text-white' : rol === 'gestor' ? 'bg-[var(--sl-direct)] text-white' : 'bg-[var(--sl-glovo-dot)] text-[var(--sl-glovo-text)]'
+   return <span className={`inline-flex px-2.5 py-[3px] rounded-[5px] text-[10px] tracking-[0.06em] font-semibold uppercase ${cls}`}>{label}</span>
+ }
+ 
+diff --git a/src/styles/design-system.css b/src/styles/design-system.css
+index b9938bf..5d33724 100644
+--- a/src/styles/design-system.css
++++ b/src/styles/design-system.css
+@@ -340,6 +340,9 @@ html, body {
+ }
+ .ds-btn-cancel:hover { filter: brightness(1.15); }
+ 
++/* ── Fix: ds-table tbody color adaptativo (antes era #cccccc fijo) ── */
++.ds-table tbody td { color: var(--text-primary); }
++
+ /* ── Nav item hover (no destruir activo) ── */
+ .sl-nav-item:not(.sl-nav-active):hover { background: var(--sl-hover) !important; }
+ 
+@@ -349,3 +352,65 @@ html, body {
+ ::-webkit-scrollbar-track { background: var(--bg-app); }
+ ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+ ::-webkit-scrollbar-thumb:hover { background: var(--sl-border-strong); }
++
++/* ═══════════════════════════════════════════════════════════
++   CONFIGURACIÓN — Clases específicas para módulo /configuracion
++   ═══════════════════════════════════════════════════════════ */
++
++/* Tabla estilo Facturación/Objetivos replicado para módulo Config.
++   Uso: <table className="sl-cfg-table"> en todos los paneles Config.
++   Replica: fontFamily Oswald heading, fontSize 10-11, letterSpacing 2px,
++   padding 10x10, background thead = group, borders via --sl-border. */
++.sl-cfg-table {
++  width: 100%;
++  font-size: 13.5px;
++  border-collapse: collapse;
++}
++.sl-cfg-table thead th {
++  padding: 10px 10px;
++  text-align: left;
++  color: var(--sl-text-muted);
++  font-size: 10px;
++  text-transform: uppercase;
++  letter-spacing: 2px;
++  background: var(--sl-thead);
++  border-bottom: 0.5px solid var(--sl-border);
++  font-weight: 400;
++  font-family: "Oswald", sans-serif;
++  vertical-align: middle;
++  white-space: nowrap;
++}
++.sl-cfg-table thead th.num { text-align: right; }
++.sl-cfg-table tbody td {
++  padding: 10px 10px;
++  border-bottom: 0.5px solid var(--sl-border);
++  font-family: "Lexend", sans-serif;
++  font-size: 13px;
++  color: var(--sl-text-primary);
++  white-space: nowrap;
++}
++.sl-cfg-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
++.sl-cfg-table tbody tr:hover { background: var(--sl-hover); }
++.sl-cfg-table tbody tr.row-click { cursor: pointer; }
++.sl-cfg-table tfoot td, .sl-cfg-table tr.total td {
++  padding: 10px 10px;
++  border-top: 1px solid var(--sl-border);
++  background: var(--sl-thead);
++  font-family: "Oswald", sans-serif;
++  font-size: 12px;
++  font-weight: 600;
++  color: var(--sl-text-primary);
++}
++
++/* Agrupamiento visual en tabla (p.ej. Categorías conciliación: Ingresos / Gastos) */
++.sl-cfg-group-header td {
++  padding: 12px 10px 6px 10px !important;
++  background: var(--sl-card-alt) !important;
++  font-family: "Oswald", sans-serif !important;
++  font-size: 10px !important;
++  font-weight: 600 !important;
++  text-transform: uppercase !important;
++  letter-spacing: 2px !important;
++  color: var(--sl-text-muted) !important;
++  border-bottom: 1px solid var(--sl-border) !important;
++}

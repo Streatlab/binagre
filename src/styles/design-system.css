@@ -340,6 +340,9 @@ html, body {
 }
 .ds-btn-cancel:hover { filter: brightness(1.15); }
 
+/* ── Fix: ds-table tbody color adaptativo (antes era #cccccc fijo) ── */
+.ds-table tbody td { color: var(--text-primary); }
+
 /* ── Nav item hover (no destruir activo) ── */
 .sl-nav-item:not(.sl-nav-active):hover { background: var(--sl-hover) !important; }
 
@@ -349,3 +352,65 @@ html, body {
 ::-webkit-scrollbar-track { background: var(--bg-app); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--sl-border-strong); }
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURACIÓN — Clases específicas para módulo /configuracion
+   ═══════════════════════════════════════════════════════════ */
+
+/* Tabla estilo Facturación/Objetivos replicado para módulo Config.
+   Uso: <table className="sl-cfg-table"> en todos los paneles Config.
+   Replica: fontFamily Oswald heading, fontSize 10-11, letterSpacing 2px,
+   padding 10x10, background thead = group, borders via --sl-border. */
+.sl-cfg-table {
+  width: 100%;
+  font-size: 13.5px;
+  border-collapse: collapse;
+}
+.sl-cfg-table thead th {
+  padding: 10px 10px;
+  text-align: left;
+  color: var(--sl-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: var(--sl-thead);
+  border-bottom: 0.5px solid var(--sl-border);
+  font-weight: 400;
+  font-family: "Oswald", sans-serif;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.sl-cfg-table thead th.num { text-align: right; }
+.sl-cfg-table tbody td {
+  padding: 10px 10px;
+  border-bottom: 0.5px solid var(--sl-border);
+  font-family: "Lexend", sans-serif;
+  font-size: 13px;
+  color: var(--sl-text-primary);
+  white-space: nowrap;
+}
+.sl-cfg-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.sl-cfg-table tbody tr:hover { background: var(--sl-hover); }
+.sl-cfg-table tbody tr.row-click { cursor: pointer; }
+.sl-cfg-table tfoot td, .sl-cfg-table tr.total td {
+  padding: 10px 10px;
+  border-top: 1px solid var(--sl-border);
+  background: var(--sl-thead);
+  font-family: "Oswald", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sl-text-primary);
+}
+
+/* Agrupamiento visual en tabla (p.ej. Categorías conciliación: Ingresos / Gastos) */
+.sl-cfg-group-header td {
+  padding: 12px 10px 6px 10px !important;
+  background: var(--sl-card-alt) !important;
+  font-family: "Oswald", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 2px !important;
+  color: var(--sl-text-muted) !important;
+  border-bottom: 1px solid var(--sl-border) !important;
+}

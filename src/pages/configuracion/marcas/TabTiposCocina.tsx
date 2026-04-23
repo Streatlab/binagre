@@ -51,24 +51,24 @@ export default function TabTiposCocina() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <BigCard title="Tipos de cocina" count={`${tipos.length}`}>
       <div className="space-y-2 mb-4">
         {tipos.map(t => (
-          <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-[#FAF4E4] border border-[#E9E1D0] rounded-lg hover:border-[#B01D23] transition-colors">
+          <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-[var(--sl-hover)] border border-[var(--sl-border)] rounded-lg hover:border-[var(--sl-border-focus)] transition-colors">
             <div className="flex-1">
               <InlineEdit value={t.nombre} type="text" onSubmit={(v) => handleRename(t, String(v))} />
             </div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-[#9E9588] mr-4">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--sl-text-muted)] mr-4">
               {t.count_marcas} marca{t.count_marcas !== 1 ? 's' : ''}
             </div>
             <button
               onClick={() => handleDelete(t)}
               disabled={t.count_marcas > 0}
-              className="text-[#9E9588] hover:text-[#B01D23] text-[18px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+              className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-calc)] text-[18px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
               title={t.count_marcas > 0 ? 'Usado por marcas' : 'Eliminar'}
             >×</button>
           </div>
@@ -80,9 +80,9 @@ export default function TabTiposCocina() {
           onChange={(e) => setNuevo(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
           placeholder="Nuevo tipo de cocina..."
-          className="flex-1 px-3 py-2 border border-dashed border-[#E9E1D0] rounded-lg text-[13px] bg-white focus:outline-none focus:border-[#B01D23]"
+          className="flex-1 px-3 py-2 border border-dashed border-[var(--sl-border)] rounded-lg text-[13px] bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]"
         />
-        <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
+        <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Añadir</button>
       </div>
     </BigCard>
   )

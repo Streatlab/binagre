@@ -72,33 +72,33 @@ export default function CuentasPanel() {
     await refetch(); close()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   return (
     <>
       <BigCard title="Cuentas bancarias" count={`${cuentas.length}`}>
-        <table className="w-full border-collapse text-[13.5px] mb-4">
+        <table className="sl-cfg-table">
           <thead>
             <tr>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Alias</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Banco</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">IBAN</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">SWIFT</th>
+              <th>Alias</th>
+              <th>Banco</th>
+              <th>IBAN</th>
+              <th>SWIFT</th>
             </tr>
           </thead>
           <tbody>
             {cuentas.map(c => (
-              <tr key={c.id} onClick={() => open(c)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
-                <td className="py-3.5 px-3.5"><strong>{c.alias}</strong></td>
-                <td className="py-3.5 px-3.5">{c.banco}</td>
-                <td className="py-3.5 px-3.5 font-mono text-[12.5px]">{c.iban ?? '—'}</td>
-                <td className="py-3.5 px-3.5 font-mono text-[12.5px]">{c.swift ?? '—'}</td>
+              <tr key={c.id} onClick={() => open(c)} className="row-click">
+                <td><strong>{c.alias}</strong></td>
+                <td>{c.banco}</td>
+                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.iban ?? '—'}</td>
+                <td style={{ fontFamily: "ui-monospace,monospace", fontSize: 12.5 }}>{c.swift ?? '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva cuenta</button>
+        <button onClick={() => open()} className="px-4 py-2 rounded-lg text-xs font-medium bg-[var(--sl-btn-save-bg)] text-white hover:bg-[#901A1E] tracking-[0.04em]">+ Nueva cuenta</button>
       </BigCard>
 
       {(editing || creating) && (
@@ -108,10 +108,10 @@ export default function CuentasPanel() {
           onDelete={editing ? handleDelete : undefined}
           saving={saving} canSave={!!fAlias.trim() && !!fBanco.trim()}
         >
-          <Field label="Alias"><input value={fAlias} onChange={(e) => setFAlias(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
-          <Field label="Banco"><input value={fBanco} onChange={(e) => setFBanco(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm focus:outline-none focus:border-[#B01D23]" /></Field>
-          <Field label="IBAN"><input value={fIban} onChange={(e) => setFIban(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
-          <Field label="SWIFT"><input value={fSwift} onChange={(e) => setFSwift(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#B01D23]" /></Field>
+          <Field label="Alias"><input value={fAlias} onChange={(e) => setFAlias(e.target.value)} autoFocus className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="Banco"><input value={fBanco} onChange={(e) => setFBanco(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="IBAN"><input value={fIban} onChange={(e) => setFIban(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
+          <Field label="SWIFT"><input value={fSwift} onChange={(e) => setFSwift(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
         </EditModal>
       )}
     </>

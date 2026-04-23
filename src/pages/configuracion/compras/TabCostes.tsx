@@ -67,8 +67,8 @@ export default function TabCostes() {
     await refetch()
   }
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
   if (!row) return null
 
   const esManual = row.coste_estructura_fuente === 'manual' && row.coste_estructura_override != null
@@ -84,12 +84,12 @@ export default function TabCostes() {
           {esManual ? 'Manual *' : 'Calculado desde Running *'}
         </span>
         {esManual && (
-          <button onClick={resetRunning} className="ml-auto text-xs text-[#B01D23] hover:underline">
+          <button onClick={resetRunning} className="ml-auto text-xs text-[var(--sl-text-calc)] hover:underline">
             Volver a valor del Running
           </button>
         )}
       </div>
-      <p className="mt-4 text-[11px] text-[#9E9588]">
+      <p className="mt-4 text-[11px] text-[var(--sl-text-muted)]">
         * El valor por defecto se calcula desde una celda del módulo Running. Puedes sobrescribirlo manualmente editando el campo.
       </p>
     </BigCard>

@@ -15,8 +15,20 @@ interface ConfigCanal {
 
 type Platform = 'UE' | 'GL' | 'JE'
 
+// Colores por canal en formato CSS var() para adaptarse a light/dark desde design-system.css
 const COLOR: Record<string, string> = {
-  UE: '#22B573', GL: '#DCCF2A', JE: '#E89A2B', WEB: '#C94E5A', DIR: '#6AA0D6',
+  UE:  'var(--sl-uber-text)',
+  GL:  'var(--sl-glovo-text)',
+  JE:  'var(--sl-je-text)',
+  WEB: 'var(--sl-web)',
+  DIR: 'var(--sl-direct-text)',
+}
+const COLOR_DOT: Record<string, string> = {
+  UE:  'var(--sl-uber)',
+  GL:  'var(--sl-glovo-dot)',
+  JE:  'var(--sl-je)',
+  WEB: 'var(--sl-web-dot)',
+  DIR: 'var(--sl-direct)',
 }
 const LABEL: Record<string, string> = {
   UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat', WEB: 'Web', DIR: 'Directa',
@@ -24,11 +36,11 @@ const LABEL: Record<string, string> = {
 
 function colorPorNombre(n: string): string {
   const s = n.toLowerCase()
-  if (s.includes('uber')) return '#22B573'
-  if (s.includes('glovo')) return '#DCCF2A'
-  if (s.includes('just')) return '#E89A2B'
-  if (s.includes('web') || s.includes('rushour')) return '#C94E5A'
-  return '#6AA0D6'
+  if (s.includes('uber')) return 'var(--sl-uber)'
+  if (s.includes('glovo')) return 'var(--sl-glovo-dot)'
+  if (s.includes('just')) return 'var(--sl-je)'
+  if (s.includes('web') || s.includes('rushour')) return 'var(--sl-web-dot)'
+  return 'var(--sl-direct)'
 }
 
 function fmtPct(n: number): string {
@@ -117,16 +129,16 @@ export default function TabCanales() {
     return vals.filter(([, v]) => Number.isFinite(v)).sort((a, b) => a[1] - b[1])[0]?.[0] ?? 'UE'
   }, [comisionNeta])
 
-  if (loading) return <div className="p-6 text-[#9E9588]">Cargando canales…</div>
-  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
+  if (loading) return <div className="p-6 text-[var(--sl-text-muted)]">Cargando canales…</div>
+  if (error) return <div className="p-6 bg-[var(--sl-border-error)]/20 text-[var(--sl-border-error)] rounded-xl">{error}</div>
 
   const margenNetoMejor = 100 - (comisionNeta[mejorCanal] ?? 0)
 
   return (
     <>
       <div className="grid grid-cols-2 gap-3.5 mb-5">
-        <div className="bg-white rounded-xl px-[26px] py-6 border border-[#E9E1D0]">
-          <div className="text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium mb-3">Comisión óptima neta</div>
+        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
+          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Comisión óptima neta</div>
           <div className="space-y-2">
             {(['UE','GL','JE'] as const).map(k => (
               <div key={k} className="flex items-center justify-between">
@@ -137,46 +149,46 @@ export default function TabCanales() {
               </div>
             ))}
           </div>
-          <div className="text-xs text-[#9E9588] mt-3">real sobre ticket medio últimos 30 días</div>
+          <div className="text-xs text-[var(--sl-text-muted)] mt-3">real sobre ticket medio últimos 30 días</div>
         </div>
 
-        <div className="bg-white rounded-xl px-[26px] py-6 border border-[#E9E1D0]">
-          <div className="text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium mb-3">Mejor margen plataforma</div>
+        <div className="bg-[var(--sl-card)] rounded-xl px-[26px] py-6 border border-[var(--sl-border)]">
+          <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--sl-text-muted)] font-medium mb-3">Mejor margen plataforma</div>
           <div className="text-[38px] font-extrabold leading-none tracking-[-0.02em]" style={{ color: COLOR[mejorCanal] }}>
             {LABEL[mejorCanal]}
           </div>
-          <div className="text-[13px] text-[#6E6656] mt-3">
+          <div className="text-[13px] text-[var(--sl-text-secondary)] mt-3">
             margen neto real: <strong className="tabular-nums">{fmtPct(margenNetoMejor)}</strong>
           </div>
         </div>
       </div>
 
       <BigCard title="Canales de venta" count={`${canales.length}`}>
-        <table className="w-full border-collapse text-[13.5px]">
+        <table className="sl-cfg-table">
           <thead>
             <tr>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-left">Canal</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Comisión</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Coste fijo</th>
-              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] font-medium text-right">Margen deseado</th>
+              <th>Canal</th>
+              <th className="num">Comisión</th>
+              <th className="num">Coste fijo</th>
+              <th className="num">Margen deseado</th>
             </tr>
           </thead>
           <tbody>
             {canales.map(c => (
-              <tr key={c.id} className="border-b border-[#F0E8D5]">
-                <td className="py-3.5 px-3.5">
+              <tr key={c.id}>
+                <td>
                   <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: colorPorNombre(c.canal) }} />
                   <strong>{c.canal}</strong>
                 </td>
-                <td className="py-3.5 px-3.5 text-right">
+                <td className="num">
                   <InlineEdit value={c.comision_pct} type="percent" align="right" min={0} max={100} step={0.01}
                     onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
                 </td>
-                <td className="py-3.5 px-3.5 text-right">
+                <td className="num">
                   <InlineEdit value={c.coste_fijo} type="currency" align="right" min={0} step={0.01}
                     onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))} />
                 </td>
-                <td className="py-3.5 px-3.5 text-right">
+                <td className="num">
                   <InlineEdit value={c.margen_obj_pct} type="percent" align="right" min={0} max={100} step={0.01}
                     onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
                 </td>
