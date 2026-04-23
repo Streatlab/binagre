@@ -77,11 +77,53 @@ export function useConciliacion() {
     return () => { cancel = true }
   }, [tick])
 
-  async function insertMovimientos(rows: Omit<Movimiento, 'id'>[]): Promise<{ insertados: number; autoCategorizados: number }> {
-    if (rows.length === 0) return { insertados: 0, autoCategorizados: 0 }
-    const { data: insertados, error } = await supabase.from('conciliacion').insert(rows).select('*')
+  async function insertMovimientos(rows: Omit<Movimiento, 'id'>[]): Promise<{ insertados: number; autoCategorizados: number; ignorados: number }> {
+    if (rows.length === 0) return { insertados: 0, autoCategorizados: 0, ignorados: 0 }
+
+    // 1. Resolver órdenes ya usados en BD para los días del batch
+    const fechasUnicas = Array.from(new Set(rows.map(r => r.fecha).filter((f): f is string => !!f)))
+    const usedOrders = new Map<string, Set<number>>()
+    if (fechasUnicas.length > 0) {
+      const { data: existentes, error: exErr } = await supabase
+        .from('conciliacion')
+        .select('dedup_key')
+        .in('fecha', fechasUnicas)
+      if (exErr) throw exErr
+      for (const e of existentes ?? []) {
+        const k = (e as any).dedup_key as string | null
+        if (!k) continue
+        const parts = k.split('|')
+        if (parts.length < 4) continue
+        const orden = parseInt(parts[parts.length - 1], 10)
+        if (isNaN(orden)) continue
+        const prefix = parts.slice(0, -1).join('|')
+        if (!usedOrders.has(prefix)) usedOrders.set(prefix, new Set())
+        usedOrders.get(prefix)!.add(orden)
+      }
+    }
+
+    // 2. Asignar dedup_key a cada fila (formato: fecha|importe.00|concepto_lower|orden)
+    const rowsConKey = rows.map(r => {
+      const f = (r.fecha ?? '').trim()
+      const imp = (Number(r.importe) || 0).toFixed(2)
+      const c = (r.concepto ?? '').trim().toLowerCase()
+      const prefix = `${f}|${imp}|${c}`
+      let orden = 0
+      const usados = usedOrders.get(prefix) ?? new Set<number>()
+      while (usados.has(orden)) orden++
+      usados.add(orden)
+      usedOrders.set(prefix, usados)
+      return { ...r, dedup_key: `${prefix}|${orden}` }
+    })
+
+    // 3. Upsert con ignoreDuplicates: si la dedup_key ya existe en BD, salta la fila
+    const { data: insertados, error } = await supabase
+      .from('conciliacion')
+      .upsert(rowsConKey, { onConflict: 'dedup_key', ignoreDuplicates: true })
+      .select('*')
     if (error) throw error
     const insertedRows = (insertados ?? []) as Movimiento[]
+    const ignorados = rows.length - insertedRows.length
 
     // Aplicar reglas activas a los recién insertados
     let autoCategorizados = 0
@@ -110,7 +152,7 @@ export function useConciliacion() {
       }
     }
     refresh()
-    return { insertados: insertedRows.length, autoCategorizados }
+    return { insertados: insertedRows.length, autoCategorizados, ignorados }
   }
 
   /**

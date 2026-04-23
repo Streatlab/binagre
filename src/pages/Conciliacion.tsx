@@ -393,10 +393,11 @@ export default function Conciliacion() {
                 notas: r.notas ?? null,
               }))
               insertMovimientos(toInsert)
-                .then(({ insertados, autoCategorizados }) => {
-                  if (autoCategorizados > 0) {
-                    alert(`${insertados} movimientos importados · ${autoCategorizados} categorizados automáticamente según tus reglas`)
-                  }
+                .then(({ insertados, autoCategorizados, ignorados }) => {
+                  const partes: string[] = [`${insertados} movimientos importados`]
+                  if (ignorados > 0) partes.push(`${ignorados} ya existían (omitidos)`)
+                  if (autoCategorizados > 0) partes.push(`${autoCategorizados} categorizados automáticamente`)
+                  if (ignorados > 0 || autoCategorizados > 0) alert(partes.join(' · '))
                 })
                 .catch(err => console.error('Error importando:', err))
             }} />
