@@ -24,148 +24,6 @@ const CATEGORIAS: Categoria[] = [
 ]
 
 /* ═══════════════════════════════════════════════════════════
-   MOCK (últimos 31 días)
-   ═══════════════════════════════════════════════════════════ */
-
-function daysAgo(n: number): string {
-  const d = new Date()
-  d.setHours(12, 0, 0, 0)
-  d.setDate(d.getDate() - n)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const MOCK: Movimiento[] = [
-  /* Uber Eats — 4 semanas, primeros 3 sin cat para demo regla */
-  { id: '1',  fecha: daysAgo(1),  concepto: 'Liquidación Uber Eats semana 16', importe: 3284.55, categoria_id: null,       contraparte: 'Uber Eats' },
-  { id: '2',  fecha: daysAgo(8),  concepto: 'Liquidación Uber Eats semana 15', importe: 2956.40, categoria_id: null,       contraparte: 'Uber Eats' },
-  { id: '3',  fecha: daysAgo(15), concepto: 'Liquidación Uber Eats semana 14', importe: 3102.60, categoria_id: null,       contraparte: 'Uber Eats' },
-  { id: '4',  fecha: daysAgo(22), concepto: 'Liquidación Uber Eats semana 13', importe: 2845.80, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-  { id: '5',  fecha: daysAgo(29), concepto: 'Liquidación Uber Eats semana 12', importe: 3125.10, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-
-  /* Glovo */
-  { id: '6',  fecha: daysAgo(2),  concepto: 'Liquidación Glovo semana 16', importe: 2145.30, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-  { id: '7',  fecha: daysAgo(9),  concepto: 'Liquidación Glovo semana 15', importe: 1987.20, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-  { id: '8',  fecha: daysAgo(16), concepto: 'Liquidación Glovo semana 14', importe: 2254.75, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-  { id: '9',  fecha: daysAgo(23), concepto: 'Liquidación Glovo semana 13', importe: 2012.90, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-
-  /* Just Eat */
-  { id: '10', fecha: daysAgo(6),  concepto: 'Liquidación Just Eat semana 16', importe: 1820.75, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-  { id: '11', fecha: daysAgo(13), concepto: 'Liquidación Just Eat semana 15', importe: 1654.85, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-  { id: '12', fecha: daysAgo(20), concepto: 'Liquidación Just Eat semana 14', importe: 1745.30, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-  { id: '13', fecha: daysAgo(27), concepto: 'Liquidación Just Eat semana 13', importe: 1598.40, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-
-  /* Alcampo — patrón repetido */
-  { id: '14', fecha: daysAgo(3),  concepto: 'Pedido Alcampo producto fresco', importe: -428.92, categoria_id: null,   contraparte: 'Alcampo' },
-  { id: '15', fecha: daysAgo(10), concepto: 'Pedido Alcampo producto fresco', importe: -389.40, categoria_id: null,   contraparte: 'Alcampo' },
-  { id: '16', fecha: daysAgo(24), concepto: 'Pedido Alcampo producto fresco', importe: -402.15, categoria_id: null,   contraparte: 'Alcampo' },
-
-  /* Jasa */
-  { id: '17', fecha: daysAgo(4),  concepto: 'Pedido Jasa carnes', importe: -786.20, categoria_id: 'prov', contraparte: 'Jasa' },
-  { id: '18', fecha: daysAgo(11), concepto: 'Pedido Jasa pollo',  importe: -524.70, categoria_id: 'prov', contraparte: 'Jasa' },
-  { id: '19', fecha: daysAgo(25), concepto: 'Pedido Jasa cerdo',  importe: -687.35, categoria_id: 'prov', contraparte: 'Jasa' },
-
-  /* Mercadona */
-  { id: '20', fecha: daysAgo(5),  concepto: 'Pedido Mercadona stock semanal', importe: -284.15, categoria_id: 'prov', contraparte: 'Mercadona' },
-  { id: '21', fecha: daysAgo(12), concepto: 'Pedido Mercadona complementos',  importe: -198.50, categoria_id: null,   contraparte: 'Mercadona' },
-
-  /* Pampols */
-  { id: '22', fecha: daysAgo(7),  concepto: 'Pedido Pampols pescado', importe: -542.80, categoria_id: 'prov', contraparte: 'Pampols' },
-  { id: '23', fecha: daysAgo(14), concepto: 'Pedido Pampols marisco', importe: -385.20, categoria_id: 'prov', contraparte: 'Pampols' },
-  { id: '24', fecha: daysAgo(28), concepto: 'Pedido Pampols pescado', importe: -498.90, categoria_id: 'prov', contraparte: 'Pampols' },
-
-  /* Envapro */
-  { id: '25', fecha: daysAgo(9),  concepto: 'Envapro packaging abril', importe: -368.90, categoria_id: 'prov', contraparte: 'Envapro' },
-
-  /* Pascual */
-  { id: '26', fecha: daysAgo(13), concepto: 'Pedido Pascual lácteos', importe: -192.45, categoria_id: 'prov', contraparte: 'Pascual' },
-  { id: '27', fecha: daysAgo(27), concepto: 'Pedido Pascual lácteos', importe: -178.30, categoria_id: 'prov', contraparte: 'Pascual' },
-
-  /* Lidl */
-  { id: '28', fecha: daysAgo(16), concepto: 'Pedido Lidl complementos', importe: -156.30, categoria_id: null, contraparte: 'Lidl' },
-
-  /* RRHH */
-  { id: '29', fecha: daysAgo(4),  concepto: 'Nómina cocinero jefe',   importe: -1850.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-  { id: '30', fecha: daysAgo(4),  concepto: 'Nómina ayudante cocina', importe: -1320.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-  { id: '31', fecha: daysAgo(4),  concepto: 'Nómina encargado sala',  importe: -1680.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-
-  /* Alquiler */
-  { id: '32', fecha: daysAgo(4),  concepto: 'Alquiler local abril', importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
-
-  /* Suministros */
-  { id: '33', fecha: daysAgo(5),  concepto: 'Luz Iberdrola marzo',     importe: -612.40, categoria_id: 'sum', contraparte: 'Iberdrola' },
-  { id: '34', fecha: daysAgo(18), concepto: 'Agua Canal de Isabel II', importe: -78.50,  categoria_id: 'sum', contraparte: 'Canal II' },
-  { id: '35', fecha: daysAgo(21), concepto: 'Gas Naturgy marzo',       importe: -248.10, categoria_id: 'sum', contraparte: 'Naturgy' },
-  { id: '36', fecha: daysAgo(19), concepto: 'Teléfono Movistar abril', importe: -89.90,  categoria_id: 'sum', contraparte: 'Movistar' },
-
-  /* Marketing */
-  { id: '37', fecha: daysAgo(14), concepto: 'Campaña Instagram Ads', importe: -320.00, categoria_id: 'mkt', contraparte: 'Meta Ads' },
-  { id: '38', fecha: daysAgo(25), concepto: 'Google Ads marzo',      importe: -210.00, categoria_id: 'mkt', contraparte: 'Google Ads' },
-
-  /* Otros */
-  { id: '39', fecha: daysAgo(22), concepto: 'Reparación horno cocina', importe: -185.00, categoria_id: 'otros', contraparte: 'Técnico SAT' },
-
-  /* Web directa */
-  { id: '40', fecha: daysAgo(17), concepto: 'Venta web directa',      importe: 425.60, categoria_id: 'ing-web', contraparte: 'Web' },
-  { id: '41', fecha: daysAgo(26), concepto: 'Venta web directa',      importe: 312.80, categoria_id: 'ing-web', contraparte: 'Web' },
-
-  /* ═════════════ PERÍODO ANTERIOR (días 32-58) para comparativas ═════════════ */
-  /* Uber Eats */
-  { id: '50', fecha: daysAgo(36), concepto: 'Liquidación Uber Eats semana 11', importe: 2980.40, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-  { id: '51', fecha: daysAgo(43), concepto: 'Liquidación Uber Eats semana 10', importe: 2765.20, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-  { id: '52', fecha: daysAgo(50), concepto: 'Liquidación Uber Eats semana 09', importe: 2842.90, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-  { id: '53', fecha: daysAgo(57), concepto: 'Liquidación Uber Eats semana 08', importe: 2594.15, categoria_id: 'ing-plat', contraparte: 'Uber Eats' },
-
-  /* Glovo */
-  { id: '54', fecha: daysAgo(37), concepto: 'Liquidación Glovo semana 11', importe: 1890.70, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-  { id: '55', fecha: daysAgo(44), concepto: 'Liquidación Glovo semana 10', importe: 1745.30, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-  { id: '56', fecha: daysAgo(51), concepto: 'Liquidación Glovo semana 09', importe: 2010.50, categoria_id: 'ing-plat', contraparte: 'Glovo' },
-
-  /* Just Eat */
-  { id: '57', fecha: daysAgo(41), concepto: 'Liquidación Just Eat semana 11', importe: 1485.20, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-  { id: '58', fecha: daysAgo(48), concepto: 'Liquidación Just Eat semana 10', importe: 1398.75, categoria_id: 'ing-plat', contraparte: 'Just Eat' },
-
-  /* Web directa */
-  { id: '59', fecha: daysAgo(45), concepto: 'Venta web directa', importe: 384.20, categoria_id: 'ing-web', contraparte: 'Web' },
-  { id: '60', fecha: daysAgo(54), concepto: 'Venta web directa', importe: 295.60, categoria_id: 'ing-web', contraparte: 'Web' },
-
-  /* Alcampo */
-  { id: '61', fecha: daysAgo(33), concepto: 'Pedido Alcampo producto fresco', importe: -445.80, categoria_id: 'prov', contraparte: 'Alcampo' },
-  { id: '62', fecha: daysAgo(40), concepto: 'Pedido Alcampo producto fresco', importe: -412.30, categoria_id: 'prov', contraparte: 'Alcampo' },
-  { id: '63', fecha: daysAgo(54), concepto: 'Pedido Alcampo producto fresco', importe: -398.50, categoria_id: 'prov', contraparte: 'Alcampo' },
-
-  /* Jasa */
-  { id: '64', fecha: daysAgo(38), concepto: 'Pedido Jasa pollo',  importe: -612.40, categoria_id: 'prov', contraparte: 'Jasa' },
-  { id: '65', fecha: daysAgo(52), concepto: 'Pedido Jasa cerdo',  importe: -548.90, categoria_id: 'prov', contraparte: 'Jasa' },
-
-  /* Pampols */
-  { id: '66', fecha: daysAgo(42), concepto: 'Pedido Pampols pescado', importe: -472.30, categoria_id: 'prov', contraparte: 'Pampols' },
-
-  /* RRHH */
-  { id: '67', fecha: daysAgo(34), concepto: 'Nómina cocinero jefe',   importe: -1850.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-  { id: '68', fecha: daysAgo(34), concepto: 'Nómina ayudante cocina', importe: -1320.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-  { id: '69', fecha: daysAgo(34), concepto: 'Nómina encargado sala',  importe: -1680.00, categoria_id: 'rrhh', contraparte: 'Nóminas' },
-
-  /* Alquiler */
-  { id: '70', fecha: daysAgo(34), concepto: 'Alquiler local marzo', importe: -2400.00, categoria_id: 'alq', contraparte: 'Inmobiliaria SL' },
-
-  /* Suministros */
-  { id: '71', fecha: daysAgo(35), concepto: 'Luz Iberdrola febrero',   importe: -578.90, categoria_id: 'sum', contraparte: 'Iberdrola' },
-  { id: '72', fecha: daysAgo(47), concepto: 'Agua Canal de Isabel II', importe: -72.40,  categoria_id: 'sum', contraparte: 'Canal II' },
-  { id: '73', fecha: daysAgo(48), concepto: 'Gas Naturgy febrero',     importe: -235.70, categoria_id: 'sum', contraparte: 'Naturgy' },
-  { id: '74', fecha: daysAgo(46), concepto: 'Teléfono Movistar marzo', importe: -89.90,  categoria_id: 'sum', contraparte: 'Movistar' },
-
-  /* Marketing */
-  { id: '75', fecha: daysAgo(42), concepto: 'Google Ads febrero',      importe: -180.00, categoria_id: 'mkt', contraparte: 'Google Ads' },
-  { id: '76', fecha: daysAgo(55), concepto: 'Campaña Instagram Ads',   importe: -295.00, categoria_id: 'mkt', contraparte: 'Meta Ads' },
-
-  /* Otros */
-  { id: '77', fecha: daysAgo(50), concepto: 'Reparación campana extractora', importe: -240.00, categoria_id: 'otros', contraparte: 'Técnico SAT' },
-]
-
-/* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
 
@@ -218,27 +76,55 @@ export default function Conciliacion() {
   const [catFiltro, setCatFiltro] = useState<string>('todas')
   const [busqueda, setBusqueda] = useState('')
 
-  const [movimientos, setMovimientos] = useState<Movimiento[]>(MOCK)
   const [reglas, setReglas] = useState<Regla[]>([])
-  const { insertMovimientos } = useConciliacion()
+  const {
+    movimientos: movimientosBD,
+    insertMovimientos,
+    updateCategoria,
+    loading: loadingBD,
+  } = useConciliacion()
 
-  /* — Categorización inline con aprendizaje — */
-  const handleCategorizar = (movId: string, catId: string, concepto: string) => {
+  const movimientos = useMemo<Movimiento[]>(
+    () => movimientosBD.map(m => ({
+      id: m.id,
+      fecha: m.fecha,
+      concepto: m.concepto,
+      importe: Number(m.importe),
+      categoria_id: m.categoria,
+      contraparte: m.proveedor ?? '',
+    })),
+    [movimientosBD]
+  )
+
+  /* — Categorización inline con aprendizaje (persiste en BD) — */
+  const handleCategorizar = async (movId: string, catId: string, concepto: string) => {
     const normalizedCat = catId === '' ? null : catId
-    setMovimientos(prev => {
-      const base = prev.map(m => m.id === movId ? { ...m, categoria_id: normalizedCat, auto_categorizado: false } : m)
-      if (!normalizedCat) return base
-      const patron = extraerPatron(concepto)
-      return base.map(m => {
-        if (m.id === movId) return m
-        if (!m.categoria_id && m.concepto.toLowerCase().includes(patron)) {
-          return { ...m, categoria_id: normalizedCat, auto_categorizado: true }
-        }
-        return m
-      })
-    })
+    const mov = movimientos.find(m => m.id === movId)
+    const tipo: 'ingreso' | 'gasto' | null =
+      !normalizedCat ? null : (mov && mov.importe >= 0 ? 'ingreso' : 'gasto')
+
+    try {
+      await updateCategoria(movId, normalizedCat, tipo)
+    } catch (err) {
+      console.error('Error guardando categoría:', err)
+      return
+    }
+
     if (normalizedCat) {
       const patron = extraerPatron(concepto)
+      const similares = movimientos.filter(m =>
+        m.id !== movId &&
+        !m.categoria_id &&
+        m.concepto.toLowerCase().includes(patron)
+      )
+      for (const s of similares) {
+        const sTipo: 'ingreso' | 'gasto' = s.importe >= 0 ? 'ingreso' : 'gasto'
+        try {
+          await updateCategoria(s.id, normalizedCat, sTipo)
+        } catch (err) {
+          console.error('Error auto-categorizando:', err)
+        }
+      }
       setReglas(prev => [...prev, { patron, categoria_id: normalizedCat }])
     }
   }
@@ -380,6 +266,12 @@ export default function Conciliacion() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
+
+      {loadingBD && (
+        <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
+          Cargando movimientos…
+        </div>
+      )}
 
       {/* HEADER — título + rango fechas + selector período (común a ambas pestañas) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
