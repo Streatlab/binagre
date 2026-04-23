@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
@@ -253,6 +254,9 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => togglePermiso(r.value, mod)}
                             style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                               width: 28,
                               height: 28,
                               borderRadius: 6,
@@ -264,7 +268,7 @@ export default function UsuariosPage() {
                               color: on ? okFg : T.mut,
                               transition: 'all 0.15s',
                             }}
-                          >{on ? '✓' : '—'}</button>
+                          >{on ? <Check size={16} strokeWidth={2.5} /> : '—'}</button>
                         </td>
                       )
                     })}

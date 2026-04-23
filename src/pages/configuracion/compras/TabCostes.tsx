@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
-import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
 interface ConfigRow {
   id: string
@@ -17,6 +16,8 @@ export default function TabCostes() {
   const [row, setRow] = useState<ConfigRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
 
   async function refetch() {
     const { data, error } = await supabase
@@ -55,6 +56,7 @@ export default function TabCostes() {
       .update({ coste_estructura_override: num, coste_estructura_fuente: 'manual', valor: String(num) })
       .eq('id', row.id)
     if (error) { setError(error.message); return }
+    setEditing(false)
     await refetch()
   }
   async function resetRunning() {
@@ -91,7 +93,59 @@ export default function TabCostes() {
     <ConfigGroupCard title="Coste estructura" padded>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ width: 200 }}>
-          <InlineEdit value={valorEfectivo} type="percent" onSubmit={handleOverride} min={0} max={100} step={0.01} />
+          {editing ? (
+            <input
+              type="number"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                const n = parseFloat(draft.replace(',', '.'))
+                if (Number.isFinite(n)) handleOverride(n)
+                else setEditing(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const n = parseFloat(draft.replace(',', '.'))
+                  if (Number.isFinite(n)) handleOverride(n)
+                  else setEditing(false)
+                } else if (e.key === 'Escape') {
+                  setEditing(false)
+                }
+              }}
+              min={0}
+              max={100}
+              step={0.01}
+              autoFocus
+              style={{
+                fontFamily: FONT.heading,
+                fontSize: 36,
+                fontWeight: 500,
+                color: T.pri,
+                lineHeight: 1,
+                width: '100%',
+                background: 'transparent',
+                border: `1px solid ${T.brd}`,
+                borderRadius: 6,
+                padding: '2px 6px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          ) : (
+            <div
+              onClick={() => { setDraft(String(valorEfectivo).replace('.', ',')); setEditing(true) }}
+              style={{
+                fontFamily: FONT.heading,
+                fontSize: 36,
+                fontWeight: 500,
+                color: T.pri,
+                lineHeight: 1,
+                cursor: 'pointer',
+              }}
+            >
+              {valorEfectivo.toFixed(2).replace('.', ',')}%
+            </div>
+          )}
         </div>
         <span
           style={{

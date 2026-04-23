@@ -230,6 +230,7 @@ export default function CategoriasPanel() {
     textTransform: 'uppercase',
     fontWeight: 600,
     padding: 0,
+    paddingRight: 20,
   } as CSSProperties)
 
   return (

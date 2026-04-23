@@ -86,6 +86,10 @@ export default function Conciliacion() {
   const [periodo, setPeriodo]   = useState<PeriodoFiltro>('mes')
   const [catFiltro, setCatFiltro] = useState<string>('todas')
   const [busqueda, setBusqueda] = useState('')
+  const [filtroCard, setFiltroCard] = useState<'pendientes' | 'ingreso' | 'gasto' | null>(null)
+  const toggleFiltroCard = (k: 'pendientes' | 'ingreso' | 'gasto') => {
+    setFiltroCard(prev => prev === k ? null : k)
+  }
 
   const [reglas, setReglas] = useState<Regla[]>([])
   const {
@@ -212,6 +216,12 @@ export default function Conciliacion() {
       })
       .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
       .filter(m => !busqueda || matchPatron(m.concepto, busqueda))
+      .filter(m => {
+        if (filtroCard === 'pendientes') return !m.categoria_id
+        if (filtroCard === 'ingreso')    return m.importe > 0
+        if (filtroCard === 'gasto')      return m.importe < 0
+        return true
+      })
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
   }, [movimientos, catFiltro, busqueda, rangoActual])
 
