@@ -68,15 +68,14 @@ export function useRunningFinanciero(anio: number, marca: string = 'Todas'): Run
         const desde = `${anio}-01-01`;
         const hasta = `${anio}-12-31`;
 
-        let fq: any = supabase
+        const { data: fd, error: e1 } = await supabase
           .from('facturacion_diario')
-          .select('fecha, canal, bruto, neto, comision, marca')
+          .select('fecha, uber_bruto, glovo_bruto, je_bruto, web_bruto, directa_bruto, total_bruto')
           .gte('fecha', desde)
           .lte('fecha', hasta);
-        if (marca !== 'Todas') fq = fq.eq('marca', marca);
-        const { data: fd, error: e1 } = await fq;
         if (e1) throw e1;
 
+        const COM = { uber: 0.30, glovo: 0.30, je: 0.30, web: 0.07, directa: 0.00 };
         const ing = new Map<number, IngresoMes>();
         for (let m = 1; m <= 12; m++) {
           ing.set(m, { mes: m, uber: 0, glovo: 0, justeat: 0, web: 0, bruto: 0, neto: 0, comisiones: 0 });
@@ -84,17 +83,25 @@ export function useRunningFinanciero(anio: number, marca: string = 'Todas'): Run
         (fd || []).forEach((r: any) => {
           const mes = Number(String(r.fecha).slice(5, 7));
           const row = ing.get(mes)!;
-          const bruto = Number(r.bruto || 0);
-          const neto = Number(r.neto || 0);
-          const com = Number(r.comision || 0);
-          row.bruto += bruto;
-          row.neto += neto;
-          row.comisiones += com;
-          const c = String(r.canal || '').toLowerCase();
-          if (c.includes('uber')) row.uber += neto;
-          else if (c.includes('glovo')) row.glovo += neto;
-          else if (c.includes('just')) row.justeat += neto;
-          else row.web += neto;
+          const ub = Number(r.uber_bruto || 0);
+          const gb = Number(r.glovo_bruto || 0);
+          const jb = Number(r.je_bruto || 0);
+          const wb = Number(r.web_bruto || 0);
+          const db = Number(r.directa_bruto || 0);
+          const tb = Number(r.total_bruto || 0) || ub + gb + jb + wb + db;
+          const un = ub * (1 - COM.uber);
+          const gn = gb * (1 - COM.glovo);
+          const jn = jb * (1 - COM.je);
+          const wn = wb * (1 - COM.web);
+          const dn = db * (1 - COM.directa);
+          const tn = un + gn + jn + wn + dn;
+          row.bruto += tb;
+          row.neto += tn;
+          row.comisiones += tb - tn;
+          row.uber += un;
+          row.glovo += gn;
+          row.justeat += jn;
+          row.web += wn + dn;
         });
 
         let gq: any = supabase
