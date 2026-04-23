@@ -10,6 +10,7 @@ export function useAniosDisponibles(): number[] {
       const { data, error } = await supabase
         .from('conciliacion')
         .select('fecha')
+        .range(0, 99999)
       if (cancel || error || !data) return
       const set = new Set<number>()
       for (const r of data as { fecha: string | null }[]) {
