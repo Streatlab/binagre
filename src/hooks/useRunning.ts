@@ -47,9 +47,9 @@ export function useRunning(periodo: PeriodoRango, anio: number): RunningState {
         const desdeAnt = new Date(hastaAnt.getTime() - ms);
 
         const [{data: g, error: e1}, {data: ga, error: e2}, {data: im, error: e3}, {data: r, error: e4}] = await Promise.all([
-          supabase.from('gastos').select('fecha,categoria,subcategoria,proveedor,concepto,importe')
+          supabase.from('gastos').select('fecha,categoria:grupo,subcategoria,proveedor,concepto,importe')
             .gte('fecha', fechaISO(periodo.desde)).lte('fecha', fechaISO(periodo.hasta)),
-          supabase.from('gastos').select('fecha,categoria,subcategoria,proveedor,concepto,importe')
+          supabase.from('gastos').select('fecha,categoria:grupo,subcategoria,proveedor,concepto,importe')
             .gte('fecha', fechaISO(desdeAnt)).lte('fecha', fechaISO(hastaAnt)),
           supabase.from('ingresos_mensuales').select('anio,mes,canal,tipo,importe').eq('anio', anio),
           supabase.from('categorias_rango').select('categoria,pct_min,pct_max,orden').order('orden'),
