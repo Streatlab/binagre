@@ -102,6 +102,7 @@ export default function Conciliacion() {
       importe: Number(m.importe),
       categoria_id: m.categoria,
       contraparte: m.proveedor ?? '',
+      gasto_id: m.gasto_id ?? null,
     })),
     [movimientosBD]
   )
@@ -448,7 +449,30 @@ export default function Conciliacion() {
                     return (
                       <tr key={m.id}>
                         <td style={{ ...tdStyle, color: T.sec }}>{fmtFecha(m.fecha)}</td>
-                        <td style={{ ...tdStyle, color: T.pri, whiteSpace: 'normal' }}>{m.concepto}</td>
+                        <td style={{ ...tdStyle, color: T.pri, whiteSpace: 'normal' }}>
+                          <span>{m.concepto}</span>
+                          {m.gasto_id && (
+                            <span
+                              title="Movimiento sincronizado como gasto en Running"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                marginLeft: 8,
+                                padding: '1px 8px',
+                                borderRadius: 10,
+                                background: '#1D9E7520',
+                                color: '#1D9E75',
+                                fontFamily: FONT.heading,
+                                fontSize: 10,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                fontWeight: 600,
+                                verticalAlign: 'middle',
+                              }}
+                            >✓ Running</span>
+                          )}
+                        </td>
                         <td style={{
                           ...tdStyle,
                           textAlign: 'right',

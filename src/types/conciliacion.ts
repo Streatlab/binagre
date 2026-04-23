@@ -6,6 +6,7 @@ export interface Movimiento {
   categoria_id: string | null
   contraparte: string
   auto_categorizado?: boolean
+  gasto_id?: string | null
 }
 
 export interface Categoria {

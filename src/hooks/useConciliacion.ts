@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapping'
 
 export interface Movimiento {
   id: string
@@ -13,6 +14,7 @@ export interface Movimiento {
   mes: string | null
   link_factura: string | null
   notas: string | null
+  gasto_id?: string | null
 }
 
 export interface Regla {
@@ -80,9 +82,68 @@ export function useConciliacion() {
     refresh()
   }
 
+  /**
+   * Sincroniza el gasto asociado a un movimiento bancario:
+   * - Si tipo === 'gasto' y codigo_categoria → crea o actualiza gasto
+   * - Si tipo !== 'gasto' o codigo_categoria es null → borra el gasto si existía
+   * Retorna gasto_id actualizado (o null).
+   */
+  async function syncGasto(mov: Movimiento, codigo_categoria: string | null, tipo: 'ingreso' | 'gasto' | null): Promise<string | null> {
+    const esGasto = tipo === 'gasto' && !!codigo_categoria
+
+    // Caso 1: ya no es gasto → borrar gasto existente
+    if (!esGasto) {
+      if (mov.gasto_id) {
+        await supabase.from('gastos').delete().eq('id', mov.gasto_id)
+      }
+      return null
+    }
+
+    // Caso 2: es gasto → buscar categoria para resolver grupo
+    const cat = categorias.find(c => c.tipo_parent === 'gasto' && c.codigo === codigo_categoria)
+    const grupo = grupoFromCategoria(codigo_categoria, cat?.grupo ?? null)
+    const subcategoria = categoriaToSubcategoria(codigo_categoria)
+
+    const payload = {
+      fecha: mov.fecha,
+      categoria: codigo_categoria,
+      grupo,
+      subcategoria,
+      proveedor: mov.proveedor,
+      concepto: mov.concepto,
+      importe: Math.abs(Number(mov.importe) || 0),
+      conciliacion_id: mov.id,
+    }
+
+    if (mov.gasto_id) {
+      // Update existente
+      const { error } = await supabase.from('gastos').update(payload).eq('id', mov.gasto_id)
+      if (error) throw error
+      return mov.gasto_id
+    }
+
+    // Insert nuevo
+    const { data, error } = await supabase.from('gastos').insert(payload).select('id').single()
+    if (error) throw error
+    return (data?.id as string) ?? null
+  }
+
   async function updateCategoria(id: string, codigo_categoria: string | null, tipo: 'ingreso' | 'gasto' | null) {
+    const mov = movimientos.find(m => m.id === id)
+    if (!mov) return
+
+    // 1. Sync gasto (create/update/delete)
+    let nuevoGastoId: string | null = null
+    try {
+      nuevoGastoId = await syncGasto(mov, codigo_categoria, tipo)
+    } catch (e: any) {
+      // Registrar pero no abortar la categorización; el usuario verá el campo actualizado en Conciliación y puede reintentar.
+      console.error('syncGasto failed:', e?.message ?? e)
+    }
+
+    // 2. Actualizar la fila de conciliación
     const { error } = await supabase.from('conciliacion')
-      .update({ categoria: codigo_categoria, tipo })
+      .update({ categoria: codigo_categoria, tipo, gasto_id: nuevoGastoId })
       .eq('id', id)
     if (error) throw error
     refresh()
@@ -109,8 +170,17 @@ export function useConciliacion() {
       if (!regla) continue
       const cat = categorias.find(c => c.id === regla.categoria_id)
       if (!cat) continue
+
+      // Sync gasto si procede
+      let gastoId: string | null = null
+      try {
+        gastoId = await syncGasto(m, cat.codigo, regla.tipo_categoria)
+      } catch (e: any) {
+        console.error('syncGasto (aplicarReglas) failed:', e?.message ?? e)
+      }
+
       const { error } = await supabase.from('conciliacion')
-        .update({ categoria: cat.codigo, tipo: regla.tipo_categoria })
+        .update({ categoria: cat.codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
         .eq('id', m.id)
       if (!error) aplicados++
     }
