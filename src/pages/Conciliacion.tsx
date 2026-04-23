@@ -5,6 +5,8 @@ import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/token
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
+import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown'
+import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
@@ -59,7 +61,7 @@ function colorContraparte(nombre: string): string | null {
   return null
 }
 
-function calcularLabelPeriodo(periodo: string): string {
+function calcularLabelPeriodo(periodo: string, customDesde?: string, customHasta?: string): string {
   const now = new Date()
   const mes = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
   if (periodo === 'mes') return mes.toUpperCase()
@@ -68,7 +70,10 @@ function calcularLabelPeriodo(periodo: string): string {
     return ma.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
   }
   if (periodo === 'trimestre') return 'ÚLTIMOS 3 MESES'
-  if (periodo === 'anio') return String(now.getFullYear())
+  if (periodo.startsWith('anio_')) return `AÑO ${periodo.slice(5)}`
+  if (periodo === 'personalizado' && customDesde && customHasta) {
+    return `${customDesde} — ${customHasta}`
+  }
   return 'ÚLTIMOS 31 DÍAS'
 }
 
@@ -77,13 +82,15 @@ function calcularLabelPeriodo(periodo: string): string {
    ═══════════════════════════════════════════════════════════ */
 
 type Tab = 'resumen' | 'movimientos'
-type PeriodoFiltro = 'mes' | 'mes_anterior' | '30d' | 'trimestre' | 'anio' | 'personalizado'
 
 export default function Conciliacion() {
   const { T, isDark } = useTheme()
 
   const [tab, setTab]           = useState<Tab>('resumen')
-  const [periodo, setPeriodo]   = useState<PeriodoFiltro>('mes')
+  const [periodo, setPeriodo]   = useState<PeriodoKey>('mes')
+  const [customDesde, setCustomDesde] = useState<string>('')
+  const [customHasta, setCustomHasta] = useState<string>('')
+  const aniosDisponibles = useAniosDisponibles()
   const [catFiltro, setCatFiltro] = useState<string>('todas')
   const [busqueda, setBusqueda] = useState('')
   const [filtroCard, setFiltroCard] = useState<'pendientes' | 'ingreso' | 'gasto' | null>(null)
@@ -182,10 +189,15 @@ export default function Conciliacion() {
     } else if (periodo === 'trimestre') {
       inicio = new Date(hoy)
       inicio.setDate(inicio.getDate() - 89)
-    } else if (periodo === 'anio') {
-      inicio = new Date(hoy.getFullYear(), 0, 1)
+    } else if (periodo.startsWith('anio_')) {
+      const year = Number(periodo.slice(5))
+      inicio = new Date(year, 0, 1)
+      fin = new Date(year, 11, 31, 23, 59, 59)
+    } else if (periodo === 'personalizado' && customDesde && customHasta) {
+      inicio = new Date(customDesde + 'T00:00:00')
+      fin = new Date(customHasta + 'T23:59:59')
     } else {
-      // '30d' | 'personalizado'
+      // '30d' | 'personalizado' sin rango
       inicio = new Date(hoy)
       inicio.setDate(inicio.getDate() - 30)
     }
@@ -205,7 +217,7 @@ export default function Conciliacion() {
       rangoAnterior: { inicio: inicioAnt, fin: finAnt },
       rangoFechasLegible: legible,
     }
-  }, [periodo])
+  }, [periodo, customDesde, customHasta])
 
   /* — Filtrado principal — */
   const movimientosFiltrados = useMemo(() => {
@@ -244,7 +256,7 @@ export default function Conciliacion() {
     return { ingresos, gastos, sumIng, sumGst, balance, pendientes }
   }, [movimientosFiltrados])
 
-  const periodoLabel = calcularLabelPeriodo(periodo)
+  const periodoLabel = calcularLabelPeriodo(periodo, customDesde, customHasta)
 
   /* — Mes/año/días restantes (presupuestos) — */
   const hoyDate = new Date()
@@ -332,28 +344,14 @@ export default function Conciliacion() {
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: T.mut, fontFamily: FONT.body }}>{rangoFechasLegible}</span>
-          <select
+          <SelectorPeriodoDropdown
             value={periodo}
-            onChange={e => setPeriodo(e.target.value as PeriodoFiltro)}
-            style={{
-              padding: '8px 14px',
-              border: `1px solid ${T.brd}`,
-              borderRadius: 8,
-              backgroundColor: T.card,
-              fontSize: 13,
-              color: T.pri,
-              fontFamily: FONT.body,
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            <option value="mes">Este mes</option>
-            <option value="mes_anterior">Mes anterior</option>
-            <option value="30d">Últimos 30 días</option>
-            <option value="trimestre">Trimestre</option>
-            <option value="anio">Año</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
+            onChange={setPeriodo}
+            anios={aniosDisponibles}
+            desde={customDesde}
+            hasta={customHasta}
+            onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
+          />
         </div>
       </div>
 
@@ -376,12 +374,9 @@ export default function Conciliacion() {
           movimientos={movimientosFiltrados}
           movimientosAnterior={movimientosAnterior}
           categorias={CATEGORIAS}
-          periodoLabel={periodoLabel}
           mesNombre={mesNombre}
           anio={anioActual}
           diasRestantes={diasRestantes}
-          periodo={periodo}
-          setPeriodo={setPeriodo}
         />
       )}
 

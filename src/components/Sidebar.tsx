@@ -372,7 +372,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       <NavLink
                         key={`${item.path}-${idx}`}
                         to={item.path}
-                        end={item.path === '/'}
+                        end
                         onClick={onClose}
                         style={({ isActive }) => itemStyle(isActive)}
                         className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}

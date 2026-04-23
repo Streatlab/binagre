@@ -15,6 +15,7 @@ import GastosCard from '@/components/finanzas/running/GastosCard';
 import TablaPyG from '@/components/finanzas/running/TablaPyG';
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown';
+import { useAniosDisponibles } from '@/hooks/useAniosDisponibles';
 import MarcasCard from '@/components/finanzas/running/MarcasCard';
 import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupuestoCard';
 import TopProveedoresCard from '@/components/finanzas/running/TopProveedoresCard';
@@ -25,7 +26,7 @@ const VERDE = '#06C167';
 const ROJO  = '#B01D23';
 const NARANJA = '#E8440A';
 
-function calcularPeriodo(key: PeriodoKey): PeriodoRango {
+function calcularPeriodo(key: PeriodoKey, customDesde?: string, customHasta?: string): PeriodoRango {
   const hoy = new Date();
   const y = hoy.getFullYear();
   const m = hoy.getMonth();
@@ -44,11 +45,17 @@ function calcularPeriodo(key: PeriodoKey): PeriodoRango {
     const hasta = new Date(); const desde = new Date(); desde.setDate(desde.getDate() - 89);
     return { desde, hasta, key, label: 'Últimos 3 meses' };
   }
-  if (key === 'anio') {
-    const desde = new Date(y, 0, 1); const hasta = new Date(y, 11, 31);
-    return { desde, hasta, key, label: `Año ${y}` };
+  if (typeof key === 'string' && key.startsWith('anio_')) {
+    const year = Number(key.slice(5));
+    const desde = new Date(year, 0, 1); const hasta = new Date(year, 11, 31);
+    return { desde, hasta, key, label: `Año ${year}` };
   }
-  // 'mes' y 'personalizado' → mes actual por defecto
+  if (key === 'personalizado' && customDesde && customHasta) {
+    const desde = new Date(customDesde + 'T00:00:00');
+    const hasta = new Date(customHasta + 'T23:59:59');
+    return { desde, hasta, key, label: `${fmt(desde)} – ${fmt(hasta)} ${hasta.getFullYear()}` };
+  }
+  // 'mes' y 'personalizado' sin rango → mes actual
   const desde = new Date(y, m, 1);
   const hasta = new Date(y, m + 1, 0);
   return { desde, hasta, key, label: `${fmt(desde)} – ${fmt(hasta)} ${y}` };
@@ -63,9 +70,15 @@ function calcularEstadoRatio(pct: number): { label: string; color: string } {
 export default function Running() {
   const { T } = useTheme();
   const [periodoKey, setPeriodoKey] = useState<PeriodoKey>('mes');
-  const periodo = useMemo(() => calcularPeriodo(periodoKey), [periodoKey]);
+  const [customDesde, setCustomDesde] = useState<string>('');
+  const [customHasta, setCustomHasta] = useState<string>('');
+  const periodo = useMemo(
+    () => calcularPeriodo(periodoKey, customDesde, customHasta),
+    [periodoKey, customDesde, customHasta],
+  );
   const anio = periodo.desde.getFullYear();
   const [modalOpen, setModalOpen] = useState(false);
+  const aniosDisponibles = useAniosDisponibles();
 
   const { loading, error, gastos, gastosAnt, ingresosMes, rangos, reload } = useRunning(periodo, anio);
 
@@ -334,7 +347,14 @@ export default function Running() {
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{periodo.label}</span>
-          <SelectorPeriodoDropdown value={periodoKey} onChange={setPeriodoKey} />
+          <SelectorPeriodoDropdown
+            value={periodoKey}
+            onChange={setPeriodoKey}
+            anios={aniosDisponibles}
+            desde={customDesde}
+            hasta={customHasta}
+            onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
+          />
           <button
             onClick={() => setModalOpen(true)}
             style={{

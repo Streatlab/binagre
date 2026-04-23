@@ -12,25 +12,19 @@ import type { Movimiento, Categoria } from '@/types/conciliacion'
    PROPS
    ═══════════════════════════════════════════════════════════ */
 
-type Periodo = 'mes' | 'mes_anterior' | '30d' | 'trimestre' | 'anio' | 'personalizado'
-
 interface Props {
   movimientos: Movimiento[]
   movimientosAnterior: Movimiento[]
   categorias: Categoria[]
-  periodoLabel: string
   mesNombre: string
   anio: number
   diasRestantes: number
-  periodo: Periodo
-  setPeriodo: (p: Periodo) => void
 }
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTES COLORES
    ═══════════════════════════════════════════════════════════ */
 
-const ACCENT_RED = '#B01D23'
 const VERDE_OK   = '#1D9E75'
 const ROJO       = '#A32D2D'
 
@@ -287,12 +281,9 @@ function FilaDistribucion({ color, nombre, importe, deltaPct, porcentaje, esIngr
 
 export function ResumenDashboard({
   movimientos,
-  periodoLabel,
   mesNombre,
   anio,
   diasRestantes,
-  periodo,
-  setPeriodo,
 }: Props) {
   const { T } = useTheme()
   const isMobile = useIsMobile()
@@ -442,54 +433,6 @@ export function ResumenDashboard({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-      {/* ═══ FIX 15 — HEADER ═══ */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 6,
-        flexWrap: 'wrap',
-        gap: 12,
-      }}>
-        <h2 style={{
-          color: ACCENT_RED,
-          fontFamily: FONT.heading,
-          fontSize: 22,
-          fontWeight: 500,
-          letterSpacing: 1,
-          margin: 0,
-          textTransform: 'uppercase',
-        }}>
-          RESUMEN · CONCILIACIÓN
-        </h2>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-            {periodoLabel}
-          </span>
-          <select
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value as Periodo)}
-            style={{
-              padding: '8px 14px',
-              border: `1px solid ${T.brd}`,
-              borderRadius: 8,
-              backgroundColor: T.card,
-              color: T.pri,
-              fontFamily: FONT.body,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="mes">Este mes</option>
-            <option value="mes_anterior">Mes anterior</option>
-            <option value="30d">Últimos 30 días</option>
-            <option value="trimestre">Trimestre</option>
-            <option value="anio">Año</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-        </div>
-      </div>
 
       {/* ═══ FILA 1 — INGRESOS · GASTOS · TESORERÍA (FIX 2) ═══ */}
       <div style={{
