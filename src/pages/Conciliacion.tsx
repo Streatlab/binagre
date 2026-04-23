@@ -460,7 +460,7 @@ export default function Conciliacion() {
               T={T}
             >
               <KpiCard
-                label="Ingresos"
+                label="Ingresos netos"
                 period={periodoLabel}
                 value={fmtEur(datos.sumIng)}
                 delta={{ value: '+12.4% vs anterior', trend: 'up' }}

@@ -26,20 +26,38 @@ interface CanalRow {
 }
 
 interface Props {
-  total: number;
-  totalAnt: number;
-  rows: CanalRow[];
+  totalBruto: number;
+  totalNeto: number;
+  totalBrutoAnt: number;
+  totalNetoAnt: number;
+  rowsBruto: CanalRow[];
+  rowsNeto: CanalRow[];
   periodoLabel: string;
 }
 
-export default function IngresosCardDonut({ total, totalAnt, rows, periodoLabel }: Props) {
+export default function IngresosCardDonut({
+  totalBruto,
+  totalNeto,
+  totalBrutoAnt,
+  totalNetoAnt,
+  rowsBruto,
+  rowsNeto,
+  periodoLabel,
+}: Props) {
   const { T } = useTheme();
 
-  const deltaPct = totalAnt !== 0 ? ((total - totalAnt) / totalAnt) * 100 : 0;
+  const hayBruto = totalBruto > 0;
+  const hayNeto  = totalNeto > 0;
+
+  const totalRef    = hayBruto ? totalBruto : totalNeto;
+  const totalRefAnt = hayBruto ? totalBrutoAnt : totalNetoAnt;
+  const rowsRef     = hayBruto ? rowsBruto : rowsNeto;
+
+  const deltaPct = totalRefAnt !== 0 ? ((totalRef - totalRefAnt) / totalRefAnt) * 100 : 0;
   const deltaColor = deltaPct > 0 ? VERDE : deltaPct < 0 ? ROJO : T.mut;
   const deltaSym = deltaPct > 0 ? '▲' : deltaPct < 0 ? '▼' : '·';
 
-  const data = rows
+  const data = rowsRef
     .filter(r => r.importe > 0)
     .map(r => ({ name: r.canal, value: r.importe, color: COLOR_CANAL[r.canal] ?? '#888' }))
     .sort((a, b) => b.value - a.value);
@@ -64,11 +82,29 @@ export default function IngresosCardDonut({ total, totalAnt, rows, periodoLabel 
     marginBottom: 8,
   };
 
+  const subLabel = hayBruto && hayNeto ? 'Bruto · Neto' : hayNeto ? 'Neto recibido' : 'Facturación bruta';
+
   return (
     <div style={wrap}>
       <div style={labelStyle}>INGRESOS · {periodoLabel.toUpperCase()}</div>
-      <div style={{ ...kpiValueStyle(T), marginBottom: 4 }}>{fmtEur(total)}</div>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: deltaColor, marginTop: 4, fontWeight: 500 }}>
+
+      {hayBruto && hayNeto ? (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ ...kpiValueStyle(T) }}>{fmtEur(totalBruto)}</div>
+          <span style={{ fontFamily: FONT.body, fontSize: 14, color: T.mut }}>·</span>
+          <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 500, color: T.pri, letterSpacing: '-0.01em' }}>
+            {fmtEur(totalNeto)}
+          </div>
+        </div>
+      ) : (
+        <div style={{ ...kpiValueStyle(T), marginBottom: 4 }}>{fmtEur(totalRef)}</div>
+      )}
+
+      <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 2, letterSpacing: 0.3 }}>
+        {subLabel}
+      </div>
+
+      <div style={{ fontFamily: FONT.body, fontSize: 12, color: deltaColor, marginTop: 6, fontWeight: 500 }}>
         {deltaSym} {Math.abs(Math.round(deltaPct))}% vs periodo anterior
       </div>
 
@@ -106,7 +142,7 @@ export default function IngresosCardDonut({ total, totalAnt, rows, periodoLabel 
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.map(d => {
-              const pct = total > 0 ? (d.value / total) * 100 : 0;
+              const pct = totalRef > 0 ? (d.value / totalRef) * 100 : 0;
               return (
                 <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />

@@ -107,9 +107,13 @@ export default function Running() {
   const totalBruto = Object.values(ingresosPeriodo).reduce((a, r) => a + r.bruto, 0);
   const totalNeto  = Object.values(ingresosPeriodo).reduce((a, r) => a + r.neto, 0);
 
-  const rowsIngresos = Object.entries(ingresosPeriodo).map(([canal, v]) => ({
+  const rowsIngresosBruto = Object.entries(ingresosPeriodo).map(([canal, v]) => ({
     canal, importe: v.bruto,
   }));
+  const rowsIngresosNeto = Object.entries(ingresosPeriodo).map(([canal, v]) => ({
+    canal, importe: v.neto,
+  }));
+  const hayBruto = totalBruto > 0;
 
   /* — Periodo anterior: aproximamos bruto/neto (ingresos mensuales del año) — */
   const totalBrutoAnt = useMemo(() => {
@@ -234,8 +238,8 @@ export default function Running() {
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
 
-  /* — Sparkline ingresos: últimos 6 meses (bruto mensual) — */
-  const sparkIngresos = useMemo(() => {
+  /* — Sparkline facturación bruta: últimos 6 meses — */
+  const sparkBruto = useMemo(() => {
     const hoy = new Date();
     const out: { m: string; v: number }[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -249,8 +253,8 @@ export default function Running() {
     return out;
   }, [ingresosMes, anio]);
 
-  /* — Sparkline resultado: 6 meses (neto - gasto del periodo no se tiene; usamos solo neto como proxy) — */
-  const sparkResultado = useMemo(() => {
+  /* — Sparkline ingresos netos: últimos 6 meses — */
+  const sparkNeto = useMemo(() => {
     const hoy = new Date();
     const out: { m: string; v: number }[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -376,16 +380,24 @@ export default function Running() {
         </div>
       </div>
 
-      {/* KPIs (4 cards con mini-gráfico) */}
+      {/* KPIs (4 cards; 5 si hay facturación bruta) */}
       <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, marginBottom: 16 }}
+        style={{ display: 'grid', gridTemplateColumns: `repeat(${hayBruto ? 5 : 4}, minmax(0, 1fr))`, gap: 16, marginBottom: 16 }}
         className="rf-kpi-row"
       >
+        {hayBruto && (
+          <KpiCardConSparkline
+            label="Facturación bruta"
+            value={fmtEur(totalBruto)}
+            delta={{ value: dPct(totalBruto, totalBrutoAnt), sign: sgn(dPct(totalBruto, totalBrutoAnt)), favorable: 'up' }}
+            chart={<SparkLine data={sparkBruto} color={ROJO} />}
+          />
+        )}
         <KpiCardConSparkline
-          label="Facturación bruta"
-          value={fmtEur(totalBruto)}
-          delta={{ value: dPct(totalBruto, totalBrutoAnt), sign: sgn(dPct(totalBruto, totalBrutoAnt)), favorable: 'up' }}
-          chart={<SparkLine data={sparkIngresos} color={ROJO} />}
+          label="Ingresos netos"
+          value={fmtEur(totalNeto)}
+          delta={{ value: dPct(totalNeto, totalNetoAnt), sign: sgn(dPct(totalNeto, totalNetoAnt)), favorable: 'up' }}
+          chart={<SparkLine data={sparkNeto} color={ROJO} />}
         />
         <KpiCardConSparkline
           label="Total gastos"
@@ -399,7 +411,7 @@ export default function Running() {
           value={(resultado >= 0 ? '+' : '−') + fmtEur(Math.abs(resultado)).replace('−', '')}
           valueColor={resultado >= 0 ? VERDE : ROJO}
           delta={{ value: dPct(resultado, resultadoAnt), sign: sgn(dPct(resultado, resultadoAnt)), favorable: 'up' }}
-          chart={<SparkLine data={sparkResultado} color={resultado >= 0 ? VERDE : ROJO} />}
+          chart={<SparkLine data={sparkNeto} color={resultado >= 0 ? VERDE : ROJO} />}
         />
         <KpiCardConSparkline
           label="Ratio gastos / facturación"
@@ -416,9 +428,12 @@ export default function Running() {
         className="rf-big-row"
       >
         <IngresosCardDonut
-          total={totalBruto}
-          totalAnt={totalBrutoAnt}
-          rows={rowsIngresos}
+          totalBruto={totalBruto}
+          totalNeto={totalNeto}
+          totalBrutoAnt={totalBrutoAnt}
+          totalNetoAnt={totalNetoAnt}
+          rowsBruto={rowsIngresosBruto}
+          rowsNeto={rowsIngresosNeto}
           periodoLabel={periodo.label}
         />
         <GastosCard
