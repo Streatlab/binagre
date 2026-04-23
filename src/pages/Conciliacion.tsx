@@ -368,7 +368,7 @@ export default function Conciliacion() {
                 factura: null,
                 mes: r.fecha?.slice(0, 7) ?? null,
                 link_factura: null,
-                notas: null,
+                notas: r.notas ?? null,
               }))
               insertMovimientos(toInsert).catch(err => console.error('Error importando:', err))
             }} />
