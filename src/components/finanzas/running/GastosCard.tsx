@@ -24,10 +24,10 @@ interface Props {
   onUpdateRango?: (cat: Categoria, pctMin: number, pctMax: number) => Promise<void> | void;
 }
 
-function statusColor(pctReal: number, pctMin: number, pctMax: number): string {
-  if (pctReal >= pctMin && pctReal <= pctMax) return VERDE;
-  const dist = pctReal < pctMin ? pctMin - pctReal : pctReal - pctMax;
-  if (dist <= 5) return AMBAR;
+function statusColor(pctReal: number, _pctMin: number, pctMax: number): string {
+  // Gastar menos que el mínimo no penaliza — sólo se marca rojo/ámbar si se excede el máximo.
+  if (pctReal <= pctMax) return VERDE;
+  if (pctReal - pctMax <= 5) return AMBAR;
   return ROJO;
 }
 
@@ -103,6 +103,8 @@ function CategoriaFila({ row, onUpdate }: { row: Row; onUpdate?: Props['onUpdate
   }, [row.pctMin, row.pctMax, editing]);
 
   const color = statusColor(row.pctReal, row.pctMin, row.pctMax);
+  const bajoMinimo = row.pctReal < row.pctMin;
+  const tooltipBajoMin = 'Por debajo del rango objetivo — revisa si falta registrar gastos';
   const barraMax = Math.max(row.pctMax, row.pctReal, 1);
   const fillPct = Math.min(100, (row.pctReal / barraMax) * 100);
   const rangoFillStart = Math.min(100, (row.pctMin / barraMax) * 100);
@@ -178,8 +180,15 @@ function CategoriaFila({ row, onUpdate }: { row: Row; onUpdate?: Props['onUpdate
         <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 500, minWidth: 86, textAlign: 'right' }}>
           {fmtEur(row.total)}
         </span>
-        <span style={{ fontFamily: FONT.heading, fontSize: 11, color, fontWeight: 500, minWidth: 50, textAlign: 'right', letterSpacing: 0.5 }}>
-          {row.pctReal.toFixed(1)}%
+        <span
+          title={bajoMinimo ? tooltipBajoMin : undefined}
+          style={{
+            fontFamily: FONT.heading, fontSize: 11, color, fontWeight: 500,
+            minWidth: 50, textAlign: 'right', letterSpacing: 0.5,
+            cursor: bajoMinimo ? 'help' : 'default',
+          }}
+        >
+          {row.pctReal.toFixed(1)}%{bajoMinimo ? ' ↓' : ''}
         </span>
       </div>
       <div style={{ height: 5, background: T.bg, borderRadius: 3, overflow: 'hidden', position: 'relative' }}>

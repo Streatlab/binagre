@@ -211,6 +211,12 @@ export default function Running() {
   const estadoRatio = calcularEstadoRatio(ratio);
   const semaforoPos = Math.min(100, Math.max(0, ratio));
 
+  /* — Periodo cerrado: ≥45 días desde fin del periodo para asegurar liquidaciones cobradas — */
+  const periodoCerrado = useMemo(
+    () => (Date.now() - periodo.hasta.getTime()) / 86_400_000 >= 45,
+    [periodo.hasta],
+  );
+
   /* — Ventas por marca (derivado de facturacion del hook) — */
   interface MarcaRow { marca: string; bruto: number; pedidos: number; tm: number; deltaPct: number | null }
   const [marcaIdToNombre, setMarcaIdToNombre] = useState<Record<string, string>>({});
@@ -486,6 +492,7 @@ export default function Running() {
           rowsBruto={rowsIngresosBruto}
           rowsNeto={rowsIngresosNeto}
           periodoLabel={periodo.label}
+          periodoCerrado={periodoCerrado}
         />
         <GastosCard
           periodoLabel={periodo.label}
