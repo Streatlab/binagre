@@ -6,6 +6,7 @@ import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
 import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
+import { useConciliacion } from '@/hooks/useConciliacion'
 
 /* ═══════════════════════════════════════════════════════════
    CATEGORÍAS
@@ -219,21 +220,7 @@ export default function Conciliacion() {
 
   const [movimientos, setMovimientos] = useState<Movimiento[]>(MOCK)
   const [reglas, setReglas] = useState<Regla[]>([])
-
-  /* — Aplicar reglas existentes a movimientos recién importados — */
-  function aplicarReglasExistentes(nuevos: Movimiento[]) {
-    void nuevos
-    if (reglas.length === 0) return
-    setMovimientos(prev => prev.map(m => {
-      if (m.categoria_id) return m
-      for (const r of reglas) {
-        if (m.concepto.toLowerCase().includes(r.patron.toLowerCase())) {
-          return { ...m, categoria_id: r.categoria_id, auto_categorizado: true }
-        }
-      }
-      return m
-    }))
-  }
+  const { insertMovimientos } = useConciliacion()
 
   /* — Categorización inline con aprendizaje — */
   const handleCategorizar = (movId: string, catId: string, concepto: string) => {
@@ -468,17 +455,19 @@ export default function Conciliacion() {
           {/* Sub-header: Dropzone + Filtros Categoría/Buscar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
             <ImportDropzone onFileLoaded={(rows: ParsedRow[]) => {
-              const nuevos: Movimiento[] = rows.map(r => ({
-                id: crypto.randomUUID(),
+              const toInsert = rows.map(r => ({
                 fecha: r.fecha,
                 concepto: r.concepto,
                 importe: r.importe,
-                categoria_id: null,
-                contraparte: r.contraparte ?? '',
-                auto_categorizado: false,
+                tipo: (r.importe >= 0 ? 'ingreso' : 'gasto') as 'ingreso' | 'gasto',
+                categoria: null,
+                proveedor: r.contraparte ?? null,
+                factura: null,
+                mes: r.fecha?.slice(0, 7) ?? null,
+                link_factura: null,
+                notas: null,
               }))
-              setMovimientos(prev => [...nuevos, ...prev])
-              aplicarReglasExistentes(nuevos)
+              insertMovimientos(toInsert).catch(err => console.error('Error importando:', err))
             }} />
             <div>
               <label style={labelStyle}>Categoría</label>
