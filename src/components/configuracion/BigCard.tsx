@@ -7,7 +7,7 @@ export function BigCard({
   children,
 }: {
   title: ReactNode
-  count?: string | number
+  count?: ReactNode
   children: ReactNode
 }) {
   const isDark = useIsDark()

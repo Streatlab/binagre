@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur } from '@/utils/format'
-import { useIsDark } from '@/hooks/useIsDark'
+import { fmtEur } from '@/lib/format'
 import { KpiCard, KpiGrid } from '@/components/configuracion/KpiCard'
 import { BigCard } from '@/components/configuracion/BigCard'
-import { Table, THead, TBody, TH, TR, TD } from '@/components/configuracion/ConfigTable'
+import { InlineEdit } from '@/components/configuracion/InlineEdit'
 
 interface ConfigCanal {
   id: string
@@ -12,173 +11,123 @@ interface ConfigCanal {
   comision_pct: number
   coste_fijo: number
   margen_obj_pct: number
-  recargo_pvp_texto: string | null
   activo: boolean
 }
 
-const ABV_MAP: Record<string, string> = {
-  'uber eats': 'UE',
-  'glovo': 'GL',
-  'just eat': 'JE',
-  'web propia': 'WEB',
-  'web': 'WEB',
-  'venta directa': 'DIR',
-  'rushour': 'WEB',
-}
-
-const COLOR_MAP: Record<string, string> = {
-  UE: '#06C167',
-  GL: '#e8f442',
-  JE: '#f5a623',
-  WEB: '#B01D23',
-  DIR: '#66aaff',
-}
-
-function abvFromCanal(canal: string): string {
-  return ABV_MAP[canal.toLowerCase()] ?? canal.slice(0, 3).toUpperCase()
+function colorByNombre(n: string): string {
+  const s = n.toLowerCase()
+  if (s.includes('uber')) return '#22B573'
+  if (s.includes('glovo')) return '#DCCF2A'
+  if (s.includes('just')) return '#E89A2B'
+  if (s.includes('web') || s.includes('rushour')) return '#C94E5A'
+  return '#6AA0D6'
 }
 
 export default function TabCanales() {
-  const isDark = useIsDark()
   const [canales, setCanales] = useState<ConfigCanal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  async function refetch() {
+    const { data, error } = await supabase
+      .from('config_canales')
+      .select('*')
+      .order('comision_pct', { ascending: false })
+    if (error) throw error
+    setCanales(((data ?? []) as unknown as ConfigCanal[]).map(c => ({
+      ...c,
+      comision_pct: Number(c.comision_pct) || 0,
+      coste_fijo: Number(c.coste_fijo) || 0,
+      margen_obj_pct: Number(c.margen_obj_pct) || 0,
+    })))
+  }
+
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        setLoading(true)
-        const { data, error } = await supabase
-          .from('config_canales')
-          .select('*')
-          .order('comision_pct', { ascending: false })
-        if (error) throw error
-        if (cancelled) return
-        setCanales(((data ?? []) as unknown as ConfigCanal[]).map(c => ({
-          ...c,
-          comision_pct: Number(c.comision_pct) || 0,
-          coste_fijo: Number(c.coste_fijo) || 0,
-          margen_obj_pct: Number(c.margen_obj_pct) || 0,
-        })))
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Error cargando canales')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    (async () => {
+      try { await refetch() }
+      catch (e: any) { setError(e?.message ?? 'Error') }
+      finally { setLoading(false) }
     })()
-    return () => { cancelled = true }
   }, [])
 
+  async function update(id: string, campo: string, valor: number) {
+    const { error } = await supabase.from('config_canales').update({ [campo]: valor }).eq('id', id)
+    if (error) { setError(error.message); return }
+    await refetch()
+  }
+
   const kpis = useMemo(() => {
-    const activos = canales.filter(c => c.activo).length
+    const activos = canales.filter(c => c.activo)
     const conCom = canales.filter(c => c.comision_pct > 0)
-    const comMedia = conCom.length > 0
+    const mediaComision = conCom.length > 0
       ? conCom.reduce((a, c) => a + c.comision_pct, 0) / conCom.length
       : 0
-    const mejor = canales
-      .filter(c => c.activo)
-      .sort((a, b) => a.comision_pct - b.comision_pct)[0] ?? null
-    return { activos, comMedia, mejor }
+    const mejorMargen = canales
+      .filter(c => ['uber', 'glovo', 'just'].some(k => c.canal.toLowerCase().includes(k)))
+      .sort((a, b) => a.comision_pct - b.comision_pct)[0]
+    const margenNeto = mejorMargen ? 100 - mejorMargen.comision_pct : 0
+    const fijos = canales.filter(c => c.coste_fijo > 0)
+    const tarifaFijaMedia = fijos.length > 0 ? fijos.reduce((a, c) => a + c.coste_fijo, 0) / fijos.length : 0
+    return { activos, mediaComision, mejorCanal: mejorMargen, margenNeto, tarifaFijaMedia }
   }, [canales])
 
-  const mut = isDark ? '#777777' : '#9E9588'
-  const subtle = isDark ? '#888888' : '#6E6656'
-
-  if (loading) return <div style={{ padding: 24, color: mut }}>Cargando canales…</div>
-  if (error) {
-    return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : '#B01D23', borderRadius: 12 }}>
-        {error}
-      </div>
-    )
-  }
+  if (loading) return <div className="p-6 text-[#9E9588]">Cargando canales…</div>
+  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
 
   return (
     <>
       <KpiGrid>
         <KpiCard
-          label="Canales activos"
-          value={kpis.activos}
-          sub={`de ${canales.length} configurados`}
-          subTone="muted"
-        />
-        <KpiCard
           label="Comisión media"
-          value={kpis.comMedia.toFixed(1)}
-          unit="%"
-          sub="canales con comisión"
+          value={`${kpis.mediaComision.toFixed(2).replace('.', ',')}%`}
+          sub="ponderada canales con comisión"
         />
         <KpiCard
-          label="Mejor margen"
-          value={kpis.mejor?.canal ?? '—'}
-          sub={kpis.mejor ? `${kpis.mejor.comision_pct.toFixed(1)}% comisión` : 'sin datos'}
+          label="Mejor margen plataforma"
+          value={kpis.mejorCanal?.canal ?? '—'}
+          sub={kpis.mejorCanal ? `${kpis.margenNeto.toFixed(2).replace('.', ',')}% neto · solo UE/GL/JE` : 'sin datos'}
           subTone="pos"
         />
         <KpiCard
-          label="Canal #1 ventas"
-          value="—"
-          sub="pendiente métrica"
-          subTone="muted"
+          label="Tarifa fija promedio"
+          value={fmtEur(kpis.tarifaFijaMedia)}
+          sub="por pedido"
         />
       </KpiGrid>
 
-      <BigCard title="Canales de venta" count={`${canales.length} configurados`}>
-        <Table>
-          <THead>
+      <BigCard title="Canales de venta" count={`${canales.length} canales`}>
+        <table className="w-full text-[13.5px] border-collapse">
+          <thead>
             <tr>
-              <TH>Canal</TH>
-              <TH>ABV</TH>
-              <TH num>Comisión</TH>
-              <TH num>Coste fijo</TH>
-              <TH>Recargo sobre PVP</TH>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-left">Canal</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-right">Comisión</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-right">Coste fijo</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-right">Margen deseado</th>
             </tr>
-          </THead>
-          <TBody>
-            {canales.map(c => {
-              const abv = abvFromCanal(c.canal)
-              const color = COLOR_MAP[abv] ?? '#888'
-              return (
-                <TR key={c.id}>
-                  <TD bold>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        background: color,
-                        marginRight: 10,
-                        verticalAlign: 'middle',
-                      }}
-                    />
-                    {c.canal}
-                  </TD>
-                  <TD>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '3px 8px',
-                        background: '#1A1A1A',
-                        color: '#ffffff',
-                        borderRadius: 4,
-                        fontSize: 10,
-                        letterSpacing: '0.04em',
-                        fontWeight: 700,
-                        fontFamily: 'Oswald, sans-serif',
-                      }}
-                    >
-                      {abv}
-                    </span>
-                  </TD>
-                  <TD num bold>{c.comision_pct.toFixed(1)} %</TD>
-                  <TD num bold>{fmtEur(c.coste_fijo)}</TD>
-                  <TD style={{ fontSize: 12.5, color: subtle }}>{c.recargo_pvp_texto ?? '—'}</TD>
-                </TR>
-              )
-            })}
-          </TBody>
-        </Table>
+          </thead>
+          <tbody>
+            {canales.map(c => (
+              <tr key={c.id} className="border-b border-[#F0E8D5]">
+                <td className="py-3.5 px-3.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ backgroundColor: colorByNombre(c.canal) }} />
+                  <strong>{c.canal}</strong>
+                </td>
+                <td className="py-3.5 px-3.5 text-right">
+                  <InlineEdit value={c.comision_pct} type="percent" align="right" min={0} max={100}
+                    onSubmit={(v) => update(c.id, 'comision_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                </td>
+                <td className="py-3.5 px-3.5 text-right">
+                  <InlineEdit value={c.coste_fijo} type="currency" align="right" min={0}
+                    onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                </td>
+                <td className="py-3.5 px-3.5 text-right">
+                  <InlineEdit value={c.margen_obj_pct} type="percent" align="right" min={0} max={100}
+                    onSubmit={(v) => update(c.id, 'margen_obj_pct', typeof v === 'number' ? v : parseFloat(String(v)))} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </BigCard>
     </>
   )

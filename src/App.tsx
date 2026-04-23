@@ -18,8 +18,6 @@ import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Configuración · Bancos
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
-import TabInformacion from '@/pages/configuracion/bancos/TabInformacion'
-import TabConciliacion from '@/pages/configuracion/bancos/TabConciliacion'
 
 // Configuración · Compras
 import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
@@ -31,8 +29,8 @@ import TabUnidades from '@/pages/configuracion/compras/TabUnidades'
 // Configuración · Usuarios
 import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 
-// Configuración · Dashboard
-import ConfiguracionIndex from '@/pages/configuracion/ConfiguracionIndex'
+// Configuración · tipos de cocina (nueva tab Marcas)
+import TabTiposCocina from '@/pages/configuracion/marcas/TabTiposCocina'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -106,8 +104,8 @@ function AppRoutes() {
         <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
-        {/* Configuración · Dashboard */}
-        <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionIndex /></ProtectedRoute>} />
+        {/* Configuración · Redirect */}
+        <Route path="configuracion" element={<Navigate to="/configuracion/marcas" replace />} />
 
         {/* Configuración · Legacy (accesible solo por URL directa) */}
         <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
@@ -117,13 +115,11 @@ function AppRoutes() {
           <Route index element={<TabMarcas />} />
           <Route path="usuarios" element={<TabUsuariosMarcas />} />
           <Route path="canales" element={<TabCanales />} />
+          <Route path="tipos-cocina" element={<TabTiposCocina />} />
         </Route>
 
-        {/* Configuración · Bancos */}
-        <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>}>
-          <Route index element={<TabInformacion />} />
-          <Route path="conciliacion" element={<TabConciliacion />} />
-        </Route>
+        {/* Configuración · Bancos (single page con subpills internos) */}
+        <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
 
         {/* Configuración · Compras */}
         <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>

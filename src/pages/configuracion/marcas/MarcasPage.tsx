@@ -3,9 +3,10 @@ import { ModTitle } from '@/components/configuracion/ModTitle'
 import { TabPills } from '@/components/configuracion/TabPills'
 
 const TABS = [
-  { id: 'marcas',   label: 'Marcas' },
-  { id: 'usuarios', label: 'Usuarios de marcas' },
-  { id: 'canales',  label: 'Canales de venta' },
+  { id: 'marcas',       label: 'Marcas' },
+  { id: 'usuarios',     label: 'Usuarios' },
+  { id: 'canales',      label: 'Canales de venta' },
+  { id: 'tipos-cocina', label: 'Tipos de cocina' },
 ]
 
 export default function MarcasPage() {
@@ -14,8 +15,9 @@ export default function MarcasPage() {
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
   const active =
-    seg === 'usuarios' ? 'usuarios' :
-    seg === 'canales'  ? 'canales'  :
+    seg === 'usuarios'     ? 'usuarios' :
+    seg === 'canales'      ? 'canales'  :
+    seg === 'tipos-cocina' ? 'tipos-cocina' :
     'marcas'
 
   const handleChange = (id: string) => {

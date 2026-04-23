@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useIsDark } from '@/hooks/useIsDark'
-import { KpiCard, KpiGrid } from '@/components/configuracion/KpiCard'
 import { BigCard } from '@/components/configuracion/BigCard'
-import { Toolbar, Spacer, BtnRed, SearchInput } from '@/components/configuracion/Toolbar'
-import { AbvBadge } from '@/components/configuracion/AbvBadge'
-import { Table, THead, TBody, TH, TR, TD } from '@/components/configuracion/ConfigTable'
-import { ConfigModal, ConfigField, useInputStyle, ModalActions } from '@/components/configuracion/ConfigModal'
+import { EditModal, Field } from '@/components/configuracion/EditModal'
 
 interface ProveedorLegacy {
   id: string
@@ -18,205 +13,114 @@ interface ProveedorLegacy {
 }
 
 export default function TabProveedores() {
-  const isDark = useIsDark()
-  const [rows, setRows] = useState<ProveedorLegacy[]>([])
+  const [provs, setProvs] = useState<ProveedorLegacy[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [modal, setModal] = useState<{ editing: ProveedorLegacy | null } | null>(null)
+  const [editing, setEditing] = useState<ProveedorLegacy | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [fCat, setFCat] = useState('')
+  const [fAbv, setFAbv] = useState('')
+  const [fNombre, setFNombre] = useState('')
+  const [fMarca, setFMarca] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const refetch = async () => {
+  async function refetch() {
     const { data, error } = await supabase.from('config_proveedores').select('*').order('abv')
     if (error) throw error
-    setRows((data ?? []) as unknown as ProveedorLegacy[])
+    setProvs((data ?? []) as unknown as ProveedorLegacy[])
   }
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
+    (async () => {
       try { await refetch() }
-      catch (e: any) { if (!cancelled) setError(e?.message ?? 'Error') }
-      finally { if (!cancelled) setLoading(false) }
+      catch (e: any) { setError(e?.message ?? 'Error') }
+      finally { setLoading(false) }
     })()
-    return () => { cancelled = true }
   }, [])
 
-  const filtrados = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(p =>
-      (p.abv ?? '').toLowerCase().includes(q) ||
-      p.nombre_completo.toLowerCase().includes(q) ||
-      (p.categoria ?? '').toLowerCase().includes(q) ||
-      (p.marca_asociada ?? '').toLowerCase().includes(q)
-    )
-  }, [rows, search])
+  function open(p?: ProveedorLegacy) {
+    if (p) {
+      setEditing(p); setCreating(false)
+      setFCat(p.categoria ?? ''); setFAbv(p.abv ?? ''); setFNombre(p.nombre_completo ?? ''); setFMarca(p.marca_asociada ?? '')
+    } else {
+      setCreating(true); setEditing(null)
+      setFCat(''); setFAbv(''); setFNombre(''); setFMarca('')
+    }
+  }
+  function close() { setEditing(null); setCreating(false) }
 
-  const handleDelete = async (p: ProveedorLegacy) => {
-    if (!confirm(`¿Eliminar proveedor ${p.abv}?`)) return
-    const { error } = await supabase.from('config_proveedores').delete().eq('id', p.id)
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const payload = {
+        categoria: fCat.trim() || null,
+        abv: fAbv.trim().toUpperCase(),
+        nombre_completo: fNombre.trim(),
+        marca_asociada: fMarca.trim() || null,
+        activo: true,
+      }
+      const q = editing
+        ? supabase.from('config_proveedores').update(payload).eq('id', editing.id)
+        : supabase.from('config_proveedores').insert(payload)
+      const { error } = await q
+      if (error) throw error
+      await refetch(); close()
+    } catch (e: any) { setError(e?.message ?? 'Error') } finally { setSaving(false) }
+  }
+  async function handleDelete() {
+    if (!editing) return
+    if (!confirm(`Eliminar proveedor "${editing.nombre_completo}"?`)) return
+    const { error } = await supabase.from('config_proveedores').delete().eq('id', editing.id)
     if (error) { setError(error.message); return }
-    await refetch()
+    await refetch(); close()
   }
 
-  const mut = isDark ? '#777' : '#9E9588'
-
-  if (loading) return <div style={{ padding: 24, color: mut }}>Cargando proveedores…</div>
-  if (error) {
-    return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : '#B01D23', borderRadius: 12 }}>
-        {error}
-      </div>
-    )
-  }
-
-  const categorias = Array.from(new Set(rows.map(r => r.categoria).filter(Boolean) as string[]))
+  if (loading) return <div className="p-6 text-[#9E9588]">Cargando...</div>
+  if (error) return <div className="p-6 bg-[#FCE0E2] text-[#D63A49] rounded-xl">{error}</div>
 
   return (
     <>
-      <KpiGrid>
-        <KpiCard label="Proveedores" value={rows.length} sub="registrados" />
-        <KpiCard label="Categorías" value={categorias.length} sub={categorias.slice(0, 3).join(' · ') || '—'} />
-        <KpiCard label="Activos" value={rows.filter(r => r.activo).length} sub={`de ${rows.length}`} />
-        <KpiCard label="Compra mes" value="—" sub="pendiente métrica" subTone="muted" />
-      </KpiGrid>
-
-      <Toolbar>
-        <SearchInput
-          placeholder="Buscar proveedor..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <Spacer />
-        <BtnRed onClick={() => setModal({ editing: null })}>+ Añadir proveedor</BtnRed>
-      </Toolbar>
-
-      <BigCard title="Proveedores" count={`${filtrados.length} resultados`}>
-        {filtrados.length === 0 ? (
-          <div style={{ padding: 24, textAlign: 'center', color: mut }}>
-            {search ? 'Sin resultados' : 'Sin proveedores registrados'}
-          </div>
-        ) : (
-          <Table>
-            <THead>
-              <tr>
-                <TH>ABV</TH>
-                <TH>Categoría</TH>
-                <TH>Nombre</TH>
-                <TH>Marca principal</TH>
-                <TH num>Acciones</TH>
+      <BigCard title="Proveedores" count={`${provs.length}`}>
+        <table className="w-full text-[13.5px] border-collapse mb-3">
+          <thead>
+            <tr>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-left">ABV</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-left">Categoría</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-left">Nombre</th>
+              <th className="py-3.5 px-3.5 border-b border-[#DDD4BF] text-[11px] tracking-[0.14em] uppercase text-[#9E9588] text-left">Marca principal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {provs.map(p => (
+              <tr key={p.id} onClick={() => open(p)} className="border-b border-[#F0E8D5] cursor-pointer hover:bg-[#FAF4E4]">
+                <td className="py-3.5 px-3.5">
+                  <span className="inline-block px-2 py-[3px] rounded bg-[#1A1A1A] text-white text-[10px] tracking-[0.04em] font-bold">{p.abv}</span>
+                </td>
+                <td className="py-3.5 px-3.5">{p.categoria ?? '—'}</td>
+                <td className="py-3.5 px-3.5"><strong>{p.nombre_completo}</strong></td>
+                <td className="py-3.5 px-3.5">{p.marca_asociada ?? '—'}</td>
               </tr>
-            </THead>
-            <TBody>
-              {filtrados.map(p => (
-                <TR key={p.id}>
-                  <TD><AbvBadge abv={p.abv} /></TD>
-                  <TD muted>{p.categoria ?? '—'}</TD>
-                  <TD bold>{p.nombre_completo}</TD>
-                  <TD muted>{p.marca_asociada ?? '—'}</TD>
-                  <TD num>
-                    <button
-                      onClick={() => setModal({ editing: p })}
-                      style={{
-                        background: 'none', border: 'none', color: '#B01D23',
-                        fontSize: 11, cursor: 'pointer', marginRight: 12, padding: 0,
-                        fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', fontWeight: 600,
-                        letterSpacing: '0.04em',
-                      }}
-                    >Editar</button>
-                    <button
-                      onClick={() => handleDelete(p)}
-                      style={{
-                        background: 'none', border: 'none', color: mut,
-                        fontSize: 11, cursor: 'pointer', padding: 0,
-                        fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', fontWeight: 600,
-                        letterSpacing: '0.04em',
-                      }}
-                    >Eliminar</button>
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </Table>
-        )}
+            ))}
+          </tbody>
+        </table>
+        <button onClick={() => open()} className="px-3.5 py-2 rounded-lg text-xs font-medium bg-[#B01D23] text-white hover:bg-[#901A1E]">+ Nuevo proveedor</button>
       </BigCard>
 
-      {modal && (
-        <ProveedorModal
-          editing={modal.editing}
-          onClose={() => setModal(null)}
-          onSaved={refetch}
-        />
+      {(editing || creating) && (
+        <EditModal
+          title={editing ? 'Editar proveedor' : 'Nuevo proveedor'}
+          onSave={handleSave}
+          onCancel={close}
+          onDelete={editing ? handleDelete : undefined}
+          saving={saving}
+          canSave={!!fAbv.trim() && !!fNombre.trim()}
+        >
+          <Field label="ABV"><input value={fAbv} onChange={(e) => setFAbv(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm font-mono" /></Field>
+          <Field label="Categoría"><input value={fCat} onChange={(e) => setFCat(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm" /></Field>
+          <Field label="Nombre"><input value={fNombre} onChange={(e) => setFNombre(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm" /></Field>
+          <Field label="Marca principal"><input value={fMarca} onChange={(e) => setFMarca(e.target.value)} className="w-full px-3 py-2 border border-[#E9E1D0] rounded-lg text-sm" /></Field>
+        </EditModal>
       )}
     </>
-  )
-}
-
-function ProveedorModal({
-  editing, onClose, onSaved,
-}: {
-  editing: ProveedorLegacy | null
-  onClose: () => void
-  onSaved: () => Promise<void>
-}) {
-  const inputStyle = useInputStyle()
-  const [abv, setAbv] = useState(editing?.abv ?? '')
-  const [nombre, setNombre] = useState(editing?.nombre_completo ?? '')
-  const [categoria, setCategoria] = useState(editing?.categoria ?? '')
-  const [marca, setMarca] = useState(editing?.marca_asociada ?? '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSave = async () => {
-    if (!abv.trim() || !nombre.trim()) return
-    setSaving(true); setError(null)
-    const payload = {
-      abv: abv.trim().toUpperCase(),
-      nombre_completo: nombre.trim(),
-      categoria: categoria.trim() || null,
-      marca_asociada: marca.trim() || null,
-      activo: true,
-    }
-    const q = editing
-      ? supabase.from('config_proveedores').update(payload).eq('id', editing.id)
-      : supabase.from('config_proveedores').insert(payload)
-    const { error } = await q
-    setSaving(false)
-    if (error) { setError(error.message); return }
-    await onSaved()
-    onClose()
-  }
-
-  return (
-    <ConfigModal title={`${editing ? 'Editar' : 'Añadir'} proveedor`} onClose={onClose}>
-      <ConfigField label="ABV">
-        <input
-          value={abv}
-          onChange={e => setAbv(e.target.value)}
-          style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
-          placeholder="MER"
-        />
-      </ConfigField>
-      <ConfigField label="Nombre">
-        <input value={nombre} onChange={e => setNombre(e.target.value)} style={inputStyle} placeholder="Mercadona" />
-      </ConfigField>
-      <ConfigField label="Categoría">
-        <input value={categoria} onChange={e => setCategoria(e.target.value)} style={inputStyle} placeholder="Supermercado" />
-      </ConfigField>
-      <ConfigField label="Marca principal">
-        <input value={marca} onChange={e => setMarca(e.target.value)} style={inputStyle} placeholder="Hacendado" />
-      </ConfigField>
-      {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: '#B01D23', fontSize: 12, borderRadius: 6 }}>
-          {error}
-        </div>
-      )}
-      <ModalActions
-        onCancel={onClose}
-        onSave={handleSave}
-        saving={saving}
-        disabled={!abv.trim() || !nombre.trim()}
-      />
-    </ConfigModal>
   )
 }

@@ -1,29 +1,36 @@
-import { useLocation, useNavigate, Outlet } from 'react-router-dom'
+import { useState } from 'react'
 import { ModTitle } from '@/components/configuracion/ModTitle'
-import { TabPills } from '@/components/configuracion/TabPills'
+import CategoriasContablesPanel from './CategoriasContablesPanel'
+import ReglasAutomaticasPanel from './ReglasAutomaticasPanel'
+import CuentasPanel from './CuentasPanel'
 
-const TABS = [
-  { id: 'informacion',  label: 'Información bancaria' },
-  { id: 'conciliacion', label: 'Conciliación' },
+type Sub = 'categorias' | 'reglas' | 'cuentas'
+
+const PILLS: { id: Sub; label: string }[] = [
+  { id: 'categorias', label: 'Categorías' },
+  { id: 'reglas',     label: 'Reglas automáticas' },
+  { id: 'cuentas',    label: 'Cuentas bancarias' },
 ]
 
 export default function BancosPage() {
-  const loc = useLocation()
-  const nav = useNavigate()
-
-  const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
-  const active = seg === 'conciliacion' ? 'conciliacion' : 'informacion'
-
-  const handleChange = (id: string) => {
-    if (id === 'informacion') nav('/configuracion/bancos')
-    else nav(`/configuracion/bancos/${id}`)
-  }
-
+  const [sub, setSub] = useState<Sub>('categorias')
   return (
-    <div>
+    <>
       <ModTitle>Bancos y cuentas</ModTitle>
-      <TabPills tabs={TABS} active={active} onChange={handleChange} />
-      <Outlet />
-    </div>
+      <div className="flex gap-1.5 flex-wrap mb-[18px]">
+        {PILLS.map(p => (
+          <button
+            key={p.id}
+            onClick={() => setSub(p.id)}
+            className={sub === p.id
+              ? 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-[#FFF3B8] border border-[#E8D066] text-[#5a4d0a]'
+              : 'px-3.5 py-[7px] rounded-md text-xs font-medium bg-white border border-[#E9E1D0] text-[#555] hover:bg-[#FAF4E4]'}
+          >{p.label}</button>
+        ))}
+      </div>
+      {sub === 'categorias' && <CategoriasContablesPanel />}
+      {sub === 'reglas' && <ReglasAutomaticasPanel />}
+      {sub === 'cuentas' && <CuentasPanel />}
+    </>
   )
 }

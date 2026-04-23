@@ -179,11 +179,12 @@ const SECTIONS: NavSection[] = [
   {
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
-      { path: '/configuracion',               label: 'Configuración',                emoji: '⚙️', perfiles: ['admin'] },
       { path: '/configuracion/marcas',        label: 'Marcas',                       emoji: '🏷️', perfiles: ['admin'] },
       { path: '/configuracion/bancos',        label: 'Bancos y cuentas',             emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/compras',       label: 'Compras',                      emoji: '🧾', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',      label: 'Usuarios',                     emoji: '👤', perfiles: ['admin'] },
+      { path: '/configuracion/favoritos',     label: 'Panel Favoritos',              emoji: '⭐', perfiles: ['admin'] },
+      { path: '/configuracion/busqueda',      label: 'Búsqueda Avanzada',            emoji: '🔎', perfiles: ['admin'] },
     ],
   },
 ]

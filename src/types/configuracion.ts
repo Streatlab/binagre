@@ -178,3 +178,52 @@ export interface ReglaConciliacion {
   prioridad: number
   activa: boolean
 }
+
+export interface TipoCocina {
+  id: string
+  nombre: string
+  orden: number
+}
+
+export interface CategoriaContable {
+  id: string
+  nombre: string
+  tipo: 'ingreso' | 'gasto'
+  orden: number
+}
+
+export interface ReglaConciliacionNueva {
+  id: string
+  patron: string
+  tipo_categoria: 'ingreso' | 'gasto'
+  categoria_id: string
+}
+
+export interface CategoriaReceta {
+  id: string
+  nombre: string
+  orden: number
+}
+
+export interface UnidadRelacion {
+  id: string
+  unidad_estandar: string
+  unidad_minima: string
+  factor: number
+  orden: number
+}
+
+export interface FacturacionMarcaAgregada {
+  marca_id: string
+  marca_nombre: string
+  ue_bruto: number
+  gl_bruto: number
+  je_bruto: number
+  web_bruto: number
+  dir_bruto: number
+  total_bruto: number
+  total_pedidos: number
+  ue_pedidos: number
+  gl_pedidos: number
+  je_pedidos: number
+}

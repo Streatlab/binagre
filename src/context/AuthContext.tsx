@@ -2,8 +2,10 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 interface Usuario {
+  id: string
   nombre: string
-  perfil: 'admin' | 'cocina'
+  perfil: 'admin' | 'gestor' | 'cocina'
+  rol?: 'admin' | 'gestor' | 'cocina' | null
 }
 
 interface AuthContextType {
@@ -32,13 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { supabase } = await import('@/lib/supabase')
     const { data, error } = await supabase
       .from('usuarios')
-      .select('nombre, perfil')
+      .select('id, nombre, perfil, rol')
       .eq('nombre', nombre)
       .eq('pin', pin)
       .single()
 
     if (error || !data) return 'Usuario o PIN incorrecto'
-    setUsuario({ nombre: data.nombre, perfil: data.perfil })
+
+    const u: Usuario = {
+      id: data.id,
+      nombre: data.nombre,
+      perfil: (data.rol ?? data.perfil) as 'admin' | 'gestor' | 'cocina',
+      rol: data.rol as 'admin' | 'gestor' | 'cocina' | null,
+    }
+    setUsuario(u)
+
+    // Tracking última conexión (best-effort, no bloquea login)
+    const now = new Date().toISOString()
+    supabase.from('sesiones_usuario').insert({ usuario_id: data.id, tipo: 'login' }).then(() => {})
+    supabase.from('usuarios').update({ ultima_conexion: now }).eq('id', data.id).then(() => {})
+
     return null
   }
 
