@@ -91,8 +91,29 @@ export default function Conciliacion() {
     movimientos: movimientosBD,
     insertMovimientos,
     updateCategoria,
+    categorias: categoriasBD,
     loading: loadingBD,
   } = useConciliacion()
+
+  /* — Agrupación para el dropdown: Ingresos arriba, gastos por `grupo` — */
+  const dropdownGroups = useMemo(() => {
+    const ingresos = categoriasBD.filter(c => c.tipo_parent === 'ingreso')
+    const gastos = categoriasBD.filter(c => c.tipo_parent === 'gasto')
+    const porGrupo: Record<string, typeof gastos> = {}
+    for (const c of gastos) {
+      const k = c.grupo ?? 'OTROS'
+      ;(porGrupo[k] = porGrupo[k] || []).push(c)
+    }
+    const gruposOrdenados = Object.keys(porGrupo).sort()
+    return { ingresos, gastosPorGrupo: gruposOrdenados.map(g => ({ grupo: g, items: porGrupo[g] })) }
+  }, [categoriasBD])
+
+  /* — Lookup código → tipo, para derivar tipo en handleCategorizar — */
+  const tipoPorCodigo = useMemo(() => {
+    const m: Record<string, 'ingreso' | 'gasto'> = {}
+    categoriasBD.forEach(c => { m[c.codigo] = c.tipo_parent })
+    return m
+  }, [categoriasBD])
 
   const movimientos = useMemo<Movimiento[]>(
     () => movimientosBD.map(m => ({
@@ -112,7 +133,8 @@ export default function Conciliacion() {
     const normalizedCat = catId === '' ? null : catId
     const mov = movimientos.find(m => m.id === movId)
     const tipo: 'ingreso' | 'gasto' | null =
-      !normalizedCat ? null : (mov && mov.importe >= 0 ? 'ingreso' : 'gasto')
+      !normalizedCat ? null
+      : (tipoPorCodigo[normalizedCat] ?? (mov && mov.importe >= 0 ? 'ingreso' : 'gasto'))
 
     try {
       await updateCategoria(movId, normalizedCat, tipo)
@@ -502,8 +524,19 @@ export default function Conciliacion() {
                               }}
                             >
                               <option value="">— Categorizar —</option>
-                              {CATEGORIAS.map(c => (
-                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                              {dropdownGroups.ingresos.length > 0 && (
+                                <optgroup label="INGRESOS">
+                                  {dropdownGroups.ingresos.map(c => (
+                                    <option key={c.codigo} value={c.codigo}>{c.nombre}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {dropdownGroups.gastosPorGrupo.map(g => (
+                                <optgroup key={g.grupo} label={g.grupo}>
+                                  {g.items.map(c => (
+                                    <option key={c.codigo} value={c.codigo}>{c.nombre}</option>
+                                  ))}
+                                </optgroup>
                               ))}
                             </select>
                             {m.auto_categorizado && (
