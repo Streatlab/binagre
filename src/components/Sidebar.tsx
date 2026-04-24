@@ -42,7 +42,7 @@ const SECTIONS: NavSection[] = [
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
-      { path: '/finanzas/facturas',             label: 'Facturas',            emoji: '📄', perfiles: ['admin'] },
+      { path: '/finanzas/facturas',             label: 'Importar Facturas',   emoji: '📄', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
       { path: '/finanzas/analisis',             label: 'Análisis',            emoji: '🔍', perfiles: ['admin'] },
@@ -164,15 +164,31 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   useEffect(() => {
     if (perfil !== 'admin') return
     let cancelled = false
-    supabase
-      .from('facturas_faltantes')
-      .select('estado')
-      .eq('estado', 'falta')
-      .then(({ data }) => {
-        if (!cancelled && data) setFaltantesCount(data.length)
-      })
+    const cargar = async () => {
+      const [fal, pen] = await Promise.all([
+        supabase.from('facturas_faltantes').select('estado').eq('estado', 'falta'),
+        supabase
+          .from('facturas')
+          .select('id', { count: 'exact', head: true })
+          .eq('estado', 'pendiente_revision'),
+      ])
+      if (cancelled) return
+      const nFaltan = fal.data?.length || 0
+      const nPend = pen.count || 0
+      setFaltantesCount(nFaltan + nPend)
+    }
+    cargar()
+    const sub = supabase
+      .channel('sidebar-facturas-badge')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'facturas' },
+        () => cargar(),
+      )
+      .subscribe()
     return () => {
       cancelled = true
+      sub.unsubscribe()
     }
   }, [perfil])
   const [proxOpen, setProxOpen] = useState<boolean>(() => {

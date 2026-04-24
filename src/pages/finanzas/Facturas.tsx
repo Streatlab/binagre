@@ -1,42 +1,74 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Check,
+  Eye,
+  RefreshCw,
+  Search,
+  SearchCheck,
+  X,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur } from '@/utils/format'
-import { useTheme, FONT, pageTitleStyle, cardStyle, groupStyle } from '@/styles/tokens'
+import { fmtEur, fmtFechaES } from '@/utils/format'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import {
+  ESTADO_COLOR,
+  ESTADO_NOMBRE,
+  useFacturasTheme,
+  type FacturasTokens,
+} from '@/styles/facturasTheme'
+import DropzoneFacturas, { type SubidaItem } from '@/components/facturas/DropzoneFacturas'
+import ModalPegarTexto from '@/components/facturas/ModalPegarTexto'
+import ModalAsociarManual from '@/components/facturas/ModalAsociarManual'
+import ModalDetalleFactura, {
+  type FacturaDetalle,
+} from '@/components/facturas/ModalDetalleFactura'
 
-type EstadoFactura = 'procesando' | 'pendiente_revision' | 'asociada' | 'historica' | 'error'
+/* ═════════ TYPES ═════════ */
+
+type Rango = '7d' | '30d' | 'mes' | 'trimestre' | 'anio' | 'todo'
+type Filtro = 'todas' | 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 'error'
+
+interface ConciliacionLite {
+  id: string
+  fecha: string
+  importe: number
+  concepto: string | null
+  proveedor?: string | null
+}
+
+interface FacturaGastoRaw {
+  id: string
+  conciliacion_id: string
+  importe_asociado: number
+  confianza_match: number | null
+  confirmado: boolean
+  conciliacion: ConciliacionLite | null
+}
 
 interface Factura {
   id: string
-  proveedor_id: string | null
   proveedor_nombre: string
   numero_factura: string
   fecha_factura: string
   es_recapitulativa: boolean
   periodo_inicio: string | null
   periodo_fin: string | null
-  tipo: 'proveedor' | 'plataforma' | 'otro'
+  tipo: string
   plataforma: string | null
-  base_4: number
-  iva_4: number
-  base_10: number
-  iva_10: number
-  base_21: number
-  iva_21: number
   total_base: number
   total_iva: number
   total: number
-  pdf_original_name: string | null
   pdf_drive_url: string | null
-  pdf_hash: string | null
-  estado: EstadoFactura
-  error_mensaje: string | null
-  ocr_confianza: number | null
+  pdf_original_name: string | null
+  estado: string
   mensaje_matching: string | null
+  ocr_confianza: number | null
+  ocr_raw: unknown
   created_at: string
+  facturas_gastos?: FacturaGastoRaw[]
 }
 
-interface FacturaFaltante {
+interface Faltante {
   id: string
   proveedor_nombre: string
   frecuencia: string
@@ -46,14 +78,31 @@ interface FacturaFaltante {
   estado: 'ok' | 'falta' | 'en_plazo'
 }
 
-type UploadItem = {
-  name: string
-  status: 'pending' | 'uploading' | 'ok' | 'duplicada' | 'error'
-  factura?: Factura
-  mensaje?: string
-}
+/* ═════════ HELPERS ═════════ */
 
-type Tab = 'subir' | 'pendientes' | 'historico' | 'faltantes'
+function calcDesde(rango: Rango): string | null {
+  const hoy = new Date()
+  const d = new Date(hoy)
+  switch (rango) {
+    case '7d':
+      d.setDate(d.getDate() - 7)
+      return d.toISOString().slice(0, 10)
+    case '30d':
+      d.setDate(d.getDate() - 30)
+      return d.toISOString().slice(0, 10)
+    case 'mes':
+      return new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10)
+    case 'trimestre': {
+      const tri = Math.floor(hoy.getMonth() / 3) * 3
+      return new Date(hoy.getFullYear(), tri, 1).toISOString().slice(0, 10)
+    }
+    case 'anio':
+      return new Date(hoy.getFullYear(), 0, 1).toISOString().slice(0, 10)
+    case 'todo':
+    default:
+      return null
+  }
+}
 
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
@@ -67,138 +116,161 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary)
 }
 
-export default function Facturas() {
-  const { T, isDark } = useTheme()
-  const [tab, setTab] = useState<Tab>('subir')
+function diasEntre(desde: string): number {
+  const d = new Date(desde)
+  const hoy = new Date()
+  return Math.max(0, Math.floor((hoy.getTime() - d.getTime()) / 86_400_000))
+}
+
+/* ═════════ PAGE ═════════ */
+
+export default function FacturasPage() {
+  const { T } = useFacturasTheme()
+  const isMobile = useIsMobile()
+
   const [facturas, setFacturas] = useState<Factura[]>([])
-  const [faltantes, setFaltantes] = useState<FacturaFaltante[]>([])
-  const [uploads, setUploads] = useState<UploadItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [faltantes, setFaltantes] = useState<Faltante[]>([])
+  const [rango, setRango] = useState<Rango>('30d')
+  const [filtro, setFiltro] = useState<Filtro>('todas')
+  const [busqueda, setBusqueda] = useState('')
+  const [subiendo, setSubiendo] = useState<SubidaItem[]>([])
+  const [detalleFactura, setDetalleFactura] = useState<FacturaDetalle | null>(null)
+  const [facturaAsociarManual, setFacturaAsociarManual] = useState<Factura | null>(null)
+  const [showPasteModal, setShowPasteModal] = useState(false)
 
-  const cargarFacturas = useCallback(async () => {
-    const { data } = await supabase
+  const cargarDatos = useCallback(async () => {
+    const desde = calcDesde(rango)
+
+    let qb = supabase
       .from('facturas')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(300)
-    if (data) setFacturas(data as Factura[])
-  }, [])
+      .select(
+        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, conciliacion(id, fecha, importe, concepto, proveedor))',
+      )
+      .order('fecha_factura', { ascending: false })
+      .limit(500)
+    if (desde) qb = qb.gte('fecha_factura', desde)
+    const { data: facturasData } = await qb
 
-  const cargarFaltantes = useCallback(async () => {
-    const { data } = await supabase.from('facturas_faltantes').select('*')
-    if (data) setFaltantes(data as FacturaFaltante[])
-  }, [])
+    const { data: faltantesData } = await supabase
+      .from('facturas_faltantes')
+      .select('*')
+
+    setFacturas((facturasData as unknown as Factura[]) || [])
+    setFaltantes((faltantesData as unknown as Faltante[]) || [])
+  }, [rango])
 
   useEffect(() => {
-    cargarFacturas()
-    cargarFaltantes()
+    cargarDatos()
     const sub = supabase
-      .channel('facturas-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'facturas' }, () => {
-        cargarFacturas()
-      })
+      .channel('facturas-rediseno')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'facturas' },
+        () => cargarDatos(),
+      )
       .subscribe()
     return () => {
       sub.unsubscribe()
     }
-  }, [cargarFacturas, cargarFaltantes])
+  }, [cargarDatos])
 
-  const faltantesCount = useMemo(
-    () => faltantes.filter((f) => f.estado === 'falta').length,
-    [faltantes],
-  )
+  const faltan = useMemo(() => faltantes.filter((f) => f.estado === 'falta'), [faltantes])
 
-  const pendientes = useMemo(
-    () => facturas.filter((f) => f.estado === 'pendiente_revision'),
-    [facturas],
-  )
+  const kpis = useMemo(() => {
+    const totalPeriodo = facturas.reduce((acc, f) => acc + (Number(f.total) || 0), 0)
+    const nTotal = facturas.length
+    const nPendientes = facturas.filter((f) => f.estado === 'pendiente_revision').length
+    const nAsociadas = facturas.filter((f) => f.estado === 'asociada').length
+    const nDuplicadas = facturas.filter((f) => f.estado === 'duplicada').length
+    const nError = facturas.filter((f) => f.estado === 'error').length
+    return { totalPeriodo, nTotal, nPendientes, nAsociadas, nDuplicadas, nError }
+  }, [facturas])
 
-  const subirArchivo = useCallback(async (file: File) => {
-    setUploads((prev) => {
-      const copy = [...prev]
-      const idx = copy.findIndex((u) => u.name === file.name && u.status === 'pending')
-      if (idx >= 0) copy[idx] = { ...copy[idx], status: 'uploading' }
-      return copy
-    })
-    try {
-      const base64 = await fileToBase64(file)
-      const resp = await fetch('/api/facturas/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: file.name, base64, mimeType: file.type || null }),
-      })
-      const json = await resp.json()
-      setUploads((prev) => {
-        const copy = [...prev]
-        const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
-        if (idx < 0) return copy
-        if (json.estado === 'duplicada') {
-          copy[idx] = {
-            ...copy[idx],
-            status: 'duplicada',
-            mensaje: `Ya existía: ${json.factura_existente?.proveedor_nombre || '—'}`,
-          }
-        } else if (json.estado === 'ok') {
-          copy[idx] = { ...copy[idx], status: 'ok', factura: json.factura }
-        } else if (json.estado === 'multi') {
-          const oks = (json.resultados || []).filter(
-            (r: { estado: string }) => r.estado === 'ok',
-          ).length
-          copy[idx] = {
-            ...copy[idx],
-            status: 'ok',
-            mensaje: `${oks}/${json.resultados.length} procesadas (email + adjuntos)`,
-          }
-        } else if (json.estado === 'error') {
-          copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error }
-        } else {
-          copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error || 'Error' }
-        }
-        return copy
-      })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error'
-      setUploads((prev) => {
-        const copy = [...prev]
-        const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
-        if (idx >= 0) copy[idx] = { ...copy[idx], status: 'error', mensaje: msg }
-        return copy
-      })
+  const facturasFiltradas = useMemo<Factura[] | Faltante[]>(() => {
+    if (filtro === 'faltantes') return faltan
+    let lista = [...facturas]
+    const mapEstado: Record<Exclude<Filtro, 'todas' | 'faltantes'>, string> = {
+      pendientes: 'pendiente_revision',
+      asociadas: 'asociada',
+      duplicadas: 'duplicada',
+      error: 'error',
     }
-  }, [])
+    if (filtro !== 'todas') {
+      lista = lista.filter((f) => f.estado === mapEstado[filtro])
+    }
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase().trim()
+      lista = lista.filter(
+        (f) =>
+          (f.proveedor_nombre || '').toLowerCase().includes(q) ||
+          (f.numero_factura || '').toLowerCase().includes(q) ||
+          String(f.total || '').includes(q),
+      )
+    }
+    return lista
+  }, [facturas, faltan, filtro, busqueda])
 
-  const onDrop = useCallback(
-    async (accepted: File[]) => {
-      if (!accepted.length) return
-      const initial: UploadItem[] = accepted.map((f) => ({ name: f.name, status: 'pending' }))
-      setUploads((prev) => [...initial, ...prev])
-      setLoading(true)
-      for (const file of accepted) {
-        await subirArchivo(file)
+  const FILTROS: Array<{ id: Filtro; label: string; color: string; count: number }> = [
+    { id: 'todas', label: 'Todas', color: T.accentRed, count: kpis.nTotal },
+    { id: 'pendientes', label: 'Pendientes', color: '#BA7517', count: kpis.nPendientes },
+    { id: 'asociadas', label: 'Asociadas', color: '#1D9E75', count: kpis.nAsociadas },
+    { id: 'faltantes', label: 'Faltantes', color: '#A32D2D', count: faltan.length },
+    { id: 'duplicadas', label: 'Duplicadas', color: T.muted, count: kpis.nDuplicadas },
+    { id: 'error', label: 'Error', color: '#A32D2D', count: kpis.nError },
+  ]
+
+  const subirArchivos = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return
+      for (const file of files) {
+        const id =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`
+        setSubiendo((s) => [{ id, name: file.name, estado: 'uploading' }, ...s])
+        try {
+          const base64 = await fileToBase64(file)
+          const r = await fetch('/api/facturas/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: file.name,
+              base64,
+              mimeType: file.type || null,
+            }),
+          })
+          const data = await r.json().catch(() => ({}))
+          setSubiendo((s) =>
+            s.map((x) =>
+              x.id === id
+                ? {
+                    ...x,
+                    estado:
+                      data.estado === 'ok'
+                        ? 'ok'
+                        : data.estado === 'duplicada'
+                          ? 'duplicada'
+                          : data.estado === 'error'
+                            ? 'error'
+                            : data.estado || 'ok',
+                    total: data.factura?.total,
+                    mensaje: data.error || data.motivo,
+                  }
+                : x,
+            ),
+          )
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Error'
+          setSubiendo((s) => s.map((x) => (x.id === id ? { ...x, estado: 'error', mensaje: msg } : x)))
+        }
+        setTimeout(() => {
+          setSubiendo((s) => s.filter((x) => x.id !== id))
+        }, 6000)
       }
-      setLoading(false)
-      cargarFacturas()
+      cargarDatos()
     },
-    [cargarFacturas, subirArchivo],
+    [cargarDatos],
   )
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/png': ['.png'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/webp': ['.webp'],
-      'image/heic': ['.heic'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'message/rfc822': ['.eml'],
-      'application/vnd.ms-outlook': ['.msg'],
-    },
-    maxFiles: 20,
-  })
 
   const procesarTextoPegado = useCallback(
     async (texto: string) => {
@@ -206,881 +278,821 @@ export default function Facturas() {
       const nombre = `texto_pegado_${Date.now()}.txt`
       const blob = new Blob([texto], { type: 'text/plain' })
       const file = new File([blob], nombre, { type: 'text/plain' })
-      setUploads((prev) => [{ name: nombre, status: 'pending' }, ...prev])
-      setLoading(true)
-      await subirArchivo(file)
-      setLoading(false)
-      cargarFacturas()
+      setShowPasteModal(false)
+      await subirArchivos([file])
     },
-    [cargarFacturas, subirArchivo],
+    [subirArchivos],
   )
 
-  const tabs: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'subir', label: 'Subir' },
-    { key: 'pendientes', label: 'Pendientes', badge: pendientes.length },
-    { key: 'historico', label: 'Histórico' },
-    { key: 'faltantes', label: 'Faltantes', badge: faltantesCount },
-  ]
+  async function accion(f: Factura, tipo: 'confirmar' | 'rechazar' | 'reintentar') {
+    try {
+      await fetch(`/api/facturas/${f.id}/${tipo}`, { method: 'POST' })
+    } catch {
+      if (tipo === 'confirmar') {
+        await supabase.from('facturas_gastos').update({ confirmado: true }).eq('factura_id', f.id)
+        await supabase.from('facturas').update({ estado: 'asociada' }).eq('id', f.id)
+      } else if (tipo === 'rechazar') {
+        await supabase.from('facturas_gastos').delete().eq('factura_id', f.id)
+        await supabase
+          .from('facturas')
+          .update({ estado: 'error', mensaje_matching: 'Descartada manualmente' })
+          .eq('id', f.id)
+      } else {
+        await supabase
+          .from('facturas')
+          .update({ estado: 'procesando', error_mensaje: null })
+          .eq('id', f.id)
+      }
+    }
+    cargarDatos()
+  }
 
   return (
-    <div style={{ padding: 24, background: T.bg, minHeight: '100vh', fontFamily: FONT.body, color: T.pri }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h1 style={pageTitleStyle(T)}>FACTURAS</h1>
+    <div
+      style={{
+        padding: 24,
+        background: T.base,
+        minHeight: '100vh',
+        fontFamily: T.fontUi,
+        color: T.text,
+      }}
+    >
+      <HeaderFacturas T={T} rango={rango} setRango={setRango} />
+
+      <FilaKpis
+        T={T}
+        kpis={kpis}
+        faltantes={faltan.length}
+        isMobile={isMobile}
+        setFiltro={setFiltro}
+      />
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '320px 1fr',
+          gap: 16,
+          marginBottom: 16,
+        }}
+      >
+        <DropzoneFacturas
+          T={T}
+          onSubir={subirArchivos}
+          onPasteClick={() => setShowPasteModal(true)}
+          subiendo={subiendo}
+        />
+
+        <FiltrosBarra
+          T={T}
+          busqueda={busqueda}
+          setBusqueda={setBusqueda}
+          filtro={filtro}
+          setFiltro={setFiltro}
+          filtros={FILTROS}
+        />
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${T.brd}`, marginBottom: 20 }}>
-        {tabs.map((t) => {
-          const active = tab === t.key
+      {filtro === 'faltantes' ? (
+        <TablaFaltantes T={T} faltantes={faltan} />
+      ) : (
+        <TablaFacturas
+          T={T}
+          facturas={facturasFiltradas as Factura[]}
+          onVer={(f) => setDetalleFactura(f as unknown as FacturaDetalle)}
+          onAsociarManual={(f) => setFacturaAsociarManual(f)}
+          onAccion={accion}
+        />
+      )}
+
+      {detalleFactura && (
+        <ModalDetalleFactura
+          T={T}
+          factura={detalleFactura}
+          onClose={() => setDetalleFactura(null)}
+          onUpdate={() => {
+            cargarDatos()
+            setDetalleFactura(null)
+          }}
+        />
+      )}
+      {showPasteModal && (
+        <ModalPegarTexto
+          T={T}
+          onClose={() => setShowPasteModal(false)}
+          onSubmit={procesarTextoPegado}
+        />
+      )}
+      {facturaAsociarManual && (
+        <ModalAsociarManual
+          T={T}
+          factura={facturaAsociarManual}
+          onClose={() => setFacturaAsociarManual(null)}
+          onUpdate={() => {
+            cargarDatos()
+            setFacturaAsociarManual(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ═════════ SUBCOMPONENTES ═════════ */
+
+function HeaderFacturas({
+  T,
+  rango,
+  setRango,
+}: {
+  T: FacturasTokens
+  rango: Rango
+  setRango: (r: Rango) => void
+}) {
+  const labels: Record<Rango, string> = {
+    '7d': 'Últimos 7 días',
+    '30d': 'Últimos 30 días',
+    mes: 'Este mes',
+    trimestre: 'Este trimestre',
+    anio: 'Este año',
+    todo: 'Todo el histórico',
+  }
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        flexWrap: 'wrap',
+        gap: 12,
+      }}
+    >
+      <h1
+        style={{
+          color: T.accentRed,
+          fontFamily: T.fontTitle,
+          fontSize: 22,
+          fontWeight: 600,
+          letterSpacing: 3,
+          margin: 0,
+          textTransform: 'uppercase',
+        }}
+      >
+        IMPORTAR FACTURAS
+      </h1>
+      <select
+        value={rango}
+        onChange={(e) => setRango(e.target.value as Rango)}
+        style={{
+          padding: '8px 14px',
+          border: `1px solid ${T.border}`,
+          borderRadius: 8,
+          backgroundColor: T.card,
+          color: T.text,
+          fontFamily: T.fontUi,
+          fontSize: 13,
+          cursor: 'pointer',
+        }}
+      >
+        {(Object.keys(labels) as Rango[]).map((k) => (
+          <option key={k} value={k}>
+            {labels[k]}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function FilaKpis({
+  T,
+  kpis,
+  faltantes,
+  isMobile,
+  setFiltro,
+}: {
+  T: FacturasTokens
+  kpis: {
+    totalPeriodo: number
+    nTotal: number
+    nPendientes: number
+    nDuplicadas: number
+  }
+  faltantes: number
+  isMobile: boolean
+  setFiltro: (f: Filtro) => void
+}) {
+  const cards: Array<{
+    label: string
+    valor: string
+    sub: string
+    color: string
+    onClick?: () => void
+  }> = [
+    {
+      label: 'TOTAL PERIODO',
+      valor: fmtEur(kpis.totalPeriodo),
+      sub: `${kpis.nTotal} facturas`,
+      color: T.accent,
+    },
+    {
+      label: 'PENDIENTES',
+      valor: String(kpis.nPendientes),
+      sub: 'por asociar',
+      color: '#BA7517',
+      onClick: () => setFiltro('pendientes'),
+    },
+    {
+      label: 'FALTANTES',
+      valor: String(faltantes),
+      sub: 'del periodo',
+      color: '#A32D2D',
+      onClick: () => setFiltro('faltantes'),
+    },
+    {
+      label: 'DUPLICADAS',
+      valor: String(kpis.nDuplicadas),
+      sub: 'ignoradas',
+      color: T.muted,
+      onClick: () => setFiltro('duplicadas'),
+    },
+  ]
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+        gap: 12,
+        marginBottom: 16,
+      }}
+    >
+      {cards.map((c, i) => (
+        <div
+          key={i}
+          onClick={c.onClick}
+          style={{
+            backgroundColor: T.card,
+            borderRadius: 12,
+            padding: '14px 18px',
+            border: `1px solid ${T.border}`,
+            borderTop: `3px solid ${c.color}`,
+            cursor: c.onClick ? 'pointer' : 'default',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: T.fontTitle,
+              fontSize: 10,
+              color: T.muted,
+              letterSpacing: 1.3,
+              textTransform: 'uppercase',
+              marginBottom: 6,
+              fontWeight: 600,
+            }}
+          >
+            {c.label}
+          </div>
+          <div
+            style={{
+              fontFamily: T.fontTitle,
+              fontSize: 24,
+              fontWeight: 600,
+              color: T.text,
+              lineHeight: 1,
+            }}
+          >
+            {c.valor}
+          </div>
+          <div
+            style={{
+              fontFamily: T.fontUi,
+              fontSize: 11,
+              color: T.muted,
+              marginTop: 4,
+            }}
+          >
+            {c.sub}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function FiltrosBarra({
+  T,
+  busqueda,
+  setBusqueda,
+  filtro,
+  setFiltro,
+  filtros,
+}: {
+  T: FacturasTokens
+  busqueda: string
+  setBusqueda: (v: string) => void
+  filtro: Filtro
+  setFiltro: (f: Filtro) => void
+  filtros: Array<{ id: Filtro; label: string; color: string; count: number }>
+}) {
+  return (
+    <div>
+      <div style={{ position: 'relative', marginBottom: 12 }}>
+        <Search
+          size={14}
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: T.muted,
+          }}
+        />
+        <input
+          type="text"
+          placeholder="Buscar proveedor, número, importe..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 14px 10px 36px',
+            backgroundColor: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 8,
+            color: T.text,
+            fontFamily: T.fontUi,
+            fontSize: 13,
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {filtros.map((f) => {
+          const active = filtro === f.id
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={f.id}
+              onClick={() => setFiltro(f.id)}
               style={{
-                padding: '10px 18px',
-                background: active ? T.card : 'transparent',
-                border: 'none',
-                borderBottom: active ? `2px solid #B01D23` : '2px solid transparent',
-                color: active ? T.pri : T.sec,
-                fontFamily: FONT.heading,
-                fontSize: 13,
-                letterSpacing: '2px',
+                padding: '8px 14px',
+                border: `1px solid ${active ? f.color : T.border}`,
+                borderRadius: 20,
+                backgroundColor: active ? f.color : 'transparent',
+                color: active ? '#fff' : T.text,
+                fontFamily: T.fontTitle,
+                fontSize: 11,
+                letterSpacing: 0.5,
                 textTransform: 'uppercase',
                 cursor: 'pointer',
-                fontWeight: active ? 600 : 400,
+                transition: 'all 0.15s',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
+                gap: 6,
+                fontWeight: 600,
               }}
             >
-              {t.label}
-              {typeof t.badge === 'number' && t.badge > 0 && (
+              {f.label}
+              {f.count > 0 && (
                 <span
                   style={{
-                    background: t.key === 'faltantes' ? '#B01D23' : '#e8f442',
-                    color: t.key === 'faltantes' ? '#ffffff' : '#111111',
+                    backgroundColor: active ? 'rgba(255,255,255,0.2)' : T.base,
+                    padding: '1px 7px',
                     borderRadius: 10,
-                    padding: '1px 8px',
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize: 10,
                   }}
                 >
-                  {t.badge}
+                  {f.count}
                 </span>
               )}
             </button>
           )
         })}
       </div>
-
-      {tab === 'subir' && (
-        <TabSubir
-          getRootProps={getRootProps}
-          getInputProps={getInputProps}
-          isDragActive={isDragActive}
-          uploads={uploads}
-          loading={loading}
-          T={T}
-          isDark={isDark}
-          onPegarTexto={procesarTextoPegado}
-        />
-      )}
-
-      {tab === 'pendientes' && <TabPendientes facturas={pendientes} T={T} onRefresh={cargarFacturas} />}
-
-      {tab === 'historico' && <TabHistorico facturas={facturas} T={T} />}
-
-      {tab === 'faltantes' && <TabFaltantes faltantes={faltantes} T={T} />}
     </div>
   )
 }
 
-/* ───────── TAB: Subir ───────── */
+/* ═════════ TABLA ═════════ */
 
-function TabSubir({
-  getRootProps,
-  getInputProps,
-  isDragActive,
-  uploads,
-  loading,
+function TablaFacturas({
   T,
-  isDark,
-  onPegarTexto,
-}: {
-  getRootProps: () => Record<string, unknown>
-  getInputProps: () => Record<string, unknown>
-  isDragActive: boolean
-  uploads: UploadItem[]
-  loading: boolean
-  T: ReturnType<typeof useTheme>['T']
-  isDark: boolean
-  onPegarTexto: (texto: string) => Promise<void>
-}) {
-  const [showPasteModal, setShowPasteModal] = useState(false)
-  const [textoPegado, setTextoPegado] = useState('')
-
-  return (
-    <div>
-      <div
-        {...getRootProps()}
-        style={{
-          border: `2px dashed ${isDragActive ? '#e8f442' : T.brd}`,
-          borderRadius: 12,
-          padding: '60px 20px',
-          textAlign: 'center',
-          background: isDark ? '#141414' : '#fafafa',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
-      >
-        <input {...getInputProps()} />
-        <div style={{ fontSize: 48, marginBottom: 16 }}>📁</div>
-        <div
-          style={{
-            fontFamily: FONT.heading,
-            fontSize: 16,
-            letterSpacing: '3px',
-            textTransform: 'uppercase',
-            color: T.pri,
-            marginBottom: 8,
-          }}
-        >
-          {isDragActive ? 'SUELTA LOS ARCHIVOS' : 'ARRASTRA TUS FACTURAS AQUÍ'}
-        </div>
-        <div style={{ color: T.sec, fontSize: 13 }}>
-          PDF · Imagen (JPG/PNG/WEBP/HEIC) · Word · Excel · Email (EML/MSG)
-        </div>
-        <div style={{ color: T.mut, fontSize: 12, marginTop: 8 }}>
-          o haz click para seleccionar · hasta 20 archivos
-        </div>
-      </div>
-
-      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          onClick={() => setShowPasteModal(true)}
-          style={{
-            padding: '10px 18px',
-            background: '#e8f442',
-            color: '#111111',
-            border: 'none',
-            borderRadius: 6,
-            fontFamily: FONT.heading,
-            fontSize: 12,
-            letterSpacing: '2px',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          📋 Pegar texto de factura
-        </button>
-      </div>
-
-      {showPasteModal && (
-        <div
-          onClick={() => setShowPasteModal(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#1a1a1a',
-              borderRadius: 10,
-              padding: 24,
-              width: '100%',
-              maxWidth: 640,
-              border: `1px solid ${T.brd}`,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: FONT.heading,
-                fontSize: 14,
-                letterSpacing: '2px',
-                textTransform: 'uppercase',
-                color: T.pri,
-                marginBottom: 12,
-                fontWeight: 600,
-              }}
-            >
-              PEGAR FACTURA (TEXTO)
-            </div>
-            <div style={{ color: T.sec, fontSize: 12, marginBottom: 12 }}>
-              Pega el contenido de un email, WhatsApp, factura en texto... Claude extraerá los datos.
-            </div>
-            <textarea
-              value={textoPegado}
-              onChange={(e) => setTextoPegado(e.target.value)}
-              placeholder="Pega aquí el contenido completo de la factura..."
-              rows={14}
-              style={{
-                width: '100%',
-                padding: 12,
-                background: '#1e1e1e',
-                border: `1px solid ${T.brd}`,
-                borderRadius: 6,
-                color: T.pri,
-                fontSize: 13,
-                fontFamily: 'Consolas, monospace',
-                resize: 'vertical',
-              }}
-            />
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
-              <button
-                onClick={() => {
-                  setShowPasteModal(false)
-                  setTextoPegado('')
-                }}
-                style={{
-                  padding: '8px 16px',
-                  background: '#222222',
-                  color: T.pri,
-                  border: `1px solid ${T.brd}`,
-                  borderRadius: 6,
-                  fontFamily: FONT.heading,
-                  fontSize: 12,
-                  letterSpacing: '2px',
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={!textoPegado.trim() || loading}
-                onClick={async () => {
-                  const t = textoPegado
-                  setShowPasteModal(false)
-                  setTextoPegado('')
-                  await onPegarTexto(t)
-                }}
-                style={{
-                  padding: '8px 20px',
-                  background: !textoPegado.trim() || loading ? '#444' : '#B01D23',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontFamily: FONT.heading,
-                  fontSize: 12,
-                  letterSpacing: '2px',
-                  textTransform: 'uppercase',
-                  cursor: !textoPegado.trim() || loading ? 'not-allowed' : 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                Procesar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {uploads.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 12,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              color: T.mut,
-              marginBottom: 10,
-            }}
-          >
-            {loading ? 'PROCESANDO...' : 'RESULTADOS'}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {uploads.map((u, i) => (
-              <UploadRow key={`${u.name}-${i}`} item={u} T={T} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UploadRow({ item, T }: { item: UploadItem; T: ReturnType<typeof useTheme>['T'] }) {
-  const icon =
-    item.status === 'ok'
-      ? '✅'
-      : item.status === 'duplicada'
-        ? '🟰'
-        : item.status === 'error'
-          ? '❌'
-          : item.status === 'uploading'
-            ? '⏳'
-            : '•'
-  const color =
-    item.status === 'ok' ? '#1D9E75' : item.status === 'error' ? '#E24B4A' : T.sec
-  return (
-    <div
-      style={{
-        ...cardStyle(T),
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '10px 14px',
-      }}
-    >
-      <span style={{ fontSize: 18 }}>{icon}</span>
-      <span style={{ flex: 1, color: T.pri, fontSize: 14 }}>{item.name}</span>
-      {item.factura && (
-        <span style={{ color, fontSize: 13, fontFamily: FONT.heading, letterSpacing: 1 }}>
-          {fmtEur(item.factura.total)} · {item.factura.estado}
-        </span>
-      )}
-      {item.mensaje && (
-        <span style={{ color: T.sec, fontSize: 12 }}>{item.mensaje}</span>
-      )}
-    </div>
-  )
-}
-
-/* ───────── TAB: Pendientes ───────── */
-
-function TabPendientes({
   facturas,
-  T,
-  onRefresh,
+  onVer,
+  onAsociarManual,
+  onAccion,
 }: {
+  T: FacturasTokens
   facturas: Factura[]
-  T: ReturnType<typeof useTheme>['T']
-  onRefresh: () => void
+  onVer: (f: Factura) => void
+  onAsociarManual: (f: Factura) => void
+  onAccion: (f: Factura, tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
 }) {
   if (facturas.length === 0) {
     return (
-      <div style={{ ...cardStyle(T), textAlign: 'center', padding: 40, color: T.sec }}>
-        No hay facturas pendientes de revisión.
+      <div
+        style={{
+          backgroundColor: T.card,
+          borderRadius: 12,
+          padding: 60,
+          textAlign: 'center',
+          border: `1px solid ${T.border}`,
+        }}
+      >
+        <div style={{ fontFamily: T.fontUi, fontSize: 14, color: T.muted }}>
+          No hay facturas con estos filtros
+        </div>
       </div>
     )
   }
-
-  const confirmar = async (id: string) => {
-    await supabase.from('facturas').update({ estado: 'asociada' }).eq('id', id)
-    await supabase.from('facturas_gastos').update({ confirmado: true }).eq('factura_id', id)
-    onRefresh()
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {facturas.map((f) => (
-        <FacturaCard key={f.id} factura={f} T={T} onConfirmar={() => confirmar(f.id)} />
+    <div
+      style={{
+        backgroundColor: T.card,
+        borderRadius: 12,
+        border: `1px solid ${T.border}`,
+        overflow: 'hidden',
+      }}
+    >
+      {facturas.map((f, i) => (
+        <FilaFactura
+          key={f.id}
+          factura={f}
+          esUltima={i === facturas.length - 1}
+          T={T}
+          onVer={() => onVer(f)}
+          onAsociarManual={() => onAsociarManual(f)}
+          onAccion={(tipo) => onAccion(f, tipo)}
+        />
       ))}
     </div>
   )
 }
 
-function FacturaCard({
+function FilaFactura({
   factura,
+  esUltima,
   T,
-  onConfirmar,
+  onVer,
+  onAsociarManual,
+  onAccion,
 }: {
   factura: Factura
-  T: ReturnType<typeof useTheme>['T']
-  onConfirmar: () => void
+  esUltima: boolean
+  T: FacturasTokens
+  onVer: () => void
+  onAsociarManual: () => void
+  onAccion: (tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
 }) {
-  const [gastos, setGastos] = useState<
-    Array<{ id: string; fecha: string; importe: number; concepto: string; confianza: number | null }>
-  >([])
-
-  useEffect(() => {
-    supabase
-      .from('facturas_gastos')
-      .select(
-        'conciliacion_id, importe_asociado, confianza_match, conciliacion(id, fecha, importe, concepto)',
-      )
-      .eq('factura_id', factura.id)
-      .then(({ data }) => {
-        if (data) {
-          const flat = data
-            .map((r) => {
-              const c = r.conciliacion as unknown as {
-                id: string
-                fecha: string
-                importe: number
-                concepto: string
-              } | null
-              if (!c) return null
-              return {
-                ...c,
-                confianza: r.confianza_match as number | null,
-              }
-            })
-            .filter(
-              (c): c is { id: string; fecha: string; importe: number; concepto: string; confianza: number | null } =>
-                !!c,
-            )
-          setGastos(flat)
-        }
-      })
-  }, [factura.id])
-
-  const sumaGastos = gastos.reduce((a, g) => a + Math.abs(Number(g.importe)), 0)
-  const cuadra = Math.abs(sumaGastos - Number(factura.total)) < 1
-  const confianzaLow = factura.ocr_confianza !== null && factura.ocr_confianza < 0.7
-
+  const color = ESTADO_COLOR[factura.estado] || T.muted
+  const nombre = ESTADO_NOMBRE[factura.estado] || factura.estado
   return (
-    <div style={groupStyle(T)}>
-      <div
+    <div
+      style={{
+        padding: '14px 18px',
+        borderBottom: esUltima ? 'none' : `1px solid ${T.border}`,
+        display: 'grid',
+        gridTemplateColumns: '110px 1fr auto auto',
+        gap: 16,
+        alignItems: 'center',
+      }}
+    >
+      <span
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 20,
+          display: 'inline-block',
+          padding: '4px 10px',
+          borderRadius: 12,
+          backgroundColor: `${color}22`,
+          color,
+          fontFamily: T.fontTitle,
+          fontSize: 10,
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
+          fontWeight: 700,
+          textAlign: 'center',
+          width: 'fit-content',
         }}
       >
-        <div>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 11,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              color: T.mut,
-              marginBottom: 6,
-            }}
-          >
-            FACTURA
-          </div>
-          <div style={{ fontSize: 16, color: T.pri, fontWeight: 600, marginBottom: 4 }}>
-            {factura.proveedor_nombre}
-          </div>
-          <div style={{ fontSize: 12, color: T.sec, marginBottom: 2 }}>
-            Nº {factura.numero_factura} · {factura.fecha_factura}
-          </div>
-          {factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin && (
-            <div style={{ fontSize: 12, color: T.sec, marginBottom: 2 }}>
-              Recapitulativa: {factura.periodo_inicio} → {factura.periodo_fin}
-            </div>
-          )}
-          <div style={{ fontSize: 13, color: T.pri, marginTop: 8 }}>
-            <span style={{ color: T.mut }}>Base:</span> {fmtEur(factura.total_base)} ·{' '}
-            <span style={{ color: T.mut }}>IVA:</span> {fmtEur(factura.total_iva)}
-          </div>
-          <div style={{ fontSize: 18, fontFamily: FONT.heading, color: T.pri, marginTop: 6, fontWeight: 600 }}>
-            {fmtEur(factura.total)}
-          </div>
-          {confianzaLow && (
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 11,
-                color: '#f5a623',
-                background: '#3a2d1a',
-                padding: '4px 8px',
-                borderRadius: 4,
-                display: 'inline-block',
-              }}
-            >
-              ⚠ OCR confianza {((factura.ocr_confianza ?? 0) * 100).toFixed(0)}%
-            </div>
-          )}
-          {factura.mensaje_matching && (
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 12,
-                color: T.sec,
-                background: T.card,
-                padding: '8px 10px',
-                borderRadius: 6,
-                border: `1px solid ${T.brd}`,
-                lineHeight: 1.4,
-              }}
-            >
-              {factura.mensaje_matching}
-            </div>
-          )}
-          {factura.pdf_drive_url && (
-            <div style={{ marginTop: 10 }}>
-              <a
-                href={factura.pdf_drive_url}
-                target="_blank"
-                rel="noopener"
-                style={{ color: '#e8f442', fontSize: 12, textDecoration: 'none' }}
-              >
-                Ver PDF →
-              </a>
-            </div>
-          )}
-        </div>
+        {nombre}
+      </span>
 
-        <div>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 11,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              color: T.mut,
-              marginBottom: 6,
-            }}
-          >
-            GASTO(S) MATCH
-          </div>
-          {gastos.length === 0 ? (
-            <div style={{ fontSize: 13, color: T.sec }}>Sin gastos asociados</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-              {gastos.map((g) => (
-                <div
-                  key={g.id}
-                  style={{ fontSize: 12, color: T.sec, display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  <span style={{ flex: 1 }}>
-                    {g.fecha} · {fmtEur(Math.abs(Number(g.importe)))} ·{' '}
-                    <span style={{ color: T.mut }}>{g.concepto}</span>
-                  </span>
-                  {g.confianza !== null && <ConfianzaBadge valor={g.confianza} />}
-                </div>
-              ))}
-              <div
-                style={{
-                  fontSize: 14,
-                  fontFamily: FONT.heading,
-                  color: T.pri,
-                  marginTop: 4,
-                  fontWeight: 600,
-                }}
-              >
-                Total: {fmtEur(sumaGastos)}
-              </div>
-              {cuadra ? (
-                <div style={{ color: '#1D9E75', fontSize: 12 }}>✅ Cuadran</div>
-              ) : (
-                <div style={{ color: '#E24B4A', fontSize: 12 }}>
-                  ⚠ Diferencia {fmtEur(Math.abs(sumaGastos - Number(factura.total)))}
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            onClick={onConfirmar}
-            disabled={gastos.length === 0}
-            style={{
-              padding: '8px 16px',
-              background: gastos.length === 0 ? '#444' : '#B01D23',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: 6,
-              fontFamily: FONT.heading,
-              fontSize: 12,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              cursor: gastos.length === 0 ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            CONFIRMAR
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ───────── TAB: Histórico ───────── */
-
-function TabHistorico({ facturas, T }: { facturas: Factura[]; T: ReturnType<typeof useTheme>['T'] }) {
-  const [filtroProv, setFiltroProv] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<EstadoFactura | ''>('')
-
-  const filtradas = useMemo(() => {
-    return facturas.filter((f) => {
-      if (filtroProv && !f.proveedor_nombre.toLowerCase().includes(filtroProv.toLowerCase())) return false
-      if (filtroEstado && f.estado !== filtroEstado) return false
-      return true
-    })
-  }, [facturas, filtroProv, filtroEstado])
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <input
-          value={filtroProv}
-          onChange={(e) => setFiltroProv(e.target.value)}
-          placeholder="Filtrar por proveedor..."
+      <div style={{ minWidth: 0 }}>
+        <div
           style={{
-            padding: '8px 12px',
-            background: T.inp,
-            border: `1px solid ${T.brd}`,
-            borderRadius: 6,
-            color: T.pri,
-            fontSize: 13,
-            minWidth: 220,
-          }}
-        />
-        <select
-          value={filtroEstado}
-          onChange={(e) => setFiltroEstado(e.target.value as EstadoFactura | '')}
-          style={{
-            padding: '8px 12px',
-            background: T.inp,
-            border: `1px solid ${T.brd}`,
-            borderRadius: 6,
-            color: T.pri,
-            fontSize: 13,
+            fontFamily: T.fontTitle,
+            fontSize: 15,
+            color: T.text,
+            fontWeight: 600,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
-          <option value="">Todos los estados</option>
-          <option value="procesando">Procesando</option>
-          <option value="pendiente_revision">Pendiente revisión</option>
-          <option value="asociada">Asociada</option>
-          <option value="historica">Histórica</option>
-          <option value="error">Error</option>
-        </select>
+          {factura.proveedor_nombre}
+        </div>
+        <div style={{ fontFamily: T.fontUi, fontSize: 11, color: T.muted, marginTop: 2 }}>
+          {fmtFechaES(factura.fecha_factura)}
+          {factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin && (
+            <>
+              {' '}
+              · Recapitulativa {fmtFechaES(factura.periodo_inicio)} →{' '}
+              {fmtFechaES(factura.periodo_fin)}
+            </>
+          )}
+          {factura.numero_factura && (
+            <>
+              {' '}
+              · Nº {factura.numero_factura}
+            </>
+          )}
+        </div>
+        <RazonMatch factura={factura} T={T} />
       </div>
 
-      <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: '#0a0a0a' }}>
-              <th style={thStyle}>Fecha</th>
-              <th style={thStyle}>Proveedor</th>
-              <th style={thStyle}>Nº Factura</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Base</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>IVA</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
-              <th style={thStyle}>Estado</th>
-              <th style={thStyle}>PDF</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtradas.length === 0 ? (
-              <tr>
-                <td colSpan={8} style={{ padding: 30, textAlign: 'center', color: T.sec }}>
-                  Sin resultados
-                </td>
-              </tr>
-            ) : (
-              filtradas.map((f) => (
-                <tr key={f.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
-                  <td style={tdStyle(T)}>{f.fecha_factura}</td>
-                  <td style={tdStyle(T)}>{f.proveedor_nombre}</td>
-                  <td style={tdStyle(T)}>{f.numero_factura}</td>
-                  <td style={{ ...tdStyle(T), textAlign: 'right' }}>{fmtEur(f.total_base)}</td>
-                  <td style={{ ...tdStyle(T), textAlign: 'right' }}>{fmtEur(f.total_iva)}</td>
-                  <td style={{ ...tdStyle(T), textAlign: 'right', fontWeight: 600 }}>{fmtEur(f.total)}</td>
-                  <td style={tdStyle(T)}>
-                    <EstadoBadge estado={f.estado} />
-                  </td>
-                  <td style={tdStyle(T)}>
-                    {f.pdf_drive_url ? (
-                      <a href={f.pdf_drive_url} target="_blank" rel="noopener" style={{ color: '#e8f442' }}>
-                        ver
-                      </a>
-                    ) : (
-                      <span style={{ color: T.mut }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div style={{ textAlign: 'right' }}>
+        <div
+          style={{
+            fontFamily: T.fontTitle,
+            fontSize: 18,
+            color: T.text,
+            fontWeight: 600,
+          }}
+        >
+          {fmtEur(factura.total)}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <BotonIcono T={T} icon={Eye} onClick={onVer} tooltip="Ver detalle" />
+        <AccionesContextuales
+          factura={factura}
+          T={T}
+          onAsociarManual={onAsociarManual}
+          onAccion={onAccion}
+        />
       </div>
     </div>
   )
 }
 
-const thStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  textAlign: 'left',
-  fontFamily: FONT.heading,
-  fontSize: 11,
-  letterSpacing: '2px',
-  textTransform: 'uppercase',
-  color: '#aaa',
-  fontWeight: 600,
-}
-
-function tdStyle(T: ReturnType<typeof useTheme>['T']): React.CSSProperties {
-  return { padding: '10px 12px', color: T.pri }
-}
-
-function ConfianzaBadge({ valor }: { valor: number }) {
-  const { bg, color, label } =
-    valor >= 85
-      ? { bg: '#1a3a2a', color: '#1D9E75', label: `${Math.round(valor)}%` }
-      : valor >= 50
-        ? { bg: '#3a2d1a', color: '#f5a623', label: `${Math.round(valor)}%` }
-        : { bg: '#3a1a1a', color: '#E24B4A', label: `${Math.round(valor)}%` }
-  return (
-    <span
-      style={{
-        background: bg,
-        color,
-        padding: '1px 6px',
-        borderRadius: 4,
-        fontSize: 10,
-        fontFamily: FONT.heading,
-        letterSpacing: 1,
-        fontWeight: 600,
-        flexShrink: 0,
-      }}
-    >
-      {label}
-    </span>
-  )
-}
-
-function EstadoBadge({ estado }: { estado: EstadoFactura }) {
-  const map: Record<EstadoFactura, { bg: string; color: string; label: string }> = {
-    procesando: { bg: '#2a2a2a', color: '#aaa', label: 'Procesando' },
-    pendiente_revision: { bg: '#3a2d1a', color: '#f5a623', label: 'Revisar' },
-    asociada: { bg: '#1a3a2a', color: '#1D9E75', label: 'Asociada' },
-    historica: { bg: '#1a2a3a', color: '#66aaff', label: 'Histórica' },
-    error: { bg: '#3a1a1a', color: '#E24B4A', label: 'Error' },
-  }
-  const s = map[estado]
-  return (
-    <span
-      style={{
-        background: s.bg,
-        color: s.color,
-        padding: '2px 8px',
-        borderRadius: 4,
-        fontSize: 11,
-        fontFamily: FONT.heading,
-        letterSpacing: 1,
-        textTransform: 'uppercase',
-        fontWeight: 600,
-      }}
-    >
-      {s.label}
-    </span>
-  )
-}
-
-/* ───────── TAB: Faltantes ───────── */
-
-function TabFaltantes({
-  faltantes,
+function BotonIcono({
   T,
+  icon: Icon,
+  onClick,
+  tooltip,
+  color,
 }: {
-  faltantes: FacturaFaltante[]
-  T: ReturnType<typeof useTheme>['T']
+  T: FacturasTokens
+  icon: React.ComponentType<{ size?: number; color?: string }>
+  onClick: () => void
+  tooltip: string
+  color?: string
 }) {
-  const faltan = faltantes.filter((f) => f.estado === 'falta')
-  const enPlazo = faltantes.filter((f) => f.estado === 'en_plazo')
-  const okAll = faltantes.filter((f) => f.estado === 'ok')
+  return (
+    <button
+      onClick={onClick}
+      title={tooltip}
+      style={{
+        width: 32,
+        height: 32,
+        border: `1px solid ${T.border}`,
+        borderRadius: 8,
+        backgroundColor: 'transparent',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        color: color || T.text,
+      }}
+    >
+      <Icon size={14} color={color || T.text} />
+    </button>
+  )
+}
 
-  const diasDesde = (fecha: string) => {
-    const d = new Date(fecha)
-    const hoy = new Date()
-    const diff = Math.floor((hoy.getTime() - d.getTime()) / 86400000)
-    return diff
+function AccionesContextuales({
+  factura,
+  T,
+  onAsociarManual,
+  onAccion,
+}: {
+  factura: Factura
+  T: FacturasTokens
+  onAsociarManual: () => void
+  onAccion: (tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
+}) {
+  const matches = factura.facturas_gastos || []
+
+  if (factura.estado === 'asociada') {
+    return (
+      <>
+        <BotonIcono
+          T={T}
+          icon={Check}
+          onClick={() => onAccion('confirmar')}
+          tooltip="Confirmar"
+          color="#1D9E75"
+        />
+        <BotonIcono
+          T={T}
+          icon={X}
+          onClick={() => onAccion('rechazar')}
+          tooltip="Rechazar"
+          color="#A32D2D"
+        />
+      </>
+    )
   }
 
+  if (factura.estado === 'pendiente_revision') {
+    return (
+      <>
+        {matches.length > 0 && (
+          <BotonIcono
+            T={T}
+            icon={Check}
+            onClick={() => onAccion('confirmar')}
+            tooltip="Aceptar match sugerido"
+            color="#1D9E75"
+          />
+        )}
+        <BotonIcono
+          T={T}
+          icon={SearchCheck}
+          onClick={onAsociarManual}
+          tooltip="Buscar manual en banco"
+        />
+        <BotonIcono
+          T={T}
+          icon={X}
+          onClick={() => onAccion('rechazar')}
+          tooltip="Descartar"
+          color="#A32D2D"
+        />
+      </>
+    )
+  }
+
+  if (factura.estado === 'error') {
+    return (
+      <>
+        <BotonIcono
+          T={T}
+          icon={RefreshCw}
+          onClick={() => onAccion('reintentar')}
+          tooltip="Reintentar OCR"
+        />
+        <BotonIcono
+          T={T}
+          icon={X}
+          onClick={() => onAccion('rechazar')}
+          tooltip="Descartar"
+          color="#A32D2D"
+        />
+      </>
+    )
+  }
+
+  return null
+}
+
+/* ═════════ RAZÓN MATCH ═════════ */
+
+function RazonMatch({ factura, T }: { factura: Factura; T: FacturasTokens }) {
+  const matches = factura.facturas_gastos || []
+  const mensaje = factura.mensaje_matching
+
+  if (factura.estado === 'asociada' && matches.length === 1 && matches[0].conciliacion) {
+    const g = matches[0].conciliacion
+    const conf = matches[0].confianza_match
+    return (
+      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#1D9E75', marginTop: 6 }}>
+        ✅ Coincide con gasto del <b>{fmtFechaES(g.fecha)}</b> por{' '}
+        <b>{fmtEur(Math.abs(Number(g.importe)))}</b>
+        {conf != null && (
+          <span style={{ color: T.muted, marginLeft: 8 }}>({Math.round(conf)}% confianza)</span>
+        )}
+      </div>
+    )
+  }
+
+  if (factura.estado === 'asociada' && matches.length > 1) {
+    const suma = matches.reduce(
+      (a, m) => a + Math.abs(Number(m.conciliacion?.importe ?? m.importe_asociado)),
+      0,
+    )
+    return (
+      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#1D9E75', marginTop: 6 }}>
+        ✅ Recapitulativa: <b>{matches.length} cargos</b> suman <b>{fmtEur(suma)}</b>
+      </div>
+    )
+  }
+
+  if (factura.estado === 'pendiente_revision') {
+    return (
+      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#BA7517', marginTop: 6 }}>
+        ⚠️ {mensaje || 'Sin gastos asociados automáticamente'}
+      </div>
+    )
+  }
+
+  if (factura.tipo === 'plataforma') {
+    return (
+      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: T.muted, marginTop: 6 }}>
+        📱 Liquidación {factura.plataforma}. Se asocia a ingresos, no gastos.
+      </div>
+    )
+  }
+
+  if (factura.estado === 'error' && factura.mensaje_matching) {
+    return (
+      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#A32D2D', marginTop: 6 }}>
+        ❌ {factura.mensaje_matching}
+      </div>
+    )
+  }
+
+  return null
+}
+
+/* ═════════ FALTANTES ═════════ */
+
+function TablaFaltantes({ T, faltantes }: { T: FacturasTokens; faltantes: Faltante[] }) {
+  if (faltantes.length === 0) {
+    return (
+      <div
+        style={{
+          backgroundColor: T.card,
+          borderRadius: 12,
+          padding: 60,
+          textAlign: 'center',
+          border: `1px solid ${T.border}`,
+        }}
+      >
+        <div style={{ fontFamily: T.fontUi, fontSize: 14, color: T.muted }}>
+          ✅ No hay facturas faltantes
+        </div>
+      </div>
+    )
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {faltan.length > 0 && (
-        <div style={groupStyle(T)}>
-          <div
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {faltantes.map((f) => (
+        <div
+          key={f.id}
+          style={{
+            backgroundColor: T.card,
+            border: `1px solid ${T.border}`,
+            borderLeft: `4px solid #A32D2D`,
+            borderRadius: 10,
+            padding: '14px 18px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: T.fontTitle,
+                fontSize: 14,
+                color: T.text,
+                fontWeight: 600,
+              }}
+            >
+              {f.proveedor_nombre} · {f.frecuencia}
+            </div>
+            <div
+              style={{
+                fontFamily: T.fontUi,
+                fontSize: 11,
+                color: T.muted,
+                marginTop: 3,
+              }}
+            >
+              Esperada hace {diasEntre(f.periodo_ref)} días ({fmtFechaES(f.periodo_ref)})
+              {f.importe_estimado ? ` · ~${fmtEur(f.importe_estimado)}` : ''}
+            </div>
+          </div>
+          <button
             style={{
-              fontFamily: FONT.heading,
-              fontSize: 13,
-              letterSpacing: '2px',
+              padding: '8px 14px',
+              backgroundColor: T.accentRed,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              fontFamily: T.fontTitle,
+              fontSize: 11,
               textTransform: 'uppercase',
-              color: '#E24B4A',
-              marginBottom: 12,
+              letterSpacing: 0.5,
+              cursor: 'pointer',
               fontWeight: 600,
+              flexShrink: 0,
             }}
           >
-            ⚠ FALTAN FACTURAS
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {faltan.map((f) => (
-              <div
-                key={f.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '10px 12px',
-                  background: '#2d1515',
-                  border: '1px solid #aa3030',
-                  borderRadius: 6,
-                }}
-              >
-                <div>
-                  <div style={{ color: '#ffaaaa', fontSize: 14, fontWeight: 600 }}>
-                    🔴 {f.proveedor_nombre} · {f.frecuencia}
-                  </div>
-                  <div style={{ color: T.sec, fontSize: 12, marginTop: 2 }}>
-                    Esperada hace {diasDesde(f.periodo_ref)} días
-                    {f.importe_estimado ? ` · ~${fmtEur(f.importe_estimado)} estimado` : ''}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+            Subir ahora
+          </button>
         </div>
-      )}
-
-      {enPlazo.length > 0 && (
-        <div style={groupStyle(T)}>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 13,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              color: '#f5a623',
-              marginBottom: 12,
-              fontWeight: 600,
-            }}
-          >
-            EN PLAZO
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {enPlazo.map((f) => (
-              <div key={f.id} style={{ color: T.sec, fontSize: 13 }}>
-                🟡 {f.proveedor_nombre} · {f.frecuencia} · ref {f.periodo_ref}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {okAll.length > 0 && (
-        <div style={groupStyle(T)}>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 13,
-              letterSpacing: '2px',
-              textTransform: 'uppercase',
-              color: '#1D9E75',
-              marginBottom: 12,
-              fontWeight: 600,
-            }}
-          >
-            ✓ RECIBIDAS
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {okAll.map((f) => (
-              <div key={f.id} style={{ color: T.sec, fontSize: 13 }}>
-                ✅ {f.proveedor_nombre} · {f.frecuencia}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {faltantes.length === 0 && (
-        <div style={{ ...cardStyle(T), textAlign: 'center', padding: 40, color: T.sec }}>
-          Sin calendario de facturas esperadas.
-        </div>
-      )}
+      ))}
     </div>
   )
 }

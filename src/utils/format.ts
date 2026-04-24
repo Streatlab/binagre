@@ -24,6 +24,18 @@ export const fmtPct = (v?: number | string | null) => {
 export const fmtDate = (d?: string | Date | null) =>
   d ? new Date(d).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'}) : ''
 
+const MESES_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
+export function fmtFechaES(fecha?: string | Date | null): string {
+  if (!fecha) return ''
+  const d = typeof fecha === 'string' ? new Date(fecha) : fecha
+  if (isNaN(d.getTime())) return ''
+  return `${d.getDate()} ${MESES_ES[d.getMonth()]} ${d.getFullYear()}`
+}
+
 export function fmtFechaRelativa(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
