@@ -644,7 +644,7 @@ function TabSimulador({ T, data }: { T: TokenSet; data: DashboardData }) {
         <div style={kpiLabelStyle(T)}>Ajusta parámetros</div>
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Slider T={T} label="Sueldos empleados" value={Number(p.sueldos_empleados || 0)} min={0} max={10000} step={100} onChange={v => set('sueldos_empleados', v)} fmt={fmtEur} />
-          <Slider T={T} label="Think Paladar" value={Number(p.think_paladar || 0)} min={0} max={3000} step={50} onChange={v => set('think_paladar', v)} fmt={fmtEur} />
+          <Slider T={T} label="Think Paladar" value={Number(p.think_paladar || 0)} min={0} max={3500} step={50} onChange={v => set('think_paladar', v)} fmt={fmtEur} />
           <Slider T={T} label="Alquiler local" value={Number(p.alquiler_local || 0)} min={0} max={2500} step={50} onChange={v => set('alquiler_local', v)} fmt={fmtEur} />
           <Slider T={T} label="Sueldo Rubén" value={Number(p.sueldo_ruben || 0)} min={0} max={4000} step={50} onChange={v => set('sueldo_ruben', v)} fmt={fmtEur} />
           <Slider T={T} label="Sueldo Emilio" value={Number(p.sueldo_emilio || 0)} min={0} max={4000} step={50} onChange={v => set('sueldo_emilio', v)} fmt={fmtEur} />
