@@ -1,9 +1,38 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { google } from 'googleapis'
-import { makeOAuth2Client } from '../../_lib/google-oauth.js'
+import { GOOGLE_OAUTH_SCOPES, makeOAuth2Client, tieneDriveConectado } from '../../_lib/google-oauth.js'
 import { supabaseAdmin } from '../../_lib/supabase-admin.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const action = String(req.query.action || '')
+
+  switch (action) {
+    case 'start':
+      return start(res)
+    case 'callback':
+      return callback(req, res)
+    case 'status':
+      return status(req, res)
+    case 'disconnect':
+      return disconnect(req, res)
+    default:
+      return res.status(404).json({ error: `Acción desconocida: ${action}` })
+  }
+}
+
+function start(res: VercelResponse) {
+  const client = makeOAuth2Client()
+  const url = client.generateAuthUrl({
+    access_type: 'offline',
+    scope: GOOGLE_OAUTH_SCOPES,
+    prompt: 'consent',
+    include_granted_scopes: true,
+  })
+  res.writeHead(302, { Location: url })
+  res.end()
+}
+
+async function callback(req: VercelRequest, res: VercelResponse) {
   const code = typeof req.query.code === 'string' ? req.query.code : null
   const errParam = typeof req.query.error === 'string' ? req.query.error : null
 
@@ -61,4 +90,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.writeHead(302, { Location: `/configuracion/bancos?drive_error=${encodeURIComponent(msg.slice(0, 200))}` })
     return res.end()
   }
+}
+
+async function status(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  const s = await tieneDriveConectado()
+  return res.status(200).json(s)
+}
+
+async function disconnect(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  const { error } = await supabaseAdmin
+    .from('google_oauth_tokens')
+    .delete()
+    .is('titular_id', null)
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ ok: true })
 }
