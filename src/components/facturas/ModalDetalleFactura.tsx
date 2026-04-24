@@ -471,10 +471,10 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
           >
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#ff8a8a', fontWeight: 600 }}>
-                {driveError ? 'Error subiendo a Drive' : 'PDF no está en Drive'}
+                {driveError ? 'Error subiendo a Drive' : 'PDF original no disponible — re-sube manual'}
               </div>
               <div style={{ fontFamily: T.fontUi, fontSize: 11, color: T.muted, marginTop: 2 }}>
-                {datos.error_mensaje || 'Re-sube el archivo para guardarlo en /carpetas/TITULAR/AÑO/…'}
+                {datos.error_mensaje || 'El archivo no llegó a Drive. Re-sube para guardarlo en /carpetas/TITULAR/AÑO/…'}
               </div>
               {driveMsg && (
                 <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? '#ff8a8a' : '#1D9E75', marginTop: 4 }}>

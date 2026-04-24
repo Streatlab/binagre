@@ -208,7 +208,7 @@ export default function FacturasPage() {
     return () => { sub.unsubscribe() }
   }, [cargarDatos])
 
-  // Auto-ocultar filas optimistas caducadas (solo para ok/duplicada; error se queda hasta dismiss)
+  // Auto-ocultar filas optimistas caducadas (solo para 'ok'; duplicada y error se quedan hasta dismiss)
   useEffect(() => {
     if (optimistas.length === 0) return
     const t = setInterval(() => {
@@ -310,7 +310,6 @@ export default function FacturasPage() {
             estado: 'duplicada',
             mensaje: data.motivo || 'Ya existe',
             factura: ex,
-            vence_en: Date.now() + 7000,
           } : x))
         } else if (estadoSrv === 'error') {
           console.error('[facturas/upload] estado error:', data)
@@ -331,7 +330,7 @@ export default function FacturasPage() {
               estado: res.estado === 'ok' ? 'ok' : res.estado === 'duplicada' ? 'duplicada' : 'error',
               mensaje: res.motivo || res.error,
               factura: res.factura || res.factura_existente,
-              vence_en: res.estado === 'error' ? undefined : Date.now() + 6000,
+              vence_en: res.estado === 'ok' ? Date.now() + 6000 : undefined,
             }, ...prev.filter(p => p.id !== id)])
           })
         } else {
@@ -691,7 +690,17 @@ function TablaFacturasDensa({
                     </div>
                   </td>
                   <td style={tdStyle}>{fechaCorta(f.fecha_factura)}</td>
-                  <td style={{ ...tdStyle, fontWeight: 500 }}>{truncar(f.proveedor_nombre, 32)}</td>
+                  <td style={{ ...tdStyle, fontWeight: 500 }}>
+                    {!f.pdf_drive_id && (
+                      <span
+                        title="PDF no disponible en Drive — re-sube manual desde el detalle"
+                        style={{ marginRight: 6, fontSize: 11, color: '#ff8a8a' }}
+                      >
+                        📎❌
+                      </span>
+                    )}
+                    {truncar(f.proveedor_nombre, 32)}
+                  </td>
                   <td style={{ ...tdStyle, fontFamily: 'Consolas, monospace', fontSize: 12, color: T.sec }}>{truncar(f.numero_factura, 18)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_base)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_iva)}</td>
