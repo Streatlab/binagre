@@ -126,17 +126,37 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // Crear registro procesando
-  const tempNum = `TEMP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // 1. OCR PRIMERO — si falla, NO se crea registro (evita zombies)
+  let extracted: Awaited<ReturnType<typeof extraerDatosDesdeContenido>>
+  try {
+    extracted = await extraerDatosDesdeContenido(contenido)
+  } catch (ocrErr) {
+    return {
+      estado: 'error',
+      archivo: file.nombre,
+      error: `OCR falló: ${errMsg(ocrErr)}`,
+    }
+  }
+
+  // 2. Validar que el OCR devolvió datos mínimos
+  if (!extracted.proveedor_nombre || !extracted.total) {
+    return {
+      estado: 'error',
+      archivo: file.nombre,
+      error: `OCR devolvió datos vacíos. Proveedor="${extracted.proveedor_nombre || '—'}" total=${extracted.total}. Edita manualmente.`,
+    }
+  }
+
+  // 3. Crear registro ya con datos reales
   const { data: nueva, error: errInsert } = await supabase
     .from('facturas')
     .insert({
       pdf_original_name: file.nombre,
       pdf_hash: hash,
-      proveedor_nombre: 'Procesando...',
-      numero_factura: tempNum,
-      fecha_factura: new Date().toISOString().slice(0, 10),
-      total: 0,
+      proveedor_nombre: extracted.proveedor_nombre,
+      numero_factura: extracted.numero_factura || `SN-${Date.now().toString(36)}`,
+      fecha_factura: extracted.fecha_factura || new Date().toISOString().slice(0, 10),
+      total: extracted.total,
       estado: 'procesando',
     })
     .select()
@@ -151,7 +171,6 @@ async function procesarContenidoPrincipal(
   }
 
   try {
-    const extracted = await extraerDatosDesdeContenido(contenido)
 
     // Matching proveedor por nombre (fallback) + dedup proveedor+numero
     const provQuery = extracted.proveedor_nombre.slice(0, 20)
@@ -287,6 +306,7 @@ async function procesarContenidoPrincipal(
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
         carpeta_titular: carpetaTitular,
+        titular_id: titularId,
       }, ext)
       await supabase
         .from('facturas')

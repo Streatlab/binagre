@@ -1,7 +1,33 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+
+/**
+ * Carga variables de entorno desde los ficheros .env.local → .env sin sobrescribir
+ * los valores que ya existan en process.env (ej. ya puestos por el sistema).
+ */
+function loadDotEnvFiles(): void {
+  const files = ['.env.local', '.env']
+  for (const name of files) {
+    const p = resolve(process.cwd(), name)
+    if (!existsSync(p)) continue
+    const raw = readFileSync(p, 'utf8')
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eq = trimmed.indexOf('=')
+      if (eq < 0) continue
+      const key = trimmed.slice(0, eq).trim()
+      let val = trimmed.slice(eq + 1).trim()
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1)
+      }
+      if (!key || process.env[key] !== undefined) continue
+      process.env[key] = val
+    }
+  }
+}
 
 /**
  * Vite plugin: ejecuta funciones estilo Vercel (api/**.ts) en el dev server.
@@ -12,6 +38,7 @@ export function vercelApiPlugin(): Plugin {
   return {
     name: 'vercel-api-dev',
     configureServer(server: ViteDevServer) {
+      loadDotEnvFiles()
       server.middlewares.use(async (req, res, next) => {
         const url = req.url || ''
         if (!url.startsWith('/api/')) return next()

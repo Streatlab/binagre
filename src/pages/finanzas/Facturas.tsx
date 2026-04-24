@@ -137,6 +137,30 @@ function truncar(s: string | null | undefined, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s
 }
 
+const LABEL_STYLE = (T: TokenSet): CSSProperties => ({
+  display: 'block',
+  marginBottom: 6,
+  fontFamily: FONT.heading,
+  fontSize: 10,
+  color: T.mut,
+  letterSpacing: '1.3px',
+  textTransform: 'uppercase',
+  fontWeight: 500,
+})
+
+const INPUT_STYLE = (T: TokenSet): CSSProperties => ({
+  width: '100%',
+  padding: '10px 14px',
+  backgroundColor: T.inp,
+  color: T.pri,
+  border: `0.5px solid ${T.brd}`,
+  borderRadius: 8,
+  fontFamily: FONT.body,
+  fontSize: 13,
+  boxSizing: 'border-box',
+  outline: 'none',
+})
+
 /* ═════════ PAGE ═════════ */
 
 export default function FacturasPage() {
@@ -180,7 +204,7 @@ export default function FacturasPage() {
   useEffect(() => {
     cargarDatos()
     const sub = supabase
-      .channel('facturas-rediseno-v2')
+      .channel('facturas-rediseno-v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'facturas' }, () => cargarDatos())
       .subscribe()
     return () => { sub.unsubscribe() }
@@ -257,71 +281,21 @@ export default function FacturasPage() {
         const msg = err instanceof Error ? err.message : 'Error'
         setSubiendo((s) => s.map((x) => (x.id === id ? { ...x, estado: 'error', mensaje: msg } : x)))
       }
-      setTimeout(() => { setSubiendo((s) => s.filter((x) => x.id !== id)) }, 6000)
+      setTimeout(() => { setSubiendo((s) => s.filter((x) => x.id !== id)) }, 10000)
     }
     cargarDatos()
   }, [cargarDatos])
 
-  const labelRango: Record<Rango, string> = {
-    '7d': 'Últimos 7 días',
-    '30d': 'Últimos 30 días',
-    mes: 'Este mes',
-    trimestre: 'Este trimestre',
-    anio: 'Este año',
-    todo: 'Todo el histórico',
-  }
-
-  const labelFiltro: Record<Filtro, string> = {
-    todas: 'Todas',
-    pendientes: 'Pendientes',
-    asociadas: 'Asociadas',
-    faltantes: 'Faltantes',
-    duplicadas: 'Duplicadas',
-    error: 'Error',
-    sin_titular: 'Sin titular',
-  }
-
-  const selectStyle: CSSProperties = {
-    padding: '8px 14px',
-    border: `0.5px solid ${T.brd}`,
-    borderRadius: 8,
-    backgroundColor: T.inp,
-    color: T.pri,
-    fontFamily: FONT.body,
-    fontSize: 13,
-    cursor: 'pointer',
-    outline: 'none',
-  }
-
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
 
-      {/* HEADER — título + desplegable filtro + toggle titular + rango */}
+      {/* HEADER — título + TitularSelector */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={pageTitleStyle(T)}>Importar Facturas</h1>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} style={selectStyle}>
-            {(Object.keys(labelFiltro) as Filtro[]).map(k => {
-              const n = k === 'faltantes' ? faltan.length
-                : k === 'todas' ? kpis.nTotal
-                : k === 'pendientes' ? kpis.nPendientes
-                : k === 'asociadas' ? kpis.nAsociadas
-                : k === 'duplicadas' ? kpis.nDuplicadas
-                : k === 'error' ? kpis.nError
-                : kpis.nSinTitular
-              return <option key={k} value={k}>{labelFiltro[k]} ({n})</option>
-            })}
-          </select>
-          <TitularSelector />
-          <select value={rango} onChange={(e) => setRango(e.target.value as Rango)} style={selectStyle}>
-            {(Object.keys(labelRango) as Rango[]).map((k) => (
-              <option key={k} value={k}>{labelRango[k]}</option>
-            ))}
-          </select>
-        </div>
+        <TitularSelector />
       </div>
 
-      {/* TABS */}
+      {/* TABS Resumen / Subir */}
       <div style={{ display: 'flex', gap: 4, background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 18 }}>
         {(['resumen', 'subir'] as Tab[]).map(k => (
           <button
@@ -340,19 +314,25 @@ export default function FacturasPage() {
 
       {!loading && tab === 'resumen' && (
         <>
-          <ResumenFacturasKpis T={T} kpis={kpis} faltantes={faltan.length} />
-          <div style={{ height: 16 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 16, marginBottom: 16 }}>
+            <CardKpiGrande T={T} kpis={kpis} faltantes={faltan.length} periodo={rango} />
+            <PanelFiltros
+              T={T}
+              buscar={busqueda} setBuscar={setBusqueda}
+              filtroEstado={filtro} setFiltroEstado={setFiltro}
+              rango={rango} setRango={setRango}
+              kpis={kpis} nFaltantes={faltan.length}
+            />
+          </div>
+
           {filtro === 'faltantes' ? (
             <TablaFaltantes T={T} faltantes={faltan} />
           ) : (
-            <>
-              <BuscadorBar T={T} busqueda={busqueda} setBusqueda={setBusqueda} total={facturasFiltradas.length} />
-              <TablaFacturasDensa
-                T={T}
-                facturas={facturasFiltradas}
-                onClick={(f) => setDetalleFactura(f as unknown as FacturaDetalle)}
-              />
-            </>
+            <TablaFacturasDensa
+              T={T}
+              facturas={facturasFiltradas}
+              onClick={(f) => setDetalleFactura(f as unknown as FacturaDetalle)}
+            />
           )}
         </>
       )}
@@ -396,79 +376,121 @@ export default function FacturasPage() {
   )
 }
 
-/* ═════════ RESUMEN · KPIs ═════════ */
+/* ═════════ CARD KPI GRANDE ═════════ */
 
-function ResumenFacturasKpis({ T, kpis, faltantes }: { T: TokenSet; kpis: { totalPeriodo: number; nTotal: number; nPendientes: number; nAsociadas: number; nDuplicadas: number; nError: number; nSinTitular: number }; faltantes: number }) {
-  const items: { label: string; value: string; color: string; sub?: string }[] = [
-    { label: 'Total periodo', value: fmtEur(kpis.totalPeriodo), color: '#FF4757', sub: `${kpis.nTotal} facturas` },
-    { label: 'Pendientes', value: String(kpis.nPendientes), color: '#BA7517', sub: 'por asociar' },
-    { label: 'Faltantes', value: String(faltantes), color: '#A32D2D', sub: 'del periodo' },
-    { label: 'Asociadas', value: String(kpis.nAsociadas), color: '#1D9E75' },
-    { label: 'Duplicadas', value: String(kpis.nDuplicadas), color: T.mut },
-    { label: 'Sin titular', value: String(kpis.nSinTitular), color: T.mut },
+function CardKpiGrande({ T, kpis, faltantes }: { T: TokenSet; kpis: { totalPeriodo: number; nTotal: number; nPendientes: number; nAsociadas: number; nDuplicadas: number; nSinTitular: number }; faltantes: number; periodo: string }) {
+  const filas = [
+    { label: 'Pendientes', n: kpis.nPendientes, color: '#BA7517' },
+    { label: 'Asociadas', n: kpis.nAsociadas, color: '#1D9E75' },
+    { label: 'Faltantes', n: faltantes, color: '#A32D2D' },
+    { label: 'Duplicadas', n: kpis.nDuplicadas, color: T.mut },
+    { label: 'Sin titular', n: kpis.nSinTitular, color: T.mut },
   ]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-      {items.map((k, i) => (
-        <div key={i} style={{
-          background: T.card,
-          border: `0.5px solid ${T.brd}`,
-          borderTop: `3px solid ${k.color}`,
-          borderRadius: 12,
-          padding: '14px 18px',
-        }}>
-          <div style={{
-            fontFamily: FONT.heading,
-            fontSize: 10,
-            color: T.mut,
-            letterSpacing: '1.3px',
-            textTransform: 'uppercase',
-            marginBottom: 6,
-            fontWeight: 600,
-          }}>{k.label}</div>
-          <div style={{
-            fontFamily: FONT.heading,
-            fontSize: 22,
-            fontWeight: 600,
-            color: T.pri,
-            lineHeight: 1,
-          }}>{k.value}</div>
-          {k.sub && (
-            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 4 }}>{k.sub}</div>
-          )}
+    <div style={{
+      backgroundColor: T.card,
+      borderRadius: 16,
+      padding: '28px 32px',
+      border: `0.5px solid ${T.brd}`,
+    }}>
+      <div style={{
+        fontFamily: FONT.heading, fontSize: 11, color: T.mut,
+        letterSpacing: '1.3px', textTransform: 'uppercase', fontWeight: 500,
+      }}>
+        Total facturas del periodo
+      </div>
+      <div style={{
+        fontFamily: FONT.heading, fontSize: 44, color: T.pri,
+        fontWeight: 600, marginTop: 10, letterSpacing: '-0.5px', lineHeight: 1,
+      }}>
+        {fmtEur(kpis.totalPeriodo)}
+      </div>
+      <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.mut, marginTop: 6 }}>
+        {kpis.nTotal} factura{kpis.nTotal === 1 ? '' : 's'}
+      </div>
+
+      <div style={{ height: 1, backgroundColor: T.brd, margin: '20px 0' }} />
+
+      {filas.map(r => (
+        <div key={r.label} style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: r.color, marginRight: 12 }} />
+          <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 14, color: T.pri }}>{r.label}</span>
+          <span style={{ fontFamily: FONT.heading, fontSize: 18, color: T.pri, fontWeight: 600 }}>{r.n}</span>
         </div>
       ))}
     </div>
   )
 }
 
-/* ═════════ BUSCADOR ═════════ */
+/* ═════════ PANEL FILTROS ═════════ */
 
-function BuscadorBar({ T, busqueda, setBusqueda, total }: { T: TokenSet; busqueda: string; setBusqueda: (v: string) => void; total: number }) {
+function PanelFiltros({
+  T,
+  buscar, setBuscar,
+  filtroEstado, setFiltroEstado,
+  rango, setRango,
+  kpis, nFaltantes,
+}: {
+  T: TokenSet
+  buscar: string; setBuscar: (v: string) => void
+  filtroEstado: Filtro; setFiltroEstado: (f: Filtro) => void
+  rango: Rango; setRango: (r: Rango) => void
+  kpis: { nTotal: number; nPendientes: number; nAsociadas: number; nDuplicadas: number; nError: number; nSinTitular: number }
+  nFaltantes: number
+}) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-      <div style={{ position: 'relative', flex: 1, minWidth: 240, maxWidth: 420 }}>
-        <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
-        <input
-          type="text"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar proveedor, nº factura, importe…"
-          style={{
-            width: '100%',
-            padding: '8px 12px 8px 34px',
-            backgroundColor: T.inp,
-            color: T.pri,
-            border: `0.5px solid ${T.brd}`,
-            borderRadius: 8,
-            fontFamily: FONT.body,
-            fontSize: 13,
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
+    <div style={{
+      backgroundColor: T.card,
+      borderRadius: 16,
+      padding: 22,
+      border: `0.5px solid ${T.brd}`,
+      display: 'flex', flexDirection: 'column', gap: 14,
+    }}>
+      <div>
+        <label style={LABEL_STYLE(T)}>Buscar</label>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
+          <input
+            value={buscar}
+            onChange={(e) => setBuscar(e.target.value)}
+            placeholder="Proveedor, número, importe…"
+            style={{ ...INPUT_STYLE(T), paddingLeft: 34 }}
+          />
+        </div>
       </div>
-      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{total} resultado{total === 1 ? '' : 's'}</span>
+
+      <div>
+        <label style={LABEL_STYLE(T)}>Estado</label>
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value as Filtro)}
+          style={INPUT_STYLE(T)}
+        >
+          <option value="todas">Todas ({kpis.nTotal})</option>
+          <option value="pendientes">Pendientes ({kpis.nPendientes})</option>
+          <option value="asociadas">Asociadas ({kpis.nAsociadas})</option>
+          <option value="faltantes">Faltantes ({nFaltantes})</option>
+          <option value="duplicadas">Duplicadas ({kpis.nDuplicadas})</option>
+          <option value="error">Con error ({kpis.nError})</option>
+          <option value="sin_titular">Sin titular ({kpis.nSinTitular})</option>
+        </select>
+      </div>
+
+      <div>
+        <label style={LABEL_STYLE(T)}>Periodo</label>
+        <select
+          value={rango}
+          onChange={(e) => setRango(e.target.value as Rango)}
+          style={INPUT_STYLE(T)}
+        >
+          <option value="7d">Últimos 7 días</option>
+          <option value="30d">Últimos 30 días</option>
+          <option value="mes">Este mes</option>
+          <option value="trimestre">Este trimestre</option>
+          <option value="anio">Este año</option>
+          <option value="todo">Todo el histórico</option>
+        </select>
+      </div>
     </div>
   )
 }
@@ -557,7 +579,7 @@ function TablaFacturasDensa({ T, facturas, onClick }: { T: TokenSet; facturas: F
                   </td>
                   <td style={tdStyle}>{fechaCorta(f.fecha_factura)}</td>
                   <td style={{ ...tdStyle, fontWeight: 500 }}>{truncar(f.proveedor_nombre, 32)}</td>
-                  <td style={{ ...tdStyle, fontFamily: 'Consolas, monospace', fontSize: 12, color: T.sec }}>{truncar(f.numero_factura, 20)}</td>
+                  <td style={{ ...tdStyle, fontFamily: 'Consolas, monospace', fontSize: 12, color: T.sec }}>{truncar(f.numero_factura, 18)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_base)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_iva)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmtEur(f.total)}</td>
@@ -568,7 +590,7 @@ function TablaFacturasDensa({ T, facturas, onClick }: { T: TokenSet; facturas: F
                         title={f.titular.nombre}
                         style={{
                           display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
-                          background: f.titular.color, border: `0.5px solid ${T.brd}`,
+                          background: f.titular.color, border: `2px solid ${T.card}`,
                         }}
                       />
                     ) : <span style={{ color: T.mut, fontSize: 11 }}>—</span>}

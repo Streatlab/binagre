@@ -14,11 +14,11 @@ export default function TitularSelector() {
     <div
       style={{
         display: 'inline-flex',
-        gap: 4,
-        padding: 4,
-        backgroundColor: T.bg,
-        borderRadius: 10,
-        border: `1px solid ${T.brd}`,
+        gap: 3,
+        padding: 3,
+        backgroundColor: T.inp,
+        borderRadius: 8,
+        border: `0.5px solid ${T.brd}`,
       }}
     >
       {botones.map((b) => {
@@ -28,20 +28,26 @@ export default function TitularSelector() {
             key={b.id}
             onClick={() => setFiltro(b.id)}
             style={{
-              padding: '6px 14px',
+              padding: '6px 12px',
               border: 'none',
-              borderRadius: 7,
-              backgroundColor: active ? b.color : 'transparent',
-              color: active ? '#fff' : T.pri,
+              borderRadius: 6,
+              backgroundColor: active ? '#FF4757' : 'transparent',
+              color: active ? '#fff' : T.sec,
               fontFamily: FONT.heading,
               fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: 1,
+              fontWeight: 500,
+              letterSpacing: '0.8px',
               textTransform: 'uppercase',
               cursor: 'pointer',
               transition: 'all 0.15s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
+            {!active && b.id !== 'unificado' && (
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
+            )}
             {b.label}
           </button>
         )

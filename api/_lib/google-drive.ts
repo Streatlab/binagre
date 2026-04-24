@@ -1,6 +1,7 @@
-import { google } from 'googleapis'
+import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
+import { getOAuthClient } from './google-oauth.js'
 
 type DriveExtracted = {
   proveedor_nombre: string
@@ -9,38 +10,38 @@ type DriveExtracted = {
   tipo: 'proveedor' | 'plataforma' | 'otro'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
   carpeta_titular?: string
+  titular_id?: string | null
 }
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || ''
 
-function getDrive() {
-  const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!json) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON no configurado')
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(json),
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  })
+/**
+ * Devuelve un cliente Drive autenticado via OAuth del titular.
+ * Si titular_id es null, usa el OAuth unificado. Si nadie ha conectado Drive,
+ * propaga el error de getOAuthClient con mensaje accionable.
+ */
+async function getDriveForTitular(titularId: string | null): Promise<drive_v3.Drive> {
+  const auth = await getOAuthClient(titularId)
   return google.drive({ version: 'v3', auth })
 }
 
-async function getOrCreateFolder(name: string, parentId: string): Promise<string> {
-  const drive = getDrive()
+async function getOrCreateFolder(drive: drive_v3.Drive, name: string, parentId: string | null): Promise<string> {
   const safeName = name.replace(/'/g, "\\'")
+  const listQ = parentId
+    ? `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    : `name='${safeName}' and 'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   const { data } = await drive.files.list({
-    q: `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    q: listQ,
     fields: 'files(id)',
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
   })
   if (data.files?.[0]?.id) return data.files[0].id
   const { data: created } = await drive.files.create({
     requestBody: {
       name,
       mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
+      parents: parentId ? [parentId] : undefined,
     },
     fields: 'id',
-    supportsAllDrives: true,
   })
   return created.id!
 }
@@ -80,8 +81,9 @@ export async function subirArchivoADrive(
   extracted: DriveExtracted,
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null }> {
-  if (!ROOT_FOLDER_ID) throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID no configurado')
-  const drive = getDrive()
+  const titularId = extracted.titular_id || null
+  const drive = await getDriveForTitular(titularId)
+
   const fecha = new Date(extracted.fecha_factura)
   const año = String(fecha.getFullYear())
   const tri = trimestre(fecha)
@@ -89,10 +91,17 @@ export async function subirArchivoADrive(
   const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
   const carpetaTitular = extracted.carpeta_titular || 'SIN_TITULAR'
 
-  // Estructura: {ROOT}/{TITULAR}/{año}/{trimestre}/{mes}/{tipo}/archivo
-  let folderId = ROOT_FOLDER_ID
+  // Estructura: {raíz configurable}/STREATLAB_FACTURAS/{TITULAR}/{año}/{trimestre}/{mes}/{tipo}/archivo
+  // Si hay ROOT_FOLDER_ID y el user lo comparte, se usa como ancla. Si no, se crea en root.
+  const anclaId: string | null = ROOT_FOLDER_ID || null
+  let folderId: string
+  if (anclaId) {
+    folderId = anclaId
+  } else {
+    folderId = await getOrCreateFolder(drive, 'STREATLAB_FACTURAS', null)
+  }
   for (const nivel of [carpetaTitular, año, tri, mes, carpetaTipo]) {
-    folderId = await getOrCreateFolder(nivel, folderId)
+    folderId = await getOrCreateFolder(drive, nivel, folderId)
   }
 
   const mimeType = mimeTypeParaExtension(ext)
@@ -106,7 +115,6 @@ export async function subirArchivoADrive(
       body: Readable.from(buffer),
     },
     fields: 'id, webViewLink',
-    supportsAllDrives: true,
   })
 
   return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
