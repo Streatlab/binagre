@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { ContenidoExtraido } from './extractores.js'
 
 const PROMPT_OCR_FACTURA = `Eres un extractor de datos de facturas españolas. Analiza la factura adjunta y devuelve SOLO un JSON válido con este esquema exacto (sin texto adicional, sin markdown):
 
@@ -41,7 +42,10 @@ Reglas:
 - Si es ticket de supermercado recapitulativo de Mercadona/Lidl/Alcampo, es_recapitulativa=true y extrae periodo.
 - Si no detectas número factura, usa la referencia más única que encuentres.
 - "ventas_brutas" en plataformas = PVP con IVA (lo que pagó el cliente).
-- Si la factura es de Uber/Glovo/Just Eat, rellena plataforma_detalle con una entrada por marca facturada. Si solo hay una marca, 1 entrada.
+- Si la factura es de Uber/Glovo/Just Eat (o "Portier Eats"), rellena plataforma_detalle con una entrada por marca facturada.
+- "Portier Eats" → tipo=plataforma, plataforma=uber.
+- "Glovo App" o "Glovoapp" → tipo=plataforma, plataforma=glovo.
+- "Just Eat" → tipo=plataforma, plataforma=just_eat.
 - Todos los importes en euros con punto decimal. NO uses coma.
 - confianza entre 0 y 1, cómo de seguro estás de la extracción.
 
@@ -79,32 +83,77 @@ export type ExtractedFactura = {
   }>
 }
 
-export async function extraerDatosFactura(pdfBase64: string): Promise<ExtractedFactura> {
+type ContentBlock =
+  | { type: 'document'; source: { type: 'base64'; media_type: string; data: string } }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+  | { type: 'text'; text: string }
+
+function clienteAnthropic(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY no configurado')
-  const anthropic = new Anthropic({ apiKey })
+  return new Anthropic({ apiKey })
+}
 
+async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
+  const anthropic = clienteAnthropic()
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 2000,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-          },
-          { type: 'text', text: PROMPT_OCR_FACTURA },
-        ],
-      },
-    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: [{ role: 'user', content: content as any }],
   })
-
   const textBlock = msg.content.find((c) => c.type === 'text')
   if (!textBlock || textBlock.type !== 'text') {
     throw new Error('Respuesta Claude sin texto')
   }
   const jsonStr = textBlock.text.replace(/```json|```/g, '').trim()
   return JSON.parse(jsonStr) as ExtractedFactura
+}
+
+/**
+ * Nueva signature: acepta ContenidoExtraido (vision o texto).
+ */
+export async function extraerDatosDesdeContenido(
+  contenido: ContenidoExtraido,
+): Promise<ExtractedFactura> {
+  const content: ContentBlock[] = []
+
+  if (contenido.tipo === 'vision') {
+    const buffer = contenido.data as Buffer
+    const base64 = buffer.toString('base64')
+    const mediaType = contenido.mediaType || 'application/pdf'
+
+    if (mediaType === 'application/pdf') {
+      content.push({
+        type: 'document',
+        source: { type: 'base64', media_type: mediaType, data: base64 },
+      })
+    } else {
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: base64 },
+      })
+    }
+    content.push({ type: 'text', text: PROMPT_OCR_FACTURA })
+  } else {
+    const texto = typeof contenido.data === 'string' ? contenido.data : contenido.data.toString('utf-8')
+    content.push({
+      type: 'text',
+      text: `${PROMPT_OCR_FACTURA}\n\n=== CONTENIDO FACTURA ===\n${texto}`,
+    })
+  }
+
+  return llamarClaude(content)
+}
+
+/**
+ * Backwards-compat: acepta base64 PDF directamente.
+ */
+export async function extraerDatosFactura(pdfBase64: string): Promise<ExtractedFactura> {
+  const buffer = Buffer.from(pdfBase64, 'base64')
+  return extraerDatosDesdeContenido({
+    tipo: 'vision',
+    data: buffer,
+    mediaType: 'application/pdf',
+  })
 }

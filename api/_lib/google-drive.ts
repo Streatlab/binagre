@@ -1,8 +1,10 @@
 import { google } from 'googleapis'
 import { Readable } from 'stream'
+import { mimeTypeParaExtension } from './detectarTipo.js'
 
 type DriveExtracted = {
   proveedor_nombre: string
+  numero_factura?: string
   fecha_factura: string
   tipo: 'proveedor' | 'plataforma' | 'otro'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
@@ -55,41 +57,27 @@ const MESES = [
   '07 JULIO', '08 AGOSTO', '09 SEPTIEMBRE', '10 OCTUBRE', '11 NOVIEMBRE', '12 DICIEMBRE',
 ]
 
-function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+function slug(s: string): string {
+  return (s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .trim()
 }
 
-export async function generarNombreArchivo(
-  extracted: DriveExtracted,
-  countMesProveedor: number,
-): Promise<string> {
-  const proveedor = (extracted.proveedor_nombre || 'Factura')
-    .replace(/\s+/g, '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-  const fecha = new Date(extracted.fecha_factura)
-
-  if (extracted.tipo === 'plataforma') {
-    const año = fecha.getFullYear()
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-    if (extracted.plataforma === 'uber') {
-      const semana = getISOWeek(fecha)
-      return `Uber_${año}-${mes}-W${String(semana).padStart(2, '0')}.pdf`
-    }
-    return `${proveedor}_${año}-${mes}.pdf`
-  }
-
-  const seq = String(countMesProveedor + 1).padStart(3, '0')
-  return `${proveedor}_${seq}.pdf`
+export function generarNombreArchivo(extracted: DriveExtracted, ext: string): string {
+  const proveedor = slug(extracted.proveedor_nombre || 'Factura') || 'Factura'
+  const numero = slug(extracted.numero_factura || '').slice(0, 40) || 'SN'
+  const fecha = (extracted.fecha_factura || '').slice(0, 10) || 'sin-fecha'
+  const extClean = ext.replace(/^\./, '').toLowerCase() || 'bin'
+  return `${proveedor}_${numero}_${fecha}.${extClean}`
 }
 
-export async function subirPdfADrive(
+export async function subirArchivoADrive(
   buffer: Buffer,
   nombre: string,
   extracted: DriveExtracted,
+  ext: string,
 ): Promise<{ id: string; webViewLink: string | null }> {
   if (!ROOT_FOLDER_ID) throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID no configurado')
   const drive = getDrive()
@@ -104,13 +92,14 @@ export async function subirPdfADrive(
     folderId = await getOrCreateFolder(nivel, folderId)
   }
 
+  const mimeType = mimeTypeParaExtension(ext)
   const { data: uploaded } = await drive.files.create({
     requestBody: {
       name: nombre,
       parents: [folderId],
     },
     media: {
-      mimeType: 'application/pdf',
+      mimeType,
       body: Readable.from(buffer),
     },
     fields: 'id, webViewLink',
@@ -118,4 +107,17 @@ export async function subirPdfADrive(
   })
 
   return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
+}
+
+/**
+ * Backwards-compat (upload.ts antiguo llamaba a esto con nombre que ya incluía .pdf).
+ */
+export async function subirPdfADrive(
+  buffer: Buffer,
+  nombre: string,
+  extracted: DriveExtracted,
+): Promise<{ id: string; webViewLink: string | null }> {
+  const extMatch = nombre.match(/\.([a-z0-9]+)$/i)
+  const ext = extMatch ? extMatch[1] : 'pdf'
+  return subirArchivoADrive(buffer, nombre, extracted, ext)
 }

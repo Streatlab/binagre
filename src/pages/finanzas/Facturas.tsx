@@ -113,71 +113,107 @@ export default function Facturas() {
     [facturas],
   )
 
+  const subirArchivo = useCallback(async (file: File) => {
+    setUploads((prev) => {
+      const copy = [...prev]
+      const idx = copy.findIndex((u) => u.name === file.name && u.status === 'pending')
+      if (idx >= 0) copy[idx] = { ...copy[idx], status: 'uploading' }
+      return copy
+    })
+    try {
+      const base64 = await fileToBase64(file)
+      const resp = await fetch('/api/facturas/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: file.name, base64, mimeType: file.type || null }),
+      })
+      const json = await resp.json()
+      setUploads((prev) => {
+        const copy = [...prev]
+        const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
+        if (idx < 0) return copy
+        if (json.estado === 'duplicada') {
+          copy[idx] = {
+            ...copy[idx],
+            status: 'duplicada',
+            mensaje: `Ya existía: ${json.factura_existente?.proveedor_nombre || '—'}`,
+          }
+        } else if (json.estado === 'ok') {
+          copy[idx] = { ...copy[idx], status: 'ok', factura: json.factura }
+        } else if (json.estado === 'multi') {
+          const oks = (json.resultados || []).filter(
+            (r: { estado: string }) => r.estado === 'ok',
+          ).length
+          copy[idx] = {
+            ...copy[idx],
+            status: 'ok',
+            mensaje: `${oks}/${json.resultados.length} procesadas (email + adjuntos)`,
+          }
+        } else if (json.estado === 'error') {
+          copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error }
+        } else {
+          copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error || 'Error' }
+        }
+        return copy
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error'
+      setUploads((prev) => {
+        const copy = [...prev]
+        const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
+        if (idx >= 0) copy[idx] = { ...copy[idx], status: 'error', mensaje: msg }
+        return copy
+      })
+    }
+  }, [])
+
   const onDrop = useCallback(
     async (accepted: File[]) => {
       if (!accepted.length) return
       const initial: UploadItem[] = accepted.map((f) => ({ name: f.name, status: 'pending' }))
       setUploads((prev) => [...initial, ...prev])
       setLoading(true)
-
-      for (let i = 0; i < accepted.length; i++) {
-        const file = accepted[i]
-        setUploads((prev) => {
-          const copy = [...prev]
-          const idx = copy.findIndex((u) => u.name === file.name && u.status === 'pending')
-          if (idx >= 0) copy[idx] = { ...copy[idx], status: 'uploading' }
-          return copy
-        })
-        try {
-          const base64 = await fileToBase64(file)
-          const resp = await fetch('/api/facturas/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: file.name, base64 }),
-          })
-          const json = await resp.json()
-          setUploads((prev) => {
-            const copy = [...prev]
-            const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
-            if (idx >= 0) {
-              if (json.estado === 'duplicada') {
-                copy[idx] = {
-                  ...copy[idx],
-                  status: 'duplicada',
-                  mensaje: `Ya existía: ${json.factura_existente?.proveedor_nombre || '—'}`,
-                }
-              } else if (json.estado === 'ok') {
-                copy[idx] = { ...copy[idx], status: 'ok', factura: json.factura }
-              } else if (json.estado === 'error') {
-                copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error }
-              } else {
-                copy[idx] = { ...copy[idx], status: 'error', mensaje: json.error || 'Error' }
-              }
-            }
-            return copy
-          })
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Error'
-          setUploads((prev) => {
-            const copy = [...prev]
-            const idx = copy.findIndex((u) => u.name === file.name && u.status === 'uploading')
-            if (idx >= 0) copy[idx] = { ...copy[idx], status: 'error', mensaje: msg }
-            return copy
-          })
-        }
+      for (const file of accepted) {
+        await subirArchivo(file)
       }
-
       setLoading(false)
       cargarFacturas()
     },
-    [cargarFacturas],
+    [cargarFacturas, subirArchivo],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'], 'image/png': ['.png'], 'image/jpeg': ['.jpg', '.jpeg'] },
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/webp': ['.webp'],
+      'image/heic': ['.heic'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'message/rfc822': ['.eml'],
+      'application/vnd.ms-outlook': ['.msg'],
+    },
     maxFiles: 20,
   })
+
+  const procesarTextoPegado = useCallback(
+    async (texto: string) => {
+      if (!texto.trim()) return
+      const nombre = `texto_pegado_${Date.now()}.txt`
+      const blob = new Blob([texto], { type: 'text/plain' })
+      const file = new File([blob], nombre, { type: 'text/plain' })
+      setUploads((prev) => [{ name: nombre, status: 'pending' }, ...prev])
+      setLoading(true)
+      await subirArchivo(file)
+      setLoading(false)
+      cargarFacturas()
+    },
+    [cargarFacturas, subirArchivo],
+  )
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'subir', label: 'Subir' },
@@ -246,6 +282,7 @@ export default function Facturas() {
           loading={loading}
           T={T}
           isDark={isDark}
+          onPegarTexto={procesarTextoPegado}
         />
       )}
 
@@ -268,6 +305,7 @@ function TabSubir({
   loading,
   T,
   isDark,
+  onPegarTexto,
 }: {
   getRootProps: () => Record<string, unknown>
   getInputProps: () => Record<string, unknown>
@@ -276,7 +314,11 @@ function TabSubir({
   loading: boolean
   T: ReturnType<typeof useTheme>['T']
   isDark: boolean
+  onPegarTexto: (texto: string) => Promise<void>
 }) {
+  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [textoPegado, setTextoPegado] = useState('')
+
   return (
     <div>
       <div
@@ -305,11 +347,142 @@ function TabSubir({
         >
           {isDragActive ? 'SUELTA LOS ARCHIVOS' : 'ARRASTRA TUS FACTURAS AQUÍ'}
         </div>
-        <div style={{ color: T.sec, fontSize: 13 }}>PDF, JPG, PNG · hasta 20 archivos</div>
+        <div style={{ color: T.sec, fontSize: 13 }}>
+          PDF · Imagen (JPG/PNG/WEBP/HEIC) · Word · Excel · Email (EML/MSG)
+        </div>
         <div style={{ color: T.mut, fontSize: 12, marginTop: 8 }}>
-          o haz click para seleccionar
+          o haz click para seleccionar · hasta 20 archivos
         </div>
       </div>
+
+      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={() => setShowPasteModal(true)}
+          style={{
+            padding: '10px 18px',
+            background: '#e8f442',
+            color: '#111111',
+            border: 'none',
+            borderRadius: 6,
+            fontFamily: FONT.heading,
+            fontSize: 12,
+            letterSpacing: '2px',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          📋 Pegar texto de factura
+        </button>
+      </div>
+
+      {showPasteModal && (
+        <div
+          onClick={() => setShowPasteModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1a1a1a',
+              borderRadius: 10,
+              padding: 24,
+              width: '100%',
+              maxWidth: 640,
+              border: `1px solid ${T.brd}`,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: FONT.heading,
+                fontSize: 14,
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                color: T.pri,
+                marginBottom: 12,
+                fontWeight: 600,
+              }}
+            >
+              PEGAR FACTURA (TEXTO)
+            </div>
+            <div style={{ color: T.sec, fontSize: 12, marginBottom: 12 }}>
+              Pega el contenido de un email, WhatsApp, factura en texto... Claude extraerá los datos.
+            </div>
+            <textarea
+              value={textoPegado}
+              onChange={(e) => setTextoPegado(e.target.value)}
+              placeholder="Pega aquí el contenido completo de la factura..."
+              rows={14}
+              style={{
+                width: '100%',
+                padding: 12,
+                background: '#1e1e1e',
+                border: `1px solid ${T.brd}`,
+                borderRadius: 6,
+                color: T.pri,
+                fontSize: 13,
+                fontFamily: 'Consolas, monospace',
+                resize: 'vertical',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
+              <button
+                onClick={() => {
+                  setShowPasteModal(false)
+                  setTextoPegado('')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: '#222222',
+                  color: T.pri,
+                  border: `1px solid ${T.brd}`,
+                  borderRadius: 6,
+                  fontFamily: FONT.heading,
+                  fontSize: 12,
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!textoPegado.trim() || loading}
+                onClick={async () => {
+                  const t = textoPegado
+                  setShowPasteModal(false)
+                  setTextoPegado('')
+                  await onPegarTexto(t)
+                }}
+                style={{
+                  padding: '8px 20px',
+                  background: !textoPegado.trim() || loading ? '#444' : '#B01D23',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontFamily: FONT.heading,
+                  fontSize: 12,
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase',
+                  cursor: !textoPegado.trim() || loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Procesar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {uploads.length > 0 && (
         <div style={{ marginTop: 24 }}>
