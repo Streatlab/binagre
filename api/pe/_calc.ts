@@ -25,6 +25,10 @@ export interface Params {
   comision_web_pct?: number | null
   comision_directa_pct?: number | null
   objetivo_beneficio_mensual?: number | null
+  tasa_fiscal_pct?: number | null
+  caja_minima_verde?: number | null
+  caja_minima_ambar?: number | null
+  iva_pct?: number | null
 }
 
 export interface Mix {
@@ -67,3 +71,11 @@ export function margenPct(mix: Mix, p: Params): { varPct: number; margenPct: num
   const varPct = comisionPct + num(p.food_cost_pct) + num(p.packaging_pct)
   return { varPct, margenPct: 100 - varPct, comisionPct }
 }
+
+/** Convierte un importe bruto (con IVA) a base imponible sin IVA. */
+export function netearIVA(brutoConIVA: number, ivaPct: number): number {
+  const tasa = 1 + num(ivaPct) / 100
+  return tasa > 0 ? brutoConIVA / tasa : brutoConIVA
+}
+
+export const toNum = num

@@ -6,7 +6,7 @@ import { fmtEur } from '@/lib/format'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { StatusTag } from '@/components/configuracion/StatusTag'
-import DrivePanel from './DrivePanel'
+import TitularesPanel from './TitularesPanel'
 
 interface Cuenta {
   id: string
@@ -129,6 +129,10 @@ export default function CuentasPanel() {
 
   return (
     <>
+      <TitularesPanel />
+
+      <div style={{ height: 16 }} />
+
       <ConfigGroupCard title="Cuentas bancarias" subtitle={`${cuentas.length}`}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
@@ -213,9 +217,6 @@ export default function CuentasPanel() {
           >+ Nueva cuenta</button>
         </div>
       </ConfigGroupCard>
-
-      <div style={{ height: 16 }} />
-      <DrivePanel />
 
       {(editing || creating) && (
         <EditModal

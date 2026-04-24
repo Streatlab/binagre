@@ -1,15 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
-import { fijosMes, margenPct, type Mix, type Params } from './_calc.js'
+import { fijosMes, margenPct, netearIVA, toNum, type Mix, type Params } from './_calc.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const p = (req.body || {}) as Params
+  const body = (req.body || {}) as Params & { modo_iva?: 'con' | 'sin' }
+  const p = body
+  const modoIVA = body.modo_iva === 'con' ? 'con' : 'sin'
+  const ivaPct = toNum(p.iva_pct)
+  const tasaFiscalPct = toNum(p.tasa_fiscal_pct)
+  const factorFiscal = 1 - tasaFiscalPct / 100
 
   const hoy = new Date()
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10)
   const hoyStr = hoy.toISOString().slice(0, 10)
+  const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
 
   const { data: ventasMes } = await supabaseAdmin
     .from('facturacion_diario')
@@ -17,29 +23,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .gte('fecha', inicioMes)
     .lte('fecha', hoyStr)
 
+  const neto = (n: number) => (modoIVA === 'sin' ? netearIVA(n, ivaPct) : n)
+
   const mix: Mix = (ventasMes || []).reduce<Mix>((acc, r: any) => ({
-    uber: acc.uber + Number(r.uber_bruto || 0),
-    glovo: acc.glovo + Number(r.glovo_bruto || 0),
-    je: acc.je + Number(r.je_bruto || 0),
-    web: acc.web + Number(r.web_bruto || 0),
-    directa: acc.directa + Number(r.directa_bruto || 0),
-    total: acc.total + Number(r.total_bruto || 0),
+    uber:    acc.uber    + neto(Number(r.uber_bruto || 0)),
+    glovo:   acc.glovo   + neto(Number(r.glovo_bruto || 0)),
+    je:      acc.je      + neto(Number(r.je_bruto || 0)),
+    web:     acc.web     + neto(Number(r.web_bruto || 0)),
+    directa: acc.directa + neto(Number(r.directa_bruto || 0)),
+    total:   acc.total   + neto(Number(r.total_bruto || 0)),
     pedidos: 0,
   }), { uber: 0, glovo: 0, je: 0, web: 0, directa: 0, total: 0, pedidos: 0 })
 
   const fijos = fijosMes(p)
   const { varPct, margenPct: margen } = margenPct(mix, p)
   const peMensual = margen > 0 ? fijos / (margen / 100) : 0
-  const netoTarget = Number(p.objetivo_beneficio_mensual || 3000)
-  const brutoParaObjetivo = margen > 0 ? (fijos + netoTarget / 0.75) / (margen / 100) : 0
+  const peDiario = peMensual / diasMes
+  const netoTarget = toNum(p.objetivo_beneficio_mensual)
+  const brutoParaObjetivo = margen > 0 && factorFiscal > 0
+    ? (fijos + netoTarget / factorFiscal) / (margen / 100)
+    : 0
 
   return res.status(200).json({
     fijos_mes: Math.round(fijos),
     variable_pct: Math.round(varPct * 10) / 10,
     margen_pct: Math.round(margen * 10) / 10,
     pe_mensual: Math.round(peMensual),
-    pe_diario: Math.round(peMensual / 30),
-    pe_semanal: Math.round(peMensual / 30 * 7),
+    pe_diario: Math.round(peDiario),
+    pe_semanal: Math.round(peDiario * 7),
     bruto_para_objetivo: Math.round(brutoParaObjetivo),
     objetivo_neto: netoTarget,
   })

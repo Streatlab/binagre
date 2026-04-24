@@ -7,8 +7,9 @@ import ReglasPanel from './ReglasPanel'
 import CuentasPanel from './CuentasPanel'
 import PresupuestosPanel from './PresupuestosPanel'
 import ProvisionesPanel from './ProvisionesPanel'
+import DrivePanel from './DrivePanel'
 
-type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos' | 'provisiones'
+type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos' | 'provisiones' | 'drive'
 
 const PILLS: { id: Sub; label: string }[] = [
   { id: 'categorias',   label: 'Categorías de conciliación' },
@@ -16,13 +17,14 @@ const PILLS: { id: Sub; label: string }[] = [
   { id: 'cuentas',      label: 'Cuentas bancarias' },
   { id: 'presupuestos', label: 'Presupuestos mensuales' },
   { id: 'provisiones',  label: 'Provisiones IVA/IRPF' },
+  { id: 'drive',        label: 'Drive' },
 ]
 
 export default function BancosPage() {
   const { T } = useTheme()
   const inicioDrive = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).toString().includes('drive_')
-  const [sub, setSub] = useState<Sub>(inicioDrive ? 'cuentas' : 'categorias')
+  const [sub, setSub] = useState<Sub>(inicioDrive ? 'drive' : 'categorias')
 
   return (
     <ConfigShell>
@@ -57,6 +59,7 @@ export default function BancosPage() {
       {sub === 'cuentas' && <CuentasPanel />}
       {sub === 'presupuestos' && <PresupuestosPanel />}
       {sub === 'provisiones' && <ProvisionesPanel />}
+      {sub === 'drive' && <DrivePanel />}
     </ConfigShell>
   )
 }

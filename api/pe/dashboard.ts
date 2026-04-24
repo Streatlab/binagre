@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
-import { fijosMes, margenPct, type Mix, type Params } from './_calc.js'
+import { fijosMes, margenPct, netearIVA, toNum, type Mix, type Params } from './_calc.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+
+  const modoIVA = (req.query.iva as string) === 'con' ? 'con' : 'sin'
 
   const { data: params, error: errP } = await supabaseAdmin
     .from('pe_parametros')
@@ -18,6 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const p = params as Params & Record<string, any>
   const fijos = fijosMes(p)
+  const ivaPct = toNum(p.iva_pct)
+  const tasaFiscalPct = toNum(p.tasa_fiscal_pct)
+  const factorFiscal = 1 - tasaFiscalPct / 100
 
   const hoy = new Date()
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10)
@@ -31,29 +36,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .gte('fecha', inicioMes)
     .lte('fecha', hoyStr)
 
+  const neto = (n: number) => (modoIVA === 'sin' ? netearIVA(n, ivaPct) : n)
+
   const mix: Mix = (ventasMes || []).reduce<Mix>((acc, r: any) => ({
-    uber: acc.uber + Number(r.uber_bruto || 0),
-    glovo: acc.glovo + Number(r.glovo_bruto || 0),
-    je: acc.je + Number(r.je_bruto || 0),
-    web: acc.web + Number(r.web_bruto || 0),
-    directa: acc.directa + Number(r.directa_bruto || 0),
-    total: acc.total + Number(r.total_bruto || 0),
+    uber:    acc.uber    + neto(Number(r.uber_bruto || 0)),
+    glovo:   acc.glovo   + neto(Number(r.glovo_bruto || 0)),
+    je:      acc.je      + neto(Number(r.je_bruto || 0)),
+    web:     acc.web     + neto(Number(r.web_bruto || 0)),
+    directa: acc.directa + neto(Number(r.directa_bruto || 0)),
+    total:   acc.total   + neto(Number(r.total_bruto || 0)),
     pedidos: acc.pedidos + Number(r.total_pedidos || 0),
   }), { uber: 0, glovo: 0, je: 0, web: 0, directa: 0, total: 0, pedidos: 0 })
 
   const { varPct, margenPct: margen, comisionPct } = margenPct(mix, p)
   const peMensual = margen > 0 ? fijos / (margen / 100) : null
-  const peDiario = peMensual ? peMensual / 30 : 0
+  const peDiario = peMensual ? peMensual / diasMes : 0
+  const peSemanal = peDiario * 7
 
   const brutoMes = mix.total
-  const proyeccionMes = diaActual > 0 ? brutoMes * diasMes / diaActual : 0
   const brutoDiario = diaActual > 0 ? brutoMes / diaActual : 0
-  const diaCubreFijos = brutoDiario > 0 && margen > 0
-    ? Math.ceil(fijos / brutoDiario / (margen / 100))
-    : null
 
-  const netoTarget = Number(p.objetivo_beneficio_mensual || 3000)
-  const brutoParaObjetivo = margen > 0 ? (fijos + netoTarget / 0.75) / (margen / 100) : null
+  const netoTarget = toNum(p.objetivo_beneficio_mensual)
+  const brutoParaObjetivo = margen > 0 && factorFiscal > 0
+    ? (fijos + netoTarget / factorFiscal) / (margen / 100)
+    : null
 
   const fecha90d = new Date(hoy)
   fecha90d.setDate(fecha90d.getDate() - 90)
@@ -67,13 +73,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ;(ventasDow || []).forEach((v: any) => {
     const d = new Date(v.fecha + 'T12:00:00')
     const dow = d.getDay() === 0 ? 7 : d.getDay()
-    porDow[dow].push(Number(v.total_bruto || 0))
+    porDow[dow].push(neto(Number(v.total_bruto || 0)))
   })
 
   const nombres = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+  const mediaPorDow: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 }
   const porDiaSemana = [1, 2, 3, 4, 5, 6, 7].map(k => {
     const arr = porDow[k]
     const media = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
+    mediaPorDow[k] = media
     const estado: 'cubre' | 'ajustado' | 'pierde' =
       media >= peDiario ? 'cubre' : media >= peDiario * 0.85 ? 'ajustado' : 'pierde'
     return {
@@ -86,7 +94,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   })
 
-  // Semana actual (lunes → hoy)
+  // Proyección ajustada por DOW: suma del bruto real + estimación de días restantes según día semana
+  let proyeccionRestante = 0
+  for (let d = diaActual + 1; d <= diasMes; d++) {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), d)
+    const dow = fecha.getDay() === 0 ? 7 : fecha.getDay()
+    proyeccionRestante += mediaPorDow[dow] || brutoDiario
+  }
+  const proyeccionMes = brutoMes + proyeccionRestante
+
+  const diaCubreFijos = brutoDiario > 0 && margen > 0
+    ? Math.ceil(fijos / brutoDiario / (margen / 100))
+    : null
+
   const inicioSemana = new Date(hoy)
   const dow0 = hoy.getDay() === 0 ? 7 : hoy.getDay()
   inicioSemana.setDate(hoy.getDate() - (dow0 - 1))
@@ -108,19 +128,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const brutoSemana = brutoDiario * 7
   const presupuestos = {
     comida: {
-      target_semana: Math.round(brutoSemana * Number(p.food_cost_pct || 0) / 100),
+      target_semana: Math.round(brutoSemana * toNum(p.food_cost_pct) / 100),
       gastado: Math.round(gastosPorCat['PRD-ALI'] || 0),
     },
     packaging: {
-      target_semana: Math.round(brutoSemana * Number(p.packaging_pct || 0) / 100),
+      target_semana: Math.round(brutoSemana * toNum(p.packaging_pct) / 100),
       gastado: Math.round(gastosPorCat['PRD-PKG'] || 0),
     },
   }
+
+  // Serie acumulada para el gráfico "Ingresos acumulados vs PE"
+  const ventasOrdenadas = [...(ventasMes || [])].sort((a: any, b: any) => a.fecha.localeCompare(b.fecha))
+  let acumulado = 0
+  const acumuladoPorDia = ventasOrdenadas.map((r: any) => {
+    acumulado += neto(Number(r.total_bruto || 0))
+    const d = new Date(r.fecha + 'T12:00:00')
+    return {
+      fecha: r.fecha,
+      dia: d.getDate(),
+      acumulado: Math.round(acumulado),
+    }
+  })
 
   return res.status(200).json({
     fecha: hoyStr,
     dia_actual: diaActual,
     dias_mes: diasMes,
+    modo_iva: modoIVA,
+    iva_pct: ivaPct,
+    tasa_fiscal_pct: tasaFiscalPct,
     parametros: params,
     fijos_mes: Math.round(fijos),
     comision_pct: Math.round(comisionPct * 10) / 10,
@@ -128,8 +164,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     margen_pct: Math.round(margen * 10) / 10,
     pe_mensual: peMensual ? Math.round(peMensual) : null,
     pe_diario: peDiario ? Math.round(peDiario) : null,
-    pe_semanal: peDiario ? Math.round(peDiario * 7) : null,
-    fijo_diario: Math.round(fijos / 30),
+    pe_semanal: peDiario ? Math.round(peSemanal) : null,
+    fijo_diario: Math.round(fijos / diasMes),
     bruto_mes: Math.round(brutoMes),
     pedidos_mes: mix.pedidos,
     bruto_diario_real: Math.round(brutoDiario),
@@ -140,5 +176,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     por_dia_semana: porDiaSemana,
     mix,
     presupuestos,
+    acumulado_vs_pe: acumuladoPorDia,
   })
 }
