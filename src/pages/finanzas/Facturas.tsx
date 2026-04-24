@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtFechaES } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useTitular } from '@/contexts/TitularContext'
 import {
   ESTADO_COLOR,
   ESTADO_NOMBRE,
@@ -42,6 +43,7 @@ interface FacturaGastoRaw {
   importe_asociado: number
   confianza_match: number | null
   confirmado: boolean
+  cruza_cuentas?: boolean | null
   conciliacion: ConciliacionLite | null
 }
 
@@ -64,6 +66,7 @@ interface Factura {
   mensaje_matching: string | null
   ocr_confianza: number | null
   ocr_raw: unknown
+  titular_id?: string | null
   created_at: string
   facturas_gastos?: FacturaGastoRaw[]
 }
@@ -127,6 +130,7 @@ function diasEntre(desde: string): number {
 export default function FacturasPage() {
   const { T } = useFacturasTheme()
   const isMobile = useIsMobile()
+  const { filtro: filtroTitular } = useTitular()
 
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [faltantes, setFaltantes] = useState<Faltante[]>([])
@@ -144,11 +148,12 @@ export default function FacturasPage() {
     let qb = supabase
       .from('facturas')
       .select(
-        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, conciliacion(id, fecha, importe, concepto, proveedor))',
+        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, titular_id, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, cruza_cuentas, conciliacion(id, fecha, importe, concepto, proveedor))',
       )
       .order('fecha_factura', { ascending: false })
       .limit(500)
     if (desde) qb = qb.gte('fecha_factura', desde)
+    if (filtroTitular !== 'unificado') qb = qb.eq('titular_id', filtroTitular)
     const { data: facturasData } = await qb
 
     const { data: faltantesData } = await supabase
@@ -157,7 +162,7 @@ export default function FacturasPage() {
 
     setFacturas((facturasData as unknown as Factura[]) || [])
     setFaltantes((faltantesData as unknown as Faltante[]) || [])
-  }, [rango])
+  }, [rango, filtroTitular])
 
   useEffect(() => {
     cargarDatos()
@@ -956,9 +961,29 @@ function AccionesContextuales({
 
 /* ═════════ RAZÓN MATCH ═════════ */
 
+function BadgeCruzaCuentas() {
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        padding: '2px 6px',
+        borderRadius: 4,
+        backgroundColor: '#BA751722',
+        color: '#BA7517',
+        marginLeft: 8,
+        letterSpacing: 0.5,
+        fontWeight: 600,
+      }}
+    >
+      ⇄ CUENTA CRUZADA
+    </span>
+  )
+}
+
 function RazonMatch({ factura, T }: { factura: Factura; T: FacturasTokens }) {
   const matches = factura.facturas_gastos || []
   const mensaje = factura.mensaje_matching
+  const cruza = matches.some((m) => m.cruza_cuentas)
 
   if (factura.estado === 'asociada' && matches.length === 1 && matches[0].conciliacion) {
     const g = matches[0].conciliacion
@@ -970,6 +995,7 @@ function RazonMatch({ factura, T }: { factura: Factura; T: FacturasTokens }) {
         {conf != null && (
           <span style={{ color: T.muted, marginLeft: 8 }}>({Math.round(conf)}% confianza)</span>
         )}
+        {cruza && <BadgeCruzaCuentas />}
       </div>
     )
   }
@@ -982,6 +1008,7 @@ function RazonMatch({ factura, T }: { factura: Factura; T: FacturasTokens }) {
     return (
       <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#1D9E75', marginTop: 6 }}>
         ✅ Recapitulativa: <b>{matches.length} cargos</b> suman <b>{fmtEur(suma)}</b>
+        {cruza && <BadgeCruzaCuentas />}
       </div>
     )
   }

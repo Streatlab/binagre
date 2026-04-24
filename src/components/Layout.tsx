@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import ToastHost from '@/components/ui/ToastHost'
+import TitularSelector from '@/components/TitularSelector'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -11,6 +12,7 @@ export default function Layout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Header móvil */}
         <header className="h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -21,6 +23,14 @@ export default function Layout() {
             </svg>
           </button>
           <span className="ml-3 text-[var(--sl-text-primary)] text-sm" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.08em' }}>STREAT LAB · ERP</span>
+          <div className="ml-auto">
+            <TitularSelector />
+          </div>
+        </header>
+
+        {/* Header desktop con TitularSelector */}
+        <header className="hidden lg:flex items-center justify-end px-6 py-3 border-b border-[var(--sl-border)]">
+          <TitularSelector />
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

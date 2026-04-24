@@ -8,6 +8,7 @@ type DriveExtracted = {
   fecha_factura: string
   tipo: 'proveedor' | 'plataforma' | 'otro'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
+  carpeta_titular?: string
 }
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || ''
@@ -86,9 +87,11 @@ export async function subirArchivoADrive(
   const tri = trimestre(fecha)
   const mes = MESES[fecha.getMonth()]
   const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
+  const carpetaTitular = extracted.carpeta_titular || 'SIN_TITULAR'
 
+  // Estructura: {ROOT}/{TITULAR}/{año}/{trimestre}/{mes}/{tipo}/archivo
   let folderId = ROOT_FOLDER_ID
-  for (const nivel of [año, tri, mes, carpetaTipo]) {
+  for (const nivel of [carpetaTitular, año, tri, mes, carpetaTipo]) {
     folderId = await getOrCreateFolder(nivel, folderId)
   }
 

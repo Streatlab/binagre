@@ -43,6 +43,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/facturas',             label: 'Importar Facturas',   emoji: '📄', perfiles: ['admin'] },
+      { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '📂', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
       { path: '/finanzas/analisis',             label: 'Análisis',            emoji: '🔍', perfiles: ['admin'] },
@@ -69,6 +70,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/configuracion/marcas',    label: 'Marcas',            emoji: '🏷️', perfiles: ['admin'] },
       { path: '/configuracion/bancos',    label: 'Bancos y cuentas',  emoji: '🏦', perfiles: ['admin'] },
+      { path: '/configuracion/cuentas-bancarias', label: 'Cuentas (titulares)', emoji: '👥', perfiles: ['admin'] },
       { path: '/configuracion/compras',   label: 'Compras',           emoji: '🧾', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',  label: 'Usuarios',          emoji: '👤', perfiles: ['admin'] },
     ],

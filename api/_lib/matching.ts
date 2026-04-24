@@ -11,6 +11,7 @@ export interface MatchCandidato {
   concepto: string | null
   importe: number
   proveedor: string | null
+  titular_id?: string | null
 }
 
 export interface MatchingResult {
@@ -18,6 +19,7 @@ export interface MatchingResult {
   matches: MatchCandidato[]
   confianza: number
   mensaje: string
+  cruza_cuentas?: boolean
 }
 
 /* ═════════════ HELPERS ═════════════ */
@@ -92,17 +94,24 @@ function diasEntre(a: string | Date, b: string | Date): number {
 
 export async function matchFactura(
   supabase: SupabaseClient,
-  factura: ExtractedFactura & { id?: string; total: number },
+  factura: ExtractedFactura & { id?: string; total: number; titular_id?: string | null },
 ): Promise<MatchingResult> {
+  let result: MatchingResult
   if (factura.tipo === 'plataforma') {
-    return matchFacturaPlataforma(supabase, factura)
-  }
-  if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) {
+    result = await matchFacturaPlataforma(supabase, factura)
+  } else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
-    return matchFacturaRecapitulativa(supabase, factura, alias)
+    result = await matchFacturaRecapitulativa(supabase, factura, alias)
+  } else {
+    const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
+    result = await matchFacturaNormal(supabase, factura, alias)
   }
-  const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
-  return matchFacturaNormal(supabase, factura, alias)
+  // Detectar si algún match es de una cuenta de otro titular
+  result.cruza_cuentas = Boolean(
+    factura.titular_id &&
+      result.matches.some((m) => m.titular_id && m.titular_id !== factura.titular_id),
+  )
+  return result
 }
 
 /* ═════════════ NORMAL ═════════════ */
@@ -129,7 +138,7 @@ async function matchFacturaNormal(
 
   const { data: candidatosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor')
+    .select('id, fecha, concepto, importe, proveedor, titular_id')
     .lt('importe', 0)
     .gte('fecha', fechaMin.toISOString().slice(0, 10))
     .lte('fecha', fechaMax.toISOString().slice(0, 10))
@@ -141,6 +150,7 @@ async function matchFacturaNormal(
     concepto: (c.concepto as string) || null,
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
+    titular_id: (c.titular_id as string | null) ?? null,
   }))
 
   if (candidatos.length === 0) {
@@ -208,7 +218,7 @@ async function matchFacturaRecapitulativa(
 
   const { data: movimientosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor')
+    .select('id, fecha, concepto, importe, proveedor, titular_id')
     .lt('importe', 0)
     .gte('fecha', factura.periodo_inicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
@@ -220,6 +230,7 @@ async function matchFacturaRecapitulativa(
     concepto: (c.concepto as string) || null,
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
+    titular_id: (c.titular_id as string | null) ?? null,
   }))
 
   if (movimientos.length === 0) {
@@ -298,74 +309,47 @@ async function matchFacturaPlataforma(
       estado: 'pendiente_revision',
       matches: [],
       confianza: 0,
-      mensaje: 'Plataforma no reconocida',
+      mensaje: 'Plataforma desconocida',
     }
   }
 
   const categoria = CATEGORIA_INGRESO[plataforma]
-  const alias = PLATAFORMA_ALIAS[plataforma]
   const fechaInicio = factura.periodo_inicio || factura.fecha_factura
   const fechaFinBase = factura.periodo_fin || factura.fecha_factura
   const fechaFinExt = new Date(fechaFinBase)
-  fechaFinExt.setDate(fechaFinExt.getDate() + 7)
+  fechaFinExt.setDate(fechaFinExt.getDate() + 14)
 
-  // Buscar ingresos por categoría o por concepto
-  const { data: porCategoria } = await supabase
+  const { data: ingresosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor')
+    .select('id, fecha, concepto, importe, proveedor, titular_id')
     .gt('importe', 0)
     .eq('categoria', categoria)
     .gte('fecha', fechaInicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
 
-  const { data: porConcepto } = await supabase
-    .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor')
-    .gt('importe', 0)
-    .gte('fecha', fechaInicio)
-    .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
-    .or(orFilterAlias(alias))
-
-  const map = new Map<string, MatchCandidato>()
-  for (const r of [...(porCategoria || []), ...(porConcepto || [])]) {
-    const c: MatchCandidato = {
-      id: r.id as string,
-      fecha: r.fecha as string,
-      concepto: (r.concepto as string) || null,
-      importe: Number(r.importe),
-      proveedor: (r.proveedor as string) || null,
-    }
-    map.set(c.id, c)
-  }
-  const ingresos = Array.from(map.values())
+  const ingresos: MatchCandidato[] = (ingresosRaw || []).map((c) => ({
+    id: c.id as string,
+    fecha: c.fecha as string,
+    concepto: (c.concepto as string) || null,
+    importe: Number(c.importe),
+    proveedor: (c.proveedor as string) || null,
+    titular_id: (c.titular_id as string | null) ?? null,
+  }))
 
   if (ingresos.length === 0) {
     return {
       estado: 'pendiente_revision',
       matches: [],
       confianza: 0,
-      mensaje: `No hay ingresos de ${plataforma} en el periodo ${fechaInicio} → ${fechaFinBase}`,
-    }
-  }
-
-  const sumaIngresos = ingresos.reduce((acc, i) => acc + i.importe, 0)
-  const totalFactura = Math.abs(factura.total)
-  const diferencia = Math.abs(sumaIngresos - totalFactura)
-
-  if (diferencia <= 1.0) {
-    return {
-      estado: 'asociada',
-      matches: ingresos,
-      confianza: 85,
-      mensaje: `${ingresos.length} ingresos ${plataforma} suman ${sumaIngresos.toFixed(2)}€`,
+      mensaje: `Liquidación ${plataforma}: no hay ingresos aún en el periodo ${fechaInicio} → ${fechaFinBase}`,
     }
   }
 
   return {
-    estado: 'pendiente_revision',
+    estado: 'asociada',
     matches: ingresos,
-    confianza: 50,
-    mensaje: `Liquidación ${plataforma}: suma ${sumaIngresos.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)`,
+    confianza: 80,
+    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en el periodo`,
   }
 }
 
@@ -389,12 +373,22 @@ export async function aplicarMatching(
   await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId)
 
   if (result.matches.length > 0) {
+    // Calcular titular_id de la factura para marcar cada match si cruza cuentas
+    const { data: fac } = await supabase
+      .from('facturas')
+      .select('titular_id')
+      .eq('id', facturaId)
+      .maybeSingle()
+    const facturaTitular = (fac?.titular_id as string | null) ?? null
     const filas = result.matches.map((m) => ({
       factura_id: facturaId,
       conciliacion_id: m.id,
       importe_asociado: Math.abs(m.importe),
       confirmado: result.estado === 'asociada',
       confianza_match: result.confianza,
+      cruza_cuentas: Boolean(
+        facturaTitular && m.titular_id && m.titular_id !== facturaTitular,
+      ),
     }))
     await supabase.from('facturas_gastos').insert(filas)
   }

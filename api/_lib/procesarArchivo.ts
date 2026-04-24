@@ -190,6 +190,21 @@ async function procesarContenidoPrincipal(
       proveedorId = nuevoProv?.id
     }
 
+    // Detectar titular por NIF cliente
+    let titularId: string | null = null
+    let carpetaTitular = 'SIN_TITULAR'
+    if (extracted.nif_cliente) {
+      const { data: titular } = await supabase
+        .from('titulares')
+        .select('id, carpeta_drive')
+        .eq('nif', extracted.nif_cliente)
+        .maybeSingle()
+      if (titular) {
+        titularId = titular.id as string
+        carpetaTitular = (titular.carpeta_drive as string) || 'SIN_TITULAR'
+      }
+    }
+
     await supabase
       .from('facturas')
       .update({
@@ -202,6 +217,7 @@ async function procesarContenidoPrincipal(
         periodo_fin: extracted.periodo_fin,
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
+        titular_id: titularId,
         base_4: extracted.base_4,
         iva_4: extracted.iva_4,
         base_10: extracted.base_10,
@@ -240,11 +256,12 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Matching
+    // Matching (pasa titular_id para detectar cross-cuenta)
     const resultadoMatch = await matchFactura(supabase, {
       ...extracted,
       id: nueva.id,
       total: extracted.total,
+      titular_id: titularId,
     })
     await aplicarMatching(supabase, nueva.id, resultadoMatch)
 
@@ -268,6 +285,7 @@ async function procesarContenidoPrincipal(
         fecha_factura: extracted.fecha_factura,
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
+        carpeta_titular: carpetaTitular,
       }, ext)
       await supabase
         .from('facturas')

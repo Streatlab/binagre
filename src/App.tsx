@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -18,6 +19,7 @@ import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Configuración · Bancos
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
+import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
 
 // Configuración · Compras
 import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
@@ -37,6 +39,7 @@ import Objetivos from '@/pages/finanzas/Objetivos'
 import Running from '@/pages/finanzas/Running'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import Facturas from '@/pages/finanzas/Facturas'
+import Gestoria from '@/pages/finanzas/Gestoria'
 
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -123,6 +126,9 @@ function AppRoutes() {
         {/* Configuración · Bancos (single page con subpills internos) */}
         <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
 
+        {/* Configuración · Cuentas bancarias multi-titular */}
+        <Route path="configuracion/cuentas-bancarias" element={<ProtectedRoute solo={['admin']}><CuentasBancarias /></ProtectedRoute>} />
+
         {/* Configuración · Compras */}
         <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>
           <Route index element={<Navigate to="costes" replace />} />
@@ -140,6 +146,7 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/facturas" element={<ProtectedRoute solo={['admin']}><Facturas /></ProtectedRoute>} />
+        <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
@@ -215,7 +222,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <TitularProvider>
+          <AppRoutes />
+        </TitularProvider>
       </AuthProvider>
     </BrowserRouter>
   )
