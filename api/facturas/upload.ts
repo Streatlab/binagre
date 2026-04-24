@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createHash } from 'crypto'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { extraerDatosFactura } from '../_lib/ocr.js'
-import { matchingGastos } from '../_lib/matching.js'
+import { matchFactura, aplicarMatching } from '../_lib/matching.js'
 import { subirPdfADrive, generarNombreArchivo } from '../_lib/google-drive.js'
 
 export const config = {
@@ -155,7 +155,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      const resultadoMatch = await matchingGastos(nueva.id, extracted, supabaseAdmin)
+      const resultadoMatch = await matchFactura(supabaseAdmin, {
+        ...extracted,
+        id: nueva.id,
+        total: extracted.total,
+      })
+      await aplicarMatching(supabaseAdmin, nueva.id, resultadoMatch)
 
       // Nombre + subida Drive
       const inicioMes = new Date(extracted.fecha_factura)
@@ -178,17 +183,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .update({
             pdf_drive_id: drive.id,
             pdf_drive_url: drive.webViewLink,
-            estado: resultadoMatch,
           })
           .eq('id', nueva.id)
       } catch (driveErr) {
         const msg = driveErr instanceof Error ? driveErr.message : 'Drive error'
         await supabaseAdmin
           .from('facturas')
-          .update({
-            error_mensaje: `Drive: ${msg}`,
-            estado: resultadoMatch,
-          })
+          .update({ error_mensaje: `Drive: ${msg}` })
           .eq('id', nueva.id)
       }
 

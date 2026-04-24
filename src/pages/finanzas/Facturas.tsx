@@ -32,6 +32,7 @@ interface Factura {
   estado: EstadoFactura
   error_mensaje: string | null
   ocr_confianza: number | null
+  mensaje_matching: string | null
   created_at: string
 }
 
@@ -415,18 +416,37 @@ function FacturaCard({
   T: ReturnType<typeof useTheme>['T']
   onConfirmar: () => void
 }) {
-  const [gastos, setGastos] = useState<Array<{ id: string; fecha: string; importe: number; concepto: string }>>([])
+  const [gastos, setGastos] = useState<
+    Array<{ id: string; fecha: string; importe: number; concepto: string; confianza: number | null }>
+  >([])
 
   useEffect(() => {
     supabase
       .from('facturas_gastos')
-      .select('conciliacion_id, importe_asociado, conciliacion(id, fecha, importe, concepto)')
+      .select(
+        'conciliacion_id, importe_asociado, confianza_match, conciliacion(id, fecha, importe, concepto)',
+      )
       .eq('factura_id', factura.id)
       .then(({ data }) => {
         if (data) {
           const flat = data
-            .map((r) => r.conciliacion as unknown as { id: string; fecha: string; importe: number; concepto: string } | null)
-            .filter((c): c is { id: string; fecha: string; importe: number; concepto: string } => !!c)
+            .map((r) => {
+              const c = r.conciliacion as unknown as {
+                id: string
+                fecha: string
+                importe: number
+                concepto: string
+              } | null
+              if (!c) return null
+              return {
+                ...c,
+                confianza: r.confianza_match as number | null,
+              }
+            })
+            .filter(
+              (c): c is { id: string; fecha: string; importe: number; concepto: string; confianza: number | null } =>
+                !!c,
+            )
           setGastos(flat)
         }
       })
@@ -491,6 +511,22 @@ function FacturaCard({
               ⚠ OCR confianza {((factura.ocr_confianza ?? 0) * 100).toFixed(0)}%
             </div>
           )}
+          {factura.mensaje_matching && (
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: T.sec,
+                background: T.card,
+                padding: '8px 10px',
+                borderRadius: 6,
+                border: `1px solid ${T.brd}`,
+                lineHeight: 1.4,
+              }}
+            >
+              {factura.mensaje_matching}
+            </div>
+          )}
           {factura.pdf_drive_url && (
             <div style={{ marginTop: 10 }}>
               <a
@@ -523,9 +559,15 @@ function FacturaCard({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
               {gastos.map((g) => (
-                <div key={g.id} style={{ fontSize: 12, color: T.sec }}>
-                  {g.fecha} · {fmtEur(Math.abs(Number(g.importe)))} ·{' '}
-                  <span style={{ color: T.mut }}>{g.concepto}</span>
+                <div
+                  key={g.id}
+                  style={{ fontSize: 12, color: T.sec, display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span style={{ flex: 1 }}>
+                    {g.fecha} · {fmtEur(Math.abs(Number(g.importe)))} ·{' '}
+                    <span style={{ color: T.mut }}>{g.concepto}</span>
+                  </span>
+                  {g.confianza !== null && <ConfianzaBadge valor={g.confianza} />}
                 </div>
               ))}
               <div
@@ -690,6 +732,32 @@ const thStyle: React.CSSProperties = {
 
 function tdStyle(T: ReturnType<typeof useTheme>['T']): React.CSSProperties {
   return { padding: '10px 12px', color: T.pri }
+}
+
+function ConfianzaBadge({ valor }: { valor: number }) {
+  const { bg, color, label } =
+    valor >= 85
+      ? { bg: '#1a3a2a', color: '#1D9E75', label: `${Math.round(valor)}%` }
+      : valor >= 50
+        ? { bg: '#3a2d1a', color: '#f5a623', label: `${Math.round(valor)}%` }
+        : { bg: '#3a1a1a', color: '#E24B4A', label: `${Math.round(valor)}%` }
+  return (
+    <span
+      style={{
+        background: bg,
+        color,
+        padding: '1px 6px',
+        borderRadius: 4,
+        fontSize: 10,
+        fontFamily: FONT.heading,
+        letterSpacing: 1,
+        fontWeight: 600,
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  )
 }
 
 function EstadoBadge({ estado }: { estado: EstadoFactura }) {
