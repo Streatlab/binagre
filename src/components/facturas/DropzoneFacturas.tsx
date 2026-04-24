@@ -13,11 +13,10 @@ export interface SubidaItem {
 interface Props {
   T: FacturasTokens
   onSubir: (files: File[]) => void | Promise<void>
-  onPasteClick: () => void
   subiendo: SubidaItem[]
 }
 
-export default function DropzoneFacturas({ T, onSubir, onPasteClick, subiendo }: Props) {
+export default function DropzoneFacturas({ T, onSubir, subiendo }: Props) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -84,22 +83,6 @@ export default function DropzoneFacturas({ T, onSubir, onPasteClick, subiendo }:
           style={{ display: 'none' }}
         />
       </div>
-
-      <button
-        onClick={onPasteClick}
-        style={{
-          padding: '8px 14px',
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          backgroundColor: T.base,
-          color: T.text,
-          fontFamily: T.fontUi,
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
-      >
-        📋 Pegar texto de factura
-      </button>
 
       {subiendo.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

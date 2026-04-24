@@ -1,33 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Check,
-  Eye,
-  RefreshCw,
-  Search,
-  SearchCheck,
-  X,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtFechaES } from '@/utils/format'
-import { useIsMobile } from '@/hooks/useIsMobile'
+import { fmtEur } from '@/utils/format'
 import { useTitular } from '@/contexts/TitularContext'
 import {
-  ESTADO_COLOR,
-  ESTADO_NOMBRE,
-  useFacturasTheme,
-  type FacturasTokens,
-} from '@/styles/facturasTheme'
+  useTheme,
+  FONT,
+  tabActiveStyle,
+  tabInactiveStyle,
+  pageTitleStyle,
+  type TokenSet,
+} from '@/styles/tokens'
 import DropzoneFacturas, { type SubidaItem } from '@/components/facturas/DropzoneFacturas'
-import ModalPegarTexto from '@/components/facturas/ModalPegarTexto'
 import ModalAsociarManual from '@/components/facturas/ModalAsociarManual'
-import ModalDetalleFactura, {
-  type FacturaDetalle,
-} from '@/components/facturas/ModalDetalleFactura'
+import ModalDetalleFactura, { type FacturaDetalle } from '@/components/facturas/ModalDetalleFactura'
+import { useFacturasTheme, ESTADO_COLOR, ESTADO_NOMBRE } from '@/styles/facturasTheme'
 import TitularSelector from '@/components/TitularSelector'
 
 /* ═════════ TYPES ═════════ */
 
 type Rango = '7d' | '30d' | 'mes' | 'trimestre' | 'anio' | 'todo'
+type Tab = 'resumen' | 'subir'
 type Filtro =
   | 'todas'
   | 'pendientes'
@@ -69,9 +62,11 @@ interface Factura {
   total_iva: number
   total: number
   pdf_drive_url: string | null
+  pdf_drive_id: string | null
   pdf_original_name: string | null
   estado: string
   mensaje_matching: string | null
+  error_mensaje: string | null
   ocr_confianza: number | null
   ocr_raw: unknown
   titular_id?: string | null
@@ -128,40 +123,44 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary)
 }
 
-function diasEntre(desde: string): number {
-  const d = new Date(desde)
-  const hoy = new Date()
-  return Math.max(0, Math.floor((hoy.getTime() - d.getTime()) / 86_400_000))
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function fechaCorta(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(String(iso).slice(0, 10) + 'T12:00:00')
+  if (isNaN(d.getTime())) return '—'
+  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`
+}
+
+function truncar(s: string | null | undefined, n: number): string {
+  if (!s) return '—'
+  return s.length > n ? s.slice(0, n - 1) + '…' : s
 }
 
 /* ═════════ PAGE ═════════ */
 
 export default function FacturasPage() {
-  const { T } = useFacturasTheme()
-  const isMobile = useIsMobile()
-  const { filtro: filtroTitular, titulares } = useTitular()
-  const titularActivo = useMemo(
-    () => (filtroTitular === 'unificado' ? null : titulares.find((t) => t.id === filtroTitular) || null),
-    [filtroTitular, titulares],
-  )
+  const { T, isDark } = useTheme()
+  const { T: TF } = useFacturasTheme()
+  const { filtro: filtroTitular } = useTitular()
 
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [faltantes, setFaltantes] = useState<Faltante[]>([])
   const [rango, setRango] = useState<Rango>('30d')
   const [filtro, setFiltro] = useState<Filtro>('todas')
+  const [tab, setTab] = useState<Tab>('resumen')
   const [busqueda, setBusqueda] = useState('')
   const [subiendo, setSubiendo] = useState<SubidaItem[]>([])
   const [detalleFactura, setDetalleFactura] = useState<FacturaDetalle | null>(null)
   const [facturaAsociarManual, setFacturaAsociarManual] = useState<Factura | null>(null)
-  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const cargarDatos = useCallback(async () => {
     const desde = calcDesde(rango)
-
     let qb = supabase
       .from('facturas')
       .select(
-        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, titular_id, created_at, titular:titulares(nombre, color), facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, cruza_cuentas, conciliacion(id, fecha, importe, concepto, proveedor))',
+        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_drive_id, pdf_original_name, estado, mensaje_matching, error_mensaje, ocr_confianza, ocr_raw, titular_id, created_at, titular:titulares(nombre, color), facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, cruza_cuentas, conciliacion(id, fecha, importe, concepto, proveedor))',
       )
       .order('fecha_factura', { ascending: false })
       .limit(500)
@@ -175,38 +174,35 @@ export default function FacturasPage() {
 
     setFacturas((facturasData as unknown as Factura[]) || [])
     setFaltantes((faltantesData as unknown as Faltante[]) || [])
+    setLoading(false)
   }, [rango, filtroTitular])
 
   useEffect(() => {
     cargarDatos()
     const sub = supabase
-      .channel('facturas-rediseno')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'facturas' },
-        () => cargarDatos(),
-      )
+      .channel('facturas-rediseno-v2')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'facturas' }, () => cargarDatos())
       .subscribe()
-    return () => {
-      sub.unsubscribe()
-    }
+    return () => { sub.unsubscribe() }
   }, [cargarDatos])
 
   const faltan = useMemo(() => faltantes.filter((f) => f.estado === 'falta'), [faltantes])
 
   const kpis = useMemo(() => {
     const totalPeriodo = facturas.reduce((acc, f) => acc + (Number(f.total) || 0), 0)
-    const nTotal = facturas.length
-    const nPendientes = facturas.filter((f) => f.estado === 'pendiente_revision').length
-    const nAsociadas = facturas.filter((f) => f.estado === 'asociada').length
-    const nDuplicadas = facturas.filter((f) => f.estado === 'duplicada').length
-    const nError = facturas.filter((f) => f.estado === 'error').length
-    const nSinTitular = facturas.filter((f) => !f.titular_id).length
-    return { totalPeriodo, nTotal, nPendientes, nAsociadas, nDuplicadas, nError, nSinTitular }
+    return {
+      totalPeriodo,
+      nTotal: facturas.length,
+      nPendientes: facturas.filter((f) => f.estado === 'pendiente_revision').length,
+      nAsociadas: facturas.filter((f) => f.estado === 'asociada').length,
+      nDuplicadas: facturas.filter((f) => f.estado === 'duplicada').length,
+      nError: facturas.filter((f) => f.estado === 'error').length,
+      nSinTitular: facturas.filter((f) => !f.titular_id).length,
+    }
   }, [facturas])
 
-  const facturasFiltradas = useMemo<Factura[] | Faltante[]>(() => {
-    if (filtro === 'faltantes') return faltan
+  const facturasFiltradas = useMemo<Factura[]>(() => {
+    if (filtro === 'faltantes') return []
     let lista = [...facturas]
     if (filtro === 'sin_titular') {
       lista = lista.filter((f) => !f.titular_id)
@@ -229,186 +225,166 @@ export default function FacturasPage() {
       )
     }
     return lista
-  }, [facturas, faltan, filtro, busqueda])
+  }, [facturas, filtro, busqueda])
 
-  const FILTROS: Array<{ id: Filtro; label: string; color: string; count: number }> = [
-    { id: 'todas', label: 'Todas', color: T.accentRed, count: kpis.nTotal },
-    { id: 'pendientes', label: 'Pendientes', color: '#BA7517', count: kpis.nPendientes },
-    { id: 'asociadas', label: 'Asociadas', color: '#1D9E75', count: kpis.nAsociadas },
-    { id: 'faltantes', label: 'Faltantes', color: '#A32D2D', count: faltan.length },
-    { id: 'duplicadas', label: 'Duplicadas', color: T.muted, count: kpis.nDuplicadas },
-    { id: 'error', label: 'Error', color: '#A32D2D', count: kpis.nError },
-    { id: 'sin_titular', label: 'Sin titular', color: T.muted, count: kpis.nSinTitular },
-  ]
+  /* — Upload — */
 
-  const subirArchivos = useCallback(
-    async (files: File[]) => {
-      if (!files.length) return
-      for (const file of files) {
-        const id =
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random()}`
-        setSubiendo((s) => [{ id, name: file.name, estado: 'uploading' }, ...s])
-        try {
-          const base64 = await fileToBase64(file)
-          const r = await fetch('/api/facturas/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nombre: file.name,
-              base64,
-              mimeType: file.type || null,
-            }),
-          })
-          const data = await r.json().catch(() => ({}))
-          setSubiendo((s) =>
-            s.map((x) =>
-              x.id === id
-                ? {
-                    ...x,
-                    estado:
-                      data.estado === 'ok'
-                        ? 'ok'
-                        : data.estado === 'duplicada'
-                          ? 'duplicada'
-                          : data.estado === 'error'
-                            ? 'error'
-                            : data.estado || 'ok',
-                    total: data.factura?.total,
-                    mensaje: data.error || data.motivo,
-                  }
-                : x,
-            ),
-          )
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Error'
-          setSubiendo((s) => s.map((x) => (x.id === id ? { ...x, estado: 'error', mensaje: msg } : x)))
-        }
-        setTimeout(() => {
-          setSubiendo((s) => s.filter((x) => x.id !== id))
-        }, 6000)
+  const subirArchivos = useCallback(async (files: File[]) => {
+    if (!files.length) return
+    for (const file of files) {
+      const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`
+      setSubiendo((s) => [{ id, name: file.name, estado: 'uploading' }, ...s])
+      try {
+        const base64 = await fileToBase64(file)
+        const r = await fetch('/api/facturas/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: file.name, base64, mimeType: file.type || null }),
+        })
+        const data = await r.json().catch(() => ({}))
+        setSubiendo((s) => s.map((x) => x.id === id ? {
+          ...x,
+          estado: data.estado === 'ok' ? 'ok'
+            : data.estado === 'duplicada' ? 'duplicada'
+            : data.estado === 'error' ? 'error'
+            : data.estado || 'ok',
+          total: data.factura?.total,
+          mensaje: data.error || data.motivo,
+        } : x))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error'
+        setSubiendo((s) => s.map((x) => (x.id === id ? { ...x, estado: 'error', mensaje: msg } : x)))
       }
-      cargarDatos()
-    },
-    [cargarDatos],
-  )
-
-  const procesarTextoPegado = useCallback(
-    async (texto: string) => {
-      if (!texto.trim()) return
-      const nombre = `texto_pegado_${Date.now()}.txt`
-      const blob = new Blob([texto], { type: 'text/plain' })
-      const file = new File([blob], nombre, { type: 'text/plain' })
-      setShowPasteModal(false)
-      await subirArchivos([file])
-    },
-    [subirArchivos],
-  )
-
-  async function accion(f: Factura, tipo: 'confirmar' | 'rechazar' | 'reintentar') {
-    try {
-      await fetch(`/api/facturas/${f.id}/${tipo}`, { method: 'POST' })
-    } catch {
-      if (tipo === 'confirmar') {
-        await supabase.from('facturas_gastos').update({ confirmado: true }).eq('factura_id', f.id)
-        await supabase.from('facturas').update({ estado: 'asociada' }).eq('id', f.id)
-      } else if (tipo === 'rechazar') {
-        await supabase.from('facturas_gastos').delete().eq('factura_id', f.id)
-        await supabase
-          .from('facturas')
-          .update({ estado: 'error', mensaje_matching: 'Descartada manualmente' })
-          .eq('id', f.id)
-      } else {
-        await supabase
-          .from('facturas')
-          .update({ estado: 'procesando', error_mensaje: null })
-          .eq('id', f.id)
-      }
+      setTimeout(() => { setSubiendo((s) => s.filter((x) => x.id !== id)) }, 6000)
     }
     cargarDatos()
+  }, [cargarDatos])
+
+  const labelRango: Record<Rango, string> = {
+    '7d': 'Últimos 7 días',
+    '30d': 'Últimos 30 días',
+    mes: 'Este mes',
+    trimestre: 'Este trimestre',
+    anio: 'Este año',
+    todo: 'Todo el histórico',
+  }
+
+  const labelFiltro: Record<Filtro, string> = {
+    todas: 'Todas',
+    pendientes: 'Pendientes',
+    asociadas: 'Asociadas',
+    faltantes: 'Faltantes',
+    duplicadas: 'Duplicadas',
+    error: 'Error',
+    sin_titular: 'Sin titular',
+  }
+
+  const selectStyle: CSSProperties = {
+    padding: '8px 14px',
+    border: `0.5px solid ${T.brd}`,
+    borderRadius: 8,
+    backgroundColor: T.inp,
+    color: T.pri,
+    fontFamily: FONT.body,
+    fontSize: 13,
+    cursor: 'pointer',
+    outline: 'none',
   }
 
   return (
-    <div
-      style={{
-        padding: 24,
-        background: T.base,
-        minHeight: '100vh',
-        fontFamily: T.fontUi,
-        color: T.text,
-      }}
-    >
-      <HeaderFacturas T={T} rango={rango} setRango={setRango} />
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
 
-      <FilaKpis
-        T={T}
-        kpis={kpis}
-        faltantes={faltan.length}
-        isMobile={isMobile}
-        setFiltro={setFiltro}
-        titularActivo={titularActivo}
-      />
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : '320px 1fr',
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
-        <DropzoneFacturas
-          T={T}
-          onSubir={subirArchivos}
-          onPasteClick={() => setShowPasteModal(true)}
-          subiendo={subiendo}
-        />
-
-        <FiltrosBarra
-          T={T}
-          busqueda={busqueda}
-          setBusqueda={setBusqueda}
-          filtro={filtro}
-          setFiltro={setFiltro}
-          filtros={FILTROS}
-        />
+      {/* HEADER — título + desplegable filtro + toggle titular + rango */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={pageTitleStyle(T)}>Importar Facturas</h1>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} style={selectStyle}>
+            {(Object.keys(labelFiltro) as Filtro[]).map(k => {
+              const n = k === 'faltantes' ? faltan.length
+                : k === 'todas' ? kpis.nTotal
+                : k === 'pendientes' ? kpis.nPendientes
+                : k === 'asociadas' ? kpis.nAsociadas
+                : k === 'duplicadas' ? kpis.nDuplicadas
+                : k === 'error' ? kpis.nError
+                : kpis.nSinTitular
+              return <option key={k} value={k}>{labelFiltro[k]} ({n})</option>
+            })}
+          </select>
+          <TitularSelector />
+          <select value={rango} onChange={(e) => setRango(e.target.value as Rango)} style={selectStyle}>
+            {(Object.keys(labelRango) as Rango[]).map((k) => (
+              <option key={k} value={k}>{labelRango[k]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {filtro === 'faltantes' ? (
-        <TablaFaltantes T={T} faltantes={faltan} />
-      ) : (
-        <TablaFacturas
-          T={T}
-          facturas={facturasFiltradas as Factura[]}
-          onVer={(f) => setDetalleFactura(f as unknown as FacturaDetalle)}
-          onAsociarManual={(f) => setFacturaAsociarManual(f)}
-          onAccion={accion}
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: 4, background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 18 }}>
+        {(['resumen', 'subir'] as Tab[]).map(k => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            style={tab === k ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
+          >
+            {k === 'resumen' ? 'Resumen' : 'Subir'}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div style={{ padding: 40, color: T.mut, fontFamily: FONT.body, textAlign: 'center' }}>Cargando…</div>
+      )}
+
+      {!loading && tab === 'resumen' && (
+        <>
+          <ResumenFacturasKpis T={T} kpis={kpis} faltantes={faltan.length} />
+          <div style={{ height: 16 }} />
+          {filtro === 'faltantes' ? (
+            <TablaFaltantes T={T} faltantes={faltan} />
+          ) : (
+            <>
+              <BuscadorBar T={T} busqueda={busqueda} setBusqueda={setBusqueda} total={facturasFiltradas.length} />
+              <TablaFacturasDensa
+                T={T}
+                facturas={facturasFiltradas}
+                onClick={(f) => setDetalleFactura(f as unknown as FacturaDetalle)}
+              />
+            </>
+          )}
+        </>
+      )}
+
+      {!loading && tab === 'subir' && (
+        <DropzoneFacturas
+          T={TF}
+          onSubir={subirArchivos}
+          subiendo={subiendo}
         />
       )}
 
       {detalleFactura && (
         <ModalDetalleFactura
-          T={T}
+          T={TF}
           factura={detalleFactura}
           onClose={() => setDetalleFactura(null)}
           onUpdate={() => {
             cargarDatos()
             setDetalleFactura(null)
           }}
-        />
-      )}
-      {showPasteModal && (
-        <ModalPegarTexto
-          T={T}
-          onClose={() => setShowPasteModal(false)}
-          onSubmit={procesarTextoPegado}
+          onOpenAsociarManual={() => {
+            const f = facturas.find(x => x.id === detalleFactura.id) || null
+            setFacturaAsociarManual(f)
+            setDetalleFactura(null)
+          }}
         />
       )}
       {facturaAsociarManual && (
         <ModalAsociarManual
-          T={T}
-          factura={facturaAsociarManual}
+          T={TF}
+          factura={facturaAsociarManual as any}
           onClose={() => setFacturaAsociarManual(null)}
           onUpdate={() => {
             cargarDatos()
@@ -420,743 +396,244 @@ export default function FacturasPage() {
   )
 }
 
-/* ═════════ SUBCOMPONENTES ═════════ */
+/* ═════════ RESUMEN · KPIs ═════════ */
 
-function HeaderFacturas({
-  T,
-  rango,
-  setRango,
-}: {
-  T: FacturasTokens
-  rango: Rango
-  setRango: (r: Rango) => void
-}) {
-  const labels: Record<Rango, string> = {
-    '7d': 'Últimos 7 días',
-    '30d': 'Últimos 30 días',
-    mes: 'Este mes',
-    trimestre: 'Este trimestre',
-    anio: 'Este año',
-    todo: 'Todo el histórico',
-  }
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-        flexWrap: 'wrap',
-        gap: 12,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <h1
-          style={{
-            color: T.accentRed,
-            fontFamily: T.fontTitle,
-            fontSize: 22,
-            fontWeight: 600,
-            letterSpacing: 3,
-            margin: 0,
-            textTransform: 'uppercase',
-          }}
-        >
-          IMPORTAR FACTURAS
-        </h1>
-        <TitularSelector />
-      </div>
-      <select
-        value={rango}
-        onChange={(e) => setRango(e.target.value as Rango)}
-        style={{
-          padding: '8px 14px',
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          backgroundColor: T.card,
-          color: T.text,
-          fontFamily: T.fontUi,
-          fontSize: 13,
-          cursor: 'pointer',
-        }}
-      >
-        {(Object.keys(labels) as Rango[]).map((k) => (
-          <option key={k} value={k}>
-            {labels[k]}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
-function FilaKpis({
-  T,
-  kpis,
-  faltantes,
-  isMobile,
-  setFiltro,
-  titularActivo,
-}: {
-  T: FacturasTokens
-  kpis: {
-    totalPeriodo: number
-    nTotal: number
-    nPendientes: number
-    nDuplicadas: number
-  }
-  faltantes: number
-  isMobile: boolean
-  setFiltro: (f: Filtro) => void
-  titularActivo: { nombre: string; color: string } | null
-}) {
-  const cards: Array<{
-    label: string
-    valor: string
-    sub: string
-    color: string
-    onClick?: () => void
-  }> = [
-    {
-      label: titularActivo ? `TOTAL ${titularActivo.nombre.toUpperCase()}` : 'TOTAL PERIODO',
-      valor: fmtEur(kpis.totalPeriodo),
-      sub: `${kpis.nTotal} facturas`,
-      color: titularActivo?.color || T.accent,
-    },
-    {
-      label: 'PENDIENTES',
-      valor: String(kpis.nPendientes),
-      sub: 'por asociar',
-      color: '#BA7517',
-      onClick: () => setFiltro('pendientes'),
-    },
-    {
-      label: 'FALTANTES',
-      valor: String(faltantes),
-      sub: 'del periodo',
-      color: '#A32D2D',
-      onClick: () => setFiltro('faltantes'),
-    },
-    {
-      label: 'DUPLICADAS',
-      valor: String(kpis.nDuplicadas),
-      sub: 'ignoradas',
-      color: T.muted,
-      onClick: () => setFiltro('duplicadas'),
-    },
+function ResumenFacturasKpis({ T, kpis, faltantes }: { T: TokenSet; kpis: { totalPeriodo: number; nTotal: number; nPendientes: number; nAsociadas: number; nDuplicadas: number; nError: number; nSinTitular: number }; faltantes: number }) {
+  const items: { label: string; value: string; color: string; sub?: string }[] = [
+    { label: 'Total periodo', value: fmtEur(kpis.totalPeriodo), color: '#FF4757', sub: `${kpis.nTotal} facturas` },
+    { label: 'Pendientes', value: String(kpis.nPendientes), color: '#BA7517', sub: 'por asociar' },
+    { label: 'Faltantes', value: String(faltantes), color: '#A32D2D', sub: 'del periodo' },
+    { label: 'Asociadas', value: String(kpis.nAsociadas), color: '#1D9E75' },
+    { label: 'Duplicadas', value: String(kpis.nDuplicadas), color: T.mut },
+    { label: 'Sin titular', value: String(kpis.nSinTitular), color: T.mut },
   ]
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-        gap: 12,
-        marginBottom: 16,
-      }}
-    >
-      {cards.map((c, i) => (
-        <div
-          key={i}
-          onClick={c.onClick}
-          style={{
-            backgroundColor: T.card,
-            borderRadius: 12,
-            padding: '14px 18px',
-            border: `1px solid ${T.border}`,
-            borderTop: `3px solid ${c.color}`,
-            cursor: c.onClick ? 'pointer' : 'default',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: T.fontTitle,
-              fontSize: 10,
-              color: T.muted,
-              letterSpacing: 1.3,
-              textTransform: 'uppercase',
-              marginBottom: 6,
-              fontWeight: 600,
-            }}
-          >
-            {c.label}
-          </div>
-          <div
-            style={{
-              fontFamily: T.fontTitle,
-              fontSize: 24,
-              fontWeight: 600,
-              color: T.text,
-              lineHeight: 1,
-            }}
-          >
-            {c.valor}
-          </div>
-          <div
-            style={{
-              fontFamily: T.fontUi,
-              fontSize: 11,
-              color: T.muted,
-              marginTop: 4,
-            }}
-          >
-            {c.sub}
-          </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+      {items.map((k, i) => (
+        <div key={i} style={{
+          background: T.card,
+          border: `0.5px solid ${T.brd}`,
+          borderTop: `3px solid ${k.color}`,
+          borderRadius: 12,
+          padding: '14px 18px',
+        }}>
+          <div style={{
+            fontFamily: FONT.heading,
+            fontSize: 10,
+            color: T.mut,
+            letterSpacing: '1.3px',
+            textTransform: 'uppercase',
+            marginBottom: 6,
+            fontWeight: 600,
+          }}>{k.label}</div>
+          <div style={{
+            fontFamily: FONT.heading,
+            fontSize: 22,
+            fontWeight: 600,
+            color: T.pri,
+            lineHeight: 1,
+          }}>{k.value}</div>
+          {k.sub && (
+            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 4 }}>{k.sub}</div>
+          )}
         </div>
       ))}
     </div>
   )
 }
 
-function FiltrosBarra({
-  T,
-  busqueda,
-  setBusqueda,
-  filtro,
-  setFiltro,
-  filtros,
-}: {
-  T: FacturasTokens
-  busqueda: string
-  setBusqueda: (v: string) => void
-  filtro: Filtro
-  setFiltro: (f: Filtro) => void
-  filtros: Array<{ id: Filtro; label: string; color: string; count: number }>
-}) {
+/* ═════════ BUSCADOR ═════════ */
+
+function BuscadorBar({ T, busqueda, setBusqueda, total }: { T: TokenSet; busqueda: string; setBusqueda: (v: string) => void; total: number }) {
   return (
-    <div>
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        <Search
-          size={14}
-          style={{
-            position: 'absolute',
-            left: 12,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: T.muted,
-          }}
-        />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+      <div style={{ position: 'relative', flex: 1, minWidth: 240, maxWidth: 420 }}>
+        <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
         <input
           type="text"
-          placeholder="Buscar proveedor, número, importe..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar proveedor, nº factura, importe…"
           style={{
             width: '100%',
-            padding: '10px 14px 10px 36px',
-            backgroundColor: T.card,
-            border: `1px solid ${T.border}`,
+            padding: '8px 12px 8px 34px',
+            backgroundColor: T.inp,
+            color: T.pri,
+            border: `0.5px solid ${T.brd}`,
             borderRadius: 8,
-            color: T.text,
-            fontFamily: T.fontUi,
+            fontFamily: FONT.body,
             fontSize: 13,
+            outline: 'none',
             boxSizing: 'border-box',
           }}
         />
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {filtros.map((f) => {
-          const active = filtro === f.id
-          return (
-            <button
-              key={f.id}
-              onClick={() => setFiltro(f.id)}
-              style={{
-                padding: '8px 14px',
-                border: `1px solid ${active ? f.color : T.border}`,
-                borderRadius: 20,
-                backgroundColor: active ? f.color : 'transparent',
-                color: active ? '#fff' : T.text,
-                fontFamily: T.fontTitle,
-                fontSize: 11,
-                letterSpacing: 0.5,
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontWeight: 600,
-              }}
-            >
-              {f.label}
-              {f.count > 0 && (
-                <span
-                  style={{
-                    backgroundColor: active ? 'rgba(255,255,255,0.2)' : T.base,
-                    padding: '1px 7px',
-                    borderRadius: 10,
-                    fontSize: 10,
-                  }}
-                >
-                  {f.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{total} resultado{total === 1 ? '' : 's'}</span>
     </div>
   )
 }
 
-/* ═════════ TABLA ═════════ */
+/* ═════════ TABLA DENSA ═════════ */
 
-function TablaFacturas({
-  T,
-  facturas,
-  onVer,
-  onAsociarManual,
-  onAccion,
-}: {
-  T: FacturasTokens
-  facturas: Factura[]
-  onVer: (f: Factura) => void
-  onAsociarManual: (f: Factura) => void
-  onAccion: (f: Factura, tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
-}) {
+function TablaFacturasDensa({ T, facturas, onClick }: { T: TokenSet; facturas: Factura[]; onClick: (f: Factura) => void }) {
+  const thStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    padding: '10px 12px',
+    textAlign: 'left',
+    background: T.group,
+    borderBottom: `0.5px solid ${T.brd}`,
+    fontWeight: 400,
+    whiteSpace: 'nowrap',
+    position: 'sticky',
+    top: 0,
+  }
+  const tdStyle: CSSProperties = {
+    padding: '10px 12px',
+    fontSize: 13,
+    fontFamily: FONT.body,
+    color: T.pri,
+    borderBottom: `0.5px solid ${T.brd}`,
+    whiteSpace: 'nowrap',
+  }
+
   if (facturas.length === 0) {
     return (
-      <div
-        style={{
-          backgroundColor: T.card,
-          borderRadius: 12,
-          padding: 60,
-          textAlign: 'center',
-          border: `1px solid ${T.border}`,
-        }}
-      >
-        <div style={{ fontFamily: T.fontUi, fontSize: 14, color: T.muted }}>
-          No hay facturas con estos filtros
-        </div>
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 40, textAlign: 'center', fontFamily: FONT.body, color: T.mut, fontSize: 13 }}>
+        Sin facturas para este filtro.
       </div>
     )
   }
+
   return (
-    <div
-      style={{
-        backgroundColor: T.card,
-        borderRadius: 12,
-        border: `1px solid ${T.border}`,
-        overflow: 'hidden',
-      }}
-    >
-      {facturas.map((f, i) => (
-        <FilaFactura
-          key={f.id}
-          factura={f}
-          esUltima={i === facturas.length - 1}
-          T={T}
-          onVer={() => onVer(f)}
-          onAsociarManual={() => onAsociarManual(f)}
-          onAccion={(tipo) => onAccion(f, tipo)}
-        />
-      ))}
-    </div>
-  )
-}
-
-function FilaFactura({
-  factura,
-  esUltima,
-  T,
-  onVer,
-  onAsociarManual,
-  onAccion,
-}: {
-  factura: Factura
-  esUltima: boolean
-  T: FacturasTokens
-  onVer: () => void
-  onAsociarManual: () => void
-  onAccion: (tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
-}) {
-  const color = ESTADO_COLOR[factura.estado] || T.muted
-  const nombre = ESTADO_NOMBRE[factura.estado] || factura.estado
-  return (
-    <div
-      style={{
-        padding: '14px 18px',
-        borderBottom: esUltima ? 'none' : `1px solid ${T.border}`,
-        display: 'grid',
-        gridTemplateColumns: '110px 1fr auto auto',
-        gap: 16,
-        alignItems: 'center',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            display: 'inline-block',
-            padding: '4px 10px',
-            borderRadius: 12,
-            backgroundColor: `${color}22`,
-            color,
-            fontFamily: T.fontTitle,
-            fontSize: 10,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            fontWeight: 700,
-            textAlign: 'center',
-          }}
-        >
-          {nombre}
-        </span>
-        {factura.titular && (
-          <span
-            title={factura.titular.nombre}
-            style={{
-              display: 'inline-block',
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              backgroundColor: factura.titular.color,
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </div>
-
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: T.fontTitle,
-            fontSize: 15,
-            color: T.text,
-            fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {factura.proveedor_nombre}
-        </div>
-        <div style={{ fontFamily: T.fontUi, fontSize: 11, color: T.muted, marginTop: 2 }}>
-          {fmtFechaES(factura.fecha_factura)}
-          {factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin && (
-            <>
-              {' '}
-              · Recapitulativa {fmtFechaES(factura.periodo_inicio)} →{' '}
-              {fmtFechaES(factura.periodo_fin)}
-            </>
-          )}
-          {factura.numero_factura && (
-            <>
-              {' '}
-              · Nº {factura.numero_factura}
-            </>
-          )}
-        </div>
-        <RazonMatch factura={factura} T={T} />
-      </div>
-
-      <div style={{ textAlign: 'right' }}>
-        <div
-          style={{
-            fontFamily: T.fontTitle,
-            fontSize: 18,
-            color: T.text,
-            fontWeight: 600,
-          }}
-        >
-          {fmtEur(factura.total)}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 6 }}>
-        <BotonIcono T={T} icon={Eye} onClick={onVer} tooltip="Ver detalle" />
-        <AccionesContextuales
-          factura={factura}
-          T={T}
-          onAsociarManual={onAsociarManual}
-          onAccion={onAccion}
-        />
+    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Estado</th>
+              <th style={thStyle}>Fecha</th>
+              <th style={thStyle}>Proveedor</th>
+              <th style={thStyle}>Nº factura</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Base</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>IVA</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
+              <th style={thStyle}>Match</th>
+              <th style={{ ...thStyle, textAlign: 'center' }}>Titular</th>
+            </tr>
+          </thead>
+          <tbody>
+            {facturas.map((f) => {
+              const color = ESTADO_COLOR[f.estado] || T.mut
+              const gastos = f.facturas_gastos || []
+              const nMatches = gastos.length
+              const totalMatch = gastos.reduce((a, g) => a + Math.abs(Number(g.importe_asociado || 0)), 0)
+              const matchText = nMatches > 0
+                ? `✓ ${nMatches} cargo${nMatches > 1 ? 's' : ''} · ${fmtEur(totalMatch)}`
+                : f.estado === 'pendiente_revision' ? 'Sin match'
+                : f.estado === 'duplicada' ? 'Duplicada'
+                : f.estado === 'error' ? 'Error'
+                : '—'
+              const matchColor = nMatches > 0 ? '#1D9E75'
+                : f.estado === 'pendiente_revision' ? '#BA7517'
+                : f.estado === 'error' ? '#A32D2D'
+                : T.mut
+              return (
+                <tr
+                  key={f.id}
+                  onClick={() => onClick(f)}
+                  style={{ cursor: 'pointer', transition: 'background 120ms' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = T.group }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block' }} />
+                      <span style={{ fontSize: 12, color: T.sec }}>{ESTADO_NOMBRE[f.estado] || f.estado}</span>
+                    </div>
+                  </td>
+                  <td style={tdStyle}>{fechaCorta(f.fecha_factura)}</td>
+                  <td style={{ ...tdStyle, fontWeight: 500 }}>{truncar(f.proveedor_nombre, 32)}</td>
+                  <td style={{ ...tdStyle, fontFamily: 'Consolas, monospace', fontSize: 12, color: T.sec }}>{truncar(f.numero_factura, 20)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_base)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEur(f.total_iva)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmtEur(f.total)}</td>
+                  <td style={{ ...tdStyle, fontSize: 12, color: matchColor }}>{matchText}</td>
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                    {f.titular ? (
+                      <span
+                        title={f.titular.nombre}
+                        style={{
+                          display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
+                          background: f.titular.color, border: `0.5px solid ${T.brd}`,
+                        }}
+                      />
+                    ) : <span style={{ color: T.mut, fontSize: 11 }}>—</span>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
 
-function BotonIcono({
-  T,
-  icon: Icon,
-  onClick,
-  tooltip,
-  color,
-}: {
-  T: FacturasTokens
-  icon: React.ComponentType<{ size?: number; color?: string }>
-  onClick: () => void
-  tooltip: string
-  color?: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={tooltip}
-      style={{
-        width: 32,
-        height: 32,
-        border: `1px solid ${T.border}`,
-        borderRadius: 8,
-        backgroundColor: 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        color: color || T.text,
-      }}
-    >
-      <Icon size={14} color={color || T.text} />
-    </button>
-  )
-}
+/* ═════════ TABLA FALTANTES ═════════ */
 
-function AccionesContextuales({
-  factura,
-  T,
-  onAsociarManual,
-  onAccion,
-}: {
-  factura: Factura
-  T: FacturasTokens
-  onAsociarManual: () => void
-  onAccion: (tipo: 'confirmar' | 'rechazar' | 'reintentar') => void
-}) {
-  const matches = factura.facturas_gastos || []
-
-  if (factura.estado === 'asociada') {
-    return (
-      <>
-        <BotonIcono
-          T={T}
-          icon={Check}
-          onClick={() => onAccion('confirmar')}
-          tooltip="Confirmar"
-          color="#1D9E75"
-        />
-        <BotonIcono
-          T={T}
-          icon={X}
-          onClick={() => onAccion('rechazar')}
-          tooltip="Rechazar"
-          color="#A32D2D"
-        />
-      </>
-    )
-  }
-
-  if (factura.estado === 'pendiente_revision') {
-    return (
-      <>
-        {matches.length > 0 && (
-          <BotonIcono
-            T={T}
-            icon={Check}
-            onClick={() => onAccion('confirmar')}
-            tooltip="Aceptar match sugerido"
-            color="#1D9E75"
-          />
-        )}
-        <BotonIcono
-          T={T}
-          icon={SearchCheck}
-          onClick={onAsociarManual}
-          tooltip="Buscar manual en banco"
-        />
-        <BotonIcono
-          T={T}
-          icon={X}
-          onClick={() => onAccion('rechazar')}
-          tooltip="Descartar"
-          color="#A32D2D"
-        />
-      </>
-    )
-  }
-
-  if (factura.estado === 'error') {
-    return (
-      <>
-        <BotonIcono
-          T={T}
-          icon={RefreshCw}
-          onClick={() => onAccion('reintentar')}
-          tooltip="Reintentar OCR"
-        />
-        <BotonIcono
-          T={T}
-          icon={X}
-          onClick={() => onAccion('rechazar')}
-          tooltip="Descartar"
-          color="#A32D2D"
-        />
-      </>
-    )
-  }
-
-  return null
-}
-
-/* ═════════ RAZÓN MATCH ═════════ */
-
-function BadgeCruzaCuentas() {
-  return (
-    <span
-      style={{
-        fontSize: 10,
-        padding: '2px 6px',
-        borderRadius: 4,
-        backgroundColor: '#BA751722',
-        color: '#BA7517',
-        marginLeft: 8,
-        letterSpacing: 0.5,
-        fontWeight: 600,
-      }}
-    >
-      ⇄ CUENTA CRUZADA
-    </span>
-  )
-}
-
-function RazonMatch({ factura, T }: { factura: Factura; T: FacturasTokens }) {
-  const matches = factura.facturas_gastos || []
-  const mensaje = factura.mensaje_matching
-  const cruza = matches.some((m) => m.cruza_cuentas)
-
-  if (factura.estado === 'asociada' && matches.length === 1 && matches[0].conciliacion) {
-    const g = matches[0].conciliacion
-    const conf = matches[0].confianza_match
-    return (
-      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#1D9E75', marginTop: 6 }}>
-        ✅ Coincide con gasto del <b>{fmtFechaES(g.fecha)}</b> por{' '}
-        <b>{fmtEur(Math.abs(Number(g.importe)))}</b>
-        {conf != null && (
-          <span style={{ color: T.muted, marginLeft: 8 }}>({Math.round(conf)}% confianza)</span>
-        )}
-        {cruza && <BadgeCruzaCuentas />}
-      </div>
-    )
-  }
-
-  if (factura.estado === 'asociada' && matches.length > 1) {
-    const suma = matches.reduce(
-      (a, m) => a + Math.abs(Number(m.conciliacion?.importe ?? m.importe_asociado)),
-      0,
-    )
-    return (
-      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#1D9E75', marginTop: 6 }}>
-        ✅ Recapitulativa: <b>{matches.length} cargos</b> suman <b>{fmtEur(suma)}</b>
-        {cruza && <BadgeCruzaCuentas />}
-      </div>
-    )
-  }
-
-  if (factura.estado === 'pendiente_revision') {
-    return (
-      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#BA7517', marginTop: 6 }}>
-        ⚠️ {mensaje || 'Sin gastos asociados automáticamente'}
-      </div>
-    )
-  }
-
-  if (factura.tipo === 'plataforma') {
-    return (
-      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: T.muted, marginTop: 6 }}>
-        📱 Liquidación {factura.plataforma}. Se asocia a ingresos, no gastos.
-      </div>
-    )
-  }
-
-  if (factura.estado === 'error' && factura.mensaje_matching) {
-    return (
-      <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#A32D2D', marginTop: 6 }}>
-        ❌ {factura.mensaje_matching}
-      </div>
-    )
-  }
-
-  return null
-}
-
-/* ═════════ FALTANTES ═════════ */
-
-function TablaFaltantes({ T, faltantes }: { T: FacturasTokens; faltantes: Faltante[] }) {
+function TablaFaltantes({ T, faltantes }: { T: TokenSet; faltantes: Faltante[] }) {
   if (faltantes.length === 0) {
     return (
-      <div
-        style={{
-          backgroundColor: T.card,
-          borderRadius: 12,
-          padding: 60,
-          textAlign: 'center',
-          border: `1px solid ${T.border}`,
-        }}
-      >
-        <div style={{ fontFamily: T.fontUi, fontSize: 14, color: T.muted }}>
-          ✅ No hay facturas faltantes
-        </div>
+      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 40, textAlign: 'center', fontFamily: FONT.body, color: T.mut, fontSize: 13 }}>
+        No hay facturas faltantes.
       </div>
     )
   }
+  const thStyle: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 10,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+    color: T.mut,
+    padding: '10px 12px',
+    textAlign: 'left',
+    background: T.group,
+    borderBottom: `0.5px solid ${T.brd}`,
+    fontWeight: 400,
+  }
+  const tdStyle: CSSProperties = {
+    padding: '10px 12px',
+    fontSize: 13,
+    fontFamily: FONT.body,
+    color: T.pri,
+    borderBottom: `0.5px solid ${T.brd}`,
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {faltantes.map((f) => (
-        <div
-          key={f.id}
-          style={{
-            backgroundColor: T.card,
-            border: `1px solid ${T.border}`,
-            borderLeft: `4px solid #A32D2D`,
-            borderRadius: 10,
-            padding: '14px 18px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: T.fontTitle,
-                fontSize: 14,
-                color: T.text,
-                fontWeight: 600,
-              }}
-            >
-              {f.proveedor_nombre} · {f.frecuencia}
-            </div>
-            <div
-              style={{
-                fontFamily: T.fontUi,
-                fontSize: 11,
-                color: T.muted,
-                marginTop: 3,
-              }}
-            >
-              Esperada hace {diasEntre(f.periodo_ref)} días ({fmtFechaES(f.periodo_ref)})
-              {f.importe_estimado ? ` · ~${fmtEur(f.importe_estimado)}` : ''}
-            </div>
-          </div>
-          <button
-            style={{
-              padding: '8px 14px',
-              backgroundColor: T.accentRed,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontFamily: T.fontTitle,
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              cursor: 'pointer',
-              fontWeight: 600,
-              flexShrink: 0,
-            }}
-          >
-            Subir ahora
-          </button>
-        </div>
-      ))}
+    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Proveedor</th>
+            <th style={thStyle}>Frecuencia</th>
+            <th style={thStyle}>Período</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Estimado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {faltantes.map((f) => (
+            <tr key={f.id}>
+              <td style={tdStyle}>{f.proveedor_nombre}</td>
+              <td style={tdStyle}><span style={{ fontSize: 12, color: T.sec }}>{f.frecuencia}</span></td>
+              <td style={tdStyle}>{f.periodo_ref}</td>
+              <td style={{ ...tdStyle, textAlign: 'right' }}>{f.importe_estimado ? fmtEur(f.importe_estimado) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtFechaES } from '@/utils/format'
@@ -32,9 +32,11 @@ export interface FacturaDetalle {
   total_iva: number
   total: number
   pdf_drive_url: string | null
+  pdf_drive_id?: string | null
   pdf_original_name: string | null
   estado: string
   mensaje_matching: string | null
+  error_mensaje?: string | null
   ocr_raw: unknown
   titular_id?: string | null
   facturas_gastos?: FacturaGasto[]
@@ -45,9 +47,10 @@ interface Props {
   factura: FacturaDetalle
   onClose: () => void
   onUpdate: () => void
+  onOpenAsociarManual?: () => void
 }
 
-export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: Props) {
+export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onOpenAsociarManual }: Props) {
   const [datos, setDatos] = useState<FacturaDetalle>(factura)
   const [gastos, setGastos] = useState<FacturaGasto[]>(factura.facturas_gastos || [])
   const { titulares } = useTitular()
@@ -123,7 +126,65 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
     onUpdate()
   }
 
+  async function desasociar() {
+    if (!confirm('¿Desasociar gastos de esta factura?')) return
+    await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
+    await supabase.from('facturas').update({ estado: 'pendiente_revision' }).eq('id', factura.id)
+    onUpdate()
+  }
+
+  async function aceptarMatchSugerido() {
+    try {
+      await fetch(`/api/facturas/${factura.id}/confirmar`, { method: 'POST' })
+    } catch {
+      await supabase.from('facturas_gastos').update({ confirmado: true }).eq('factura_id', factura.id)
+      await supabase.from('facturas').update({ estado: 'asociada' }).eq('id', factura.id)
+    }
+    onUpdate()
+  }
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [subiendoDrive, setSubiendoDrive] = useState(false)
+  const [driveMsg, setDriveMsg] = useState<string | null>(null)
+
+  async function onSelectFileParaDrive(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendoDrive(true)
+    setDriveMsg(null)
+    try {
+      const buffer = await file.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      const chunkSize = 0x8000
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)))
+      }
+      const base64 = btoa(binary)
+      const r = await fetch(`/api/facturas/${factura.id}/subir-drive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, nombre: file.name }),
+      })
+      const resp = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        setDriveMsg(`Error Drive: ${resp.error || r.statusText}`)
+      } else {
+        setDriveMsg('Subido a Drive correctamente')
+        onUpdate()
+      }
+    } catch (err) {
+      setDriveMsg(err instanceof Error ? err.message : 'Error subiendo archivo')
+    } finally {
+      setSubiendoDrive(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const esPdf = datos.pdf_drive_url && /\.pdf/i.test(datos.pdf_original_name || '')
+  const hayMatches = (gastos?.length ?? 0) > 0
+  const driveError = (datos.error_mensaje || '').toLowerCase().startsWith('drive:')
+  const sinDrive = !datos.pdf_drive_id
 
   return (
     <div
@@ -142,7 +203,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: '#1a1a1a',
+          backgroundColor: T.base,
           borderRadius: 14,
           maxWidth: 900,
           width: '100%',
@@ -204,7 +265,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
             style={{
               borderRight: `1px solid ${T.border}`,
               minHeight: 400,
-              background: '#0a0a0a',
+              background: T.group,
             }}
           >
             {esPdf && datos.pdf_drive_url ? (
@@ -395,6 +456,61 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
           </div>
         </div>
 
+        {/* Alerta Drive si no está en Drive o hubo error */}
+        {(sinDrive || driveError) && (
+          <div
+            style={{
+              padding: '10px 22px',
+              borderTop: `1px solid ${T.border}`,
+              background: '#A32D2D15',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#ff8a8a', fontWeight: 600 }}>
+                {driveError ? 'Error subiendo a Drive' : 'PDF no está en Drive'}
+              </div>
+              <div style={{ fontFamily: T.fontUi, fontSize: 11, color: T.muted, marginTop: 2 }}>
+                {datos.error_mensaje || 'Re-sube el archivo para guardarlo en /carpetas/TITULAR/AÑO/…'}
+              </div>
+              {driveMsg && (
+                <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? '#ff8a8a' : '#1D9E75', marginTop: 4 }}>
+                  {driveMsg}
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.eml"
+              style={{ display: 'none' }}
+              onChange={onSelectFileParaDrive}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={subiendoDrive}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#A32D2D',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontFamily: T.fontTitle,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                cursor: subiendoDrive ? 'progress' : 'pointer',
+                opacity: subiendoDrive ? 0.6 : 1,
+              }}
+            >
+              {subiendoDrive ? 'Subiendo…' : '📤 Re-subir a Drive'}
+            </button>
+          </div>
+        )}
+
         {/* Footer */}
         <div
           style={{
@@ -403,12 +519,38 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
             display: 'flex',
             gap: 8,
             justifyContent: 'flex-end',
+            flexWrap: 'wrap',
           }}
         >
+          {datos.pdf_drive_url && (
+            <a
+              href={datos.pdf_drive_url}
+              target="_blank"
+              rel="noopener"
+              style={{
+                padding: '9px 14px',
+                backgroundColor: 'transparent',
+                color: T.text,
+                border: `1px solid ${T.border}`,
+                borderRadius: 8,
+                fontFamily: T.fontTitle,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              📎 Ver PDF en Drive
+            </a>
+          )}
           <button
             onClick={eliminar}
             style={{
-              padding: '9px 18px',
+              padding: '9px 14px',
               backgroundColor: 'transparent',
               color: '#A32D2D',
               border: `1px solid #A32D2D`,
@@ -420,12 +562,12 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
               cursor: 'pointer',
             }}
           >
-            Eliminar
+            🗑️ Borrar factura
           </button>
           <button
             onClick={rematchear}
             style={{
-              padding: '9px 18px',
+              padding: '9px 14px',
               backgroundColor: 'transparent',
               color: T.text,
               border: `1px solid ${T.border}`,
@@ -437,12 +579,71 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
               cursor: 'pointer',
             }}
           >
-            Re-matchear
+            🔄 Volver a buscar match
           </button>
+          {factura.estado === 'pendiente_revision' && hayMatches && (
+            <button
+              onClick={aceptarMatchSugerido}
+              style={{
+                padding: '9px 14px',
+                backgroundColor: '#1D9E75',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontFamily: T.fontTitle,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              ✅ Aceptar match sugerido
+            </button>
+          )}
+          {factura.estado === 'pendiente_revision' && !hayMatches && onOpenAsociarManual && (
+            <button
+              onClick={onOpenAsociarManual}
+              style={{
+                padding: '9px 14px',
+                backgroundColor: '#BA7517',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontFamily: T.fontTitle,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              🔍 Buscar match manual
+            </button>
+          )}
+          {factura.estado === 'asociada' && (
+            <button
+              onClick={desasociar}
+              style={{
+                padding: '9px 14px',
+                backgroundColor: 'transparent',
+                color: '#BA7517',
+                border: `1px solid #BA7517`,
+                borderRadius: 8,
+                fontFamily: T.fontTitle,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              ❌ Desasociar
+            </button>
+          )}
           <button
             onClick={guardar}
             style={{
-              padding: '9px 18px',
+              padding: '9px 14px',
               backgroundColor: T.accentRed,
               color: '#fff',
               border: 'none',
@@ -455,7 +656,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
               cursor: 'pointer',
             }}
           >
-            Guardar
+            💾 Guardar cambios
           </button>
         </div>
       </div>

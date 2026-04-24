@@ -118,14 +118,26 @@ export default function PuntoEquilibrio() {
   const { T } = useTheme()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+    setError(null)
     fetch('/api/pe/dashboard')
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setData(d) })
-      .catch(() => { if (!cancelled) setData(null) })
+      .then(async r => {
+        const text = await r.text()
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${text.slice(0, 300)}`)
+        try {
+          return JSON.parse(text) as DashboardData
+        } catch {
+          throw new Error(`Respuesta no JSON (${r.status}). Probable endpoint no desplegado.`)
+        }
+      })
+      .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
+      .catch(e => { if (!cancelled) { setError(e.message || String(e)); setLoading(false) } })
     return () => { cancelled = true }
   }, [refreshKey])
 
@@ -140,15 +152,35 @@ export default function PuntoEquilibrio() {
 
       <Tabs T={T} tab={tab} setTab={setTab} />
 
-      {!data && (
+      {loading && (
         <div style={{ padding: 40, color: T.mut, fontFamily: FONT.body }}>Cargando...</div>
       )}
 
-      {data && tab === 'dashboard' && <TabDashboard T={T} data={data} />}
-      {data && tab === 'presupuestos' && <TabPresupuestos T={T} data={data} />}
-      {data && tab === 'simulador' && <TabSimulador T={T} data={data} />}
-      {data && tab === 'dow' && <TabDow T={T} data={data} />}
-      {data && tab === 'config' && (
+      {!loading && error && (
+        <div style={{
+          padding: 20,
+          borderRadius: 10,
+          background: '#A32D2D22',
+          borderLeft: '3px solid #A32D2D',
+          fontFamily: FONT.body,
+          fontSize: 13,
+          color: T.pri,
+          lineHeight: 1.6,
+        }}>
+          <strong>Error cargando dashboard PE:</strong>
+          <div style={{ marginTop: 6, color: T.sec, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>
+          <div style={{ marginTop: 10, color: T.mut, fontSize: 12 }}>
+            Comprueba que el endpoint <code>/api/pe/dashboard</code> está desplegado y que Supabase
+            tiene la tabla <code>pe_parametros</code> con un registro global (<code>marca_id IS NULL</code>).
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && data && tab === 'dashboard' && <TabDashboard T={T} data={data} />}
+      {!loading && !error && data && tab === 'presupuestos' && <TabPresupuestos T={T} data={data} />}
+      {!loading && !error && data && tab === 'simulador' && <TabSimulador T={T} data={data} />}
+      {!loading && !error && data && tab === 'dow' && <TabDow T={T} data={data} />}
+      {!loading && !error && data && tab === 'config' && (
         <TabConfig T={T} data={data} onSaved={() => setRefreshKey(k => k + 1)} />
       )}
     </div>

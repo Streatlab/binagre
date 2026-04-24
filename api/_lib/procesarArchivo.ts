@@ -277,6 +277,7 @@ async function procesarContenidoPrincipal(
       },
       ext,
     )
+    let driveErrorMsg: string | null = null
     try {
       // Si es texto pegado o email sin .pdf, también subimos el buffer original
       const drive = await subirArchivoADrive(file.buffer, nombreArchivo, {
@@ -295,17 +296,18 @@ async function procesarContenidoPrincipal(
         })
         .eq('id', nueva.id)
     } catch (driveErr) {
-      const msg = errMsg(driveErr)
-      await supabase
-        .from('facturas')
-        .update({ error_mensaje: `Drive: ${msg}` })
-        .eq('id', nueva.id)
+      driveErrorMsg = errMsg(driveErr)
     }
 
-    // Estado final + tipo de origen para trazabilidad
+    // Estado final: si hubo error Drive, preservarlo; si no, trazar origen de texto
+    const mensajeFinal = driveErrorMsg
+      ? `Drive: ${driveErrorMsg}`
+      : tipo === 'texto'
+        ? 'origen: texto pegado'
+        : null
     await supabase
       .from('facturas')
-      .update({ error_mensaje: tipo === 'texto' ? 'origen: texto pegado' : null })
+      .update({ error_mensaje: mensajeFinal })
       .eq('id', nueva.id)
 
     const { data: finalFac } = await supabase
