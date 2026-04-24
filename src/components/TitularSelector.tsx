@@ -6,7 +6,7 @@ export default function TitularSelector() {
   const { filtro, setFiltro, titulares } = useTitular()
 
   const botones = [
-    { id: 'unificado', color: '#B01D23', label: 'Unificado' },
+    { id: 'unificado', color: '#B01D23', label: 'SL' },
     ...titulares.map((t) => ({ id: t.id, color: t.color || '#B01D23', label: t.nombre })),
   ]
 

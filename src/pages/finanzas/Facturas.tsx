@@ -23,6 +23,7 @@ import ModalAsociarManual from '@/components/facturas/ModalAsociarManual'
 import ModalDetalleFactura, {
   type FacturaDetalle,
 } from '@/components/facturas/ModalDetalleFactura'
+import TitularSelector from '@/components/TitularSelector'
 
 /* ═════════ TYPES ═════════ */
 
@@ -432,19 +433,22 @@ function HeaderFacturas({
         gap: 12,
       }}
     >
-      <h1
-        style={{
-          color: T.accentRed,
-          fontFamily: T.fontTitle,
-          fontSize: 22,
-          fontWeight: 600,
-          letterSpacing: 3,
-          margin: 0,
-          textTransform: 'uppercase',
-        }}
-      >
-        IMPORTAR FACTURAS
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <h1
+          style={{
+            color: T.accentRed,
+            fontFamily: T.fontTitle,
+            fontSize: 22,
+            fontWeight: 600,
+            letterSpacing: 3,
+            margin: 0,
+            textTransform: 'uppercase',
+          }}
+        >
+          IMPORTAR FACTURAS
+        </h1>
+        <TitularSelector />
+      </div>
       <select
         value={rango}
         onChange={(e) => setRango(e.target.value as Rango)}
