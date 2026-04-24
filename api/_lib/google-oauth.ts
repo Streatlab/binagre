@@ -29,18 +29,20 @@ export interface TokenRow {
 }
 
 /**
- * Devuelve un OAuth2Client listo para usar por un titular (o `null` = unificado).
- * Se auto-refresca si el access_token expiró; al refrescar, persiste el nuevo token.
+ * Devuelve el OAuth2Client global. Solo existe UN token en todo el sistema
+ * (titular_id IS NULL). Los PDFs van siempre al Drive de ese usuario,
+ * dentro de carpetas RUBEN/ o EMILIO/ según el titular de cada factura.
  */
-export async function getOAuthClient(titularId: string | null = null): Promise<OAuth2Client> {
-  let query = supabaseAdmin.from('google_oauth_tokens').select('*')
-  query = titularId ? query.eq('titular_id', titularId) : query.is('titular_id', null)
-  const { data, error } = await query.maybeSingle()
+export async function getOAuthClient(): Promise<OAuth2Client> {
+  const { data, error } = await supabaseAdmin
+    .from('google_oauth_tokens')
+    .select('*')
+    .is('titular_id', null)
+    .maybeSingle()
   if (error) throw error
   const token = data as TokenRow | null
   if (!token) {
-    const who = titularId ? `titular ${titularId}` : 'cuenta unificada'
-    throw new Error(`Drive no conectado para ${who}. Conecta en Configuración · Titulares.`)
+    throw new Error('Drive no conectado. Conecta en Configuración → Cuentas bancarias → Drive (Google).')
   }
 
   const oauth2Client = makeOAuth2Client()
@@ -68,10 +70,12 @@ export async function getOAuthClient(titularId: string | null = null): Promise<O
   return oauth2Client
 }
 
-export async function tieneDriveConectado(titularId: string | null): Promise<{ conectado: boolean; email?: string }> {
-  let query = supabaseAdmin.from('google_oauth_tokens').select('email')
-  query = titularId ? query.eq('titular_id', titularId) : query.is('titular_id', null)
-  const { data } = await query.maybeSingle()
+export async function tieneDriveConectado(): Promise<{ conectado: boolean; email?: string }> {
+  const { data } = await supabaseAdmin
+    .from('google_oauth_tokens')
+    .select('email')
+    .is('titular_id', null)
+    .maybeSingle()
   if (!data) return { conectado: false }
   return { conectado: true, email: (data as { email: string | null }).email || undefined }
 }

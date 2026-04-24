@@ -10,18 +10,17 @@ type DriveExtracted = {
   tipo: 'proveedor' | 'plataforma' | 'otro'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
   carpeta_titular?: string
-  titular_id?: string | null
 }
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || ''
 
 /**
- * Devuelve un cliente Drive autenticado via OAuth del titular.
- * Si titular_id es null, usa el OAuth unificado. Si nadie ha conectado Drive,
- * propaga el error de getOAuthClient con mensaje accionable.
+ * Devuelve el cliente Drive global. Hay un solo token OAuth en todo el sistema.
+ * La separación por titular se hace en la estructura de carpetas (RUBEN/, EMILIO/),
+ * no a nivel de cuenta Google.
  */
-async function getDriveForTitular(titularId: string | null): Promise<drive_v3.Drive> {
-  const auth = await getOAuthClient(titularId)
+async function getDriveGlobal(): Promise<drive_v3.Drive> {
+  const auth = await getOAuthClient()
   return google.drive({ version: 'v3', auth })
 }
 
@@ -81,8 +80,7 @@ export async function subirArchivoADrive(
   extracted: DriveExtracted,
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null }> {
-  const titularId = extracted.titular_id || null
-  const drive = await getDriveForTitular(titularId)
+  const drive = await getDriveGlobal()
 
   const fecha = new Date(extracted.fecha_factura)
   const año = String(fecha.getFullYear())

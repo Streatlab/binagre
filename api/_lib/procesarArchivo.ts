@@ -306,7 +306,6 @@ async function procesarContenidoPrincipal(
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
         carpeta_titular: carpetaTitular,
-        titular_id: titularId,
       }, ext)
       await supabase
         .from('facturas')

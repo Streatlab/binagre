@@ -57,7 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tipo: factura.tipo,
       plataforma: factura.plataforma,
       carpeta_titular: carpetaTitular,
-      titular_id: factura.titular_id,
     }, ext)
     await supabaseAdmin
       .from('facturas')
