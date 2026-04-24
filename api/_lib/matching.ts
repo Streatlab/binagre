@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ExtractedFactura } from './ocr'
+import type { ExtractedFactura } from './ocr.js'
 
 const LIMITE_CONCILIACION = '2023-07-01'
 
