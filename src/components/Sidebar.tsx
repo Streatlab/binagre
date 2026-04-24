@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
+import { supabase } from '@/lib/supabase'
 
 interface NavItem {
   path: string
@@ -41,6 +42,7 @@ const SECTIONS: NavSection[] = [
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
+      { path: '/finanzas/facturas',             label: 'Facturas',            emoji: '📄', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
       { path: '/finanzas/analisis',             label: 'Análisis',            emoji: '🔍', perfiles: ['admin'] },
@@ -157,6 +159,22 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const hoverBg = isDark ? T.card : T.group
 
   const [openSections, setOpenSections] = useState<string[]>([])
+  const [faltantesCount, setFaltantesCount] = useState(0)
+
+  useEffect(() => {
+    if (perfil !== 'admin') return
+    let cancelled = false
+    supabase
+      .from('facturas_faltantes')
+      .select('estado')
+      .eq('estado', 'falta')
+      .then(({ data }) => {
+        if (!cancelled && data) setFaltantesCount(data.length)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [perfil])
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
@@ -318,23 +336,40 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
                 {!collapsed && (
                   <div style={{ maxHeight: isOpen ? `${visibleItems.length * 42}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
-                    {visibleItems.map((item, idx) => (
-                      <NavLink
-                        key={`${item.path}-${idx}`}
-                        to={item.path}
-                        end
-                        onClick={onClose}
-                        style={({ isActive }) => itemStyle(isActive)}
-                        className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
-                      >
-                        {({ isActive }) => (
-                          <>
-                            <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
-                          </>
-                        )}
-                      </NavLink>
-                    ))}
+                    {visibleItems.map((item, idx) => {
+                      const showBadge = item.path === '/finanzas/facturas' && faltantesCount > 0
+                      return (
+                        <NavLink
+                          key={`${item.path}-${idx}`}
+                          to={item.path}
+                          end
+                          onClick={onClose}
+                          style={({ isActive }) => itemStyle(isActive)}
+                          className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
+                              {showBadge && (
+                                <span style={{
+                                  background: '#B01D23',
+                                  color: '#ffffff',
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: '1px 6px',
+                                  borderRadius: 8,
+                                  marginLeft: 4,
+                                  flexShrink: 0,
+                                }}>
+                                  {faltantesCount}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </NavLink>
+                      )
+                    })}
                   </div>
                 )}
               </div>

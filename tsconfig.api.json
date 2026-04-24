@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "lib": ["ES2023"],
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "types": ["node"],
+    "allowImportingTsExtensions": false
+  },
+  "include": ["api/**/*.ts"]
+}
