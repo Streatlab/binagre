@@ -115,14 +115,62 @@ async function procesarContenidoPrincipal(
   // Dedup por hash
   const { data: existente } = await supabase
     .from('facturas')
-    .select('id, numero_factura, proveedor_nombre, total, estado')
+    .select('id, numero_factura, proveedor_nombre, total, estado, pdf_drive_id, pdf_drive_url, fecha_factura, tipo, plataforma, titular_id')
     .eq('pdf_hash', hash)
     .maybeSingle()
   if (existente) {
+    let motivo = 'ya existe'
+
+    // Si la existente no está en Drive y nos re-envían el PDF, aprovecha para subirla
+    if (!existente.pdf_drive_id) {
+      try {
+        let carpeta = 'SIN_TITULAR'
+        if (existente.titular_id) {
+          const { data: t } = await supabase
+            .from('titulares')
+            .select('carpeta_drive')
+            .eq('id', existente.titular_id as string)
+            .maybeSingle()
+          if (t?.carpeta_drive) carpeta = t.carpeta_drive as string
+        }
+        const ext = extensionDeNombre(file.nombre)
+        const nombreArchivo = generarNombreArchivo({
+          proveedor_nombre: existente.proveedor_nombre as string,
+          numero_factura: (existente.numero_factura as string) || '',
+          fecha_factura: existente.fecha_factura as string,
+          tipo: (existente.tipo as 'proveedor' | 'plataforma' | 'otro') || 'proveedor',
+          plataforma: (existente.plataforma as 'uber' | 'glovo' | 'just_eat' | null) || null,
+        }, ext)
+        const drive = await subirArchivoADrive(file.buffer, nombreArchivo, {
+          proveedor_nombre: existente.proveedor_nombre as string,
+          numero_factura: (existente.numero_factura as string) || '',
+          fecha_factura: existente.fecha_factura as string,
+          tipo: (existente.tipo as 'proveedor' | 'plataforma' | 'otro') || 'proveedor',
+          plataforma: (existente.plataforma as 'uber' | 'glovo' | 'just_eat' | null) || null,
+          carpeta_titular: carpeta,
+        }, ext)
+        await supabase
+          .from('facturas')
+          .update({
+            pdf_drive_id: drive.id,
+            pdf_drive_url: drive.webViewLink,
+            error_mensaje: null,
+          })
+          .eq('id', existente.id as string)
+        ;(existente as Record<string, unknown>).pdf_drive_id = drive.id
+        ;(existente as Record<string, unknown>).pdf_drive_url = drive.webViewLink
+        motivo = 'ya existe · PDF subido a Drive ahora'
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        motivo = `ya existe · no se pudo subir a Drive: ${msg}`
+      }
+    }
+
     return {
       estado: 'duplicada',
       archivo: file.nombre,
       factura_existente: existente as Record<string, unknown>,
+      motivo,
     }
   }
 
