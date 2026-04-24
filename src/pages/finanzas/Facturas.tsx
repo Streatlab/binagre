@@ -28,7 +28,14 @@ import TitularSelector from '@/components/TitularSelector'
 /* ═════════ TYPES ═════════ */
 
 type Rango = '7d' | '30d' | 'mes' | 'trimestre' | 'anio' | 'todo'
-type Filtro = 'todas' | 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 'error'
+type Filtro =
+  | 'todas'
+  | 'pendientes'
+  | 'asociadas'
+  | 'faltantes'
+  | 'duplicadas'
+  | 'error'
+  | 'sin_titular'
 
 interface ConciliacionLite {
   id: string
@@ -68,6 +75,7 @@ interface Factura {
   ocr_confianza: number | null
   ocr_raw: unknown
   titular_id?: string | null
+  titular?: { nombre: string; color: string } | null
   created_at: string
   facturas_gastos?: FacturaGastoRaw[]
 }
@@ -131,7 +139,11 @@ function diasEntre(desde: string): number {
 export default function FacturasPage() {
   const { T } = useFacturasTheme()
   const isMobile = useIsMobile()
-  const { filtro: filtroTitular } = useTitular()
+  const { filtro: filtroTitular, titulares } = useTitular()
+  const titularActivo = useMemo(
+    () => (filtroTitular === 'unificado' ? null : titulares.find((t) => t.id === filtroTitular) || null),
+    [filtroTitular, titulares],
+  )
 
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [faltantes, setFaltantes] = useState<Faltante[]>([])
@@ -149,7 +161,7 @@ export default function FacturasPage() {
     let qb = supabase
       .from('facturas')
       .select(
-        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, titular_id, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, cruza_cuentas, conciliacion(id, fecha, importe, concepto, proveedor))',
+        'id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, total_base, total_iva, total, pdf_drive_url, pdf_original_name, estado, mensaje_matching, ocr_confianza, ocr_raw, titular_id, created_at, titular:titulares(nombre, color), facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, cruza_cuentas, conciliacion(id, fecha, importe, concepto, proveedor))',
       )
       .order('fecha_factura', { ascending: false })
       .limit(500)
@@ -189,19 +201,22 @@ export default function FacturasPage() {
     const nAsociadas = facturas.filter((f) => f.estado === 'asociada').length
     const nDuplicadas = facturas.filter((f) => f.estado === 'duplicada').length
     const nError = facturas.filter((f) => f.estado === 'error').length
-    return { totalPeriodo, nTotal, nPendientes, nAsociadas, nDuplicadas, nError }
+    const nSinTitular = facturas.filter((f) => !f.titular_id).length
+    return { totalPeriodo, nTotal, nPendientes, nAsociadas, nDuplicadas, nError, nSinTitular }
   }, [facturas])
 
   const facturasFiltradas = useMemo<Factura[] | Faltante[]>(() => {
     if (filtro === 'faltantes') return faltan
     let lista = [...facturas]
-    const mapEstado: Record<Exclude<Filtro, 'todas' | 'faltantes'>, string> = {
-      pendientes: 'pendiente_revision',
-      asociadas: 'asociada',
-      duplicadas: 'duplicada',
-      error: 'error',
-    }
-    if (filtro !== 'todas') {
+    if (filtro === 'sin_titular') {
+      lista = lista.filter((f) => !f.titular_id)
+    } else if (filtro !== 'todas') {
+      const mapEstado: Record<Exclude<Filtro, 'todas' | 'faltantes' | 'sin_titular'>, string> = {
+        pendientes: 'pendiente_revision',
+        asociadas: 'asociada',
+        duplicadas: 'duplicada',
+        error: 'error',
+      }
       lista = lista.filter((f) => f.estado === mapEstado[filtro])
     }
     if (busqueda.trim()) {
@@ -223,6 +238,7 @@ export default function FacturasPage() {
     { id: 'faltantes', label: 'Faltantes', color: '#A32D2D', count: faltan.length },
     { id: 'duplicadas', label: 'Duplicadas', color: T.muted, count: kpis.nDuplicadas },
     { id: 'error', label: 'Error', color: '#A32D2D', count: kpis.nError },
+    { id: 'sin_titular', label: 'Sin titular', color: T.muted, count: kpis.nSinTitular },
   ]
 
   const subirArchivos = useCallback(
@@ -331,6 +347,7 @@ export default function FacturasPage() {
         faltantes={faltan.length}
         isMobile={isMobile}
         setFiltro={setFiltro}
+        titularActivo={titularActivo}
       />
 
       <div
@@ -479,6 +496,7 @@ function FilaKpis({
   faltantes,
   isMobile,
   setFiltro,
+  titularActivo,
 }: {
   T: FacturasTokens
   kpis: {
@@ -490,6 +508,7 @@ function FilaKpis({
   faltantes: number
   isMobile: boolean
   setFiltro: (f: Filtro) => void
+  titularActivo: { nombre: string; color: string } | null
 }) {
   const cards: Array<{
     label: string
@@ -499,10 +518,10 @@ function FilaKpis({
     onClick?: () => void
   }> = [
     {
-      label: 'TOTAL PERIODO',
+      label: titularActivo ? `TOTAL ${titularActivo.nombre.toUpperCase()}` : 'TOTAL PERIODO',
       valor: fmtEur(kpis.totalPeriodo),
       sub: `${kpis.nTotal} facturas`,
-      color: T.accent,
+      color: titularActivo?.color || T.accent,
     },
     {
       label: 'PENDIENTES',
@@ -764,24 +783,38 @@ function FilaFactura({
         alignItems: 'center',
       }}
     >
-      <span
-        style={{
-          display: 'inline-block',
-          padding: '4px 10px',
-          borderRadius: 12,
-          backgroundColor: `${color}22`,
-          color,
-          fontFamily: T.fontTitle,
-          fontSize: 10,
-          letterSpacing: 0.8,
-          textTransform: 'uppercase',
-          fontWeight: 700,
-          textAlign: 'center',
-          width: 'fit-content',
-        }}
-      >
-        {nombre}
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            padding: '4px 10px',
+            borderRadius: 12,
+            backgroundColor: `${color}22`,
+            color,
+            fontFamily: T.fontTitle,
+            fontSize: 10,
+            letterSpacing: 0.8,
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            textAlign: 'center',
+          }}
+        >
+          {nombre}
+        </span>
+        {factura.titular && (
+          <span
+            title={factura.titular.nombre}
+            style={{
+              display: 'inline-block',
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: factura.titular.color,
+              flexShrink: 0,
+            }}
+          />
+        )}
+      </div>
 
       <div style={{ minWidth: 0 }}>
         <div

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtFechaES } from '@/utils/format'
 import type { FacturasTokens } from '@/styles/facturasTheme'
+import { useTitular } from '@/contexts/TitularContext'
 
 interface FacturaGasto {
   id: string
@@ -35,6 +36,7 @@ export interface FacturaDetalle {
   estado: string
   mensaje_matching: string | null
   ocr_raw: unknown
+  titular_id?: string | null
   facturas_gastos?: FacturaGasto[]
 }
 
@@ -48,6 +50,8 @@ interface Props {
 export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: Props) {
   const [datos, setDatos] = useState<FacturaDetalle>(factura)
   const [gastos, setGastos] = useState<FacturaGasto[]>(factura.facturas_gastos || [])
+  const { titulares } = useTitular()
+  const titularOriginal = factura.titular_id || null
 
   useEffect(() => {
     ;(async () => {
@@ -70,6 +74,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
   }, [factura.id])
 
   async function guardar() {
+    const cambioTitular = (datos.titular_id || null) !== titularOriginal
     try {
       await fetch(`/api/facturas/${factura.id}`, {
         method: 'PUT',
@@ -84,8 +89,16 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
           numero_factura: datos.numero_factura,
           fecha_factura: datos.fecha_factura,
           total: datos.total,
+          titular_id: datos.titular_id || null,
         })
         .eq('id', factura.id)
+    }
+    if (cambioTitular) {
+      try {
+        await fetch(`/api/facturas/${factura.id}/rematch`, { method: 'POST' })
+      } catch {
+        /* dev sin serverless: el rematch no corre, el usuario puede lanzarlo desde el botón */
+      }
     }
     onUpdate()
   }
@@ -258,6 +271,43 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate }: P
               onChange={(v) => setDatos({ ...datos, fecha_factura: v })}
               type="date"
             />
+            <div style={{ marginBottom: 10 }}>
+              <label
+                style={{
+                  fontFamily: T.fontUi,
+                  fontSize: 11,
+                  color: T.muted,
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Titular
+              </label>
+              <select
+                value={datos.titular_id || ''}
+                onChange={(e) =>
+                  setDatos({ ...datos, titular_id: e.target.value || null })
+                }
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  backgroundColor: '#1e1e1e',
+                  color: T.text,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 6,
+                  fontFamily: T.fontUi,
+                  fontSize: 13,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <option value="">— Sin asignar —</option>
+                {titulares.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre} · {t.nif}
+                  </option>
+                ))}
+              </select>
+            </div>
             <CampoEditable
               T={T}
               label="Base"
