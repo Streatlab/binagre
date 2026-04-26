@@ -1,40 +1,74 @@
-# SPEC — Fix Conciliación · matching automático de proveedor
+# SPEC — PE Refactor · Dashboard responde 4 preguntas con datos reales Running
 
 ## Contexto
-La columna "Contraparte" de `/finanzas/conciliacion` está vacía. Causa: la tabla `conciliacion` (5.655 movs en BD) tiene la columna `proveedor` 100% NULL. La tabla `proveedor_alias` (55 alias mapeados a proveedor canónico) ya existe pero no se está usando en el flujo de inserción.
+El módulo `/finanzas/punto-equilibrio` hoy depende de `pe_parametros` (21 inputs manuales en tab Configuración). Esto desincroniza PE de la realidad: los fijos editados a mano no reflejan lo que se gasta de verdad. Además hay 2 KPIs duplicados con la tabla "Coste de mantener Streat Lab".
 
-El backfill SQL ya está aplicado: 873/5655 movs (15,4%) tienen `proveedor` rellenado retroactivamente. Resta arreglar el flujo de **inserción/edición** para que toda escritura futura matchee automáticamente.
+## Objetivo
+PE debe responder 5 preguntas con datos en directo desde Running Financiero + Presupuestos (promedio 3 últimos meses cerrados):
+
+1. ¿Somos rentables este mes? (SÍ/NO + delta proyectado vs PE)
+2. ¿Desde qué día del mes cubrimos gastos?
+3. ¿Cuánto facturar bruto al MES para ser rentables?
+4. ¿Cuánto bruto/SEMANA cerrando 2 días variados/sem (5 días operativos)?
+5. ¿Cuánto bruto/DÍA cerrando 2 días variados/sem (~22 días operativos/mes)?
 
 ## Criterio DADO/CUANDO/ENTONCES
 
-### CA-1 · Importación de CSV
-- **DADO** un CSV importado vía `ImportDropzone` con N movimientos
-- **CUANDO** `useConciliacion.insertMovimientos` procesa las filas
-- **ENTONCES** cada fila inserta `proveedor` matcheado contra `proveedor_alias` por `concepto.toLowerCase().includes(alias)`, priorizando alias más largos. Si no hay match, `proveedor = null`.
+### CA-1 · Fuente de fijos = Running, no pe_parametros
+- **DADO** que existen ≥3 meses cerrados en Facturación
+- **CUANDO** Dashboard PE carga
+- **ENTONCES** los fijos mensuales se calculan como `avg(Running.fijos[mes-3..mes-1])` por categoría, usando taxonomía `CATEGORIAS_ORDEN`/`CATEGORIA_COLOR` de `src/lib/running`.
+- **Y** si <3 meses cerrados, mostrar fallback "Datos insuficientes · usando últimos N meses cerrados" sin romper la página.
 
-### CA-2 · UI Conciliación
-- **DADO** un movimiento ya en BD con `proveedor` rellenado
-- **CUANDO** el usuario abre la pestaña "Movimientos" en `/finanzas/conciliacion`
-- **ENTONCES** la columna "Contraparte" muestra el `proveedor_canonico` (ej. "Mercadona", "Uber Eats"). Sin fallback al raw del concepto.
+### CA-2 · Fuente de variables = Presupuestos + reales últimos 3 meses
+- **DADO** Presupuestos con desviaciones reales últimos 3 meses cerrados
+- **CUANDO** se calcula margen bruto
+- **ENTONCES** food_cost_pct = Σ compras PRD-ALI 3m / Σ bruto ventas 3m. packaging_pct = Σ PRD-PKG 3m / Σ bruto ventas 3m. comisión_ponderada_pct = Σ comisiones plataformas 3m / Σ bruto ventas 3m.
+- **Y** estos 3 ratios sustituyen completamente los inputs manuales del antiguo tab Configuración.
 
-### CA-3 · Caché de alias
-- **DADO** un usuario realiza múltiples imports en una sesión
-- **CUANDO** se llama a `loadAliases()` repetidas veces
-- **ENTONCES** la primera llamada consulta Supabase, las siguientes leen de caché en memoria. Existe `invalidateAliasCache()` exportado para forzar refresh.
+### CA-3 · Tab Configuración eliminado
+- **DADO** la nueva fuente de datos (CA-1 + CA-2)
+- **CUANDO** el usuario navega a `/finanzas/punto-equilibrio`
+- **ENTONCES** existen tabs: Dashboard, Presupuestos, Simulador, Día semana. NO existe tab Configuración.
+- **Y** los 5 parámetros que sí siguen siendo editables (`tasa_fiscal_pct`, `objetivo_beneficio_mensual`, `caja_minima_verde`, `caja_minima_ambar`, `iva_pct`) se editan desde una página global `/configuracion/pe-parametros` (o equivalente), NO desde un tab dentro de PE.
 
-## No-objetivos
-- No tocar movimientos existentes (ya backfilleados por SQL).
-- No matchear contra "concepto raw" como fallback en la UI — si no hay proveedor canónico, celda vacía o "—".
-- No abordar Bizum/transferencias genéricas (no tienen contraparte en concepto).
+### CA-4 · Dashboard rehecho con 2 KPIs principales + tabla 3×3
+- **DADO** los datos calculados en CA-1/CA-2
+- **CUANDO** el usuario abre tab Dashboard
+- **ENTONCES** ve 2 KpiCards grandes arriba: "¿SOMOS RENTABLES?" (SÍ/NO + delta €) y "¿DESDE QUÉ DÍA?" (Día X verde si llega antes del 30, "Día 36 · faltan Y€" rojo si no).
+- **Y** debajo ve sección "OBJETIVOS DE FACTURACIÓN" con tabla 3 filas × 3 columnas:
+  - Filas: "Cubrir fijos" | "Ganar [objetivo] €/mes limpio" | "Estado actual (proyección)"
+  - Columnas: MES | SEMANA (5d) | DÍA (5d/sem)
+- **Y** se eliminan los 2 KPIs antiguos: "CUBRIR GASTOS 11.331€" y "GANAR 3.000€ LIMPIO 20.982€".
 
-## Archivos afectados
-1. **NUEVO** `src/lib/matchProveedor.ts`
-2. **MODIFICAR** `src/hooks/useConciliacion.ts` — añadir matching en `insertMovimientos`
+### CA-5 · Cálculos canónicos
+```
+diasOperativosMes = 22       // 5 días/sem × 4.33 sem
+diasOperativosSemana = 5
+fijosMes = avg(Running.fijos[mes-3..mes-1])
+margenBrutoPct = 1 - foodCostPct - packagingPct - comisionPonderadaPct
+brutoMesParaCubrirFijos = fijosMes / margenBrutoPct
+brutoSemanaParaCubrirFijos = brutoMesParaCubrirFijos / 4.33
+brutoDiaParaCubrirFijos = brutoMesParaCubrirFijos / diasOperativosMes
+brutoMesParaGanarObjetivo = (fijosMes + objetivo_beneficio_mensual / (1 - tasa_fiscal_pct/100)) / margenBrutoPct
+brutoSemanaParaGanarObjetivo = brutoMesParaGanarObjetivo / 4.33
+brutoDiaParaGanarObjetivo = brutoMesParaGanarObjetivo / diasOperativosMes
+proyeccionMes = brutoMedioDiaPorDOW × diasRestantes + brutoAcumuladoHoy
+margenProyectado = proyeccionMes × margenBrutoPct - fijosMes
+esRentable = margenProyectado > 0
+diasParaCubrir = ceil(brutoMesParaCubrirFijos / brutoMedioDia)
+```
 
-## Validaciones
-- `npm run build` sin errores de TS.
-- Importar CSV de prueba con líneas que contengan "MERCADONA", "UBER", "GLOVO" → la columna Contraparte aparece rellena con el canónico tras refresh.
-- Líneas con "TRANSFERENCIA RECIBIDA" → celda vacía (correcto).
+### CA-6 · Aislamiento absoluto Binagre ↔ David
+- NO tocar nada del repo erp-david.
+- Tokens Binagre obligatorios desde `src/styles/tokens.ts`: #B01D23, #1e2233, #e8f442, #484f66.
+- KpiCards grandes con número gigante + delta + desglose. Cards soft wash. Recharts paleta CANALES.
+- Locale es_ES vía `fmtEur` de `src/lib/format.ts` para todo importe.
+- Respetar IVAContext (toggle Sin IVA / Con IVA) en cifras de bruto.
 
-## Cierre
-Cadena estándar git+vercel obligatoria al terminar.
+### CA-7 · Validación post-deploy
+- Abrir https://binagre.vercel.app/finanzas/punto-equilibrio
+- Tab Dashboard muestra 2 KPIs grandes + tabla 3×3
+- NO existe tab Configuración en navegación
+- Toggle Sin IVA / Con IVA funciona
+- Cotejar 1 fijo manualmente (ej. alquiler) vs Running último mes → coherente
