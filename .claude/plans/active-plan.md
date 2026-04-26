@@ -1,17 +1,19 @@
-# Active plan — Binagre ERP
+# Active Plan
 
-> Este archivo se sobrescribe en cada fix activo. Marca QUÉ se está trabajando ahora mismo.
-> Pipeline: pm-spec → architect-review → implementer → qa-reviewer.
-> Estado actual: SIN FIX ACTIVO.
+## Fix actual
+**Conciliación · matching automático de proveedor** — desbloquear columna Contraparte vacía.
 
-## Pendientes Binagre (origen Notion 99 Claude)
-Ver track BINAGRE-ERP en Notion. Abrir cuando se inicie un fix.
+## Estado pipeline
+1. ✅ `pm-spec` → `.claude/plans/spec.md`
+2. ✅ tasks → `.claude/plans/tasks.md`
+3. ⏳ `implementer` (contexto bifurcado) → ejecutar T1 + T2
+4. ⏳ `qa-reviewer` → T3
+5. ⏳ cierre git+vercel → T4
 
-## Cuando arranque un fix
-1. pm-spec genera `spec.md`
-2. Aprobación Rubén
-3. architect-review genera `adr.md` y `tasks.md`
-4. Aprobación Rubén
-5. implementer ejecuta y genera `implementation-summary.md`
-6. qa-reviewer genera `qa-report.md` con veredicto
-7. Si veredicto verde → cerrar fix y limpiar `plans/` (mover a `plans/archive/`)
+## Backfill SQL aplicado (fuera de pipeline, ya en prod)
+- 873/5655 movs con proveedor canónico (15,4% cobertura).
+- 17 alias nuevos añadidos a `proveedor_alias` (Punto Q, Huijia, Octopus, Europastry, Lactalis, Hacienda, Seguridad Social…).
+- 4.782 movs restantes sin proveedor → transferencias/Bizum/traspasos genéricos. No matcheables sin enriquecimiento manual.
+
+## Siguiente fix tras este
+OCR robusto: nunca dejar facturas zombie 'Procesando' (#16 backlog Notion).
