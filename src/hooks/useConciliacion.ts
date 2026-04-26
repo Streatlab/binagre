@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapping'
 import { normalizarConcepto, matchPatron } from '@/lib/normalizarConcepto'
+import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
 
 export interface Movimiento {
   id: string
@@ -82,6 +83,15 @@ export function useConciliacion() {
     onProgress?: (stage: 'saving' | 'rules', current: number, total: number) => void,
   ): Promise<{ insertados: number; autoCategorizados: number; ignorados: number }> {
     if (rows.length === 0) return { insertados: 0, autoCategorizados: 0, ignorados: 0 }
+
+    // 0. Resolver proveedor canónico contra alias para filas sin proveedor
+    const aliases = await loadAliases()
+    rows = rows.map(r => ({
+      ...r,
+      proveedor: r.proveedor && r.proveedor.trim() !== ''
+        ? r.proveedor
+        : matchProveedor(r.concepto ?? '', aliases),
+    }))
 
     // 1. Resolver órdenes ya usados en BD para los días del batch
     const fechasUnicas = Array.from(new Set(rows.map(r => r.fecha).filter((f): f is string => !!f)))
