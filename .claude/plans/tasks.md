@@ -1,47 +1,110 @@
-# TASKS — Bloque B Conciliación + Facturas
+# TASKS — Bloque B Conciliación
 
-Pipeline: pm-spec ✅ → implementer (en curso) → qa-reviewer → cierre git+pull (NO Vercel).
+Pipeline: pm-spec ✅ → architect-review (skip, scope claro) → implementer → qa-reviewer.
 
-## T1 · OCR robusto sin zombies
-1. En el hook/función que sube facturas (buscar en `src/hooks/useFacturas.ts` o similar): envolver la llamada a OCR con `Promise.race` contra timeout de 60s.
-2. Si timeout o error: actualizar factura con `estado='error'`, `error_mensaje='Timeout OCR (>60s)'` o el error real.
-3. Crear función SQL/RPC `marcar_facturas_zombie()` que actualice a `estado='error'` cualquier factura en `estado='pendiente_revision'` sin `ocr_raw` y con `created_at < NOW() - INTERVAL '60 seconds'`.
-4. Llamar a esa función al cargar la página de Facturas (cleanup automático).
-5. En la UI Facturas, fila con `estado='error'`: mostrar botón "Reintentar OCR" que vuelva a lanzar el OCR sobre el PDF original.
+## T1 · Migración BD (architect)
+1. Crear migración: `ALTER TABLE conciliacion ADD COLUMN ordenante TEXT, ADD COLUMN beneficiario TEXT;`
+2. Crear índice único: `CREATE UNIQUE INDEX uniq_conciliacion_dedup ON conciliacion (titular_id, dedup_key);` (asume dedup_key ya existe; verificar que está pobladito con backfill).
+3. Backfill dedup_key si está NULL para todos: `UPDATE conciliacion SET dedup_key = encode(digest(fecha::text || importe::text || lower(trim(regexp_replace(concepto, '\s+', ' ', 'g'))), 'sha256'), 'hex') WHERE dedup_key IS NULL;`
 
-## T2 · Reparar facturas sin Drive (4 IDs)
-IDs a reparar:
-- cd18823f-1948-4ab7-8fb3-1ab480118c52 (Portier Eats 139,01€)
-- 730f1e91-b3b9-4fe6-94b6-378cabd190cf (Mercadona 240,94€)
-- 68e4265a-3996-44b7-a837-37278ced0faa (Glovo 50,81€)
-- 242e33cf-1914-422a-a2d3-961642e919e3 (Glovo 126,46€)
+## T2 · src/lib/normalizar.ts (NUEVO)
+```ts
+export function normalizarConcepto(c: string): string {
+  return (c ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
+}
 
-Pasos:
-1. Crear botón "Reparar facturas sin Drive" en `/finanzas/facturas` (panel admin).
-2. Función backend: para cada ID anterior, buscar PDF en Supabase Storage por `pdf_original_name`, subir a Google Drive carpeta "Facturas Streat Lab", rellenar `pdf_drive_id` y `pdf_drive_url`.
-3. Si no hay PDF en Storage para alguna: marcar `estado='error'` con mensaje "PDF original perdido, re-subir manualmente".
-
-## T3 · Importar excel BBVA Emilio
-1. Verificar que `cuentas_bancarias` tiene campo `titular`. Si no, crear migración añadiéndolo. Insertar filas:
-   - Streat Lab S.L. (cuenta principal)
-   - Emilio (cuenta BBVA personal)
-2. En `ImportDropzone`: añadir selector "Cuenta destino" antes de subir el archivo. Default: cuenta Streat Lab.
-3. Cada movimiento insertado lleva `cuenta_id` correspondiente.
-4. Probar import del excel BBVA Emilio (lo subirá Rubén) → 51 movs nuevos con `cuenta_origen='BBVA_EMILIO'`.
-
-## T4 · Matching cross-cuenta Emilio
-1. En el matcher de conciliación-facturas: además de buscar el mov en cuentas Streat Lab, buscar también en cuenta Emilio.
-2. Si match encontrado en cuenta Emilio: marcar factura con flag `pagado_por_emilio=true` (crear columna si no existe).
-3. UI Facturas: mostrar badge "Pagado por Emilio" en filas con ese flag.
-4. Caso de prueba: factura Mercadona 240,94€ (id 730f1e91-...) debe matchear con mov BBVA Emilio mismo importe ±7 días.
-
-## T5 · QA
-1. `npm run build` → 0 errores TS.
-2. `npm run dev` → levantar localhost.
-3. Verificar las 4 funcionalidades en UI (ver checklist en spec.md).
-4. **NO ejecutar `npx vercel --prod`** — regla 3 modo localhost.
-
-## T6 · Cierre
+export async function calcularDedupKey(
+  fecha: string,
+  importe: number,
+  concepto: string
+): Promise<string> {
+  const data = new TextEncoder().encode(`${fecha}${importe}${normalizarConcepto(concepto)}`)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 ```
-git add . && git commit -m "feat(conciliacion+facturas): bloque B - ocr robusto, reparar drive, import bbva emilio, matching cross-cuenta" && git push origin master && git pull origin master
+
+## T3 · Parser BBVA en `src/components/conciliacion/ImportDropzone.tsx`
+1. Mapear columnas adicionales si existen en el Excel: "Ordenante", "Beneficiario" (case-insensitive).
+2. Pasarlas al hook como `ordenante` y `beneficiario` en cada row.
+
+## T4 · `src/hooks/useConciliacion.ts` — `insertMovimientos`
+**Antes del INSERT actual:**
+
+```ts
+import { calcularDedupKey, normalizarConcepto } from '@/lib/normalizar'
+
+// Calcular dedup_key para todas las filas
+rows = await Promise.all(rows.map(async r => ({
+  ...r,
+  dedup_key: await calcularDedupKey(r.fecha, r.importe, r.concepto),
+})))
+
+// Filtro 1: descartar traspasos internos Emilio
+const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+const rowsAntesFiltro = rows.length
+rows = rows.filter(r => !(
+  r.titular_id === EMILIO_ID && 
+  /traspaso/i.test(r.concepto ?? '')
+))
+const omitidosTraspasoEmilio = rowsAntesFiltro - rows.length
+
+// Filtro 2: auto-categorizar transferencias Rubén → Emilio
+const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+rows = rows.map(r => {
+  if (
+    r.titular_id === RUBEN_ID &&
+    r.importe < 0 &&
+    (
+      /emilio/i.test(r.beneficiario ?? '') ||
+      /emilio/i.test(r.concepto ?? '')
+    )
+  ) {
+    return { ...r, categoria: 'RRH-NOM-EMI', proveedor: 'Emilio Sueldo' }
+  }
+  return r
+})
 ```
+
+**Insert con ON CONFLICT:** ya existe el INDEX, basta usar `.upsert()` de supabase con `onConflict: 'titular_id,dedup_key', ignoreDuplicates: true`.
+
+**Devolver:**
+```ts
+return {
+  insertados: data?.length ?? 0,
+  duplicados: rowsAntesFiltro - omitidosTraspasoEmilio - (data?.length ?? 0),
+  omitidos: omitidosTraspasoEmilio,
+}
+```
+
+## T5 · UI Feedback en ImportDropzone
+Mostrar al usuario: "X movimientos importados, Y duplicados (no añadidos), Z traspasos internos omitidos".
+
+## T6 · Hook Running sueldos `src/hooks/useRunningSueldos.ts` (NUEVO)
+```ts
+export function useRunningSueldos(mes: string) {
+  // mes formato 'YYYY-MM'
+  // Devuelve { ruben: number, emilio: number, desgloseEmilio: { plataformas, complementoSL } }
+  
+  // Plataformas Emilio: SUM importe WHERE titular = Emilio AND importe > 0 AND mes
+  // Complemento SL: SUM ABS(importe) WHERE titular = Rubén AND categoria = 'RRH-NOM-EMI' AND mes
+  // Sueldo total = plataformas + complementoSL
+}
+```
+
+## T7 · Integrar en `src/pages/finanzas/Running.tsx`
+Añadir fila Emilio con desglose: "Plataformas: 1.710€ + Complemento SL: 0€ = 1.710€".
+
+## T8 · QA
+1. `npm run build` sin errores TS.
+2. `npm run dev` localhost.
+3. Re-importar extracto Emilio actual → debe decir "0 nuevos, 61 duplicados".
+4. Subir Excel con 1 fila "Traspaso a cuenta" titular Emilio → "0 nuevos, 1 omitido (traspaso interno)".
+5. Crear manualmente mov titular Rubén con concepto "Transferencia a Emilio" -867€ → en Running > Emilio aparece +867€ complemento SL.
+6. Verificar UI Conciliación: columna Contraparte sigue funcionando como antes.
+
+## T9 · Cierre
+git add . && git commit -m "feat(conciliacion): bloque B - dedup robusto + reglas Emilio + sueldos Running" && git push origin master && git pull origin master
+NO Vercel (regla 3).
