@@ -11,12 +11,20 @@
 - Archivos master: `src/styles/tokens.ts`, `src/styles/design-tokens.css`
 - Nunca hardcodear hex fuera de estos archivos
 
-## 3. Cadena de deploy obligatoria
-Todo prompt o tarea de fix termina con:
+## 3. Cadena de cierre obligatoria — MODO LOCALHOST
+**Mientras Rubén esté trabajando activamente, NO desplegar a Vercel.** Solo validar en localhost.
+
+Todo fix termina con:
 ```bash
-git add . && git commit -m "..." && git push origin master && npx vercel --prod && git pull origin master
+git add . && git commit -m "..." && git push origin master && git pull origin master
 ```
-Sin la cadena completa, el fix no está cerrado.
+
+Validación obligatoria antes del commit:
+1. `npm run build` sin errores
+2. `npm run dev` corriendo en `http://localhost:5173` (o puerto del proyecto)
+3. Rubén verifica el fix en localhost manualmente
+
+**NO ejecutar `npx vercel --prod` bajo ninguna circunstancia hasta que Rubén lo autorice explícitamente con la frase "deploy Vercel".**
 
 ## 4. Lógica de negocio
 - Escandallo, EPS, IDING, INGREDIENTES viven dentro del ERP (NO es Apps Script)
