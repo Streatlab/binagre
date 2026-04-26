@@ -1,74 +1,56 @@
-# TASKS — Fix Conciliación · matching automático de proveedor
+# TASKS — PE Refactor
 
-Pipeline: `pm-spec` ✅ → `implementer` (en curso) → `qa-reviewer`.
+## T1 · Exponer Running como fuente de fijos y ratios (backend lib)
+**Archivos:** `src/lib/running/index.ts` (o crear `src/lib/running/aggregates.ts`)
+**Acción:**
+- Crear función `getFijosPromedio3Meses()` que devuelve `{ totalMes: number, porCategoria: Record<categoria, number>, mesesUsados: number }` agregando los 3 últimos meses cerrados desde Conciliación filtrada por categorías fijas (taxonomía CATEGORIAS_ORDEN existente).
+- Crear función `getRatiosPromedio3Meses()` que devuelve `{ foodCostPct, packagingPct, comisionPonderadaPct, mesesUsados }` calculando contra bruto ventas Facturación esos mismos 3 meses.
+- Si <3 meses cerrados, devolver lo que haya y reportar `mesesUsados` para fallback UI.
+**Out:** funciones puras, sin UI. Tests de signo no exigidos pero coherencia con datos abril 2026.
 
-## T1 · Crear `src/lib/matchProveedor.ts`
-Helper aislado, cero dependencias UI. Exporta:
-- `loadAliases(): Promise<AliasRow[]>` — fetch + caché en módulo.
-- `invalidateAliasCache(): void` — limpia caché.
-- `matchProveedor(concepto: string, aliases: AliasRow[]): string | null` — pura, ordena por `alias.length` DESC, retorna primer canónico que matchee.
+## T2 · Reescribir handler dashboard PE
+**Archivos:** `src/lib/pe/_calc.ts`, `src/lib/pe/_handlers.ts`
+**Acción:**
+- Eliminar lectura de fijos desde `pe_parametros`. Reemplazar por `getFijosPromedio3Meses()`.
+- Eliminar lectura de food_cost_pct/packaging_pct/comisiones desde `pe_parametros`. Reemplazar por `getRatiosPromedio3Meses()`.
+- Mantener lectura de pe_parametros SOLO para: `tasa_fiscal_pct`, `objetivo_beneficio_mensual`, `caja_minima_verde`, `caja_minima_ambar`, `iva_pct`.
+- Aplicar fórmulas canónicas de spec CA-5.
+- Devolver al frontend: `{ esRentable, deltaProyectado, diasParaCubrir, brutoMesParaCubrirFijos, brutoSemanaParaCubrirFijos, brutoDiaParaCubrirFijos, brutoMesParaGanarObjetivo, brutoSemanaParaGanarObjetivo, brutoDiaParaGanarObjetivo, proyeccionMes, margenProyectado, mesesUsadosFijos, mesesUsadosRatios }`.
+- Respetar IVAContext: si toggle Con IVA, devolver brutos con IVA aplicado (`× (1 + iva_pct/100)`).
 
-```ts
-import { supabase } from '@/lib/supabase'
+## T3 · Rehacer UI Dashboard PE
+**Archivos:** `src/components/pe/Dashboard.tsx` (o equivalente del módulo)
+**Acción:**
+- Eliminar 2 KpiCards: "CUBRIR GASTOS" y "GANAR [objetivo] LIMPIO".
+- Mantener/rehacer 2 KpiCards grandes arriba: "¿SOMOS RENTABLES?" (SÍ/NO + delta €) + "¿DESDE QUÉ DÍA?" (Día X o "Día 36 · faltan Y€").
+- Añadir nueva sección "OBJETIVOS DE FACTURACIÓN" con tabla 3 filas × 3 columnas (Cubrir fijos / Ganar objetivo / Estado actual proyección × MES / SEMANA 5d / DÍA 5d/sem).
+- Mantener: gráfico Ingresos acumulados vs PE, Mix canales, Acciones recomendadas.
+- Mostrar fallback "Datos insuficientes · usando últimos N meses cerrados" si `mesesUsados < 3`.
+- Tokens Binagre obligatorios desde `src/styles/tokens.ts`. Recharts paleta CANALES. fmtEur para todo importe.
 
-export interface AliasRow {
-  proveedor_canonico: string
-  alias: string
-}
+## T4 · Eliminar tab Configuración del módulo PE
+**Archivos:** `src/components/pe/Configuracion.tsx` (eliminar), tabs nav del módulo PE, rutas/handlers `/api/pe/configuracion` (si existen).
+**Acción:**
+- Borrar componente Configuracion.tsx.
+- Quitar entrada "Configuración" de la lista de tabs del módulo PE.
+- Borrar endpoints/handlers expuestos solo para ese tab.
+- NO borrar tabla `pe_parametros` en Supabase.
 
-let cacheAlias: AliasRow[] | null = null
+## T5 · Crear UI mínima global para 5 parámetros PE
+**Archivos:** nueva ruta `src/pages/configuracion/pe-parametros/index.tsx` (o equivalente según estructura actual del ERP).
+**Acción:**
+- Página con 5 inputs: tasa_fiscal_pct, objetivo_beneficio_mensual, caja_minima_verde, caja_minima_ambar, iva_pct.
+- Botón Guardar que escribe en `pe_parametros`.
+- Enlazar desde la sección Configuración global del ERP (sidebar o ruta padre).
+- Tokens Binagre. Sin reinventar el formato del antiguo tab de 21 inputs.
 
-export async function loadAliases(): Promise<AliasRow[]> {
-  if (cacheAlias) return cacheAlias
-  const { data, error } = await supabase
-    .from('proveedor_alias')
-    .select('proveedor_canonico, alias')
-  if (error) throw error
-  cacheAlias = (data ?? []).sort((a, b) => b.alias.length - a.alias.length)
-  return cacheAlias
-}
-
-export function invalidateAliasCache(): void {
-  cacheAlias = null
-}
-
-export function matchProveedor(concepto: string, aliases: AliasRow[]): string | null {
-  if (!concepto) return null
-  const c = concepto.toLowerCase()
-  for (const a of aliases) {
-    if (c.includes(a.alias.toLowerCase())) return a.proveedor_canonico
-  }
-  return null
-}
+## T6 · QA + cierre
+**Acción:**
+- Validar página `/finanzas/punto-equilibrio` post-deploy según spec CA-7.
+- Cotejar 1 fijo manual (alquiler) vs Running último mes.
+- Verificar que toggle Sin IVA / Con IVA funciona.
+- Verificar que tab Configuración NO existe en nav.
+- Cadena git+vercel:
 ```
-
-## T2 · Modificar `src/hooks/useConciliacion.ts`
-- Añadir import al inicio:
-  ```ts
-  import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
-  ```
-- Dentro de `insertMovimientos(rows, onProgress)`, **JUSTO ANTES** del bloque `// 1. Resolver órdenes ya usados en BD...`, insertar:
-  ```ts
-  // 0. Resolver proveedor canónico contra alias para filas sin proveedor
-  const aliases = await loadAliases()
-  rows = rows.map(r => ({
-    ...r,
-    proveedor: r.proveedor && r.proveedor.trim() !== ''
-      ? r.proveedor
-      : matchProveedor(r.concepto ?? '', aliases),
-  }))
-  ```
-
-NO tocar nada más en el archivo. NO tocar el componente `Conciliacion.tsx` (ya lee `m.proveedor` correctamente).
-
-## T3 · QA
-1. `npm run build` → 0 errores TS.
-2. Levantar dev local: `npm run dev`.
-3. Abrir `/finanzas/conciliacion` → tab Movimientos → importar CSV de prueba con conceptos que incluyan "MERCADONA", "UBER", "GLOVO", "TRANSFERENCIA".
-4. Verificar tabla: columna Contraparte muestra proveedor canónico para los reconocidos, vacío para "TRANSFERENCIA".
-5. Console limpia, sin warnings nuevos.
-
-## T4 · Cierre obligatorio
-```
-git add . && git commit -m "fix(conciliacion): match proveedor contra alias en insertMovimientos" && git push origin master && npx vercel --prod && git pull origin master
+git add . && git commit -m "PE: dashboard responde 4 preguntas datos reales Running, elimina tab Configuracion y KPIs duplicados" && git push origin master && npx vercel --prod && git pull origin master
 ```
