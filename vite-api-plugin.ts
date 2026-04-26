@@ -1,5 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
@@ -47,29 +47,10 @@ export function vercelApiPlugin(): Plugin {
         const rel = pathname.replace(/^\/api\//, '')
         const apiDir = resolve(process.cwd(), 'api')
 
-        const candidates = [
-          resolve(apiDir, `${rel}.ts`),
-          resolve(apiDir, rel, 'index.ts'),
-        ]
-
-        // Rutas dinámicas [id]
         const segments = rel.split('/').filter(Boolean)
-        if (segments.length >= 1) {
-          // api/foo/:id  → api/foo/[id].ts
-          for (let i = 1; i < segments.length + 1; i++) {
-            const testSegs = [...segments]
-            testSegs[i - 1] = `[${segments[i - 1]}]`
-            candidates.push(resolve(apiDir, `${testSegs.join('/')}.ts`))
-            if (i < segments.length) {
-              candidates.push(resolve(apiDir, `${testSegs.slice(0, i).join('/')}/${segments.slice(i).join('/')}.ts`))
-            }
-          }
-        }
-
-        const file = candidates.find(p => {
-          try { return existsSync(p) && statSync(p).isFile() } catch { return false }
-        })
-        if (!file) return next()
+        const match = resolveRoute(apiDir, segments)
+        if (!match) return next()
+        const { file, params } = match
 
         try {
           const mod = await server.ssrLoadModule(file)
@@ -79,10 +60,10 @@ export function vercelApiPlugin(): Plugin {
           await enrichRequest(req)
           decorateResponse(res)
 
-          // Query params
+          // Query params (URL ?foo=bar) + path params ([id], [action], ...)
           const qIdx = url.indexOf('?')
           const qstr = qIdx >= 0 ? url.slice(qIdx + 1) : ''
-          const query: Record<string, string> = {}
+          const query: Record<string, string> = { ...params }
           if (qstr) {
             for (const part of qstr.split('&')) {
               const [k, v] = part.split('=')
@@ -90,9 +71,7 @@ export function vercelApiPlugin(): Plugin {
             }
           }
           ;(req as any).query = query
-
-          // Path params para [id] en rutas dinámicas
-          ;(req as any).params = extractParams(file, pathname, apiDir)
+          ;(req as any).params = params
 
           await handler(req, res)
         } catch (err: any) {
@@ -109,16 +88,78 @@ export function vercelApiPlugin(): Plugin {
   }
 }
 
-function extractParams(file: string, pathname: string, apiDir: string): Record<string, string> {
-  const rel = file.replace(apiDir, '').replace(/\\/g, '/').replace(/^\//, '').replace(/\.ts$/, '').replace(/\/index$/, '')
-  const fileSegs = rel.split('/')
-  const urlSegs = pathname.replace(/^\/api\//, '').split('/').filter(Boolean)
-  const params: Record<string, string> = {}
-  fileSegs.forEach((seg, i) => {
-    const m = seg.match(/^\[(.+)\]$/)
-    if (m && urlSegs[i]) params[m[1]!] = decodeURIComponent(urlSegs[i]!)
-  })
-  return params
+/**
+ * Resuelve una ruta de URL contra el filesystem en estilo Vercel/Next:
+ * - Match exacto: api/foo/bar.ts o api/foo/bar/index.ts
+ * - Segmento dinámico archivo: api/foo/[param].ts (último segmento)
+ * - Segmento dinámico carpeta: api/foo/[param]/... (segmentos intermedios)
+ *
+ * Escanea readdirSync para detectar [*] sin asumir el nombre del param.
+ * Da prioridad a matches estáticos sobre dinámicos.
+ */
+function resolveRoute(
+  dir: string,
+  segments: string[],
+): { file: string; params: Record<string, string> } | null {
+  if (segments.length === 0) {
+    const idx = resolve(dir, 'index.ts')
+    if (existsSync(idx) && statSync(idx).isFile()) return { file: idx, params: {} }
+    return null
+  }
+
+  const head = segments[0]!
+  const rest = segments.slice(1)
+
+  // 1. Match estático archivo (.ts) — solo si es el último segmento
+  if (rest.length === 0) {
+    const direct = resolve(dir, `${head}.ts`)
+    try {
+      if (existsSync(direct) && statSync(direct).isFile()) return { file: direct, params: {} }
+    } catch { /* ignore */ }
+  }
+
+  // 2. Match estático carpeta — recursivo
+  const exactDir = resolve(dir, head)
+  try {
+    if (existsSync(exactDir) && statSync(exactDir).isDirectory()) {
+      const sub = resolveRoute(exactDir, rest)
+      if (sub) return sub
+    }
+  } catch { /* ignore */ }
+
+  // 3. Match dinámico [*] — escanear el directorio
+  let entries: string[] = []
+  try { entries = readdirSync(dir) } catch { return null }
+
+  for (const entry of entries) {
+    // Archivo dinámico: [param].ts (solo si es el último segmento)
+    if (rest.length === 0 && entry.endsWith('.ts')) {
+      const m = entry.match(/^\[(.+)\]\.ts$/)
+      if (m) {
+        const file = resolve(dir, entry)
+        try {
+          if (statSync(file).isFile()) {
+            return { file, params: { [m[1]!]: decodeURIComponent(head) } }
+          }
+        } catch { /* ignore */ }
+      }
+      continue
+    }
+    // Carpeta dinámica: [param]/ — recursión con segmentos restantes
+    const m = entry.match(/^\[(.+)\]$/)
+    if (!m) continue
+    const subDir = resolve(dir, entry)
+    try {
+      if (statSync(subDir).isDirectory()) {
+        const sub = resolveRoute(subDir, rest)
+        if (sub) {
+          return { file: sub.file, params: { ...sub.params, [m[1]!]: decodeURIComponent(head) } }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return null
 }
 
 async function enrichRequest(req: IncomingMessage): Promise<void> {
