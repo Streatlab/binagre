@@ -1,11 +1,11 @@
 # Active Plan
 
 ## Fix actual
-**Bloque B Conciliación + Facturas** — 4 fixes encadenados:
-1. OCR robusto sin zombies
-2. Reparar 4 facturas sin Drive
-3. Importar excel BBVA Emilio (51 movs)
-4. Matching cross-cuenta Emilio (caso Mercadona 240,94€)
+**Bloque B Conciliación** — 4 fixes encadenados en código:
+1. Deduplicador robusto (UNIQUE INDEX + dedup_key + ON CONFLICT)
+2. Capturar ordenante/beneficiario en parser BBVA
+3. Auto-borrado traspasos internos Emilio
+4. Cálculo sueldo Emilio en Running (plataformas + complemento SL)
 
 ## Estado pipeline
 1. ✅ pm-spec → spec.md
@@ -15,11 +15,15 @@
 5. ⏳ cierre git+pull (NO Vercel — regla 3 localhost)
 
 ## Bloque A ya cerrado en BD (sin tocar código)
-- 873 movs con proveedor canónico (de 0).
-- 17 alias nuevos en proveedor_alias.
-- 45 movs CTR-ELE renombrados a "Luz".
-- 32 huecos facturación auditados: 22 son cierres miércoles+jueves (correcto), 6 son Semana Santa, 4 sueltos a verificar manualmente.
-- 40 movs grandes huérfanos auditados: préstamos, embargos, traspasos internos.
+- 887 movs con proveedor canónico (de 0).
+- 100% movs con categoría (5.716/5.716).
+- 0 facturas zombie en "Procesando".
+- 7 traspasos internos Emilio borrados retroactivamente.
+- 1.032,59€ Emilio re-categorizado como ING-IVA Hacienda (devolución IVA 2025).
+- Decálogo categorización documentado para chat David.
+
+## Pendiente identificación manual de Rubén
+14 transferencias salientes "Transferencia realizada" sin beneficiario conocido. Rubén identificará cuáles son a Emilio y se etiquetarán como RRH-NOM-EMI manualmente. Tras Bloque B, futuras llevarán beneficiario explícito.
 
 ## Siguiente bloque tras este
 Carga masiva facturas históricas Q1 2026 + Punto de Equilibrio (módulo PE completo).
