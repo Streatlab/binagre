@@ -1,41 +1,75 @@
-# SPEC — Fix Deduplicador Conciliación
+# SPEC — Bloque B Conciliación: Deduplicador + Reglas Emilio + Ordenante/Beneficiario
 
 ## Contexto
-El re-import del extracto Emilio creó 61 duplicados exactos en BD (misma fecha + concepto + importe que los originales, pero filas nuevas con titular_id NULL). El deduplicador actual no los pilla.
+Tras limpiar manualmente Conciliación al 100%, restan 4 fixes en código para que el flujo automático no rompa lo conseguido:
 
-Síntoma: usuario re-importa un extracto del mismo banco/cuenta y aparecen filas duplicadas en lugar de "ya existen, omitidos".
-
-## Causa probable
-El `dedup_key` actual probablemente solo considera (fecha, importe, concepto) sin normalizar concepto, sin tener en cuenta `titular_id` ni microdiferencias. O simplemente no se está usando como UNIQUE INDEX en BD.
+1. **Deduplicador robusto:** re-importar mismo extracto debe devolver "0 nuevos, X duplicados", no insertar copias.
+2. **Capturar ordenante/beneficiario:** el import actual descarta esa info del Excel BBVA. Sin ella es imposible matchear cross-cuenta.
+3. **Auto-borrado traspasos internos Emilio:** "Traspaso a cuenta" del titular Emilio = movimiento interno entre sus cuentas personales = NO entra a conciliación.
+4. **Cálculo sueldo Emilio en Running:** sumar ingresos plataforma Emilio + transferencias SL→Emilio identificadas como sueldo.
 
 ## Criterio DADO/CUANDO/ENTONCES
 
-### CA-1 · Re-importar mismo extracto = 0 duplicados
-- DADO un extracto ya importado en BD (titular Emilio, 61 movs)
-- CUANDO el usuario sube exactamente el mismo extracto otra vez
-- ENTONCES insertMovimientos detecta los 61 como duplicados y NO los inserta. Devuelve "0 nuevos, 61 ya existían".
+### CA-1 · Re-import sin duplicados
+- DADO un extracto ya en BD (ej. 61 movs Emilio dic 2025 - abr 2026)
+- CUANDO el usuario re-importa exactamente el mismo Excel
+- ENTONCES `insertMovimientos` retorna `{ insertados: 0, duplicados: 61 }` y BD queda igual.
 
-### CA-2 · Re-importar extracto ampliado = solo nuevos
-- DADO un extracto ya importado con 61 movs
-- CUANDO el usuario sube un extracto con esos 61 + 20 movs nuevos
-- ENTONCES inserta solo los 20 nuevos. "20 nuevos, 61 ya existían".
+### CA-2 · Capturar ordenante y beneficiario
+- DADO un Excel BBVA con columnas adicionales (Ordenante, Beneficiario, Detalle, Observaciones)
+- CUANDO el parser procesa la fila
+- ENTONCES guarda esos campos en columnas `ordenante TEXT` y `beneficiario TEXT` en `conciliacion`.
 
-### CA-3 · Mismo importe en cuentas distintas NO es duplicado
-- DADO un mov de 50€ en cuenta Rubén el 1 abr
-- CUANDO se importa otro de 50€ en cuenta Emilio el 1 abr (mismo concepto)
-- ENTONCES se insertan los DOS (titulares distintos = movs distintos).
+### CA-3 · Auto-borrado traspaso Emilio
+- DADO un import nuevo del titular Emilio que contiene movs con concepto ILIKE '%traspaso%'
+- CUANDO se procesa el import
+- ENTONCES esos movs se descartan ANTES del INSERT (no llegan a BD). Log: "X traspasos internos Emilio omitidos".
+
+### CA-4 · Identificar transferencia SL→Emilio como sueldo
+- DADO una transferencia saliente del titular Rubén con beneficiario "Emilio" (cuando llegue ese campo) o concepto que contenga "Emilio"
+- CUANDO se inserta en conciliacion
+- ENTONCES categoria = 'RRH-NOM-EMI', proveedor = 'Emilio Sueldo'.
+
+### CA-5 · Cálculo sueldo Emilio mensual en Running
+- DADO un mes concreto (ej. abr 2026)
+- CUANDO Running consulta sueldo Emilio
+- ENTONCES devuelve: `(SUM ingresos plataforma Emilio del mes) + (SUM transferencias SL→Emilio del mes con categoria RRH-NOM-EMI)`.
 
 ## Diseño técnico
-1. `dedup_key` = hash de `(titular_id, fecha, importe_centimos, concepto_normalizado)`
-2. `concepto_normalizado` = lowercase + trim + collapse spaces
-3. UNIQUE INDEX en BD sobre `dedup_key` para garantizar a nivel de motor
-4. En `insertMovimientos`, calcular dedup_key antes del INSERT y hacer ON CONFLICT DO NOTHING
+
+### BD
+1. Migración: añadir columnas `ordenante TEXT`, `beneficiario TEXT` a `conciliacion`.
+2. Migración: añadir UNIQUE INDEX sobre `(titular_id, dedup_key)` donde `dedup_key = sha256(fecha || importe_centimos || concepto_normalizado)`.
+3. Backfill: rellenar `dedup_key` para los 5.716 movs existentes.
+
+### Parser Excel
+1. Detectar columnas BBVA estándar: Ordenante, Beneficiario, Detalle, Concepto.
+2. Normalizar concepto: lowercase + trim + collapse spaces.
+3. Calcular `dedup_key` en cliente antes del INSERT.
+
+### insertMovimientos
+1. Filtro pre-insert: si `titular_id = Emilio` AND `concepto ILIKE '%traspaso%'` → descartar fila.
+2. INSERT con `ON CONFLICT (titular_id, dedup_key) DO NOTHING`.
+3. Devolver `{ insertados, duplicados, omitidos }`.
+
+### Categorización auto SL→Emilio
+1. En `insertMovimientos`, tras alias matching: si `titular_id = Rubén` AND `(beneficiario ILIKE '%emilio%' OR concepto ILIKE '%emilio%')` → `categoria = 'RRH-NOM-EMI'`, `proveedor = 'Emilio Sueldo'`.
+
+### Running
+1. Hook `useRunningSueldos(mes)` o equivalente: 
+   - sueldo_emilio = SUM(importe WHERE titular = Emilio AND importe > 0 AND mes = X) + SUM(ABS(importe) WHERE titular = Rubén AND categoria = 'RRH-NOM-EMI' AND mes = X)
+2. Render en tabla Running de `Emilio` con desglose plataformas + complemento SL.
 
 ## No-objetivos
-- No tocar movs existentes (ya están limpios tras el borrado manual de hoy)
-- No backfillear dedup_key retroactivo (los 5.716 ya están dedup'eados de hecho)
+- No retroactivo: las transferencias SL→Emilio históricas se etiquetan manualmente cuando Rubén las identifique.
+- No tocar la lógica de Rubén ni otros titulares.
 
 ## Validaciones
-1. `npm run build` 0 errores
-2. Re-importar el Excel Emilio actual → respuesta "0 nuevos, 61 ya existían"
-3. Importar Excel Rubén con 5 movs nuevos → "5 nuevos, X ya existían"
+1. `npm run build` 0 errores.
+2. Re-importar extracto Emilio: "0 nuevos, 61 duplicados".
+3. Importar extracto sintético con 1 traspaso Emilio: "0 traspasos omitidos".
+4. Crear mov manual Rubén → Emilio 867€ → aparece en Running > Emilio sueldo del mes.
+
+## Cierre
+git add . && git commit -m "feat(conciliacion): dedup robusto + ordenante/beneficiario + reglas Emilio sueldo" && git push origin master && git pull origin master
+NO desplegar Vercel (regla 3 modo localhost).
