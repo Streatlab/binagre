@@ -1,9 +1,11 @@
-# SPEC — PE Refactor · Dashboard responde 4 preguntas con datos reales Running
+# SPEC — Sesión 26-abr-2026 · PE Refactor + housekeeping Notion
 
-## Contexto
+## Bloque A · PE Refactor (PRINCIPAL)
+
+### Contexto
 El módulo `/finanzas/punto-equilibrio` hoy depende de `pe_parametros` (21 inputs manuales en tab Configuración). Esto desincroniza PE de la realidad: los fijos editados a mano no reflejan lo que se gasta de verdad. Además hay 2 KPIs duplicados con la tabla "Coste de mantener Streat Lab".
 
-## Objetivo
+### Objetivo
 PE debe responder 5 preguntas con datos en directo desde Running Financiero + Presupuestos (promedio 3 últimos meses cerrados):
 
 1. ¿Somos rentables este mes? (SÍ/NO + delta proyectado vs PE)
@@ -12,7 +14,12 @@ PE debe responder 5 preguntas con datos en directo desde Running Financiero + Pr
 4. ¿Cuánto bruto/SEMANA cerrando 2 días variados/sem (5 días operativos)?
 5. ¿Cuánto bruto/DÍA cerrando 2 días variados/sem (~22 días operativos/mes)?
 
-## Criterio DADO/CUANDO/ENTONCES
+### Decisiones de negocio (cerradas 26-abr)
+- Cierre: 2 días variados/semana → 5 días operativos/sem, ~22 días operativos/mes (5 × 4.33)
+- Fuente fijos: Running, promedio 3 últimos meses cerrados
+- Fuente variables: Presupuestos + desviaciones reales 3 últimos meses cerrados
+- Tab Configuración del módulo PE → ELIMINAR
+- 5 parámetros que sí siguen siendo manuales (`tasa_fiscal_pct`, `objetivo_beneficio_mensual`, `caja_minima_verde`, `caja_minima_ambar`, `iva_pct`) → mover a página global `/configuracion/pe-parametros`
 
 ### CA-1 · Fuente de fijos = Running, no pe_parametros
 - **DADO** que existen ≥3 meses cerrados en Facturación
@@ -30,7 +37,7 @@ PE debe responder 5 preguntas con datos en directo desde Running Financiero + Pr
 - **DADO** la nueva fuente de datos (CA-1 + CA-2)
 - **CUANDO** el usuario navega a `/finanzas/punto-equilibrio`
 - **ENTONCES** existen tabs: Dashboard, Presupuestos, Simulador, Día semana. NO existe tab Configuración.
-- **Y** los 5 parámetros que sí siguen siendo editables (`tasa_fiscal_pct`, `objetivo_beneficio_mensual`, `caja_minima_verde`, `caja_minima_ambar`, `iva_pct`) se editan desde una página global `/configuracion/pe-parametros` (o equivalente), NO desde un tab dentro de PE.
+- **Y** los 5 parámetros editables se editan desde `/configuracion/pe-parametros` (o equivalente), NO desde un tab dentro de PE.
 
 ### CA-4 · Dashboard rehecho con 2 KPIs principales + tabla 3×3
 - **DADO** los datos calculados en CA-1/CA-2
@@ -66,9 +73,29 @@ diasParaCubrir = ceil(brutoMesParaCubrirFijos / brutoMedioDia)
 - Locale es_ES vía `fmtEur` de `src/lib/format.ts` para todo importe.
 - Respetar IVAContext (toggle Sin IVA / Con IVA) en cifras de bruto.
 
-### CA-7 · Validación post-deploy
-- Abrir https://binagre.vercel.app/finanzas/punto-equilibrio
+### CA-7 · Validación post-implementación (en localhost:5173)
 - Tab Dashboard muestra 2 KPIs grandes + tabla 3×3
 - NO existe tab Configuración en navegación
 - Toggle Sin IVA / Con IVA funciona
 - Cotejar 1 fijo manualmente (ej. alquiler) vs Running último mes → coherente
+- Deploy a Vercel se hace **al final del día**, no por fix individual.
+
+---
+
+## Bloque B · Mobile friendly general
+
+### Contexto
+La tarea original "Mobile friendly general" (MEDIA, ACTIVO) se desglosó por error en 6 sub-tareas por módulo. Decisión de Rubén: mantener como UNA sola tarea paraguas global; pasada de mobile responsive cuando toque, no por módulo aislado.
+
+### CA-MOB-1 · Limpieza Notion
+- Las 6 sub-tareas creadas (Mobile friendly · Dashboard / Facturación / Conciliación / Bancos+Cobros+Pagos+Tesorería / PE / Configuración+Running+resto) deben eliminarse o fusionarse en la tarea paraguas única "Mobile friendly general".
+- Esta acción NO toca código, solo Notion.
+
+---
+
+## Bloque C · Deploy Vercel diario
+
+### CA-DEPLOY-1
+- Durante la sesión de trabajo se desarrolla contra `localhost:5173`.
+- Solo se hace `git push origin master && npx vercel --prod` UNA vez al día, al cierre.
+- Documentación oficial del flujo: queda anotado aquí en `.claude/plans/spec.md` y se traslada a `CLAUDE.md` cuando proceda.
