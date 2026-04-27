@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Upload, FileCheck2 } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
 import * as XLSX from 'xlsx'
+import { supabase } from '@/lib/supabase'
 
 export interface ParsedRow {
   fecha: string
@@ -9,10 +10,14 @@ export interface ParsedRow {
   importe: number
   contraparte?: string
   notas?: string
+  ordenante?: string | null
+  beneficiario?: string | null
+  titular_id?: string | null
 }
 
 interface Props {
   onFileLoaded: (rows: ParsedRow[], meta: { fileName: string }) => void
+  importResult?: { insertados: number; duplicados: number; omitidos: number } | null
 }
 
 /* ─────────────────────────  HELPERS  ───────────────────────── */
@@ -81,7 +86,10 @@ function parseXLSX(wb: XLSX.WorkBook): ParsedRow[] {
   const idxMovimiento   = find('movimiento')
   const idxImporte      = find('importe', 'amount')
   const idxObserv       = find('observaciones', 'observ')
+  // beneficiario: columna BBVA "Beneficiario" (también "contraparte", "origen")
   const idxBenef        = find('beneficiario', 'contraparte', 'origen')
+  // ordenante: columna BBVA "Ordenante"
+  const idxOrdenante    = find('ordenante')
 
   const out: ParsedRow[] = []
   for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -102,6 +110,7 @@ function parseXLSX(wb: XLSX.WorkBook): ParsedRow[] {
     const movimiento  = String(idxMovimiento >= 0 ? row[idxMovimiento] ?? '' : '').trim()
     const observ      = String(idxObserv     >= 0 ? row[idxObserv]     ?? '' : '').trim()
     const benef       = String(idxBenef      >= 0 ? row[idxBenef]      ?? '' : '').trim()
+    const ordenante   = idxOrdenante >= 0 ? String(row[idxOrdenante] ?? '').trim() || null : null
 
     out.push({
       fecha: fechaISO,
@@ -109,6 +118,8 @@ function parseXLSX(wb: XLSX.WorkBook): ParsedRow[] {
       importe,
       contraparte: benef || undefined,
       notas: observ || undefined,
+      ordenante,
+      beneficiario: benef || null,
     })
   }
   return out
@@ -124,24 +135,36 @@ function parseCSV(text: string): ParsedRow[] {
   const idxConcepto = header.findIndex(h => h.includes('concepto') || h.includes('descrip'))
   const idxImporte = header.findIndex(h => h.includes('importe') || h.includes('amount'))
   const idxContra = header.findIndex(h => h.includes('contraparte') || h.includes('benefic') || h.includes('origen'))
+  const idxOrdenante = header.findIndex(h => h.includes('ordenante'))
   return lines.slice(1).map(line => {
     const cells = line.split(/[;,\t]/)
+    const benef = idxContra >= 0 ? cells[idxContra]?.trim() ?? null : null
     return {
       fecha: parseFechaISO(cells[idxFecha]?.trim() ?? ''),
       concepto: cells[idxConcepto]?.trim() ?? '',
       importe: parseImporte(cells[idxImporte] ?? '0'),
-      contraparte: idxContra >= 0 ? cells[idxContra]?.trim() : undefined,
+      contraparte: benef || undefined,
+      ordenante: idxOrdenante >= 0 ? cells[idxOrdenante]?.trim() || null : null,
+      beneficiario: benef || null,
     }
   }).filter(r => r.fecha && r.concepto && !isNaN(r.importe))
 }
 
 /* ─────────────────────────  COMPONENT  ───────────────────────── */
 
-export default function ImportDropzone({ onFileLoaded }: Props) {
+export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
   const { T } = useTheme()
   const [dragging, setDragging] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [titularId, setTitularId] = useState<string | null>(null)
+  const [titulares, setTitulares] = useState<Array<{ id: string; nombre: string }>>([])
+
+  useEffect(() => {
+    supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden').then(({ data }) => {
+      setTitulares((data ?? []) as Array<{ id: string; nombre: string }>)
+    })
+  }, [])
 
   function handleFile(file: File) {
     setFileName(file.name)
@@ -152,75 +175,110 @@ export default function ImportDropzone({ onFileLoaded }: Props) {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const rows = parseXLSX(wb)
-        onFileLoaded(rows, { fileName: file.name })
+        const sealed = rows.map(r => ({ ...r, titular_id: titularId }))
+        onFileLoaded(sealed, { fileName: file.name })
       }
       reader.readAsArrayBuffer(file)
     } else {
       reader.onload = (e) => {
         const text = String(e.target?.result ?? '')
         const rows = parseCSV(text)
-        onFileLoaded(rows, { fileName: file.name })
+        const sealed = rows.map(r => ({ ...r, titular_id: titularId }))
+        onFileLoaded(sealed, { fileName: file.name })
       }
       reader.readAsText(file, 'UTF-8')
     }
   }
 
   return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setDragging(false)
-        const f = e.dataTransfer.files[0]
-        if (f) handleFile(f)
-      }}
-      onClick={() => inputRef.current?.click()}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '10px 18px',
-        borderRadius: 10,
-        border: `2px dashed ${dragging ? '#B01D23' : T.brd}`,
-        backgroundColor: dragging ? T.card : 'transparent',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-        minWidth: 280,
-      }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv,.xlsx,.xls,.tsv"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0]
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#777777', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Titular bancario
+        </label>
+        <select
+          value={titularId ?? ''}
+          onChange={e => setTitularId(e.target.value || null)}
+          style={{
+            backgroundColor: '#1e1e1e',
+            border: '1px solid #2a2a2a',
+            color: titularId ? '#ffffff' : '#777777',
+            padding: '6px 10px',
+            borderRadius: 6,
+            fontFamily: FONT.body,
+            fontSize: 13,
+            outline: 'none',
+          }}
+        >
+          <option value="" disabled>Selecciona titular bancario...</option>
+          {titulares.map(t => (
+            <option key={t.id} value={t.id}>{t.nombre}</option>
+          ))}
+        </select>
+      </div>
+      <div
+        onDragOver={(e) => { if (!titularId) return; e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          if (!titularId) return
+          e.preventDefault()
+          setDragging(false)
+          const f = e.dataTransfer.files[0]
           if (f) handleFile(f)
         }}
-      />
-      {fileName ? (
-        <>
-          <FileCheck2 size={20} color={T.accent} />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Archivo cargado
-            </span>
-            <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{fileName}</span>
-          </div>
-        </>
-      ) : (
-        <>
-          <Upload size={20} color="#B01D23" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-              Importar extracto
-            </span>
-            <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-              Arrastra CSV / XLSX (BBVA, genérico) o haz click
-            </span>
-          </div>
-        </>
+        onClick={() => { if (!titularId) return; inputRef.current?.click() }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '10px 18px',
+          borderRadius: 10,
+          border: `2px dashed ${dragging ? '#B01D23' : T.brd}`,
+          backgroundColor: dragging ? T.card : 'transparent',
+          cursor: titularId ? 'pointer' : 'not-allowed',
+          transition: 'all 0.15s ease',
+          minWidth: 280,
+          opacity: titularId ? 1 : 0.5,
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls,.tsv"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleFile(f)
+          }}
+        />
+        {fileName ? (
+          <>
+            <FileCheck2 size={20} color={T.accent} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Archivo cargado
+              </span>
+              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{fileName}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <Upload size={20} color="#B01D23" />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+                Importar extracto
+              </span>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+                Arrastra CSV / XLSX (BBVA, genérico) o haz click
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+      {importResult != null && (
+        <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec }}>
+          {`✅ ${importResult.insertados} importados, ${importResult.duplicados} duplicados (ya existían), ${importResult.omitidos} omitidos por reglas`}
+        </span>
       )}
     </div>
   )

@@ -4,6 +4,7 @@ import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
+import { useRunningSueldos } from '@/hooks/useRunningSueldos';
 import { useIVA } from '@/contexts/IVAContext';
 import IVAToggle from '@/components/IVAToggle';
 import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
@@ -114,6 +115,13 @@ export default function Running() {
   const { loading, error, gastos, gastosAnt, ingresosMes, facturacion, facturacionAnt, rangos, reload } = useRunning(
     periodo, anio, marcaSel || null, marcaSelNombre, modoIVA,
   );
+
+  /* — Mes para sueldos: mes de inicio del periodo seleccionado — */
+  const mesSueldos = useMemo(() => {
+    const d = periodo.desde;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, [periodo.desde]);
+  const sueldos = useRunningSueldos(mesSueldos);
 
   /* — Meses del periodo — */
   const mesesDelPeriodo = useMemo(() => {
@@ -602,6 +610,59 @@ export default function Running() {
 
       {/* Ingresos por marca */}
       <MarcasCard periodoLabel={periodo.label} rows={marcasRows} />
+
+      {/* Sueldos (calculados desde Conciliación) */}
+      <div style={{ marginTop: 24, marginBottom: 24 }}>
+        <div style={{
+          fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
+          letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12,
+        }}>
+          Sueldos · {mesSueldos}
+        </div>
+        <div style={{
+          background: T.card,
+          border: `0.5px solid ${T.brd}`,
+          borderRadius: 10,
+          overflow: 'hidden',
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#0a0a0a' }}>
+                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'left' }}>Persona</th>
+                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'right' }}>Detalle</th>
+                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'right' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Fila Emilio */}
+              <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
+                <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Emilio</td>
+                <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '10px 16px', textAlign: 'right' }}>
+                  {`Plataformas: ${fmtEur(sueldos.desgloseEmilio.plataformas)} + Complemento SL: ${fmtEur(sueldos.desgloseEmilio.complementoSL)}`}
+                </td>
+                <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, padding: '10px 16px', textAlign: 'right' }}>
+                  {sueldos.loading ? '…' : fmtEur(sueldos.emilio)}
+                </td>
+              </tr>
+              {/* Fila Rubén */}
+              <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
+                <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Rubén</td>
+                <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
+                  pendiente lógica
+                </td>
+                <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
+                  —
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          {sueldos.error && (
+            <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 11, color: '#B01D23' }}>
+              Error sueldos: {sueldos.error}
+            </div>
+          )}
+        </div>
+      </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>

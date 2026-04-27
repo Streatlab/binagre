@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapping'
 import { normalizarConcepto, matchPatron } from '@/lib/normalizarConcepto'
 import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
+import { calcularDedupKey } from '@/lib/normalizar'
+import { cargarReglas, aplicarReglas as aplicarReglasMDim } from '@/lib/aplicarReglas'
 
 export interface Movimiento {
   id: string
@@ -17,6 +19,10 @@ export interface Movimiento {
   link_factura: string | null
   notas: string | null
   gasto_id?: string | null
+  titular_id?: string | null
+  dedup_key?: string
+  ordenante?: string | null
+  beneficiario?: string | null
 }
 
 export interface Regla {
@@ -81,101 +87,73 @@ export function useConciliacion() {
   async function insertMovimientos(
     rows: Omit<Movimiento, 'id'>[],
     onProgress?: (stage: 'saving' | 'rules', current: number, total: number) => void,
-  ): Promise<{ insertados: number; autoCategorizados: number; ignorados: number }> {
-    if (rows.length === 0) return { insertados: 0, autoCategorizados: 0, ignorados: 0 }
+  ): Promise<{ insertados: number; duplicados: number; omitidos: number }> {
+    if (rows.length === 0) return { insertados: 0, duplicados: 0, omitidos: 0 }
 
-    // 0. Resolver proveedor canónico contra alias para filas sin proveedor
-    const aliases = await loadAliases()
-    rows = rows.map(r => ({
+    // 0. Cargar reglas multi-dimensión y alias en paralelo
+    const [reglasActivas, aliases] = await Promise.all([cargarReglas(), loadAliases()])
+
+    // 1. Aplicar matching de proveedor (alias) para los que vengan sin proveedor
+    let workRows: Omit<Movimiento, 'id'>[] = rows.map(r => ({
       ...r,
       proveedor: r.proveedor && r.proveedor.trim() !== ''
         ? r.proveedor
         : matchProveedor(r.concepto ?? '', aliases),
     }))
 
-    // 1. Resolver órdenes ya usados en BD para los días del batch
-    const fechasUnicas = Array.from(new Set(rows.map(r => r.fecha).filter((f): f is string => !!f)))
-    const usedOrders = new Map<string, Set<number>>()
-    if (fechasUnicas.length > 0) {
-      const { data: existentes, error: exErr } = await supabase
-        .from('conciliacion')
-        .select('dedup_key')
-        .in('fecha', fechasUnicas)
-      if (exErr) throw exErr
-      for (const e of existentes ?? []) {
-        const k = (e as any).dedup_key as string | null
-        if (!k) continue
-        const parts = k.split('|')
-        if (parts.length < 4) continue
-        const orden = parseInt(parts[parts.length - 1], 10)
-        if (isNaN(orden)) continue
-        const prefix = parts.slice(0, -1).join('|')
-        if (!usedOrders.has(prefix)) usedOrders.set(prefix, new Set())
-        usedOrders.get(prefix)!.add(orden)
+    // 2. Aplicar motor de reglas multi-dimensión
+    let omitidos = 0
+    const rowsPostReglas: Omit<Movimiento, 'id'>[] = []
+    for (const r of workRows) {
+      const { mov, borrar } = aplicarReglasMDim(
+        {
+          titular_id: r.titular_id ?? null,
+          concepto: r.concepto ?? null,
+          ordenante: r.ordenante ?? null,
+          beneficiario: r.beneficiario ?? null,
+          importe: r.importe,
+          proveedor: r.proveedor,
+          categoria: r.categoria,
+        },
+        reglasActivas,
+      )
+      if (borrar) {
+        omitidos++
+        continue
       }
+      rowsPostReglas.push({
+        ...r,
+        proveedor: mov.proveedor ?? r.proveedor,
+        categoria: mov.categoria ?? r.categoria,
+      })
     }
 
-    // 2. Asignar dedup_key a cada fila (formato: fecha|importe.00|concepto_lower|orden)
-    const rowsConKey = rows.map(r => {
-      const f = (r.fecha ?? '').trim()
-      const imp = (Number(r.importe) || 0).toFixed(2)
-      const c = (r.concepto ?? '').trim().toLowerCase()
-      const prefix = `${f}|${imp}|${c}`
-      let orden = 0
-      const usados = usedOrders.get(prefix) ?? new Set<number>()
-      while (usados.has(orden)) orden++
-      usados.add(orden)
-      usedOrders.set(prefix, usados)
-      return { ...r, dedup_key: `${prefix}|${orden}` }
-    })
+    // 3. Calcular dedup_key SHA-256 para cada row
+    onProgress?.('saving', 0, rowsPostReglas.length)
+    const rowsConKey = await Promise.all(rowsPostReglas.map(async r => ({
+      ...r,
+      dedup_key: await calcularDedupKey(
+        r.titular_id ?? '',
+        r.fecha ?? '',
+        r.importe,
+        r.concepto ?? '',
+      ),
+    })))
 
-    // 3. Upsert con ignoreDuplicates: si la dedup_key ya existe en BD, salta la fila
-    onProgress?.('saving', 0, rowsConKey.length)
-    const { data: insertados, error } = await supabase
+    // 4. Upsert con ignoreDuplicates — conflict en (titular_id, dedup_key)
+    const { data, error } = await supabase
       .from('conciliacion')
-      .upsert(rowsConKey, { onConflict: 'dedup_key', ignoreDuplicates: true })
-      .select('*')
+      .upsert(rowsConKey, { ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })
+      .select()
     if (error) throw error
-    const insertedRows = (insertados ?? []) as Movimiento[]
-    const ignorados = rows.length - insertedRows.length
+
     onProgress?.('saving', rowsConKey.length, rowsConKey.length)
 
-    // Aplicar reglas activas a los recién insertados
-    let autoCategorizados = 0
-    const candidatosRules = insertedRows.filter(m => !m.categoria)
-    if (candidatosRules.length > 0 && reglas.length > 0) {
-      const reglasOrdenadas = [...reglas].filter(r => r.activa).sort((a, b) => b.prioridad - a.prioridad)
-      onProgress?.('rules', 0, candidatosRules.length)
-      let processed = 0
-      for (const m of candidatosRules) {
-        processed++
-        const conceptoNorm = normalizarConcepto(m.concepto ?? '')
-        if (conceptoNorm) {
-          const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
-          if (regla && regla.categoria_codigo) {
-            try {
-              let gastoId: string | null = null
-              try {
-                gastoId = await syncGasto(m, regla.categoria_codigo, regla.tipo_categoria)
-              } catch (e: any) {
-                console.error('syncGasto (auto-import) failed:', e?.message ?? e)
-              }
-              const { error: upErr } = await supabase.from('conciliacion')
-                .update({ categoria: regla.categoria_codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
-                .eq('id', m.id)
-              if (!upErr) autoCategorizados++
-            } catch (e: any) {
-              console.error('auto-categorizar failed:', e?.message ?? e)
-            }
-          }
-        }
-        if (processed % 25 === 0 || processed === candidatosRules.length) {
-          onProgress?.('rules', processed, candidatosRules.length)
-        }
-      }
-    }
+    const insertados = data?.length ?? 0
+    const duplicados = rowsConKey.length - insertados
+
     refresh()
-    return { insertados: insertedRows.length, autoCategorizados, ignorados }
+    return { insertados, duplicados, omitidos }
   }
 
   /**

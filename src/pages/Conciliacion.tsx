@@ -97,6 +97,7 @@ export default function Conciliacion() {
   const toggleFiltroCard = (k: 'pendientes' | 'ingreso' | 'gasto') => {
     setFiltroCard(prev => prev === k ? null : k)
   }
+  const [importResult, setImportResult] = useState<{ insertados: number; duplicados: number; omitidos: number } | null>(null)
 
   const [reglas, setReglas] = useState<Regla[]>([])
   const {
@@ -385,43 +386,48 @@ export default function Conciliacion() {
         <>
           {/* Sub-header: Dropzone + Filtros Categoría/Buscar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
-            <ImportDropzone onFileLoaded={(rows: ParsedRow[], { fileName }) => {
-              const toInsert = rows.map(r => ({
-                fecha: r.fecha,
-                concepto: r.concepto,
-                importe: r.importe,
-                tipo: (r.importe >= 0 ? 'ingreso' : 'gasto') as 'ingreso' | 'gasto',
-                categoria: null,
-                proveedor: r.contraparte ?? null,
-                factura: null,
-                mes: r.fecha?.slice(0, 7) ?? null,
-                link_factura: null,
-                notas: r.notas ?? null,
-              }))
-              const toastId = toast.loading(`📥 Procesando ${fileName}...\n   Parseadas ${rows.length} filas`)
-              insertMovimientos(toInsert, (stage, current, total) => {
-                if (stage === 'saving') {
-                  toast.loading(`📥 Procesando ${fileName}...\n   Guardando ${current} / ${total} en BD`, { id: toastId })
-                } else {
-                  toast.loading(`⚙️ Aplicando reglas automáticas...\n   ${current} / ${total}`, { id: toastId })
-                }
-              })
-                .then(({ insertados, autoCategorizados, ignorados }) => {
-                  const pendientes = Math.max(0, insertados - autoCategorizados)
-                  const partes = [
-                    `✓ Importación completada`,
-                    `   ${rows.length} movimientos leídos`,
-                  ]
-                  if (autoCategorizados > 0) partes.push(`   ${autoCategorizados} categorizados automáticamente`)
-                  if (ignorados > 0)        partes.push(`   ${ignorados} ignorados (duplicados)`)
-                  if (pendientes > 0)       partes.push(`   ${pendientes} pendientes de categorizar`)
-                  toast.success(partes.join('\n'), { id: toastId })
+            <ImportDropzone
+              importResult={importResult}
+              onFileLoaded={(rows: ParsedRow[], { fileName }) => {
+                setImportResult(null)
+                const toInsert = rows.map(r => ({
+                  fecha: r.fecha,
+                  concepto: r.concepto,
+                  importe: r.importe,
+                  tipo: (r.importe >= 0 ? 'ingreso' : 'gasto') as 'ingreso' | 'gasto',
+                  categoria: null,
+                  proveedor: r.contraparte ?? null,
+                  factura: null,
+                  mes: r.fecha?.slice(0, 7) ?? null,
+                  link_factura: null,
+                  notas: r.notas ?? null,
+                  ordenante: r.ordenante ?? null,
+                  beneficiario: r.beneficiario ?? null,
+                  titular_id: r.titular_id ?? null,
+                }))
+                const toastId = toast.loading(`📥 Procesando ${fileName}...\n   Parseadas ${rows.length} filas`)
+                insertMovimientos(toInsert, (stage, current, total) => {
+                  if (stage === 'saving') {
+                    toast.loading(`📥 Procesando ${fileName}...\n   Guardando ${current} / ${total} en BD`, { id: toastId })
+                  } else {
+                    toast.loading(`⚙️ Aplicando reglas automáticas...\n   ${current} / ${total}`, { id: toastId })
+                  }
                 })
-                .catch(err => {
-                  console.error('Error importando:', err)
-                  toast.error(`✗ Error al importar\n   ${err?.message ?? err}`, { id: toastId })
-                })
-            }} />
+                  .then(({ insertados, duplicados, omitidos }) => {
+                    setImportResult({ insertados, duplicados, omitidos })
+                    const partes = [
+                      `✓ Importación completada`,
+                      `   ${rows.length} movimientos leídos`,
+                      `   ${insertados} importados, ${duplicados} duplicados (ya existían), ${omitidos} omitidos por reglas`,
+                    ]
+                    toast.success(partes.join('\n'), { id: toastId })
+                  })
+                  .catch(err => {
+                    console.error('Error importando:', err)
+                    toast.error(`✗ Error al importar\n   ${err?.message ?? err}`, { id: toastId })
+                  })
+              }}
+            />
             <div>
               <label style={labelStyle}>Categoría</label>
               <select
