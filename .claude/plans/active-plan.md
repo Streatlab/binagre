@@ -1,58 +1,80 @@
 # Active Plan — Sesión 26-abr-2026 (PE Refactor — extensiones)
 
 ## Estado previo
-T1-T5 cerrados. T-EXT1-4 cerrados. T-FIX1 (decimales) OK. T-FIX2 cerrado: NO ERA BUG.
+T1-T5 cerrados. T-EXT1-4 cerrados. T-FIX1 (decimales) OK. T-FIX2 cerrado sin cambios. Pedidos enteros validados en browser.
 
 ---
 
-## T-FIX cerrado · ticket medio NO es bug
+## Bloque T-HORIZONTE · Selector de horizonte temporal en Dashboard (PRIORIDAD 1, ARRANCAR YA)
 
-### Datos reales verificados en Supabase (facturacion_diario, ene-mar 2026):
-- Total: 1.463 pedidos, 36.929€ bruto, ticket medio 25,24€ (con IVA) / 22,95€ (sin IVA)
-- Uber: 28,20€ con IVA · 25,64€ sin IVA
-- Glovo: 27,56€ con IVA · 25,05€ sin IVA
-- Just Eat: 38,00€ con IVA · 34,55€ sin IVA
+### Contexto / Decisión Rubén 26-abr 17:30
+Las 2 KpiCards "¿Somos rentables?" y "¿Desde qué día?" hoy solo responden para el mes en curso. Hace falta un selector que permita elegir el horizonte temporal y ver si somos rentables / cuándo cubrimos en distintas ventanas.
 
-**Conclusión:** el cálculo `Σ bruto / Σ num_pedidos` que devuelve `getTicketMedio3Meses()` es CORRECTO. La suposición previa de "14-18€" estaba mal y se descarta. T-FIX2A NO se ejecuta.
+### Opciones del selector
+- Mes actual (default, comportamiento actual)
+- Mes anterior (cerrado, ya conocido al 100%)
+- Próximo mes (proyección a futuro)
+- Próximos 3 meses (proyección agregada)
+- Próximos 6 meses
+- Próximo año (12 meses)
 
-**T-FIX2 → CERRADO sin cambios de código.**
+### T-HOR1 · Selector UI en TabDashboard
+**Archivo:** `src/pages/finanzas/PuntoEquilibrio.tsx`
+**Acción:**
+- Añadir dropdown "Horizonte" justo encima de las 2 KpiCards grandes (alineado a la derecha del título de la sección "¿Somos rentables?" / "¿Desde qué día?", o en una barra propia tipo segmented control).
+- Opciones con etiqueta clara: "Mes actual" | "Mes anterior" | "Próximo mes" | "Próximos 3 meses" | "Próximos 6 meses" | "Próximo año".
+- Estado en URL query param `?horizonte=<actual|anterior|proximo|3m|6m|12m>` para compartibilidad.
+- Default: "actual" (= comportamiento actual sin filtro).
+- Tokens Binagre. Estilo coherente con toggle Sin/Con IVA que ya existe.
 
-### T-FIX1 → ya implementado (decimales fijados a entero en TabDashboard).
+### T-HOR2 · Endpoint dashboardHandler acepta `horizonte`
+**Archivo:** `api/pe/_handlers.ts` y `api/_lib/peAggregates.ts`
+**Acción:**
+- `dashboardHandler` acepta query param `horizonte`.
+- Lógica de cálculo según valor:
+  - **`actual`** → comportamiento actual: bruto acumulado mes en curso + proyección DOW resto del mes; fijos del mes actual.
+  - **`anterior`** → mes pasado cerrado: bruto real total del mes anterior (sin proyección); fijos reales de ese mes (no promedio 3m, sino el dato del propio mes). `esRentable` = bruto×margen − fijos > 0.
+  - **`proximo`** → mes que viene: proyección basada en tendencia últimos 3 meses cerrados (media o regresión simple, decisión libre del implementer documentada en comentario). Fijos = promedio 3m (mismos que comportamiento actual).
+  - **`3m` / `6m` / `12m`** → suma de N proyecciones mensuales adelante. `esRentable_acumulado` = (Σ bruto_proyectado × margen − Σ fijos_proyectados) > 0. `bruto_para_cubrir_fijos` se calcula sobre el agregado del periodo.
+- `diasParaCubrir` se reinterpreta según horizonte: para `actual`/`anterior` es día del mes; para `proximo+` es nº de días desde inicio del horizonte hasta cubrir fijos acumulados.
+- Mantener aditividad B4: cuando no se pasa `horizonte`, devolver lo mismo que ahora.
 
-### Siguiente paso para Rubén
-- Refrescar `localhost:5173/finanzas/punto-equilibrio` con Ctrl+Shift+R.
-- Confirmar visualmente: pedidos como enteros (sin decimales) en las 2 KpiCards.
-- Si OK → arrancar T-MARCA1.
+### T-HOR3 · Etiquetas dinámicas en KpiCards
+- "¿Somos rentables ESTE MES?" → "¿Somos rentables [horizonte_label]?" donde `horizonte_label` cambia según selector: "este mes", "el mes pasado", "el mes que viene", "en los próximos 3 meses", etc.
+- "¿Desde qué día cubrimos gastos?" → para horizontes >1 mes cambia a "¿Cuántos días para cubrir gastos?" mostrando el número total de días desde inicio del horizonte.
+- Pedidos por día/sem/mes deben recalcular sobre el horizonte seleccionado para que sean coherentes.
+
+### T-HOR4 · Validación browser
+- Refrescar localhost con Ctrl+Shift+R.
+- Probar los 6 valores del selector y confirmar que las cards cambian.
+- "Mes anterior" debe coincidir con el dato real cerrado del mes pasado (cotejar manualmente con Conciliación / Facturación).
+- "Próximos 3 meses" debe dar un número 3× el mensual aproximado.
 
 ---
 
-## Bloque T-MARCA · Andamiaje PE por marca (ARRANCAR cuando T-FIX1 validado en browser)
+## Bloque T-MARCA · Andamiaje PE por marca (DESPUÉS de T-HORIZONTE)
 
-### T-MARCA1 · Selector de marca en TabDashboard
-- Dropdown "Marca" arriba del Dashboard PE: "Streat Lab (global)" | "Binagre" | "Cocina Carmucha" | resto de marcas activas en tabla `marcas`.
-- Default: "Streat Lab (global)" (= sin filtro, comportamiento actual).
-- Estado en URL query param `?marca=<id|global>` para que sea compartible.
+### T-MARCA1 · Selector de marca
+- Dropdown "Marca" arriba del Dashboard PE: "Streat Lab (global)" | "Binagre" | "Cocina Carmucha" | resto de marcas activas.
+- Default: "Streat Lab (global)".
+- Estado en URL query param `?marca=<id|global>`.
+- T-MARCA y T-HORIZONTE deben coexistir en la misma URL: `?horizonte=3m&marca=binagre`.
 
-### T-MARCA2 · Endpoint dashboard acepta `marca_id`
-- `dashboardHandler` acepta query param `marca_id`.
-- `marca_id = global` o ausente → comportamiento actual.
-- `marca_id = <uuid>` → filtrar:
-  - `getFijosPromedio3Meses(marca_id)` → fijos imputables a esa marca.
-  - `getRatiosPromedio3Meses(marca_id)` → ratios food/packaging/comisión sobre ventas de esa marca.
-  - `getTicketMedio3Meses(marca_id)` → ticket medio de la marca.
-  - Bruto mes actual filtrado por `marca_id` en `facturacion_diario`.
-- Lectura de `pe_parametros` filtra por `marca_id` si existe registro, si no usa global (`marca_id IS NULL`).
+### T-MARCA2 · Endpoint acepta `marca_id`
+- `dashboardHandler` acepta `marca_id` además de `horizonte`.
+- `marca_id = global` o ausente → comportamiento actual (todos los datos).
+- `marca_id = <uuid>` → filtrar `getFijosPromedio3Meses(marca_id)`, `getRatiosPromedio3Meses(marca_id)`, `getTicketMedio3Meses(marca_id)`, bruto en `facturacion_diario`.
+- `pe_parametros` filtra por `marca_id` si existe registro, si no usa global.
 
 ### T-MARCA3 · Reparto de costes compartidos (placeholder)
-- En `getFijosPromedio3Meses(marca_id)` con marca != global: además de costes con `marca_id` propagado, sumar PROPORCIÓN de costes compartidos (alquiler, sueldos socios, SS, suministros, gestoría, software) según `bruto_marca / bruto_total` mismas 3 meses.
-- Documentar fórmula en comentario: `costes_compartidos × (bruto_marca / bruto_total)`.
-- Constante en código con la lista de categorías "compartidas".
-- Esto da resultado coherente desde día 1 aunque no haya `marca_id` propagado en gastos directos.
+- Si `marca_id != global`: además de costes con `marca_id` propagado, sumar PROPORCIÓN de costes compartidos (alquiler, sueldos socios, SS, suministros, gestoría, software) según `bruto_marca / bruto_total` mismas 3 meses.
+- Constante en código con lista de categorías "compartidas".
+- Comentario en código: `costes_compartidos × (bruto_marca / bruto_total)`.
 
 ### T-MARCA4 · Validación
-- Selector dropdown cambia datos del dashboard al elegir marca.
-- "Streat Lab (global)" sigue mostrando lo mismo que antes del cambio.
-- Una marca concreta muestra fijos = compartidos prorrateados + directos imputados (hoy ~0). Bandera "Datos parciales · pendiente propagación de marca_id en gastos".
+- Selector cambia datos del dashboard.
+- "Streat Lab (global)" muestra lo mismo que antes.
+- Marca concreta muestra fijos = compartidos prorrateados + directos imputados (~0). Bandera "Datos parciales · pendiente propagación de marca_id en gastos".
 
 ---
 
@@ -82,50 +104,44 @@ pe_snapshots(
 ```
 
 ### T-HIST2 · Función de cierre mensual
-- `closeMonthSnapshot(year, month)` calcula valores reales del mes cerrado y guarda fila en `pe_snapshots`.
+- `closeMonthSnapshot(year, month)` calcula valores reales del mes cerrado y guarda fila.
 - Idempotente: UPDATE si existe (marca_id, periodo_mes).
-- Disparable manualmente desde admin (botón "Cerrar mes" en `/configuracion` sección "PE Parámetros") y/o cron supabase day-1.
+- Disparable manualmente desde admin (botón "Cerrar mes" en sección "PE Parámetros") y/o cron day-1.
 - Genera 1 snapshot global + 1 snapshot por cada marca activa.
 
 ### T-HIST3 · Card "Histórico" en TabDashboard
-- Debajo de tabla 3×3, card "Cobertura PE últimos 12 meses" con Recharts: barras verticales mes a mes con `cobertura_pct`. Verde >100, ámbar 80-100, rojo <80.
-- Paleta CANALES de tokens.
+- Debajo de tabla 3×3, card "Cobertura PE últimos 12 meses": barras verticales mes a mes con `cobertura_pct`. Verde >100, ámbar 80-100, rojo <80.
+- Paleta CANALES.
 - Filtra por marca si dropdown != global.
 
 ### T-HIST4 · Backfill histórico
-- Ejecutar `closeMonthSnapshot` para últimos 12 meses cerrados disponibles en Conciliación + Facturación.
+- Ejecutar `closeMonthSnapshot` para últimos 12 meses cerrados.
 
 ---
 
 ## Bloque T-ALERT · Alertas predictivas
 
-### T-ALERT1 · Regla "Por debajo de PE diario X días seguidos"
+### T-ALERT1 · Regla
 - `checkPeDiarioAlert()`: si últimos N=3 días bruto real <85% de `bruto_dia_para_cubrir_fijos`, generar alerta.
-- Persistir en tabla `alertas` (crear si no existe): tipo, mensaje, fecha, leida, severity.
+- Persistir en tabla `alertas` (crear): tipo, mensaje, fecha, leida, severity.
 
-### T-ALERT2 · UI badge alertas en sidebar
-- Badge rojo con número de alertas no leídas.
-- Click → `/alertas` con lista.
-- Tokens Binagre.
+### T-ALERT2 · Badge sidebar
+- Badge rojo con nº alertas no leídas. Click → `/alertas`.
 
-### T-ALERT3 · Notificación Slack (fase 2)
-- Webhook Slack a canal Streat Lab.
-- Configurable on/off desde 6ª sección "PE Parámetros" (campo `alerta_slack_webhook_url` añadido a `pe_parametros`).
-- Sin Slack configurado → solo badge sidebar.
+### T-ALERT3 · Slack (fase 2)
+- Webhook configurable on/off desde sección "PE Parámetros".
 
 ### T-ALERT4 · Cron diario
 - Disparar `checkPeDiarioAlert()` cada día 23:00.
-- Disparable manualmente desde admin.
 
 ---
 
 ## Orden de ejecución
-1. ✅ T-FIX1 (decimales) — implementado.
-2. ✅ T-FIX2 (ticket medio) — cerrado, NO era bug.
-3. ⏳ T-FIX4 (validación browser Rubén con hard refresh).
-4. ⏳ T-MARCA1 a T-MARCA4 (cuando Rubén valide T-FIX4).
-5. ⏳ T-HIST1 a T-HIST4.
-6. ⏳ T-ALERT1 a T-ALERT4.
+1. ✅ T-FIX1, T-FIX2.
+2. ⏳ **T-HOR1 a T-HOR4** ARRANCAR YA.
+3. ⏳ T-MARCA1 a T-MARCA4 (después de validar T-HOR).
+4. ⏳ T-HIST1 a T-HIST4.
+5. ⏳ T-ALERT1 a T-ALERT4.
 
 ---
 
@@ -139,4 +155,4 @@ pe_snapshots(
 - Tokens Binagre desde `src/styles/tokens.ts`. Locale es_ES vía `fmtEur`/`fmtNum`.
 - Aislamiento absoluto Binagre ↔ David.
 - Trabajamos contra `localhost:5173`. Vercel solo al cierre del día.
-- **Antes de proponer fórmulas o validaciones que dependan de cifras de negocio, consultar dato real en Supabase. NO usar suposiciones.**
+- Antes de proponer fórmulas o validaciones que dependan de cifras de negocio, consultar dato real en Supabase. NO usar suposiciones.
