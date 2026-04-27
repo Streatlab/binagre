@@ -40,6 +40,9 @@ import PlataformasPage from '@/pages/configuracion/plataformas/PlataformasPage'
 // Configuración · Cuentas
 import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 
+// Configuración · Calendario operativo
+import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
+
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -158,6 +161,9 @@ function AppRoutes() {
 
         {/* Configuración · Cuentas */}
         <Route path="configuracion/cuentas" element={<ProtectedRoute solo={['admin']}><CuentasConfigPage /></ProtectedRoute>} />
+
+        {/* Configuración · Calendario operativo */}
+        <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />

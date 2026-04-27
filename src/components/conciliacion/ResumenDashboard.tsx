@@ -4,6 +4,97 @@ import { fmtEur } from '@/utils/format'
 import { useTheme, FONT, kpiValueStyle } from '@/styles/tokens'
 import type { Movimiento, Categoria } from '@/types/conciliacion'
 
+/* ── Helper: cobros pendientes reales por canal ── */
+
+function calcularRangoCiclo(canal: 'uber' | 'glovo' | 'just_eat'): { desde: string; hasta: string } | null {
+  const hoy = new Date()
+  const yy = hoy.getFullYear()
+  const mm = hoy.getMonth() // 0-indexed
+  const dd = hoy.getDate()
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const iso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
+
+  if (canal === 'uber') {
+    // Semana lunes a domingo anterior (no liquidada)
+    const dia = hoy.getDay() // 0=dom
+    const lunes = new Date(hoy)
+    lunes.setDate(dd - (dia === 0 ? 6 : dia - 1) - 7) // lunes semana anterior
+    const domingo = new Date(lunes)
+    domingo.setDate(lunes.getDate() + 6)
+    return { desde: iso(lunes.getFullYear(), lunes.getMonth(), lunes.getDate()), hasta: iso(domingo.getFullYear(), domingo.getMonth(), domingo.getDate()) }
+  }
+
+  if (canal === 'glovo') {
+    // 1-15 → paga el 5 del mes siguiente; 16-fin → paga el 20 del mes siguiente
+    // Mostrar periodo pendiente según hoy
+    if (dd <= 5) {
+      // Estamos antes del 5: pendiente quincena 1-15 del mes anterior
+      const mesAnt = mm === 0 ? 11 : mm - 1
+      const anioAnt = mm === 0 ? yy - 1 : yy
+      const ultimo15 = new Date(anioAnt, mesAnt, 15)
+      return { desde: iso(anioAnt, mesAnt, 1), hasta: iso(ultimo15.getFullYear(), ultimo15.getMonth(), 15) }
+    } else if (dd <= 20) {
+      // Estamos entre 5 y 20: pendiente segunda quincena del mes anterior
+      const mesAnt = mm === 0 ? 11 : mm - 1
+      const anioAnt = mm === 0 ? yy - 1 : yy
+      const ultimoDia = new Date(anioAnt, mesAnt + 1, 0).getDate()
+      return { desde: iso(anioAnt, mesAnt, 16), hasta: iso(anioAnt, mesAnt, ultimoDia) }
+    } else {
+      // Después del 20: sin quincena pendiente aún
+      return null
+    }
+  }
+
+  if (canal === 'just_eat') {
+    // 1-15 → paga el 20 del mismo mes; 16-fin → paga el 5 del mes siguiente
+    if (dd <= 20) {
+      // Pendiente primera quincena del mes actual
+      return { desde: iso(yy, mm, 1), hasta: iso(yy, mm, 15) }
+    } else {
+      // Pendiente segunda quincena del mes actual
+      const ultimoDia = new Date(yy, mm + 1, 0).getDate()
+      return { desde: iso(yy, mm, 16), hasta: iso(yy, mm, ultimoDia) }
+    }
+  }
+
+  return null
+}
+
+function useCobrosPendientes(): number {
+  const [total, setTotal] = useState(MOCK_TESORERIA.cobrosPendientes)
+
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      const canales: { canal: 'uber' | 'glovo' | 'just_eat'; bruKey: string }[] = [
+        { canal: 'uber',     bruKey: 'uber_bruto' },
+        { canal: 'glovo',    bruKey: 'glovo_bruto' },
+        { canal: 'just_eat', bruKey: 'je_bruto' },
+      ]
+
+      let suma = 0
+      for (const { canal, bruKey } of canales) {
+        const rango = calcularRangoCiclo(canal)
+        if (!rango) continue
+        const { data } = await supabase
+          .from('facturacion_diario')
+          .select(bruKey)
+          .gte('fecha', rango.desde)
+          .lte('fecha', rango.hasta)
+        if (data) {
+          suma += (data as unknown as Record<string, number>[]).reduce((s, r) => s + (r[bruKey] ?? 0), 0)
+        }
+      }
+
+      if (!cancel) setTotal(suma)
+    })()
+    return () => { cancel = true }
+  }, [])
+
+  return total
+}
+
 /* ═══════════════════════════════════════════════════════════
    PROPS
    ═══════════════════════════════════════════════════════════ */
@@ -332,6 +423,7 @@ function PresupuestoVsRealSection() {
 export function ResumenDashboard(_props: Props) {
   const { T } = useTheme()
   const isMobile = useIsMobile()
+  const cobrosPendientesReal = useCobrosPendientes()
 
   /* — STYLE_NUM_GIGANTE_DASHBOARD (FIX 1): copia literal de Dashboard card VENTAS — */
   const STYLE_NUM_GIGANTE_DASHBOARD: CSSProperties = {
@@ -520,7 +612,7 @@ export function ResumenDashboard(_props: Props) {
 
           {/* Filas normales */}
           {[
-            { label: 'Cobros pendientes', valor: MOCK_TESORERIA.cobrosPendientes, color: VERDE_OK, prefijo: '+' },
+            { label: 'Cobros pendientes', valor: cobrosPendientesReal, color: VERDE_OK, prefijo: '+' },
             { label: 'Pagos pendientes',  valor: MOCK_TESORERIA.pagosPendientes,  color: ROJO,     prefijo: '−' },
             { label: 'Proyección 7d',     valor: MOCK_TESORERIA.proyeccion7d,     color: T.pri,    prefijo: '' },
             { label: 'Proyección 30d',    valor: MOCK_TESORERIA.proyeccion30d,    color: T.pri,    prefijo: '' },

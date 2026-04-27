@@ -41,6 +41,7 @@ interface DashboardData {
   fecha: string
   dia_actual: number
   dias_mes: number
+  dias_operativos_mes: number
   modo_iva: 'con' | 'sin'
   iva_pct: number
   tasa_fiscal_pct: number
@@ -256,9 +257,14 @@ function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
           value={data.bruto_para_objetivo != null ? fmtEur(data.bruto_para_objetivo) : '—'}
           accent="danger"
           subtitle={data.bruto_para_objetivo != null
-            ? `${fmtEur(Math.round(data.bruto_para_objetivo / data.dias_mes))}/día`
+            ? `${fmtEur(Math.round(data.bruto_para_objetivo / (data.dias_operativos_mes || data.dias_mes)))}/día op.`
             : ''}
           highlighted
+        />
+        <KpiCard
+          label="Días operativos mes"
+          value={String(data.dias_operativos_mes ?? data.dias_mes)}
+          subtitle={`de ${data.dias_mes} días naturales`}
         />
         <KpiCard
           label="Estado mes"
@@ -363,7 +369,8 @@ function MixCanalesChart({ T, data }: { T: TokenSet; data: DashboardData }) {
 }
 
 function CardCosteNegocio({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const brutoObjDia = data.bruto_para_objetivo != null ? Math.round(data.bruto_para_objetivo / data.dias_mes) : 0
+  const diasOp = data.dias_operativos_mes || data.dias_mes
+  const brutoObjDia = data.bruto_para_objetivo != null ? Math.round(data.bruto_para_objetivo / diasOp) : 0
   return (
     <div style={cardStyle(T)}>
       <div style={kpiLabelStyle(T)}>Coste de mantener Streat Lab</div>

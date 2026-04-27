@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle } from '@/styles/tokens'
+import { useCalendario } from '@/contexts/CalendarioContext'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
@@ -102,6 +103,7 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Objetivos() {
   const { T, isDark } = useTheme()
+  const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
@@ -264,6 +266,10 @@ export default function Objetivos() {
   const weekEnd = useMemo(() => sunday.toISOString().slice(0, 10), [sunday])
 
   const ventasSemana = useMemo(() => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0), [ventas, weekStart, weekEnd])
+
+  // Banner avisos calendario
+  const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(monday), [diasCerradosSemana, monday])
+  const diasOperativosSemana = useMemo(() => diasOperativosEnRango(monday, sunday), [diasOperativosEnRango, monday, sunday])
 
   const ventasPorDiaSemana = useMemo(() => {
     const map: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 }
@@ -546,6 +552,21 @@ export default function Objetivos() {
       {/* ═══ TAB: OBJETIVOS ═══ */}
       {activeTab === 'objetivos' && (
         <>
+          {/* BANNER aviso días cerrados semana */}
+          {nDiasCerradosSemana > 0 && (() => {
+            const objAjustado = objMensual > 0 && diasOperativosSemana > 0
+              ? objMensual / (diasOperativosEnRango(
+                  new Date(monday.getFullYear(), monday.getMonth(), 1),
+                  new Date(monday.getFullYear(), monday.getMonth() + 1, 0),
+                ) || 1) * diasOperativosSemana
+              : null
+            return (
+              <div style={{ backgroundColor: '#e8f442', color: '#111111', padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontFamily: FONT.heading, fontSize: 13, letterSpacing: 0.5 }}>
+                Esta semana hay {nDiasCerradosSemana} día{nDiasCerradosSemana > 1 ? 's' : ''} cerrado{nDiasCerradosSemana > 1 ? 's' : ''}, objetivo ajustado a {objAjustado != null ? fmtEur(objAjustado) : '—'}
+              </div>
+            )
+          })()}
+
           {/* DOS CARDS PRINCIPALES */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
@@ -560,7 +581,6 @@ export default function Objetivos() {
               <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: colHoy, marginBottom: 22 }}>
                 {pctHoy >= 100 ? '▲' : '▼'} {pctHoy}% del objetivo diario · {fmtEur(objHoy)}
               </div>
-
               {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
               {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
@@ -584,6 +604,10 @@ export default function Objetivos() {
                   const finde = esFinde(dia)
                   const festivo = esFestivo(dia)
                   const hoyFlag = esHoy(dia) && isCurrentWeek
+                  const fechaDiaD = fechaDia(dia)
+                  const fechaDiaStr = `${fechaDiaD.getFullYear()}-${String(fechaDiaD.getMonth()+1).padStart(2,'0')}-${String(fechaDiaD.getDate()).padStart(2,'0')}`
+                  const tipoDiaActual = tipoDia(fechaDiaStr)
+                  const esCerradoCalendario = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent'
                   let rowBorderLeft = '3px solid transparent'
@@ -599,6 +623,7 @@ export default function Objetivos() {
                   const fecha = fechaDia(dia)
                   const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
+                  void esCerradoCalendario // used below
 
                   return (
                     <div key={dia} style={{
@@ -618,8 +643,11 @@ export default function Objetivos() {
                         <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#e8f442' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#e8f442' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400 }}>
+                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#e8f442' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {fechaStr}{hoyFlag ? ' · HOY' : ''}
+                          {esCerradoCalendario && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CERRADO</span>}
+                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>}
+                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CENA</span>}
                         </div>
                       </div>
                       <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>

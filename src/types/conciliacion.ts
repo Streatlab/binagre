@@ -9,6 +9,7 @@ export interface Movimiento {
   gasto_id?: string | null
   factura_id?: string | null
   factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
+  titular_id?: string | null
 }
 
 export interface Categoria {

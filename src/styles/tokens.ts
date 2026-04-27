@@ -169,7 +169,9 @@ export const CANALES: CanalConfig[] = [
 ]
 
 export function calcNeto(bruto: number, pedidos: number, canal: Pick<CanalConfig, 'comisionPct' | 'comisionFijo'>): number {
-  return Math.max(0, bruto * (1 - canal.comisionPct) - pedidos * canal.comisionFijo)
+  const comisionTotal = bruto * canal.comisionPct + pedidos * canal.comisionFijo
+  const iva = comisionTotal * 0.21
+  return Math.max(0, bruto - comisionTotal - iva)
 }
 
 /* ═══════════════════════════════════════════════════════════

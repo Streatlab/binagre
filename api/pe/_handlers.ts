@@ -29,6 +29,33 @@ export async function dashboardHandler(req: VercelRequest, res: VercelResponse) 
   const hoyStr = hoy.toISOString().slice(0, 10)
   const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
   const diaActual = hoy.getDate()
+  const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+  // Días operativos del mes según calendario_operativo
+  const { data: calRows } = await supabaseAdmin
+    .from('calendario_operativo')
+    .select('fecha, tipo')
+    .gte('fecha', inicioMes)
+    .lte('fecha', finMes)
+
+  const calMap = new Map<string, string>()
+  ;(calRows || []).forEach((r: any) => calMap.set(r.fecha, r.tipo))
+
+  function diasOperativosEnRango(ini: string, fin: string): number {
+    const start = new Date(ini + 'T12:00:00')
+    const end   = new Date(fin  + 'T12:00:00')
+    let count = 0
+    const cur = new Date(start)
+    while (cur <= end) {
+      const key = cur.toISOString().slice(0, 10)
+      const tipo = calMap.get(key) ?? 'operativo'
+      if (!['cerrado', 'festivo', 'vacaciones'].includes(tipo)) count++
+      cur.setDate(cur.getDate() + 1)
+    }
+    return count
+  }
+
+  const diasOperativosMes = diasOperativosEnRango(inicioMes, finMes) || diasMes
 
   const { data: ventasMes } = await supabaseAdmin
     .from('facturacion_diario')
@@ -50,7 +77,7 @@ export async function dashboardHandler(req: VercelRequest, res: VercelResponse) 
 
   const { varPct, margenPct: margen, comisionPct } = margenPct(mix, p)
   const peMensual = margen > 0 ? fijos / (margen / 100) : null
-  const peDiario = peMensual ? peMensual / diasMes : 0
+  const peDiario = peMensual ? peMensual / diasOperativosMes : 0
   const peSemanal = peDiario * 7
 
   const brutoMes = mix.total
@@ -105,6 +132,9 @@ export async function dashboardHandler(req: VercelRequest, res: VercelResponse) 
   const diaCubreFijos = brutoDiario > 0 && margen > 0
     ? Math.ceil(fijos / brutoDiario / (margen / 100))
     : null
+
+  // fijo_diario recalculated with operative days
+  const fijoDiarioOp = Math.round(fijos / diasOperativosMes)
 
   const inicioSemana = new Date(hoy)
   const dow0 = hoy.getDay() === 0 ? 7 : hoy.getDay()
@@ -163,7 +193,8 @@ export async function dashboardHandler(req: VercelRequest, res: VercelResponse) 
     pe_mensual: peMensual ? Math.round(peMensual) : null,
     pe_diario: peDiario ? Math.round(peDiario) : null,
     pe_semanal: peDiario ? Math.round(peSemanal) : null,
-    fijo_diario: Math.round(fijos / diasMes),
+    fijo_diario: fijoDiarioOp,
+    dias_operativos_mes: diasOperativosMes,
     bruto_mes: Math.round(brutoMes),
     pedidos_mes: mix.pedidos,
     bruto_diario_real: Math.round(brutoDiario),

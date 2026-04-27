@@ -4,6 +4,20 @@ import { useTheme, FONT } from '@/styles/tokens'
 import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
 
+/* ── Constantes para auto-detección titular ── */
+const NIF_RUBEN  = '21669051S'
+const NIF_EMILIO = '53484832B'
+const RUBEN_ID   = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+const EMILIO_ID  = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
+export function resolverTitularPorNif(nif: string | null | undefined): string | null {
+  if (!nif) return null
+  const n = nif.trim().toUpperCase()
+  if (n === NIF_RUBEN)  return RUBEN_ID
+  if (n === NIF_EMILIO) return EMILIO_ID
+  return null
+}
+
 export interface ParsedRow {
   fecha: string
   concepto: string
@@ -170,12 +184,26 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
     setFileName(file.name)
     const reader = new FileReader()
     const lower = file.name.toLowerCase()
+
+    /* Determina titular: si el extracto tiene columna nif_emisor, usar auto-detección;
+       como fallback usar la selección manual del dropdown */
+    function sealTitular(r: ParsedRow): string | null {
+      // Si la fila ya trae nif_emisor (OCR facturas), auto-detectar
+      const nifEmistor = (r as ParsedRow & { nif_emisor?: string | null }).nif_emisor
+      if (nifEmistor) {
+        const autoId = resolverTitularPorNif(nifEmistor)
+        if (autoId) return autoId
+      }
+      // Fallback a selección manual del dropdown
+      return titularId
+    }
+
     if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
       reader.onload = (e) => {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array', cellDates: true })
         const rows = parseXLSX(wb)
-        const sealed = rows.map(r => ({ ...r, titular_id: titularId }))
+        const sealed = rows.map(r => ({ ...r, titular_id: sealTitular(r) }))
         onFileLoaded(sealed, { fileName: file.name })
       }
       reader.readAsArrayBuffer(file)
@@ -183,7 +211,7 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
       reader.onload = (e) => {
         const text = String(e.target?.result ?? '')
         const rows = parseCSV(text)
-        const sealed = rows.map(r => ({ ...r, titular_id: titularId }))
+        const sealed = rows.map(r => ({ ...r, titular_id: sealTitular(r) }))
         onFileLoaded(sealed, { fileName: file.name })
       }
       reader.readAsText(file, 'UTF-8')

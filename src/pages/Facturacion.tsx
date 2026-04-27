@@ -16,6 +16,7 @@ import {
   fmtFechaCorta,
   pageTitleStyle,
 } from '@/styles/tokens'
+import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 
@@ -172,8 +173,22 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
   URL.revokeObjectURL(url)
 }
 
+function TipoPill({ tipo }: { tipo: TipoDia }) {
+  if (tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones') {
+    return <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5, textTransform: 'uppercase' }}>CERRADO</span>
+  }
+  if (tipo === 'solo_comida') {
+    return <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>
+  }
+  if (tipo === 'solo_cena') {
+    return <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CENA</span>
+  }
+  return null
+}
+
 export default function Facturacion() {
   const { T, isDark } = useTheme()
+  const { tipoDia } = useCalendario()
   const [tab, setTab] = useState<Tab>('diario')
   const [canal] = useState<CanalFilter>('Todos')
   const [servicioFiltro, setServicioFiltro] = useState<string>('Todos')
@@ -361,7 +376,7 @@ export default function Facturacion() {
 
       {loading ? <Loader T={T} /> : error ? <ErrorBox T={T} msg={error} onRetry={refresh} /> : (
         <>
-          {tab === 'diario' && <TabDiario allData={filteredData} canal={canal} weekFilter={weekFilter} onRefresh={refresh} onEdit={setEditRow} onAdd={() => setShowAdd(true)} />}
+          {tab === 'diario' && <TabDiario allData={filteredData} canal={canal} weekFilter={weekFilter} onRefresh={refresh} onEdit={setEditRow} onAdd={() => setShowAdd(true)} tipoDia={tipoDia} />}
           {tab === 'semanas' && <TabSemanas allData={filteredData} canal={canal} onDrill={drillWeek} />}
           {tab === 'meses' && <TabMeses allData={filteredData} canal={canal} />}
           {tab === 'anual' && <TabAnual allData={filteredData} canal={canal} />}
@@ -378,9 +393,10 @@ interface DiarioProps {
   allData: RawDiario[]; canal: CanalFilter
   weekFilter: { year: number; week: number } | null
   onRefresh: () => void; onEdit: (r: RawDiario) => void; onAdd: () => void
+  tipoDia: (fecha: string) => TipoDia
 }
 
-function TabDiario({ allData, canal, weekFilter, onEdit, onAdd }: DiarioProps) {
+function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: DiarioProps) {
   const { T } = useTheme()
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [mesFilter, setMesFilter] = useState(currentMonth)
@@ -440,12 +456,12 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd }: DiarioProps) {
         </button>
       </div>
 
-      <DiarioTable rows={rows} totals={totals} onEdit={onEdit} />
+      <DiarioTable rows={rows} totals={totals} onEdit={onEdit} tipoDia={tipoDia} />
     </>
   )
 }
 
-function DiarioTable({ rows, totals, onEdit }: { rows: RawDiario[]; totals: AggRow; onEdit: (r: RawDiario) => void }) {
+function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; totals: AggRow; onEdit: (r: RawDiario) => void; tipoDia: (fecha: string) => TipoDia }) {
   const { T } = useTheme()
   return (
     <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
@@ -474,9 +490,17 @@ function DiarioTable({ rows, totals, onEdit }: { rows: RawDiario[]; totals: AggR
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{fmtFechaCorta(r.fecha)}</td>
+            {rows.map(r => {
+              const tipo = tipoDia(r.fecha)
+              const esCerrado = tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones'
+              return (
+              <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', opacity: esCerrado ? 0.7 : 1 }}>
+                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {fmtFechaCorta(r.fecha)}
+                    <TipoPill tipo={tipo} />
+                  </div>
+                </td>
                 <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
                 {COLS.map(c => {
                   const p = (r[c.ped] as number) || 0
@@ -491,7 +515,8 @@ function DiarioTable({ rows, totals, onEdit }: { rows: RawDiario[]; totals: AggR
                 <td style={{ padding: '8px 10px', textAlign: 'center', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
                 <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
           <tfoot>
             <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>

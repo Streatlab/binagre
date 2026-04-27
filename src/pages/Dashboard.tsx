@@ -18,6 +18,7 @@ import {
   calcNeto,
   MARCAS,
 } from '@/styles/tokens'
+import { useCalendario } from '@/contexts/CalendarioContext'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -193,6 +194,7 @@ function rangoPrevio(desde: string, hasta: string): { desde: string; hasta: stri
 
 export default function Dashboard() {
   const { T, isDark } = useTheme()
+  const { diasOperativosEnRango, esDiaOperativo } = useCalendario()
 
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -207,6 +209,8 @@ export default function Dashboard() {
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
   const [objetivos, setObjetivos] = useState<Objetivos>({ diario:700, semanal:5000, mensual:20000, anual:240000 })
+  const [editandoObjetivo, setEditandoObjetivo] = useState<'semanal'|'mensual'|'anual'|null>(null)
+  const [valorEditObjetivo, setValorEditObjetivo] = useState('')
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' && window.innerWidth < 768
   )
@@ -262,6 +266,22 @@ export default function Dashboard() {
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
   }, [])
+
+  async function guardarObjetivo(tipo: 'semanal'|'mensual'|'anual', valor: string) {
+    const num = parseFloat(valor.replace(',', '.'))
+    if (!num || num <= 0) {
+      // Si 0 o vacío, restaurar valor original
+      setEditandoObjetivo(null)
+      return
+    }
+    setObjetivos(prev => ({ ...prev, [tipo]: num }))
+    setEditandoObjetivo(null)
+    try {
+      await supabase.from('objetivos').upsert({ tipo, importe: num }, { onConflict: 'tipo' })
+    } catch (e) {
+      console.error('Error guardando objetivo:', e)
+    }
+  }
 
   /* ── derived data ──────────────────────────────────────── */
 
@@ -321,13 +341,25 @@ export default function Dashboard() {
   const diasPico = useMemo(() => {
     const nombres = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
     const vals = [0,0,0,0,0,0,0]
-    for (const r of rowsSemana) {
+    for (const r of rowsPeriodo) {
+      // Excluir días cerrados/festivo/vacaciones del análisis de pico
+      if (!esDiaOperativo(r.fecha)) continue
       const d = parseLocalDate(r.fecha)
       const idx = (d.getDay() + 6) % 7
       vals[idx] += r.total_bruto || 0
     }
     return nombres.map((nombre,i) => ({ nombre, valor: vals[i] }))
-  }, [rowsSemana])
+  }, [rowsPeriodo, esDiaOperativo])
+
+  // Días operativos restantes en el mes actual (desde mañana hasta fin de mes)
+  const diasRestantesMesOp = useMemo(() => {
+    const hoyD = new Date()
+    const finMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0)
+    const mañana = new Date(hoyD)
+    mañana.setDate(hoyD.getDate() + 1)
+    if (mañana > finMes) return 0
+    return diasOperativosEnRango(mañana, finMes)
+  }, [diasOperativosEnRango])
 
   const objetivosVisibles = useMemo((): ('semanal'|'mensual'|'anual')[] => {
     if (['semana_actual','semana_anterior','rango'].includes(periodo)) return ['semanal','mensual','anual']
@@ -607,6 +639,7 @@ export default function Dashboard() {
               const falta = Math.max(0, meta - valor)
               const label = tipo === 'semanal' ? 'Semanal' : tipo === 'mensual' ? 'Mensual' : 'Anual'
               const sub   = tipo === 'semanal' ? `S${nSemana}` : tipo === 'mensual' ? new Date().toLocaleDateString('es-ES',{month:'long'}) : currentYear
+              const isEditing = editandoObjetivo === tipo
               return (
                 <div key={tipo} style={{ marginBottom:10 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
@@ -616,8 +649,34 @@ export default function Dashboard() {
                     </div>
                     <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:col }}>{pct}%</span>
                   </div>
-                  <div style={{ fontSize:13, color:T.sec, marginBottom:5 }}>
-                    Faltan <span style={{ color:col, fontWeight:500 }}>{fmtEur(falta)}</span> de {fmtEur(meta)}
+                  <div style={{ fontSize:13, color:T.sec, marginBottom:5, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                    Faltan <span style={{ color:col, fontWeight:500 }}>{fmtEur(falta)}</span>{tipo === 'mensual' && diasRestantesMesOp > 0 && <span style={{ fontSize:11, color:T.mut }}>({diasRestantesMesOp} días op.)</span>} de{' '}
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        type="number"
+                        value={valorEditObjetivo}
+                        onChange={e => setValorEditObjetivo(e.target.value)}
+                        onBlur={() => guardarObjetivo(tipo, valorEditObjetivo)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') guardarObjetivo(tipo, valorEditObjetivo)
+                          if (e.key === 'Escape') setEditandoObjetivo(null)
+                        }}
+                        style={{
+                          width: 90, padding: '2px 6px', borderRadius: 4,
+                          border: `1px solid #e8f442`, background: T.inp, color: T.pri,
+                          fontFamily: 'Oswald,sans-serif', fontSize: 13, outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <span
+                        title="Click para editar objetivo"
+                        onClick={() => { setEditandoObjetivo(tipo); setValorEditObjetivo(String(meta)) }}
+                        style={{ color:T.pri, fontWeight:500, cursor:'pointer', textDecoration:'underline dotted', textUnderlineOffset:2 }}
+                      >
+                        {fmtEur(meta)}
+                      </span>
+                    )}
                   </div>
                   <div style={progressBgStyle(T)}>
                     <div style={progressFillStyle(pct, col)} />
@@ -738,7 +797,7 @@ export default function Dashboard() {
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap:14, width: isMobile ? '100%' : '66%' }}>
 
           <div style={cardStyle(T)}>
-            <div style={{ ...sectionLabelStyle(T), marginBottom:14 }}>Días pico — S{nSemana}</div>
+            <div style={{ ...sectionLabelStyle(T), marginBottom:14 }}>Días pico — {labelPeriodo(periodo, nSemana)}</div>
             {(() => {
               const ALTURA_MAX = 100
               const maxVal = Math.max(...diasPico.map(d => d.valor), 1)

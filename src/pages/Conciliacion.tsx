@@ -83,6 +83,8 @@ function calcularLabelPeriodo(periodo: string, customDesde?: string, customHasta
 
 type Tab = 'resumen' | 'movimientos'
 
+type FiltroRapido = 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 'sin_titular' | null
+
 export default function Conciliacion() {
   const { T, isDark } = useTheme()
 
@@ -96,6 +98,10 @@ export default function Conciliacion() {
   const [filtroCard, setFiltroCard] = useState<'pendientes' | 'ingreso' | 'gasto' | null>(null)
   const toggleFiltroCard = (k: 'pendientes' | 'ingreso' | 'gasto') => {
     setFiltroCard(prev => prev === k ? null : k)
+  }
+  const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>(null)
+  const toggleFiltroRapido = (k: NonNullable<FiltroRapido>) => {
+    setFiltroRapido(prev => prev === k ? null : k)
   }
   const [importResult, setImportResult] = useState<{ insertados: number; duplicados: number; omitidos: number } | null>(null)
 
@@ -139,6 +145,7 @@ export default function Conciliacion() {
       gasto_id: m.gasto_id ?? null,
       factura_id: m.factura_id ?? null,
       factura_data: m.factura_data ?? null,
+      titular_id: m.titular_id ?? null,
     })),
     [movimientosBD]
   )
@@ -222,6 +229,16 @@ export default function Conciliacion() {
     }
   }, [periodo, customDesde, customHasta])
 
+  /* — Detección de duplicados para filtro rápido — */
+  const dedupKeys = useMemo(() => {
+    const seen = new Map<string, number>()
+    for (const m of movimientos) {
+      const key = `${m.importe}|${m.fecha}|${m.concepto}`
+      seen.set(key, (seen.get(key) ?? 0) + 1)
+    }
+    return seen
+  }, [movimientos])
+
   /* — Filtrado principal — */
   const movimientosFiltrados = useMemo(() => {
     return movimientos
@@ -237,8 +254,20 @@ export default function Conciliacion() {
         if (filtroCard === 'gasto')      return m.importe < 0
         return true
       })
+      .filter(m => {
+        if (!filtroRapido) return true
+        if (filtroRapido === 'pendientes')  return !m.categoria_id
+        if (filtroRapido === 'asociadas')   return !!m.factura_id
+        if (filtroRapido === 'faltantes')   return !!m.categoria_id && !m.factura_id && m.importe < 0
+        if (filtroRapido === 'duplicadas') {
+          const key = `${m.importe}|${m.fecha}|${m.concepto}`
+          return (dedupKeys.get(key) ?? 0) > 1
+        }
+        if (filtroRapido === 'sin_titular') return !m.titular_id
+        return true
+      })
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos, catFiltro, busqueda, rangoActual, filtroCard])
+  }, [movimientos, catFiltro, busqueda, rangoActual, filtroCard, filtroRapido, dedupKeys])
 
   /* — Movimientos del período anterior (comparativas) — */
   const movimientosAnterior = useMemo(() => {
@@ -458,6 +487,54 @@ export default function Conciliacion() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* FILTROS RÁPIDOS */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            {([
+              { key: 'pendientes',  label: 'Pendientes' },
+              { key: 'asociadas',   label: 'Asociadas' },
+              { key: 'faltantes',   label: 'Faltantes' },
+              { key: 'duplicadas',  label: 'Duplicadas' },
+              { key: 'sin_titular', label: 'Sin titular' },
+            ] as { key: NonNullable<FiltroRapido>; label: string }[]).map(f => (
+              <button
+                key={f.key}
+                onClick={() => toggleFiltroRapido(f.key)}
+                style={{
+                  padding: '5px 14px',
+                  borderRadius: 20,
+                  border: filtroRapido === f.key ? '1.5px solid #e8f442' : `1px solid ${T.brd}`,
+                  backgroundColor: filtroRapido === f.key ? '#e8f44220' : 'transparent',
+                  color: filtroRapido === f.key ? '#e8f442' : T.sec,
+                  fontFamily: FONT.heading,
+                  fontSize: 11,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s ease',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+            {filtroRapido && (
+              <button
+                onClick={() => setFiltroRapido(null)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: 20,
+                  border: `1px solid ${T.brd}`,
+                  backgroundColor: 'transparent',
+                  color: T.mut,
+                  fontFamily: FONT.body,
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                × Quitar
+              </button>
+            )}
           </div>
 
           {/* KPIs Movimientos (clickeables → filtran tabla) */}

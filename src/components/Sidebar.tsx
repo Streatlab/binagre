@@ -71,6 +71,7 @@ const SECTIONS: NavSection[] = [
       { path: '/configuracion/plataformas',           label: 'Plataformas',              emoji: '📡', perfiles: ['admin'] },
       { path: '/configuracion/cuentas',               label: 'Cuentas y conexiones',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',              label: 'Usuarios',                 emoji: '👤', perfiles: ['admin'] },
+      { path: '/configuracion/calendario',             label: 'Calendario operativo',     emoji: '📅', perfiles: ['admin'] },
     ],
   },
 ]

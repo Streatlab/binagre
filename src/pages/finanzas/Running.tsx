@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
 import { useSueldos } from '@/hooks/useSueldos';
 import { useIVA } from '@/contexts/IVAContext';
+import { useCalendario } from '@/contexts/CalendarioContext';
 import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
 import {
   CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE, MESES_CORTO,
@@ -210,6 +211,14 @@ export default function Running() {
     reload();
   }
 
+  /* — Prime Cost y EBITDA (CA-19) — */
+  const gastosPRD = gastos.filter(g => g.categoria?.startsWith('PRD')).reduce((a, g) => a + g.importe, 0);
+  const gastosEQP = gastos.filter(g => g.categoria?.startsWith('EQP')).reduce((a, g) => a + g.importe, 0);
+  const gastosLOC = gastos.filter(g => g.categoria?.startsWith('LOC')).reduce((a, g) => a + g.importe, 0);
+  const gastosCTR = gastos.filter(g => g.categoria?.startsWith('CTR')).reduce((a, g) => a + g.importe, 0);
+  const primeCost = totalNeto > 0 ? ((gastosPRD + gastosEQP) / totalNeto) * 100 : 0;
+  const ebitda    = totalNeto - (gastosPRD + gastosEQP + gastosLOC + gastosCTR);
+
   /* — Resultado y ratio — */
   const resultado    = totalNeto - totalGasto;
   const resultadoAnt = totalNetoAnt - totalGastoAnt;
@@ -222,6 +231,14 @@ export default function Running() {
     () => (Date.now() - periodo.hasta.getTime()) / 86_400_000 >= 45,
     [periodo.hasta],
   );
+
+  /* — Días operativos del periodo (calendario) — */
+  const { diasOperativosEnRango } = useCalendario();
+  const diasOperativosPeriodo = useMemo(
+    () => diasOperativosEnRango(periodo.desde, periodo.hasta) || 1,
+    [diasOperativosEnRango, periodo.desde, periodo.hasta],
+  );
+  const mediaDiariaBruto = totalBruto > 0 ? totalBruto / diasOperativosPeriodo : 0;
 
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
@@ -475,9 +492,9 @@ export default function Running() {
         <CashflowRealCard periodoDesde={periodo.desde} periodoHasta={periodo.hasta} />
       </div>
 
-      {/* KPIs (4 cards; 5 si hay facturación bruta) */}
+      {/* KPIs (4 cards base + Prime Cost + EBITDA + Media diaria; +1 si hay facturación bruta) */}
       <div
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${hayBruto ? 5 : 4}, minmax(0, 1fr))`, gap: 16, marginBottom: 16 }}
+        style={{ display: 'grid', gridTemplateColumns: `repeat(${hayBruto ? 8 : 7}, minmax(0, 1fr))`, gap: 16, marginBottom: 16 }}
         className="rf-kpi-row"
       >
         {hayBruto && (
@@ -515,6 +532,26 @@ export default function Running() {
           valueColor={estadoRatio.color}
           legend={`${estadoRatio.label} · objetivo ≤ 85%`}
           chart={<Semaforo />}
+        />
+        <KpiCardConSparkline
+          label="Prime Cost"
+          value={`${primeCost.toFixed(1)}%`}
+          valueColor={primeCost >= 55 && primeCost <= 65 ? VERDE : primeCost < 55 || primeCost > 75 ? ROJO : AMBAR}
+          legend={`COGS+Labor · objetivo 55-65% · ${fmtEur(gastosPRD + gastosEQP)}`}
+          chart={undefined}
+        />
+        <KpiCardConSparkline
+          label="EBITDA"
+          value={(ebitda >= 0 ? '+' : '−') + fmtEur(Math.abs(ebitda)).replace('−', '')}
+          valueColor={ebitda >= 0 ? VERDE : ROJO}
+          legend={`Sin provisiones IVA/IRPF`}
+          chart={undefined}
+        />
+        <KpiCardConSparkline
+          label="Media diaria"
+          value={fmtEur(mediaDiariaBruto)}
+          legend={`${diasOperativosPeriodo} días operativos`}
+          chart={undefined}
         />
       </div>
 
