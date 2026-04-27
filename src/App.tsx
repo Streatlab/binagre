@@ -41,6 +41,7 @@ import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import Facturas from '@/pages/finanzas/Facturas'
 import Gestoria from '@/pages/finanzas/Gestoria'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
+import Socios from '@/pages/finanzas/Socios'
 
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -149,6 +150,7 @@ function AppRoutes() {
         <Route path="finanzas/facturas" element={<ProtectedRoute solo={['admin']}><Facturas /></ProtectedRoute>} />
         <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
+        <Route path="finanzas/socios" element={<ProtectedRoute solo={['admin']}><Socios /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />

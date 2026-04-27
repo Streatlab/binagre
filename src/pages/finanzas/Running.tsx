@@ -4,7 +4,7 @@ import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
-import { useRunningSueldos } from '@/hooks/useRunningSueldos';
+import { useSueldos } from '@/hooks/useSueldos';
 import { useIVA } from '@/contexts/IVAContext';
 import IVAToggle from '@/components/IVAToggle';
 import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
@@ -109,6 +109,12 @@ export default function Running() {
   }, []);
   const marcaSelNombre = marcaSel ? (marcasOpts.find(m => m.id === marcaSel)?.nombre ?? null) : null;
 
+  // Titular selector: null = todos, RUBEN_ID = Rubén, EMILIO_ID = Emilio
+  // Nota: la tabla `gastos` e `ingresos_mensuales` no tienen titular_id, por lo que
+  // los KPIs principales (ingresos/gastos/resultado) son datos del negocio global.
+  // El selector afecta únicamente la tarjeta de Sueldos del periodo.
+  const [titularSel, setTitularSel] = useState<'todos' | 'ruben' | 'emilio'>('todos');
+
   const { modo: modoIVA } = useIVA();
   const brutoFactor = modoIVA === 'sin' ? 1 / 1.10 : 1; // hostelería 10%
 
@@ -116,12 +122,7 @@ export default function Running() {
     periodo, anio, marcaSel || null, marcaSelNombre, modoIVA,
   );
 
-  /* — Mes para sueldos: mes de inicio del periodo seleccionado — */
-  const mesSueldos = useMemo(() => {
-    const d = periodo.desde;
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  }, [periodo.desde]);
-  const sueldos = useRunningSueldos(mesSueldos);
+  const sueldosDetalle = useSueldos(periodo.desde, periodo.hasta);
 
   /* — Meses del periodo — */
   const mesesDelPeriodo = useMemo(() => {
@@ -486,6 +487,16 @@ export default function Running() {
             <option value="">Todas las marcas</option>
             {marcasOpts.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
           </select>
+          <select
+            value={titularSel}
+            onChange={e => setTitularSel(e.target.value as 'todos' | 'ruben' | 'emilio')}
+            style={selectBase}
+            title="Filtrar por titular"
+          >
+            <option value="todos">Todos los socios</option>
+            <option value="ruben">Rubén</option>
+            <option value="emilio">Emilio</option>
+          </select>
           <SelectorPeriodoDropdown
             value={periodoKey}
             onChange={setPeriodoKey}
@@ -605,19 +616,26 @@ export default function Running() {
         PyG detallado · {anio}
       </div>
       <div style={{ marginBottom: 16 }}>
-        <TablaPyG anio={anio} gastosAnio={gastos} ingresosAnio={ingresosMes} rangos={rangos} />
+        <TablaPyG
+          anio={anio}
+          gastosAnio={gastos}
+          ingresosAnio={ingresosMes}
+          rangos={rangos}
+          sueldosEmilio={sueldosDetalle.loading ? undefined : sueldosDetalle.emilio}
+        />
       </div>
 
       {/* Ingresos por marca */}
       <MarcasCard periodoLabel={periodo.label} rows={marcasRows} />
 
-      {/* Sueldos (calculados desde Conciliación) */}
+      {/* Sueldos del periodo (calculados desde Conciliación, CA-1) */}
+      {/* El complemento SL que Rubén paga a Emilio aparece como gasto de Rubén — correcto aunque se filtre por Rubén */}
       <div style={{ marginTop: 24, marginBottom: 24 }}>
         <div style={{
           fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
           letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12,
         }}>
-          Sueldos · {mesSueldos}
+          Sueldos del periodo
         </div>
         <div style={{
           background: T.card,
@@ -634,31 +652,43 @@ export default function Running() {
               </tr>
             </thead>
             <tbody>
-              {/* Fila Emilio */}
-              <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-                <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Emilio</td>
-                <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '10px 16px', textAlign: 'right' }}>
-                  {`Plataformas: ${fmtEur(sueldos.desgloseEmilio.plataformas)} + Complemento SL: ${fmtEur(sueldos.desgloseEmilio.complementoSL)}`}
-                </td>
-                <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, padding: '10px 16px', textAlign: 'right' }}>
-                  {sueldos.loading ? '…' : fmtEur(sueldos.emilio)}
-                </td>
-              </tr>
-              {/* Fila Rubén */}
-              <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-                <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Rubén</td>
-                <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
-                  pendiente lógica
-                </td>
-                <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
-                  —
-                </td>
-              </tr>
+              {/* Fila Emilio — visible cuando titular = todos o emilio */}
+              {titularSel !== 'ruben' && (
+                <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
+                  <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Emilio</td>
+                  <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '10px 16px', textAlign: 'right' }}>
+                    {sueldosDetalle.loading ? '…' : (
+                      `Plataformas ${fmtEur(sueldosDetalle.emilio.plataformas)} + Complemento SL ${fmtEur(sueldosDetalle.emilio.complementoSL)} = Total ${fmtEur(sueldosDetalle.emilio.total)}`
+                    )}
+                  </td>
+                  <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, padding: '10px 16px', textAlign: 'right' }}>
+                    {sueldosDetalle.loading ? '…' : fmtEur(sueldosDetalle.emilio.total)}
+                  </td>
+                </tr>
+              )}
+              {/* Fila Rubén — visible cuando titular = todos o ruben */}
+              {titularSel !== 'emilio' && (
+                <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
+                  <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Rubén</td>
+                  <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
+                    pendiente lógica
+                  </td>
+                  <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
+                    —
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          {sueldos.error && (
+          {/* Promedio últimos 90 días Emilio */}
+          {!sueldosDetalle.loading && titularSel !== 'ruben' && (
+            <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 11, color: T.mut, borderTop: `0.5px solid ${T.brd}` }}>
+              Promedio últimos 90d Emilio: {fmtEur(sueldosDetalle.ultimos90d.emilio_mensual_real)}/mes
+            </div>
+          )}
+          {sueldosDetalle.error && (
             <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 11, color: '#B01D23' }}>
-              Error sueldos: {sueldos.error}
+              Error sueldos: {sueldosDetalle.error}
             </div>
           )}
         </div>

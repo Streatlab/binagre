@@ -4,11 +4,19 @@ import type { Categoria } from '@/lib/running';
 import type { GastoRaw, IngresoMensualRaw, RangoCategoria } from '@/hooks/useRunning';
 import { normalizarConcepto } from '@/lib/normalizarConcepto';
 
+interface SueldosEmilioProps {
+  plataformas: number;
+  complementoSL: number;
+  total: number;
+}
+
 interface Props {
   anio: number;
   gastosAnio: GastoRaw[];
   ingresosAnio: IngresoMensualRaw[];
   rangos: RangoCategoria[];
+  /** Opcional: desglose sueldo Emilio para subfila RRHH */
+  sueldosEmilio?: SueldosEmilioProps;
 }
 
 type RowKind = 'section'|'h1'|'h2'|'detail'|'result';
@@ -55,9 +63,11 @@ function proveedorLabel(g: { proveedor: string | null; concepto: string | null }
   return (g.concepto ?? '(sin concepto)').slice(0, 30);
 }
 
-export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
+export default function TablaPyG({ gastosAnio, ingresosAnio, rangos, sueldosEmilio }: Props) {
   const [collapsedTrim, setCollapsedTrim] = useState<Set<string>>(new Set());
   const [collapsedRow, setCollapsedRow] = useState<Set<string>>(new Set());
+  // Toggle expansión subfila RRHH Emilio
+  const [rrhhExpanded, setRrhhExpanded] = useState(false);
 
   const toggleTrim = (t: string) => setCollapsedTrim(p => { const n = new Set(p); if (n.has(t)) n.delete(t); else n.add(t); return n; });
   const toggleRow = (k: string) => setCollapsedRow(p => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -329,16 +339,29 @@ export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
               borderTop: isResult ? '2px solid var(--rf-border)' : isH1 ? '1px solid var(--rf-border)' : 'none',
             };
 
+            // Subfila RRHH Emilio: se inserta después de la fila 'dist-RRHH' o 'g-22'
+            const isRrhhRow = r.key === 'dist-RRHH' || r.key === 'g-22';
+            const showRrhhToggle = isRrhhRow && !!sueldosEmilio;
+
             return (
-              <tr key={r.key} onClick={isCollapsible ? () => toggleRow(r.key) : undefined}>
+              <React.Fragment key={r.key}>
+              <tr onClick={isCollapsible ? () => {
+                if (isRrhhRow && showRrhhToggle) setRrhhExpanded(p => !p);
+                else toggleRow(r.key);
+              } : undefined}>
                 <td style={labelStyle}>
                   {isCollapsible && (
                     <span style={{ display: 'inline-block', width: 10, marginRight: 6, fontSize: 9, color: 'var(--rf-text-muted)' }}>
-                      {isCollapsed ? '▶' : '▼'}
+                      {(isRrhhRow ? rrhhExpanded : !isCollapsed) ? '▼' : '▶'}
                     </span>
                   )}
                   {r.label}
                   {r.sublabel && <span style={{ fontSize: 10, color: 'var(--rf-text-muted)', marginLeft: 6 }}>· {r.sublabel}</span>}
+                  {showRrhhToggle && (
+                    <span style={{ fontSize: 9, color: 'var(--rf-text-muted)', marginLeft: 8 }}>
+                      {rrhhExpanded ? '(colapsar desglose)' : '(ver desglose Emilio)'}
+                    </span>
+                  )}
                 </td>
                 {TRIM.map(t => {
                   const isColTrim = collapsedTrim.has(t.label);
@@ -359,6 +382,75 @@ export default function TablaPyG({ gastosAnio, ingresosAnio, rangos }: Props) {
                   {isResult ? (year > 0 ? `+${valFmt(year)}` : valFmt(year)) : valFmt(year)}
                 </td>
               </tr>
+              {/* Subfilas RRHH Emilio: Plataformas + Complemento SL */}
+              {showRrhhToggle && rrhhExpanded && sueldosEmilio && (
+                <>
+                  <tr>
+                    <td style={{ padding: '7px 8px 7px 56px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', background: 'var(--rf-bg-card)', position: 'sticky', left: 0, zIndex: 1 }}>
+                      Emilio · Plataformas
+                    </td>
+                    {TRIM.map(t => {
+                      const isColTrim = collapsedTrim.has(t.label);
+                      return (
+                        <React.Fragment key={t.label}>
+                          {!isColTrim && t.months.map(m => (
+                            <td key={m} style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: t.bg }}>
+                              —
+                            </td>
+                          ))}
+                          <td style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: t.bg, fontWeight: 600 }}>
+                            {valFmt(sueldosEmilio.plataformas / 4)}
+                          </td>
+                        </React.Fragment>
+                      );
+                    })}
+                    <td style={{ padding: '7px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: 'var(--rf-year-bg)', fontWeight: 700 }}>
+                      {valFmt(sueldosEmilio.plataformas)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '7px 8px 7px 56px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', background: 'var(--rf-bg-card)', position: 'sticky', left: 0, zIndex: 1 }}>
+                      Emilio · Complemento SL
+                    </td>
+                    {TRIM.map(t => {
+                      const isColTrim = collapsedTrim.has(t.label);
+                      return (
+                        <React.Fragment key={t.label}>
+                          {!isColTrim && t.months.map(m => (
+                            <td key={m} style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: t.bg }}>
+                              —
+                            </td>
+                          ))}
+                          <td style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: t.bg, fontWeight: 600 }}>
+                            {valFmt(sueldosEmilio.complementoSL / 4)}
+                          </td>
+                        </React.Fragment>
+                      );
+                    })}
+                    <td style={{ padding: '7px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', textAlign: 'right', background: 'var(--rf-year-bg)', fontWeight: 700 }}>
+                      {valFmt(sueldosEmilio.complementoSL)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '7px 8px 7px 56px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-2)', background: 'var(--rf-bg-card)', position: 'sticky', left: 0, zIndex: 1, fontStyle: 'italic' }}>
+                      Rubén · pendiente
+                    </td>
+                    {TRIM.map(t => {
+                      const isColTrim = collapsedTrim.has(t.label);
+                      return (
+                        <React.Fragment key={t.label}>
+                          {!isColTrim && t.months.map(m => (
+                            <td key={m} style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-muted)', textAlign: 'right', background: t.bg }}>—</td>
+                          ))}
+                          <td style={{ padding: '7px 8px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-muted)', textAlign: 'right', background: t.bg }}>—</td>
+                        </React.Fragment>
+                      );
+                    })}
+                    <td style={{ padding: '7px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: 'var(--rf-text-muted)', textAlign: 'right', background: 'var(--rf-year-bg)' }}>—</td>
+                  </tr>
+                </>
+              )}
+              </React.Fragment>
             );
           })}
         </tbody>

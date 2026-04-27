@@ -46,6 +46,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/facturas',             label: 'Importar Facturas',   emoji: '📄', perfiles: ['admin'] },
       { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '📂', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
+      { path: '/finanzas/socios',               label: 'Socios',              emoji: '👥', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
       { path: '/finanzas/analisis',             label: 'Análisis',            emoji: '🔍', perfiles: ['admin'] },
     ],
