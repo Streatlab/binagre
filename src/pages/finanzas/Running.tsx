@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
 import { useSueldos } from '@/hooks/useSueldos';
 import { useIVA } from '@/contexts/IVAContext';
-import IVAToggle from '@/components/IVAToggle';
 import CashflowRealCard from '@/components/finanzas/running/CashflowRealCard';
 import {
   CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE, MESES_CORTO,
@@ -20,7 +19,6 @@ import TablaPyG from '@/components/finanzas/running/TablaPyG';
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown';
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles';
-import MarcasCard from '@/components/finanzas/running/MarcasCard';
 import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupuestoCard';
 import RitmoMesCard from '@/components/finanzas/running/RitmoMesCard';
 import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMensualCard';
@@ -108,12 +106,6 @@ export default function Running() {
     return () => { cancel = true };
   }, []);
   const marcaSelNombre = marcaSel ? (marcasOpts.find(m => m.id === marcaSel)?.nombre ?? null) : null;
-
-  // Titular selector: null = todos, RUBEN_ID = Rubén, EMILIO_ID = Emilio
-  // Nota: la tabla `gastos` e `ingresos_mensuales` no tienen titular_id, por lo que
-  // los KPIs principales (ingresos/gastos/resultado) son datos del negocio global.
-  // El selector afecta únicamente la tarjeta de Sueldos del periodo.
-  const [titularSel, setTitularSel] = useState<'todos' | 'ruben' | 'emilio'>('todos');
 
   const { modo: modoIVA } = useIVA();
   const brutoFactor = modoIVA === 'sin' ? 1 / 1.10 : 1; // hostelería 10%
@@ -230,50 +222,6 @@ export default function Running() {
     () => (Date.now() - periodo.hasta.getTime()) / 86_400_000 >= 45,
     [periodo.hasta],
   );
-
-  /* — Ventas por marca (derivado de facturacion del hook) — */
-  interface MarcaRow { marca: string; bruto: number; pedidos: number; tm: number; deltaPct: number | null }
-  const [marcaIdToNombre, setMarcaIdToNombre] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const { data } = await supabase.from('marcas').select('id, nombre');
-      if (cancel) return;
-      const m: Record<string, string> = {};
-      for (const r of (data ?? []) as { id: string; nombre: string }[]) m[r.id] = r.nombre;
-      setMarcaIdToNombre(m);
-    })();
-    return () => { cancel = true };
-  }, []);
-
-  const marcasRows: MarcaRow[] = useMemo(() => {
-    const porMarca = new Map<string, { bruto: number; pedidos: number }>();
-    for (const r of facturacion) {
-      if (!r.marca_id) continue;
-      const acc = porMarca.get(r.marca_id) ?? { bruto: 0, pedidos: 0 };
-      acc.bruto += Number(r.total_bruto || 0);
-      acc.pedidos += Number(r.total_pedidos || 0);
-      porMarca.set(r.marca_id, acc);
-    }
-    const porMarcaAnt = new Map<string, number>();
-    for (const r of facturacionAnt) {
-      if (!r.marca_id) continue;
-      porMarcaAnt.set(r.marca_id, (porMarcaAnt.get(r.marca_id) ?? 0) + Number(r.total_bruto || 0));
-    }
-    return Array.from(porMarca.entries())
-      .map(([id, v]) => {
-        const brutoAnt = porMarcaAnt.get(id) ?? 0;
-        const deltaPct = brutoAnt > 0 ? ((v.bruto - brutoAnt) / brutoAnt) * 100 : null;
-        return {
-          marca: marcaIdToNombre[id] ?? '(sin nombre)',
-          bruto: v.bruto,
-          pedidos: v.pedidos,
-          tm: v.pedidos > 0 ? v.bruto / v.pedidos : 0,
-          deltaPct,
-        };
-      })
-      .sort((a, b) => b.bruto - a.bruto);
-  }, [facturacion, facturacionAnt, marcaIdToNombre]);
 
   const dPct = (act: number, ant: number) => ant ? Math.round(((act - ant) / Math.abs(ant)) * 100) : 0;
   const sgn = (n: number): 'up' | 'down' | 'neutral' => Math.abs(n) < 1 ? 'neutral' : n > 0 ? 'up' : 'down';
@@ -465,6 +413,8 @@ export default function Running() {
     outline: 'none',
   };
 
+  const [runTab, setRunTab] = useState<'resumen' | 'pyg' | 'comparativas'>('resumen')
+
   return (
     <div style={wrapPage}>
       {/* HEADER */}
@@ -477,26 +427,6 @@ export default function Running() {
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{periodo.label}</span>
-          <IVAToggle />
-          <select
-            value={marcaSel}
-            onChange={e => setMarcaSel(e.target.value)}
-            style={selectBase}
-            title="Filtrar por marca"
-          >
-            <option value="">Todas las marcas</option>
-            {marcasOpts.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-          </select>
-          <select
-            value={titularSel}
-            onChange={e => setTitularSel(e.target.value as 'todos' | 'ruben' | 'emilio')}
-            style={selectBase}
-            title="Filtrar por titular"
-          >
-            <option value="todos">Todos los socios</option>
-            <option value="ruben">Rubén</option>
-            <option value="emilio">Emilio</option>
-          </select>
           <SelectorPeriodoDropdown
             value={periodoKey}
             onChange={setPeriodoKey}
@@ -505,28 +435,42 @@ export default function Running() {
             hasta={customHasta}
             onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
           />
-          <button
-            onClick={() => setModalOpen(true)}
-            style={{
-              padding: '8px 16px',
-              background: ROJO,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontFamily: FONT.heading,
-              fontSize: 12,
-              fontWeight: 500,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-          >
-            + Añadir gasto
-          </button>
         </div>
       </div>
 
-      {/* Cashflow Real — fuera del toggle IVA, siempre con IVA (caja real) */}
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: `1px solid ${T.brd}` }}>
+        {([
+          { key: 'resumen', label: 'Resumen' },
+          { key: 'pyg', label: 'PyG detallado' },
+          { key: 'comparativas', label: 'Comparativas' },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setRunTab(tab.key)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: runTab === tab.key ? `2px solid #e8f442` : '2px solid transparent',
+              color: runTab === tab.key ? '#e8f442' : T.mut,
+              fontFamily: FONT.heading,
+              fontSize: 11,
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              padding: '8px 18px',
+              cursor: 'pointer',
+              marginBottom: -1,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB: RESUMEN */}
+      {runTab === 'resumen' && (<>
+
+      {/* Cashflow Real — siempre con IVA (caja real) */}
       <div style={{ marginBottom: 16 }}>
         <CashflowRealCard periodoDesde={periodo.desde} periodoHasta={periodo.hasta} />
       </div>
@@ -598,105 +542,56 @@ export default function Running() {
         />
       </div>
 
-      {/* Cards inteligentes (3 medianas) */}
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 32, alignItems: 'stretch' }}
-        className="rf-smart-row"
-      >
-        <AlertasPresupuestoCard gastos={gastos} />
-        <RitmoMesCard />
-        <ComparativaMensualCard />
-      </div>
-
-      {/* Tabla PyG */}
-      <div style={{
-        fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
-        letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12,
-      }}>
-        PyG detallado · {anio}
-      </div>
-      <div style={{ marginBottom: 16 }}>
-        <TablaPyG
-          anio={anio}
-          gastosAnio={gastos}
-          ingresosAnio={ingresosMes}
-          rangos={rangos}
-          sueldosEmilio={sueldosDetalle.loading ? undefined : sueldosDetalle.emilio}
-        />
-      </div>
-
-      {/* Ingresos por marca */}
-      <MarcasCard periodoLabel={periodo.label} rows={marcasRows} />
-
-      {/* Sueldos del periodo (calculados desde Conciliación, CA-1) */}
-      {/* El complemento SL que Rubén paga a Emilio aparece como gasto de Rubén — correcto aunque se filtre por Rubén */}
-      <div style={{ marginTop: 24, marginBottom: 24 }}>
-        <div style={{
-          fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
-          letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12,
-        }}>
-          Sueldos del periodo
-        </div>
-        <div style={{
-          background: T.card,
-          border: `0.5px solid ${T.brd}`,
-          borderRadius: 10,
-          overflow: 'hidden',
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#0a0a0a' }}>
-                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'left' }}>Persona</th>
-                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'right' }}>Detalle</th>
-                <th style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: T.sec, padding: '8px 16px', textAlign: 'right' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Fila Emilio — visible cuando titular = todos o emilio */}
-              {titularSel !== 'ruben' && (
-                <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-                  <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Emilio</td>
-                  <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '10px 16px', textAlign: 'right' }}>
-                    {sueldosDetalle.loading ? '…' : (
-                      `Plataformas ${fmtEur(sueldosDetalle.emilio.plataformas)} + Complemento SL ${fmtEur(sueldosDetalle.emilio.complementoSL)} = Total ${fmtEur(sueldosDetalle.emilio.total)}`
-                    )}
-                  </td>
-                  <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, padding: '10px 16px', textAlign: 'right' }}>
-                    {sueldosDetalle.loading ? '…' : fmtEur(sueldosDetalle.emilio.total)}
-                  </td>
-                </tr>
-              )}
-              {/* Fila Rubén — visible cuando titular = todos o ruben */}
-              {titularSel !== 'emilio' && (
-                <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-                  <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 16px' }}>Rubén</td>
-                  <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
-                    pendiente lógica
-                  </td>
-                  <td style={{ fontFamily: FONT.heading, fontSize: 14, color: T.mut, padding: '10px 16px', textAlign: 'right' }}>
-                    —
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {/* Promedio últimos 90 días Emilio */}
-          {!sueldosDetalle.loading && titularSel !== 'ruben' && (
-            <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 11, color: T.mut, borderTop: `0.5px solid ${T.brd}` }}>
-              Promedio últimos 90d Emilio: {fmtEur(sueldosDetalle.ultimos90d.emilio_mensual_real)}/mes
-            </div>
-          )}
-          {sueldosDetalle.error && (
-            <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 11, color: '#B01D23' }}>
-              Error sueldos: {sueldosDetalle.error}
-            </div>
-          )}
-        </div>
-      </div>
-
       {loading && (
         <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
           Cargando…
+        </div>
+      )}
+
+      </>)}
+
+      {/* TAB: PyG detallado */}
+      {runTab === 'pyg' && (
+        <div>
+          <div style={{
+            fontFamily: FONT.heading, fontSize: 14, color: ROJO, fontWeight: 500,
+            letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12,
+          }}>
+            PyG detallado · {anio}
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <TablaPyG
+              anio={anio}
+              gastosAnio={gastos}
+              ingresosAnio={ingresosMes}
+              rangos={rangos}
+              sueldosEmilio={sueldosDetalle.loading ? undefined : sueldosDetalle.emilio}
+            />
+          </div>
+          {loading && (
+            <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
+              Cargando…
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Comparativas */}
+      {runTab === 'comparativas' && (
+        <div>
+          <div
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 24, alignItems: 'stretch' }}
+            className="rf-smart-row"
+          >
+            <AlertasPresupuestoCard gastos={gastos} />
+            <RitmoMesCard />
+            <ComparativaMensualCard />
+          </div>
+          {loading && (
+            <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
+              Cargando…
+            </div>
+          )}
         </div>
       )}
 

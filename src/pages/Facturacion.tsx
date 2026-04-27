@@ -37,7 +37,7 @@ interface RawDiario extends AggRow {
 interface SemanaGroup extends AggRow { year: number; week: number; periodo: string; dias: number }
 interface MesGroup extends AggRow { anio: number; mes: number; dias: number; media_diaria: number; vs_anterior: number | null }
 
-type Tab = 'diario' | 'semanas' | 'meses'
+type Tab = 'diario' | 'semanas' | 'meses' | 'anual'
 type CanalFilter = 'Todos' | 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web'
 
 const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow; color: string; bg: string }[] = [
@@ -52,6 +52,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'diario', label: 'Diario' },
   { key: 'semanas', label: 'Semanas' },
   { key: 'meses', label: 'Meses' },
+  { key: 'anual', label: 'Año' },
 ]
 const MES_NOMBRE: Record<number, string> = {
   1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
@@ -363,6 +364,7 @@ export default function Facturacion() {
           {tab === 'diario' && <TabDiario allData={filteredData} canal={canal} weekFilter={weekFilter} onRefresh={refresh} onEdit={setEditRow} onAdd={() => setShowAdd(true)} />}
           {tab === 'semanas' && <TabSemanas allData={filteredData} canal={canal} onDrill={drillWeek} />}
           {tab === 'meses' && <TabMeses allData={filteredData} canal={canal} />}
+          {tab === 'anual' && <TabAnual allData={filteredData} canal={canal} />}
         </>
       )}
 
@@ -969,4 +971,118 @@ function DesvBadge({ pct }: { pct: number }) {
 
 function Dash({ T }: { T: any }) {
   return <span style={{ color: T.mut }}>—</span>
+}
+
+/* ─── TAB ANUAL ─── */
+
+interface AnualYear { anio: number; bruto: number; pedidos: number; mediaMensual: number; mediaTicket: number }
+
+function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter }) {
+  const { T } = useTheme()
+
+  const years = useMemo<AnualYear[]>(() => {
+    const byYear = new Map<number, { bruto: number; pedidos: number }>()
+    for (const r of allData) {
+      const y = parseInt(r.fecha.slice(0, 4))
+      if (!byYear.has(y)) byYear.set(y, { bruto: 0, pedidos: 0 })
+      const cur = byYear.get(y)!
+      cur.bruto += getBru(r, canal)
+      cur.pedidos += getPed(r, canal)
+    }
+    return [...byYear.entries()].sort((a, b) => b[0] - a[0]).map(([anio, v]) => ({
+      anio,
+      bruto: v.bruto,
+      pedidos: v.pedidos,
+      mediaMensual: v.bruto / 12,
+      mediaTicket: v.pedidos > 0 ? v.bruto / v.pedidos : 0,
+    }))
+  }, [allData, canal])
+
+  const maxBruto = Math.max(...years.map(y => y.bruto), 1)
+
+  const thS: CSSProperties = {
+    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase',
+    color: T.mut, padding: '10px 14px', textAlign: 'left', background: '#0a0a0a',
+    borderBottom: `0.5px solid ${T.brd}`,
+  }
+  const tdS: CSSProperties = {
+    padding: '12px 14px', fontSize: 13, fontFamily: FONT.body, color: T.pri,
+    borderBottom: `0.5px solid ${T.brd}`,
+  }
+
+  return (
+    <div>
+      {/* 4 cards grandes */}
+      {years.length > 0 && (() => {
+        const cur = years[0]
+        const prev = years[1]
+        const delta = prev ? ((cur.bruto - prev.bruto) / prev.bruto) * 100 : null
+        const deltaTicket = prev && prev.mediaTicket > 0 ? ((cur.mediaTicket - prev.mediaTicket) / prev.mediaTicket) * 100 : null
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+            {[
+              { label: `Facturación ${cur.anio}`, value: fmtEur(cur.bruto), delta, positive: true, color: '#e8f442' },
+              { label: 'Media mensual', value: fmtEur(cur.mediaMensual), delta: null, positive: true, color: T.pri },
+              { label: 'Pedidos totales', value: Math.round(cur.pedidos).toLocaleString('es-ES'), delta: null, positive: true, color: T.pri },
+              { label: 'Ticket medio', value: fmtEur(cur.mediaTicket), delta: deltaTicket, positive: true, color: T.pri },
+            ].map(kpi => (
+              <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '16px 18px' }}>
+                <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{kpi.label}</div>
+                <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: kpi.color }}>{kpi.value}</div>
+                {kpi.delta != null && (
+                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: kpi.delta >= 0 ? '#1D9E75' : '#E24B4A', marginTop: 4 }}>
+                    {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta).toFixed(1)}% vs {cur.anio - 1}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
+      {/* Tabla comparativa por año */}
+      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={thS}>Año</th>
+              <th style={{ ...thS, textAlign: 'right' }}>Facturación bruta</th>
+              <th style={{ ...thS }}>vs año anterior</th>
+              <th style={{ ...thS, textAlign: 'right' }}>Media mensual</th>
+              <th style={{ ...thS, textAlign: 'right' }}>Pedidos</th>
+              <th style={{ ...thS, textAlign: 'right' }}>Ticket medio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {years.map((y, idx) => {
+              const prev = years[idx + 1]
+              const delta = prev ? ((y.bruto - prev.bruto) / prev.bruto) * 100 : null
+              const barW = `${Math.round((y.bruto / maxBruto) * 100)}%`
+              return (
+                <tr key={y.anio}>
+                  <td style={{ ...tdS, fontFamily: FONT.heading, color: '#e8f442', fontWeight: 600 }}>{y.anio}</td>
+                  <td style={{ ...tdS, textAlign: 'right' }}>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, marginBottom: 4 }}>{fmtEur(y.bruto)}</div>
+                    <div style={{ height: 4, background: T.brd, borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: 4, width: barW, background: '#e8f442', borderRadius: 2 }} />
+                    </div>
+                  </td>
+                  <td style={tdS}>
+                    {delta != null ? (
+                      <span style={{ fontFamily: FONT.heading, fontSize: 12, color: delta >= 0 ? '#1D9E75' : '#E24B4A', fontWeight: 600 }}>
+                        {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
+                      </span>
+                    ) : <span style={{ color: T.mut }}>—</span>}
+                  </td>
+                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{fmtEur(y.mediaMensual)}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{Math.round(y.pedidos).toLocaleString('es-ES')}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{fmtEur(y.mediaTicket)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }

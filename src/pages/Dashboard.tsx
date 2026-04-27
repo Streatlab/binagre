@@ -203,6 +203,7 @@ export default function Dashboard() {
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
   const [topTab, setTopTab] = useState<'prod'|'mod'>('prod')
+  const [mainTab, setMainTab] = useState<'general'|'operaciones'|'finanzas'|'cashflow'|'marcas'>('general')
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
   const [objetivos, setObjetivos] = useState<Objetivos>({ diario:700, semanal:5000, mensual:20000, anual:240000 })
@@ -486,6 +487,101 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* TABS PRINCIPALES */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: `1px solid ${T.brd}` }}>
+          {([
+            { key: 'general', label: 'General' },
+            { key: 'operaciones', label: 'Operaciones' },
+            { key: 'finanzas', label: 'Finanzas' },
+            { key: 'cashflow', label: 'Cashflow' },
+            { key: 'marcas', label: 'Marcas' },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setMainTab(tab.key)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom: mainTab === tab.key ? `2px solid #e8f442` : '2px solid transparent',
+                color: mainTab === tab.key ? '#e8f442' : T.mut,
+                fontFamily: 'Oswald, sans-serif',
+                fontSize: 11,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                padding: '8px 18px',
+                cursor: 'pointer',
+                marginBottom: -1,
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* TAB: MARCAS — esqueleto */}
+        {mainTab === 'marcas' && (
+          <div style={{ padding: '40px 0', textAlign: 'center', color: T.mut, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+            Vista por marcas — en desarrollo
+          </div>
+        )}
+
+        {/* TAB: OPERACIONES */}
+        {mainTab === 'operaciones' && (
+          <div style={{ padding: '24px 0', color: T.sec, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>KPIs operativos</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+              {[
+                { label: 'Pedidos totales', value: Math.round(canalStats.reduce((a, c) => a + c.pedidos, 0)).toLocaleString('es-ES') },
+                { label: 'Ticket medio', value: fmtEur(canalStats.reduce((a, c) => a + c.pedidos, 0) > 0 ? canalStats.reduce((a, c) => a + c.bruto, 0) / canalStats.reduce((a, c) => a + c.pedidos, 0) : 0) },
+                { label: 'Facturación bruta', value: fmtEur(ventasPeriodo) },
+                { label: 'Canal top', value: canalStats.sort((a, b) => b.bruto - a.bruto)[0]?.label ?? '—' },
+              ].map(kpi => (
+                <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{kpi.label}</div>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 600, color: T.pri }}>{kpi.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: FINANZAS */}
+        {mainTab === 'finanzas' && (
+          <div style={{ padding: '24px 0', color: T.sec, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>Vista financiera</div>
+            <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '18px 20px', display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Ingresos brutos', value: fmtEur(ventasPeriodo), color: '#1D9E75' },
+                { label: 'Comisiones estimadas (30%)', value: fmtEur(ventasPeriodo * 0.30), color: '#f5a623' },
+                { label: 'Ingresos netos est.', value: fmtEur(ventasPeriodo * 0.70), color: '#e8f442' },
+              ].map(item => (
+                <div key={item.label}>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: item.color }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 12, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut }}>
+              Datos reales de ingresos netos disponibles en Running Financiero.
+            </div>
+          </div>
+        )}
+
+        {/* TAB: CASHFLOW */}
+        {mainTab === 'cashflow' && (
+          <div style={{ padding: '24px 0', color: T.sec, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>Cashflow proyectado</div>
+            <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '20px 24px' }}>
+              <div style={{ color: T.mut, fontSize: 13 }}>
+                Proyección de cashflow disponible en <strong style={{ color: T.pri }}>PE → Tesorería futura</strong>.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: GENERAL — contenido principal existente */}
+        {mainTab === 'general' && (<>
+
         {/* KPIs */}
         <div style={{ display:'grid', gridTemplateColumns: grid3, gap:14, marginBottom:22 }}>
 
@@ -705,6 +801,8 @@ export default function Dashboard() {
           </div>
 
         </div>
+
+        </>)}
 
       </div>
     </div>

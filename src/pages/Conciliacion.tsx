@@ -343,7 +343,7 @@ export default function Conciliacion() {
           margin: 0,
           textTransform: 'uppercase',
         }}>
-          Resumen · Conciliación
+          Conciliación
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: T.mut, fontFamily: FONT.body }}>{rangoFechasLegible}</span>
@@ -558,7 +558,7 @@ export default function Conciliacion() {
                     <th style={{ ...thStyle, textAlign: 'right' }}>Importe</th>
                     <th style={thStyle}>Categoría</th>
                     <th style={thStyle}>Contraparte</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>PDF</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Doc</th>
                   </tr>
                 </thead>
                 <tbody>

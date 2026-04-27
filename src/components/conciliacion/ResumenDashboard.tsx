@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import {
-  BarChart, Bar,
-  LineChart, Line,
-  XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
-} from 'recharts'
+import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { useTheme, FONT, kpiValueStyle } from '@/styles/tokens'
 import type { Movimiento, Categoria } from '@/types/conciliacion'
@@ -13,12 +9,12 @@ import type { Movimiento, Categoria } from '@/types/conciliacion'
    ═══════════════════════════════════════════════════════════ */
 
 interface Props {
-  movimientos: Movimiento[]
-  movimientosAnterior: Movimiento[]
-  categorias: Categoria[]
-  mesNombre: string
-  anio: number
-  diasRestantes: number
+  movimientos?: Movimiento[]
+  movimientosAnterior?: Movimiento[]
+  categorias?: Categoria[]
+  mesNombre?: string
+  anio?: number
+  diasRestantes?: number
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -98,15 +94,6 @@ const MOCK_TESORERIA = {
   proyeccion30d: 18200,
 }
 
-const PALETA_PRESUPUESTO = {
-  compras:     { bg: '#EAF3DE', border: '#C0DD97', text: '#173404', subtext: '#3B6D11', valor: '#1D9E75', barra: '#1D9E75' },
-  rrhh:        { bg: '#FAEEDA', border: '#FAC775', text: '#412402', subtext: '#854F0B', valor: '#BA7517', barra: '#BA7517' },
-  marketing:   { bg: '#FBEAF0', border: '#F4C0D1', text: '#4B1528', subtext: '#993556', valor: '#D4537E', barra: '#D4537E' },
-  suministros: { bg: '#FAECE7', border: '#F5C4B3', text: '#4A1B0C', subtext: '#993C1D', valor: '#D85A30', barra: '#D85A30' },
-} as const
-
-type CategoriaPresupuesto = keyof typeof PALETA_PRESUPUESTO
-
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
@@ -123,30 +110,6 @@ function calcularPosicionIndicador(ratio: number): number {
   return Math.max(0, Math.min(100, pos))
 }
 
-function calcularEstadoPresupuesto(pct: number) {
-  if (pct > 100) return { label: 'Superado',  bg: '#FCEBEB', fg: '#A32D2D' }
-  if (pct >= 90) return { label: 'Al límite', bg: '#FAEEDA', fg: '#854F0B' }
-  if (pct >= 50) return { label: 'En ritmo',  bg: '#EAF3DE', fg: '#3B6D11' }
-  return              { label: 'Holgado',   bg: '#E6F1FB', fg: '#0C447C' }
-}
-
-function calcularDiasTranscurridosMes(): number {
-  return new Date().getDate()
-}
-
-function diasEnMesActual(): number {
-  const hoy = new Date()
-  return new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
-}
-
-function getWeekNumber(dateStr: string): number {
-  const d = new Date(dateStr + 'T12:00:00')
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dayNum = date.getUTCDay() || 7
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
-  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-}
 
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -279,12 +242,94 @@ function FilaDistribucion({ color, nombre, importe, deltaPct, porcentaje, esIngr
    COMPONENT PRINCIPAL
    ═══════════════════════════════════════════════════════════ */
 
-export function ResumenDashboard({
-  movimientos,
-  mesNombre,
-  anio,
-  diasRestantes,
-}: Props) {
+/* ═══════════════════════════════════════════════════════════
+   SUB-COMPONENTE: PRESUPUESTO VS REAL (datos reales de objetivos+gastos)
+   ═══════════════════════════════════════════════════════════ */
+
+interface PresupuestoCat { grupo: string; label: string; presupuesto: number; real: number }
+
+function PresupuestoVsRealSection() {
+  const { T } = useTheme()
+  const [data, setData] = useState<PresupuestoCat[]>([])
+
+  useEffect(() => {
+    const hoy = new Date()
+    const anio = hoy.getFullYear()
+    const mes = hoy.getMonth() + 1
+
+    // Load presupuesto for current month
+    supabase.from('objetivos')
+      .select('categoria_codigo,importe')
+      .eq('tipo', 'presupuesto')
+      .eq('anio', anio)
+      .eq('mes', mes)
+      .then(async ({ data: presRows }) => {
+        // Group by main grupo prefix
+        const grupoMap: Record<string, { label: string; presupuesto: number }> = {
+          PRD: { label: 'Producto (COGS)', presupuesto: 0 },
+          EQP: { label: 'Equipo (Labor)', presupuesto: 0 },
+          LOC: { label: 'Local (Occupancy)', presupuesto: 0 },
+          CTR: { label: 'Controlables (OPEX)', presupuesto: 0 },
+        }
+        for (const r of (presRows ?? [])) {
+          const prefix = (r.categoria_codigo as string).slice(0, 3)
+          if (grupoMap[prefix]) grupoMap[prefix].presupuesto += Number(r.importe) || 0
+        }
+
+        // Load gastos for current month from conciliacion table
+        const mesStr = `${anio}-${String(mes).padStart(2, '0')}`
+        const { data: gastoRows } = await supabase.from('conciliacion')
+          .select('categoria,importe')
+          .like('fecha', `${mesStr}-%`)
+          .lt('importe', 0)
+
+        const realMap: Record<string, number> = { PRD: 0, EQP: 0, LOC: 0, CTR: 0 }
+        for (const g of (gastoRows ?? [])) {
+          const prefix = (g.categoria as string ?? '').slice(0, 3)
+          if (realMap[prefix] !== undefined) realMap[prefix] += Math.abs(Number(g.importe) || 0)
+        }
+
+        setData(Object.entries(grupoMap).map(([prefix, v]) => ({
+          grupo: prefix,
+          label: v.label,
+          presupuesto: v.presupuesto,
+          real: realMap[prefix] || 0,
+        })))
+      })
+  }, [])
+
+  if (data.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 10 }}>
+        Presupuesto vs Real · Mes actual
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        {data.map(cat => {
+          const pct = cat.presupuesto > 0 ? Math.round((cat.real / cat.presupuesto) * 100) : 0
+          const pctCap = Math.min(pct, 100)
+          const barColor = pct > 100 ? '#E24B4A' : pct > 85 ? '#f5a623' : '#1D9E75'
+          return (
+            <div key={cat.grupo} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{cat.label}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: barColor }}>{fmtEur(cat.real)}</span>
+                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>/ {fmtEur(cat.presupuesto)}</span>
+              </div>
+              <div style={{ height: 4, background: T.brd, borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+                <div style={{ height: 4, width: `${pctCap}%`, background: barColor, transition: 'width 0.4s ease' }} />
+              </div>
+              <div style={{ fontFamily: FONT.heading, fontSize: 11, color: barColor, textAlign: 'right' }}>{pct}%</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function ResumenDashboard(_props: Props) {
   const { T } = useTheme()
   const isMobile = useIsMobile()
 
@@ -365,48 +410,6 @@ export function ResumenDashboard({
   const maxVal = Math.max(MOCK_TESORERIA.cajaLiquida, MOCK_TESORERIA.proyeccion30d)
   const rango = maxVal - minVal || 1
   const porcentajeProyeccion = ((MOCK_TESORERIA.proyeccion30d - minVal) / rango) * 100
-
-  /* — Dataset semanas desde movimientos (prop real) — */
-  const datosSemanales = useMemo(() => {
-    const semanas = new Map<number, { ingresos: number; gastos: number }>()
-    movimientos.forEach(m => {
-      const w = getWeekNumber(m.fecha)
-      const acc = semanas.get(w) ?? { ingresos: 0, gastos: 0 }
-      if (m.importe > 0) acc.ingresos += m.importe
-      else acc.gastos += Math.abs(m.importe)
-      semanas.set(w, acc)
-    })
-    return Array.from(semanas.entries())
-      .map(([w, v]) => ({ semana: `S${w}`, ingresos: Math.round(v.ingresos), gastos: Math.round(v.gastos) }))
-      .sort((a, b) => parseInt(a.semana.slice(1)) - parseInt(b.semana.slice(1)))
-  }, [movimientos])
-
-  /* — Dataset evolución 31 días — */
-  const datosEvolucion = useMemo(() => {
-    const hoy = new Date()
-    hoy.setHours(12, 0, 0, 0)
-    const dias: { fecha: string; ingresos: number; gastos: number; saldo: number }[] = []
-    let saldoAcum = 0
-    for (let i = 30; i >= 0; i--) {
-      const d = new Date(hoy)
-      d.setDate(d.getDate() - i)
-      const y = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const dd = String(d.getDate()).padStart(2, '0')
-      const iso = `${y}-${mm}-${dd}`
-      const movsDia = movimientos.filter(m => m.fecha === iso)
-      const ing = movsDia.filter(m => m.importe > 0).reduce((s, m) => s + m.importe, 0)
-      const gst = Math.abs(movsDia.filter(m => m.importe < 0).reduce((s, m) => s + m.importe, 0))
-      saldoAcum += ing - gst
-      dias.push({
-        fecha: d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-        ingresos: Math.round(ing),
-        gastos: Math.round(gst),
-        saldo: Math.round(saldoAcum),
-      })
-    }
-    return dias
-  }, [movimientos])
 
   /* — Styles compartidos — */
   const cardBase: CSSProperties = {
@@ -561,6 +564,9 @@ export function ResumenDashboard({
         </div>
       </div>
 
+      {/* ═══ FILA 1.5 — PRESUPUESTO VS REAL ═══ */}
+      <PresupuestoVsRealSection />
+
       {/* ═══ FILA 2 — RATIO + BALANCE NETO (FIX 8, FIX 9, FIX 10) ═══ */}
       <div style={{
         display: 'grid',
@@ -686,202 +692,6 @@ export function ResumenDashboard({
         </div>
       </div>
 
-      {/* ═══ FILA 3 — PRESUPUESTOS (FIX 11) ═══ */}
-      <div>
-        <div style={{
-          fontFamily: FONT.heading,
-          fontSize: 12,
-          color: T.pri,
-          letterSpacing: 1.3,
-          textTransform: 'uppercase',
-          marginBottom: 12,
-          fontWeight: 500,
-        }}>
-          PRESUPUESTOS · {mesNombre.toUpperCase()} {anio} · {diasRestantes} DÍAS RESTANTES
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, minmax(0, 1fr))',
-          gap: 14,
-          marginBottom: 16,
-        }}>
-          {MOCK_PRESUPUESTOS.map(p => {
-            const cat = p.categoria as CategoriaPresupuesto
-            const pal = PALETA_PRESUPUESTO[cat]
-            const pct = Math.round((p.consumido / p.tope) * 100)
-            const superado = p.consumido > p.tope
-            const pctDisplay = superado ? 100 : pct
-            const colorBarra = superado ? ROJO : pal.barra
-
-            const diasTranscurridos = calcularDiasTranscurridosMes()
-            const diasRestMes = diasEnMesActual() - diasTranscurridos
-            const ritmoDiario = diasTranscurridos > 0 ? p.consumido / diasTranscurridos : 0
-            const estado = calcularEstadoPresupuesto(pct)
-
-            return (
-              <div key={p.categoria} style={{
-                backgroundColor: pal.bg,
-                borderRadius: 12,
-                padding: '16px 18px',
-                border: `1px solid ${pal.border}`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{
-                    fontFamily: FONT.heading,
-                    fontSize: 12,
-                    color: pal.text,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.8,
-                    fontWeight: 500,
-                  }}>
-                    {p.nombre}
-                  </div>
-                  <span style={{
-                    fontSize: 9,
-                    padding: '2px 7px',
-                    borderRadius: 8,
-                    fontFamily: FONT.heading,
-                    letterSpacing: 0.5,
-                    textTransform: 'uppercase',
-                    fontWeight: 500,
-                    backgroundColor: estado.bg,
-                    color: estado.fg,
-                  }}>
-                    {estado.label}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 500, color: pal.text }}>
-                    {fmtEur(p.consumido)}
-                  </span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 11, color: pal.subtext }}>bruto</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 500, color: pal.valor }}>
-                    {fmtEur(p.tope)}
-                  </span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 11, color: pal.subtext }}>tope</span>
-                </div>
-
-                <div style={{ height: 1, backgroundColor: pal.border, margin: '10px 0' }} />
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 11, color: pal.subtext }}>
-                    {superado ? 'Superado' : 'Consumido'}
-                  </span>
-                  <span style={{
-                    fontFamily: FONT.heading,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: superado ? ROJO : pal.text,
-                  }}>
-                    {pct}%
-                  </span>
-                </div>
-
-                <div style={{
-                  height: 4,
-                  backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                  borderRadius: 2,
-                  marginTop: 6,
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    width: `${pctDisplay}%`,
-                    height: '100%',
-                    backgroundColor: colorBarra,
-                  }} />
-                </div>
-
-                <div style={{
-                  fontFamily: FONT.body,
-                  fontSize: 10,
-                  color: pal.subtext,
-                  marginTop: 6,
-                  textAlign: 'right',
-                }}>
-                  Ritmo: {fmtEur(ritmoDiario)}/día · quedan {diasRestMes}d
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ═══ FILA 4 — GRÁFICOS (FIX 13, FIX 14) ═══ */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-        gap: 16,
-      }}>
-        {/* BARRAS SEMANALES */}
-        <div style={cardBase}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={labelCard}>INGRESOS VS GASTOS · SEMANAL</div>
-            <div style={{ display: 'flex', gap: 10, fontSize: 10 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.mut, fontFamily: FONT.body }}>
-                <span style={{ width: 10, height: 2, backgroundColor: '#06C167' }} />Ing
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.mut, fontFamily: FONT.body }}>
-                <span style={{ width: 10, height: 2, backgroundColor: '#B01D23' }} />Gst
-              </span>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={datosSemanales} barGap={4} barCategoryGap="15%">
-              <CartesianGrid strokeDasharray="3 3" stroke={T.brd} vertical={false} />
-              <XAxis dataKey="semana" stroke={T.mut} tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }} />
-              <YAxis stroke={T.mut} tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: T.card, border: `1px solid ${T.brd}`, color: T.pri, fontFamily: FONT.body, borderRadius: 8 }}
-                formatter={(v) => fmtEur(Number(v))}
-              />
-              <Bar dataKey="ingresos" name="Ingresos" fill="#06C167" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="gastos"   name="Gastos"   fill="#B01D23" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* EVOLUCIÓN 3 LÍNEAS */}
-        <div style={cardBase}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={labelCard}>EVOLUCIÓN: INGRESOS · GASTOS · SALDO</div>
-            <div style={{ display: 'flex', gap: 10, fontSize: 10 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.mut, fontFamily: FONT.body }}>
-                <span style={{ width: 10, height: 2, backgroundColor: '#06C167' }} />Ing
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.mut, fontFamily: FONT.body }}>
-                <span style={{ width: 10, height: 2, backgroundColor: '#B01D23' }} />Gst
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.mut, fontFamily: FONT.body }}>
-                <span style={{ width: 10, height: 2, backgroundColor: '#F59E0B' }} />Saldo
-              </span>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={datosEvolucion}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.brd} />
-              <XAxis dataKey="fecha" stroke={T.mut} tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }} interval="preserveStartEnd" />
-              <YAxis
-                stroke={T.mut}
-                tick={{ fontSize: 11, fill: T.mut, fontFamily: FONT.body }}
-                domain={[(dataMin: number) => Math.floor((dataMin - 500) / 500) * 500, (dataMax: number) => Math.ceil((dataMax + 500) / 500) * 500]}
-                tickCount={6}
-                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: T.card, border: `1px solid ${T.brd}`, color: T.pri, fontFamily: FONT.body, borderRadius: 8 }}
-                formatter={(v) => fmtEur(Number(v))}
-              />
-              <Line type="linear" dataKey="ingresos" name="Ingresos" stroke="#06C167" strokeWidth={2}   dot={false} activeDot={{ r: 5 }} />
-              <Line type="linear" dataKey="gastos"   name="Gastos"   stroke="#B01D23" strokeWidth={2}   dot={false} activeDot={{ r: 5 }} />
-              <Line type="linear" dataKey="saldo"    name="Saldo"    stroke="#F59E0B" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
     </div>
   )
 }

@@ -13,7 +13,6 @@ import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
-import { supabase } from '@/lib/supabase'
 
 interface NavItem {
   path: string
@@ -43,18 +42,15 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/finanzas/facturas',             label: 'Importar Facturas',   emoji: '📄', perfiles: ['admin'] },
-      { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '📂', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
-      { path: '/finanzas/socios',               label: 'Socios',              emoji: '👥', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
-      { path: '/finanzas/analisis',             label: 'Análisis',            emoji: '🔍', perfiles: ['admin'] },
     ],
   },
   {
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
       { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
       { path: '/ops/recetas',             label: 'Recetas de cocina', emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
@@ -70,10 +66,11 @@ const SECTIONS: NavSection[] = [
   {
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
-      { path: '/configuracion/marcas',    label: 'Marcas',            emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/configuracion/bancos',    label: 'Bancos y cuentas',  emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/compras',   label: 'Compras',           emoji: '🧾', perfiles: ['admin'] },
-      { path: '/configuracion/usuarios',  label: 'Usuarios',          emoji: '👤', perfiles: ['admin'] },
+      { path: '/configuracion/marcas',                label: 'Marcas',                   emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/configuracion/categorias-financieras',label: 'Categorías financieras',   emoji: '📊', perfiles: ['admin'] },
+      { path: '/configuracion/plataformas',           label: 'Plataformas',              emoji: '📡', perfiles: ['admin'] },
+      { path: '/configuracion/cuentas',               label: 'Cuentas y conexiones',     emoji: '🏦', perfiles: ['admin'] },
+      { path: '/configuracion/usuarios',              label: 'Usuarios',                 emoji: '👤', perfiles: ['admin'] },
     ],
   },
 ]
@@ -162,38 +159,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const hoverBg = isDark ? T.card : T.group
 
   const [openSections, setOpenSections] = useState<string[]>([])
-  const [faltantesCount, setFaltantesCount] = useState(0)
-
-  useEffect(() => {
-    if (perfil !== 'admin') return
-    let cancelled = false
-    const cargar = async () => {
-      const [fal, pen] = await Promise.all([
-        supabase.from('facturas_faltantes').select('estado').eq('estado', 'falta'),
-        supabase
-          .from('facturas')
-          .select('id', { count: 'exact', head: true })
-          .eq('estado', 'pendiente_revision'),
-      ])
-      if (cancelled) return
-      const nFaltan = fal.data?.length || 0
-      const nPend = pen.count || 0
-      setFaltantesCount(nFaltan + nPend)
-    }
-    cargar()
-    const sub = supabase
-      .channel('sidebar-facturas-badge')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'facturas' },
-        () => cargar(),
-      )
-      .subscribe()
-    return () => {
-      cancelled = true
-      sub.unsubscribe()
-    }
-  }, [perfil])
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
@@ -356,7 +321,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 {!collapsed && (
                   <div style={{ maxHeight: isOpen ? `${visibleItems.length * 42}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
                     {visibleItems.map((item, idx) => {
-                      const showBadge = item.path === '/finanzas/facturas' && faltantesCount > 0
                       return (
                         <NavLink
                           key={`${item.path}-${idx}`}
@@ -370,20 +334,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                             <>
                               <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
-                              {showBadge && (
-                                <span style={{
-                                  background: '#B01D23',
-                                  color: '#ffffff',
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  padding: '1px 6px',
-                                  borderRadius: 8,
-                                  marginLeft: 4,
-                                  flexShrink: 0,
-                                }}>
-                                  {faltantesCount}
-                                </span>
-                              )}
                             </>
                           )}
                         </NavLink>

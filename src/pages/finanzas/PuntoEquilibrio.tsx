@@ -10,7 +10,6 @@ import {
 } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
 import { useIVA } from '@/contexts/IVAContext'
-import IVAToggle from '@/components/IVAToggle'
 import { KpiCard } from '@/components/KpiCard'
 import { CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE } from '@/lib/running'
 
@@ -112,7 +111,7 @@ const btnPrimario: CSSProperties = {
    PÁGINA
    ═══════════════════════════════════════════════════════════ */
 
-type Tab = 'dashboard' | 'presupuestos' | 'simulador' | 'dow' | 'config'
+type Tab = 'dashboard' | 'simulador' | 'dow' | 'escenarios' | 'tesoreria'
 
 export default function PuntoEquilibrio() {
   const { T, isDark } = useTheme()
@@ -146,12 +145,9 @@ export default function PuntoEquilibrio() {
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
         <h1 style={pageTitleStyle(T)}>Punto de Equilibrio</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <IVAToggle />
-          <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
-            Simulador de decisiones · datos en vivo
-          </span>
-        </div>
+        <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
+          Simulador de decisiones · datos en vivo
+        </span>
       </div>
 
       <Tabs T={T} isDark={isDark} tab={tab} setTab={setTab} />
@@ -181,12 +177,10 @@ export default function PuntoEquilibrio() {
       )}
 
       {!loading && !error && data && tab === 'dashboard' && <TabDashboard T={T} data={data} />}
-      {!loading && !error && data && tab === 'presupuestos' && <TabPresupuestos T={T} data={data} />}
       {!loading && !error && data && tab === 'simulador' && <TabSimulador T={T} data={data} />}
       {!loading && !error && data && tab === 'dow' && <TabDow T={T} data={data} />}
-      {!loading && !error && data && tab === 'config' && (
-        <TabConfig T={T} data={data} onSaved={() => setRefreshKey(k => k + 1)} />
-      )}
+      {!loading && !error && tab === 'escenarios' && <TabEscenarios T={T} data={data} />}
+      {!loading && !error && tab === 'tesoreria' && <TabTesoreria T={T} />}
     </div>
   )
 }
@@ -197,11 +191,11 @@ export default function PuntoEquilibrio() {
 
 function Tabs({ T, isDark, tab, setTab }: { T: TokenSet; isDark: boolean; tab: Tab; setTab: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'presupuestos', label: 'Presupuestos' },
+    { id: 'dashboard', label: 'Resumen' },
     { id: 'simulador', label: 'Simulador' },
     { id: 'dow', label: 'Día semana' },
-    { id: 'config', label: 'Configuración' },
+    { id: 'escenarios', label: 'Escenarios' },
+    { id: 'tesoreria', label: 'Tesorería futura' },
   ]
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -973,6 +967,198 @@ function TabConfig({ T, data, onSaved }: { T: TokenSet; data: DashboardData; onS
         Categorías coherentes con Running Financiero: {CATEGORIAS_ORDEN.map(c => CATEGORIA_NOMBRE[c]).join(' · ')}. Colores en <code>src/lib/running</code>. Fórmula `bruto_para_objetivo` usa carga fiscal parametrizada. IVA aplicado según toggle.
       </div>
     </>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB ESCENARIOS
+   ═══════════════════════════════════════════════════════════ */
+
+interface Escenario { id: string; nombre: string; descripcion: string; delta_pct: number; tipo: 'precio' | 'food_cost' | 'canal_directo' | 'otro' }
+
+function TabEscenarios({ T, data }: { T: TokenSet; data: DashboardData | null }) {
+  const [escenarios, setEscenarios] = useState<Escenario[]>([
+    { id: '1', nombre: 'Subir precio 5%', descripcion: 'Incremento uniforme en todos los canales', delta_pct: 5, tipo: 'precio' },
+    { id: '2', nombre: 'Reducir food cost 2%', descripcion: 'Optimización compras / recetas', delta_pct: -2, tipo: 'food_cost' },
+    { id: '3', nombre: 'Recuperar 5% canal directo', descripcion: 'Comisión 0% vs 30% plataformas', delta_pct: 5, tipo: 'canal_directo' },
+    { id: '4', nombre: 'Reducir packaging 1%', descripcion: 'Cambio proveedor packaging', delta_pct: -1, tipo: 'otro' },
+  ])
+
+  const brutoMes = data?.bruto_mes ?? 30000
+  const peActual = data?.pe_mensual ?? 20000
+  const margenActual = data?.margen_pct ?? 30
+
+  const calcularImpacto = (esc: Escenario): { ingresoExtra: number; nuevoPE: number } => {
+    if (esc.tipo === 'precio') {
+      const ingresoExtra = brutoMes * (esc.delta_pct / 100)
+      return { ingresoExtra, nuevoPE: peActual }
+    }
+    if (esc.tipo === 'food_cost') {
+      const ahorro = brutoMes * (Math.abs(esc.delta_pct) / 100)
+      return { ingresoExtra: ahorro, nuevoPE: peActual - ahorro }
+    }
+    if (esc.tipo === 'canal_directo') {
+      // 5% de bruto a comisión 0% en vez de 30% → ahorro del 30% sobre ese 5%
+      const extra = brutoMes * (esc.delta_pct / 100) * 0.30
+      return { ingresoExtra: extra, nuevoPE: peActual }
+    }
+    const extra = brutoMes * (Math.abs(esc.delta_pct) / 100)
+    return { ingresoExtra: extra, nuevoPE: peActual - extra }
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 20 }}>
+        Simulación de escenarios comparables. Pulsa sobre un escenario para comparar su impacto vs situación actual.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+        {escenarios.map(esc => {
+          const { ingresoExtra, nuevoPE } = calcularImpacto(esc)
+          const mejora = ((brutoMes + ingresoExtra - nuevoPE) - (brutoMes - peActual))
+          const mejoraColor = mejora > 0 ? CUBRE : PIERDE
+          return (
+            <div key={esc.id} style={{
+              background: T.card,
+              border: `1px solid ${T.brd}`,
+              borderRadius: 12,
+              padding: '18px 20px',
+              borderLeft: `3px solid ${mejoraColor}`,
+            }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', color: T.pri, textTransform: 'uppercase', marginBottom: 6 }}>{esc.nombre}</div>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 12 }}>{esc.descripcion}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Impacto mensual</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 16, color: mejoraColor, fontWeight: 600 }}>
+                  {mejora >= 0 ? '+' : ''}{fmtEur(mejora)}
+                </span>
+              </div>
+              <div style={{ height: 3, background: T.brd, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ height: 3, width: `${Math.min(100, Math.abs(mejora / (peActual || 1)) * 100)}%`, background: mejoraColor }} />
+              </div>
+              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 6 }}>
+                Nuevo margen bruto: {margenActual > 0 ? (margenActual + (esc.delta_pct * (esc.tipo === 'food_cost' || esc.tipo === 'otro' ? -1 : 0))).toFixed(1) : '—'}%
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 20, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+        Los escenarios usan datos reales del mes actual. Los cálculos son aproximados.
+        Próximamente: escenarios guardables y comparables vs histórico.
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB TESORERÍA FUTURA
+   ═══════════════════════════════════════════════════════════ */
+
+function TabTesoreria({ T }: { T: TokenSet }) {
+  const hoy = new Date()
+  const anio = hoy.getFullYear()
+  const mesActual = hoy.getMonth() + 1
+  const anioStr = String(anio)
+
+  // Provisiones fiscales estimadas
+  const provisionesIVA: { mes: number; label: string; fecha: string; importe: number }[] = [
+    { mes: 4, label: '1T IVA (ene-mar)', fecha: `${anioStr}-04-20`, importe: 0 },
+    { mes: 7, label: '2T IVA (abr-jun)', fecha: `${anioStr}-07-20`, importe: 0 },
+    { mes: 10, label: '3T IVA (jul-sep)', fecha: `${anioStr}-10-20`, importe: 0 },
+    { mes: 2, label: '4T IVA (oct-dic)', fecha: `${anio + 1}-02-20`, importe: 0 },
+  ]
+
+  const pagosRecurrentes = [
+    { label: 'Alquiler local', dia: 1, importe: 2400, tipo: 'fijo' },
+    { label: 'SS autónomos', dia: 5, importe: 700, tipo: 'fijo' },
+    { label: 'Think Paladar', dia: 5, importe: 1200, tipo: 'fijo' },
+    { label: 'Gestoría', dia: 10, importe: 250, tipo: 'fijo' },
+    { label: 'Seguros', dia: 15, importe: 180, tipo: 'fijo' },
+  ]
+
+  const proximos90d = pagosRecurrentes.map(p => {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), p.dia)
+    if (fecha < hoy) fecha.setMonth(fecha.getMonth() + 1)
+    const limite = new Date(hoy); limite.setDate(limite.getDate() + 90)
+    const occurrences: { fecha: Date; label: string; importe: number }[] = []
+    const cur = new Date(fecha)
+    while (cur <= limite) {
+      occurrences.push({ fecha: new Date(cur), label: p.label, importe: p.importe })
+      cur.setMonth(cur.getMonth() + 1)
+    }
+    return occurrences
+  }).flat().sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        {/* Provisiones IVA/IRPF */}
+        <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 14 }}>
+            Provisiones IVA trimestral
+          </div>
+          {provisionesIVA.map(p => {
+            const fecha = new Date(p.fecha)
+            const yaPasado = fecha < hoy
+            const esteAnio = fecha.getFullYear() === anio
+            const enRango = p.mes > mesActual || !esteAnio
+            return (
+              <div key={p.fecha} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 0',
+                borderBottom: `0.5px solid ${T.brd}`,
+                opacity: yaPasado ? 0.4 : 1,
+              }}>
+                <div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.label}</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+                    Vence: {fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+                <span style={{ fontFamily: FONT.heading, fontSize: 13, color: enRango ? AJUSTADO : T.mut, fontWeight: 600 }}>
+                  {p.importe > 0 ? fmtEur(p.importe) : 'Sin datos'}
+                </span>
+              </div>
+            )
+          })}
+          <div style={{ marginTop: 12, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+            Importes calculados automáticamente próximamente. Requiere integración Facturación.
+          </div>
+        </div>
+
+        {/* Pagos fijos próximos 90 días */}
+        <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: '18px 20px', maxHeight: 400, overflowY: 'auto' }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 14 }}>
+            Pagos críticos · próximos 90d
+          </div>
+          {proximos90d.slice(0, 15).map((p, i) => (
+            <div key={i} style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '7px 0',
+              borderBottom: `0.5px solid ${T.brd}`,
+            }}>
+              <div>
+                <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.pri }}>{p.label}</div>
+                <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+                  {p.fecha.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </div>
+              </div>
+              <span style={{ fontFamily: FONT.heading, fontSize: 13, color: ROJO, fontWeight: 600 }}>
+                -{fmtEur(p.importe)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+        Tesorería futura: próximamente integración con Conciliación para proyección real 7d/30d/90d.
+      </div>
+    </div>
   )
 }
 

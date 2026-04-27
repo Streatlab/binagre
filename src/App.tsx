@@ -31,17 +31,24 @@ import TabUnidades from '@/pages/configuracion/compras/TabUnidades'
 // Configuración · Usuarios
 import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 
-// Configuración · tipos de cocina (nueva tab Marcas)
-import TabTiposCocina from '@/pages/configuracion/marcas/TabTiposCocina'
+// Configuración · Categorías financieras (plan contable)
+import CategoriasFinancierasPage from '@/pages/configuracion/categorias/CategoriasPage'
+
+// Configuración · Plataformas
+import PlataformasPage from '@/pages/configuracion/plataformas/PlataformasPage'
+
+// Configuración · Cuentas
+import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
+
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
 import Running from '@/pages/finanzas/Running'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
-import Facturas from '@/pages/finanzas/Facturas'
-import Gestoria from '@/pages/finanzas/Gestoria'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
-import Socios from '@/pages/finanzas/Socios'
+
+// Escandallo v2
+import EscandalloV2 from '@/pages/EscandalloV2'
 
 // Analytics
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -107,6 +114,7 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="escandallo" element={<Escandallo />} />
+        <Route path="escandallo-v2" element={<EscandalloV2 />} />
         <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
         <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
@@ -122,7 +130,6 @@ function AppRoutes() {
           <Route index element={<TabMarcas />} />
           <Route path="accesos-uber" element={<TabAccesosUber />} />
           <Route path="canales" element={<TabCanales />} />
-          <Route path="tipos-cocina" element={<TabTiposCocina />} />
         </Route>
 
         {/* Configuración · Bancos (single page con subpills internos) */}
@@ -143,14 +150,20 @@ function AppRoutes() {
         {/* Configuración · Usuarios */}
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
 
+        {/* Configuración · Categorías financieras */}
+        <Route path="configuracion/categorias-financieras" element={<ProtectedRoute solo={['admin']}><CategoriasFinancierasPage /></ProtectedRoute>} />
+
+        {/* Configuración · Plataformas */}
+        <Route path="configuracion/plataformas" element={<ProtectedRoute solo={['admin']}><PlataformasPage /></ProtectedRoute>} />
+
+        {/* Configuración · Cuentas */}
+        <Route path="configuracion/cuentas" element={<ProtectedRoute solo={['admin']}><CuentasConfigPage /></ProtectedRoute>} />
+
         {/* Finanzas */}
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
-        <Route path="finanzas/facturas" element={<ProtectedRoute solo={['admin']}><Facturas /></ProtectedRoute>} />
-        <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
-        <Route path="finanzas/socios" element={<ProtectedRoute solo={['admin']}><Socios /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
