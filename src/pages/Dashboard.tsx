@@ -258,6 +258,26 @@ export default function Dashboard() {
     })
   }, [])
 
+  // ── ventas_plataforma (tab Marcas) ─────────────────────────────────────
+  const [ventasPlataforma, setVentasPlataforma] = useState<{
+    marca: string; plataforma: string; bruto: number; neto: number; pedidos: number
+    fecha_inicio_periodo: string
+  }[]>([])
+
+  useEffect(() => {
+    const hace90 = new Date()
+    hace90.setDate(hace90.getDate() - 90)
+    const desde90 = hace90.toISOString().slice(0, 10)
+    supabase
+      .from('ventas_plataforma')
+      .select('marca, plataforma, bruto, neto, pedidos, fecha_inicio_periodo')
+      .gte('fecha_inicio_periodo', desde90)
+      .neq('marca', 'SIN_MARCA')
+      .then(({ data: rows }) => {
+        if (rows) setVentasPlataforma(rows as typeof ventasPlataforma)
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const t = e.target as HTMLElement
@@ -541,53 +561,134 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* TAB: MARCAS */}
-        {mainTab === 'marcas' && (
-          <div style={{ padding: '24px 0' }}>
-            <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>Top marcas · {labelPeriodo(periodo, nSemana)}</div>
-            {/* Tabla pivote marcas × canales */}
-            <div style={{ overflowX: 'auto', marginBottom: 20 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend,sans-serif', fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 12px', textAlign: 'left', fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, borderBottom: `1px solid ${T.brd}` }}>Marca</th>
-                    {CANALES.map(c => (
-                      <th key={c.id} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1px', color: c.id === 'glovo' ? '#e8f442' : c.color, borderBottom: `1px solid ${T.brd}` }}>{c.label}</th>
-                    ))}
-                    <th style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, borderBottom: `1px solid ${T.brd}` }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MARCAS.map((marca, idx) => {
-                    // mock: distribute ventasPeriodo evenly across marcas for visual
-                    const factor = [0.35, 0.25, 0.20, 0.12, 0.08][idx] ?? 0.05
-                    const marcaBruto = ventasPeriodo * factor
-                    return (
-                      <tr key={marca}>
-                        <td style={{ padding: '10px 12px', color: T.pri, borderBottom: `0.5px solid ${T.brd}` }}>{marca}</td>
-                        {CANALES.map(c => {
-                          const canBruto = marcaBruto * (c.comisionPct < 0.1 ? 0.08 : c.comisionPct < 0.15 ? 0.12 : 0.25)
-                          const intensity = ventasPeriodo > 0 ? canBruto / ventasPeriodo : 0
+        {/* TAB: MARCAS — datos reales ventas_plataforma (T-F2-11) */}
+        {mainTab === 'marcas' && (() => {
+          // Agrupar ventas_plataforma por marca y plataforma
+          const agrupado: Record<string, Record<string, { bruto: number; neto: number; pedidos: number }>> = {}
+          let totalGlobal = 0
+          for (const v of ventasPlataforma) {
+            if (!agrupado[v.marca]) agrupado[v.marca] = {}
+            if (!agrupado[v.marca][v.plataforma]) agrupado[v.marca][v.plataforma] = { bruto: 0, neto: 0, pedidos: 0 }
+            agrupado[v.marca][v.plataforma].bruto += v.bruto ?? 0
+            agrupado[v.marca][v.plataforma].neto += v.neto ?? 0
+            agrupado[v.marca][v.plataforma].pedidos += v.pedidos ?? 0
+            totalGlobal += v.bruto ?? 0
+          }
+
+          // Top 5 marcas por bruto total
+          const marcasOrdenadas = Object.entries(agrupado)
+            .map(([marca, canales]) => ({
+              marca,
+              totalBruto: Object.values(canales).reduce((a, c) => a + c.bruto, 0),
+              totalNeto: Object.values(canales).reduce((a, c) => a + c.neto, 0),
+              canales,
+            }))
+            .sort((a, b) => b.totalBruto - a.totalBruto)
+            .slice(0, 10)
+
+          const PLATAFORMAS_COLS = [
+            { id: 'uber', label: 'Uber Eats', color: '#06C167' },
+            { id: 'glovo', label: 'Glovo', color: '#e8f442' },
+            { id: 'just_eat', label: 'Just Eat', color: '#f5a623' },
+            { id: 'rushour', label: 'RushHour', color: '#7F77DD' },
+          ]
+
+          const thStyle: React.CSSProperties = {
+            padding: '8px 10px', textAlign: 'right' as const,
+            fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase' as const, color: T.mut, borderBottom: `1px solid ${T.brd}`,
+          }
+
+          return (
+            <div style={{ padding: '24px 0' }}>
+              <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>
+                Vista marca × canal · últimos 90 días (ventas_plataforma)
+              </div>
+
+              {marcasOrdenadas.length === 0 ? (
+                <div style={{ fontFamily: 'Lexend,sans-serif', fontSize: 13, color: T.mut, padding: '24px 0' }}>
+                  Sin datos en ventas_plataforma. Importa facturas desde el módulo Importar Plataformas.
+                </div>
+              ) : (
+                <>
+                  {/* Tabla pivote heatmap */}
+                  <div style={{ overflowX: 'auto', marginBottom: 24 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend,sans-serif', fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thStyle, textAlign: 'left', padding: '8px 12px' }}>Marca</th>
+                          {PLATAFORMAS_COLS.map(c => (
+                            <th key={c.id} style={{ ...thStyle, color: c.id === 'glovo' ? '#aabc00' : c.color }}>{c.label}</th>
+                          ))}
+                          <th style={{ ...thStyle, color: T.pri }}>Total bruto</th>
+                          <th style={thStyle}>Margen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {marcasOrdenadas.map(({ marca, totalBruto, totalNeto, canales }) => {
+                          const margenPct = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
                           return (
-                            <td key={c.id} style={{
-                              padding: '10px 10px', textAlign: 'right', borderBottom: `0.5px solid ${T.brd}`,
-                              background: canBruto > 0 ? `${c.color}${Math.round(intensity * 200).toString(16).padStart(2,'0')}` : 'transparent',
-                              color: T.sec,
-                            }}>{canBruto > 0 ? fmtEur(canBruto) : '—'}</td>
+                            <tr key={marca}>
+                              <td style={{ padding: '10px 12px', color: T.pri, borderBottom: `0.5px solid ${T.brd}`, fontWeight: 500 }}>{marca}</td>
+                              {PLATAFORMAS_COLS.map(c => {
+                                const cel = canales[c.id]
+                                const celBruto = cel?.bruto ?? 0
+                                const intensity = totalGlobal > 0 ? celBruto / totalGlobal : 0
+                                // Heatmap: intensidad por alfa del color canal
+                                const alpha = Math.min(Math.round(intensity * 800), 220)
+                                const alphaHex = alpha.toString(16).padStart(2, '0')
+                                return (
+                                  <td key={c.id} style={{
+                                    padding: '10px 10px', textAlign: 'right', borderBottom: `0.5px solid ${T.brd}`,
+                                    background: celBruto > 0 ? `${c.color}${alphaHex}` : 'transparent',
+                                    color: celBruto > 0 ? T.pri : T.mut,
+                                  }}>
+                                    {celBruto > 0 ? fmtEur(celBruto) : '—'}
+                                  </td>
+                                )
+                              })}
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'Oswald,sans-serif', fontWeight: 600, color: T.pri, borderBottom: `0.5px solid ${T.brd}` }}>
+                                {fmtEur(totalBruto)}
+                              </td>
+                              <td style={{
+                                padding: '10px 10px', textAlign: 'right', borderBottom: `0.5px solid ${T.brd}`,
+                                color: margenPct > 20 ? '#1D9E75' : margenPct > 10 ? '#f5a623' : '#E24B4A',
+                                fontFamily: 'Oswald,sans-serif', fontSize: 12,
+                              }}>
+                                {margenPct.toFixed(1)}%
+                              </td>
+                            </tr>
                           )
                         })}
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'Oswald,sans-serif', fontWeight: 600, color: T.pri, borderBottom: `0.5px solid ${T.brd}` }}>{fmtEur(marcaBruto)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Top 5 marcas */}
+                  <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 10 }}>Top 5 marcas (bruto)</div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {marcasOrdenadas.slice(0, 5).map(({ marca, totalBruto, totalNeto }, i) => {
+                      const margenPct = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
+                      return (
+                        <div key={marca} style={{
+                          background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10,
+                          padding: '12px 16px', minWidth: 140,
+                        }}>
+                          <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 10, color: T.mut, letterSpacing: '1px' }}>#{i+1}</div>
+                          <div style={{ fontFamily: 'Lexend,sans-serif', fontSize: 13, color: T.pri, fontWeight: 600, marginTop: 2 }}>{marca}</div>
+                          <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 16, color: '#B01D23', marginTop: 4 }}>{fmtEur(totalBruto)}</div>
+                          <div style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: margenPct > 15 ? '#1D9E75' : '#f5a623', marginTop: 2 }}>
+                            Margen {margenPct.toFixed(1)}%
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
             </div>
-            <div style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: T.mut }}>
-              Datos por marca disponibles en FASE 2 — desglose real requiere campo marca en facturacion_diario.
-            </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* TAB: OPERACIONES */}
         {mainTab === 'operaciones' && (

@@ -12,6 +12,7 @@ import type { TokenSet } from '@/styles/tokens'
 import { useIVA } from '@/contexts/IVAContext'
 import { KpiCard } from '@/components/KpiCard'
 import { CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE } from '@/lib/running'
+import { obtenerAccionesRecomendadas, type AccionRecomendada } from '@/lib/motorAcciones'
 
 const CUBRE   = '#1D9E75'
 const AJUSTADO = '#f5a623'
@@ -287,6 +288,8 @@ function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
       <CardCosteNegocio T={T} data={data} />
       <div style={{ height: 16 }} />
       <CardAcciones T={T} data={data} />
+      <div style={{ height: 12 }} />
+      <CardAccionesPlataforma T={T} />
     </>
   )
 }
@@ -485,6 +488,76 @@ function calcularAcciones(data: DashboardData): { color: string; titulo: string;
   }
 
   return out
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CARD ACCIONES PLATAFORMA (motor T-F2-12)
+   ═══════════════════════════════════════════════════════════ */
+
+function CardAccionesPlataforma({ T }: { T: TokenSet }) {
+  const [acciones, setAcciones] = useState<AccionRecomendada[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    obtenerAccionesRecomendadas()
+      .then(setAcciones)
+      .catch(() => setAcciones([]))
+      .finally(() => setCargando(false))
+  }, [])
+
+  if (cargando) return null
+  if (acciones.length === 0) return (
+    <div style={{ ...cardStyle(T), marginTop: 0 }}>
+      <div style={kpiLabelStyle(T)}>Acciones plataformas</div>
+      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 10 }}>
+        Sin acciones activas · motor requiere ≥4 semanas de datos en ventas_plataforma
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={cardStyle(T)}>
+      <div style={kpiLabelStyle(T)}>Acciones plataformas — motor automático</div>
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {acciones.map((a, i) => (
+          <div key={i} style={{
+            padding: 12,
+            borderRadius: 8,
+            backgroundColor: `${a.color}15`,
+            borderLeft: `3px solid ${a.color}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 4,
+                backgroundColor: `${a.color}25`,
+                color: a.color,
+                fontFamily: FONT.heading,
+                fontSize: 10,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+              }}>
+                {a.prioridad}
+              </span>
+              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600 }}>
+                {a.titulo}
+              </span>
+            </div>
+            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
+              → {a.sugerencia}
+            </div>
+            {(a.margen_pct !== undefined || a.pedidos !== undefined) && (
+              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 4 }}>
+                {a.margen_pct !== undefined && `Margen: ${a.margen_pct.toFixed(1)}%`}
+                {a.margen_pct !== undefined && a.pedidos !== undefined && ' · '}
+                {a.pedidos !== undefined && `${a.pedidos} pedidos/sem`}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /* ═══════════════════════════════════════════════════════════
