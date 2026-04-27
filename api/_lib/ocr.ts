@@ -13,6 +13,7 @@ const PROMPT_OCR_FACTURA = `Eres un extractor de datos de facturas españolas. A
   "tipo": "proveedor" | "plataforma" | "otro",
   "plataforma": "uber" | "glovo" | "just_eat" | null,
   "nif_cliente": "string" | null,
+  "nif_emisor": "string" | null,
   "nombre_cliente": "string" | null,
   "base_4": number,
   "iva_4": number,
@@ -51,6 +52,7 @@ Reglas:
 - Todos los importes en euros con punto decimal. NO uses coma.
 - confianza entre 0 y 1, cómo de seguro estás de la extracción.
 - nif_cliente: NIF/CIF del CLIENTE (destinatario de la factura), NO del emisor. Búscalo tras "Razón Social", "Datos Fiscales", "Cliente:", "NIF:", "CIF:", "DNI:". Si no aparece → null.
+- nif_emisor: NIF/CIF de quien EMITE la factura. Búscalo cerca del nombre del proveedor, en el encabezado o pie. Si no aparece → null.
 - nombre_cliente: razón social o nombre del cliente. Si no aparece → null.
 
 Devuelve SOLO el JSON, nada más.`
@@ -65,6 +67,7 @@ export type ExtractedFactura = {
   tipo: 'proveedor' | 'plataforma' | 'otro'
   plataforma: 'uber' | 'glovo' | 'just_eat' | null
   nif_cliente: string | null
+  nif_emisor: string | null
   nombre_cliente: string | null
   base_4: number
   iva_4: number

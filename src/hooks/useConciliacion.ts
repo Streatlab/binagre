@@ -23,6 +23,8 @@ export interface Movimiento {
   dedup_key?: string
   ordenante?: string | null
   beneficiario?: string | null
+  factura_id?: string | null
+  factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
 }
 
 export interface Regla {
@@ -58,7 +60,7 @@ export function useConciliacion() {
       setLoading(true); setError(null)
       try {
         const [mov, reg, cIng, cGas] = await Promise.all([
-          supabase.from('conciliacion').select('*').order('fecha', { ascending: false }),
+          supabase.from('conciliacion').select('*, factura_data:facturas(pdf_drive_url, pdf_filename)').order('fecha', { ascending: false }),
           supabase.from('reglas_conciliacion').select('id, patron, tipo_categoria, categoria_id, categoria_codigo, activa, prioridad').order('prioridad', { ascending: false }),
           supabase.from('categorias_contables_ingresos').select('id, codigo, nombre'),
           supabase.from('categorias_contables_gastos').select('id, codigo, nombre, grupo'),

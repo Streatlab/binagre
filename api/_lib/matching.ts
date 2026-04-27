@@ -3,7 +3,7 @@ import type { ExtractedFactura } from './ocr.js'
 
 const LIMITE_CONCILIACION = '2023-07-01'
 
-export type MatchingEstado = 'asociada' | 'pendiente_revision' | 'historica'
+export type MatchingEstado = 'asociada' | 'pendiente_revision' | 'historica' | 'sin_match' | 'pendiente_titular_manual' | 'ocr_fallido' | 'drive_pendiente'
 
 export interface MatchCandidato {
   id: string
@@ -123,7 +123,7 @@ async function matchFacturaNormal(
 ): Promise<MatchingResult> {
   if (alias.length === 0) {
     return {
-      estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'pendiente_revision',
+      estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'sin_match',
       matches: [],
       confianza: 0,
       mensaje: `Sin alias para proveedor "${factura.proveedor_nombre}"`,
@@ -155,7 +155,7 @@ async function matchFacturaNormal(
 
   if (candidatos.length === 0) {
     return {
-      estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'pendiente_revision',
+      estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'sin_match',
       matches: [],
       confianza: 0,
       mensaje: `No hay movimientos de "${factura.proveedor_nombre}" entre ${fechaMin
@@ -397,6 +397,14 @@ export async function aplicarMatching(
     .from('facturas')
     .update({ estado: result.estado, mensaje_matching: result.mensaje })
     .eq('id', facturaId)
+
+  // Sincronizar conciliacion.factura_id solo si match 1-a-1 confirmado (CA-6 punto 5)
+  if (result.estado === 'asociada' && result.matches.length === 1) {
+    await supabase
+      .from('conciliacion')
+      .update({ factura_id: facturaId })
+      .eq('id', result.matches[0].id)
+  }
 }
 
 /* Legacy export para compatibilidad (ya no usado) */

@@ -137,6 +137,8 @@ export default function Conciliacion() {
       categoria_id: m.categoria,
       contraparte: m.proveedor ?? '',
       gasto_id: m.gasto_id ?? null,
+      factura_id: m.factura_id ?? null,
+      factura_data: m.factura_data ?? null,
     })),
     [movimientosBD]
   )
@@ -556,12 +558,13 @@ export default function Conciliacion() {
                     <th style={{ ...thStyle, textAlign: 'right' }}>Importe</th>
                     <th style={thStyle}>Categoría</th>
                     <th style={thStyle}>Contraparte</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>PDF</th>
                   </tr>
                 </thead>
                 <tbody>
                   {movimientosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ ...tdStyle, textAlign: 'center', color: T.mut, padding: '28px 12px' }}>
+                      <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: T.mut, padding: '28px 12px' }}>
                         Sin movimientos en este rango
                       </td>
                     </tr>
@@ -661,6 +664,21 @@ export default function Conciliacion() {
                             </span>
                           ) : (
                             <span style={{ color: T.pri }}>{m.contraparte}</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          {m.factura_id && m.factura_data?.pdf_drive_url ? (
+                            <span
+                              title={m.factura_data.pdf_filename || 'Abrir factura en Drive'}
+                              onClick={() => window.open(m.factura_data!.pdf_drive_url!, '_blank')}
+                              style={{ cursor: 'pointer', fontSize: 16, opacity: 0.85 }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
+                            >
+                              📎
+                            </span>
+                          ) : (
+                            <span style={{ color: T.mut, fontSize: 11 }}>—</span>
                           )}
                         </td>
                       </tr>

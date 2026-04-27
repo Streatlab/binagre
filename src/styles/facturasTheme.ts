@@ -46,6 +46,10 @@ export const ESTADO_COLOR: Record<string, string> = {
   duplicada: '#7080a8',
   faltante: '#A32D2D',
   procesando: '#5a6880',
+  pendiente_titular_manual: '#BA7517',
+  sin_match: '#5a6880',
+  ocr_fallido: '#A32D2D',
+  drive_pendiente: '#BA7517',
 }
 
 export const ESTADO_NOMBRE: Record<string, string> = {
@@ -56,4 +60,8 @@ export const ESTADO_NOMBRE: Record<string, string> = {
   duplicada: 'Duplicada',
   faltante: 'Faltante',
   procesando: 'Procesando',
+  pendiente_titular_manual: 'Sin titular',
+  sin_match: 'Sin match',
+  ocr_fallido: 'OCR falló',
+  drive_pendiente: 'Drive pendiente',
 }

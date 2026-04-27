@@ -7,6 +7,8 @@ export interface Movimiento {
   contraparte: string
   auto_categorizado?: boolean
   gasto_id?: string | null
+  factura_id?: string | null
+  factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
 }
 
 export interface Categoria {

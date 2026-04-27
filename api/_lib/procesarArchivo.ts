@@ -19,6 +19,19 @@ export type ProcesarEstado =
   | 'error'
   | 'ok'
 
+const PLATAFORMAS_NOMBRES = ['uber eats', 'uber bv', 'portier eats', 'glovo', 'glovoapp', 'just eat', 'takeaway', 'rushour']
+
+const NIF_RUBEN = '21669051S'
+const NIF_EMILIO = '53484832B'
+const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
+function detectarCategoriaFactura(extracted: { proveedor_nombre: string; tipo?: string }): 'plataforma' | 'proveedor' {
+  const nombre = (extracted.proveedor_nombre || '').toLowerCase()
+  if (PLATAFORMAS_NOMBRES.some(p => nombre.includes(p))) return 'plataforma'
+  return extracted.tipo === 'plataforma' ? 'plataforma' : 'proveedor'
+}
+
 export interface ProcesarResultado {
   estado: ProcesarEstado
   archivo: string
@@ -257,19 +270,34 @@ async function procesarContenidoPrincipal(
       proveedorId = nuevoProv?.id
     }
 
-    // Detectar titular por NIF cliente
+    // Detectar titular por NIF cliente (constantes cerradas primero, luego BD)
     let titularId: string | null = null
     let carpetaTitular = 'SIN_TITULAR'
+    let pendienteTitularManual = false
     if (extracted.nif_cliente) {
-      const { data: titular } = await supabase
-        .from('titulares')
-        .select('id, carpeta_drive')
-        .eq('nif', extracted.nif_cliente)
-        .maybeSingle()
-      if (titular) {
-        titularId = titular.id as string
-        carpetaTitular = (titular.carpeta_drive as string) || 'SIN_TITULAR'
+      if (extracted.nif_cliente === NIF_RUBEN) {
+        titularId = RUBEN_ID
+        carpetaTitular = 'RUBÉN'
+      } else if (extracted.nif_cliente === NIF_EMILIO) {
+        titularId = EMILIO_ID
+        carpetaTitular = 'EMILIO'
+      } else {
+        // NIF presente pero no reconocido → buscar en BD como fallback
+        const { data: titular } = await supabase
+          .from('titulares')
+          .select('id, carpeta_drive')
+          .eq('nif', extracted.nif_cliente)
+          .maybeSingle()
+        if (titular) {
+          titularId = titular.id as string
+          carpetaTitular = (titular.carpeta_drive as string) || 'SIN_TITULAR'
+        } else {
+          pendienteTitularManual = true
+        }
       }
+    } else {
+      // Sin NIF cliente → no se puede determinar titular
+      pendienteTitularManual = true
     }
 
     await supabase
@@ -285,6 +313,9 @@ async function procesarContenidoPrincipal(
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
         titular_id: titularId,
+        nif_cliente: extracted.nif_cliente ?? null,
+        nif_emisor: (extracted as any).nif_emisor ?? null,
+        categoria_factura: detectarCategoriaFactura(extracted),
         base_4: extracted.base_4,
         iva_4: extracted.iva_4,
         base_10: extracted.base_10,
@@ -294,6 +325,7 @@ async function procesarContenidoPrincipal(
         total: extracted.total,
         ocr_confianza: extracted.confianza,
         ocr_raw: extracted,
+        ...(pendienteTitularManual ? { estado: 'pendiente_titular_manual' } : {}),
       })
       .eq('id', nueva.id)
 
@@ -323,14 +355,16 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Matching (pasa titular_id para detectar cross-cuenta)
-    const resultadoMatch = await matchFactura(supabase, {
-      ...extracted,
-      id: nueva.id,
-      total: extracted.total,
-      titular_id: titularId,
-    })
-    await aplicarMatching(supabase, nueva.id, resultadoMatch)
+    // Matching (pasa titular_id para detectar cross-cuenta) — omitir si sin titular
+    if (!pendienteTitularManual) {
+      const resultadoMatch = await matchFactura(supabase, {
+        ...extracted,
+        id: nueva.id,
+        total: extracted.total,
+        titular_id: titularId,
+      })
+      await aplicarMatching(supabase, nueva.id, resultadoMatch)
+    }
 
     // Drive: preserva extensión original
     const ext = extensionDeNombre(file.nombre)
@@ -360,10 +394,18 @@ async function procesarContenidoPrincipal(
         .update({
           pdf_drive_id: drive.id,
           pdf_drive_url: drive.webViewLink,
+          pdf_filename: nombreArchivo,
         })
         .eq('id', nueva.id)
     } catch (driveErr) {
       driveErrorMsg = errMsg(driveErr)
+      // Solo marcar drive_pendiente si OCR + matching OK y solo Drive falló
+      if (!pendienteTitularManual) {
+        await supabase
+          .from('facturas')
+          .update({ estado: 'drive_pendiente' })
+          .eq('id', nueva.id)
+      }
     }
 
     // Estado final: si hubo error Drive, preservarlo; si no, trazar origen de texto
