@@ -7,14 +7,14 @@ interface NavIconProps {
 }
 
 const SECTION_COLORS: Record<string, string> = {
-  panel:         '#FF4757',
+  panel:         '#B01D23',
   finanzas:      '#06C167',
   cocina:        '#f5a623',
   operaciones:   '#9ba8c0',
   stock:         '#f5a623',
   pos:           '#66aaff',
   marcas:        '#B01D23',
-  marketing:     '#FF4757',
+  marketing:     '#B01D23',
   equipo:        '#9ba8c0',
   clientes:      '#06C167',
   informes:      '#378ADD',
@@ -26,7 +26,7 @@ export function NavIcon({ section, collapsed, isDark, active = false, size = 24 
   // Color colapsado: activo = acento tema; inactivo = gris contrastado
   const sectionColor = SECTION_COLORS[section] ?? '#9ba8c0'
   const strokeColor = collapsed
-    ? (active ? (isDark ? '#FF4757' : '#B01D23') : (isDark ? '#c8d0e8' : '#3a4050'))
+    ? (active ? (isDark ? '#B01D23' : '#B01D23') : (isDark ? '#c8d0e8' : '#3a4050'))
     : (active ? '#1a1a1a' : sectionColor)
   const strokeW = collapsed ? 1.5 : 2
 

@@ -772,7 +772,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                         setConflictos(prev => prev.filter((_, i) => i !== idx))
                         setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad })
                       }}
-                      style={{ background: '#FF4757', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       + CREAR ING
                     </button>

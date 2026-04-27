@@ -43,8 +43,8 @@ const darkT: TokenSet = {
   sec:      '#9ba8c0',
   mut:      '#5a6880',
   inp:      '#1a1f32',
-  emphasis: '#FF4757',
-  accent:   '#FF4757',
+  emphasis: '#B01D23',
+  accent:   '#B01D23',
 }
 
 const lightT: TokenSet = {
@@ -56,8 +56,8 @@ const lightT: TokenSet = {
   sec:      '#3a4050',
   mut:      '#7a8090',
   inp:      '#ffffff',
-  emphasis: '#FF4757',
-  accent:   '#FF4757',
+  emphasis: '#B01D23',
+  accent:   '#B01D23',
 }
 
 export function useTheme(): { T: TokenSet; isDark: boolean } {
@@ -230,30 +230,40 @@ export const dropdownItemStyle = (T: TokenSet): CSSProperties => ({
    TABS
    ═══════════════════════════════════════════════════════════ */
 
-export const tabActiveStyle = (isDark: boolean): CSSProperties => ({
-  padding: '6px 14px',
-  borderRadius: 6,
+export const tabActiveStyle = (_isDark: boolean): CSSProperties => ({
+  padding: '12px 24px',
+  borderRadius: 8,
   border: 'none',
-  background: '#FF4757',
+  background: '#B01D23',
   color: '#ffffff',
-  fontFamily: FONT.body,
+  fontFamily: FONT.heading,
   fontSize: 13,
-  fontWeight: 500,
+  fontWeight: 600,
+  letterSpacing: '1px',
+  textTransform: 'uppercase',
   cursor: 'pointer',
   transition: 'background 150ms',
 })
 
 export const tabInactiveStyle = (T: TokenSet): CSSProperties => ({
-  padding: '6px 14px',
-  borderRadius: 6,
+  padding: '12px 24px',
+  borderRadius: 8,
   border: `0.5px solid ${T.brd}`,
-  background: 'none',
+  background: 'transparent',
   color: T.sec,
-  fontFamily: FONT.body,
+  fontFamily: FONT.heading,
   fontSize: 13,
-  fontWeight: 500,
+  fontWeight: 600,
+  letterSpacing: '1px',
+  textTransform: 'uppercase',
   cursor: 'pointer',
   transition: 'background 150ms',
+})
+
+export const tabsContainerStyle = (): CSSProperties => ({
+  display: 'flex',
+  gap: 8,
+  marginBottom: 20,
 })
 
 /* ═══════════════════════════════════════════════════════════

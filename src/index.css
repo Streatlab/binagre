@@ -17,17 +17,17 @@
   --sl-select-bg:    #1a1f32;
   --sl-border:         #2a3050;
   --sl-border-strong:  #2a3050;
-  --sl-border-calc:    #FF4757;
-  --sl-border-focus:   #FF4757;
+  --sl-border-calc:    #B01D23;
+  --sl-border-focus:   #B01D23;
   --sl-border-error:   #E24B4A;
   --sl-border-success: #1D9E75;
   --sl-text-primary:   #f0f0ff;
   --sl-text-secondary: #9ba8c0;
   --sl-text-muted:     #5a6880;
   --sl-text-disabled:  #5a6880;
-  --sl-text-calc:      #FF4757;
+  --sl-text-calc:      #B01D23;
   --sl-text-nav:       #f0f0ff;
-  --sl-yellow:         #FF4757;
+  --sl-yellow:         #e8f442;
   --sl-teja:           #7a2e10;
   --sl-red:            #B01D23;
   --sl-uber:           #06C167;
@@ -46,7 +46,7 @@
   --sl-btn-save-text:    #ffffff;
   --sl-btn-add-bg:       #7a2e10;
   --sl-btn-add-text:     #ffffff;
-  --sl-btn-add-alt-bg:   #FF4757;
+  --sl-btn-add-alt-bg:   #B01D23;
   --sl-btn-add-alt-text: #ffffff;
   --sl-btn-cancel-bg:    #2a3050;
   --sl-btn-cancel-text:  #9ba8c0;
@@ -88,7 +88,7 @@
   --sl-text-disabled:  #7a8090;
   --sl-text-calc:      #B01D23;
   --sl-text-nav:       #111111;
-  --sl-yellow:         #FF4757;
+  --sl-yellow:         #e8f442;
   --sl-teja:           #7a2e10;
   --sl-red:            #B01D23;
   --sl-uber:           #06C167;
@@ -107,7 +107,7 @@
   --sl-btn-save-text:    #ffffff;
   --sl-btn-add-bg:       #7a2e10;
   --sl-btn-add-text:     #ffffff;
-  --sl-btn-add-alt-bg:   #FF4757;
+  --sl-btn-add-alt-bg:   #B01D23;
   --sl-btn-add-alt-text: #ffffff;
   --sl-btn-cancel-bg:    #d0c8bc;
   --sl-btn-cancel-text:  #3a4050;
@@ -124,7 +124,7 @@
   --color-card:        #1a1a1a;
   --color-sidebar:     #000000;
   --color-border:      #2a2a2a;
-  --color-accent:      #FF4757;
+  --color-accent:      #B01D23;
   --color-accent-red:  #B01D23;
   --color-eps:         #66aaff;
   --color-rec:         #f5a623;

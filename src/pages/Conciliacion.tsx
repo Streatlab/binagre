@@ -10,6 +10,7 @@ import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
+import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
 
 /* ═══════════════════════════════════════════════════════════
    CATEGORÍAS
@@ -22,7 +23,7 @@ const CATEGORIAS: Categoria[] = [
   { id: 'rrhh',     nombre: 'RRHH',                 tipo: 'gasto',   color: '#f5a623' },
   { id: 'alq',      nombre: 'Alquiler',             tipo: 'gasto',   color: '#B01D23' },
   { id: 'sum',      nombre: 'Suministros',          tipo: 'gasto',   color: '#ff6b70' },
-  { id: 'mkt',      nombre: 'Marketing',            tipo: 'gasto',   color: '#FF4757' },
+  { id: 'mkt',      nombre: 'Marketing',            tipo: 'gasto',   color: '#B01D23' },
   { id: 'otros',    nombre: 'Otros',                tipo: 'gasto',   color: '#9aa0c0' },
 ]
 
@@ -100,6 +101,7 @@ export default function Conciliacion() {
     setFiltroCard(prev => prev === k ? null : k)
   }
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>(null)
+  const [modalGastoOpen, setModalGastoOpen] = useState(false)
   const toggleFiltroRapido = (k: NonNullable<FiltroRapido>) => {
     setFiltroRapido(prev => prev === k ? null : k)
   }
@@ -384,11 +386,17 @@ export default function Conciliacion() {
             hasta={customHasta}
             onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
           />
+          <button
+            onClick={() => setModalGastoOpen(true)}
+            style={{ padding: '6px 14px', background: '#e8f442', color: '#111', border: 'none', borderRadius: 8, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          >
+            + Añadir gasto
+          </button>
         </div>
       </div>
 
       {/* TABS: Resumen → Movimientos */}
-      <div style={{ display: 'flex', gap: 4, background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {(['resumen', 'movimientos'] as Tab[]).map(k => (
           <button
             key={k}
@@ -779,6 +787,7 @@ export default function Conciliacion() {
           </div>
         </>
       )}
+      <ModalAddGasto open={modalGastoOpen} onClose={() => setModalGastoOpen(false)} onSaved={() => { setModalGastoOpen(false) }} />
     </div>
   )
 }

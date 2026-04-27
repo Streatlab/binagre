@@ -304,25 +304,8 @@ export default function Facturacion() {
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
       <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle }}>Facturación</h2>
 
-      {!loading && !error && (
-        <div style={LAYOUT.kpiGrid}>
-          {[
-            { label: KPI_LABELS.hoy,    valor: kpiHoy.bruto,    pedidos: kpiHoy.pedidos },
-            { label: KPI_LABELS.semana, valor: kpiSemana.bruto, pedidos: kpiSemana.pedidos },
-            { label: KPI_LABELS.mes,    valor: kpiMes.bruto,    pedidos: kpiMes.pedidos },
-            { label: KPI_LABELS.anio,   valor: kpiAnio.bruto,   pedidos: kpiAnio.pedidos },
-          ].map((k, idx) => (
-            <div key={idx} style={cardStyle(T)}>
-              <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>{k.label}</div>
-              <div style={{ ...kpiValueStyle(T), marginBottom: 4 }}>{fmtEur(k.valor)}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{fmtInt(k.pedidos)} pedidos</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{ display: 'flex', gap: 4, background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
               style={tab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
@@ -335,7 +318,7 @@ export default function Facturacion() {
           {['Todos', 'ALM', 'CENAS'].map(s => (
             <button key={s} onClick={() => setServicioFiltro(s)}
               style={servicioFiltro === s
-                ? { background: '#FF4757', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+                ? { background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
                 : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
               }>
               {s}
@@ -345,7 +328,7 @@ export default function Facturacion() {
 
         <div style={{ position: 'relative' }} data-drop-canal="canales">
           <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
-            {canalFilterSelected.length === 5 ? 'Todos los canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
+            {canalFilterSelected.length === 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
           </button>
           {dropCanalOpen && (
             <div style={dropdownMenuStyle(T)}>
@@ -368,7 +351,7 @@ export default function Facturacion() {
 
         {weekFilter && (
           <button onClick={clearWeekFilter}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(255,71,87,0.08)', color: T.pri, fontFamily: FONT.body, fontSize: 12, fontWeight: 500, borderRadius: 8, border: `0.5px solid rgba(255,71,87,0.3)`, cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(176,29,35,0.08)', color: T.pri, fontFamily: FONT.body, fontSize: 12, fontWeight: 500, borderRadius: 8, border: `0.5px solid rgba(176,29,35,0.3)`, cursor: 'pointer' }}>
             S{weekFilter.week} &times;
           </button>
         )}
@@ -451,7 +434,7 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
         <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
         <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
         <button onClick={onAdd}
-          style={{ padding: '0 22px', borderRadius: 10, background: '#FF4757', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          style={{ padding: '0 22px', borderRadius: 10, background: '#B01D23', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
           + Añadir día
         </button>
       </div>
@@ -859,7 +842,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
                 {(['TODO', 'ALM', 'CENAS']).map(s => (
                   <button key={s} type="button" onClick={() => setServicio(s)}
                     style={servicio === s
-                      ? { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: 'none', background: '#FF4757', color: '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
+                      ? { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: 'none', background: '#B01D23', color: '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
                       : { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
                     }>{s === 'TODO' ? 'TODOS' : s}</button>
                 ))}
@@ -916,7 +899,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
             {isEdit && (
               <button type="button" onClick={handleDelete}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `1px solid #FF4757`, background: 'none', color: '#FF4757', cursor: 'pointer', fontFamily: FONT.body }}>
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `1px solid #B01D23`, background: 'none', color: '#B01D23', cursor: 'pointer', fontFamily: FONT.body }}>
                 Eliminar
               </button>
             )}
@@ -925,7 +908,7 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: '#FF4757', color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1 }}>
+              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: '#B01D23', color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
             </button>
           </div>
@@ -968,7 +951,7 @@ function EmptyState({ T, label, onAdd }: { T: any; label: string; onAdd?: () => 
       <p style={{ color: T.sec, fontSize: 13, margin: 0, fontFamily: FONT.body }}>{label}</p>
       {onAdd && (
         <button onClick={onAdd}
-          style={{ marginTop: 16, padding: '8px 22px', borderRadius: 10, background: '#FF4757', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' }}>
+          style={{ marginTop: 16, padding: '8px 22px', borderRadius: 10, background: '#B01D23', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' }}>
           + Añadir día
         </button>
       )}

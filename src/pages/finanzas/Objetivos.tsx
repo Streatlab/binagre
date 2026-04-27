@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle } from '@/styles/tokens'
+import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
@@ -525,24 +525,12 @@ export default function Objetivos() {
       </div>
 
       {/* TABS */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: `1px solid ${T.brd}` }}>
+      <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab.key ? `2px solid #e8f442` : '2px solid transparent',
-              color: activeTab === tab.key ? '#e8f442' : T.mut,
-              fontFamily: FONT.heading,
-              fontSize: 11,
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              padding: '8px 18px',
-              cursor: 'pointer',
-              marginBottom: -1,
-            }}
+            style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
           >
             {tab.label}
           </button>

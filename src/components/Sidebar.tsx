@@ -191,7 +191,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     fontFamily: FONT.body,
     fontSize: 14,
     color: isActive ? activeTextColor : T.pri,
-    background: isActive ? '#FF4757' : 'transparent',
+    background: isActive ? '#B01D23' : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -216,7 +216,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
             <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }} title="Expandir">
-              <ChevronRight size={18} color="#FF4757" />
+              <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
         ) : (
@@ -238,7 +238,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               onClick={onClose}
               style={({ isActive }) => ({
                 width: '100%',
-                background: isActive ? '#FF4757' : 'none',
+                background: isActive ? '#B01D23' : 'none',
                 border: 'none',
                 cursor: 'pointer',
                 display: 'flex',
@@ -257,7 +257,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#FF4757'} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
                   <span>Panel Global</span>
                 </>
               )}
@@ -272,7 +272,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               title="Panel Global"
               style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             >
-              <LayoutDashboard size={20} strokeWidth={1.8} color="#FF4757" />
+              <LayoutDashboard size={20} strokeWidth={1.8} color="#B01D23" />
             </NavLink>
           )}
 
@@ -377,7 +377,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed ? (
             <>
               <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
-                {usuario?.nombre} — <span style={{ color: '#FF4757' }}>{usuario?.perfil}</span>
+                {usuario?.nombre} — <span style={{ color: '#B01D23' }}>{usuario?.perfil}</span>
               </div>
               <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Cerrar sesión</button>
             </>

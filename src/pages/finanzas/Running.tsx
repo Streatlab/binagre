@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, Tooltip, ReferenceLine, AreaChart, Area } from 'recharts';
-import { useTheme, FONT } from '@/styles/tokens';
+import { useTheme, FONT, tabActiveStyle, tabInactiveStyle, tabsContainerStyle } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
@@ -456,7 +456,7 @@ export default function Running() {
       </div>
 
       {/* TABS */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: `1px solid ${T.brd}` }}>
+      <div style={tabsContainerStyle()}>
         {([
           { key: 'resumen', label: 'Resumen' },
           { key: 'pyg', label: 'PyG detallado' },
@@ -465,19 +465,7 @@ export default function Running() {
           <button
             key={tab.key}
             onClick={() => setRunTab(tab.key)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              borderBottom: runTab === tab.key ? `2px solid #e8f442` : '2px solid transparent',
-              color: runTab === tab.key ? '#e8f442' : T.mut,
-              fontFamily: FONT.heading,
-              fontSize: 11,
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              padding: '8px 18px',
-              cursor: 'pointer',
-              marginBottom: -1,
-            }}
+            style={runTab === tab.key ? tabActiveStyle(false) : tabInactiveStyle(T)}
           >
             {tab.label}
           </button>

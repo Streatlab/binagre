@@ -31,7 +31,7 @@ export default function TitularSelector() {
               padding: '6px 12px',
               border: 'none',
               borderRadius: 6,
-              backgroundColor: active ? '#FF4757' : 'transparent',
+              backgroundColor: active ? '#B01D23' : 'transparent',
               color: active ? '#fff' : T.sec,
               fontFamily: FONT.heading,
               fontSize: 11,

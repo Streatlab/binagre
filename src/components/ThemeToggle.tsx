@@ -14,7 +14,7 @@ export function ThemeToggle() {
         borderRadius: 999,
         padding: 8,
         cursor: 'pointer',
-        color: '#FF4757',
+        color: '#B01D23',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

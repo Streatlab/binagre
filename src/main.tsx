@@ -5,13 +5,16 @@ import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { IVAProvider } from './contexts/IVAContext'
 import { CalendarioProvider } from './contexts/CalendarioContext'
+import { ConfigProvider } from './contexts/ConfigContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <IVAProvider>
         <CalendarioProvider>
-          <App />
+          <ConfigProvider>
+            <App />
+          </ConfigProvider>
         </CalendarioProvider>
       </IVAProvider>
     </ThemeProvider>
