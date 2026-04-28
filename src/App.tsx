@@ -50,6 +50,9 @@ import Running from '@/pages/finanzas/Running'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 
+// Importador unificado (FASE 7)
+import Importador from '@/pages/Importador'
+
 // Escandallo v2
 import EscandalloV2 from '@/pages/EscandalloV2'
 // Carta (T-F4-05)
@@ -183,6 +186,9 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
+
+        {/* Importador unificado FASE 7 */}
+        <Route path="importador" element={<ProtectedRoute solo={['admin']}><Importador /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
