@@ -60,7 +60,7 @@ export function KpiCard({ label, value, period, delta, accent = 'default', highl
           {period}
         </div>
       )}
-      <div style={{ ...kpiValueStyle(T), color: valueColor, fontSize: '1.8rem' }}>{value}</div>
+      <div style={{ ...kpiValueStyle(T), color: valueColor, fontSize: 'clamp(1.5rem, 4vw, 1.8rem)' }}>{value}</div>
       {delta && (
         <div style={{ fontFamily: FONT.body, fontSize: 11, color: trendColor, marginTop: 2 }}>
           {trendIcon} {delta.value}

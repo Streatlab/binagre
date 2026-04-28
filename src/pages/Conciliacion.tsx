@@ -546,7 +546,7 @@ export default function Conciliacion() {
           </div>
 
           {/* KPIs Movimientos (clickeables → filtran tabla) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
             <KpiClickable
               activo={filtroCard === 'ingreso'}
               onClick={() => toggleFiltroCard('ingreso')}

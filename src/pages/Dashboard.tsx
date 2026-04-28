@@ -694,7 +694,7 @@ export default function Dashboard() {
         {mainTab === 'operaciones' && (
           <div style={{ padding: '24px 0' }}>
             <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>KPIs operativos</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
               {((): { label: string; value: string; sub?: string }[] => {
                 const totalPed = canalStats.reduce((a, c) => a + c.pedidos, 0)
                 const totalBruto = canalStats.reduce((a, c) => a + c.bruto, 0)
@@ -743,7 +743,7 @@ export default function Dashboard() {
         {mainTab === 'finanzas' && (
           <div style={{ padding: '24px 0' }}>
             <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>Vista financiera</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
               {(() => {
                 const comEstimadas = canalStats.reduce((a, c) => a + (c.bruto - c.neto), 0)
                 const netoTotal = canalStats.reduce((a, c) => a + c.neto, 0)
@@ -781,7 +781,7 @@ export default function Dashboard() {
         {mainTab === 'cashflow' && (
           <div style={{ padding: '24px 0' }}>
             <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>Cashflow proyectado</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
               {[
                 { label: 'Cobros pendientes', value: fmtEur(canalStats.reduce((a, c) => a + c.neto, 0) * 0.3), sub: 'Liquidaciones plataformas ~7-14 días', color: '#1D9E75' },
                 { label: 'Pagos pendientes', value: fmtEur(ventasPeriodo * 0.05), sub: 'Gastos fijos estimados', color: '#f5a623' },
@@ -805,7 +805,7 @@ export default function Dashboard() {
         {mainTab === 'general' && (<>
 
         {/* KPIs */}
-        <div style={{ display:'grid', gridTemplateColumns: grid3, gap:14, marginBottom:22 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom:22 }}>
 
           {/* VENTAS */}
           <div style={cardStyle(T)}>
@@ -932,7 +932,7 @@ export default function Dashboard() {
 
         {/* Facturación por canal */}
         <div style={{ ...sectionLabelStyle(T), marginBottom:12 }}>Facturación por canal</div>
-        <div style={{ display:'grid', gridTemplateColumns: grid5, gap:12, marginBottom:22 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5" style={{ marginBottom:22 }}>
           {canalStats.map(c => {
             const isGlovo = c.id === 'glovo'
             const hasData = c.bruto > 0

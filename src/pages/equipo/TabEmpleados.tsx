@@ -59,7 +59,9 @@ export default function TabEmpleados() {
     textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
     fontWeight: 400, background: T.group, textAlign: 'left',
   }
+  const thSticky: React.CSSProperties = { ...th, position: 'sticky', left: 0, zIndex: 5 }
   const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const tdSticky: React.CSSProperties = { ...td, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }
 
   return (
     <div>
@@ -69,7 +71,7 @@ export default function TabEmpleados() {
         </span>
         <button
           onClick={() => setModal({ open: true, empleado: null })}
-          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <UserPlus size={14} />
           Nuevo empleado
@@ -80,10 +82,11 @@ export default function TabEmpleados() {
         {loading ? (
           <div style={{ padding: 32, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando empleados…</div>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-                <th style={th}>Empleado</th>
+                <th style={thSticky}>Empleado</th>
                 <th style={th}>NIF</th>
                 <th style={{ ...th, display: isDark ? undefined : 'none' } as React.CSSProperties}>Cargo</th>
                 <th style={th}>Antigüedad</th>
@@ -105,7 +108,7 @@ export default function TabEmpleados() {
                   onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <td style={td}>
+                  <td style={tdSticky}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar nombre={emp.nombre} color={emp.estado === 'despedido' ? '#444' : undefined} />
                       <div>
@@ -132,6 +135,7 @@ export default function TabEmpleados() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

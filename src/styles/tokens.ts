@@ -118,6 +118,36 @@ export const kpiValueStyle = (T: TokenSet): CSSProperties => ({
   lineHeight: 1,
 })
 
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE TYPOGRAPHY HELPERS (clamp-based)
+   ═══════════════════════════════════════════════════════════ */
+
+export const kpiGrandeStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: FONT.heading,
+  fontWeight: 600,
+  fontSize: 'clamp(1.5rem, 4vw, 2.4rem)',
+  lineHeight: 1,
+  color: T.pri,
+})
+
+export const tituloPaginaStyle = (_T: TokenSet): CSSProperties => ({
+  fontFamily: FONT.title,
+  fontWeight: 600,
+  fontSize: 'clamp(18px, 2.5vw, 22px)',
+  letterSpacing: '3px',
+  textTransform: 'uppercase' as const,
+  color: '#B01D23',
+  margin: '0 0 18px',
+})
+
+export const sublabelCardStyle = (T: TokenSet): CSSProperties => ({
+  fontFamily: 'Oswald,sans-serif',
+  fontSize: 'clamp(11px, 1.5vw, 12px)',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
+  color: T.mut,
+})
+
 export const dividerStyle = (T: TokenSet): CSSProperties => ({
   height: 1,
   background: T.brd,

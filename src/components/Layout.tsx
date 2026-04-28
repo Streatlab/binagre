@@ -11,10 +11,11 @@ export default function Layout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] lg:hidden">
+        <header className="h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)]"
+            style={{ minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M4 6h16M4 12h16M4 18h16" />

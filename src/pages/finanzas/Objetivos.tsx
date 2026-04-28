@@ -512,13 +512,13 @@ export default function Objetivos() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={() => setWeekOffset(w => w - 1)}
-              style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1 }}
+              style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 44, minHeight: 44 }}
             >‹</button>
             <span style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, minWidth: 130, textAlign: 'center' }}>{weekLabel}</span>
             <button
               onClick={() => setWeekOffset(w => w + 1)}
               disabled={isCurrentWeek}
-              style={{ background: 'transparent', border: `1px solid ${isCurrentWeek ? T.brd : T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1 }}
+              style={{ background: 'transparent', border: `1px solid ${isCurrentWeek ? T.brd : T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 44, minHeight: 44 }}
             >›</button>
           </div>
         )}
@@ -556,7 +556,7 @@ export default function Objetivos() {
           })()}
 
           {/* DOS CARDS PRINCIPALES */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
             {/* IZQUIERDA: Hero HOY + 3 periodos */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>

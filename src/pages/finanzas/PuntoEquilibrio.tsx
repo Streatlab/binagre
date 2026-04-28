@@ -97,7 +97,8 @@ const inputStyle = (T: TokenSet): CSSProperties => ({
 })
 
 const btnPrimario: CSSProperties = {
-  padding: '9px 18px',
+  padding: '12px 18px',
+  minHeight: 44,
   backgroundColor: ROJO,
   color: '#fff',
   border: 'none',
@@ -244,7 +245,7 @@ function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
   return (
     <>
       {/* KPIs arriba */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14, marginBottom: 16 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" style={{ gap: 14, marginBottom: 16 }}>
         <KpiCard
           label="¿Cuándo cubro gastos?"
           value={diaCubreValor}

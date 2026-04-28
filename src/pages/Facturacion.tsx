@@ -428,7 +428,7 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
         <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
         <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
         <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
@@ -452,7 +452,7 @@ function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; tot
         <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
           <thead>
             <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
-              <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Fecha</th>
+              <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle', position: 'sticky', left: 0, zIndex: 5 }}>Fecha</th>
               <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Serv.</th>
               {COLS.map(c => (
                 <th key={c.label} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>
@@ -478,7 +478,7 @@ function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; tot
               const esCerrado = tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones'
               return (
               <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', opacity: esCerrado ? 0.7 : 1 }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>
+                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {fmtFechaCorta(r.fecha)}
                     <TipoPill tipo={tipo} />
@@ -503,7 +503,7 @@ function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; tot
           </tbody>
           <tfoot>
             <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
-              <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }} colSpan={2}>Total</td>
+              <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', position: 'sticky', left: 0, zIndex: 5, background: T.group }} colSpan={2}>Total</td>
               {COLS.map(c => (
                 <Fragment key={c.label}>
                   <td style={{ padding: '10px 10px', textAlign: 'center', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtInt(totals[c.ped] as number)}</td>
@@ -1027,7 +1027,7 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         const delta = prev ? ((cur.bruto - prev.bruto) / prev.bruto) * 100 : null
         const deltaTicket = prev && prev.mediaTicket > 0 ? ((cur.mediaTicket - prev.mediaTicket) / prev.mediaTicket) * 100 : null
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 20 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
             {[
               { label: `Facturación ${cur.anio}`, value: fmtEur(cur.bruto), delta, positive: true, color: '#e8f442' },
               { label: 'Media mensual', value: fmtEur(cur.mediaMensual), delta: null, positive: true, color: T.pri },
