@@ -53,6 +53,9 @@ import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 // Importador unificado (FASE 7)
 import Importador from '@/pages/Importador'
 
+// Tareas pendientes (FASE 8)
+import Tareas from '@/pages/Tareas'
+
 // Escandallo v2
 import EscandalloV2 from '@/pages/EscandalloV2'
 // Carta (T-F4-05)
@@ -189,6 +192,9 @@ function AppRoutes() {
 
         {/* Importador unificado FASE 7 */}
         <Route path="importador" element={<ProtectedRoute solo={['admin']}><Importador /></ProtectedRoute>} />
+
+        {/* Tareas pendientes FASE 8 */}
+        <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />

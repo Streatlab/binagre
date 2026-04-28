@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import {
@@ -159,6 +160,7 @@ interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
 export default function Dashboard() {
   const { T, isDark } = useTheme()
   const { diasOperativosEnRango, esDiaOperativo } = useCalendario()
+  const navigate = useNavigate()
 
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -190,6 +192,14 @@ export default function Dashboard() {
     marca: string; plataforma: string; bruto: number; neto: number; pedidos: number
     fecha_inicio_periodo: string
   }[]>([])
+
+  /* ── banner tareas atrasadas ───────────────────────── */
+  const [tareasAtrasadas, setTareasAtrasadas] = useState<string[]>([])
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    const hoy = new Date().toISOString().slice(0, 10)
+    return localStorage.getItem(`banner_tareas_dismissed_${hoy}`) === '1'
+  })
 
   /* ── toast helper ─────────────────────────────────── */
   const showToast = useCallback((msg: string, type: 'success' | 'warning') => {
@@ -251,6 +261,30 @@ export default function Dashboard() {
         if (rows) setVentasPlataforma(rows as typeof ventasPlataforma)
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (bannerDismissed) return
+    supabase
+      .from('tareas_pendientes')
+      .select('id, estado, tareas_periodicas(nombre)')
+      .eq('estado', 'atrasada')
+      .then(({ data: rows }) => {
+        if (!rows) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nombres = (rows as any[]).map((r) => {
+          const tp = Array.isArray(r.tareas_periodicas) ? r.tareas_periodicas[0] : r.tareas_periodicas
+          return tp?.nombre ?? ''
+        }).filter(Boolean) as string[]
+        setTareasAtrasadas(nombres)
+      })
+  }, [bannerDismissed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function dismissBanner() {
+    const hoy = new Date().toISOString().slice(0, 10)
+    localStorage.setItem(`banner_tareas_dismissed_${hoy}`, '1')
+    setBannerDismissed(true)
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -441,6 +475,38 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* BANNER TAREAS ATRASADAS */}
+      {!bannerDismissed && tareasAtrasadas.length > 0 && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: 8,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          fontFamily: 'Lexend, sans-serif',
+          fontSize: 13,
+          color: '#111111',
+          position: 'relative',
+        }}>
+          <span style={{ flexShrink: 0 }}>⚠️</span>
+          <span style={{ flex: 1 }}>
+            Tienes pendiente subir: <strong>{tareasAtrasadas.join(', ')}</strong>.
+          </span>
+          <button
+            onClick={() => navigate('/importador')}
+            style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}
+          >Ir al Importador</button>
+          <button
+            onClick={dismissBanner}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: 18, padding: '0 4px', flexShrink: 0, lineHeight: 1 }}
+            title="Cerrar"
+          >×</button>
+        </div>
+      )}
 
       <div style={groupStyle(T)}>
 

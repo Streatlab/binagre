@@ -9,11 +9,14 @@ import {
   ChevronRight,
   Clock,
   Users,
+  BellRing,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
+import { supabase } from '@/lib/supabase'
+import SidebarBadge from '@/components/ui/SidebarBadge'
 
 interface NavItem {
   path: string
@@ -173,10 +176,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     if (typeof window === 'undefined') return false
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
   })
+  const [tareasBadge, setTareasBadge] = useState(0)
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem(PROXIMAMENTE_LS_KEY, proxOpen ? '1' : '0')
   }, [proxOpen])
+
+  useEffect(() => {
+    supabase
+      .from('tareas_pendientes')
+      .select('id', { count: 'exact', head: true })
+      .in('estado', ['pendiente', 'atrasada'])
+      .then(({ count }) => setTareasBadge(count ?? 0))
+  }, [])
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
@@ -239,6 +252,56 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         )}
 
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
+
+          {/* TAREAS — PRIMER ÍTEM (TOP) */}
+          {(!collapsed && perfil === 'admin') && (
+            <NavLink
+              to="/tareas"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <BellRing size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>Tareas</span>
+                  <SidebarBadge count={tareasBadge} />
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil === 'admin' && (
+            <NavLink
+              to="/tareas"
+              onClick={onClose}
+              title="Tareas pendientes"
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative' }}
+            >
+              <BellRing size={20} strokeWidth={1.8} color="#B01D23" />
+              {tareasBadge > 0 && (
+                <span style={{ position: 'absolute', top: 6, right: 8, background: '#B01D23', color: '#fff', borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                  {tareasBadge > 9 ? '9+' : tareasBadge}
+                </span>
+              )}
+            </NavLink>
+          )}
 
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
             <NavLink
