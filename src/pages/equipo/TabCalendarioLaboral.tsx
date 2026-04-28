@@ -73,10 +73,10 @@ export default function TabCalendarioLaboral() {
         { fecha, tipo, nota: 'Manual' },
         { onConflict: 'empleado_id,fecha,tipo' }
       )
-      if (error) console.error(error)
+      if (error) return
     } else if (empleadoId) {
       const { error } = await supabase.from('eventos_laborales').insert({ empleado_id: empleadoId, fecha, tipo })
-      if (error) console.error(error)
+      if (error) return
     }
     setDropdown(null)
     await fetchAll()

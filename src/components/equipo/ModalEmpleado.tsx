@@ -99,17 +99,12 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
         const { data, error: err } = await supabase.from('empleados').insert(payload).select('id').single()
         if (err) throw err
         savedId = data.id
-
-        // DECISIÓN AUTÓNOMA: crear carpeta Drive es un stub si la API no tiene write scope
-        // TODO: implementar Drive folder creation cuando Google OAuth tenga scope drive.file
-        // Por ahora se guarda drive_folder_id=null y se muestra instrucción al usuario
-        console.log('[ModalEmpleado] Drive folder creation: TODO - requires drive.file OAuth scope')
       } else {
         const { error: err } = await supabase.from('empleados').update(payload).eq('id', empleado!.id!)
         if (err) throw err
       }
 
-      console.log('[ModalEmpleado] Saved empleado', savedId)
+      void savedId
       onSaved()
       onClose()
     } catch (e: unknown) {
