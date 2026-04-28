@@ -84,6 +84,9 @@ import ReunionesEquipo from '@/pages/ops/ReunionesEquipo'
 import RecetasFichasTecnicas from '@/pages/ops/RecetasFichasTecnicas'
 import ReclamacionReembolsos from '@/pages/ops/ReclamacionReembolsos'
 
+// Inventario (módulo FASE 5)
+import Inventario from '@/pages/stock/Inventario'
+
 // Equipo (módulo FASE 3)
 import Equipo from '@/pages/Equipo'
 
@@ -231,6 +234,9 @@ function AppRoutes() {
         <Route path="equipo/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="clientes/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="integraciones/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
+
+        {/* Inventario físico FASE 5 */}
+        <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
         {/* Cocina */}
         <Route path="cocina/inventario" element={<CocinaInventario />} />
