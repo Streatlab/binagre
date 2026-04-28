@@ -69,13 +69,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (tipo === 'pdf' || tipo === 'imagen') {
         const mime = tipo === 'pdf' ? 'application/pdf' : (body.mimeType ?? 'image/jpeg')
         const contenido = await prepararVision(buffer, mime)
-        textoExtraido = contenido.texto ?? ''
+        textoExtraido = (typeof contenido.data === 'string' ? contenido.data : '')
       } else if (tipo === 'excel') {
         const contenido = await extraerExcel(buffer)
-        textoExtraido = contenido.texto ?? ''
+        textoExtraido = (typeof contenido.data === 'string' ? contenido.data : '')
       } else {
         const contenido = extraerTexto(buffer.toString('utf-8'))
-        textoExtraido = contenido.texto ?? ''
+        textoExtraido = (typeof contenido.data === 'string' ? contenido.data : '')
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
