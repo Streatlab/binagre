@@ -9,7 +9,7 @@ import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { Avatar } from '@/components/configuracion/Avatar'
 import { useAuth } from '@/context/AuthContext'
 
-type Rol = 'admin' | 'gestor' | 'cocina'
+type Rol = 'admin' | 'gestor' | 'cocina' | 'socio' | 'repartidor' | 'solo_lectura' | 'empleado'
 
 interface Usuario {
   id: string
@@ -20,20 +20,28 @@ interface Usuario {
   ultima_conexion: string | null
   activo: boolean
   email: string | null
+  empleado_id: string | null
 }
 
 interface Permiso { rol: Rol; modulo: string; permitido: boolean; orden: number }
 
 const ROLES: { value: Rol; label: string }[] = [
-  { value: 'admin',  label: 'Admin' },
-  { value: 'gestor', label: 'Gestor' },
-  { value: 'cocina', label: 'Cocina' },
+  { value: 'admin',       label: 'Admin' },
+  { value: 'socio',       label: 'Socio' },
+  { value: 'gestor',      label: 'Gestor' },
+  { value: 'cocina',      label: 'Cocina' },
+  { value: 'repartidor',  label: 'Repartidor' },
+  { value: 'solo_lectura',label: 'Solo lectura' },
+  { value: 'empleado',    label: 'Empleado' },
 ]
 
 function rolColor(rol: Rol | null): string {
   if (rol === 'admin') return '#B01D23'
+  if (rol === 'socio') return '#B01D23'
   if (rol === 'gestor') return '#66aaff'
   if (rol === 'cocina') return '#e8f442'
+  if (rol === 'repartidor') return '#1D9E75'
+  if (rol === 'empleado') return '#9b59b6'
   return '#7080a8'
 }
 
@@ -51,16 +59,20 @@ export default function UsuariosPage() {
   const [fPin, setFPin] = useState('')
   const [fColor, setFColor] = useState('#22B573')
   const [saving, setSaving] = useState(false)
+  const [empleados, setEmpleados] = useState<{ id: string; nombre: string }[]>([])
+  const [fEmpleadoId, setFEmpleadoId] = useState<string>('')
 
   async function refetch() {
-    const [u, p] = await Promise.all([
-      supabase.from('usuarios').select('id, nombre, email, rol, perfil, pin, avatar_color, activo, ultima_conexion').order('rol'),
+    const [u, p, e] = await Promise.all([
+      supabase.from('usuarios').select('id, nombre, email, rol, perfil, pin, avatar_color, activo, ultima_conexion, empleado_id').order('rol'),
       supabase.from('permisos_rol').select('*').order('orden'),
+      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').order('nombre'),
     ])
     if (u.error) throw u.error
     if (p.error) throw p.error
     setUsuarios((u.data ?? []) as unknown as Usuario[])
     setPermisos((p.data ?? []) as unknown as Permiso[])
+    setEmpleados((e.data ?? []) as { id: string; nombre: string }[])
   }
 
   useEffect(() => {
@@ -75,9 +87,11 @@ export default function UsuariosPage() {
     if (u) {
       setEditing(u); setCreating(false)
       setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#22B573')
+      setFEmpleadoId(u.empleado_id ?? '')
     } else {
       setCreating(true); setEditing(null)
       setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#22B573')
+      setFEmpleadoId('')
     }
   }
   function close() { setEditing(null); setCreating(false) }
@@ -91,6 +105,7 @@ export default function UsuariosPage() {
         pin: fPin.trim() || null,
         avatar_color: fColor,
         activo: true,
+        empleado_id: fEmpleadoId || null,
       }
       const q = editing
         ? supabase.from('usuarios').update(payload).eq('id', editing.id)
@@ -295,6 +310,12 @@ export default function UsuariosPage() {
           </Field>
           <Field label="PIN"><input value={fPin} onChange={(e) => setFPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm font-mono focus:outline-none focus:border-[var(--sl-border-focus)]" /></Field>
           <Field label="Color avatar"><input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} className="w-full h-10 border border-[var(--sl-border)] rounded-lg" /></Field>
+          <Field label="Empleado vinculado">
+            <select value={fEmpleadoId} onChange={(e) => setFEmpleadoId(e.target.value)} className="w-full px-3 py-2 border border-[var(--sl-border)] rounded-lg text-sm bg-[var(--sl-card)] focus:outline-none focus:border-[var(--sl-border-focus)]">
+              <option value="">— Sin vincular —</option>
+              {empleados.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
+            </select>
+          </Field>
         </EditModal>
       )}
     </ConfigShell>
@@ -303,13 +324,17 @@ export default function UsuariosPage() {
 
 function RolPill({ rol, isDark }: { rol: Rol | null; isDark: boolean }) {
   if (!rol) return <span style={{ color: '#7080a8' }}>—</span>
-  const label = rol.charAt(0).toUpperCase() + rol.slice(1)
+  const label = rol === 'solo_lectura' ? 'Solo lectura' : rol.charAt(0).toUpperCase() + rol.slice(1)
   const palette: Record<Rol, { bg: string; fg: string }> = {
-    admin:  { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
-    gestor: { bg: isDark ? 'rgba(12,68,124,0.30)' : '#E6F1FB', fg: isDark ? '#89B5DF' : '#0C447C' },
-    cocina: { bg: isDark ? 'rgba(186,117,23,0.26)' : '#FAEEDA', fg: isDark ? '#F5C36B' : '#854F0B' },
+    admin:       { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
+    socio:       { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
+    gestor:      { bg: isDark ? 'rgba(12,68,124,0.30)' : '#E6F1FB', fg: isDark ? '#89B5DF' : '#0C447C' },
+    cocina:      { bg: isDark ? 'rgba(186,117,23,0.26)' : '#FAEEDA', fg: isDark ? '#F5C36B' : '#854F0B' },
+    repartidor:  { bg: isDark ? 'rgba(29,158,117,0.22)' : '#D4F0E4', fg: isDark ? '#5DD8A8' : '#027b4b' },
+    solo_lectura:{ bg: isDark ? 'rgba(90,104,128,0.22)' : '#EAEDF2', fg: isDark ? '#8A98B8' : '#445570' },
+    empleado:    { bg: isDark ? 'rgba(155,89,182,0.22)' : '#F0E8F8', fg: isDark ? '#C39FDE' : '#6B3A8F' },
   }
-  const p = palette[rol]
+  const p = palette[rol] ?? { bg: '#333', fg: '#888' }
   return (
     <span
       style={{

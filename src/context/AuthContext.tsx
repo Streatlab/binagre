@@ -6,6 +6,7 @@ interface Usuario {
   nombre: string
   perfil: 'admin' | 'gestor' | 'cocina'
   rol?: 'admin' | 'gestor' | 'cocina' | null
+  empleado_id?: string | null
 }
 
 interface AuthContextType {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { supabase } = await import('@/lib/supabase')
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nombre, perfil, rol')
+      .select('id, nombre, perfil, rol, empleado_id')
       .eq('nombre', nombre)
       .eq('pin', pin)
       .single()
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nombre: data.nombre,
       perfil: (data.rol ?? data.perfil) as 'admin' | 'gestor' | 'cocina',
       rol: data.rol as 'admin' | 'gestor' | 'cocina' | null,
+      empleado_id: data.empleado_id ?? null,
     }
     setUsuario(u)
 

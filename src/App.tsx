@@ -82,7 +82,10 @@ import ReunionesEquipo from '@/pages/ops/ReunionesEquipo'
 import RecetasFichasTecnicas from '@/pages/ops/RecetasFichasTecnicas'
 import ReclamacionReembolsos from '@/pages/ops/ReclamacionReembolsos'
 
-// Equipo
+// Equipo (módulo FASE 3)
+import Equipo from '@/pages/Equipo'
+
+// Equipo (legacy placeholder pages)
 import FichasEmpleados from '@/pages/equipo/FichasEmpleados'
 import Evaluaciones from '@/pages/equipo/Evaluaciones'
 import LlamadosAtencion from '@/pages/equipo/LlamadosAtencion'
@@ -193,7 +196,10 @@ function AppRoutes() {
         <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
         <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
 
-        {/* Equipo */}
+        {/* Módulo Equipo FASE 3 */}
+        <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
+
+        {/* Equipo legacy */}
         <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
         <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
         <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />

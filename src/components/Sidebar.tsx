@@ -8,6 +8,7 @@ import {
   Settings,
   ChevronRight,
   Clock,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
@@ -44,6 +45,12 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/importar-plataformas', label: 'Importar Plataformas', emoji: '📥', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
+    items: [
+      { path: '/equipo', label: 'Equipo', emoji: '👥', perfiles: ['admin'] },
     ],
   },
   {
@@ -143,6 +150,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,   color: '#06C167' },
+  equipo:        { icon: Users,        color: '#66aaff' },
   cocina:        { icon: ChefHat,      color: '#f5a623' },
   stock:         { icon: ShoppingCart, color: '#B01D23' },
   configuracion: { icon: Settings,     color: '#9ba8c0' },
