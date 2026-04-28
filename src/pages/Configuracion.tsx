@@ -46,9 +46,9 @@ export default function Configuracion() {
 
   const textPri   = isDark ? '#f0f0ff' : '#1a1a1a'
   const textSec   = isDark ? '#7080a8' : '#6b7280'
-  const border    = isDark ? '#2a2a2a' : '#e5e0d8'
-  const accent    = isDark ? '#B01D23' : '#7a6200'
-  const accentFg  = isDark ? '#111' : '#fff'
+  const border    = isDark ? '#2a2a2a' : '#d0c8bc'
+  const accent    = '#FF4757'
+  const accentFg  = '#ffffff'
 
   return (
     <div style={{ fontFamily: 'Lexend, sans-serif', color: textPri }}>
@@ -70,18 +70,16 @@ export default function Configuracion() {
               key={s.key}
               onClick={() => setSection(s.key)}
               style={{
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: '0.72rem',
-                letterSpacing: '1px',
+                fontFamily: 'Lexend, sans-serif',
+                fontSize: 13,
                 backgroundColor: active ? accent : 'transparent',
                 color: active ? accentFg : textSec,
-                padding: '8px 16px',
+                padding: '6px 14px',
                 borderRadius: 6,
-                border: active ? 'none' : `1px solid ${border}`,
+                border: active ? 'none' : `0.5px solid ${border}`,
                 cursor: 'pointer',
-                textTransform: 'uppercase',
-                fontWeight: active ? 600 : 400,
-                transition: 'all 0.15s ease',
+                fontWeight: 500,
+                transition: 'background 150ms',
               }}
             >
               {s.label}

@@ -43,8 +43,8 @@ const darkT: TokenSet = {
   sec:      '#9ba8c0',
   mut:      '#5a6880',
   inp:      '#1a1f32',
-  emphasis: '#B01D23',
-  accent:   '#B01D23',
+  emphasis: '#FF4757',
+  accent:   '#FF4757',
 }
 
 const lightT: TokenSet = {
@@ -56,8 +56,8 @@ const lightT: TokenSet = {
   sec:      '#3a4050',
   mut:      '#7a8090',
   inp:      '#ffffff',
-  emphasis: '#B01D23',
-  accent:   '#B01D23',
+  emphasis: '#FF4757',
+  accent:   '#FF4757',
 }
 
 export function useTheme(): { T: TokenSet; isDark: boolean } {
@@ -211,6 +211,20 @@ export function calcNeto(bruto: number, pedidos: number, canal: Pick<CanalConfig
 export const MARCAS = ['Binagre','Ninja Ramen','Mister Katsu','Korean Chicken','Fish & Chips']
 
 /* ═══════════════════════════════════════════════════════════
+   DÍAS SEMANA (gráfico Días pico)
+   ═══════════════════════════════════════════════════════════ */
+
+export const DIAS_SEMANA: Record<string, string> = {
+  Lu: '#1E5BCC',
+  Ma: '#06C167',
+  Mi: '#f5a623',
+  Ju: '#B01D23',
+  Vi: '#66aaff',
+  Sa: '#F26B1F',
+  Do: '#1D9E75',
+}
+
+/* ═══════════════════════════════════════════════════════════
    BADGE (top ventas / tag canal)
    ═══════════════════════════════════════════════════════════ */
 
@@ -261,31 +275,27 @@ export const dropdownItemStyle = (T: TokenSet): CSSProperties => ({
    ═══════════════════════════════════════════════════════════ */
 
 export const tabActiveStyle = (_isDark: boolean): CSSProperties => ({
-  padding: '12px 24px',
-  borderRadius: 8,
+  padding: '6px 14px',
+  borderRadius: 6,
   border: 'none',
-  background: '#B01D23',
+  background: '#FF4757',
   color: '#ffffff',
-  fontFamily: FONT.heading,
+  fontFamily: FONT.body,
   fontSize: 13,
-  fontWeight: 600,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
+  fontWeight: 500,
   cursor: 'pointer',
   transition: 'background 150ms',
 })
 
 export const tabInactiveStyle = (T: TokenSet): CSSProperties => ({
-  padding: '12px 24px',
-  borderRadius: 8,
+  padding: '6px 14px',
+  borderRadius: 6,
   border: `0.5px solid ${T.brd}`,
   background: 'transparent',
   color: T.sec,
-  fontFamily: FONT.heading,
+  fontFamily: FONT.body,
   fontSize: 13,
-  fontWeight: 600,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
+  fontWeight: 500,
   cursor: 'pointer',
   transition: 'background 150ms',
 })
@@ -293,7 +303,8 @@ export const tabInactiveStyle = (T: TokenSet): CSSProperties => ({
 export const tabsContainerStyle = (): CSSProperties => ({
   display: 'flex',
   gap: 8,
-  marginBottom: 20,
+  marginBottom: 16,
+  flexWrap: 'wrap',
 })
 
 /* ═══════════════════════════════════════════════════════════
