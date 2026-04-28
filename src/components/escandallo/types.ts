@@ -30,6 +30,8 @@ export interface Ingrediente {
   ud_neto_std?: string
   coste_neto_min?: number
   ud_neto_min?: string
+  /** T-F4-03: proveedor principal asignable */
+  proveedor_principal?: string | null
 }
 
 export interface Merma {

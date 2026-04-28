@@ -8,6 +8,7 @@ import {
   useTheme, FONT, pageTitleStyle, cardStyle, kpiLabelStyle, kpiValueStyle,
   tabActiveStyle, tabInactiveStyle, CANALES,
 } from '@/styles/tokens'
+import { foodCostPonderado, type FoodCostPonderadoResult } from '@/lib/pe/foodCostPonderado'
 import type { TokenSet } from '@/styles/tokens'
 import { useIVA } from '@/contexts/IVAContext'
 import { KpiCard } from '@/components/KpiCard'
@@ -234,6 +235,12 @@ function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
   const diaCubreValor = data.dia_cubre_fijos != null ? `Día ${data.dia_cubre_fijos}` : '—'
   const yaCubierto = data.dia_cubre_fijos != null && data.dia_actual >= data.dia_cubre_fijos
 
+  // T-F4-07 — Food cost ponderado real
+  const [fcPonderado, setFcPonderado] = useState<FoodCostPonderadoResult | null>(null)
+  useEffect(() => {
+    foodCostPonderado().then(r => setFcPonderado(r))
+  }, [])
+
   return (
     <>
       {/* KPIs arriba */}
@@ -287,6 +294,35 @@ function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
 
       <CardCosteNegocio T={T} data={data} />
       <div style={{ height: 16 }} />
+
+      {/* T-F4-07 — Food cost ponderado real */}
+      {fcPonderado && (
+        <div style={{
+          ...cardStyle(T),
+          marginBottom: 16,
+          borderLeft: `3px solid ${fcPonderado.modo === 'estimado' ? AJUSTADO : CUBRE}`,
+        }}>
+          <div style={kpiLabelStyle(T)}>Food cost ponderado real</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, color: fcPonderado.food_cost_pct > 32 ? PIERDE : CUBRE }}>
+              {fcPonderado.food_cost_pct}%
+            </span>
+            {fcPonderado.badge && (
+              <span style={{
+                fontFamily: FONT.body, fontSize: 11, color: '#111111',
+                background: '#e8f442', borderRadius: 4, padding: '2px 8px',
+              }}>
+                {fcPonderado.badge}
+              </span>
+            )}
+          </div>
+          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 6 }}>
+            Basado en {fcPonderado.n_platos} plato{fcPonderado.n_platos !== 1 ? 's' : ''} ·
+            modo: {fcPonderado.modo === 'real' ? 'peso real (pedidos)' : fcPonderado.modo === 'uniforme' ? 'distribución uniforme' : 'estimado (28%)'}
+          </div>
+        </div>
+      )}
+
       <CardAcciones T={T} data={data} />
       <div style={{ height: 12 }} />
       <CardAccionesPlataforma T={T} />

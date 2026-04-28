@@ -58,6 +58,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
       { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
+      { path: '/carta',                   label: 'Carta',               emoji: '🍽️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
       { path: '/ops/recetas',             label: 'Recetas de cocina', emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],

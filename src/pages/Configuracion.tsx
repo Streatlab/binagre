@@ -248,27 +248,112 @@ function SecCostes() {
   if (loading) return <Loader />
 
   return (
-    <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-6 max-w-lg space-y-4">
-      <div>
-        <label className="block text-xs text-[var(--sl-text-muted)] mb-1.5">Coste estructura (%)</label>
-        <input type="number" step="0.1" value={estructura} onChange={e => setEstructura(e.target.value)} className={inputCls} />
-        <p className="text-[11px] text-[var(--sl-text-muted)] mt-1">Se aplica sobre PVP neto (sin IVA) en todas las recetas</p>
+    <div className="space-y-6 max-w-lg">
+      <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-6 space-y-4">
+        <div>
+          <label className="block text-xs text-[var(--sl-text-muted)] mb-1.5">Coste estructura (%)</label>
+          <input type="number" step="0.1" value={estructura} onChange={e => setEstructura(e.target.value)} className={inputCls} />
+          <p className="text-[11px] text-[var(--sl-text-muted)] mt-1">Se aplica sobre PVP neto (sin IVA) en todas las recetas</p>
+        </div>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleGuardar}
+            disabled={saving}
+            style={{
+              background: guardado ? '#16a34a' : '#B01D23',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 24px',
+              borderRadius: '5px',
+              fontFamily: 'Oswald, sans-serif',
+              fontSize: '.78rem',
+              letterSpacing: '1px',
+              cursor: saving ? 'default' : 'pointer',
+              opacity: saving ? 0.5 : 1,
+            }}
+          >
+            {saving ? 'GUARDANDO…' : guardado ? 'GUARDADO ✓' : 'GUARDAR'}
+          </button>
+          {err && <span className="text-xs text-[#dc2626]">{err}</span>}
+        </div>
       </div>
-      <div className="flex items-center gap-3 pt-2">
+
+      {/* T-F4-10 — Umbral food cost configurable */}
+      <SecFoodCostUmbral />
+    </div>
+  )
+}
+
+/* ═══════ FOOD COST UMBRAL (T-F4-10) ═══════ */
+
+function SecFoodCostUmbral() {
+  const [umbral, setUmbral] = useState('32')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    let c = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('configuracion')
+        .select('valor')
+        .eq('clave', 'config_food_cost_umbral')
+        .maybeSingle()
+      if (!c) {
+        if (data) setUmbral(String((data as { valor: string }).valor))
+        setLoading(false)
+      }
+    })()
+    return () => { c = true }
+  }, [])
+
+  const handleGuardar = async () => {
+    const val = parseFloat(umbral)
+    if (isNaN(val) || val < 0 || val > 100) { setErr('Valor entre 0 y 100'); return }
+    setSaving(true); setErr(null)
+    const { error } = await supabase
+      .from('configuracion')
+      .upsert({ clave: 'config_food_cost_umbral', valor: String(val) }, { onConflict: 'clave' })
+    setSaving(false)
+    if (error) { setErr(error.message); return }
+    setGuardado(true)
+    setTimeout(() => setGuardado(false), 2000)
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-6 space-y-4">
+      <div>
+        <div className="text-xs uppercase tracking-widest text-[var(--sl-text-muted)] mb-3" style={{ fontFamily: 'Oswald, sans-serif' }}>
+          Alerta Food Cost
+        </div>
+        <label className="block text-xs text-[var(--sl-text-muted)] mb-1.5">Umbral food cost (%)</label>
+        <input
+          type="number"
+          step="0.5"
+          min={0}
+          max={100}
+          value={umbral}
+          onChange={e => setUmbral(e.target.value)}
+          className={inputCls}
+          style={{ maxWidth: 120 }}
+        />
+        <p className="text-[11px] text-[var(--sl-text-muted)] mt-1">
+          Si el food cost de una receta supera este %, se muestra badge rojo y banner de alerta. Default: 32%.
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
         <button
           onClick={handleGuardar}
           disabled={saving}
           style={{
             background: guardado ? '#16a34a' : '#B01D23',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 24px',
-            borderRadius: '5px',
-            fontFamily: 'Oswald, sans-serif',
-            fontSize: '.78rem',
-            letterSpacing: '1px',
-            cursor: saving ? 'default' : 'pointer',
-            opacity: saving ? 0.5 : 1,
+            color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '5px',
+            fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px',
+            cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.5 : 1,
           }}
         >
           {saving ? 'GUARDANDO…' : guardado ? 'GUARDADO ✓' : 'GUARDAR'}
