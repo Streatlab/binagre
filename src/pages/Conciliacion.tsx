@@ -8,7 +8,7 @@ import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/Import
 import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown'
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
-import type { Movimiento, Categoria, Regla } from '@/types/conciliacion'
+import type { Movimiento, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
 
@@ -16,16 +16,7 @@ import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
    CATEGORÍAS
    ═══════════════════════════════════════════════════════════ */
 
-const CATEGORIAS: Categoria[] = [
-  { id: 'ing-plat', nombre: 'Ingresos plataformas', tipo: 'ingreso', color: '#06C167' },
-  { id: 'ing-web',  nombre: 'Ingresos web directa', tipo: 'ingreso', color: '#1D9E75' },
-  { id: 'prov',     nombre: 'Proveedores',          tipo: 'gasto',   color: '#66aaff' },
-  { id: 'rrhh',     nombre: 'RRHH',                 tipo: 'gasto',   color: '#f5a623' },
-  { id: 'alq',      nombre: 'Alquiler',             tipo: 'gasto',   color: '#B01D23' },
-  { id: 'sum',      nombre: 'Suministros',          tipo: 'gasto',   color: '#ff6b70' },
-  { id: 'mkt',      nombre: 'Marketing',            tipo: 'gasto',   color: '#B01D23' },
-  { id: 'otros',    nombre: 'Otros',                tipo: 'gasto',   color: '#9aa0c0' },
-]
+/* CATEGORIAS static array removed — now using categoriasBD from Supabase (plan contable) */
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
@@ -249,7 +240,16 @@ export default function Conciliacion() {
         return f >= rangoActual.inicio && f <= rangoActual.fin
       })
       .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
-      .filter(m => !busqueda || matchPatron(m.concepto, busqueda))
+      .filter(m => {
+          if (!busqueda) return true
+          const q = busqueda.toLowerCase()
+          return (
+            m.concepto.toLowerCase().includes(q) ||
+            (m.contraparte && m.contraparte.toLowerCase().includes(q)) ||
+            (m.factura_id && m.factura_id.toLowerCase().includes(q)) ||
+            String(Math.abs(m.importe)).includes(q)
+          )
+        })
       .filter(m => {
         if (filtroCard === 'pendientes') return !m.categoria_id
         if (filtroCard === 'ingreso')    return m.importe > 0
@@ -364,20 +364,24 @@ export default function Conciliacion() {
       )}
 
       {/* HEADER — título + rango fechas + selector período (común a ambas pestañas) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{
-          color: '#B01D23',
-          fontFamily: FONT.heading,
-          fontSize: 22,
-          fontWeight: 500,
-          letterSpacing: '1px',
-          margin: 0,
-          textTransform: 'uppercase',
-        }}>
-          Conciliación
-        </h2>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{
+            color: '#B01D23',
+            fontFamily: FONT.heading,
+            fontSize: 22,
+            fontWeight: 600,
+            letterSpacing: '3px',
+            margin: 0,
+            textTransform: 'uppercase',
+          }}>
+            CONCILIACIÓN
+          </h2>
+          <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.mut, display: 'block', marginTop: 4 }}>
+            {rangoFechasLegible}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: T.mut, fontFamily: FONT.body }}>{rangoFechasLegible}</span>
           <SelectorPeriodoDropdown
             value={periodo}
             onChange={setPeriodo}
@@ -413,7 +417,6 @@ export default function Conciliacion() {
         <ResumenDashboard
           movimientos={movimientosFiltrados}
           movimientosAnterior={movimientosAnterior}
-          categorias={CATEGORIAS}
           mesNombre={mesNombre}
           anio={anioActual}
           diasRestantes={diasRestantes}
@@ -480,17 +483,30 @@ export default function Conciliacion() {
                 }}
               >
                 <option value="todas">Todas</option>
-                {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                {dropdownGroups.ingresos.length > 0 && (
+                  <optgroup label="INGRESOS">
+                    {dropdownGroups.ingresos.map(c => (
+                      <option key={c.codigo} value={c.codigo}>{c.nombre}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {dropdownGroups.gastosPorGrupo.map(g => (
+                  <optgroup key={g.grupo} label={g.grupo}>
+                    {g.items.map(c => (
+                      <option key={c.codigo} value={c.codigo}>{c.nombre}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Buscar concepto</label>
+              <label style={labelStyle}>Buscar</label>
               <div style={{ position: 'relative' }}>
                 <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
                 <input
                   value={busqueda}
                   onChange={e => setBusqueda(e.target.value)}
-                  placeholder="Ej: Uber, Alcampo..."
+                  placeholder="Buscar proveedor / nº factura / importe / concepto"
                   style={{ ...inputStyle, paddingLeft: 32 }}
                 />
               </div>

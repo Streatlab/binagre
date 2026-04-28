@@ -1,20 +1,34 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import { Upload, FileCheck2 } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
 import * as XLSX from 'xlsx'
-import { supabase } from '@/lib/supabase'
 
 /* ── Constantes para auto-detección titular ── */
 const NIF_RUBEN  = '21669051S'
 const NIF_EMILIO = '53484832B'
 const RUBEN_ID   = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID  = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+const NIF_REGEX  = /[A-Z]?\d{8}[A-Z]?/g
 
 export function resolverTitularPorNif(nif: string | null | undefined): string | null {
   if (!nif) return null
   const n = nif.trim().toUpperCase()
   if (n === NIF_RUBEN)  return RUBEN_ID
   if (n === NIF_EMILIO) return EMILIO_ID
+  return null
+}
+
+/**
+ * Auto-detectar titular escaneando NIF en concepto + ordenante + beneficiario.
+ * Regex [A-Z]?\d{8}[A-Z]? — estándar NIF español.
+ */
+export function autoDetectarTitular(concepto: string, ordenante?: string | null, beneficiario?: string | null): string | null {
+  const textos = [concepto, ordenante ?? '', beneficiario ?? ''].join(' ').toUpperCase()
+  const matches = textos.match(NIF_REGEX) ?? []
+  for (const match of matches) {
+    const id = resolverTitularPorNif(match)
+    if (id) return id
+  }
   return null
 }
 
@@ -171,22 +185,14 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
   const [dragging, setDragging] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [titularId, setTitularId] = useState<string | null>(null)
-  const [titulares, setTitulares] = useState<Array<{ id: string; nombre: string }>>([])
-
-  useEffect(() => {
-    supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden').then(({ data }) => {
-      setTitulares((data ?? []) as Array<{ id: string; nombre: string }>)
-    })
-  }, [])
 
   function handleFile(file: File) {
     setFileName(file.name)
     const reader = new FileReader()
     const lower = file.name.toLowerCase()
 
-    /* Determina titular: si el extracto tiene columna nif_emisor, usar auto-detección;
-       como fallback usar la selección manual del dropdown */
+    /* Determina titular: auto-detección NIF en concepto/ordenante/beneficiario.
+       Si no hay NIF reconocido en los campos, titular_id queda null (revisión manual). */
     function sealTitular(r: ParsedRow): string | null {
       // Si la fila ya trae nif_emisor (OCR facturas), auto-detectar
       const nifEmistor = (r as ParsedRow & { nif_emisor?: string | null }).nif_emisor
@@ -194,8 +200,8 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
         const autoId = resolverTitularPorNif(nifEmistor)
         if (autoId) return autoId
       }
-      // Fallback a selección manual del dropdown
-      return titularId
+      // Auto-detectar NIF en concepto + ordenante + beneficiario
+      return autoDetectarTitular(r.concepto ?? '', r.ordenante, r.beneficiario)
     }
 
     if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
@@ -220,41 +226,16 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#777777', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Titular bancario
-        </label>
-        <select
-          value={titularId ?? ''}
-          onChange={e => setTitularId(e.target.value || null)}
-          style={{
-            backgroundColor: '#1e1e1e',
-            border: '1px solid #2a2a2a',
-            color: titularId ? '#ffffff' : '#777777',
-            padding: '6px 10px',
-            borderRadius: 6,
-            fontFamily: FONT.body,
-            fontSize: 13,
-            outline: 'none',
-          }}
-        >
-          <option value="" disabled>Selecciona titular bancario...</option>
-          {titulares.map(t => (
-            <option key={t.id} value={t.id}>{t.nombre}</option>
-          ))}
-        </select>
-      </div>
       <div
-        onDragOver={(e) => { if (!titularId) return; e.preventDefault(); setDragging(true) }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
-          if (!titularId) return
           e.preventDefault()
           setDragging(false)
           const f = e.dataTransfer.files[0]
           if (f) handleFile(f)
         }}
-        onClick={() => { if (!titularId) return; inputRef.current?.click() }}
+        onClick={() => inputRef.current?.click()}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -263,16 +244,15 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
           borderRadius: 10,
           border: `2px dashed ${dragging ? '#B01D23' : T.brd}`,
           backgroundColor: dragging ? T.card : 'transparent',
-          cursor: titularId ? 'pointer' : 'not-allowed',
+          cursor: 'pointer',
           transition: 'all 0.15s ease',
           minWidth: 280,
-          opacity: titularId ? 1 : 0.5,
         }}
       >
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,.xlsx,.xls,.tsv"
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls"
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -294,10 +274,10 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
             <Upload size={20} color="#B01D23" />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-                Importar extracto
+                Importar documento
               </span>
               <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-                Arrastra CSV / XLSX (BBVA, genérico) o haz click
+                Arrastra documento (CSV, XLSX, PDF, imagen) o haz click
               </span>
             </div>
           </>

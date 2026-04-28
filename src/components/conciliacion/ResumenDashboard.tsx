@@ -168,13 +168,6 @@ const MOCK_CATEGORIAS_ANTERIOR = [
   { categoria: 'Marketing',    importe: 646 },
 ]
 
-const MOCK_PRESUPUESTOS = [
-  { categoria: 'compras',     nombre: 'COMPRAS',     consumido: 4448, tope: 6000 },
-  { categoria: 'rrhh',        nombre: 'RRHH',        consumido: 4850, tope: 5000 },
-  { categoria: 'marketing',   nombre: 'MARKETING',   consumido:  530, tope: 1000 },
-  { categoria: 'suministros', nombre: 'SUMINISTROS', consumido: 1028, tope: 1000 },
-] as const
-
 const MOCK_TESORERIA = {
   balanceActual: 16254.18,
   balanceHace30d: 14890.00,
@@ -188,19 +181,6 @@ const MOCK_TESORERIA = {
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
-
-function calcularEstadoRatio(ratio: number) {
-  if (ratio >= 1.5)  return { label: 'Saludable', bg: '#EAF3DE', fg: '#3B6D11' }
-  if (ratio >= 1.25) return { label: 'OK',        bg: '#EAF3DE', fg: '#3B6D11' }
-  if (ratio >= 1.0)  return { label: 'Alerta',    bg: '#FAEEDA', fg: '#854F0B' }
-  return               { label: 'Crítico',   bg: '#FCEBEB', fg: '#A32D2D' }
-}
-
-function calcularPosicionIndicador(ratio: number): number {
-  const pos = ((ratio - 0.5) / 1.5) * 100
-  return Math.max(0, Math.min(100, pos))
-}
-
 
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
@@ -437,12 +417,7 @@ export function ResumenDashboard(_props: Props) {
   const sumGst    = MOCK_CATEGORIAS_ACTUAL.reduce((s, c) => s + c.importe, 0)
   const sumGstAnt = MOCK_CATEGORIAS_ANTERIOR.reduce((s, c) => s + c.importe, 0)
 
-  const balance    = sumIng - sumGst
-  const balanceAnt = sumIngAnt - sumGstAnt
-  const ratio      = sumGst > 0 ? sumIng / sumGst : 0
-  const ratioAnt   = sumGstAnt > 0 ? sumIngAnt / sumGstAnt : 0
-
-  /* — Deltas globales (FIX 4) — */
+  /* — Deltas globales — */
   const ingDeltaPct = sumIngAnt !== 0 ? ((sumIng - sumIngAnt) / sumIngAnt) * 100 : 0
   const ingDeltaSym = ingDeltaPct > 0 ? '▲' : ingDeltaPct < 0 ? '▼' : '='
   const ingDeltaColor = ingDeltaPct > 0 ? VERDE_OK : ingDeltaPct < 0 ? ROJO : T.mut
@@ -459,18 +434,6 @@ export function ResumenDashboard(_props: Props) {
   const tesDeltaSym = tesDeltaPct > 0 ? '▲' : tesDeltaPct < 0 ? '▼' : '='
   const tesDeltaColor = tesDeltaPct > 0 ? VERDE_OK : tesDeltaPct < 0 ? ROJO : T.mut
   const tesDeltaTxt = `${tesDeltaSym} ${Math.abs(Math.round(tesDeltaPct))}%`
-
-  const balanceDeltaPct = balanceAnt !== 0
-    ? ((balance - balanceAnt) / Math.abs(balanceAnt)) * 100
-    : 0
-  const balanceDeltaColor = balanceDeltaPct > 0 ? VERDE_OK : balanceDeltaPct < 0 ? ROJO : T.mut
-  const balanceDeltaSym = balanceDeltaPct > 0 ? '▲' : balanceDeltaPct < 0 ? '▼' : '='
-  const balanceDeltaTxt = `${balanceDeltaSym} ${Math.abs(Math.round(balanceDeltaPct))}%`
-
-  const ratioDeltaPct = ratioAnt !== 0 ? ((ratio - ratioAnt) / ratioAnt) * 100 : 0
-  const ratioDeltaColor = ratioDeltaPct > 0 ? VERDE_OK : ratioDeltaPct < 0 ? ROJO : T.mut
-  const ratioDeltaSym = ratioDeltaPct > 0 ? '▲' : ratioDeltaPct < 0 ? '▼' : '='
-  const ratioDeltaTxt = `${ratioDeltaSym} ${Math.abs(Math.round(ratioDeltaPct))}%`
 
   /* — Filas con % sobre total + delta por fila — */
   const filasIngresos = MOCK_CANALES_ACTUAL
@@ -492,10 +455,6 @@ export function ResumenDashboard(_props: Props) {
       return { ...c, color: COLOR_CATEGORIA[c.categoria] ?? '#888', deltaPct, porcentaje }
     })
     .sort((a, b) => b.importe - a.importe)
-
-  /* — Ratio visual — */
-  const estadoRatio = calcularEstadoRatio(ratio)
-  const posicionIndicador = calcularPosicionIndicador(ratio)
 
   /* — Proyección Tesorería — */
   const minVal = Math.min(MOCK_TESORERIA.cajaLiquida, MOCK_TESORERIA.proyeccion30d, 0)
@@ -658,131 +617,6 @@ export function ResumenDashboard(_props: Props) {
 
       {/* ═══ FILA 1.5 — PRESUPUESTO VS REAL ═══ */}
       <PresupuestoVsRealSection />
-
-      {/* ═══ FILA 2 — RATIO + BALANCE NETO (FIX 8, FIX 9, FIX 10) ═══ */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
-        gap: 16,
-        marginBottom: 16,
-      }}>
-        {/* CARD RATIO */}
-        <div style={{
-          backgroundColor: T.card,
-          borderRadius: 14,
-          padding: '24px 30px',
-          border: `1px solid ${T.brd}`,
-          display: 'flex',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          gap: isMobile ? 16 : 30,
-          flexDirection: isMobile ? 'column' : 'row',
-        }}>
-          {/* Columna izquierda */}
-          <div style={{ flexShrink: 0 }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 8, fontWeight: 500 }}>
-              RATIO INGRESOS / GASTOS
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-              <span style={{ ...STYLE_NUM_GIGANTE_DASHBOARD, fontSize: 72, lineHeight: 1, marginBottom: 0 }}>
-                {ratio.toFixed(2)}
-              </span>
-              <span style={{
-                backgroundColor: estadoRatio.bg,
-                color: estadoRatio.fg,
-                fontSize: 11,
-                padding: '4px 12px',
-                borderRadius: 12,
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: 0.8,
-                fontFamily: FONT.heading,
-              }}>
-                {estadoRatio.label}
-              </span>
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 8 }}>
-              Objetivo ≥ 1.25
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: ratioDeltaColor, marginTop: 6, fontWeight: 500 }}>
-              {ratioDeltaTxt} vs período anterior
-            </div>
-          </div>
-
-          {/* Columna derecha - barra semáforo */}
-          <div style={{ flex: 1, maxWidth: isMobile ? '100%' : 320, width: isMobile ? '100%' : undefined }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT.heading, fontSize: 10, color: T.mut, marginBottom: 6, letterSpacing: 0.8 }}>
-              <span>Crítico</span>
-              <span>Alerta</span>
-              <span>OK</span>
-              <span>Saludable</span>
-            </div>
-            <div style={{
-              position: 'relative',
-              height: 10,
-              background: 'linear-gradient(to right, #F09595 0%, #F09595 25%, #FAC775 25%, #FAC775 50%, #C0DD97 50%, #C0DD97 75%, #5DCAA5 75%, #5DCAA5 100%)',
-              borderRadius: 5,
-            }}>
-              <div style={{
-                position: 'absolute',
-                left: `${posicionIndicador}%`,
-                top: -5,
-                width: 4,
-                height: 20,
-                backgroundColor: T.pri,
-                borderRadius: 2,
-                transform: 'translateX(-2px)',
-                boxShadow: `0 0 0 2px ${T.card}`,
-              }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT.body, fontSize: 10, color: T.mut, marginTop: 4 }}>
-              <span>0.5</span>
-              <span>1.0</span>
-              <span>1.25</span>
-              <span>2.0</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD BALANCE NETO */}
-        <div style={{
-          backgroundColor: T.card,
-          borderRadius: 14,
-          padding: '22px 24px',
-          border: `1px solid ${T.brd}`,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <div style={labelCard}>BALANCE NETO</div>
-          <div style={{
-            ...STYLE_NUM_GIGANTE_DASHBOARD,
-            color: balance >= 0 ? VERDE_OK : ROJO,
-          }}>
-            {balance >= 0 ? '+' : ''}{fmtEur(balance)}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 8 }}>
-            Ingresos − Gastos
-          </div>
-          <div style={{ height: 1, backgroundColor: T.brd, margin: '14px 0' }} />
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontFamily: FONT.body,
-            fontSize: 12,
-          }}>
-            <span style={{ color: T.mut }}>vs período anterior</span>
-            <span style={{
-              color: balanceDeltaColor,
-              fontWeight: 500,
-              fontFamily: FONT.heading,
-              letterSpacing: 0.5,
-            }}>
-              {balanceDeltaTxt}
-            </span>
-          </div>
-        </div>
-      </div>
 
     </div>
   )
