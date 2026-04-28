@@ -66,6 +66,10 @@ import PrediccionDemanda from '@/pages/analytics/PrediccionDemanda'
 // Cocina
 import CocinaRecetas from '@/pages/CocinaRecetas'
 import CocinaInventario from '@/pages/CocinaInventario'
+// Cocina FASE 6
+import MenuEngineering from '@/pages/cocina/MenuEngineering'
+import Recetario from '@/pages/cocina/Recetario'
+import RecetaDetalle from '@/pages/cocina/RecetaDetalle'
 
 // Marketing
 import MarketingEmbudo from '@/pages/MarketingEmbudo'
@@ -241,6 +245,10 @@ function AppRoutes() {
         {/* Cocina */}
         <Route path="cocina/inventario" element={<CocinaInventario />} />
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
+        {/* Cocina FASE 6 */}
+        <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
+        <Route path="cocina/recetario" element={<Recetario />} />
+        <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
 
         {/* Nuevas secciones acordeón */}
         <Route path="finanzas/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
