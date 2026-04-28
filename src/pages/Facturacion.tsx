@@ -17,6 +17,7 @@ import {
   pageTitleStyle,
 } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
+import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 
@@ -302,8 +303,54 @@ export default function Facturacion() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
-      <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle }}>Facturación</h2>
+      {/* HEADER */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle, margin: 0 }}>FACTURACIÓN</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Servicio: izquierda */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {['Todos', 'ALM', 'CENAS'].map(s => (
+              <button key={s} onClick={() => setServicioFiltro(s)}
+                style={servicioFiltro === s
+                  ? { background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+                  : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
+                }>
+                {s}
+              </button>
+            ))}
+          </div>
+          {/* Canales: derecha */}
+          <div style={{ position: 'relative' }} data-drop-canal="canales">
+            <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
+              {canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
+            </button>
+            {dropCanalOpen && (
+              <div style={dropdownMenuStyle(T)}>
+                {['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web', 'Directa'].map(c => (
+                  <label key={c} style={dropdownItemStyle(T)}>
+                    <input type="checkbox" checked={canalFilterSelected.includes(c)} onChange={() => {
+                      if (c === 'Todos') setCanalFilterSelected(['Todos'])
+                      else {
+                        const filtered = canalFilterSelected.filter(x => x !== 'Todos')
+                        const updated = filtered.includes(c) ? filtered.filter(x => x !== c) : [...filtered, c]
+                        setCanalFilterSelected(updated.length === 0 ? ['Todos'] : updated.length === 5 ? ['Todos'] : updated)
+                      }
+                    }} style={{ width: 13, height: 13 }} />
+                    {c}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* SelectorFechaUniversal */}
+          <SelectorFechaUniversal
+            nombreModulo="facturacion"
+            onChange={() => { /* fecha universal: para futura integración */ }}
+          />
+        </div>
+      </div>
 
+      {/* TABS conmutador */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {TABS.map(t => (
@@ -313,42 +360,6 @@ export default function Facturacion() {
             </button>
           ))}
         </div>
-
-        <div style={{ display: 'flex', gap: 4 }}>
-          {['Todos', 'ALM', 'CENAS'].map(s => (
-            <button key={s} onClick={() => setServicioFiltro(s)}
-              style={servicioFiltro === s
-                ? { background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
-                : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
-              }>
-              {s}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ position: 'relative' }} data-drop-canal="canales">
-          <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
-            {canalFilterSelected.length === 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
-          </button>
-          {dropCanalOpen && (
-            <div style={dropdownMenuStyle(T)}>
-              {['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web', 'Directa'].map(c => (
-                <label key={c} style={dropdownItemStyle(T)}>
-                  <input type="checkbox" checked={canalFilterSelected.includes(c)} onChange={() => {
-                    if (c === 'Todos') setCanalFilterSelected(['Todos'])
-                    else {
-                      const filtered = canalFilterSelected.filter(x => x !== 'Todos')
-                      const updated = filtered.includes(c) ? filtered.filter(x => x !== c) : [...filtered, c]
-                      setCanalFilterSelected(updated.length === 0 ? ['Todos'] : updated.length === 5 ? ['Todos'] : updated)
-                    }
-                  }} style={{ width: 13, height: 13 }} />
-                  {c}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
         {weekFilter && (
           <button onClick={clearWeekFilter}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(176,29,35,0.08)', color: T.pri, fontFamily: FONT.body, fontSize: 12, fontWeight: 500, borderRadius: 8, border: `0.5px solid rgba(176,29,35,0.3)`, cursor: 'pointer' }}>

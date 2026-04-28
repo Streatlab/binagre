@@ -440,7 +440,7 @@ export default function Running() {
           color: ROJO, fontFamily: FONT.heading, fontSize: 22, fontWeight: 500,
           letterSpacing: 1, margin: 0, textTransform: 'uppercase',
         }}>
-          Running financiero
+          RUNNING FINANCIERO
         </h2>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{periodo.label}</span>

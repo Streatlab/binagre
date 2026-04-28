@@ -507,21 +507,19 @@ export default function Objetivos() {
 
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={pageTitleStyle(T)}>Objetivos</h1>
-        {activeTab === 'objetivos' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => setWeekOffset(w => w - 1)}
-              style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 44, minHeight: 44 }}
-            >‹</button>
-            <span style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, minWidth: 130, textAlign: 'center' }}>{weekLabel}</span>
-            <button
-              onClick={() => setWeekOffset(w => w + 1)}
-              disabled={isCurrentWeek}
-              style={{ background: 'transparent', border: `1px solid ${isCurrentWeek ? T.brd : T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 44, minHeight: 44 }}
-            >›</button>
-          </div>
-        )}
+        <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setWeekOffset(w => w - 1)}
+            style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 44, minHeight: 44 }}
+          >‹</button>
+          <span style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, minWidth: 130, textAlign: 'center' }}>{weekLabel}</span>
+          <button
+            onClick={() => setWeekOffset(w => w + 1)}
+            disabled={isCurrentWeek}
+            style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 44, minHeight: 44 }}
+          >›</button>
+        </div>
       </div>
 
       {/* TABS */}
@@ -603,9 +601,10 @@ export default function Objetivos() {
                   if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
                   else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
 
-                  // HOY: borde amarillo grueso, sin ring rojo
+                  // HOY: borde azul Emilio (#1E5BCC), fondo #ffffff — spec 10.2
                   if (hoyFlag) {
-                    rowBorderLeft = '3px solid #e8f442'
+                    rowBorderLeft = '3px solid #1E5BCC'
+                    rowBg = '#ffffff15'
                   }
 
                   const fecha = fechaDia(dia)
@@ -628,10 +627,10 @@ export default function Objetivos() {
                       position: 'relative',
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#e8f442' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#e8f442' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {fechaStr}{hoyFlag ? ' · HOY' : ''}
                           {esCerradoCalendario && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CERRADO</span>}
                           {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>}
@@ -658,7 +657,7 @@ export default function Objetivos() {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#e8f442' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
+                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#1E5BCC' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
                           />
                         ) : (
                           <span
@@ -694,13 +693,14 @@ export default function Objetivos() {
           </div>
 
           <div style={cardStyle(T)}>
-            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 80px 100px 100px 90px', gap: 8, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
               <span>Período</span>
               <span>Cumplido · Pendiente</span>
               <span style={{ textAlign: 'right' }}>% Real</span>
               <span style={{ textAlign: 'right' }}>Real</span>
               <span style={{ textAlign: 'right' }}>Objetivo</span>
               <span style={{ textAlign: 'right' }}>Desviación</span>
+              <span style={{ textAlign: 'right' }}>% Desv.</span>
             </div>
             {historico.length === 0 && (
               <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: T.mut }}>Sin datos históricos</div>
@@ -712,8 +712,10 @@ export default function Objetivos() {
               const desv = h.real - h.objetivo
               const desvColor = desv >= 0 ? '#1D9E75' : '#E24B4A'
               const desvStr = (desv >= 0 ? '+' : '') + fmtEur(desv)
+              const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
+              const pctDesvStr = (pctDesv >= 0 ? '+' : '') + pctDesv + '%'
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 80px 100px 100px 90px', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none' }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none' }}>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
@@ -725,6 +727,7 @@ export default function Objetivos() {
                   <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: T.pri, textAlign: 'right' }}>{fmtEur(h.real)}</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, textAlign: 'right' }}>{fmtEur(h.objetivo)}</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: desvColor, textAlign: 'right' }}>{desvStr}</span>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: desvColor, textAlign: 'right' }}>{pctDesvStr}</span>
                 </div>
               )
             })}

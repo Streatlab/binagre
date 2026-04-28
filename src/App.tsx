@@ -14,7 +14,7 @@ import Placeholder from '@/pages/Placeholder'
 // Configuración · Marcas
 import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
 import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
-import TabAccesosUber from '@/pages/configuracion/marcas/TabAccesosUber'
+// TabAccesosUber → eliminado FASE 10.5, movido a Plataformas
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Configuración · Bancos
@@ -150,7 +150,7 @@ function AppRoutes() {
         {/* Configuración · Marcas */}
         <Route path="configuracion/marcas" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
-          <Route path="accesos-uber" element={<TabAccesosUber />} />
+          {/* accesos-uber → eliminado FASE 10.5, contenido en Plataformas */}
           <Route path="canales" element={<TabCanales />} />
         </Route>
 

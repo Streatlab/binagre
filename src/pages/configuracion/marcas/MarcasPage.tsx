@@ -3,10 +3,11 @@ import { ModTitle } from '@/components/configuracion/ModTitle'
 import { TabPills } from '@/components/configuracion/TabPills'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 
+// Accesos Uber → movido a tab Plataformas (FASE 10.5)
+// Tipos de cocina → propiedad de Marca (FASE 10.5)
 const TABS = [
-  { id: 'marcas',       label: 'Marcas' },
-  { id: 'accesos-uber', label: 'Accesos Uber' },
-  { id: 'canales',      label: 'Canales de venta' },
+  { id: 'marcas',  label: 'Marcas' },
+  { id: 'canales', label: 'Canales de venta' },
 ]
 
 export default function MarcasPage() {
@@ -15,8 +16,7 @@ export default function MarcasPage() {
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
   const active =
-    seg === 'accesos-uber' ? 'accesos-uber' :
-    seg === 'canales'      ? 'canales'      :
+    seg === 'canales' ? 'canales' :
     'marcas'
 
   const handleChange = (id: string) => {

@@ -5,18 +5,16 @@ import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import CategoriasPanel from './CategoriasPanel'
 import ReglasPanel from './ReglasPanel'
 import CuentasPanel from './CuentasPanel'
-import PresupuestosPanel from './PresupuestosPanel'
-import ProvisionesPanel from './ProvisionesPanel'
 import DrivePanel from './DrivePanel'
+// Presupuestos mensuales → movido a Objetivos · Presupuesto de gastos (FASE 10.2)
+// Provisiones IVA/IRPF → movido a PE · Tesorería futura (FASE 10.4)
 
-type Sub = 'categorias' | 'reglas' | 'cuentas' | 'presupuestos' | 'provisiones' | 'drive'
+type Sub = 'categorias' | 'reglas' | 'cuentas' | 'drive'
 
 const PILLS: { id: Sub; label: string }[] = [
   { id: 'categorias',   label: 'Categorías de conciliación' },
   { id: 'reglas',       label: 'Reglas automáticas' },
   { id: 'cuentas',      label: 'Cuentas bancarias' },
-  { id: 'presupuestos', label: 'Presupuestos mensuales' },
-  { id: 'provisiones',  label: 'Provisiones IVA/IRPF' },
   { id: 'drive',        label: 'Drive' },
 ]
 
@@ -57,8 +55,6 @@ export default function BancosPage() {
       {sub === 'categorias' && <CategoriasPanel />}
       {sub === 'reglas' && <ReglasPanel />}
       {sub === 'cuentas' && <CuentasPanel />}
-      {sub === 'presupuestos' && <PresupuestosPanel />}
-      {sub === 'provisiones' && <ProvisionesPanel />}
       {sub === 'drive' && <DrivePanel />}
     </ConfigShell>
   )

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, type CSSProperties } from 'react'
+// SelectorFechaUniversal placeholder import — integración futura
+// import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   LineChart, Line, ReferenceLine, Cell,
@@ -147,8 +149,8 @@ export default function PuntoEquilibrio() {
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
-        <h1 style={pageTitleStyle(T)}>Punto de Equilibrio</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
+        <h1 style={pageTitleStyle(T)}>PUNTO DE EQUILIBRIO</h1>
         <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
           Simulador de decisiones · datos en vivo
         </span>
