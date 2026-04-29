@@ -40,6 +40,12 @@ interface SectionIconConfig {
 
 const SECTIONS: NavSection[] = [
   {
+    key: 'panel', emoji: '🗺️', label: 'Panel Global', perfiles: ['admin'],
+    items: [
+      { path: '/panel', label: 'Panel Global', emoji: '🗺️', perfiles: ['admin'] },
+    ],
+  },
+  {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },

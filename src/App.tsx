@@ -50,6 +50,9 @@ import Running from '@/pages/finanzas/Running'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 
+// Panel Global
+import PanelGlobal from '@/pages/PanelGlobal'
+
 // Importador unificado (FASE 7)
 import Importador from '@/pages/Importador'
 
@@ -189,6 +192,9 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
+
+        {/* Panel Global */}
+        <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
         {/* Importador unificado FASE 7 */}
         <Route path="importador" element={<ProtectedRoute solo={['admin']}><Importador /></ProtectedRoute>} />

@@ -1,20 +1,29 @@
 import React from 'react'
 
 interface BarraCumplimientoProps {
-  porcentaje: number
+  /** Alias del spec. Si se pasa pct, tiene prioridad sobre porcentaje. */
+  pct?: number
+  porcentaje?: number
   multiSegmento?: boolean
-  altura?: number
+  /** Del spec: 8 | 6 | 5 */
+  altura?: 8 | 6 | 5 | number
   mostrarEtiqueta?: boolean
+  /** Del spec: si true divide cumplido + pendiente */
+  multiSeg?: boolean
 }
 
 export default function BarraCumplimiento({
-  porcentaje,
+  pct: pctProp,
+  porcentaje = 0,
   multiSegmento = false,
+  multiSeg = false,
   altura = 8,
   mostrarEtiqueta = false,
 }: BarraCumplimientoProps) {
-  const pct = Math.max(0, Math.min(porcentaje, 100))
-  const pctDisplay = Math.round(porcentaje)
+  const rawVal = pctProp ?? porcentaje
+  const pct = Math.max(0, Math.min(rawVal, 100))
+  const esMulti = multiSeg || multiSegmento
+  const pctDisplay = Math.round(rawVal)
 
   const barraBase: React.CSSProperties = {
     height: altura,
@@ -36,7 +45,7 @@ export default function BarraCumplimiento({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={barraBase}>
-        {multiSegmento ? (
+        {esMulti ? (
           <div style={{ display: 'flex', height: '100%', width: '100%' }}>
             <div
               style={{
@@ -58,7 +67,7 @@ export default function BarraCumplimiento({
             />
           </div>
         ) : (
-          <div style={fillEstilo(porcentaje)} />
+          <div style={fillEstilo(rawVal)} />
         )}
       </div>
 
@@ -67,7 +76,7 @@ export default function BarraCumplimiento({
           style={{
             fontSize: 12,
             fontFamily: 'Lexend, sans-serif',
-            color: porcentaje >= 80 ? '#1D9E75' : porcentaje >= 50 ? '#f5a623' : '#E24B4A',
+            color: rawVal >= 80 ? '#1D9E75' : rawVal >= 50 ? '#f5a623' : '#E24B4A',
             whiteSpace: 'nowrap',
             minWidth: 36,
           }}
