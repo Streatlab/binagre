@@ -11,6 +11,8 @@ import { toast } from '@/lib/toastStore'
 import type { Movimiento, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
+import TabsPastilla from '@/components/ui/TabsPastilla'
+import TabMovimientos from '@/components/conciliacion/TabMovimientos'
 
 /* ═══════════════════════════════════════════════════════════
    CATEGORÍAS
@@ -355,20 +357,20 @@ export default function Conciliacion() {
      ═══════════════════════════════════════════════════════════ */
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
+    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
 
       {loadingBD && (
-        <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
+        <div style={{ padding: 40, textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif' }}>
           Cargando movimientos…
         </div>
       )}
 
-      {/* HEADER — título + rango fechas + selector período (común a ambas pestañas) */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+      {/* HEADER — spec B.1 */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{
             color: '#B01D23',
-            fontFamily: FONT.heading,
+            fontFamily: 'Oswald, sans-serif',
             fontSize: 22,
             fontWeight: 600,
             letterSpacing: '3px',
@@ -377,11 +379,11 @@ export default function Conciliacion() {
           }}>
             CONCILIACIÓN
           </h2>
-          <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.mut, display: 'block', marginTop: 4 }}>
+          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
             {rangoFechasLegible}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <SelectorPeriodoDropdown
             value={periodo}
             onChange={setPeriodo}
@@ -390,27 +392,36 @@ export default function Conciliacion() {
             hasta={customHasta}
             onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
           />
+          <select style={{
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '0.5px solid #d0c8bc',
+            background: '#ffffff',
+            fontSize: 13,
+            fontFamily: 'Lexend, sans-serif',
+            color: '#111111',
+            cursor: 'pointer',
+          }}>
+            <option>Todas las marcas ▾</option>
+          </select>
           <button
             onClick={() => setModalGastoOpen(true)}
-            style={{ padding: '6px 14px', background: '#e8f442', color: '#111', border: 'none', borderRadius: 8, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '6px 14px', background: '#e8f442', color: '#111', border: 'none', borderRadius: 8, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
           >
             + Añadir gasto
           </button>
         </div>
       </div>
 
-      {/* TABS: Resumen → Movimientos */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {(['resumen', 'movimientos'] as Tab[]).map(k => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            style={tab === k ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
-            {k === 'resumen' ? 'Resumen' : 'Movimientos'}
-          </button>
-        ))}
-      </div>
+      {/* TABS PASTILLA — spec B.2 */}
+      <TabsPastilla
+        tabs={[
+          { id: 'resumen', label: 'Resumen' },
+          { id: 'movimientos', label: 'Movimientos' },
+        ]}
+        activeId={tab}
+        onChange={(id) => setTab(id as Tab)}
+      />
 
       {/* Pestaña Resumen */}
       {tab === 'resumen' && (
@@ -423,8 +434,16 @@ export default function Conciliacion() {
         />
       )}
 
-      {/* Pestaña Movimientos */}
+      {/* Pestaña Movimientos — nuevo TabMovimientos */}
       {tab === 'movimientos' && (
+        <TabMovimientos
+          movimientos={movimientos}
+          periodoLabel={periodoLabel}
+        />
+      )}
+
+      {/* Legacy Movimientos (hidden — mantenido por si acaso) */}
+      {false && tab === 'movimientos' && (
         <>
           {/* Sub-header: Dropzone + Filtros Categoría/Buscar */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
