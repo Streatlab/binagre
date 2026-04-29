@@ -5,11 +5,12 @@ interface Props {
   tab: 'productos' | 'modificadores'
   onTab: (t: 'productos' | 'modificadores') => void
   items: TopVentaItem[]
+  datosDemo?: boolean
 }
 
-export default function CardTopVentas({ tab, onTab, items }: Props) {
+export default function CardTopVentas({ tab, onTab, items, datosDemo }: Props) {
   return (
-    <div style={card}>
+    <div style={{ ...card, position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
         <div style={lblSm}>TOP VENTAS</div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -22,6 +23,16 @@ export default function CardTopVentas({ tab, onTab, items }: Props) {
         </div>
       </div>
 
+      {datosDemo && items.length === 0 && (
+        <div style={{
+          position: 'absolute', top: 8, right: 10,
+          background: '#f5a62320', color: '#854F0B',
+          fontSize: 10, padding: '2px 8px', borderRadius: 4,
+          fontFamily: 'Lexend, sans-serif', fontWeight: 500,
+        }}>
+          datos demo
+        </div>
+      )}
       <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
         <tbody>
           {items.length === 0 ? (

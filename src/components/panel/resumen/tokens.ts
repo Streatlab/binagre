@@ -164,6 +164,12 @@ export function fmtEur0(v: number): string {
   return `${Math.round(v).toLocaleString('es-ES')} €`
 }
 
+/** Número con decimales, separador decimal coma española. Ej: 1,68 */
+export function fmtDec(v: number, decimals = 1): string {
+  if (!isFinite(v)) return '—'
+  return v.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
 export function fmtPp(pp: number): string {
   return `${pp >= 0 ? '+' : ''}${pp.toFixed(1)} pp`
 }

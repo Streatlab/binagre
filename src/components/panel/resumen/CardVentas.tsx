@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, kpiBig,
-  barTrack, editable, fmtEur0, semaforoBarra,
+  barTrack, editable, fmtEur0, semaforoBarra, fmtDec,
 } from './tokens'
 import type { ObjetivosVentas, ToastFn } from './types'
 
@@ -128,7 +128,7 @@ export default function CardVentas({
 
       {variacionPct !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {flecha} {Math.abs(variacionPct).toFixed(1)}% vs anterior
+          {flecha} {fmtDec(Math.abs(variacionPct), 1)}% vs anterior
         </div>
       )}
 

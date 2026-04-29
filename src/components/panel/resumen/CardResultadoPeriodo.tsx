@@ -1,4 +1,4 @@
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack, fmtEur0, colorPrimeCost } from './tokens'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack, fmtEur0, colorPrimeCost, fmtDec } from './tokens'
 
 interface Props {
   ebitda: number
@@ -46,7 +46,7 @@ export default function CardResultadoPeriodo({
 
       {deltaPp !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {flecha} {Math.abs(deltaPp).toFixed(1)} pp vs anterior
+          {flecha} {fmtDec(Math.abs(deltaPp), 1)} pp vs anterior
         </div>
       )}
 

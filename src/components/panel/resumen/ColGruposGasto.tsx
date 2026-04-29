@@ -76,7 +76,7 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
           const overflow = pctCumpl > 100
 
           return (
-            <div key={g.id} style={{ ...card, padding: '12px 14px' }}>
+            <div key={g.id} style={{ ...card, padding: '12px 14px 14px 14px', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <div style={lblSm}>{g.label}</div>
                 <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>

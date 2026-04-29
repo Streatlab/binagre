@@ -22,3 +22,12 @@ export function fmtDate(d: Date | string): string {
   const yy = date.getFullYear();
   return `${dd}/${mm}/${yy}`;
 }
+
+/** Formato canónico Panel: dd/mm/yy (sin año completo) */
+export function formatearFechaCorta(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d + 'T12:00:00') : d;
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yy = String(date.getFullYear()).slice(2);
+  return `${dd}/${mm}/${yy}`;
+}

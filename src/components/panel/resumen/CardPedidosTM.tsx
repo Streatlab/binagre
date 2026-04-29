@@ -1,4 +1,4 @@
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, kpiBig, fmtEntero, fmtEur0 } from './tokens'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, kpiBig, fmtEntero, fmtEur0, fmtDec } from './tokens'
 import type { CanalStat } from './types'
 
 interface Props {
@@ -56,9 +56,9 @@ export default function CardPedidosTM({
 
       {(pedidosDeltaPct !== null || tmDeltaPct !== null) && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '8px 0 16px', fontFamily: LEXEND }}>
-          {pedidosDeltaPct !== null && <>{pedSign} {Math.abs(pedidosDeltaPct).toFixed(1)}% pedidos</>}
+          {pedidosDeltaPct !== null && <>{pedSign} {fmtDec(Math.abs(pedidosDeltaPct), 1)}% pedidos</>}
           {pedidosDeltaPct !== null && tmDeltaPct !== null && ' · '}
-          {tmDeltaPct !== null && <>{tmSign} {Math.abs(tmDeltaPct).toFixed(1)}% TM</>}
+          {tmDeltaPct !== null && <>{tmSign} {fmtDec(Math.abs(tmDeltaPct), 1)}% TM</>}
           {' '}vs anterior
         </div>
       )}

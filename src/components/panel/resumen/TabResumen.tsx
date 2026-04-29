@@ -135,6 +135,7 @@ export default function TabResumen({
   const [presupuestosBD, setPresupuestosBD] = useState<PresupuestoRow[]>([])
   const [tareas, setTareas] = useState<TareaPendienteItem[]>([])
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
+  const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -257,7 +258,6 @@ export default function TabResumen({
       .select('id, fecha_esperada, estado, tareas_periodicas(nombre)')
       .neq('estado', 'cumplida')
       .order('fecha_esperada', { ascending: true })
-      .limit(8)
       .then(({ data }) => {
         if (!data) return
         const hoy = new Date()
@@ -529,8 +529,12 @@ export default function TabResumen({
       const fechaVerde = new Date(hoy)
       fechaVerde.setDate(hoy.getDate() + diasRestan)
       if (fechaVerde <= finMes) {
-        const fStr = `${String(fechaVerde.getDate()).padStart(2, '0')} ${fechaVerde.toLocaleDateString('es-ES', { month: 'short' })}`
-        diaVerdeEstimado = { fecha: fStr, diaSemana: NOMBRES_DIAS_CORTOS[(fechaVerde.getDay() + 6) % 7] }
+        const dd = String(fechaVerde.getDate()).padStart(2, '0')
+        const mm = String(fechaVerde.getMonth() + 1).padStart(2, '0')
+        const yy = String(fechaVerde.getFullYear()).slice(2)
+        diaVerdeEstimado = { fecha: `${dd}/${mm}/${yy}`, diaSemana: NOMBRES_DIAS_CORTOS[(fechaVerde.getDay() + 6) % 7] }
+      } else {
+        diaVerdeEstimado = { fecha: '❌ no cubre este mes', diaSemana: '' }
       }
     } else if (ventasMes >= peBruto) {
       diaVerdeEstimado = { fecha: 'Alcanzado', diaSemana: '✓' }
@@ -541,8 +545,10 @@ export default function TabResumen({
 
   /* ── provisiones ────────────────────────────── */
   const { totalAGuardar, provIVA, provIRPF, proximosPagos } = useMemo(() => {
-    const iva  = provisiones.filter(p => p.tipo.startsWith('IVA')).reduce((a, p) => a + (Number(p.importe) || 0), 0)
-    const irpf = provisiones.filter(p => p.tipo.startsWith('IRPF')).reduce((a, p) => a + (Number(p.importe) || 0), 0)
+    const hoyProv = new Date()
+    const mesActual = `${hoyProv.getFullYear()}-${String(hoyProv.getMonth() + 1).padStart(2, '0')}`
+    const iva  = provisiones.filter(p => p.tipo.startsWith('IVA') && p.periodo.startsWith(mesActual)).reduce((a, p) => a + (Number(p.importe) || 0), 0)
+    const irpf = provisiones.filter(p => p.tipo.startsWith('IRPF') && p.periodo.startsWith(mesActual)).reduce((a, p) => a + (Number(p.importe) || 0), 0)
 
     // Próximos pagos 30d desde provisiones + gastos fijos
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
@@ -565,12 +571,20 @@ export default function TabResumen({
     return { totalAGuardar: iva + irpf, provIVA: iva, provIRPF: irpf, proximosPagos: items }
   }, [provisiones, peParams])
 
-  /* ── top ventas (sin POS → array vacío con flag demo) ─ */
-  const topItems: TopVentaItem[] = useMemo(() => {
-    if (rowsPeriodo.length === 0) return []
-    // Sin POS: derivamos top fictiom del mix de canales (top "categorías")
-    return [] // sin datos POS → vacío, mostrará "Sin datos POS"
-  }, [rowsPeriodo])
+  /* ── top ventas: intenta tabla pedidos ─────────────── */
+  const topItems: TopVentaItem[] = useMemo(() => [], [])
+
+  useEffect(() => {
+    supabase
+      .from('pedidos')
+      .select('id')
+      .limit(1)
+      .then(({ data, error }) => {
+        if (error || !data || data.length === 0) {
+          setTopDatosDemo(true)
+        }
+      })
+  }, [])
 
   /* ── flag demo ──────────────────────────────── */
   const dataInicializadaRef = useRef(false)
@@ -749,6 +763,7 @@ export default function TabResumen({
           tab={topTab}
           onTab={setTopTab}
           items={topItems}
+          datosDemo={topDatosDemo}
         />
       </div>
     </div>

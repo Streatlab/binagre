@@ -174,24 +174,26 @@ const btnStyle: React.CSSProperties = {
 
 const menuStyle: React.CSSProperties = {
   position: 'absolute',
-  left: 0,
-  top: '110%',
-  background: '#ffffff',
+  top: 38,
+  right: 0,
+  background: '#fff',
   border: '0.5px solid #d0c8bc',
   borderRadius: 8,
-  minWidth: 180,
-  zIndex: 20,
-  padding: '4px 0',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+  width: 200,
+  fontSize: 13,
+  color: '#3a4050',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  zIndex: 10,
+  overflow: 'hidden',
 }
 
 const itemStyle: React.CSSProperties = {
   display: 'block',
-  padding: '7px 12px',
+  padding: '8px 12px',
   cursor: 'pointer',
   fontSize: 13,
   fontFamily: 'Lexend, sans-serif',
-  color: '#111111',
+  color: '#7a8090',
   background: 'transparent',
   border: 'none',
   width: '100%',
@@ -352,12 +354,17 @@ export default function SelectorFechaUniversal({
                 key={o.id}
                 style={{
                   ...itemStyle,
-                  background: opcion === o.id ? '#f0ede8' : 'transparent',
-                  fontWeight: opcion === o.id ? 600 : 400,
+                  background: opcion === o.id ? '#FF475715' : 'transparent',
+                  color: opcion === o.id ? '#FF4757' : '#7a8090',
+                  fontWeight: opcion === o.id ? 500 : 400,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
                 onClick={() => selectOpcion(o.id)}
               >
-                {o.label}
+                <span>{o.label}</span>
+                {o.id === 'semanas_x' && <span style={{ fontSize: 10 }}>▸</span>}
               </button>
             ))}
           </div>

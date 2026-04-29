@@ -2,30 +2,21 @@ import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'r
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
+import { formatearFechaCorta } from '@/lib/format'
 import {
   useTheme,
   groupStyle,
   cardStyle,
   sectionLabelStyle,
-  kpiLabelStyle,
-  kpiValueStyle,
-  dividerStyle,
   progressBgStyle,
   progressFillStyle,
   semaforoColor,
   CANALES,
   type CanalConfig,
-  badgeStyle,
-  MARCAS,
-  tabActiveStyle,
-  tabInactiveStyle,
-  tabsContainerStyle,
   tituloPaginaStyle,
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import BarraCumplimiento from '@/components/ui/BarraCumplimiento'
-import TabConciliacion from '@/components/ui/TabConciliacion'
 import { calcNetoPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 
@@ -70,22 +61,6 @@ type MainTab = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'marcas'
    ═══════════════════════════════════════════════════════════ */
 
 const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
-
-const TOP_PRODUCTOS_MOCK = [
-  { n:'Ramen Warriors',   canal:'UE',  uds:42, total:796 },
-  { n:'Cocido Madrileño', canal:'UE',  uds:29, total:782 },
-  { n:'KFC Gochujang',    canal:'GL',  uds:38, total:570 },
-  { n:'Katsu Curry',      canal:'JE',  uds:26, total:481 },
-  { n:'Fish & Chips',     canal:'WEB', uds:22, total:328 },
-]
-
-const TOP_MODIFICADORES_MOCK = [
-  { n:'Patatas Fritas',   canal:'UE',  uds:87, total:348 },
-  { n:'Alioli',           canal:'GL',  uds:64, total:64  },
-  { n:'Arroz Blanco',     canal:'JE',  uds:51, total:204 },
-  { n:'Salsa Cheddar',    canal:'UE',  uds:43, total:43  },
-  { n:'Puré Parmentier',  canal:'WEB', uds:38, total:152 },
-]
 
 const NETO_GREEN = '#1D9E75'
 
@@ -175,9 +150,10 @@ export default function Dashboard() {
   const [fechaHasta, setFechaHasta] = useState<Date>(new Date())
   const [fechaLabel, setFechaLabel] = useState('Semana actual')
 
+  const [marcasBD, setMarcasBD] = useState<string[]>([])
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
-  const [topTab, setTopTab] = useState<'prod'|'mod'>('prod')
+  const [topTab, setTopTab] = useState<'prod'|'mod'>('prod') // eslint-disable-line @typescript-eslint/no-unused-vars
   const [mainTab, setMainTab] = useState<MainTab>('resumen')
   const [diaSemanaFiltro, setDiaSemanaFiltro] = useState<number | null>(null)
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
@@ -235,6 +211,17 @@ export default function Dashboard() {
       }
     })()
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('marcas')
+      .select('nombre')
+      .eq('activa', true)
+      .order('nombre')
+      .then(({ data: rows }) => {
+        if (rows) setMarcasBD((rows as { nombre: string }[]).map(r => r.nombre))
+      })
   }, [])
 
   useEffect(() => {
@@ -436,9 +423,6 @@ export default function Dashboard() {
   /* ── unused imports suppression ───────────────────── */
   void progressBgStyle
   void progressFillStyle
-  void tabActiveStyle
-  void tabInactiveStyle
-  void tabsContainerStyle
 
   /* ── loading / error ───────────────────────────────── */
 
@@ -454,7 +438,7 @@ export default function Dashboard() {
     </div>
   )
 
-  const topItems = topTab === 'prod' ? TOP_PRODUCTOS_MOCK : TOP_MODIFICADORES_MOCK
+  void topTab // top ventas sin mock — sin datos POS
 
   /* ── render ────────────────────────────────────────── */
 
@@ -529,7 +513,7 @@ export default function Dashboard() {
               PANEL GLOBAL
             </span>
             <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, lineHeight:1.3 }}>
-              {fechaLabel} · {toLocalDateStr(fechaDesde)} — {toLocalDateStr(fechaHasta)}
+              {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
             </span>
           </div>
 
@@ -548,14 +532,14 @@ export default function Dashboard() {
           <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button
               onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
-              style={{ padding:'6px 10px', borderRadius:8, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
+              style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
             >
-              {marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`} ▾
+              {marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`} <span style={{ fontSize:10 }}>▾</span>
             </button>
             {dropMarcaOpen && (
-              <div style={{ position:'absolute', left:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
-                {MARCAS.map(m => (
-                  <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:13, color:T.pri, fontFamily:'Lexend,sans-serif' }}>
+              <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>
+                {(marcasBD.length > 0 ? marcasBD : ['Streat Lab']).map(m => (
+                  <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', fontSize:13, color: marcasFiltro.includes(m) ? '#FF4757' : '#7a8090', fontFamily:'Lexend,sans-serif', background: marcasFiltro.includes(m) ? '#FF475715' : 'transparent', fontWeight: marcasFiltro.includes(m) ? 500 : 400 }}>
                     <input type="checkbox" checked={marcasFiltro.includes(m)}
                       onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
                       style={{ width:13, height:13 }} />
@@ -566,18 +550,18 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Dropdown Canales — texto "Canales" (spec 5.1 NO "Todos los canales") */}
+          {/* Dropdown Canales */}
           <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button
               onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
-              style={{ padding:'6px 10px', borderRadius:8, border:`0.5px solid ${T.brd}`, background:T.inp, color:T.pri, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
+              style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
             >
-              {canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`} ▾
+              {canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`} <span style={{ fontSize:10 }}>▾</span>
             </button>
             {dropCanalOpen && (
-              <div style={{ position:'absolute', right:0, top:'110%', background:T.card, border:`0.5px solid ${T.brd}`, borderRadius:8, minWidth:170, zIndex:20, padding:'4px 0', boxShadow: isDark ? '0 6px 20px rgba(0,0,0,0.4)' : '0 6px 20px rgba(0,0,0,0.08)' }}>
+              <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>
                 {CANALES.map(c => (
-                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px', cursor:'pointer', fontSize:13, color:T.pri, fontFamily:'Lexend,sans-serif' }}>
+                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', fontSize:13, color: canalesFiltro.includes(c.id) ? '#FF4757' : '#7a8090', fontFamily:'Lexend,sans-serif', background: canalesFiltro.includes(c.id) ? '#FF475715' : 'transparent', fontWeight: canalesFiltro.includes(c.id) ? 500 : 400 }}>
                     <input type="checkbox" checked={canalesFiltro.includes(c.id)}
                       onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
                       style={{ width:13, height:13 }} />
@@ -591,13 +575,47 @@ export default function Dashboard() {
         </div>
 
         {/* ═══════════════════════════════════════════════
-            TABS (T-M5-03)
+            TABS (T-M5-03) — light theme literal per spec
             ═══════════════════════════════════════════════ */}
-        <TabConciliacion
-          tabs={MAIN_TABS as unknown as Array<{id:string; label:string}>}
-          activeId={mainTab}
-          onChange={(id) => setMainTab(id as MainTab)}
-        />
+        <div style={{
+          background: '#fff',
+          border: '0.5px solid #d0c8bc',
+          borderRadius: 14,
+          padding: '14px 18px',
+          marginBottom: 18,
+          display: 'inline-flex',
+          gap: 8,
+        }}>
+          {MAIN_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setMainTab(tab.id as MainTab)}
+              style={mainTab === tab.id ? {
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: 'none',
+                background: '#FF4757',
+                color: '#fff',
+                fontFamily: 'Lexend, sans-serif',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+              } : {
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: '0.5px solid #d0c8bc',
+                background: 'transparent',
+                color: '#3a4050',
+                fontFamily: 'Lexend, sans-serif',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         {/* ═══════════════════════════════════════════════
             TAB: RESUMEN v2 (spec-panel-resumen-v2.md)

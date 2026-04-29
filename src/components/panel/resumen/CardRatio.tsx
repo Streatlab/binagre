@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, card, lblSm, barTrack, editable,
-  fmtEur0,
+  fmtEur0, fmtDec,
 } from './tokens'
 
 interface Props {
@@ -21,7 +21,10 @@ export default function CardRatio({
   const [editing, setEditing] = useState(false)
   const [editVal, setEditVal] = useState<string>('')
 
-  const ratio = gastosReales > 0 ? netosReales / gastosReales : 0
+  const ratioRaw = gastosReales > 0 ? netosReales / gastosReales : 0
+  // Validar ratio sano: si gastos < 100 o netos > 100x gastos → datos insuficientes
+  const ratioInsuficiente = gastosReales < 100 || (gastosReales > 0 && netosReales > gastosReales * 100)
+  const ratio = ratioInsuficiente ? 0 : ratioRaw
   const pctDist = objetivo > 0 ? Math.round((ratio / objetivo) * 100) : 0
   const ratioPctObj = objetivo > 0 ? (ratio / objetivo) * 100 : 0
 
@@ -80,17 +83,18 @@ export default function CardRatio({
             />
           ) : (
             <span style={editable as CSSProperties} onClick={startEdit} title="Click para editar objetivo">
-              {objetivo.toFixed(1)}
+              {fmtDec(objetivo, 1)}
             </span>
           )}
         </div>
       </div>
 
-      <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: semColor, marginTop: 6 }}>
-        {ratio.toFixed(2)}
+      <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: semColor, marginTop: 6 }}
+           title={ratioInsuficiente ? 'Datos insuficientes para calcular ratio' : undefined}>
+        {ratioInsuficiente ? '—' : fmtDec(ratio, 2)}
       </div>
       <div style={{ fontSize: 12, color: semColor, marginBottom: 10, fontFamily: LEXEND }}>
-        {flecha} {pctDist}% del objetivo
+        {ratioInsuficiente ? 'Datos insuficientes' : `${flecha} ${pctDist}% del objetivo`}
       </div>
 
       <Linea label="Netos estimados"        valor={fmtEur0(netosEstimados)} top />
@@ -107,7 +111,7 @@ export default function CardRatio({
           <div style={{ height: '100%', width: `${remaining}%`, background: COLOR.rojo }} />
         </div>
         <div style={{ fontSize: 11, color: COLOR.textMut, textAlign: 'right', marginTop: 4, fontFamily: LEXEND }}>
-          {pctDist}% del {objetivo.toFixed(1)} obj
+          {pctDist}% del {fmtDec(objetivo, 1)} obj
         </div>
       </div>
     </div>
