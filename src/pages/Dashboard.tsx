@@ -27,6 +27,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import BarraCumplimiento from '@/components/ui/BarraCumplimiento'
 import TabConciliacion from '@/components/ui/TabConciliacion'
 import { calcNetoPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import TabResumen from '@/components/panel/resumen/TabResumen'
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -62,7 +63,7 @@ interface Objetivos {
   anual: number
 }
 
-type MainTab = 'general' | 'operaciones' | 'finanzas' | 'cashflow' | 'marcas'
+type MainTab = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'marcas'
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
@@ -89,7 +90,7 @@ const TOP_MODIFICADORES_MOCK = [
 const NETO_GREEN = '#1D9E75'
 
 const MAIN_TABS = [
-  { id: 'general',     label: 'General' },
+  { id: 'resumen',     label: 'Resumen' },
   { id: 'operaciones', label: 'Operaciones' },
   { id: 'finanzas',    label: 'Finanzas' },
   { id: 'cashflow',    label: 'Cashflow' },
@@ -177,7 +178,8 @@ export default function Dashboard() {
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
   const [topTab, setTopTab] = useState<'prod'|'mod'>('prod')
-  const [mainTab, setMainTab] = useState<MainTab>('general')
+  const [mainTab, setMainTab] = useState<MainTab>('resumen')
+  const [diaSemanaFiltro, setDiaSemanaFiltro] = useState<number | null>(null)
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
   const [objetivos, setObjetivos] = useState<Objetivos>({ diario:700, semanal:5000, mensual:20000, anual:240000 })
@@ -527,7 +529,7 @@ export default function Dashboard() {
               PANEL GLOBAL
             </span>
             <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, lineHeight:1.3 }}>
-              {fechaLabel}
+              {fechaLabel} · {toLocalDateStr(fechaDesde)} — {toLocalDateStr(fechaHasta)}
             </span>
           </div>
 
@@ -537,6 +539,7 @@ export default function Dashboard() {
           <div style={{ flexShrink:0 }}>
             <SelectorFechaUniversal
               nombreModulo="panel-global"
+              defaultOpcion="mes_en_curso"
               onChange={handleFechaChange}
             />
           </div>
@@ -597,277 +600,21 @@ export default function Dashboard() {
         />
 
         {/* ═══════════════════════════════════════════════
-            TAB: GENERAL (T-M5-04)
+            TAB: RESUMEN v2 (spec-panel-resumen-v2.md)
             ═══════════════════════════════════════════════ */}
-        {mainTab === 'general' && (<>
+        {mainTab === 'resumen' && (
+          <TabResumen
+            rowsPeriodo={diaSemanaFiltro != null
+              ? rowsPeriodo.filter(r => ((parseLocalDate(r.fecha).getDay() + 6) % 7) === diaSemanaFiltro)
+              : rowsPeriodo}
+            rowsAll={data}
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
+            canalesFiltro={canalesFiltro}
+            onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
+          />
+        )}
 
-          {/* Cards 1-3: VENTAS · PEDIDOS · TM */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom:22, marginTop:20 }}>
-
-            {/* Card 1: VENTAS */}
-            <div style={cardStyle(T)}>
-              <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>Ventas</div>
-              <div style={{ ...kpiValueStyle(T), marginBottom:4 }}>
-                {fmtEur(ventasPeriodo)}
-              </div>
-              {variacionPct !== null && (
-                <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color: variacionPct >= 0 ? NETO_GREEN : '#E24B4A', marginBottom:10 }}>
-                  {variacionPct >= 0 ? '▲' : '▼'} {Math.abs(variacionPct).toFixed(1)}% vs anterior
-                </div>
-              )}
-              <div style={dividerStyle(T)} />
-              {(['semanal','mensual','anual'] as const).map(tipo => {
-                const valor = tipo === 'semanal' ? ventasSemana : tipo === 'mensual' ? ventasMes : ventasAno
-                const meta  = objetivos[tipo]
-                const pct   = meta > 0 ? Math.min(100, Math.round((valor / meta) * 100)) : 0
-                const col   = semaforoColor(pct)
-                const falta = Math.max(0, meta - valor)
-                const label = tipo === 'semanal' ? 'Semanal' : tipo === 'mensual' ? 'Mensual' : 'Anual'
-                const sub   = tipo === 'semanal' ? `S${nSemana}` : tipo === 'mensual' ? new Date().toLocaleDateString('es-ES',{month:'long'}) : currentYear
-                const isEditing = editandoObjetivo === tipo
-                return (
-                  <div key={tipo} style={{ marginBottom:10 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:13, letterSpacing:'1px', textTransform:'uppercase', color:T.pri }}>{label}</span>
-                        <span style={{ fontSize:12, color:T.mut }}>— {sub}</span>
-                      </div>
-                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:14, fontWeight:600, color:col }}>{pct}%</span>
-                    </div>
-                    <div style={{ fontSize:13, color:T.sec, marginBottom:5, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                      Faltan <span style={{ color:col, fontWeight:500 }}>{fmtEur(falta)}</span>
-                      {tipo === 'mensual' && diasRestantesMesOp > 0 && (
-                        <span style={{ fontSize:11, color:T.mut }}>({diasRestantesMesOp} días op.)</span>
-                      )}
-                      {' '}de{' '}
-                      {isEditing ? (
-                        <input
-                          autoFocus
-                          type="number"
-                          value={valorEditObjetivo}
-                          onChange={e => setValorEditObjetivo(e.target.value)}
-                          onBlur={() => guardarObjetivo(tipo, valorEditObjetivo)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') guardarObjetivo(tipo, valorEditObjetivo)
-                            if (e.key === 'Escape') setEditandoObjetivo(null)
-                          }}
-                          style={{ width:90, padding:'2px 6px', borderRadius:4, border:`1px solid #e8f442`, background:T.inp, color:T.pri, fontFamily:'Oswald,sans-serif', fontSize:13, outline:'none' }}
-                        />
-                      ) : (
-                        <span
-                          title="Click para editar objetivo"
-                          onMouseEnter={e => { (e.currentTarget as HTMLSpanElement).style.color = '#FF4757' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLSpanElement).style.color = T.pri }}
-                          onClick={() => { setEditandoObjetivo(tipo); setValorEditObjetivo(String(meta)) }}
-                          style={{ color:T.pri, fontWeight:500, cursor:'pointer', textDecoration:'underline dotted', textUnderlineOffset:2 }}
-                        >
-                          {fmtEur(meta)}
-                        </span>
-                      )}
-                    </div>
-                    <BarraCumplimiento porcentaje={pct} altura={4} />
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Card 2: PEDIDOS */}
-            <div style={cardStyle(T)}>
-              <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>Pedidos</div>
-              <div style={{ ...kpiValueStyle(T), marginBottom:10 }}>
-                {Math.round(pedidosPeriodo).toLocaleString('es-ES')}
-              </div>
-              {(() => {
-                const { desde: pDesde, hasta: pHasta } = rangoPrevio(desde, hasta)
-                const prevPed = data.filter(r => r.fecha >= pDesde && r.fecha <= pHasta).reduce((a,r) => a + (r.total_pedidos || 0), 0)
-                const delta = prevPed > 0 ? ((pedidosPeriodo - prevPed) / prevPed) * 100 : null
-                return delta !== null ? (
-                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color: delta >= 0 ? NETO_GREEN : '#E24B4A', marginBottom:10 }}>
-                    {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}% vs anterior
-                  </div>
-                ) : null
-              })()}
-              <div style={dividerStyle(T)} />
-              {canalStats.map(c => {
-                const pedPct = pedidosPeriodo > 0 ? (c.pedidos / pedidosPeriodo) * 100 : 0
-                return (
-                  <div key={c.id} style={{ marginBottom:8 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={dotStyle(c.id, c.color)} />
-                        <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec }}>{c.label}</span>
-                      </div>
-                      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:13, fontWeight:600, color:T.pri }}>{Math.round(c.pedidos).toLocaleString('es-ES')}</span>
-                        <span style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut, minWidth:32, textAlign:'right' }}>{pedPct.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                    <div style={{ height:3, background:T.brd, borderRadius:2 }}>
-                      <div style={{ height:3, width:`${Math.min(pedPct,100)}%`, background:c.color, borderRadius:2 }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Card 3: TM BRUTO · NETO */}
-            <div style={cardStyle(T)}>
-              <div style={{ ...kpiLabelStyle(T), marginBottom:8 }}>TM Bruto · Neto</div>
-              <div style={{
-                display:'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                alignItems: isMobile ? 'flex-start' : 'baseline',
-                gap:16, marginBottom:10,
-              }}>
-                <div>
-                  <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'2.4rem', fontWeight:600, color:T.pri, lineHeight:1 }}>
-                    {fmtEur(ticketMedioBruto)}
-                  </div>
-                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut, marginTop:3 }}>bruto</div>
-                </div>
-                <div>
-                  <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'1.4rem', fontWeight:600, color:NETO_GREEN, lineHeight:1 }}>
-                    {fmtEur(ticketMedioNeto)}
-                  </div>
-                  <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut, marginTop:3 }}>neto</div>
-                </div>
-              </div>
-              <div style={dividerStyle(T)} />
-              {canalStats.map((c, idx) => (
-                <div key={c.id} style={{
-                  display:'grid', gridTemplateColumns:'16px 1fr auto', alignItems:'center',
-                  gap:'0 8px', padding:'7px 0',
-                  borderBottom: idx < canalStats.length - 1 ? `0.5px solid ${T.brd}` : 'none',
-                }}>
-                  <span style={dotStyle(c.id, c.color)} />
-                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:14, color:T.sec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.label}</span>
-                  <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, fontWeight:600, color:T.pri, textAlign:'right' }}>
-                    {c.ticket > 0 ? fmtEur(c.ticket) : '—'}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-          </div>
-
-          {/* Cards 4-8: Plataformas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5" style={{ marginBottom:22 }}>
-            {canalStats.map(c => {
-              const isGlovo = c.id === 'glovo'
-              const hasData = c.bruto > 0
-              const cardBg  = isGlovo ? glovoStyle.bg : (isDark ? `${c.color}18` : `${c.color}22`)
-              const cardBrd = isGlovo ? glovoStyle.brd : c.color
-              const tagCol  = isGlovo ? glovoStyle.tag : c.color
-              return (
-                <div key={c.id} style={{ background:cardBg, border:`1px solid ${cardBrd}`, borderRadius:10, padding:'12px 14px' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                    <div style={{ fontFamily:'Oswald,sans-serif', fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:tagCol }}>{c.label}</div>
-                    {/* ADS badge: placeholder hasta FASE 7 */}
-                  </div>
-
-                  <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:3 }}>
-                    {hasData ? (
-                      <>
-                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, fontWeight:600, color:T.pri, lineHeight:1 }}>{fmtEur(c.bruto)}</span>
-                        <span style={{ fontSize:11, color:T.mut }}>bruto</span>
-                      </>
-                    ) : (
-                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, color:T.mut, lineHeight:1 }}>—</span>
-                    )}
-                  </div>
-
-                  <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:10 }}>
-                    {hasData ? (
-                      <>
-                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, fontWeight:500, color:NETO_GREEN, lineHeight:1 }}>{fmtEur(c.neto)}</span>
-                        <span style={{ fontSize:11, color:T.mut }}>neto</span>
-                      </>
-                    ) : (
-                      <span style={{ fontFamily:'Oswald,sans-serif', fontSize:18, color:T.mut, lineHeight:1 }}>—</span>
-                    )}
-                  </div>
-
-                  <div style={{ height:3, background:T.brd, borderRadius:2, marginBottom:8 }}>
-                    <div style={{ height:3, width:`${hasData ? Math.min(c.pct,100) : 0}%`, background:c.color, borderRadius:2 }} />
-                  </div>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12 }}>
-                    {hasData ? (
-                      <>
-                        <span style={{ color:T.sec }}>Margen</span>
-                        <span style={{ fontFamily:'Oswald,sans-serif', fontWeight:600, color: semaforoColor(c.margen) }}>{c.margen.toFixed(0)}%</span>
-                      </>
-                    ) : (
-                      <span style={{ color:T.mut }}>Sin datos</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Cards 9 + 10 full-width */}
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap:14 }}>
-
-            {/* Card 9: DÍAS PICO */}
-            <div style={cardStyle(T)}>
-              <div style={{ ...sectionLabelStyle(T), marginBottom:14 }}>Días pico — {fechaLabel}</div>
-              {(() => {
-                const ALTURA_MAX = 100
-                const maxVal = Math.max(...diasPico.map(d => d.valor), 1)
-                const topVal = Math.max(...diasPico.map(d => d.valor))
-                return (
-                  <div style={{ position:'relative', paddingBottom:8 }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6, alignItems:'flex-end' }}>
-                      {diasPico.map(({ nombre, valor, color }) => {
-                        const hasData = valor > 0
-                        const h = hasData ? Math.max(Math.round((valor / maxVal) * ALTURA_MAX), 10) : Math.round(ALTURA_MAX * 0.15)
-                        const isTop = hasData && valor === topVal
-                        const barColor = isTop ? T.emphasis : hasData ? color : T.brd
-                        return (
-                          <div key={nombre} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:11, color: isTop ? T.emphasis : T.sec, fontWeight: isTop ? 600 : 400, minHeight:15, textAlign:'center' }}>
-                              {hasData ? fmtEur(valor).replace(' €','') : ''}
-                            </div>
-                            <div style={{ height:ALTURA_MAX, display:'flex', alignItems:'flex-end', justifyContent:'center', width:'100%' }}>
-                              <div style={{ width:'70%', height:h, background:barColor, borderRadius:'3px 3px 0 0', opacity: hasData ? 1 : 0.3, border: hasData ? 'none' : `1px dashed ${T.brd}` }} />
-                            </div>
-                            <div style={{ fontFamily:'Lexend,sans-serif', fontSize:12, color:T.mut, textAlign:'center', marginTop:2 }}>{nombre}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div style={{ height:1, background:T.brd, marginTop:-18, pointerEvents:'none' }} />
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* Card 10: TOP VENTAS */}
-            <div style={cardStyle(T)}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
-                <span style={sectionLabelStyle(T)}>Top ventas</span>
-                <div style={{ display:'flex', gap:4 }}>
-                  <button onClick={() => setTopTab('prod')} style={tabBtnStyle(topTab === 'prod')}>Productos</button>
-                  <button onClick={() => setTopTab('mod')}  style={tabBtnStyle(topTab === 'mod')}>Modif.</button>
-                </div>
-              </div>
-              <div style={{ display:'flex', flexDirection:'column' }}>
-                {topItems.map((p, idx) => (
-                  <div key={`${topTab}-${idx}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 0', borderBottom: idx < topItems.length-1 ? `0.5px solid ${T.brd}` : 'none' }}>
-                    <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, width:18, textAlign:'right' }}>{idx+1}</span>
-                    <span style={{ fontFamily:'Lexend,sans-serif', fontSize:15, color:T.pri, flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.n}</span>
-                    <span style={badgeStyle(p.canal, isDark)}>{p.canal}</span>
-                    <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.sec, width:36, textAlign:'right' }}>{p.uds}</span>
-                    <span style={{ fontFamily:'Oswald,sans-serif', fontSize:15, fontWeight:600, color:T.pri, width:64, textAlign:'right' }}>{fmtEur(p.total)}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize:11, color:T.mut, marginTop:12 }}>* Datos reales disponibles al integrar POS</div>
-            </div>
-
-          </div>
-
-        </>)}
 
         {/* ═══════════════════════════════════════════════
             TAB: OPERACIONES (T-M5-07)

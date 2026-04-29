@@ -4,6 +4,7 @@ import { fmtFechaCorta } from '@/styles/tokens'
 interface SelectorFechaUniversalProps {
   nombreModulo: string
   onChange: (desde: Date, hasta: Date, label: string) => void
+  defaultOpcion?: Opcion
 }
 
 type Opcion =
@@ -200,15 +201,17 @@ const itemStyle: React.CSSProperties = {
 export default function SelectorFechaUniversal({
   nombreModulo,
   onChange,
+  defaultOpcion = 'semana_actual',
 }: SelectorFechaUniversalProps) {
   const storageKey = `selector_fecha_${nombreModulo}`
+  const defaultLabel = OPCIONES.find(o => o.id === defaultOpcion)?.label ?? 'Semana actual'
 
-  const [opcion, setOpcion] = useState<Opcion>('semana_actual')
+  const [opcion, setOpcion] = useState<Opcion>(defaultOpcion)
   const [open, setOpen] = useState(false)
   const [semanaOpen, setSemanaOpen] = useState(false)
   const [desdeStr, setDesdeStr] = useState('')
   const [hastaStr, setHastaStr] = useState('')
-  const [selectedLabel, setSelectedLabel] = useState('Semana actual')
+  const [selectedLabel, setSelectedLabel] = useState(defaultLabel)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const semanas = buildSemanasList()
@@ -258,8 +261,13 @@ export default function SelectorFechaUniversal({
     }
 
     // Default
-    const rango = calcRango('semana_actual')
-    onChange(rango.desde, rango.hasta, 'Semana actual')
+    if (defaultOpcion === 'semanas_x' || defaultOpcion === 'personalizado') {
+      const rango = calcRango('semana_actual')
+      onChange(rango.desde, rango.hasta, 'Semana actual')
+    } else {
+      const rango = calcRango(defaultOpcion)
+      onChange(rango.desde, rango.hasta, defaultLabel)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close on outside click
