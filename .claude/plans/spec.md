@@ -1,78 +1,77 @@
-# SPEC — Bloque B Conciliación: Reglas extendidas + Ordenante/Beneficiario
+# SPEC — Binagre Google Auth + Whitelist (en paralelo a PIN)
 
 ## Contexto
-Tabla `reglas_conciliacion` ya existe con 70 patrones simples (concepto → categoría). Necesitamos extenderla para soportar matching por **ordenante**, **beneficiario**, **titular**, **rango de importe**, y acción **borrar**. Las columnas extra ya están añadidas en BD. Faltan 4 cosas en código:
+- Repo: Streatlab/binagre
+- Path local: C:\streatlab-erp
+- Supabase project: eryauogxcpbgdryeimdq
+- URL: binagre.vercel.app
+- Login actual: PIN propio contra tabla `usuarios`. Mantener funcionando 100%.
+- Aislamiento absoluto vs erp-david. Skills aplicables: binagre-erp, binagre-kit-visual.
 
-1. Parser BBVA debe capturar ordenante/beneficiario del Excel y guardarlos en BD (campos invisibles para el usuario, sólo para el motor de reglas).
-2. Motor de reglas en `insertMovimientos` debe evaluar TODAS las dimensiones (no sólo concepto): ordenante, beneficiario, titular, importe.
-3. Deduplicador robusto: re-importar = 0 nuevos.
-4. Hook Running para sumar sueldos calculados desde Conciliación + complemento SL.
+## Objetivo
+Añadir login Google Auth como segunda opción en pantalla de login, con whitelist de 3 emails, sin tocar el flujo PIN actual.
 
-## Criterios DADO/CUANDO/ENTONCES
+## Whitelist (idéntica en ambos ERPs)
+- rubenrodriguezvinagre@gmail.com
+- emiliodorcamartinez@gmail.com
+- davidsanzn@gmail.com
 
-### CA-1 · Parser captura ordenante/beneficiario
-- DADO un Excel BBVA con columnas Ordenante y Beneficiario
-- CUANDO el parser lo procesa
-- ENTONCES guarda esos campos en `conciliacion.ordenante` y `conciliacion.beneficiario`. Si el Excel no los trae, NULL.
+## Criterios DADO / CUANDO / ENTONCES
 
-### CA-2 · Motor reglas multi-dimensión
-- DADO un movimiento con beneficiario "Timoteo Hernandez"
-- CUANDO el motor evalúa reglas activas ordenadas por prioridad ASC
-- ENTONCES aplica la regla con `match_beneficiario = 'timoteo'` (LIKE %timoteo%) → categoria = ALQ-LOC, proveedor = Timoteo.
+**DADO** un usuario abre binagre.vercel.app sin sesión activa
+**CUANDO** llega a la pantalla de login
+**ENTONCES** ve el formulario PIN actual intacto, y debajo, separados por un "ó", un botón "Entrar con Google" en estilo binagre-kit-visual.
 
-### CA-3 · Acción borrar
-- DADO un movimiento titular Emilio + concepto "Traspaso a cuenta"
-- CUANDO matchea regla con `borrar = TRUE`
-- ENTONCES se descarta antes del INSERT. NO entra a BD. Log: "X movs omitidos por reglas".
+**DADO** un usuario pulsa "Entrar con Google" con uno de los 3 emails de la whitelist
+**CUANDO** completa el flujo Google OAuth
+**ENTONCES** entra al dashboard con sesión válida y rol cargado.
 
-### CA-4 · Deduplicación robusta
-- DADO un extracto re-importado idéntico
-- CUANDO `insertMovimientos` procesa
-- ENTONCES retorna `{ insertados: 0, duplicados: N, omitidos: 0 }`. BD inalterada.
+**DADO** un usuario pulsa "Entrar con Google" con un email NO en whitelist
+**CUANDO** completa el flujo Google OAuth
+**ENTONCES** se ejecuta `supabase.auth.signOut()`, redirect `/login?error=no_autorizado`, toast "Acceso no autorizado".
 
-### CA-5 · Sueldo Emilio en Running
-- DADO un mes (ej. abr 2026)
-- CUANDO Running consulta sueldo total Emilio
-- ENTONCES = SUM ingresos plataforma Emilio del mes (titular_id Emilio, importe > 0) + SUM transferencias categoría 'RRH-NOM-EMI' del mes (todas tituladas Rubén).
+**DADO** el login PIN funcionaba antes
+**CUANDO** se despliega esta feature
+**ENTONCES** sigue funcionando exactamente igual con los mismos PINs.
 
-## Diseño técnico
+**DADO** un usuario tiene sesión Supabase Auth Y sesión PIN
+**CUANDO** la app verifica autenticación
+**ENTONCES** prioriza la sesión Supabase Auth.
 
-### BD (ya hecho)
-- ✅ Columnas añadidas a `conciliacion`: ordenante, beneficiario.
-- ✅ Columnas añadidas a `reglas_conciliacion`: match_ordenante, match_beneficiario, match_titular_id, match_importe_min, match_importe_max, set_proveedor, borrar, notas_regla.
-- ✅ 3 reglas seed creadas: emilio_traspaso_interno, beneficiario_emilio_sueldo, beneficiario_timoteo_alquiler.
+**DADO** un usuario pulsa logout
+**CUANDO** se ejecuta el handler
+**ENTONCES** cierra ambas sesiones (Supabase Auth + PIN).
 
-### Parser ImportDropzone
-1. Detectar columnas BBVA: "Ordenante", "Beneficiario", "Concepto", "Detalle". Case-insensitive, fuzzy match.
-2. Pasar al hook como `ordenante` y `beneficiario` en cada row.
+## Tareas técnicas
 
-### Motor reglas en useConciliacion.insertMovimientos
-1. Cargar reglas activas ORDER BY prioridad ASC.
-2. Para cada row: aplicar la PRIMERA regla que matchee TODAS sus condiciones no-NULL (concepto via patron, ordenante, beneficiario, titular_id, importe entre min/max).
-3. Si `borrar = TRUE` → marcar row para descartar.
-4. Si no → aplicar `set_proveedor`, `categoria_codigo`, etc.
+1. **Google Provider en Supabase.** Habilitar Google OAuth en proyecto `eryauogxcpbgdryeimdq`. Si faltan credenciales, generar `SETUP_GOOGLE_OAUTH.md` en raíz del repo con pasos para Google Cloud Console y URL de redirect específica de este proyecto Supabase.
 
-### Deduplicador
-1. `dedup_key` = SHA-256 de (titular_id || fecha || importe_centimos || concepto_normalizado).
-2. UNIQUE INDEX (titular_id, dedup_key) → ya existe o se crea.
-3. INSERT con `.upsert({ ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })`.
+2. **Migration whitelist.** Nueva migration en `supabase/migrations/` que cree `public.usuarios_autorizados` con columnas: `id` (uuid PK), `email` (text unique), `nombre`, `rol` (default 'admin'), `activo` (default true), `created_at`. RLS activada. Política `service_role_only` (FOR ALL TO service_role). Política `auth_read_self` (FOR SELECT TO authenticated USING auth.email() = email). Insertar los 3 emails con rol admin.
 
-### Hook Running
-- `useRunningSueldos(mes)` retorna `{ ruben, emilio, desgloseEmilio: { plataformas, complementoSL } }`.
-- Datos vienen de `conciliacion`. Sin tabla nueva.
+3. **UI login.** Añadir botón "Entrar con Google" debajo del PIN, separador "ó". Estilo binagre-kit-visual (sidebar #1e2233, accent #B01D23, base #0a0a0a). NO tocar el formulario PIN.
 
-## No-objetivos
-- No tocar el sistema de reglas legacy basado en `patron` simple — coexiste con el extendido.
-- No exponer ordenante/beneficiario en UI Conciliación. Sólo internos.
-- No backfill retroactivo de ordenante/beneficiario (los movs viejos quedan sin ese dato; se etiquetan a mano si hace falta).
+4. **Ruta /auth/callback.** Recibir sesión Supabase Auth, leer `auth.email()`, consultar `usuarios_autorizados`. Si NO existe o `activo=false` → signOut + redirect `/login?error=no_autorizado` + toast. Si existe → guardar sesión en mismo store/context que PIN, redirect dashboard.
 
-## Validaciones
-1. `npm run build` 0 errores.
-2. Re-importar Excel Emilio: "0 nuevos, 61 duplicados, 0 omitidos".
-3. Excel sintético con 1 traspaso Emilio: "0 nuevos, 0 duplicados, 1 omitido (regla emilio_traspaso_interno)".
-4. Excel con 1 transferencia Rubén beneficiario "Timoteo Hnz" 867€: aparece en BD con categoria ALQ-LOC, proveedor Timoteo.
-5. Excel con 1 transferencia Rubén beneficiario "Emilio Dorca" 500€: aparece con categoría RRH-NOM-EMI, proveedor Emilio Sueldo.
-6. Running > Emilio abr 2026: muestra plataformas (1.710€ aprox) + complemento SL (500€ del 14 abr) = 2.210€.
+5. **Coexistencia.** Estado de "usuario logueado" puede venir de PIN o Google. Priorizar Google si ambos. Logout cierra ambos.
 
-## Cierre
-git+pull. NO Vercel (regla 3 modo localhost).
+## Restricciones duras
+- NO tocar tablas existentes ni RLS existente (ya aplicada hoy 29/04: 38 tablas con política `allow_all_anon_auth`, `cuentas_bancarias` y `google_oauth_tokens` cerradas a service_role, vistas SECURITY DEFINER pasadas a INVOKER, funciones con search_path fijo).
+- NO tocar lógica de negocio.
+- NO mezclar tokens visuales con david-kit-visual.
+- NO tocar Supabase de David.
+
+## Pipeline obligatorio
+1. Plan Mode (Shift+Tab hasta plan mode on) antes de tocar código.
+2. Worktree: `claude -w binagre-google-auth`.
+3. Subagentes: pm-spec → architect-review → implementer (worktree) → qa-reviewer.
+4. Cada etapa produce su archivo en `.claude/plans/`.
+5. QA: PIN sigue funcionando, Google rechaza emails fuera de whitelist.
+
+## Cierre obligatorio
+```
+git add . && git commit -m "feat: Google Auth + whitelist 3 usuarios en paralelo a PIN" && git push origin master && npx vercel --prod && git pull origin master
+```
+
+## Notas
+- Tras validar que Google funciona sin sorpresas con los 3 usuarios, eliminaremos el login PIN en una segunda spec.
+- RLS y vistas/funciones de seguridad ya aplicadas hoy directamente en Supabase. Esta spec NO toca eso.
