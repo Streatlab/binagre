@@ -19,7 +19,7 @@ import { useEffect, useCallback } from 'react'
 import {
   COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm,
 } from './tokens'
-import { fmtEur, fmtSemana, fmtMes, colorSemaforo } from '@/lib/format'
+import { fmtEur, fmtNum, fmtSemana, fmtMes, colorSemaforo } from '@/lib/format'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
 import type { ObjetivosVentas, ToastFn } from './types'
@@ -146,7 +146,7 @@ export default function CardVentas({
 
       {variacionPct !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {flecha} {Math.abs(variacionPct).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% vs anterior
+          {flecha} {fmtNum(Math.abs(variacionPct), 1)}% vs anterior
         </div>
       )}
 

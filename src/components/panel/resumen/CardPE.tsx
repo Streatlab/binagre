@@ -8,7 +8,7 @@
  * FIX 94: "Realidad hoy" con tooltip
  */
 import type React from 'react'
-import { fmtEur, fmtPct } from '@/lib/format'
+import { fmtEur, fmtNum, fmtPct } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, card, lblSm, kpiSm, barTrack } from './tokens'
 
 interface Props {
@@ -140,7 +140,7 @@ export default function CardPE({
             <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: LEXEND }}>
               <span style={{ color: COLOR.textMut }}>Pedidos día / TM</span>
               <span>
-                <span style={{ color: '#1E5BCC', fontWeight: 500 }}>{pedidosDia}</span>
+                <span style={{ color: '#1E5BCC', fontWeight: 500 }}>{fmtNum(pedidosDia, 0)}</span>
                 <span style={{ color: COLOR.textMut }}>{' / '}</span>
                 <span style={{ color: '#F26B1F', fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 2 })}</span>
               </span>

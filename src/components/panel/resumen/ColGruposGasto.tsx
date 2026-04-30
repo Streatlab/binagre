@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtPct, colorSemaforo } from '@/lib/format'
+import { fmtEur, fmtNum, fmtPct, colorSemaforo } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, card, lbl, lblSm } from './tokens'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
@@ -174,7 +174,7 @@ export default function ColGruposGasto({ data, año, mes, onSavePresupuesto: _on
                 </div>
                 {/* FIX 61: % con colorSemaforo */}
                 <div style={{ fontSize: 12, color: colorCumpl, fontWeight: 500, fontFamily: LEXEND }}>
-                  {Math.round(pctCumpl)}%
+                  {fmtNum(pctCumpl, 0)}%
                 </div>
               </div>
 

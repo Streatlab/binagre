@@ -16,16 +16,10 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, colorSemaforo } from '@/lib/format'
+import { fmtEur, fmtNum, colorSemaforo } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack } from './tokens'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
-
-// Re-export fmtDec from lib/format doesn't exist — use inline
-function fmtDecLocal(v: number, decimals = 1): string {
-  if (!isFinite(v)) return '—'
-  return v.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
 
 interface RunningRow {
   ingresos_brutos: number | null
@@ -129,7 +123,7 @@ export default function CardResultadoPeriodo({
         <div>
           {/* FIX 32: % sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorEbitda }}>
-            {ebitdaPct.toFixed(0)}%
+            {fmtNum(ebitdaPct, 0)}%
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorEbitda, textTransform: 'uppercase', fontWeight: 500 }}>
             % S/NETOS
@@ -140,7 +134,7 @@ export default function CardResultadoPeriodo({
       {deltaPp !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
           {/* FIX 33: "puntos porcentuales" con coma decimal */}
-          {flecha} {fmtDecLocal(Math.abs(deltaPp), 1).replace('.', ',')} puntos porcentuales vs anterior
+          {flecha} {fmtNum(Math.abs(deltaPp), 1)} puntos porcentuales vs anterior
         </div>
       )}
 
@@ -202,7 +196,7 @@ export default function CardResultadoPeriodo({
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería.">PRIME COST</span>
           {/* FIX 41: color semáforo */}
-          <span style={{ ...lblSm, color: primeCostColor }}>{primeCostPct.toFixed(0)}%</span>
+          <span style={{ ...lblSm, color: primeCostColor }}>{fmtNum(primeCostPct, 0)}%</span>
         </div>
         {/* FIX 42: BarraCumplimiento */}
         <div style={{ marginBottom: 4 }}>
