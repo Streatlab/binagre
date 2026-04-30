@@ -86,7 +86,7 @@ export default function CardVentas({
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={lblSm}>{label}</span>
           {/* FIX 17: % coloreado con semáforo */}
-          <span style={{ ...lblSm, color: sem }}>{Math.round(pct)}%</span>
+          <span style={{ ...lblSm, color: sem }}>{fmtNum(pct, 0)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
@@ -139,7 +139,7 @@ export default function CardVentas({
             {fmtEur(netoEstimado, { showEuro: false })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
-            NETO ESTIMADO · {pctNeto}%
+            NETO ESTIMADO · {fmtNum(pctNeto, 1)}%
           </div>
         </div>
       </div>
