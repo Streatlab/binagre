@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import type { Movimiento } from '@/types/conciliacion'
-import { getNewId } from '@/lib/categoryMapping'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
 interface TabMovimientosProps {
@@ -27,14 +26,11 @@ function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
   return tieneCategoria && tieneDoc ? 'conciliado' : 'pendiente'
 }
 
+// FIX CRÍTICO: busca por id directo (ej "2.11.1") sin pasar por mapeo legacy
 function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
-  const newId = getNewId(m.categoria_id)
-  const catById = newId
-    ? categoriasPyg.find(c => c.id === newId)
-    : m.categoria_id
-    ? categoriasPyg.find(c => c.id === m.categoria_id)
-    : null
-  if (catById) return { id: catById.id, nombre: catById.nombre }
+  if (!m.categoria_id) return null
+  const cat = categoriasPyg.find(c => c.id === m.categoria_id)
+  if (cat) return { id: cat.id, nombre: cat.nombre }
   return null
 }
 
@@ -64,8 +60,7 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
   function handleSort(col: SortColumn) {
     if (sortColumn === col) {
       if (sortDir === 'asc') setSortDir('desc')
-      else if (sortDir === 'desc') { setSortColumn(null); setSortDir('asc') }
-      else setSortDir('asc')
+      else { setSortColumn(null); setSortDir('asc') }
     } else {
       setSortColumn(col)
       setSortDir('asc')
@@ -118,20 +113,12 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
         if (sortColumn === 'concepto') return a.concepto.localeCompare(b.concepto) * dir
         if (sortColumn === 'contraparte') return (a.contraparte || '').localeCompare(b.contraparte || '') * dir
         if (sortColumn === 'importe') return (a.importe - b.importe) * dir
-        if (sortColumn === 'categoria') {
-          const aCat = a.categoria_id || 'zzz'
-          const bCat = b.categoria_id || 'zzz'
-          return aCat.localeCompare(bCat) * dir
-        }
+        if (sortColumn === 'categoria') return (a.categoria_id || 'zzz').localeCompare(b.categoria_id || 'zzz') * dir
         if (sortColumn === 'doc') {
-          const order: Record<string, number> = { 'tiene': 0, 'no_requiere': 1, 'falta': 2 }
+          const order: Record<string, number> = { tiene: 0, no_requiere: 1, falta: 2 }
           return ((order[a.doc_estado as string] ?? 3) - (order[b.doc_estado as string] ?? 3)) * dir
         }
-        if (sortColumn === 'estado') {
-          const aEst = calcularEstado(a)
-          const bEst = calcularEstado(b)
-          return aEst.localeCompare(bEst) * dir
-        }
+        if (sortColumn === 'estado') return calcularEstado(a).localeCompare(calcularEstado(b)) * dir
         if (sortColumn === 'titular') {
           const aT = titulares.find(t => t.id === a.titular_id)?.nombre ?? ''
           const bT = titulares.find(t => t.id === b.titular_id)?.nombre ?? ''
@@ -187,7 +174,6 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
       {/* 4 CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
 
-        {/* Card INGRESOS — solo label + cifra */}
         <div onClick={() => { setFiltroCard(prev => prev === 'ingresos' ? null : 'ingresos'); setPage(1) }} style={cardStyle('ingresos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
@@ -197,7 +183,6 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           </div>
         </div>
 
-        {/* Card GASTOS — solo label + cifra */}
         <div onClick={() => { setFiltroCard(prev => prev === 'gastos' ? null : 'gastos'); setPage(1) }} style={cardStyle('gastos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
@@ -207,7 +192,6 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           </div>
         </div>
 
-        {/* Card PENDIENTES — label + badge + cifra */}
         <div onClick={() => { setFiltroCard(prev => prev === 'pendientes' ? null : 'pendientes'); setPage(1) }} style={cardStyle('pendientes')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
@@ -220,7 +204,6 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           </div>
         </div>
 
-        {/* Card TITULAR — label + nombre activo + toggle */}
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
@@ -235,11 +218,8 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
               const clr = isActive ? '#fff' : '#3a4050'
               const bd = isActive ? 'none' : '0.5px solid #d0c8bc'
               return (
-                <button
-                  key={t}
-                  onClick={() => { setFiltroTitular(t); setPage(1) }}
-                  style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}
-                >
+                <button key={t} onClick={() => { setFiltroTitular(t); setPage(1) }}
+                  style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
                 </button>
               )
@@ -250,49 +230,32 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
 
       {/* BARRA FILTROS */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          value={busqueda}
-          onChange={e => { setBusqueda(e.target.value); setPage(1) }}
+        <input type="text" value={busqueda} onChange={e => { setBusqueda(e.target.value); setPage(1) }}
           placeholder="Buscar proveedor / nº factura / importe / concepto"
-          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }}
-        />
-        <select
-          value={catFiltro}
-          onChange={e => { setCatFiltro(e.target.value); setPage(1) }}
-          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}
-        >
+          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }} />
+        <select value={catFiltro} onChange={e => { setCatFiltro(e.target.value); setPage(1) }}
+          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}>
           <option value="todas">Categoría · Todas las categorías</option>
           {categoriasPyg.filter(c => c.nivel === 3).map(c => (
             <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
           ))}
         </select>
-        <button
-          onClick={handleExportar}
-          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', fontWeight: 500 }}
-        >
+        <button onClick={handleExportar}
+          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', fontWeight: 500 }}>
           Exportar
         </button>
       </div>
 
-      {/* EMPTY STATE cuando BD vacía */}
       {movimientos.length === 0 ? (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>
-            No hay movimientos en este periodo
-          </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>
-            Importa un extracto bancario desde el Importador
-          </div>
-          <button
-            onClick={() => navigate('/importador')}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-          >
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos en este periodo</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Importa un extracto bancario desde el Importador</div>
+          <button onClick={() => navigate('/importador')}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
             Ir al Importador
           </button>
         </div>
       ) : (
-        /* TABLA 8 COLUMNAS — table-layout fixed */
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
@@ -312,25 +275,13 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
                     const isActive = sortColumn === h.col
                     const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
                     return (
-                      <th
-                        key={h.col}
-                        onClick={() => handleSort(h.col)}
+                      <th key={h.col} onClick={() => handleSort(h.col)}
                         style={{
-                          fontFamily: 'Oswald, sans-serif',
-                          fontSize: 10,
-                          fontWeight: 500,
-                          letterSpacing: '2px',
-                          color: isActive ? '#FF4757' : '#7a8090',
-                          textTransform: 'uppercase',
-                          textAlign: h.align,
-                          padding: '10px 16px',
-                          background: '#f5f3ef',
-                          borderBottom: '0.5px solid #d0c8bc',
-                          whiteSpace: 'nowrap',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
-                      >
+                          fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
+                          color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
+                          padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
+                          whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+                        }}>
                         {h.label}{arrow}
                       </th>
                     )
@@ -349,19 +300,14 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
                   const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
                   const catInfo = getBadgeCategoria(m, categoriasPyg)
                   const estado = calcularEstado(m)
-                  const titularInfo = titulares.find(t => t.id === m.titular_id)
-                  const titNombre = titularInfo?.nombre?.toLowerCase() ?? ''
+                  const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
                   const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                   const isEmilio = titNombre.includes('emilio')
 
                   return (
-                    <tr
-                      key={m.id}
-                      onClick={() => setModalMov(m)}
-                      style={{ cursor: 'pointer' }}
+                    <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
-                    >
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
                       <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {fmtDate(m.fecha)}
                       </td>
@@ -409,12 +355,12 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
                       <td style={tdBase}>
                         {isRuben ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }}></span>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
                             Rubén
                           </span>
                         ) : isEmilio ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }}></span>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
                             Emilio
                           </span>
                         ) : (
@@ -428,25 +374,25 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
             </table>
           </div>
 
-          {/* Footer paginación */}
           <div style={{ padding: '14px 16px', borderTop: '0.5px solid #d0c8bc', background: '#fafaf7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
               Mostrando {paginated.length} de {filtrados.length} movimientos
             </span>
             {totalPages > 1 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === 1 ? '#ccc' : '#111', cursor: currentPage === 1 ? 'default' : 'pointer' }}>‹</button>
+                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === 1 ? '#ccc' : '#111', cursor: currentPage === 1 ? 'default' : 'pointer' }}>‹</button>
                 <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', padding: '0 8px' }}>
                   Página {currentPage} de {totalPages}
                 </span>
-                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === totalPages ? '#ccc' : '#111', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>›</button>
+                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === totalPages ? '#ccc' : '#111', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>›</button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* MODAL */}
       {modalMov && (
         <ModalDetalleMovimiento
           movimiento={modalMov}
