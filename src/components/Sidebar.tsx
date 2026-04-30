@@ -40,12 +40,6 @@ interface SectionIconConfig {
 
 const SECTIONS: NavSection[] = [
   {
-    key: 'panel', emoji: '🗺️', label: 'Panel Global', perfiles: ['admin'],
-    items: [
-      { path: '/panel', label: 'Panel Global', emoji: '🗺️', perfiles: ['admin'] },
-    ],
-  },
-  {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
@@ -259,6 +253,52 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         )}
 
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
+
+          {/* PANEL GLOBAL — PRIMER ÍTEM (TOP) */}
+          {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
+            <NavLink
+              to="/"
+              end
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
+                  <span>Panel Global</span>
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
+            <NavLink
+              to="/"
+              end
+              onClick={onClose}
+              title="Panel Global"
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <LayoutDashboard size={20} strokeWidth={1.8} color="#B01D23" />
+            </NavLink>
+          )}
 
           {/* TAREAS — SEGUNDO ÍTEM */}
           {(!collapsed && perfil === 'admin') && (
