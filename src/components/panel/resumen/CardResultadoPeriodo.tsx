@@ -25,7 +25,7 @@ export default function CardResultadoPeriodo({
 
   return (
     <div style={cardBig}>
-      <div style={lbl}>RESULTADO PERIODO</div>
+      <div style={lbl}>RESULTADO</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
@@ -46,7 +46,7 @@ export default function CardResultadoPeriodo({
 
       {deltaPp !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {flecha} {fmtDec(Math.abs(deltaPp), 1)} pp vs anterior
+          {flecha} {fmtDec(Math.abs(deltaPp), 1)} puntos porcentuales vs anterior
         </div>
       )}
 

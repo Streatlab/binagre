@@ -3,6 +3,7 @@ import {
   COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, kpiBig,
   barTrack, editable, fmtEur0, semaforoBarra, fmtDec,
 } from './tokens'
+import { fmtSemana, fmtEur as fmtEurLib } from '@/lib/format'
 import type { ObjetivosVentas, ToastFn } from './types'
 
 interface Props {
@@ -53,7 +54,7 @@ export default function CardVentas({
     setEditing(null)
   }
 
-  function rowBarra(tipo: Tipo, valor: number, objetivo: number, label: string, sub: string, marginBottom: number) {
+  function rowBarra(tipo: Tipo, valor: number, objetivo: number, label: string, sub: string | null, marginBottom: number) {
     const pct = objetivo > 0 ? Math.min(100, Math.round((valor / objetivo) * 100)) : 0
     const sem = semaforoBarra(pct)
     const faltan = Math.max(0, objetivo - valor)
@@ -62,12 +63,12 @@ export default function CardVentas({
     return (
       <div style={{ marginBottom }}>
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={lblSm}>{label} — {sub}</span>
+          <span style={lblSm}>{sub ? `${label} — ${sub}` : label}</span>
           <span style={{ ...lblSm, color: sem }}>{pct}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
-          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur0(faltan)}</span>
+          <span style={{ color: sem, fontWeight: 500 }}>{fmtEurLib(faltan, { showEuro: false })}</span>
           <span>de</span>
           {isEditing ? (
             <input
@@ -92,7 +93,7 @@ export default function CardVentas({
               onClick={() => startEdit(tipo)}
               title="Click para editar objetivo"
             >
-              {fmtEur0(objetivo)}
+              {fmtEurLib(objetivo, { showEuro: false })}
             </span>
           )}
         </div>
@@ -109,16 +110,16 @@ export default function CardVentas({
 
   return (
     <div style={cardBig}>
-      <div style={lbl}>VENTAS</div>
+      <div style={lbl}>FACTURACIÓN</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={kpiBig}>{fmtEur0(bruto)}</div>
+          <div style={kpiBig}>{fmtEurLib(bruto, { showEuro: false })}</div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: COLOR.verde }}>
-            {fmtEur0(netoEstimado)}
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
+            {fmtEurLib(netoEstimado, { showEuro: false })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
             NETO ESTIMADO · {pctNeto}%
@@ -133,8 +134,8 @@ export default function CardVentas({
       )}
 
       {rowBarra('semanal', ventasSemana, objetivos.semanal, 'SEMANAL', `S${nSemana}`, 14)}
-      {rowBarra('mensual', ventasMes,    objetivos.mensual, 'MENSUAL', nombreMes, 14)}
-      {rowBarra('anual',   ventasAno,    objetivos.anual,   'ANUAL',   String(ano), 0)}
+      {rowBarra('mensual', ventasMes,    objetivos.mensual, nombreMes, null, 14)}
+      {rowBarra('anual',   ventasAno,    objetivos.anual,   String(ano), null, 0)}
     </div>
   )
 }

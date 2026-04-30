@@ -35,17 +35,17 @@ export default function CardPedidosTM({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={kpiBig}>{fmtEntero(pedidos)}</div>
-          <div style={lblXs}>PEDIDOS</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#1E5BCC' }}>{fmtEntero(pedidos)}</div>
+          <div style={{ ...lblXs, color: '#1E5BCC' }}>PEDIDOS</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: COLOR.textPri }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#F26B1F' }}>
             {fmtEur0(tmBruto)}
           </div>
-          <div style={lblXs}>TM BRUTO</div>
+          <div style={{ ...lblXs, color: '#F26B1F' }}>TM BRUTO</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: COLOR.verde }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
             {fmtEur0(tmNeto)}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
@@ -87,11 +87,11 @@ export default function CardPedidosTM({
               }}>
                 <span>● {visual.label}</span>
                 <span style={{ color: tieneDatos ? COLOR.textSec : COLOR.textMut }}>
-                  <b style={{ fontWeight: 500 }}>{tieneDatos ? fmtEntero(ped) : '0'}</b>
+                  <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{tieneDatos ? fmtEntero(ped) : '0'}</b>
                   {' · '}
-                  {tieneDatos ? fmtEur0(tBruto) : '—'}
+                  <span style={{ color: '#F26B1F' }}>{tieneDatos ? fmtEur0(tBruto) : '0,00'}</span>
                   {' / '}
-                  <span style={{ color: COLOR.verde }}>{tieneDatos ? fmtEur0(tNeto) : '—'}</span>
+                  <span style={{ color: COLOR.verde }}>{tieneDatos ? fmtEur0(tNeto) : '0,00'}</span>
                 </span>
               </div>
               <div style={{ height: 5, borderRadius: 3, background: COLOR.bordeClaro, overflow: 'hidden' }}>

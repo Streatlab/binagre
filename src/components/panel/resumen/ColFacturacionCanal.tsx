@@ -32,7 +32,8 @@ export default function ColFacturacionCanal({ canales }: Props) {
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
-          border={COLOR.glovo}
+          border={COLOR.glovoDark}
+          borderWidth="1px"
           colorLabel={COLOR.glovoDark}
           colorBruto={COLOR.glovoTexto}
           colorBrutoSub={COLOR.glovoDark}
@@ -76,18 +77,19 @@ interface CardCanalProps {
   label: string
   bg: string
   border: string
+  borderWidth?: string
   colorLabel: string
   colorBruto: string
   colorBrutoSub: string
   stat: CanalStat | undefined
 }
 
-function CardCanal({ label, bg, border, colorLabel, colorBruto, colorBrutoSub, stat }: CardCanalProps) {
+function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, colorBruto, colorBrutoSub, stat }: CardCanalProps) {
   const tieneDatos = (stat?.bruto ?? 0) > 0
   return (
     <div style={{
       background: bg,
-      border: `0.5px solid ${border}`,
+      border: `${borderWidth} solid ${border}`,
       borderRadius: 14,
       padding: '12px 14px',
       display: 'flex',
@@ -97,17 +99,17 @@ function CardCanal({ label, bg, border, colorLabel, colorBruto, colorBrutoSub, s
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-          {tieneDatos ? fmtEur0(stat!.bruto) : '— €'}
+        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
+          {tieneDatos ? fmtEur0(stat!.bruto) : 'Datos insuficientes'}
         </div>
-        <div style={{ fontSize: 10, color: colorBrutoSub, fontFamily: LEXEND }}>bruto</div>
+        <div style={{ fontSize: 11, color: colorBrutoSub, fontFamily: LEXEND }}>bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: COLOR.verde }}>
-          {tieneDatos ? fmtEur0(stat!.neto) : '— €'}
+        <div style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 600, color: COLOR.verde }}>
+          {tieneDatos ? fmtEur0(stat!.neto) : '—'}
         </div>
-        <div style={{ fontSize: 10, color: COLOR.verde, fontFamily: LEXEND }}>
-          {tieneDatos ? `neto · ${Math.round(stat!.margen)}% margen` : 'sin datos'}
+        <div style={{ fontSize: 14, color: COLOR.verde, fontFamily: LEXEND }}>
+          {tieneDatos ? `Margen ${Math.round(stat!.margen)}%` : ''}
         </div>
       </div>
     </div>

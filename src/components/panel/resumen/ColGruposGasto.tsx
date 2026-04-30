@@ -79,10 +79,12 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
             <div key={g.id} style={{ ...card, padding: '12px 14px 14px 14px', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <div style={lblSm}>{g.label}</div>
-                <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
-                  {g.subRightLabel}{' '}
-                  <span style={{ color: semSub, fontWeight: 500 }}>{d.pctSobreNetos.toFixed(0)}%</span>
-                </div>
+                {g.id === 'producto' && (
+                  <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
+                    Food Cost{' '}
+                    <span style={{ color: COLOR.verde, fontWeight: 500 }}>{d.pctSobreNetos.toFixed(0)}%</span>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
                 <div>
@@ -134,9 +136,9 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
                 )}
               </div>
               <div style={{ fontSize: 10, color: COLOR.textMut, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
-                <span>{g.banda}</span>
-                <span style={{ color: semDesv }}>
-                  {desv >= 0 ? '+' : ''}{fmtEur0(Math.abs(desv))} desv
+                <span></span>
+                <span style={{ color: desv < 0 ? COLOR.verde : COLOR.rojo }}>
+                  {desv < 0 ? '' : '+'}{fmtEur0(Math.abs(desv))} desv
                 </span>
               </div>
             </div>
