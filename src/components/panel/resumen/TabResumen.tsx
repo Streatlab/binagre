@@ -19,11 +19,10 @@ import CardSaldo from './CardSaldo'
 import CardRatio from './CardRatio'
 import CardPE from './CardPE'
 import CardProvisiones from './CardProvisiones'
-import CardPendientesSubir from './CardPendientesSubir'
 import CardTopVentas from './CardTopVentas'
 import type {
   RowFacturacion, CanalStat, ObjetivosVentas, PagoProximoItem,
-  TareaPendienteItem, TopVentaItem,
+  TopVentaItem,
 } from './types'
 
 interface Props {
@@ -133,7 +132,7 @@ export default function TabResumen({
   const [provisiones, setProvisiones] = useState<Provision[]>([])
   const [gastos, setGastos] = useState<GastoRow[]>([])
   const [presupuestosBD, setPresupuestosBD] = useState<PresupuestoRow[]>([])
-  const [tareas, setTareas] = useState<TareaPendienteItem[]>([])
+  // tareas eliminadas (CardPendientesSubir removido de fila 4 — bloque M)
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
 
@@ -251,35 +250,7 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── fetch tareas pendientes + tareas_periodicas ─ */
-  useEffect(() => {
-    supabase
-      .from('tareas_pendientes')
-      .select('id, fecha_esperada, estado, tareas_periodicas(nombre)')
-      .neq('estado', 'cumplida')
-      .order('fecha_esperada', { ascending: true })
-      .then(({ data }) => {
-        if (!data) return
-        const hoy = new Date()
-        hoy.setHours(0, 0, 0, 0)
-        const items: TareaPendienteItem[] = (data as unknown as Array<{
-          id: string; fecha_esperada: string; estado: string;
-          tareas_periodicas: { nombre: string } | { nombre: string }[] | null
-        }>).map((r) => {
-          const tp = Array.isArray(r.tareas_periodicas) ? r.tareas_periodicas[0] : r.tareas_periodicas
-          const fecha = parseLocalDate(r.fecha_esperada)
-          fecha.setHours(0, 0, 0, 0)
-          const diff = Math.round((fecha.getTime() - hoy.getTime()) / 86400000)
-          return {
-            id: r.id,
-            concepto: tp?.nombre ?? 'Tarea',
-            fechaEsperada: r.fecha_esperada,
-            diasOffset: diff,
-          }
-        })
-        setTareas(items)
-      })
-  }, [])
+  // fetch tareas eliminado (CardPendientesSubir removido — bloque M)
 
   /* ── derivar canalStats del periodo ─────────── */
   const canalStats: CanalStat[] = useMemo(() => {
@@ -721,6 +692,7 @@ export default function TabResumen({
         <ColDiasPico
           dias={diasPico}
           media={mediaDiariaPico}
+          nombreMes={nombreMes}
           onClickDia={onFiltrarDiaSemana}
         />
       </div>
@@ -731,7 +703,7 @@ export default function TabResumen({
         marginBottom: 14,
         gridTemplateColumns: isMobile ? (window.innerWidth < 640 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(3, 1fr)',
       }}>
-        <CardSaldo {...saldoData} />
+        <CardSaldo />
         <CardRatio
           netosEstimados={netoEstimado}
           netosReales={netosReales}
@@ -744,20 +716,16 @@ export default function TabResumen({
         <CardPE {...peCalc} />
       </div>
 
-      {/* FILA 4: 3 cards medianas */}
+      {/* FILA 4: 2 cards (M.1: CardPendientesSubir eliminado) */}
       <div style={{
         ...row3,
-        gridTemplateColumns: isMobile ? (window.innerWidth < 640 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(3, 1fr)',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
       }}>
         <CardProvisiones
           totalAGuardar={totalAGuardar}
           provIVA={provIVA}
           provIRPF={provIRPF}
           proximosPagos={proximosPagos}
-        />
-        <CardPendientesSubir
-          items={tareas}
-          onIrImportador={() => navigate('/importador')}
         />
         <CardTopVentas
           tab={topTab}
