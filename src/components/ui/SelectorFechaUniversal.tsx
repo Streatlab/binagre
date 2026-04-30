@@ -242,11 +242,12 @@ export default function SelectorFechaUniversal({
         if (op === 'personalizado' && saved.desde && saved.hasta) {
           const d = new Date(saved.desde)
           const h = new Date(saved.hasta)
+          const labelPers = `${fmtFechaCorta(saved.desde)} → ${fmtFechaCorta(saved.hasta)}`
           setOpcion(op)
           setDesdeStr(saved.desde)
           setHastaStr(saved.hasta)
-          setSelectedLabel(`${saved.desde} → ${saved.hasta}`)
-          onChange(d, h, `${saved.desde} → ${saved.hasta}`)
+          setSelectedLabel(labelPers)
+          onChange(d, h, labelPers)
           return
         }
 
@@ -333,7 +334,7 @@ export default function SelectorFechaUniversal({
     if (!desdeStr || !hastaStr) return
     const d = new Date(desdeStr + 'T00:00:00')
     const h = new Date(hastaStr + 'T23:59:59')
-    const label = `${desdeStr} → ${hastaStr}`
+    const label = `${fmtFechaCorta(desdeStr)} → ${fmtFechaCorta(hastaStr)}`
     setSelectedLabel(label)
     persist({ opcion: 'personalizado', desde: desdeStr, hasta: hastaStr })
     onChange(d, h, label)
@@ -402,6 +403,7 @@ export default function SelectorFechaUniversal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
             type="date"
+            lang="es-ES"
             value={desdeStr}
             onChange={e => setDesdeStr(e.target.value)}
             style={{ ...btnStyle, cursor: 'default' }}
@@ -409,6 +411,7 @@ export default function SelectorFechaUniversal({
           <span style={{ fontSize: 13, color: '#777', fontFamily: 'Lexend, sans-serif' }}>→</span>
           <input
             type="date"
+            lang="es-ES"
             value={hastaStr}
             onChange={e => setHastaStr(e.target.value)}
             style={{ ...btnStyle, cursor: 'default' }}

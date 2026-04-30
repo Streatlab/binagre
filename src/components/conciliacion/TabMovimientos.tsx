@@ -43,6 +43,8 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
   const [catFiltro, setCatFiltro] = useState('todas')
   const [page, setPage] = useState(1)
   const [modalMov, setModalMov] = useState<Movimiento | null>(null)
+  const [sortColumn, setSortColumn] = useState<'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular' | null>('fecha')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
 
@@ -67,6 +69,18 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
       pendientesImporte: Math.abs(pendientes.reduce((s, m) => s + m.importe, 0)),
     }
   }, [movimientos])
+
+  function handleSort(col: 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular') {
+    if (sortColumn === col) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else if (sortDir === 'desc') { setSortColumn(null); setSortDir('asc') }
+      else setSortDir('asc')
+    } else {
+      setSortColumn(col)
+      setSortDir('asc')
+    }
+    setPage(1)
+  }
 
   const filtrados = useMemo(() => {
     return movimientos
@@ -94,8 +108,35 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           String(Math.abs(m.importe)).includes(q)
         )
       })
-      .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos, filtroCard, filtroTitular, catFiltro, busqueda, titulares])
+      .sort((a, b) => {
+        if (!sortColumn) return b.fecha.localeCompare(a.fecha)
+        const dir = sortDir === 'asc' ? 1 : -1
+        if (sortColumn === 'fecha') return a.fecha.localeCompare(b.fecha) * dir
+        if (sortColumn === 'concepto') return a.concepto.localeCompare(b.concepto) * dir
+        if (sortColumn === 'contraparte') return (a.contraparte || '').localeCompare(b.contraparte || '') * dir
+        if (sortColumn === 'importe') return (a.importe - b.importe) * dir
+        if (sortColumn === 'categoria') {
+          const aCat = a.categoria_id || 'zzz'
+          const bCat = b.categoria_id || 'zzz'
+          return aCat.localeCompare(bCat) * dir
+        }
+        if (sortColumn === 'doc') {
+          const order = { 'tiene': 0, 'no_requiere': 1, 'falta': 2 }
+          return ((order[a.doc_estado as keyof typeof order] ?? 3) - (order[b.doc_estado as keyof typeof order] ?? 3)) * dir
+        }
+        if (sortColumn === 'estado') {
+          const aEst = calcularEstado(a)
+          const bEst = calcularEstado(b)
+          return aEst.localeCompare(bEst) * dir
+        }
+        if (sortColumn === 'titular') {
+          const aT = titulares.find(t => t.id === a.titular_id)?.nombre ?? ''
+          const bT = titulares.find(t => t.id === b.titular_id)?.nombre ?? ''
+          return aT.localeCompare(bT) * dir
+        }
+        return 0
+      })
+  }, [movimientos, filtroCard, filtroTitular, catFiltro, busqueda, titulares, sortColumn, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -253,26 +294,42 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
               </colgroup>
               <thead>
                 <tr>
-                  {['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc', 'Estado', 'Titular'].map((h, i) => (
-                    <th
-                      key={h}
-                      style={{
-                        fontFamily: 'Oswald, sans-serif',
-                        fontSize: 10,
-                        fontWeight: 500,
-                        letterSpacing: '2px',
-                        color: '#7a8090',
-                        textTransform: 'uppercase',
-                        textAlign: i === 3 ? 'right' : i === 5 ? 'center' : 'left',
-                        padding: '10px 16px',
-                        background: '#f5f3ef',
-                        borderBottom: '0.5px solid #d0c8bc',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {([
+                    { label: 'Fecha', col: 'fecha' as const },
+                    { label: 'Concepto', col: 'concepto' as const },
+                    { label: 'Contraparte', col: 'contraparte' as const },
+                    { label: 'Importe', col: 'importe' as const },
+                    { label: 'Categoría', col: 'categoria' as const },
+                    { label: 'Doc', col: 'doc' as const },
+                    { label: 'Estado', col: 'estado' as const },
+                    { label: 'Titular', col: 'titular' as const },
+                  ]).map((h, i) => {
+                    const isActive = sortColumn === h.col
+                    const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+                    return (
+                      <th
+                        key={h.col}
+                        onClick={() => handleSort(h.col)}
+                        style={{
+                          fontFamily: 'Oswald, sans-serif',
+                          fontSize: 10,
+                          fontWeight: 500,
+                          letterSpacing: '2px',
+                          color: isActive ? '#FF4757' : '#7a8090',
+                          textTransform: 'uppercase',
+                          textAlign: i === 3 ? 'right' : i === 5 ? 'center' : 'left',
+                          padding: '10px 16px',
+                          background: '#f5f3ef',
+                          borderBottom: '0.5px solid #d0c8bc',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {h.label}{arrow}
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
