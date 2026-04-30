@@ -151,7 +151,7 @@ export default function Conciliacion() {
       factura_id: m.factura_id ?? null,
       factura_data: m.factura_data ?? null,
       titular_id: m.titular_id ?? null,
-      doc_estado: ((m as unknown as Record<string, unknown>).doc_estado as 'tiene' | 'falta' | 'no_requiere' | null) ?? 'falta',
+      doc_estado: ((m as unknown as { doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null }).doc_estado) ?? 'falta',
     })),
     [movimientosBD]
   )
