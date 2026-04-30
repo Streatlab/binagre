@@ -333,8 +333,14 @@ export const canalHeaderStyle = (canalId: string, isDark: boolean): CSSPropertie
 
 export const fmtFechaCorta = (dateStr: string): string => {
   if (!dateStr) return ''
+  // Si la fecha ya viene en formato ISO YYYY-MM-DD, devolver dd/mm/yy directamente sin Date()
+  // para evitar problemas de timezone
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    const [y, m, d] = dateStr.slice(0, 10).split('-')
+    return `${d}/${m}/${y.slice(2)}`
+  }
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
 export const fmtFechaLarga = (dateStr: string): string => {
