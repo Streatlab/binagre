@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import {
@@ -322,7 +323,7 @@ export default function Facturacion() {
           {/* Canales: derecha */}
           <div style={{ position: 'relative' }} data-drop-canal="canales">
             <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
-              {canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`} ▾
+              <span>{canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
             </button>
             {dropCanalOpen && (
               <div style={dropdownMenuStyle(T)}>

@@ -8,8 +8,9 @@
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, card, lblSm, barTrack, editable,
-  fmtEntero, fmtDec,
+  fmtDec,
 } from './tokens'
+import { fmtEur } from '@/lib/format'
 
 interface Props {
   netosEstimados: number
@@ -128,16 +129,16 @@ export default function CardRatio({
       {/* J.4: Solo Ingresos netos / Gastos fijos / Gastos variables */}
       <Linea
         label="Ingresos netos"
-        valor={ratioInsuficiente ? '—' : `${fmtEntero(netosEstimados)} €`}
+        valor={ratioInsuficiente ? '—' : `${fmtEur(netosEstimados, { showEuro: false, decimals: 0 })} €`}
         top
       />
       <Linea
         label="Gastos fijos"
-        valor={ratioInsuficiente ? '—' : `${fmtEntero(gastosFijos)} €`}
+        valor={ratioInsuficiente ? '—' : `${fmtEur(gastosFijos, { showEuro: false, decimals: 0 })} €`}
       />
       <Linea
         label="Gastos variables"
-        valor={ratioInsuficiente ? '—' : `${fmtEntero(Math.max(0, gastosReales - gastosFijos))} €`}
+        valor={ratioInsuficiente ? '—' : `${fmtEur(Math.max(0, gastosReales - gastosFijos), { showEuro: false, decimals: 0 })} €`}
       />
     </div>
   )

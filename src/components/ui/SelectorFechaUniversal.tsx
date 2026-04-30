@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { fmtFechaCorta } from '@/styles/tokens'
 
 interface SelectorFechaUniversalProps {
@@ -343,8 +344,8 @@ export default function SelectorFechaUniversal({
       {/* Main dropdown trigger */}
       <div style={{ position: 'relative' }}>
         <button style={btnStyle} onClick={() => { setOpen(o => !o); setSemanaOpen(false) }}>
-          {selectedLabel}
-          <span style={{ fontSize: 10 }}>▾</span>
+          <span>{selectedLabel}</span>
+          <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
         </button>
 
         {open && (

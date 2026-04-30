@@ -5,7 +5,8 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLOR, LEXEND, OSWALD, card, lblSm, kpiMid, fmtEntero } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, LEXEND, OSWALD, card, lblSm, kpiMid } from './tokens'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface Props {}
@@ -45,7 +46,7 @@ export default function CardSaldo(_props: Props) {
       </div>
 
       <div style={{ ...kpiMid, marginTop: 6 }}>
-        {cargando ? '…' : saldo !== null ? `${fmtEntero(saldo)} €` : '—'}
+        {cargando ? '…' : saldo !== null ? `${fmtEur(saldo, { showEuro: false, decimals: 0 })} €` : '—'}
       </div>
       <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
         Saldo total cuentas Streat Lab

@@ -1,4 +1,5 @@
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblSm, fmtEntero, fmtEur0 } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblSm } from './tokens'
 
 export interface DiaPico {
   /** 0=Lun ... 6=Dom */
@@ -63,7 +64,7 @@ export default function ColDiasPico({ dias, media, nombreMes, onClickDia }: Prop
               const weight = isMax ? 500 : 400
               return (
                 <text key={`v${i}`} x={POS_X_TEXTO[i]} y="20" fontSize="11" fill={fill} textAnchor="middle" fontWeight={weight}>
-                  {d.valor > 0 ? fmtEntero(d.valor) : ''}
+                  {d.valor > 0 ? fmtEur(d.valor, { showEuro: false, decimals: 0 }) : ''}
                 </text>
               )
             })}
@@ -96,7 +97,7 @@ export default function ColDiasPico({ dias, media, nombreMes, onClickDia }: Prop
                   strokeDasharray="4 4"
                 />
                 <text x="478" y={mediaY - 3} fontSize="10" fill="#7a8090" textAnchor="end">
-                  {`Media: ${fmtEntero(media)}`}
+                  {`Media: ${fmtEur(media, { showEuro: false, decimals: 0 })}`}
                 </text>
               </>
             )}
@@ -113,14 +114,14 @@ export default function ColDiasPico({ dias, media, nombreMes, onClickDia }: Prop
         <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, marginTop: 14, paddingTop: 12 }}>
           <Linea
             label="Día más fuerte"
-            valor={conMax ? `${NOMBRES_LARGOS[conMax.idx]} · ${fmtEntero(conMax.valor)}` : '—'}
+            valor={conMax ? `${NOMBRES_LARGOS[conMax.idx]} · ${fmtEur(conMax.valor, { showEuro: false, decimals: 0 })}` : '—'}
             fuerte
           />
           <Linea
             label="Día más flojo"
-            valor={conMin ? `${NOMBRES_LARGOS[conMin.idx]} · ${fmtEntero(conMin.valor)}` : '—'}
+            valor={conMin ? `${NOMBRES_LARGOS[conMin.idx]} · ${fmtEur(conMin.valor, { showEuro: false, decimals: 0 })}` : '—'}
           />
-          <Linea label="Media diaria" valor={fmtEntero(media)} />
+          <Linea label="Media diaria" valor={fmtEur(media, { showEuro: false, decimals: 0 })} />
         </div>
       </div>
     </div>

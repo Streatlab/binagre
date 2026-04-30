@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
 
 interface Opt { value: string; label: string }
@@ -60,8 +61,8 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
           transition: 'all 0.15s',
         }}
       >
-        {summary}
-        <span style={{ fontSize: 9, color: T.mut }}>▾</span>
+        <span>{summary}</span>
+        <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
       </button>
       {open && (
         <div

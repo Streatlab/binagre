@@ -1,4 +1,5 @@
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack, fmtEur0, colorPrimeCost, fmtDec } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack, colorPrimeCost, fmtDec } from './tokens'
 
 interface Props {
   ebitda: number
@@ -30,7 +31,7 @@ export default function CardResultadoPeriodo({
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: colorEbitda }}>
-            {fmtEur0(ebitda)}
+            {fmtEur(ebitda, { decimals: 0 })}
           </div>
           <div style={lblXs}>EBITDA</div>
         </div>
@@ -51,10 +52,10 @@ export default function CardResultadoPeriodo({
       )}
 
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12 }}>
-        <Linea label="Netos estimados" valor={fmtEur0(netosEstimados)} />
-        <Linea label="Netos reales factura" valor={fmtEur0(netosReales)} />
-        <Linea label="Total gastos periodo" valor={fmtEur0(totalGastos)} />
-        <Linea label="Resultado limpio" valor={fmtEur0(resultadoLimpio)} colorVal={COLOR.verde} weight={500} />
+        <Linea label="Netos estimados" valor={fmtEur(netosEstimados, { decimals: 0 })} />
+        <Linea label="Netos reales factura" valor={fmtEur(netosReales, { decimals: 0 })} />
+        <Linea label="Total gastos periodo" valor={fmtEur(totalGastos, { decimals: 0 })} />
+        <Linea label="Resultado limpio" valor={fmtEur(resultadoLimpio, { decimals: 0 })} colorVal={COLOR.verde} weight={500} />
       </div>
 
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>

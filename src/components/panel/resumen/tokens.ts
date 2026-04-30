@@ -372,16 +372,6 @@ export function colorPrimeCost(pct: number): { color: string; estado: 'OK' | 'Al
 }
 
 /* ── Format helpers ───────────────────────────────── */
-export function fmtEntero(v: number): string {
-  if (!isFinite(v)) return '0'
-  return Math.round(v).toLocaleString('es-ES')
-}
-
-export function fmtEur0(v: number): string {
-  if (!isFinite(v)) return '0 €'
-  return `${Math.round(v).toLocaleString('es-ES')} €`
-}
-
 export function fmtDec(v: number, decimals = 1): string {
   if (!isFinite(v)) return '—'
   return v.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })

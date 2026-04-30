@@ -1,4 +1,5 @@
-import { COLOR, OSWALD, card, lblSm, miniTabActiva, miniTabInactiva, BADGE_CANAL, fmtEur0, fmtEntero } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, card, lblSm, miniTabActiva, miniTabInactiva, BADGE_CANAL } from './tokens'
 import type { TopVentaItem } from './types'
 
 interface Props {
@@ -62,10 +63,10 @@ export default function CardTopVentas({ tab, onTab, items, datosDemo }: Props) {
                   </span>
                 </td>
                 <td style={{ textAlign: 'right', padding: '6px 0', color: COLOR.textSec, fontFamily: 'Lexend, sans-serif' }}>
-                  {fmtEntero(it.pedidos)}
+                  {fmtEur(it.pedidos, { showEuro: false, decimals: 0 })}
                 </td>
                 <td style={{ textAlign: 'right', padding: '6px 0', fontFamily: OSWALD, fontWeight: 500, color: COLOR.textPri }}>
-                  {fmtEur0(it.importe)}
+                  {fmtEur(it.importe, { decimals: 0 })}
                 </td>
               </tr>
             )

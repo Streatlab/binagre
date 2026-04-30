@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
@@ -468,8 +469,8 @@ export default function Dashboard() {
           background: '#fff3cd',
           border: '1px solid #ffc107',
           borderRadius: 8,
-          padding: '12px 16px',
-          marginBottom: 16,
+          padding: '8px 16px',
+          marginBottom: 12,
           display: 'flex',
           alignItems: 'center',
           gap: 12,
@@ -478,17 +479,17 @@ export default function Dashboard() {
           color: '#111111',
           position: 'relative',
         }}>
-          <span style={{ flexShrink: 0 }}>⚠️</span>
-          <span style={{ flex: 1 }}>
+          <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
+          <span style={{ flex: 1, fontSize: 13 }}>
             Tienes pendiente subir: <strong>{tareasAtrasadas.join(', ')}</strong>.
           </span>
           <button
             onClick={() => navigate('/importador')}
-            style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}
+            style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}
           >Ir al Importador</button>
           <button
             onClick={dismissBanner}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: 18, padding: '0 4px', flexShrink: 0, lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: 16, padding: '0 4px', flexShrink: 0, lineHeight: 1 }}
             title="Cerrar"
           >×</button>
         </div>
@@ -534,7 +535,7 @@ export default function Dashboard() {
               onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
               style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
             >
-              {marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`} <span style={{ fontSize:10 }}>▾</span>
+              <span>{marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
             </button>
             {dropMarcaOpen && (
               <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>
@@ -556,7 +557,7 @@ export default function Dashboard() {
               onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
               style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
             >
-              {canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`} <span style={{ fontSize:10 }}>▾</span>
+              <span>{canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
             </button>
             {dropCanalOpen && (
               <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>

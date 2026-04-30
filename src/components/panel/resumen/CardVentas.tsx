@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, kpiBig,
-  barTrack, editable, fmtEur0, semaforoBarra, fmtDec,
+  barTrack, editable, semaforoBarra, fmtDec,
 } from './tokens'
-import { fmtSemana, fmtEur as fmtEurLib } from '@/lib/format'
+import { fmtSemana, fmtEur } from '@/lib/format'
 import type { ObjetivosVentas, ToastFn } from './types'
 
 interface Props {
@@ -68,7 +68,7 @@ export default function CardVentas({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
-          <span style={{ color: sem, fontWeight: 500 }}>{fmtEurLib(faltan, { showEuro: false })}</span>
+          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false })}</span>
           <span>de</span>
           {isEditing ? (
             <input
@@ -93,7 +93,7 @@ export default function CardVentas({
               onClick={() => startEdit(tipo)}
               title="Click para editar objetivo"
             >
-              {fmtEurLib(objetivo, { showEuro: false })}
+              {fmtEur(objetivo, { showEuro: false })}
             </span>
           )}
         </div>
@@ -114,12 +114,12 @@ export default function CardVentas({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={kpiBig}>{fmtEurLib(bruto, { showEuro: false })}</div>
+          <div style={kpiBig}>{fmtEur(bruto, { showEuro: false })}</div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
-            {fmtEurLib(netoEstimado, { showEuro: false })}
+            {fmtEur(netoEstimado, { showEuro: false })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
             NETO ESTIMADO · {pctNeto}%

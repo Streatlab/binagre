@@ -1,4 +1,5 @@
-import { COLOR, OSWALD, LEXEND, lbl, lblXs, fmtEur0 } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, lbl, lblXs } from './tokens'
 import type { CanalStat } from './types'
 
 interface Props {
@@ -100,13 +101,13 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, color
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-          {tieneDatos ? fmtEur0(stat!.bruto) : 'Datos insuficientes'}
+          {tieneDatos ? fmtEur(stat!.bruto, { decimals: 0 }) : 'Datos insuficientes'}
         </div>
         <div style={{ fontSize: 11, color: colorBrutoSub, fontFamily: LEXEND }}>bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
         <div style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 600, color: COLOR.verde }}>
-          {tieneDatos ? fmtEur0(stat!.neto) : '—'}
+          {tieneDatos ? fmtEur(stat!.neto, { decimals: 0 }) : '—'}
         </div>
         <div style={{ fontSize: 14, color: COLOR.verde, fontFamily: LEXEND }}>
           {tieneDatos ? `Margen ${Math.round(stat!.margen)}%` : ''}
@@ -127,10 +128,10 @@ function CardCanalMini({ label, bg, border, colorLabel, colorBruto, stat }: Omit
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
       <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-        {tieneDatos ? fmtEur0(stat!.bruto) : '— €'}
+        {tieneDatos ? fmtEur(stat!.bruto, { decimals: 0 }) : '— €'}
       </div>
       <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: LEXEND }}>
-        {tieneDatos ? `${fmtEur0(stat!.neto)} neto · ${Math.round(stat!.margen)}%` : 'sin datos'}
+        {tieneDatos ? `${fmtEur(stat!.neto, { decimals: 0 })} neto · ${Math.round(stat!.margen)}%` : 'sin datos'}
       </div>
     </div>
   )

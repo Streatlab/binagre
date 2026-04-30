@@ -6,7 +6,8 @@
  * K.4: Día verde con ✓ si alcanzado; Facturación día sin "bruto"; Pedidos día azul+naranja; Real actual muted
  * K.5: Renombrar "Facturación / día" → "Facturación día" y "Pedidos / día" → "Pedidos día"
  */
-import { COLOR, OSWALD, LEXEND, card, lblSm, kpiSm, barTrack, fmtEntero } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, card, lblSm, kpiSm, barTrack } from './tokens'
 
 interface Props {
   peBruto: number
@@ -60,7 +61,7 @@ export default function CardPE({
           {/* K.2: Bruto sin €, % semáforo. ELIMINAR "netos" */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 6 }}>
             <div>
-              <div style={kpiSm}>{fmtEntero(peBruto)}</div>
+              <div style={kpiSm}>{fmtEur(peBruto, { showEuro: false, decimals: 0 })}</div>
               <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
                 bruto necesario
               </div>
@@ -75,8 +76,8 @@ export default function CardPE({
             <div style={{ height: '100%', width: `${remaining}%`, background: COLOR.rojo }} />
           </div>
           <div style={{ fontSize: 11, color: COLOR.textMut, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
-            <span>Llevamos {fmtEntero(acumulado)}</span>
-            <span>Faltan {fmtEntero(falta)}</span>
+            <span>Llevamos {fmtEur(acumulado, { showEuro: false, decimals: 0 })}</span>
+            <span>Faltan {fmtEur(falta, { showEuro: false, decimals: 0 })}</span>
           </div>
 
           <div style={{ marginTop: 14, paddingTop: 10, borderTop: `0.5px solid ${COLOR.borde}` }}>
@@ -97,7 +98,7 @@ export default function CardPE({
             {/* K.5: "Facturación día" sin "bruto" */}
             <Linea
               label="Facturación día"
-              valor={`${fmtEntero(facturacionDia)}`}
+              valor={`${fmtEur(facturacionDia, { showEuro: false, decimals: 0 })}`}
               fuerte
             />
 
@@ -105,9 +106,9 @@ export default function CardPE({
             <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: LEXEND }}>
               <span style={{ color: COLOR.textMut }}>Pedidos día</span>
               <span>
-                <span style={{ color: COLOR.directa, fontWeight: 500 }}>{fmtEntero(pedidosDia)}</span>
+                <span style={{ color: COLOR.directa, fontWeight: 500 }}>{fmtEur(pedidosDia, { showEuro: false, decimals: 0 })}</span>
                 <span style={{ color: COLOR.textMut }}>{' a '}</span>
-                <span style={{ color: COLOR.ambar, fontWeight: 500 }}>{fmtEntero(tmActual)}</span>
+                <span style={{ color: COLOR.ambar, fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 0 })}</span>
               </span>
             </div>
 
@@ -121,7 +122,7 @@ export default function CardPE({
               fontFamily: LEXEND,
             }}>
               <span>Real actual</span>
-              <span>{fmtEntero(realFacDia)}/día · {fmtEntero(realPedDia)} ped/día</span>
+              <span>{fmtEur(realFacDia, { showEuro: false, decimals: 0 })}/día · {fmtEur(realPedDia, { showEuro: false, decimals: 0 })} ped/día</span>
             </div>
           </div>
         </>

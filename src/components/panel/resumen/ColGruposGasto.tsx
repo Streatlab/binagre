@@ -1,8 +1,9 @@
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, card, lbl, lblSm, editable,
-  fmtEur0, semaforoCumplGrupo,
+  semaforoCumplGrupo,
 } from './tokens'
+import { fmtEur } from '@/lib/format'
 
 export type GrupoGasto = 'producto' | 'equipo' | 'local' | 'controlables'
 
@@ -89,7 +90,7 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
                 <div>
                   <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: COLOR.textPri }}>
-                    {fmtEur0(d.gasto)}
+                    {fmtEur(d.gasto, { decimals: 0 })}
                   </span>
                   <span style={{ fontSize: 12, color: COLOR.textMut, fontFamily: LEXEND }}>
                     {' / '}
@@ -116,7 +117,7 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
                         onClick={() => startEdit(g.id)}
                         title="Click para editar presupuesto"
                       >
-                        {fmtEur0(d.presupuesto)}
+                        {fmtEur(d.presupuesto, { decimals: 0 })}
                       </span>
                     )}
                   </span>
@@ -138,7 +139,7 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
               <div style={{ fontSize: 10, color: COLOR.textMut, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
                 <span></span>
                 <span style={{ color: desv < 0 ? COLOR.verde : COLOR.rojo }}>
-                  {desv < 0 ? '' : '+'}{fmtEur0(Math.abs(desv))} desv
+                  {desv < 0 ? '' : '+'}{fmtEur(Math.abs(desv), { decimals: 0 })} desv
                 </span>
               </div>
             </div>

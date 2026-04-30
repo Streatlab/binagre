@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -105,8 +106,8 @@ function MultiSelect({
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button style={dropdownBtn} onClick={() => setOpen(o => !o)}>
-        {displayLabel}
-        <span style={{ fontSize: 10 }}>▾</span>
+        <span>{displayLabel}</span>
+        <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
       </button>
       {open && (
         <div style={menuStyle}>

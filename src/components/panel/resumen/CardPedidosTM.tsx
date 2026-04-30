@@ -1,4 +1,5 @@
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, kpiBig, fmtEntero, fmtEur0, fmtDec } from './tokens'
+import { fmtEur } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, kpiBig, fmtDec } from './tokens'
 import type { CanalStat } from './types'
 
 interface Props {
@@ -35,18 +36,18 @@ export default function CardPedidosTM({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#1E5BCC' }}>{fmtEntero(pedidos)}</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#1E5BCC' }}>{fmtEur(pedidos, { showEuro: false, decimals: 0 })}</div>
           <div style={{ ...lblXs, color: '#1E5BCC' }}>PEDIDOS</div>
         </div>
         <div>
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#F26B1F' }}>
-            {fmtEur0(tmBruto)}
+            {fmtEur(tmBruto, { decimals: 0 })}
           </div>
           <div style={{ ...lblXs, color: '#F26B1F' }}>TM BRUTO</div>
         </div>
         <div>
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
-            {fmtEur0(tmNeto)}
+            {fmtEur(tmNeto, { decimals: 0 })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
             TM NETO
@@ -87,11 +88,11 @@ export default function CardPedidosTM({
               }}>
                 <span>● {visual.label}</span>
                 <span style={{ color: tieneDatos ? COLOR.textSec : COLOR.textMut }}>
-                  <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{tieneDatos ? fmtEntero(ped) : '0'}</b>
+                  <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{tieneDatos ? fmtEur(ped, { showEuro: false, decimals: 0 }) : '0'}</b>
                   {' · '}
-                  <span style={{ color: '#F26B1F' }}>{tieneDatos ? fmtEur0(tBruto) : '0,00'}</span>
+                  <span style={{ color: '#F26B1F' }}>{tieneDatos ? fmtEur(tBruto, { decimals: 0 }) : '0,00'}</span>
                   {' / '}
-                  <span style={{ color: COLOR.verde }}>{tieneDatos ? fmtEur0(tNeto) : '0,00'}</span>
+                  <span style={{ color: COLOR.verde }}>{tieneDatos ? fmtEur(tNeto, { decimals: 0 }) : '0,00'}</span>
                 </span>
               </div>
               <div style={{ height: 5, borderRadius: 3, background: COLOR.bordeClaro, overflow: 'hidden' }}>

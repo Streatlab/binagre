@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 export type Periodo = '30d' | 'mes_curso' | '60d' | '90d' | 'custom'
 
@@ -26,7 +27,7 @@ export function PeriodDropdown({ value, onChange, customRange }: Props) {
       <button
         onClick={() => setOpen(o => !o)}
         className="text-[#B01D23] text-xs font-medium underline decoration-dotted underline-offset-4 hover:text-[#901A1E]"
-      >{LABELS[value]} ▾</button>
+      ><span>{LABELS[value]}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} /></button>
       {open && (
         <div className="absolute right-0 mt-2 w-[220px] bg-white border border-[#E9E1D0] rounded-lg shadow-lg z-20 p-1">
           {(['30d','mes_curso','60d','90d','custom'] as Periodo[]).map(p => (
