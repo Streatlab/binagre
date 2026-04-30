@@ -651,7 +651,7 @@ export default function TabResumen({
           ventasMes={ventasMes}
           ventasAno={ventasAno}
           nSemana={nSemana}
-          nombreMes={nombreMes}
+          mes={new Date().getMonth() + 1}
           ano={ano}
           objetivos={objetivos}
           onSaveObjetivo={saveObjetivoVenta}
@@ -716,10 +716,10 @@ export default function TabResumen({
         <CardPE {...peCalc} />
       </div>
 
-      {/* FILA 4: 2 cards (M.1: CardPendientesSubir eliminado) */}
+      {/* FILA 4: 2 cards — Config E: 1fr 2fr (Provisiones 1/3, TopVentas 2/3) */}
       <div style={{
         ...row3,
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr',
       }}>
         <CardProvisiones
           totalAGuardar={totalAGuardar}

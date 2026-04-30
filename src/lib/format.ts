@@ -1,4 +1,13 @@
-export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; decimals?: 0 | 2; showEuro?: boolean }): string {
+export function fmtNum(n: number | null | undefined, decimals = 2): string {
+  if (n === null || n === undefined || isNaN(Number(n))) return '—';
+  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+export function fmtMes(mes: number): string {
+  return ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes - 1] ?? '';
+}
+
+export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; decimals?: number; showEuro?: boolean }): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
   const num = Number(n);
   const decimals = opts?.decimals ?? 0;
@@ -11,9 +20,9 @@ export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; 
   return showEuro ? `${prefix}${formatted} €` : `${prefix}${formatted}`;
 }
 
-export function fmtPct(n: number | null | undefined, decimals: 0 | 1 = 0): string {
+export function fmtPct(n: number | null | undefined, decimals = 0): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
-  return `${Number(n).toFixed(decimals).replace('.', ',')}%`;
+  return `${fmtNum(Number(n), decimals)}%`;
 }
 
 export function fmtDate(d: Date | string): string {

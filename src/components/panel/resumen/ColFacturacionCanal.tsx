@@ -1,19 +1,114 @@
-import { fmtEur } from '@/lib/format'
+/**
+ * ColFacturacionCanal — Fixes 43-51
+ * FIX 43: bruto+neto fontSize 24 fontWeight 600
+ * FIX 44: fmtEur(bruto, {showEuro:false, decimals:2})
+ * FIX 45: fmtEur(neto, {showEuro:false, decimals:2})
+ * FIX 46: "Margen X,XX%"
+ * FIX 47: "Bruto" con B mayúscula
+ * FIX 48: Glovo border 1px solid #5a5500
+ * FIX 49-51: calcularDatosCanal desde resumenes_plataforma_marca_mensual (pasado como prop)
+ */
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { fmtEur, fmtPct } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, lbl, lblXs } from './tokens'
 import type { CanalStat } from './types'
 
 interface Props {
   canales: CanalStat[]
+  mes?: number
+  año?: number
 }
 
-export default function ColFacturacionCanal({ canales }: Props) {
+interface DatosCanal {
+  bruto: number | null
+  neto: number | null
+  margenPct: number | null
+  sinDatos: boolean
+}
+
+type CanalId = 'uber' | 'glovo' | 'just_eat' | 'web' | 'directa'
+
+async function calcularDatosCanal(canal: CanalId, mes: number, año: number): Promise<DatosCanal> {
+  const { data, error } = await supabase
+    .from('resumenes_plataforma_marca_mensual')
+    .select('bruto, comisiones, fees, cargos_promocion, neto_real_cobrado')
+    .eq('plataforma', canal)
+    .eq('mes', mes)
+    .eq('año', año)
+
+  if (error || !data || data.length === 0) {
+    return { bruto: null, neto: null, margenPct: null, sinDatos: true }
+  }
+
+  type Row = { bruto: number | null; comisiones: number | null; fees: number | null; cargos_promocion: number | null; neto_real_cobrado: number | null }
+  const rows = data as Row[]
+
+  const bruto = rows.reduce((s, d) => s + (d.bruto ?? 0), 0)
+  const tieneRealCobrado = rows.some(d => d.neto_real_cobrado !== null && d.neto_real_cobrado !== undefined)
+
+  let neto: number
+  if (tieneRealCobrado) {
+    neto = rows.reduce((s, d) => s + (d.neto_real_cobrado ?? 0), 0)
+  } else {
+    const comisiones = rows.reduce((s, d) => s + (d.comisiones ?? 0), 0)
+    const fees = rows.reduce((s, d) => s + (d.fees ?? 0), 0)
+    const cargos = rows.reduce((s, d) => s + (d.cargos_promocion ?? 0), 0)
+    const ivaComisiones = (comisiones + fees + cargos) * 0.21
+    neto = bruto - comisiones - fees - cargos - ivaComisiones
+  }
+
+  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
+  return { bruto, neto, margenPct, sinDatos: false }
+}
+
+// Mapping de id canal stats → id tabla
+const CANAL_MAP: Record<string, CanalId> = {
+  uber: 'uber',
+  glovo: 'glovo',
+  je: 'just_eat',
+  web: 'web',
+  dir: 'directa',
+}
+
+export default function ColFacturacionCanal({ canales, mes, año }: Props) {
+  const mesActual = mes ?? (new Date().getMonth() + 1)
+  const añoActual = año ?? new Date().getFullYear()
+
+  const [datosTabla, setDatosTabla] = useState<Record<string, DatosCanal>>({})
+
+  useEffect(() => {
+    const canalesIds: Array<CanalId> = ['uber', 'glovo', 'just_eat', 'web', 'directa']
+    Promise.all(
+      canalesIds.map(async (c) => {
+        const d = await calcularDatosCanal(c, mesActual, añoActual)
+        return [c, d] as [CanalId, DatosCanal]
+      })
+    ).then(results => {
+      const out: Record<string, DatosCanal> = {}
+      for (const [k, v] of results) out[k] = v
+      setDatosTabla(out)
+    })
+  }, [mesActual, añoActual])
+
+  // Fallback a canalStats si tabla vacía
   const map = new Map(canales.map(c => [c.id, c]))
 
-  const uber  = map.get('uber')
-  const glovo = map.get('glovo')
-  const je    = map.get('je')
-  const web   = map.get('web')
-  const dir   = map.get('dir')
+  function getDatos(id: string): { bruto: number | null; neto: number | null; margenPct: number | null; sinDatos: boolean } {
+    const tableKey = CANAL_MAP[id]
+    const td = tableKey ? datosTabla[tableKey] : undefined
+    if (td && !td.sinDatos) return td
+    // FIX 50: si tabla tiene datos los usa; si no, fallback a canalStats
+    const c = map.get(id as CanalStat['id'])
+    if (c && c.bruto > 0) return { bruto: c.bruto, neto: c.neto, margenPct: c.margen, sinDatos: false }
+    return { bruto: null, neto: null, margenPct: null, sinDatos: true }
+  }
+
+  const uber  = getDatos('uber')
+  const glovo = getDatos('glovo')
+  const je    = getDatos('je')
+  const web   = getDatos('web')
+  const dir   = getDatos('dir')
 
   return (
     <div>
@@ -26,29 +121,28 @@ export default function ColFacturacionCanal({ canales }: Props) {
           border={COLOR.uber}
           colorLabel={COLOR.verdeOscuro}
           colorBruto={COLOR.verdeOscuro}
-          colorBrutoSub={COLOR.verdeOscuro}
-          stat={uber}
+          datos={uber}
         />
 
+        {/* FIX 48: Glovo border 1px solid #5a5500 */}
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
-          border={COLOR.glovoDark}
+          border="#5a5500"
           borderWidth="1px"
           colorLabel={COLOR.glovoDark}
           colorBruto={COLOR.glovoTexto}
-          colorBrutoSub={COLOR.glovoDark}
-          stat={glovo}
+          datos={glovo}
         />
 
+        {/* FIX 51: Just Eat muestra datos reales */}
         <CardCanal
           label="JUST EAT"
           bg={`${COLOR.je}20`}
           border={COLOR.je}
           colorLabel={COLOR.jeDark}
           colorBruto={COLOR.jeDark}
-          colorBrutoSub={COLOR.jeDark}
-          stat={je}
+          datos={je}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -58,7 +152,7 @@ export default function ColFacturacionCanal({ canales }: Props) {
             border={`${COLOR.webSL}50`}
             colorLabel={COLOR.webDark}
             colorBruto={COLOR.webDark}
-            stat={web}
+            datos={web}
           />
           <CardCanalMini
             label="DIRECTA"
@@ -66,7 +160,7 @@ export default function ColFacturacionCanal({ canales }: Props) {
             border={COLOR.directa}
             colorLabel={COLOR.directaDark}
             colorBruto={COLOR.directaDark}
-            stat={dir}
+            datos={dir}
           />
         </div>
       </div>
@@ -81,12 +175,11 @@ interface CardCanalProps {
   borderWidth?: string
   colorLabel: string
   colorBruto: string
-  colorBrutoSub: string
-  stat: CanalStat | undefined
+  datos: { bruto: number | null; neto: number | null; margenPct: number | null; sinDatos: boolean }
 }
 
-function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, colorBruto, colorBrutoSub, stat }: CardCanalProps) {
-  const tieneDatos = (stat?.bruto ?? 0) > 0
+function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, colorBruto, datos }: CardCanalProps) {
+  const tieneDatos = !datos.sinDatos && datos.bruto !== null
   return (
     <div style={{
       background: bg,
@@ -100,25 +193,31 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, color
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
+        {/* FIX 43: fontSize 24 fontWeight 600 */}
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-          {tieneDatos ? fmtEur(stat!.bruto, { decimals: 0 }) : 'Datos insuficientes'}
+          {/* FIX 44: sin €, decimals:2 */}
+          {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : 'Datos insuficientes'}
         </div>
-        <div style={{ fontSize: 11, color: colorBrutoSub, fontFamily: LEXEND }}>bruto</div>
+        {/* FIX 47: "Bruto" con B mayúscula */}
+        <div style={{ fontSize: 11, color: colorBruto, fontFamily: LEXEND }}>Bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 600, color: COLOR.verde }}>
-          {tieneDatos ? fmtEur(stat!.neto, { decimals: 0 }) : '—'}
+        {/* FIX 43: neto mismo tamaño */}
+        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: COLOR.verde }}>
+          {/* FIX 45: neto sin €, decimals:2 */}
+          {tieneDatos ? fmtEur(datos.neto, { showEuro: false, decimals: 2 }) : '—'}
         </div>
+        {/* FIX 46: "Margen X,XX%" con 2 decimales */}
         <div style={{ fontSize: 14, color: COLOR.verde, fontFamily: LEXEND }}>
-          {tieneDatos ? `Margen ${Math.round(stat!.margen)}%` : ''}
+          {tieneDatos && datos.margenPct !== null ? `Margen ${fmtPct(datos.margenPct, 2)}` : ''}
         </div>
       </div>
     </div>
   )
 }
 
-function CardCanalMini({ label, bg, border, colorLabel, colorBruto, stat }: Omit<CardCanalProps, 'colorBrutoSub'>) {
-  const tieneDatos = (stat?.bruto ?? 0) > 0
+function CardCanalMini({ label, bg, border, colorLabel, colorBruto, datos }: Omit<CardCanalProps, 'colorBrutoSub'>) {
+  const tieneDatos = !datos.sinDatos && datos.bruto !== null
   return (
     <div style={{
       background: bg,
@@ -128,10 +227,12 @@ function CardCanalMini({ label, bg, border, colorLabel, colorBruto, stat }: Omit
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
       <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-        {tieneDatos ? fmtEur(stat!.bruto, { decimals: 0 }) : '— €'}
+        {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : '— €'}
       </div>
       <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: LEXEND }}>
-        {tieneDatos ? `${fmtEur(stat!.neto, { decimals: 0 })} neto · ${Math.round(stat!.margen)}%` : 'sin datos'}
+        {tieneDatos
+          ? `${fmtEur(datos.neto, { showEuro: false, decimals: 2 })} neto · ${fmtPct(datos.margenPct ?? 0, 2)}`
+          : 'sin datos'}
       </div>
     </div>
   )

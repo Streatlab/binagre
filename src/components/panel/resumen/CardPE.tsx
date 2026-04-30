@@ -1,12 +1,14 @@
 /**
- * CardPE — Punto de Equilibrio
- * K.1: Tooltip en sublabel
- * K.2: Bruto sin €, % semáforo; ELIMINAR "netos"
- * K.3: Fallback "Datos insuficientes" si peParams no disponible
- * K.4: Día verde con ✓ si alcanzado; Facturación día sin "bruto"; Pedidos día azul+naranja; Real actual muted
- * K.5: Renombrar "Facturación / día" → "Facturación día" y "Pedidos / día" → "Pedidos día"
+ * CardPE — Fixes 89-94
+ * FIX 89: "Bruto necesario" con B mayúscula
+ * FIX 90: ELIMINAR "9.610 € netos" del subtítulo
+ * FIX 91: fmtPct(pct, 2) con 2 decimales
+ * FIX 92: calcDiaVerde dinámico
+ * FIX 93: unificar "Pedidos día / TM" en una línea
+ * FIX 94: "Realidad hoy" con tooltip
  */
-import { fmtEur } from '@/lib/format'
+import type React from 'react'
+import { fmtEur, fmtPct } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, card, lblSm, kpiSm, barTrack } from './tokens'
 
 interface Props {
@@ -20,12 +22,51 @@ interface Props {
   tmActual: number
   realFacDia: number
   realPedDia: number
+  año?: number
+  mes?: number
+}
+
+function calcDiaVerde(
+  facturadoActual: number,
+  brutoNecesario: number,
+  diaActual: number,
+  diasMes: number
+): { texto: string; color: string } {
+  const pct = brutoNecesario > 0 ? (facturadoActual / brutoNecesario) * 100 : 0
+
+  if (pct >= 100) {
+    const velocidadDia = diaActual > 0 ? facturadoActual / diaActual : 0
+    if (velocidadDia <= 0) return { texto: 'Alcanzado', color: '#1D9E75' }
+    const diaAlcanzado = Math.ceil(brutoNecesario / velocidadDia)
+    return { texto: `Día ${diaAlcanzado} · ✓ alcanzado`, color: '#1D9E75' }
+  }
+
+  if (facturadoActual === 0) {
+    return { texto: 'Sin datos', color: '#7a8090' }
+  }
+
+  const velocidadDia = diaActual > 0 ? facturadoActual / diaActual : 0
+  if (velocidadDia <= 0) return { texto: 'Sin datos', color: '#7a8090' }
+
+  const diaVerdeEstimado = Math.ceil(brutoNecesario / velocidadDia)
+
+  if (diaVerdeEstimado <= diasMes) {
+    return { texto: `Día ${diaVerdeEstimado}`, color: '#1D9E75' }
+  }
+
+  const diasExtra = diaVerdeEstimado - diasMes
+  return { texto: `+${diasExtra}d sobre mes`, color: '#1D9E75' }
+}
+
+function diasEnMes(año: number, mes: number): number {
+  return new Date(año, mes, 0).getDate()
 }
 
 export default function CardPE({
   peBruto, acumulado, pctProgreso,
-  diaVerdeEstimado, facturacionDia, pedidosDia, tmActual,
-  realFacDia, realPedDia,
+  facturacionDia, pedidosDia, tmActual,
+  realFacDia,
+  año, mes,
 }: Props) {
   const sinDatos = peBruto <= 0
 
@@ -37,11 +78,17 @@ export default function CardPE({
   const filled = Math.min(pctProgreso, 100)
   const remaining = Math.max(0, 100 - pctProgreso)
 
-  const alcanzado = pctProgreso >= 100
+  const hoy = new Date()
+  const añoActual = año ?? hoy.getFullYear()
+  const mesActual = mes ?? (hoy.getMonth() + 1)
+  const diaActual = hoy.getDate()
+  const totalDiasMes = diasEnMes(añoActual, mesActual)
+
+  // FIX 92: calcDiaVerde dinámico
+  const diaVerdeCalc = calcDiaVerde(acumulado, peBruto, diaActual, totalDiasMes)
 
   return (
     <div style={card}>
-      {/* K.1: Tooltip en sublabel */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
         <div style={lblSm}>PUNTO DE EQUILIBRIO</div>
         <span
@@ -58,16 +105,18 @@ export default function CardPE({
         </div>
       ) : (
         <>
-          {/* K.2: Bruto sin €, % semáforo. ELIMINAR "netos" */}
+          {/* FIX 89: "Bruto necesario" (B mayúscula) */}
+          {/* FIX 90: sin "X € netos" */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 6 }}>
             <div>
               <div style={kpiSm}>{fmtEur(peBruto, { showEuro: false, decimals: 0 })}</div>
               <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
-                bruto necesario
+                Bruto necesario
               </div>
             </div>
+            {/* FIX 91: fmtPct(pct, 2) */}
             <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: sem }}>
-              {pctProgreso}%
+              {fmtPct(pctProgreso, 2)}
             </div>
           </div>
 
@@ -81,48 +130,37 @@ export default function CardPE({
           </div>
 
           <div style={{ marginTop: 14, paddingTop: 10, borderTop: `0.5px solid ${COLOR.borde}` }}>
-            {/* K.4: Día verde con ✓ si alcanzado */}
+            {/* FIX 92: día verde dinámico */}
             <Linea
               label="Día verde estimado"
-              valor={
-                alcanzado
-                  ? '✓ Alcanzado'
-                  : diaVerdeEstimado
-                    ? `${diaVerdeEstimado.fecha} · ${diaVerdeEstimado.diaSemana}`
-                    : '—'
-              }
-              fuerte
-              colorValor={alcanzado ? COLOR.verde : undefined}
+              valor={<span style={{ color: diaVerdeCalc.color, fontWeight: 500 }}>{diaVerdeCalc.texto}</span>}
             />
 
-            {/* K.5: "Facturación día" sin "bruto" */}
-            <Linea
-              label="Facturación día"
-              valor={`${fmtEur(facturacionDia, { showEuro: false, decimals: 0 })}`}
-              fuerte
-            />
-
-            {/* K.4: Pedidos día con azul+naranja (pedidos en azul, TM en naranja) */}
+            {/* FIX 93: "Pedidos día / TM" una sola línea */}
             <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: LEXEND }}>
-              <span style={{ color: COLOR.textMut }}>Pedidos día</span>
+              <span style={{ color: COLOR.textMut }}>Pedidos día / TM</span>
               <span>
-                <span style={{ color: COLOR.directa, fontWeight: 500 }}>{fmtEur(pedidosDia, { showEuro: false, decimals: 0 })}</span>
-                <span style={{ color: COLOR.textMut }}>{' a '}</span>
-                <span style={{ color: COLOR.ambar, fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 0 })}</span>
+                <span style={{ color: '#1E5BCC', fontWeight: 500 }}>{pedidosDia}</span>
+                <span style={{ color: COLOR.textMut }}>{' / '}</span>
+                <span style={{ color: '#F26B1F', fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 2 })}</span>
               </span>
             </div>
 
-            {/* K.4: Real actual muted */}
-            <div style={{
-              fontSize: 12,
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginTop: 6,
-              color: COLOR.textMut,
-              fontFamily: LEXEND,
-            }}>
-              <span>Real actual</span>
-              <span>{fmtEur(realFacDia, { showEuro: false, decimals: 0 })}/día · {fmtEur(realPedDia, { showEuro: false, decimals: 0 })} ped/día</span>
+            {/* FIX 94: "Realidad hoy" con tooltip */}
+            <div
+              title="Lo que estamos facturando de media diaria en el periodo seleccionado"
+              style={{
+                fontSize: 12,
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: 6,
+                color: COLOR.textMut,
+                fontFamily: LEXEND,
+                cursor: 'help',
+              }}
+            >
+              <span>Realidad hoy</span>
+              <span>{fmtEur(realFacDia, { showEuro: false, decimals: 0 })}/día</span>
             </div>
           </div>
         </>
@@ -131,12 +169,7 @@ export default function CardPE({
   )
 }
 
-function Linea({ label, valor, fuerte, colorValor }: {
-  label: string
-  valor: string
-  fuerte?: boolean
-  colorValor?: string
-}) {
+function Linea({ label, valor }: { label: string; valor: React.ReactNode }) {
   return (
     <div style={{
       fontSize: 12,
@@ -146,9 +179,7 @@ function Linea({ label, valor, fuerte, colorValor }: {
       fontFamily: LEXEND,
     }}>
       <span style={{ color: COLOR.textMut }}>{label}</span>
-      <span style={{ color: colorValor ?? (fuerte ? COLOR.textSec : COLOR.textMut), fontWeight: fuerte ? 500 : 400 }}>
-        {valor}
-      </span>
+      <span>{valor}</span>
     </div>
   )
 }

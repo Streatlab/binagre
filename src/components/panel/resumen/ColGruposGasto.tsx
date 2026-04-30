@@ -1,54 +1,121 @@
-import { useState, type CSSProperties } from 'react'
-import {
-  COLOR, OSWALD, LEXEND, card, lbl, lblSm, editable,
-  semaforoCumplGrupo,
-} from './tokens'
-import { fmtEur } from '@/lib/format'
+/**
+ * ColGruposGasto — Fixes 52-64
+ * FIX 52: consumido fmtEur showEuro:true decimals:2
+ * FIX 53: presupuesto fmtEur showEuro:true decimals:2
+ * FIX 54: desviación fmtEur showEuro:false decimals:2
+ * FIX 55: desviación color verde si bajo, rojo si sobre, + prefijo
+ * FIX 56: cabecera derecha Producto = "Food Cost X%" verde
+ * FIX 57: eliminar "% s/netos X%" de Equipo/Local/Controlables
+ * FIX 58: eliminar "Banda X-X%"
+ * FIX 59: "Objetivo X%" editable inline
+ * FIX 60: BarraCumplimiento
+ * FIX 61: % consumo coloreado colorSemaforo(100 - min(pct,100))
+ * FIX 62: presupuesto = running.ingresos_netos * pctObjetivo / 100
+ * FIX 63: consumido = running.{grupo} mes actual
+ * FIX 64: running vacío → "Datos insuficientes"
+ */
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { fmtEur, fmtPct, colorSemaforo } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, card, lbl, lblSm } from './tokens'
+import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
+import { EditableInline } from '@/components/ui/EditableInline'
 
 export type GrupoGasto = 'producto' | 'equipo' | 'local' | 'controlables'
 
 interface GrupoData {
   gasto: number
   presupuesto: number
-  /** Para Producto: food cost = COGS/Netos. Para resto: % s/netos */
   pctSobreNetos: number
 }
 
 interface Props {
   data: Record<GrupoGasto, GrupoData>
-  onSavePresupuesto: (grupo: GrupoGasto, valor: number | null) => Promise<void>
-  onToast: (msg: string, type: 'success' | 'warning') => void
+  onSavePresupuesto?: (grupo: GrupoGasto, valor: number | null) => Promise<void>
+  onToast?: (msg: string, type: 'success' | 'warning') => void
+  año?: number
+  mes?: number
 }
 
-const GRUPOS: { id: GrupoGasto; label: string; sub: string; banda: string; subRightLabel: string }[] = [
-  { id: 'producto',     label: 'PRODUCTO · COGS',  sub: 'food cost',      banda: 'Banda 25-30%', subRightLabel: 'food cost' },
-  { id: 'equipo',       label: 'EQUIPO · LABOR',   sub: '% s/netos',      banda: 'Banda 30-35%', subRightLabel: '% s/netos' },
-  { id: 'local',        label: 'LOCAL · OCCUPANCY',sub: '% s/netos',      banda: 'Banda 5-10%',  subRightLabel: '% s/netos' },
-  { id: 'controlables', label: 'CONTROLABLES · OPEX', sub: '% s/netos',   banda: 'Banda 13-18%', subRightLabel: '% s/netos' },
+interface KpiObj {
+  id: number
+  presupuesto_producto_pct: number | null
+  presupuesto_personal_pct: number | null
+  presupuesto_local_pct: number | null
+  presupuesto_controlables_pct: number | null
+}
+
+interface RunningRow {
+  ingresos_netos: number | null
+  producto: number | null
+  personal: number | null
+  local: number | null
+  controlables: number | null
+}
+
+const DEFAULT_PCT: Record<string, number> = {
+  producto: 30,
+  equipo: 40,
+  local: 15,
+  controlables: 15,
+}
+
+const GRUPOS: { id: GrupoGasto; label: string }[] = [
+  { id: 'producto',     label: 'PRODUCTO · COGS'       },
+  { id: 'equipo',       label: 'EQUIPO · LABOR'         },
+  { id: 'local',        label: 'LOCAL · OCCUPANCY'      },
+  { id: 'controlables', label: 'CONTROLABLES · OPEX'    },
 ]
 
-export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Props) {
-  const [editing, setEditing] = useState<GrupoGasto | null>(null)
-  const [editVal, setEditVal] = useState<string>('')
+export default function ColGruposGasto({ data, año, mes, onSavePresupuesto: _onSave, onToast: _onToast }: Props) {
+  const añoActual = año ?? new Date().getFullYear()
+  const mesActual = mes ?? (new Date().getMonth() + 1)
 
-  function startEdit(g: GrupoGasto) {
-    setEditing(g)
-    setEditVal(String(data[g].presupuesto))
+  const [kpiObj, setKpiObj] = useState<KpiObj | null>(null)
+  const [kpiVersion, setKpiVersion] = useState(0)
+  const [running, setRunning] = useState<RunningRow | null>(null)
+
+  // FIX 59: leer kpi_objetivos
+  useEffect(() => {
+    supabase
+      .from('kpi_objetivos')
+      .select('id, presupuesto_producto_pct, presupuesto_personal_pct, presupuesto_local_pct, presupuesto_controlables_pct')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data: d }) => setKpiObj(d as KpiObj | null))
+  }, [kpiVersion])
+
+  // FIX 63: leer running mes actual
+  useEffect(() => {
+    supabase
+      .from('running')
+      .select('ingresos_netos, producto, personal, local, controlables')
+      .eq('año', añoActual)
+      .eq('mes', mesActual)
+      .maybeSingle()
+      .then(({ data: d }) => setRunning(d as RunningRow | null))
+  }, [añoActual, mesActual])
+
+  function getPct(grupo: GrupoGasto): number {
+    if (!kpiObj) return DEFAULT_PCT[grupo] ?? 30
+    const map: Record<GrupoGasto, keyof KpiObj> = {
+      producto: 'presupuesto_producto_pct',
+      equipo: 'presupuesto_personal_pct',
+      local: 'presupuesto_local_pct',
+      controlables: 'presupuesto_controlables_pct',
+    }
+    return (kpiObj[map[grupo]] as number | null) ?? DEFAULT_PCT[grupo] ?? 30
   }
 
-  async function commit(g: GrupoGasto) {
-    const trimmed = editVal.trim()
-    if (trimmed === '') {
-      await onSavePresupuesto(g, null)
-      onToast('Restaurado', 'warning')
-    } else {
-      const num = parseFloat(trimmed.replace(',', '.'))
-      if (!isNaN(num) && num > 0) {
-        await onSavePresupuesto(g, num)
-        onToast('Objetivo actualizado', 'success')
-      }
+  function getCampoRunning(grupo: GrupoGasto): number | null {
+    if (!running) return null
+    const map: Record<GrupoGasto, keyof RunningRow> = {
+      producto: 'producto',
+      equipo: 'personal',
+      local: 'local',
+      controlables: 'controlables',
     }
-    setEditing(null)
+    return running[map[grupo]] as number | null
   }
 
   return (
@@ -56,91 +123,91 @@ export default function ColGruposGasto({ data, onSavePresupuesto, onToast }: Pro
       <div style={{ ...lbl, marginBottom: 10 }}>GRUPOS DE GASTO · CONSUMO vs PRESUPUESTO</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {GRUPOS.map(g => {
-          const d = data[g.id]
-          const pctCumpl = d.presupuesto > 0 ? Math.round((d.gasto / d.presupuesto) * 100) : 0
-          const semCumpl = semaforoCumplGrupo(pctCumpl)
-          const colorCumpl = semCumpl
-          const desv = d.gasto - d.presupuesto
-          const semDesv = desv > 0 ? COLOR.rojo : COLOR.verde
-          const semSub = (() => {
-            // Banda específica para color del food cost / % s/netos del header derecho
-            const p = d.pctSobreNetos
-            if (g.id === 'producto') return p >= 25 && p <= 30 ? COLOR.verde : (p > 30 ? COLOR.rojo : COLOR.ambar)
-            if (g.id === 'equipo')   return p >= 30 && p <= 35 ? COLOR.verde : (p > 35 ? COLOR.rojo : COLOR.ambar)
-            if (g.id === 'local')    return p >= 5  && p <= 10 ? COLOR.verde : (p > 10 ? COLOR.rojo : COLOR.ambar)
-            return p >= 13 && p <= 18 ? COLOR.verde : (p > 18 ? COLOR.rojo : COLOR.ambar)
-          })()
+          const pctObjetivo = getPct(g.id)
+          const ingresosNetos = running?.ingresos_netos ?? null
 
-          const isEditing = editing === g.id
-          const filled = Math.min(pctCumpl, 100)
-          const remaining = Math.max(0, 100 - pctCumpl)
-          const overflow = pctCumpl > 100
+          // FIX 62: presupuesto = running.ingresos_netos * pctObjetivo / 100
+          const presupuesto = ingresosNetos !== null
+            ? (ingresosNetos * pctObjetivo / 100)
+            : data[g.id].presupuesto
+
+          // FIX 63: consumido desde running
+          const consumidoRunning = getCampoRunning(g.id)
+          // FIX 64: si running vacío, usar data prop
+          const consumido = consumidoRunning !== null ? consumidoRunning : data[g.id].gasto
+
+          // FIX 64: texto "Datos insuficientes" si running completamente vacío
+          const sinDatos = running === null && consumidoRunning === null
+
+          const pctCumpl = presupuesto > 0 ? (consumido / presupuesto) * 100 : 0
+
+          // FIX 61: colorSemaforo(100 - min(pctCumpl, 100)) — menos consumo = mejor
+          const colorCumpl = colorSemaforo(100 - Math.min(pctCumpl, 100))
+
+          // FIX 55: desviación
+          const desv = consumido - presupuesto
 
           return (
             <div key={g.id} style={{ ...card, padding: '12px 14px 14px 14px', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <div style={lblSm}>{g.label}</div>
+                {/* FIX 56: solo Producto muestra Food Cost en verde; FIX 57: resto sin % */}
                 {g.id === 'producto' && (
-                  <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>
+                  <div style={{ fontSize: 11, color: COLOR.verde, fontFamily: LEXEND, fontWeight: 500 }}>
                     Food Cost{' '}
-                    <span style={{ color: COLOR.verde, fontWeight: 500 }}>{d.pctSobreNetos.toFixed(0)}%</span>
+                    <span style={{ color: COLOR.verde }}>{fmtPct(data[g.id].pctSobreNetos, 0)}</span>
                   </div>
                 )}
               </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
                 <div>
                   <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: COLOR.textPri }}>
-                    {fmtEur(d.gasto, { decimals: 0 })}
+                    {/* FIX 52: showEuro:true decimals:2 */}
+                    {sinDatos ? 'Datos insuficientes' : fmtEur(consumido, { showEuro: true, decimals: 2 })}
                   </span>
                   <span style={{ fontSize: 12, color: COLOR.textMut, fontFamily: LEXEND }}>
                     {' / '}
-                    {isEditing ? (
-                      <input
-                        autoFocus
-                        type="number"
-                        value={editVal}
-                        onChange={(e) => setEditVal(e.target.value)}
-                        onBlur={() => commit(g.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commit(g.id)
-                          if (e.key === 'Escape') setEditing(null)
-                        }}
-                        style={{
-                          width: 90, padding: '1px 6px', borderRadius: 4,
-                          border: `1px solid ${COLOR.rojoAccent}`, background: '#fff',
-                          fontFamily: OSWALD, fontSize: 13, color: COLOR.textPri, outline: 'none',
-                        }}
-                      />
-                    ) : (
-                      <span
-                        style={editable as CSSProperties}
-                        onClick={() => startEdit(g.id)}
-                        title="Click para editar presupuesto"
-                      >
-                        {fmtEur(d.presupuesto, { decimals: 0 })}
-                      </span>
-                    )}
+                    {/* FIX 53: presupuesto showEuro:true decimals:2 */}
+                    {sinDatos ? 'Datos insuficientes' : fmtEur(presupuesto, { showEuro: true, decimals: 2 })}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: semCumpl, fontWeight: 500, fontFamily: LEXEND }}>
-                  {pctCumpl}%
+                {/* FIX 61: % con colorSemaforo */}
+                <div style={{ fontSize: 12, color: colorCumpl, fontWeight: 500, fontFamily: LEXEND }}>
+                  {Math.round(pctCumpl)}%
                 </div>
               </div>
-              <div style={{ height: 6, borderRadius: 4, background: COLOR.bordeClaro, overflow: 'hidden', display: 'flex', margin: '6px 0 4px' }}>
-                {overflow ? (
-                  <div style={{ height: '100%', width: '100%', background: COLOR.rojo, transition: 'width 0.5s ease' }} />
-                ) : (
-                  <>
-                    <div style={{ height: '100%', width: `${filled}%`, background: colorCumpl, transition: 'width 0.5s ease' }} />
-                    <div style={{ height: '100%', width: `${remaining}%`, background: COLOR.rojo }} />
-                  </>
-                )}
+
+              {/* FIX 60: BarraCumplimiento */}
+              <div style={{ margin: '6px 0 4px' }}>
+                <BarraCumplimiento pct={pctCumpl} altura={6} presupuesto={presupuesto} />
               </div>
+
               <div style={{ fontSize: 10, color: COLOR.textMut, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
-                <span></span>
-                <span style={{ color: desv < 0 ? COLOR.verde : COLOR.rojo }}>
-                  {desv < 0 ? '' : '+'}{fmtEur(Math.abs(desv), { decimals: 0 })} desv
+                {/* FIX 59: Objetivo editable */}
+                <span>
+                  <span>Objetivo </span>
+                  <EditableInline
+                    valor={pctObjetivo}
+                    tabla="kpi_objetivos"
+                    campo={
+                      g.id === 'producto' ? 'presupuesto_producto_pct'
+                      : g.id === 'equipo' ? 'presupuesto_personal_pct'
+                      : g.id === 'local' ? 'presupuesto_local_pct'
+                      : 'presupuesto_controlables_pct'
+                    }
+                    filtros={{}}
+                    decimales={0}
+                    unidad="%"
+                    onUpdate={() => setKpiVersion(v => v + 1)}
+                  />
                 </span>
+                {/* FIX 54+55: desviación sin €, color verde/rojo con signo */}
+                {!sinDatos && (
+                  <span style={{ color: desv <= 0 ? COLOR.verde : COLOR.rojo }}>
+                    {desv > 0 ? '+' : ''}{fmtEur(desv, { showEuro: false, decimals: 2 })} desv
+                  </span>
+                )}
               </div>
             </div>
           )

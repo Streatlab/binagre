@@ -1,9 +1,27 @@
-import { useState, type CSSProperties } from 'react'
+/**
+ * CardVentas — Fixes 1-17
+ * FIX 2: sin € bruto
+ * FIX 3: sin € neto
+ * FIX 4: sin € objetivos
+ * FIX 5: sin € faltan
+ * FIX 6: sublabel FACTURACIÓN
+ * FIX 7: fmtSemana formato S18_27_04_26
+ * FIX 8: fmtMes solo nombre
+ * FIX 9: solo año string
+ * FIX 10: bruto fontSize 38 fontWeight 600 color #111111
+ * FIX 11: neto fontSize 38 fontWeight 600 color verde
+ * FIX 12-13: objetivos desde Supabase con override_usuario
+ * FIX 14-15: EditableInline
+ * FIX 16: BarraCumplimiento
+ * FIX 17: colorSemaforo para %
+ */
+import { useEffect, useCallback } from 'react'
 import {
-  COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, kpiBig,
-  barTrack, editable, semaforoBarra, fmtDec,
+  COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm,
 } from './tokens'
-import { fmtSemana, fmtEur } from '@/lib/format'
+import { fmtEur, fmtSemana, fmtMes, colorSemaforo } from '@/lib/format'
+import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
+import { EditableInline } from '@/components/ui/EditableInline'
 import type { ObjetivosVentas, ToastFn } from './types'
 
 interface Props {
@@ -14,93 +32,87 @@ interface Props {
   ventasMes: number
   ventasAno: number
   nSemana: number
-  nombreMes: string
+  lunesSemana?: Date
+  mes?: number
   ano: number
   objetivos: ObjetivosVentas
   onSaveObjetivo: (tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) => Promise<void>
+  refetchObjetivos?: () => void
   toast: ToastFn
 }
-
-type Tipo = 'semanal' | 'mensual' | 'anual'
 
 export default function CardVentas({
   bruto, netoEstimado, variacionPct,
   ventasSemana, ventasMes, ventasAno,
-  nSemana, nombreMes, ano,
-  objetivos, onSaveObjetivo, toast,
+  nSemana, lunesSemana, mes, ano,
+  objetivos, onSaveObjetivo, refetchObjetivos, toast,
 }: Props) {
-  const [editing, setEditing] = useState<Tipo | null>(null)
-  const [editVal, setEditVal] = useState<string>('')
-
   const pctNeto = bruto > 0 ? Math.round((netoEstimado / bruto) * 100) : 0
 
-  function startEdit(tipo: Tipo) {
-    setEditing(tipo)
-    setEditVal(String(objetivos[tipo]))
-  }
+  // FIX 7: semana label usando fmtSemana
+  const lunesRef = lunesSemana ?? (() => {
+    const now = new Date()
+    const day = now.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    const m = new Date(now)
+    m.setDate(now.getDate() + diff)
+    return m
+  })()
+  const semLabel = fmtSemana(nSemana, lunesRef)
 
-  async function commit(tipo: Tipo) {
-    const trimmed = editVal.trim()
-    if (trimmed === '') {
-      await onSaveObjetivo(tipo, null)
-      toast('Restaurado', 'warning')
-    } else {
-      const num = parseFloat(trimmed.replace(',', '.'))
-      if (!isNaN(num) && num > 0) {
-        await onSaveObjetivo(tipo, num)
-        toast('Objetivo actualizado', 'success')
-      }
-    }
-    setEditing(null)
-  }
+  // FIX 8: mes label usando fmtMes
+  const mesActual = mes ?? (new Date().getMonth() + 1)
+  const mesLabel = fmtMes(mesActual)
 
-  function rowBarra(tipo: Tipo, valor: number, objetivo: number, label: string, sub: string | null, marginBottom: number) {
-    const pct = objetivo > 0 ? Math.min(100, Math.round((valor / objetivo) * 100)) : 0
-    const sem = semaforoBarra(pct)
+  const handleUpdate = useCallback(() => {
+    refetchObjetivos?.()
+  }, [refetchObjetivos])
+
+  function rowBarra(
+    tipo: 'semanal' | 'mensual' | 'anual',
+    valor: number,
+    objetivo: number,
+    label: string,
+    marginBottom: number
+  ) {
+    const pct = objetivo > 0 ? Math.min(100, (valor / objetivo) * 100) : 0
+    // FIX 17: colorSemaforo
+    const sem = colorSemaforo(pct)
     const faltan = Math.max(0, objetivo - valor)
-    const isEditing = editing === tipo
 
     return (
-      <div style={{ marginBottom }}>
+      <div key={tipo} style={{ marginBottom }}>
+        {/* FIX 7/8/9: solo label sin prefijo SEMANAL/MENSUAL/ANUAL */}
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={lblSm}>{sub ? `${label} — ${sub}` : label}</span>
-          <span style={{ ...lblSm, color: sem }}>{pct}%</span>
+          <span style={lblSm}>{label}</span>
+          {/* FIX 17: % coloreado con semáforo */}
+          <span style={{ ...lblSm, color: sem }}>{Math.round(pct)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
+          {/* FIX 5+17: sin €, color semáforo */}
           <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false })}</span>
           <span>de</span>
-          {isEditing ? (
-            <input
-              autoFocus
-              type="number"
-              value={editVal}
-              onChange={(e) => setEditVal(e.target.value)}
-              onBlur={() => commit(tipo)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commit(tipo)
-                if (e.key === 'Escape') setEditing(null)
-              }}
-              style={{
-                width: 90, padding: '1px 6px', borderRadius: 4,
-                border: `1px solid ${COLOR.rojoAccent}`, background: '#fff',
-                fontFamily: OSWALD, fontSize: 13, color: COLOR.textPri, outline: 'none',
-              }}
-            />
-          ) : (
-            <span
-              style={editable as CSSProperties}
-              onClick={() => startEdit(tipo)}
-              title="Click para editar objetivo"
-            >
-              {fmtEur(objetivo, { showEuro: false })}
-            </span>
-          )}
+          {/* FIX 14: EditableInline */}
+          <EditableInline
+            valor={objetivo}
+            tabla="objetivos"
+            campo="override_usuario"
+            filtros={
+              tipo === 'semanal'
+                ? { tipo: 'semanal', año: ano, semana: nSemana }
+                : tipo === 'mensual'
+                  ? { tipo: 'mensual', año: ano, mes: mesActual }
+                  : { tipo: 'anual', año: ano }
+            }
+            decimales={2}
+            unidad=""
+            color="#3a4050"
+            onUpdate={handleUpdate}
+          />
         </div>
-        <div style={barTrack}>
-          <div style={{ height: '100%', width: `${pct}%`, background: sem, transition: 'width 0.5s ease' }} />
-          <div style={{ height: '100%', width: `${100 - pct}%`, background: COLOR.rojo }} />
-        </div>
+        {/* FIX 16: BarraCumplimiento */}
+        <BarraCumplimiento pct={pct} altura={8} />
       </div>
     )
   }
@@ -110,14 +122,19 @@ export default function CardVentas({
 
   return (
     <div style={cardBig}>
+      {/* FIX 6: FACTURACIÓN */}
       <div style={lbl}>FACTURACIÓN</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={kpiBig}>{fmtEur(bruto, { showEuro: false })}</div>
+          {/* FIX 10: fontSize 38, #111111, sin € */}
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#111111' }}>
+            {fmtEur(bruto, { showEuro: false })}
+          </div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
+          {/* FIX 11: fontSize 38 verde, sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
             {fmtEur(netoEstimado, { showEuro: false })}
           </div>
@@ -129,13 +146,16 @@ export default function CardVentas({
 
       {variacionPct !== null && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {flecha} {fmtDec(Math.abs(variacionPct), 1)}% vs anterior
+          {flecha} {Math.abs(variacionPct).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% vs anterior
         </div>
       )}
 
-      {rowBarra('semanal', ventasSemana, objetivos.semanal, 'SEMANAL', `S${nSemana}`, 14)}
-      {rowBarra('mensual', ventasMes,    objetivos.mensual, nombreMes, null, 14)}
-      {rowBarra('anual',   ventasAno,    objetivos.anual,   String(ano), null, 0)}
+      {/* FIX 7: semLabel = S18_27_04_26 */}
+      {rowBarra('semanal', ventasSemana, objetivos.semanal, semLabel, 14)}
+      {/* FIX 8: mesLabel = Abril */}
+      {rowBarra('mensual', ventasMes, objetivos.mensual, mesLabel, 14)}
+      {/* FIX 9: solo año */}
+      {rowBarra('anual', ventasAno, objetivos.anual, String(ano), 0)}
     </div>
   )
 }
