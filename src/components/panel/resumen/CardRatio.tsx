@@ -1,7 +1,14 @@
+/**
+ * CardRatio — Ratio Ingresos / Gastos
+ * J.3: Barra + desviación movidos justo debajo del coeficiente grande.
+ * J.4: Solo Ingresos netos / Gastos fijos / Gastos variables (eliminados "Netos estimados" y "Netos reales factura").
+ * J.5: Datos de running no existen → "Datos insuficientes" en cifras.
+ * J.6: Tooltip en título.
+ */
 import { useState, type CSSProperties } from 'react'
 import {
   COLOR, OSWALD, LEXEND, card, lblSm, barTrack, editable,
-  fmtEur0, fmtDec,
+  fmtEntero, fmtDec,
 } from './tokens'
 
 interface Props {
@@ -15,16 +22,15 @@ interface Props {
 }
 
 export default function CardRatio({
-  netosEstimados, netosReales, gastosFijos, gastosReales,
+  netosEstimados, gastosFijos, gastosReales,
   objetivo, onSaveObjetivo, onToast,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [editVal, setEditVal] = useState<string>('')
 
-  const ratioRaw = gastosReales > 0 ? netosReales / gastosReales : 0
-  // Validar ratio sano: si gastos < 100 o netos > 100x gastos → datos insuficientes
-  const ratioInsuficiente = gastosReales < 100 || (gastosReales > 0 && netosReales > gastosReales * 100)
-  const ratio = ratioInsuficiente ? 0 : ratioRaw
+  // J.5: running no existe → todos los datos son insuficientes si gastosReales < 100
+  const ratioInsuficiente = gastosReales < 100 || netosEstimados < 100
+  const ratio = ratioInsuficiente ? 0 : (gastosReales > 0 ? netosEstimados / gastosReales : 0)
   const pctDist = objetivo > 0 ? Math.round((ratio / objetivo) * 100) : 0
   const ratioPctObj = objetivo > 0 ? (ratio / objetivo) * 100 : 0
 
@@ -33,6 +39,9 @@ export default function CardRatio({
     ratioPctObj >= 80 ? COLOR.ambar : COLOR.rojo
 
   const flecha = ratio >= objetivo ? '▲' : '▼'
+
+  const filled = Math.min(pctDist, 100)
+  const remaining = Math.max(0, 100 - pctDist)
 
   function startEdit() {
     setEditing(true)
@@ -54,13 +63,20 @@ export default function CardRatio({
     setEditing(false)
   }
 
-  const filled = Math.min(pctDist, 100)
-  const remaining = Math.max(0, 100 - pctDist)
-
   return (
     <div style={card}>
+      {/* Cabecera con tooltip */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={lblSm}>RATIO INGRESOS / GASTOS</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <div style={lblSm}>RATIO INGRESOS / GASTOS</div>
+          <span
+            title="Cociente entre ingresos netos estimados y gastos totales del periodo. Objetivo por defecto: 2.5"
+            style={{ fontSize: 11, color: COLOR.textMut, cursor: 'help', fontFamily: LEXEND }}
+          >
+            ⓘ
+          </span>
+        </div>
+        {/* Objetivo editable inline — J.1 */}
         <div style={{ fontSize: 11, color: COLOR.textMut, display: 'flex', alignItems: 'center', gap: 4, fontFamily: LEXEND }}>
           obj{' '}
           {editing ? (
@@ -82,6 +98,7 @@ export default function CardRatio({
               }}
             />
           ) : (
+            // J.1: hardcode 2.5 si kpi_objetivos no existe — la tabla objetivos sí existe, se usa en TabResumen
             <span style={editable as CSSProperties} onClick={startEdit} title="Click para editar objetivo">
               {fmtDec(objetivo, 1)}
             </span>
@@ -89,42 +106,50 @@ export default function CardRatio({
         </div>
       </div>
 
-      <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: semColor, marginTop: 6 }}
-           title={ratioInsuficiente ? 'Datos insuficientes para calcular ratio' : undefined}>
+      {/* J.2: Coeficiente grande Oswald 38px con colorSemaforo */}
+      <div
+        style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: semColor, marginTop: 6 }}
+        title={ratioInsuficiente ? 'Datos insuficientes para calcular ratio' : undefined}
+      >
         {ratioInsuficiente ? '—' : fmtDec(ratio, 2)}
       </div>
-      <div style={{ fontSize: 12, color: semColor, marginBottom: 10, fontFamily: LEXEND }}>
-        {ratioInsuficiente ? 'Datos insuficientes' : `${flecha} ${pctDist}% del objetivo`}
-      </div>
 
-      <Linea label="Netos estimados"        valor={fmtEur0(netosEstimados)} top />
-      <Linea label="Netos reales (factura)" valor={fmtEur0(netosReales)} />
-      <Linea label="Gastos fijos"           valor={fmtEur0(gastosFijos)} marginTop={6} />
-      <Linea label="Gastos reales"          valor={fmtEur0(gastosReales)} />
-
-      <div style={{ marginTop: 14, paddingTop: 10, borderTop: `0.5px solid ${COLOR.borde}` }}>
-        <div style={{ fontSize: 11, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND }}>
-          Distancia al objetivo
-        </div>
+      {/* J.3: Barra + texto desviación justo debajo del coeficiente */}
+      <div style={{ marginTop: 6, marginBottom: 12 }}>
         <div style={barTrack}>
           <div style={{ height: '100%', width: `${filled}%`, background: semColor, transition: 'width 0.5s ease' }} />
           <div style={{ height: '100%', width: `${remaining}%`, background: COLOR.rojo }} />
         </div>
-        <div style={{ fontSize: 11, color: COLOR.textMut, textAlign: 'right', marginTop: 4, fontFamily: LEXEND }}>
-          {pctDist}% del {fmtDec(objetivo, 1)} obj
+        <div style={{ fontSize: 12, color: semColor, marginTop: 4, fontFamily: LEXEND }}>
+          {ratioInsuficiente ? 'Datos insuficientes' : `${flecha} ${pctDist}% del objetivo`}
         </div>
       </div>
+
+      {/* J.4: Solo Ingresos netos / Gastos fijos / Gastos variables */}
+      <Linea
+        label="Ingresos netos"
+        valor={ratioInsuficiente ? '—' : `${fmtEntero(netosEstimados)} €`}
+        top
+      />
+      <Linea
+        label="Gastos fijos"
+        valor={ratioInsuficiente ? '—' : `${fmtEntero(gastosFijos)} €`}
+      />
+      <Linea
+        label="Gastos variables"
+        valor={ratioInsuficiente ? '—' : `${fmtEntero(Math.max(0, gastosReales - gastosFijos))} €`}
+      />
     </div>
   )
 }
 
-function Linea({ label, valor, top, marginTop }: { label: string; valor: string; top?: boolean; marginTop?: number }) {
+function Linea({ label, valor, top }: { label: string; valor: string; top?: boolean }) {
   return (
     <div style={{
       fontSize: 12,
       display: 'flex',
       justifyContent: 'space-between',
-      marginTop: top ? 10 : marginTop ?? 0,
+      marginTop: top ? 4 : 2,
       fontFamily: LEXEND,
     }}>
       <span style={{ color: COLOR.textMut }}>{label}</span>
