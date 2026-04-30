@@ -47,6 +47,7 @@ import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
 import Running from '@/pages/finanzas/Running'
+import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 
@@ -192,6 +193,7 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
+        <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         {/* Panel Global */}
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
