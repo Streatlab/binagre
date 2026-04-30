@@ -16,7 +16,10 @@ interface TabMovimientosProps {
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
 
-const PAGE_SIZE = 25
+type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
+type SortDir = 'asc' | 'desc'
+
+const PAGE_SIZE = 100
 
 function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
   const tieneCategoria = !!m.categoria_id
@@ -43,10 +46,10 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
   const [catFiltro, setCatFiltro] = useState('todas')
   const [page, setPage] = useState(1)
   const [modalMov, setModalMov] = useState<Movimiento | null>(null)
-  const [sortColumn, setSortColumn] = useState<'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular' | null>('fecha')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>('fecha')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   useEffect(() => {
     Promise.all([
@@ -57,6 +60,18 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
       if (!tits.error) setTitulares(tits.data ?? [])
     })
   }, [])
+
+  function handleSort(col: SortColumn) {
+    if (sortColumn === col) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else if (sortDir === 'desc') { setSortColumn(null); setSortDir('asc') }
+      else setSortDir('asc')
+    } else {
+      setSortColumn(col)
+      setSortDir('asc')
+    }
+    setPage(1)
+  }
 
   const totales = useMemo(() => {
     const ingresos = movimientos.filter(m => m.importe > 0)
@@ -69,18 +84,6 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
       pendientesImporte: Math.abs(pendientes.reduce((s, m) => s + m.importe, 0)),
     }
   }, [movimientos])
-
-  function handleSort(col: 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular') {
-    if (sortColumn === col) {
-      if (sortDir === 'asc') setSortDir('desc')
-      else if (sortDir === 'desc') { setSortColumn(null); setSortDir('asc') }
-      else setSortDir('asc')
-    } else {
-      setSortColumn(col)
-      setSortDir('asc')
-    }
-    setPage(1)
-  }
 
   const filtrados = useMemo(() => {
     return movimientos
@@ -121,8 +124,8 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           return aCat.localeCompare(bCat) * dir
         }
         if (sortColumn === 'doc') {
-          const order = { 'tiene': 0, 'no_requiere': 1, 'falta': 2 }
-          return ((order[a.doc_estado as keyof typeof order] ?? 3) - (order[b.doc_estado as keyof typeof order] ?? 3)) * dir
+          const order: Record<string, number> = { 'tiene': 0, 'no_requiere': 1, 'falta': 2 }
+          return ((order[a.doc_estado as string] ?? 3) - (order[b.doc_estado as string] ?? 3)) * dir
         }
         if (sortColumn === 'estado') {
           const aEst = calcularEstado(a)
@@ -167,6 +170,17 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
     boxShadow: filtroCard === filtro ? '0 0 0 3px #FF475715' : 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   })
+
+  const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
+    { label: 'Fecha', col: 'fecha', align: 'left' },
+    { label: 'Concepto', col: 'concepto', align: 'left' },
+    { label: 'Contraparte', col: 'contraparte', align: 'left' },
+    { label: 'Importe', col: 'importe', align: 'right' },
+    { label: 'Categoría', col: 'categoria', align: 'left' },
+    { label: 'Doc', col: 'doc', align: 'center' },
+    { label: 'Estado', col: 'estado', align: 'left' },
+    { label: 'Titular', col: 'titular', align: 'left' },
+  ]
 
   return (
     <div>
@@ -294,16 +308,7 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
               </colgroup>
               <thead>
                 <tr>
-                  {([
-                    { label: 'Fecha', col: 'fecha' as const },
-                    { label: 'Concepto', col: 'concepto' as const },
-                    { label: 'Contraparte', col: 'contraparte' as const },
-                    { label: 'Importe', col: 'importe' as const },
-                    { label: 'Categoría', col: 'categoria' as const },
-                    { label: 'Doc', col: 'doc' as const },
-                    { label: 'Estado', col: 'estado' as const },
-                    { label: 'Titular', col: 'titular' as const },
-                  ]).map((h, i) => {
+                  {HEADERS.map(h => {
                     const isActive = sortColumn === h.col
                     const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
                     return (
@@ -317,7 +322,7 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
                           letterSpacing: '2px',
                           color: isActive ? '#FF4757' : '#7a8090',
                           textTransform: 'uppercase',
-                          textAlign: i === 3 ? 'right' : i === 5 ? 'center' : 'left',
+                          textAlign: h.align,
                           padding: '10px 16px',
                           background: '#f5f3ef',
                           borderBottom: '0.5px solid #d0c8bc',
@@ -429,9 +434,12 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
               Mostrando {paginated.length} de {filtrados.length} movimientos
             </span>
             {totalPages > 1 && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>‹</button>
-                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>›</button>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === 1 ? '#ccc' : '#111', cursor: currentPage === 1 ? 'default' : 'pointer' }}>‹</button>
+                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', padding: '0 8px' }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === totalPages ? '#ccc' : '#111', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>›</button>
               </div>
             )}
           </div>
