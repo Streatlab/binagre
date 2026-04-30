@@ -1,222 +1,239 @@
-import React from 'react'
-import { fmtEur } from '@/utils/format'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { fmtEur, fmtDate } from '@/utils/format'
+import { toast } from '@/lib/toastStore'
 import type { Movimiento } from '@/types/conciliacion'
+import { getNewId } from '@/lib/categoryMapping'
 
-interface ModalDetalleMovimientoProps {
+interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
+interface Titular { id: string; nombre: string }
+
+interface Props {
   movimiento: Movimiento | null
+  categoriasPyg: CatPyg[]
+  titulares: Titular[]
   onClose: () => void
-  onReasignar?: (movId: string) => void
-  onRecategorizar?: (movId: string) => void
-  onMarcarSinDoc?: (movId: string) => void
+  onSaved: (m: Movimiento) => void
 }
 
-function fmtFecha(iso: string): string {
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
+export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
+  const [selectedBloque, setSelectedBloque] = useState('')
+  const [selectedSubgrupo, setSelectedSubgrupo] = useState('')
+  const [selectedDetalle, setSelectedDetalle] = useState('')
+  const [titularId, setTitularId] = useState('')
+  const [noRequiere, setNoRequiere] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-export default function ModalDetalleMovimiento({
-  movimiento,
-  onClose,
-  onReasignar,
-  onRecategorizar,
-  onMarcarSinDoc,
-}: ModalDetalleMovimientoProps) {
+  useEffect(() => {
+    if (!movimiento) return
+
+    const catId = getNewId(movimiento.categoria_id) ?? movimiento.categoria_id
+
+    if (catId && categoriasPyg.length > 0) {
+      const cat = categoriasPyg.find(c => c.id === catId)
+      if (cat) {
+        if (cat.nivel === 3 && cat.parent_id) {
+          const parent = categoriasPyg.find(c => c.id === cat.parent_id)
+          if (parent) {
+            if (parent.nivel === 2 && parent.parent_id) {
+              setSelectedBloque(parent.parent_id)
+              setSelectedSubgrupo(parent.id)
+              setSelectedDetalle(cat.id)
+            } else if (parent.nivel === 1) {
+              setSelectedBloque(parent.id)
+              setSelectedSubgrupo('')
+              setSelectedDetalle(cat.id)
+            }
+          }
+        }
+      }
+    }
+
+    setTitularId(movimiento.titular_id ?? '')
+    setNoRequiere(movimiento.doc_estado === 'no_requiere')
+  }, [movimiento, categoriasPyg])
+
   if (!movimiento) return null
 
-  const tieneFactura = !!(movimiento.factura_id && movimiento.factura_data?.pdf_drive_url)
+  const bloques = categoriasPyg.filter(c => c.nivel === 1)
+
+  const subgrupos = selectedBloque
+    ? categoriasPyg.filter(c => c.nivel === 2 && c.parent_id === selectedBloque)
+    : []
+
+  const detalles = selectedSubgrupo
+    ? categoriasPyg.filter(c => c.nivel === 3 && c.parent_id === selectedSubgrupo)
+    : selectedBloque
+    ? categoriasPyg.filter(c => c.nivel === 3 && c.parent_id === selectedBloque)
+    : []
+
+  async function handleGuardar() {
+    setSaving(true)
+    try {
+      const docEstado = noRequiere ? 'no_requiere' : (movimiento!.doc_estado === 'tiene' ? 'tiene' : 'falta')
+
+      const updates: Record<string, unknown> = {
+        titular_id: titularId || null,
+        doc_estado: docEstado,
+      }
+      if (selectedDetalle) {
+        updates.categoria = selectedDetalle
+      }
+
+      const { error } = await supabase.from('conciliacion').update(updates).eq('id', movimiento!.id)
+      if (error) throw error
+
+      toast.success('Movimiento actualizado')
+      onSaved({
+        ...movimiento!,
+        categoria_id: selectedDetalle || movimiento!.categoria_id,
+        titular_id: (updates.titular_id as string | null),
+        doc_estado: updates.doc_estado as 'tiene' | 'falta' | 'no_requiere',
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const titularNombre = titulares.find(t => t.id === movimiento.titular_id)?.nombre ?? ''
+  const _isRuben = titularNombre.toLowerCase().includes('rubén') || titularNombre.toLowerCase().includes('ruben')
+  const _isEmilio = titularNombre.toLowerCase().includes('emilio')
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(17,17,17,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#484f66' }}
+        style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '28px 32px', maxWidth: 560, width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{
-          backgroundColor: '#484f66',
-          borderRadius: 16,
-          padding: '28px 32px',
-          width: 560,
-          maxWidth: '95vw',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-            <div>
-              <div style={{
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: '2px',
-                textTransform: 'uppercase',
-                color: '#b0b8d0',
-                marginBottom: 4,
-              }}>
-                DETALLE MOVIMIENTO
-              </div>
-              <div style={{
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 15,
-                fontWeight: 500,
-                color: '#ffffff',
-              }}>
-                {movimiento.concepto}
-              </div>
+        {/* TOP */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 4 }}>
+              Detalle movimiento · {fmtDate(movimiento.fecha)}
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                borderRadius: 8,
-                color: '#ffffff',
-                fontSize: 18,
-                cursor: 'pointer',
-                padding: '4px 10px',
-                lineHeight: 1,
-              }}
-            >
-              ×
-            </button>
-          </div>
-
-          {/* Datos */}
-          <div style={{
-            background: 'rgba(0,0,0,0.2)',
-            borderRadius: 10,
-            padding: '16px 18px',
-            marginBottom: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}>
-            {([
-              ['Fecha', fmtFecha(movimiento.fecha)],
-              ['Importe', (movimiento.importe >= 0 ? '+' : '') + fmtEur(movimiento.importe)],
-              ['Contraparte', movimiento.contraparte || '—'],
-              ['Categoría', movimiento.categoria_id || 'Sin categorizar'],
-              ['ID Movimiento', movimiento.id],
-            ] as [string, string][]).map(([label, value]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>
-                <span style={{ color: '#b0b8d0' }}>{label}</span>
-                <span style={{
-                  color: label === 'Importe'
-                    ? movimiento.importe >= 0 ? '#1D9E75' : '#E24B4A'
-                    : '#ffffff',
-                  fontWeight: label === 'Importe' ? 600 : 400,
-                }}>
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* PDF embebido si tiene Drive URL */}
-          {tieneFactura && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: 10,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                color: '#b0b8d0',
-                marginBottom: 8,
-              }}>
-                FACTURA ASOCIADA
-              </div>
-              <div style={{
-                background: 'rgba(0,0,0,0.2)',
-                borderRadius: 8,
-                padding: '10px 14px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#ffffff' }}>
-                  {movimiento.factura_data?.pdf_filename || 'Factura PDF'}
-                </span>
-                <button
-                  onClick={() => window.open(movimiento.factura_data!.pdf_drive_url!, '_blank')}
-                  style={{
-                    background: '#1D9E75',
-                    border: 'none',
-                    borderRadius: 6,
-                    color: '#ffffff',
-                    fontFamily: 'Lexend, sans-serif',
-                    fontSize: 12,
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Abrir en Drive
-                </button>
-              </div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#111', letterSpacing: '0.5px' }}>
+              {movimiento.concepto.length > 50 ? movimiento.concepto.slice(0, 50) + '…' : movimiento.concepto}
             </div>
-          )}
-
-          {/* Botones accion */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => onReasignar?.(movimiento.id)}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '0.5px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
-                color: '#ffffff',
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
-            >
-              Reasignar factura
-            </button>
-            <button
-              onClick={() => onRecategorizar?.(movimiento.id)}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '0.5px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
-                color: '#ffffff',
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
-            >
-              Recategorizar
-            </button>
-            <button
-              onClick={() => onMarcarSinDoc?.(movimiento.id)}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '0.5px solid rgba(255,255,255,0.2)',
-                background: 'transparent',
-                color: '#b0b8d0',
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
-            >
-              No requiere doc
-            </button>
           </div>
+          <button onClick={onClose} style={{ fontSize: 18, color: '#7a8090', cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 }}>✕</button>
+        </div>
+
+        {/* DATOS */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: 22, fontSize: 13, padding: '14px 0', borderTop: '0.5px solid #ebe8e2', borderBottom: '0.5px solid #ebe8e2' }}>
+          <div style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif' }}>Importe</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 500, letterSpacing: '0.5px', color: movimiento.importe >= 0 ? '#1D9E75' : '#E24B4A', textAlign: 'right' }}>
+            {movimiento.importe >= 0 ? '+' : ''}{fmtEur(movimiento.importe)}
+          </div>
+          <div style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif' }}>Contraparte</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 500, letterSpacing: '0.5px', color: '#111', textAlign: 'right' }}>
+            {movimiento.contraparte || '—'}
+          </div>
+        </div>
+
+        {/* CATEGORÍA - 3 selects encadenados */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Categoría</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <select
+              value={selectedBloque}
+              onChange={e => { setSelectedBloque(e.target.value); setSelectedSubgrupo(''); setSelectedDetalle('') }}
+              style={{ padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
+            >
+              <option value="">Bloque</option>
+              {bloques.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+            </select>
+            <select
+              value={selectedSubgrupo}
+              onChange={e => { setSelectedSubgrupo(e.target.value); setSelectedDetalle('') }}
+              disabled={!selectedBloque || subgrupos.length === 0}
+              style={{ padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box', opacity: (!selectedBloque || subgrupos.length === 0) ? 0.5 : 1 }}
+            >
+              <option value="">Grupo</option>
+              {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
+            <select
+              value={selectedDetalle}
+              onChange={e => setSelectedDetalle(e.target.value)}
+              disabled={!selectedBloque}
+              style={{ padding: '9px 12px', borderRadius: 8, border: selectedDetalle ? '0.5px solid #FF4757' : '0.5px solid #d0c8bc', background: selectedDetalle ? '#FF475710' : '#fff', color: selectedDetalle ? '#FF4757' : '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}
+            >
+              <option value="">Detalle</option>
+              {detalles.map(d => <option key={d.id} value={d.id}>{d.id} · {d.nombre}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* TITULAR */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Titular</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {titulares
+              .filter(t => {
+                const n = t.nombre.toLowerCase()
+                return n.includes('rubén') || n.includes('ruben') || n.includes('emilio')
+              })
+              .slice(0, 2)
+              .map(t => {
+                const n = t.nombre.toLowerCase()
+                const isR = n.includes('rubén') || n.includes('ruben')
+                const isActive = titularId === t.id
+                const activeColor = isR ? '#F26B1F' : '#1E5BCC'
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTitularId(isActive ? '' : t.id)}
+                    style={{
+                      padding: 10,
+                      borderRadius: 8,
+                      border: isActive ? 'none' : '0.5px solid #d0c8bc',
+                      background: isActive ? activeColor : '#fff',
+                      color: isActive ? '#fff' : '#3a4050',
+                      fontFamily: 'Lexend, sans-serif',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {t.nombre}
+                  </button>
+                )
+              })}
+          </div>
+        </div>
+
+        {/* CHECKBOX no requiere */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', marginBottom: 22, padding: '10px 12px', background: '#f5f3ef', borderRadius: 8 }}>
+          <input
+            type="checkbox"
+            checked={noRequiere}
+            onChange={e => setNoRequiere(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: '#FF4757', margin: 0 }}
+          />
+          <span>No requiere documento</span>
+        </label>
+
+        {/* FOOTER */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '8px 18px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: 'transparent', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleGuardar}
+            disabled={saving}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
         </div>
       </div>
     </div>

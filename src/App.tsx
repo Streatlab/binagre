@@ -20,6 +20,7 @@ import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 // Configuración · Bancos
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
 import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
+import BancosYCuentasPage from '@/pages/configuracion/bancos/BancosYCuentasPage'
 
 // Configuración · Compras
 import ComprasPage from '@/pages/configuracion/compras/ComprasPage'
@@ -176,8 +177,11 @@ function AppRoutes() {
         {/* Configuración · Usuarios */}
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
 
-        {/* Configuración · Categorías financieras */}
-        <Route path="configuracion/categorias-financieras" element={<ProtectedRoute solo={['admin']}><CategoriasFinancierasPage /></ProtectedRoute>} />
+        {/* Configuración · Bancos y Cuentas (nuevo) */}
+        <Route path="configuracion/bancos-y-cuentas/*" element={<ProtectedRoute solo={['admin']}><BancosYCuentasPage /></ProtectedRoute>} />
+
+        {/* Configuración · Categorías financieras (redirect a bancos-y-cuentas) */}
+        <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
 
         {/* Configuración · Plataformas */}
         <Route path="configuracion/plataformas" element={<ProtectedRoute solo={['admin']}><PlataformasPage /></ProtectedRoute>} />

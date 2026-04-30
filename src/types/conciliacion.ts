@@ -10,6 +10,7 @@ export interface Movimiento {
   factura_id?: string | null
   factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
   titular_id?: string | null
+  doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null
 }
 
 export interface Categoria {

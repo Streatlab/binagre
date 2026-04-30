@@ -1,11 +1,11 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
 import { fmtEur } from '@/utils/format'
-import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
-import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown'
+import { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown'
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento, Regla } from '@/types/conciliacion'
@@ -13,6 +13,7 @@ import { useConciliacion } from '@/hooks/useConciliacion'
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
+import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 /* ═══════════════════════════════════════════════════════════
    CATEGORÍAS
@@ -87,6 +88,15 @@ export default function Conciliacion() {
   const [customDesde, setCustomDesde] = useState<string>('')
   const [customHasta, setCustomHasta] = useState<string>('')
   const aniosDisponibles = useAniosDisponibles()
+
+  // Periodo para TabMovimientos via SelectorFechaUniversal
+  const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
+    const h = new Date(); h.setDate(1); h.setHours(0, 0, 0, 0); return h
+  })
+  const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
+    const h = new Date(); h.setHours(23, 59, 59, 999); return h
+  })
+  const [periodoLabelSFU, setPeriodoLabelSFU] = useState('Mes en curso')
   const [catFiltro, setCatFiltro] = useState<string>('todas')
   const [busqueda, setBusqueda] = useState('')
   const [filtroCard, setFiltroCard] = useState<'pendientes' | 'ingreso' | 'gasto' | null>(null)
@@ -141,8 +151,18 @@ export default function Conciliacion() {
       factura_id: m.factura_id ?? null,
       factura_data: m.factura_data ?? null,
       titular_id: m.titular_id ?? null,
+      doc_estado: ((m as unknown as Record<string, unknown>).doc_estado as 'tiene' | 'falta' | 'no_requiere' | null) ?? 'falta',
     })),
     [movimientosBD]
+  )
+
+  /* — Filtrado por período para TabMovimientos (SelectorFechaUniversal) — */
+  const movimientosPeriodo = useMemo(() =>
+    movimientos.filter(m => {
+      const f = new Date(m.fecha + 'T12:00:00')
+      return f >= periodoDesde && f <= periodoHasta
+    }),
+    [movimientos, periodoDesde, periodoHasta]
   )
 
   /* — Categorización inline con aprendizaje (persiste en BD) — */
@@ -384,13 +404,14 @@ export default function Conciliacion() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SelectorPeriodoDropdown
-            value={periodo}
-            onChange={setPeriodo}
-            anios={aniosDisponibles}
-            desde={customDesde}
-            hasta={customHasta}
-            onRangoChange={(d, h) => { setCustomDesde(d); setCustomHasta(h); }}
+          <SelectorFechaUniversal
+            nombreModulo="conciliacion"
+            defaultOpcion="mes_en_curso"
+            onChange={(desde, hasta, label) => {
+              setPeriodoDesde(desde)
+              setPeriodoHasta(hasta)
+              setPeriodoLabelSFU(label)
+            }}
           />
           <select style={{
             padding: '6px 10px',
@@ -402,14 +423,8 @@ export default function Conciliacion() {
             color: '#111111',
             cursor: 'pointer',
           }}>
-            <option>Todas las marcas ▾</option>
+            <option>Cuenta · Todas</option>
           </select>
-          <button
-            onClick={() => setModalGastoOpen(true)}
-            style={{ padding: '6px 14px', background: '#e8f442', color: '#111', border: 'none', borderRadius: 8, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Añadir gasto
-          </button>
         </div>
       </div>
 
@@ -437,8 +452,10 @@ export default function Conciliacion() {
       {/* Pestaña Movimientos — nuevo TabMovimientos */}
       {tab === 'movimientos' && (
         <TabMovimientos
-          movimientos={movimientos}
-          periodoLabel={periodoLabel}
+          movimientos={movimientosPeriodo}
+          periodoLabel={periodoLabelSFU}
+          periodoDesde={periodoDesde}
+          periodoHasta={periodoHasta}
         />
       )}
 
