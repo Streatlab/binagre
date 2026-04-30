@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState, useEffect, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -10,6 +10,7 @@ import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento, Regla } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
+import { supabase } from '@/lib/supabase'
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
@@ -156,14 +157,38 @@ export default function Conciliacion() {
     [movimientosBD]
   )
 
-  /* — Filtrado por período para TabMovimientos (SelectorFechaUniversal) — */
-  const movimientosPeriodo = useMemo(() =>
-    movimientos.filter(m => {
-      const f = new Date(m.fecha + 'T12:00:00')
-      return f >= periodoDesde && f <= periodoHasta
-    }),
-    [movimientos, periodoDesde, periodoHasta]
-  )
+  /* — Movimientos filtrados por período para TabMovimientos — query directa a BD sin cap 1000 */
+  const [movimientosPeriodo, setMovimientosPeriodo] = useState<Movimiento[]>([])
+
+  useEffect(() => {
+    const desdeStr = periodoDesde.toISOString().slice(0, 10)
+    const hastaStr = periodoHasta.toISOString().slice(0, 10)
+    let cancel = false
+    supabase
+      .from('conciliacion')
+      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
+      .gte('fecha', desdeStr)
+      .lte('fecha', hastaStr)
+      .order('fecha', { ascending: false })
+      .then(({ data }) => {
+        if (cancel) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setMovimientosPeriodo((data ?? []).map((m: any) => ({
+          id: m.id,
+          fecha: m.fecha,
+          concepto: m.concepto,
+          importe: Number(m.importe),
+          categoria_id: m.categoria ?? null,
+          contraparte: m.proveedor ?? '',
+          gasto_id: m.gasto_id ?? null,
+          factura_id: m.factura_id ?? null,
+          factura_data: m.factura_data ?? null,
+          titular_id: m.titular_id ?? null,
+          doc_estado: (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
+        })))
+      })
+    return () => { cancel = true }
+  }, [periodoDesde, periodoHasta])
 
   /* — Categorización inline con aprendizaje (persiste en BD) — */
   const handleCategorizar = async (movId: string, catId: string, concepto: string) => {
