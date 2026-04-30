@@ -76,6 +76,94 @@ export const BarraCumplimiento = ({ pct, altura = 8, presupuesto }) => {
 };
 ```
 
+`/src/components/ui/EditableInline.tsx` debe contener:
+
+```tsx
+import React, { useState, useRef, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+interface Props {
+  valor: number;
+  tabla: string;
+  campo: string;
+  filtros?: Record<string, any>;
+  decimales?: number;
+  unidad?: '€' | '%' | '';
+  color?: string;
+  onUpdate?: () => void;
+}
+
+export const EditableInline: React.FC<Props> = ({
+  valor, tabla, campo, filtros = {}, decimales = 2, unidad = '', color = '#3a4050', onUpdate
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState<string>(String(valor ?? ''));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setVal(String(valor ?? '')); }, [valor]);
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const guardar = async () => {
+    const trimmed = val.trim();
+    if (trimmed === '') {
+      // Vaciar override
+      const { error } = await supabase.from(tabla).update({ [campo]: null }).match(filtros);
+      if (error) { toast.error('Error al restaurar'); return; }
+      toast.warning('Objetivo restaurado al valor base');
+      setEditing(false);
+      onUpdate?.();
+      return;
+    }
+    const num = parseFloat(trimmed.replace(',', '.'));
+    if (isNaN(num)) { setEditing(false); return; }
+    const { error } = await supabase.from(tabla).update({ [campo]: num }).match(filtros);
+    if (error) { toast.error('Error al guardar'); return; }
+    toast.success('Objetivo actualizado');
+    setEditing(false);
+    onUpdate?.();
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') guardar();
+    if (e.key === 'Escape') { setVal(String(valor ?? '')); setEditing(false); }
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        value={val}
+        step="any"
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={guardar}
+        onKeyDown={onKey}
+        style={{
+          width: 80, padding: '0 4px', border: '1px solid #FF4757',
+          borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
+          color, background: '#fff'
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      style={{
+        borderBottom: '1px dashed #d0c8bc',
+        cursor: 'text',
+        color,
+        padding: '0 2px',
+      }}
+    >
+      {valor !== null && valor !== undefined ? valor.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales }) : '—'}{unidad ? ` ${unidad}` : ''}
+    </span>
+  );
+};
+```
+
 ## Tablas Supabase obligatorias (verificar/crear si faltan)
 
 `objetivos`, `kpi_objetivos`, `running`, `gastos_fijos`, `cuentas_bancarias`, `resumenes_plataforma_marca_mensual`. Schema en `spec-fixes-panel-ronda2.md` (commit `b8bd3a51`). Si no existen, crear con `Supabase apply_migration`.
@@ -85,7 +173,10 @@ export const BarraCumplimiento = ({ pct, altura = 8, presupuesto }) => {
 # LISTA 94 FIXES
 
 ## FIX 1
-Aplicar formato `fmtNum(n, 2)` a TODAS las cifras numéricas del Panel · tab Resumen. Buscar todos los `toLocaleString` ad-hoc y todas las cifras hardcoded sin formateo. Sustituir.
+Aplicar formato `fmtNum(n, 2)` a TODAS las cifras numéricas en archivos del Panel · tab Resumen.
+- Archivos: `/src/components/panel/resumen/*.tsx`
+- Acción: ejecutar `grep -rn "toLocaleString\|fmtEntero\|fmtEur0" /src/components/panel/resumen/` y sustituir cada ocurrencia por `fmtNum(n, 2)`, `fmtEur(n, opts)` o `fmtPct(n, 2)` según contexto.
+- Verificación: NO debe quedar ningún número visible en el Panel sin pasar por las helpers de `/src/lib/format.ts`.
 
 ## FIX 2
 Quitar símbolo € de Card Facturación cifra Bruto. Archivo `/src/components/panel/resumen/CardVentas.tsx`. Pasar `fmtEur(bruto, { showEuro: false })`.
@@ -119,15 +210,42 @@ Card Facturación: cifra Neto Estimado al MISMO TAMAÑO `fontSize: 38, fontWeigh
 
 ## FIX 12
 Card Facturación: las cantidades 5.000 / 20.000 / 240.000 deben venir de tabla Supabase `objetivos` filtrando por `tipo` (semanal/mensual/anual), `año`, `mes`, `semana`. NO hardcoded.
+Lectura literal:
+```ts
+const { data } = await supabase
+  .from('objetivos')
+  .select('valor, override_usuario, tipo, año, mes, semana')
+  .eq('año', añoActual);
+const semanal = data.find(d => d.tipo === 'semanal' && d.semana === semanaActual);
+const mensual = data.find(d => d.tipo === 'mensual' && d.mes === mesActual);
+const anual = data.find(d => d.tipo === 'anual');
+```
 
 ## FIX 13
-Card Facturación: si tabla `objetivos` tiene `override_usuario` no nulo, usar ese valor. Si nulo, usar `valor`. Mostrar el resultado.
+Card Facturación: si tabla `objetivos` tiene `override_usuario` no nulo, usar ese valor. Si nulo, usar `valor`.
+Render literal: `valorMostrado = obj.override_usuario ?? obj.valor`. Mostrar el resultado con `fmtEur(valorMostrado, { showEuro: false })`.
 
 ## FIX 14
-Card Facturación: hacer las 3 cantidades editables inline. Click → input number → Enter → `UPDATE objetivos SET override_usuario = nuevoValor WHERE año=X AND tipo=Y` (Y = semanal/mensual/anual).
+Card Facturación: hacer las 3 cantidades editables inline usando el componente `<EditableInline />` (ver helpers).
+Uso literal por línea:
+```tsx
+<EditableInline
+  valor={obj.override_usuario ?? obj.valor}
+  tabla="objetivos"
+  campo="override_usuario"
+  filtros={{ tipo: 'semanal', año: añoActual, semana: semanaActual }}
+  decimales={2}
+  unidad=""
+  color="#3a4050"
+  onUpdate={refetch}
+/>
+```
+Repetir igual para mensual (filtros `{ tipo:'mensual', año, mes }`) y anual (filtros `{ tipo:'anual', año }`).
+Componente ya cubre: click → input, Enter → save, blur → save, ESC → cancel, vacío → restore (FIX 15).
 
 ## FIX 15
 Card Facturación: si usuario borra el input editable y pulsa Enter (input vacío), ejecutar `UPDATE objetivos SET override_usuario = NULL` para volver al valor base.
+Esto YA está implementado en `EditableInline.tsx` (rama `if trimmed === ''`). NO duplicar lógica. Solo verificar que se renderiza con `tabla="objetivos"` y `campo="override_usuario"`.
 
 ## FIX 16
 Card Facturación: las 3 barras de progreso deben usar el componente `<BarraCumplimiento pct={pctSemanal/Mensual/Anual} />` en lugar de barras ad-hoc.
@@ -202,6 +320,25 @@ Card Resultado: SUSTITUIR la cascada actual (4 líneas: Netos estimados, Netos r
 
 ## FIX 35
 Card Resultado: cada línea de la cascada PyG debe leer su valor desde tabla `running` mes actual. Si campo nulo o `running` vacío: mostrar "Datos insuficientes" en esa línea.
+Lectura literal:
+```ts
+const { data: running } = await supabase
+  .from('running')
+  .select('*')
+  .eq('año', añoActual)
+  .eq('mes', mesActual)
+  .single();
+```
+Mapeo línea → campo:
+- Ingresos brutos → `running.ingresos_brutos`
+- Comisiones + IVA → `running.comisiones_plataforma + running.iva_comisiones`
+- Ingresos netos → `running.ingresos_netos`
+- Producto → `running.producto`
+- Margen bruto → `running.margen_bruto`
+- Personal → `running.personal`
+- Local + Controlables → `running.local + running.controlables`
+- Provisiones → `running.provisiones_iva + running.provisiones_irpf`
+- Resultado limpio → `running.resultado_limpio`
 
 ## FIX 36
 Card Resultado: cada línea de la cascada debe tener `title` (tooltip HTML) explicando el concepto:
@@ -222,6 +359,18 @@ Card Resultado: ELIMINAR texto "Banda sector 55-65%" del bloque Prime Cost.
 
 ## FIX 39
 Card Resultado: en su lugar, mostrar "Objetivo {valor}%" donde {valor} es editable inline (lectura `kpi_objetivos.prime_cost_target`, default 60).
+Uso literal:
+```tsx
+<EditableInline
+  valor={kpiObj?.prime_cost_target ?? 60}
+  tabla="kpi_objetivos"
+  campo="prime_cost_target"
+  filtros={{}}
+  decimales={0}
+  unidad="%"
+  color="#1D9E75"
+/>
+```
 
 ## FIX 40
 Card Resultado: la palabra "Objetivo" del Prime Cost en color `#1D9E75` (verde).
@@ -251,11 +400,38 @@ Cards Plataformas: cambiar texto "bruto" por "Bruto" (B mayúscula).
 Cards Plataformas: Card Glovo añadir `border: '1px solid #5a5500'` (no `0.5px solid #e8f442` que es invisible sobre amarillo).
 
 ## FIX 49
-Cards Plataformas: cálculo neto canal real desde tabla `resumenes_plataforma_marca_mensual`:
+Cards Plataformas: cálculo neto canal real desde tabla `resumenes_plataforma_marca_mensual`.
+Código literal completo:
 ```ts
-const datos = supabase.from('resumenes_plataforma_marca_mensual').select('bruto,comisiones,fees,cargos_promocion,neto_real_cobrado').eq('plataforma',canal).eq('mes',mes).eq('año',año);
-if (tieneRealCobrado) neto = sum(neto_real_cobrado);
-else neto = bruto - comisiones - fees - cargos - 0.21*(comisiones+fees+cargos);
+async function calcularDatosCanal(canal: 'uber'|'glovo'|'just_eat'|'web'|'directa', mes: number, año: number) {
+  const { data, error } = await supabase
+    .from('resumenes_plataforma_marca_mensual')
+    .select('bruto, comisiones, fees, cargos_promocion, neto_real_cobrado')
+    .eq('plataforma', canal)
+    .eq('mes', mes)
+    .eq('año', año);
+
+  if (error || !data || data.length === 0) {
+    return { bruto: null, neto: null, margenPct: null, sinDatos: true };
+  }
+
+  const bruto = data.reduce((s, d) => s + (d.bruto ?? 0), 0);
+  const tieneRealCobrado = data.some(d => d.neto_real_cobrado !== null && d.neto_real_cobrado !== undefined);
+
+  let neto;
+  if (tieneRealCobrado) {
+    neto = data.reduce((s, d) => s + (d.neto_real_cobrado ?? 0), 0);
+  } else {
+    const comisiones = data.reduce((s, d) => s + (d.comisiones ?? 0), 0);
+    const fees = data.reduce((s, d) => s + (d.fees ?? 0), 0);
+    const cargos = data.reduce((s, d) => s + (d.cargos_promocion ?? 0), 0);
+    const ivaComisiones = (comisiones + fees + cargos) * 0.21;
+    neto = bruto - comisiones - fees - cargos - ivaComisiones;
+  }
+
+  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0;
+  return { bruto, neto, margenPct, sinDatos: false };
+}
 ```
 
 ## FIX 50
@@ -287,6 +463,18 @@ Cards Grupos de gasto: ELIMINAR el texto "Banda 25-30%" / "Banda 30-35%" / "Band
 
 ## FIX 59
 Cards Grupos de gasto: en línea inferior izquierda mostrar "Objetivo {pct}%" donde {pct} es editable inline. Lectura desde `kpi_objetivos.presupuesto_{grupo}_pct`. Defaults: producto 30, personal 40, local 15, controlables 15.
+Uso literal por card:
+```tsx
+<EditableInline
+  valor={kpiObj?.[`presupuesto_${grupo}_pct`] ?? defaultPct[grupo]}
+  tabla="kpi_objetivos"
+  campo={`presupuesto_${grupo}_pct`}
+  filtros={{}}
+  decimales={0}
+  unidad="%"
+/>
+```
+donde `defaultPct = { producto: 30, personal: 40, local: 15, controlables: 15 }`.
 
 ## FIX 60
 Cards Grupos de gasto: barra de progreso usar `<BarraCumplimiento pct={consumoPct} presupuesto={presupuesto} />`. Si `presupuesto === 0`: barra vacía gris.
@@ -378,6 +566,18 @@ Card Ratio: cambiar texto "obj" por "Objetivo". Mantenerlo en color `#1D9E75` (v
 
 ## FIX 82
 Card Ratio: la cifra editable del objetivo en color `#1D9E75` (verde).
+Uso literal:
+```tsx
+<EditableInline
+  valor={kpiObj?.ratio_target ?? 2.50}
+  tabla="kpi_objetivos"
+  campo="ratio_target"
+  filtros={{}}
+  decimales={2}
+  unidad=""
+  color="#1D9E75"
+/>
+```
 
 ## FIX 83
 Card Ratio: el coeficiente grande (ej. 2,00) coloreado con `colorSemaforo((ratio/objetivo) * 100)`.
@@ -410,11 +610,40 @@ Card Punto Equilibrio: ELIMINAR el texto "9.610 € netos" del subtítulo. Solo 
 Card Punto Equilibrio: aplicar `fmtPct(pct, 2)` para mostrar "100,00%" con 2 decimales.
 
 ## FIX 92
-Card Punto Equilibrio: cambiar "Día verde estimado · Alcanzado ✓" por texto dinámico:
-- Si pct >= 100: "Día N · ✓ alcanzado" (donde N es el día del mes en que se alcanzó)
-- Si pct < 100 y diaVerdeEstimado <= diasMes: "Día N"
-- Si pct < 100 y diaVerdeEstimado > diasMes: "+Nd sobre mes" (donde N = diaVerdeEstimado - diasMes)
-Texto color `#1D9E75` (verde).
+Card Punto Equilibrio: cambiar "Día verde estimado · Alcanzado ✓" por texto dinámico.
+Cálculo literal completo:
+```ts
+function calcDiaVerde(facturadoActual: number, brutoNecesario: number, diaActual: number, diasMes: number) {
+  const pct = brutoNecesario > 0 ? (facturadoActual / brutoNecesario) * 100 : 0;
+
+  if (pct >= 100) {
+    // Calcular en qué día se alcanzó: regla de tres con velocidad media
+    const velocidadDia = facturadoActual / diaActual;
+    const diaAlcanzado = Math.ceil(brutoNecesario / velocidadDia);
+    return { texto: `Día ${diaAlcanzado} · ✓ alcanzado`, color: '#1D9E75' };
+  }
+
+  if (facturadoActual === 0) {
+    return { texto: 'Sin datos', color: '#7a8090' };
+  }
+
+  const velocidadDia = facturadoActual / diaActual;
+  const diaVerdeEstimado = Math.ceil(brutoNecesario / velocidadDia);
+
+  if (diaVerdeEstimado <= diasMes) {
+    return { texto: `Día ${diaVerdeEstimado}`, color: '#1D9E75' };
+  }
+
+  // Pasa del mes
+  const diasExtra = diaVerdeEstimado - diasMes;
+  return { texto: `+${diasExtra}d sobre mes`, color: '#1D9E75' };
+}
+```
+Render literal:
+```tsx
+const { texto, color } = calcDiaVerde(facturadoActual, brutoNecesario, hoy.getDate(), diasEnMes(año, mes));
+<span style={{ color, fontWeight: 500 }}>{texto}</span>
+```
 
 ## FIX 93
 Card Punto Equilibrio: unificar líneas "Facturación día" y "Pedidos día" en UNA sola línea con etiqueta "Pedidos día / TM" y valor `<span color azul>{pedidos}</span> / <span color naranja>{fmtEur(tm, {decimals:2})}</span>`.
@@ -464,14 +693,15 @@ F) Verificar que `<CardPendientesSubir />` NO se renderiza en `TabResumen.tsx`. 
 
 1. Crear/verificar helpers `/src/lib/format.ts`
 2. Crear/verificar `/src/components/ui/BarraCumplimiento.tsx`
-3. Verificar tablas Supabase obligatorias, crear si faltan
-4. Ejecutar FIX 1 → marcar ✅ → FIX 2 → marcar ✅ → ... → FIX 94 → marcar ✅
-5. Aplicar Configuración Adicional A-F
-6. Validación mobile 375/768/1280 con capturas en `.claude/tracking/mobile-validation/ronda2/`
-7. Build + tests
-8. Commit final + push master
-9. Deploy Vercel automático
-10. Escribir informe `.claude/tracking/informe-fixes-panel-94.md` con checklist 94 fixes + URL Vercel
+3. Crear/verificar `/src/components/ui/EditableInline.tsx`
+4. Verificar tablas Supabase obligatorias, crear si faltan
+5. Ejecutar FIX 1 → marcar ✅ → FIX 2 → marcar ✅ → ... → FIX 94 → marcar ✅
+6. Aplicar Configuración Adicional A-F
+7. Validación mobile 375/768/1280 con capturas en `.claude/tracking/mobile-validation/ronda2/`
+8. Build + tests
+9. Commit final + push master
+10. Deploy Vercel automático
+11. Escribir informe `.claude/tracking/informe-fixes-panel-94.md` con checklist 94 fixes + URL Vercel
 
 NO PARAR ENTRE FIXES. Si un fix falla, marcar ❌ con motivo y CONTINUAR con el siguiente.
 
