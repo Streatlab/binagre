@@ -124,12 +124,13 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           datos={uber}
         />
 
-        {/* FIX 12+48: Glovo border 1px solid #5a5500 */}
+        {/* FIX 12+48+ronda4: Glovo border 1px solid #5a5500 + inset shadow para garantizar visibilidad */}
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
           border="#5a5500"
           borderWidth="1px"
+          boxShadow="inset 0 0 0 1px #5a5500"
           colorLabel={COLOR.glovoDark}
           colorBruto={COLOR.glovoTexto}
           datos={glovo}
@@ -173,17 +174,19 @@ interface CardCanalProps {
   bg: string
   border: string
   borderWidth?: string
+  boxShadow?: string
   colorLabel: string
   colorBruto: string
   datos: { bruto: number | null; neto: number | null; margenPct: number | null; sinDatos: boolean }
 }
 
-function CardCanal({ label, bg, border, borderWidth = '0.5px', colorLabel, colorBruto, datos }: CardCanalProps) {
+function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorLabel, colorBruto, datos }: CardCanalProps) {
   const tieneDatos = !datos.sinDatos && datos.bruto !== null
   return (
     <div style={{
       background: bg,
       border: `${borderWidth} solid ${border}`,
+      boxShadow: boxShadow ?? undefined,
       borderRadius: 14,
       padding: '12px 14px',
       display: 'flex',

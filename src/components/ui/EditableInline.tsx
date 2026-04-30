@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toastStore';
+import { fmtNum } from '@/lib/format';
 
 interface Props {
   valor: number;
@@ -77,7 +78,7 @@ export const EditableInline: React.FC<Props> = ({
       }}
     >
       {valor !== null && valor !== undefined
-        ? valor.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
+        ? fmtNum(valor, decimales)
         : '—'}{unidad === '%' ? `${unidad}` : unidad ? ` ${unidad}` : ''}
     </span>
   );
