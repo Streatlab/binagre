@@ -186,9 +186,6 @@ function AppRoutes() {
         {/* Configuración · Plataformas */}
         <Route path="configuracion/plataformas" element={<ProtectedRoute solo={['admin']}><PlataformasPage /></ProtectedRoute>} />
 
-        {/* Configuración · Cuentas */}
-        <Route path="configuracion/cuentas" element={<ProtectedRoute solo={['admin']}><CuentasConfigPage /></ProtectedRoute>} />
-
         {/* Configuración · Calendario operativo */}
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 

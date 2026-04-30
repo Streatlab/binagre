@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
-import { fmtEur } from '@/utils/format'
+import { fmtEur, fmtDate } from '@/utils/format'
 import { useTheme, FONT } from '@/styles/tokens'
 import { KpiCard } from '@/components/KpiCard'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
@@ -400,7 +400,7 @@ export default function Conciliacion() {
             CONCILIACIÓN
           </h2>
           <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
-            {rangoFechasLegible}
+            {fmtDate(periodoDesde)} — {fmtDate(periodoHasta)}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -413,18 +413,6 @@ export default function Conciliacion() {
               setPeriodoLabelSFU(label)
             }}
           />
-          <select style={{
-            padding: '6px 10px',
-            borderRadius: 8,
-            border: '0.5px solid #d0c8bc',
-            background: '#ffffff',
-            fontSize: 13,
-            fontFamily: 'Lexend, sans-serif',
-            color: '#111111',
-            cursor: 'pointer',
-          }}>
-            <option>Cuenta · Todas</option>
-          </select>
         </div>
       </div>
 

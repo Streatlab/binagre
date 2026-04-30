@@ -126,11 +126,11 @@ export const TABS_PILL = {
   container: {
     background: '#ffffff',
     border: '0.5px solid #d0c8bc',
-    borderRadius: 10,
-    padding: '4px 6px',
+    borderRadius: 14,
+    padding: '14px 18px',
     marginBottom: 14,
     display: 'inline-flex',
-    gap: 4,
+    gap: 6,
   } as CSSProperties,
   active: {
     padding: '6px 14px',

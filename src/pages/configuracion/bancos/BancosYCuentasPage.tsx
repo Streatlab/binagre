@@ -14,6 +14,10 @@ interface CategoriaPyg {
   orden: number
 }
 
+function stripBanda(nombre: string): string {
+  return nombre.replace(/\s*·?\s*banda\s+[\d.]+-[\d.]+\s*%/i, '').trim()
+}
+
 export default function BancosYCuentasPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -71,38 +75,6 @@ export default function BancosYCuentasPage() {
       <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', color: '#B01D23', margin: '0 0 18px', textTransform: 'uppercase' }}>
         Bancos y Cuentas
       </h1>
-
-      {/* Tabs principales Configuración */}
-      <div style={{ display: 'inline-flex', gap: 6, marginBottom: 16 }}>
-        {[
-          { id: 'marcas', label: 'Marcas', path: '/configuracion/marcas' },
-          { id: 'bancos', label: 'Bancos y Cuentas', path: '/configuracion/bancos-y-cuentas' },
-          { id: 'plataformas', label: 'Plataformas', path: '/configuracion/plataformas' },
-          { id: 'usuarios', label: 'Usuarios', path: '/configuracion/usuarios' },
-          { id: 'calendario', label: 'Calendario operativo', path: '/configuracion/calendario' },
-        ].map(tab => {
-          const isActive = tab.id === 'bancos'
-          return (
-            <button
-              key={tab.id}
-              onClick={() => navigate(tab.path)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: isActive ? 'none' : '0.5px solid #d0c8bc',
-                background: isActive ? '#FF4757' : 'transparent',
-                color: isActive ? '#fff' : '#3a4050',
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
 
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -184,7 +156,7 @@ function TabCategorias({
                     {cat.id}
                   </td>
                   <td style={{ padding: '18px 0 10px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '2.5px', color: '#111', textTransform: 'uppercase' }}>
-                    {cat.nombre}
+                    {stripBanda(cat.nombre)}
                   </td>
                   <td style={{ padding: '18px 0 10px', borderBottom: '0.5px solid #ebe8e2' }}></td>
                 </tr>
@@ -197,7 +169,7 @@ function TabCategorias({
                     {cat.id}
                   </td>
                   <td style={{ padding: '14px 0 8px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#3a4050', textTransform: 'uppercase' }}>
-                    {cat.nombre}
+                    {stripBanda(cat.nombre)}
                   </td>
                   <td style={{ padding: '14px 0 8px', borderBottom: '0.5px solid #ebe8e2' }}></td>
                 </tr>

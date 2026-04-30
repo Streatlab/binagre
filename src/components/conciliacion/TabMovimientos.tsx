@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import type { Movimiento } from '@/types/conciliacion'
@@ -35,6 +36,7 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
 }
 
 export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodoHasta: _ph, periodoLabel: _pl }: TabMovimientosProps) {
+  const navigate = useNavigate()
   const [filtroCard, setFiltroCard] = useState<'ingresos' | 'gastos' | 'pendientes' | null>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
   const [busqueda, setBusqueda] = useState('')
@@ -59,9 +61,7 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
     const gastos = movimientos.filter(m => m.importe < 0)
     const pendientes = movimientos.filter(m => calcularEstado(m) === 'pendiente')
     return {
-      ingresosCount: ingresos.length,
       ingresosImporte: ingresos.reduce((s, m) => s + m.importe, 0),
-      gastosCount: gastos.length,
       gastosImporte: Math.abs(gastos.reduce((s, m) => s + m.importe, 0)),
       pendientesCount: pendientes.length,
       pendientesImporte: Math.abs(pendientes.reduce((s, m) => s + m.importe, 0)),
@@ -117,93 +117,58 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
     a.click()
   }
 
+  const cardStyle = (filtro: 'ingresos' | 'gastos' | 'pendientes'): React.CSSProperties => ({
+    background: '#fff',
+    border: filtroCard === filtro ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
+    borderRadius: 14,
+    padding: '18px 20px',
+    cursor: 'pointer',
+    boxShadow: filtroCard === filtro ? '0 0 0 3px #FF475715' : 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  })
+
   return (
     <div>
       {/* 4 CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
 
-        {/* Card INGRESOS */}
-        <div
-          onClick={() => { setFiltroCard(prev => prev === 'ingresos' ? null : 'ingresos'); setPage(1) }}
-          style={{
-            background: '#fff',
-            border: filtroCard === 'ingresos' ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
-            borderRadius: 14,
-            padding: '18px 20px',
-            cursor: 'pointer',
-            boxShadow: filtroCard === 'ingresos' ? '0 0 0 3px #FF475715' : 'none',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        {/* Card INGRESOS — solo label + cifra */}
+        <div onClick={() => { setFiltroCard(prev => prev === 'ingresos' ? null : 'ingresos'); setPage(1) }} style={cardStyle('ingresos')}>
+          <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090' }}>{totales.ingresosCount} movs</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', margin: '6px 0 4px', color: '#1D9E75' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
             +{fmtEur(totales.ingresosImporte)}
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 10 }}>
-            Bruto del periodo · click para filtrar
-          </div>
         </div>
 
-        {/* Card GASTOS */}
-        <div
-          onClick={() => { setFiltroCard(prev => prev === 'gastos' ? null : 'gastos'); setPage(1) }}
-          style={{
-            background: '#fff',
-            border: filtroCard === 'gastos' ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
-            borderRadius: 14,
-            padding: '18px 20px',
-            cursor: 'pointer',
-            boxShadow: filtroCard === 'gastos' ? '0 0 0 3px #FF475715' : 'none',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        {/* Card GASTOS — solo label + cifra */}
+        <div onClick={() => { setFiltroCard(prev => prev === 'gastos' ? null : 'gastos'); setPage(1) }} style={cardStyle('gastos')}>
+          <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090' }}>{totales.gastosCount} movs</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', margin: '6px 0 4px', color: '#E24B4A' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
             -{fmtEur(totales.gastosImporte)}
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 10 }}>
-            Total gasto · click para filtrar
-          </div>
         </div>
 
-        {/* Card PENDIENTES */}
-        <div
-          onClick={() => { setFiltroCard(prev => prev === 'pendientes' ? null : 'pendientes'); setPage(1) }}
-          style={{
-            background: '#fff',
-            border: filtroCard === 'pendientes' ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
-            borderRadius: 14,
-            padding: '18px 20px',
-            cursor: 'pointer',
-            boxShadow: filtroCard === 'pendientes' ? '0 0 0 3px #FF475715' : 'none',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-        >
+        {/* Card PENDIENTES — label + badge + cifra */}
+        <div onClick={() => { setFiltroCard(prev => prev === 'pendientes' ? null : 'pendientes'); setPage(1) }} style={cardStyle('pendientes')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
             <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
               {totales.pendientesCount}
             </span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', margin: '6px 0 4px', color: '#F26B1F' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
             {fmtEur(totales.pendientesImporte)}
-          </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 10 }}>
-            Sin asociar · click para filtrar
           </div>
         </div>
 
-        {/* Card TITULAR */}
+        {/* Card TITULAR — label + nombre activo + toggle */}
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+          <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090' }}>filtro activo</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#111', margin: '6px 0 8px' }}>
             {filtroTitular === 'todos' ? 'Todos' : filtroTitular === 'ruben' ? 'Rubén' : 'Emilio'}
@@ -255,138 +220,166 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
         </button>
       </div>
 
-      {/* TABLA 8 COLUMNAS */}
-      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-            <thead>
-              <tr>
-                {['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc', 'Estado', 'Titular'].map((h, i) => (
-                  <th
-                    key={h}
-                    style={{
-                      fontFamily: 'Oswald, sans-serif',
-                      fontSize: 10,
-                      fontWeight: 500,
-                      letterSpacing: '2px',
-                      color: '#7a8090',
-                      textTransform: 'uppercase',
-                      textAlign: i === 3 ? 'right' : i === 5 ? 'center' : 'left',
-                      padding: '14px 16px',
-                      background: '#f5f3ef',
-                      borderBottom: '0.5px solid #d0c8bc',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.length === 0 ? (
+      {/* EMPTY STATE cuando BD vacía */}
+      {movimientos.length === 0 ? (
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>
+            No hay movimientos en este periodo
+          </div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>
+            Importa un extracto bancario desde el Importador
+          </div>
+          <button
+            onClick={() => navigate('/importador')}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+          >
+            Ir al Importador
+          </button>
+        </div>
+      ) : (
+        /* TABLA 8 COLUMNAS — table-layout fixed */
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 100 }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
-                    Sin movimientos en este rango
-                  </td>
+                  {['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc', 'Estado', 'Titular'].map((h, i) => (
+                    <th
+                      key={h}
+                      style={{
+                        fontFamily: 'Oswald, sans-serif',
+                        fontSize: 10,
+                        fontWeight: 500,
+                        letterSpacing: '2px',
+                        color: '#7a8090',
+                        textTransform: 'uppercase',
+                        textAlign: i === 3 ? 'right' : i === 5 ? 'center' : 'left',
+                        padding: '10px 16px',
+                        background: '#f5f3ef',
+                        borderBottom: '0.5px solid #d0c8bc',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ) : paginated.map((m, idx) => {
-                const isLast = idx === paginated.length - 1
-                const tdBase: React.CSSProperties = { padding: '14px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle' }
-                const catInfo = getBadgeCategoria(m, categoriasPyg)
-                const estado = calcularEstado(m)
-                const titularInfo = titulares.find(t => t.id === m.titular_id)
-                const titNombre = titularInfo?.nombre?.toLowerCase() ?? ''
-                const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
-                const isEmilio = titNombre.includes('emilio')
-
-                return (
-                  <tr
-                    key={m.id}
-                    onClick={() => setModalMov(m)}
-                    style={{ cursor: 'pointer' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
-                  >
-                    <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
-                      {fmtDate(m.fecha)}
-                    </td>
-                    <td style={{ ...tdBase, color: '#111', maxWidth: 200 }}>
-                      {m.concepto.length > 40 ? m.concepto.slice(0, 40) + '…' : m.concepto}
-                    </td>
-                    <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090' }}>
-                      {m.contraparte || 'Sin identificar'}
-                    </td>
-                    <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A' }}>
-                      {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
-                    </td>
-                    <td style={tdBase}>
-                      {catInfo ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
-                          {catInfo.nombre}
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
-                          sin categoría
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ ...tdBase, textAlign: 'center' }}>
-                      {m.doc_estado === 'tiene' || (m.factura_id && m.factura_data?.pdf_drive_url) ? (
-                        <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
-                      ) : m.doc_estado === 'no_requiere' ? (
-                        <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
-                      ) : (
-                        <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
-                      )}
-                    </td>
-                    <td style={tdBase}>
-                      {estado === 'conciliado' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
-                          Conciliado
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
-                          Pendiente
-                        </span>
-                      )}
-                    </td>
-                    <td style={tdBase}>
-                      {isRuben ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }}></span>
-                          Rubén
-                        </span>
-                      ) : isEmilio ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }}></span>
-                          Emilio
-                        </span>
-                      ) : (
-                        <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
-                      )}
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+                      Sin movimientos con los filtros actuales
                     </td>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                ) : paginated.map((m, idx) => {
+                  const isLast = idx === paginated.length - 1
+                  const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
+                  const catInfo = getBadgeCategoria(m, categoriasPyg)
+                  const estado = calcularEstado(m)
+                  const titularInfo = titulares.find(t => t.id === m.titular_id)
+                  const titNombre = titularInfo?.nombre?.toLowerCase() ?? ''
+                  const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
+                  const isEmilio = titNombre.includes('emilio')
 
-        {/* Footer paginación */}
-        <div style={{ padding: '14px 16px', borderTop: '0.5px solid #d0c8bc', background: '#fafaf7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
-            Mostrando {paginated.length} de {filtrados.length} movimientos
-          </span>
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>‹</button>
-              <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>›</button>
-            </div>
-          )}
+                  return (
+                    <tr
+                      key={m.id}
+                      onClick={() => setModalMov(m)}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                    >
+                      <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {fmtDate(m.fecha)}
+                      </td>
+                      <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.concepto.length > 40 ? m.concepto.slice(0, 40) + '…' : m.concepto}
+                      </td>
+                      <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.contraparte || 'Sin identificar'}
+                      </td>
+                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
+                        {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
+                      </td>
+                      <td style={{ ...tdBase, overflow: 'hidden' }}>
+                        {catInfo ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
+                            {catInfo.nombre}
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
+                            sin categoría
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ ...tdBase, textAlign: 'center' }}>
+                        {m.doc_estado === 'tiene' || (m.factura_id && (m as any).factura_data?.pdf_drive_url) ? (
+                          <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
+                        ) : m.doc_estado === 'no_requiere' ? (
+                          <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
+                        ) : (
+                          <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
+                        )}
+                      </td>
+                      <td style={tdBase}>
+                        {estado === 'conciliado' ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
+                            Conciliado
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                            Pendiente
+                          </span>
+                        )}
+                      </td>
+                      <td style={tdBase}>
+                        {isRuben ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }}></span>
+                            Rubén
+                          </span>
+                        ) : isEmilio ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }}></span>
+                            Emilio
+                          </span>
+                        ) : (
+                          <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer paginación */}
+          <div style={{ padding: '14px 16px', borderTop: '0.5px solid #d0c8bc', background: '#fafaf7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+              Mostrando {paginated.length} de {filtrados.length} movimientos
+            </span>
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>‹</button>
+                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>›</button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* MODAL */}
       {modalMov && (

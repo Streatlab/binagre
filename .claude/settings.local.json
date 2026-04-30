@@ -36,7 +36,14 @@
       "Bash(sed -i 's/color: T\\\\.emphasis, margin: 0, marginBottom: 8/color: \"#B01D23\", margin: 0, marginBottom: 8/g' src/pages/CocinaInventario.tsx)",
       "Bash(sed -i 's/color: T\\\\.emphasis, marginBottom: 4/color: \"#B01D23\", marginBottom: 4/g' src/pages/CocinaRecetas.tsx)",
       "Bash(sed -i 's/color: T\\\\.emphasis, margin: 0, marginBottom: 8/color: \"#B01D23\", margin: 0, marginBottom: 8/g' src/pages/MarketingEmbudo.tsx)",
-      "Bash(npm install *)"
-    ]
-  }
+      "Bash(npm install *)",
+      "Skill(update-config)",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(Read src/components/panel/resumen/tokens.ts)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "model": "claude-sonnet-4-6"
 }

@@ -83,6 +83,21 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       const { error } = await supabase.from('conciliacion').update(updates).eq('id', movimiento!.id)
       if (error) throw error
 
+      // Si asignó categoría a un movimiento que no tenía (o cambió), crear regla automática
+      const categoriaAnterior = movimiento!.categoria_id
+      if (selectedDetalle && selectedDetalle !== categoriaAnterior) {
+        const palabras = movimiento!.concepto.toUpperCase().split(/\s+/).filter(w => w.length > 3)
+        const keyword = palabras[0] ?? movimiento!.concepto.slice(0, 10).toUpperCase()
+        await supabase.from('reglas_conciliacion').upsert({
+          patron: keyword.toLowerCase(),
+          categoria_codigo: selectedDetalle,
+          asigna_como: movimiento!.importe >= 0 ? 'ingreso' : 'gasto',
+          activa: true,
+          prioridad: 10,
+          creada_por_usuario: true,
+        }, { onConflict: 'patron' })
+      }
+
       toast.success('Movimiento actualizado')
       onSaved({
         ...movimiento!,
