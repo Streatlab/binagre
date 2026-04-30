@@ -114,11 +114,11 @@ export default function CardPedidosTM({
                   {/* FIX 28: fmtNum(ped, 0) */}
                   <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{fmtNum(ped, 0)}</b>
                   {' · '}
-                  {/* FIX 24: TM Bruto naranja #F26B1F, FIX 27: 0,00 si 0 */}
-                  <span style={{ color: '#F26B1F' }}>{fmtEur(tBruto, { showEuro: false, decimals: 2 })}</span>
+                  {/* FIX 24+32: TM Bruto naranja #F26B1F, con € */}
+                  <span style={{ color: '#F26B1F' }}>{fmtEur(tBruto, { showEuro: true, decimals: 2 })}</span>
                   {' / '}
-                  {/* FIX 25: TM Neto verde #1D9E75, FIX 27: 0,00 si 0 */}
-                  <span style={{ color: COLOR.verde }}>{fmtEur(tNeto, { showEuro: false, decimals: 2 })}</span>
+                  {/* FIX 25+32: TM Neto verde #1D9E75, con € */}
+                  <span style={{ color: COLOR.verde }}>{fmtEur(tNeto, { showEuro: true, decimals: 2 })}</span>
                 </span>
               </div>
               {/* FIX 26: barra mini con color del canal */}

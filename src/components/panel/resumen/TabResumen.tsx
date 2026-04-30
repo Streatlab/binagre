@@ -480,7 +480,8 @@ export default function TabResumen({
     // Factor bruto→neto promedio (asumiendo mix actual canal)
     const bruto2neto = ventasMes > 0 && netoEstimado > 0 ? (netoEstimado / ventasMes) : 0.7
     const peBruto = bruto2neto > 0 ? peNeto / bruto2neto : peNeto
-    const pctProgreso = peBruto > 0 ? Math.min(100, Math.round((ventasMes / peBruto) * 100)) : 0
+    // FIX 33: pctProgreso real sin truncar — CardPE trunca solo para la barra visual
+    const pctProgreso = peBruto > 0 ? Math.round((ventasMes / peBruto) * 100) : 0
 
     const hoy = new Date()
     const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)
@@ -716,10 +717,10 @@ export default function TabResumen({
         <CardPE {...peCalc} />
       </div>
 
-      {/* FILA 4: 2 cards — Config E: 1fr 2fr (Provisiones 1/3, TopVentas 2/3) */}
+      {/* FILA 4: 3 columnas iguales — FIX 28: 1fr 1fr 1fr (col3 vacía) */}
       <div style={{
         ...row3,
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
       }}>
         <CardProvisiones
           totalAGuardar={totalAGuardar}
@@ -733,6 +734,7 @@ export default function TabResumen({
           items={topItems}
           datosDemo={topDatosDemo}
         />
+        <div />
       </div>
     </div>
   )

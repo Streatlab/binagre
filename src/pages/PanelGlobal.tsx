@@ -180,10 +180,8 @@ function TabPlaceholder({ nombre }: { nombre: string }) {
 export default function PanelGlobal() {
   const [activeTab, setActiveTab] = useState<TabId>('resumen')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
-  const [fechaDesde, setFechaDesde] = useState<Date>(() => {
-    const hoy = new Date(); return new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-  })
-  const [fechaHasta, setFechaHasta] = useState<Date>(new Date())
+  const [fechaDesde, setFechaDesde] = useState<Date>(() => new Date(2026, 3, 1))
+  const [fechaHasta, setFechaHasta] = useState<Date>(() => new Date(2026, 3, 30))
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
   const [marcasDisp, setMarcasDisp] = useState<MarcaItem[]>([])

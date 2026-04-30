@@ -84,14 +84,14 @@ export default function CardVentas({
       <div key={tipo} style={{ marginBottom }}>
         {/* FIX 7/8/9: solo label sin prefijo SEMANAL/MENSUAL/ANUAL */}
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={lblSm}>{label}</span>
+          <span style={{ ...lblSm, textTransform: 'none' }}>{label}</span>
           {/* FIX 17: % coloreado con semáforo */}
           <span style={{ ...lblSm, color: sem }}>{fmtNum(pct, 0)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
           {/* FIX 5+17: sin €, color semáforo */}
-          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false })}</span>
+          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false, decimals: 2 })}</span>
           <span>de</span>
           {/* FIX 14: EditableInline */}
           <EditableInline
@@ -129,17 +129,17 @@ export default function CardVentas({
         <div>
           {/* FIX 10: fontSize 38, #111111, sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#111111' }}>
-            {fmtEur(bruto, { showEuro: false })}
+            {fmtEur(bruto, { showEuro: false, decimals: 2 })}
           </div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
           {/* FIX 11: fontSize 38 verde, sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
-            {fmtEur(netoEstimado, { showEuro: false })}
+            {fmtEur(netoEstimado, { showEuro: false, decimals: 2 })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: COLOR.verde, textTransform: 'uppercase', fontWeight: 500 }}>
-            NETO ESTIMADO · {fmtNum(pctNeto, 1)}%
+            NETO ESTIMADO · {fmtNum(pctNeto, 2)}%
           </div>
         </div>
       </div>

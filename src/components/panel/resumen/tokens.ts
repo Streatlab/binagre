@@ -378,7 +378,7 @@ export function fmtDec(v: number, decimals = 1): string {
 }
 
 export function fmtPp(pp: number): string {
-  return `${pp >= 0 ? '+' : ''}${pp.toFixed(1)} pp`
+  return `${pp >= 0 ? '+' : ''}${pp.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pp`
 }
 
 /* ── Mini-tabs ────────────────────────────────────── */

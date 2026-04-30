@@ -78,7 +78,7 @@ export const EditableInline: React.FC<Props> = ({
     >
       {valor !== null && valor !== undefined
         ? valor.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
-        : '—'}{unidad ? ` ${unidad}` : ''}
+        : '—'}{unidad === '%' ? `${unidad}` : unidad ? ` ${unidad}` : ''}
     </span>
   );
 };

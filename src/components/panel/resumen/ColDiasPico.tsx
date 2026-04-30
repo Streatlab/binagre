@@ -112,7 +112,7 @@ export default function ColDiasPico({ dias: diasProp, media: mediaProp, nombreMe
 
   return (
     <div>
-      <div style={{ ...lbl, marginBottom: 10 }}>{titulo}</div>
+      <div style={{ ...lbl, marginBottom: 10, textTransform: 'none' }}>{titulo}</div>
       <div style={{ ...cardBig, padding: 18 }}>
         {sinDatos ? (
           <div style={{ textAlign: 'center', color: COLOR.textMut, fontSize: 12, fontFamily: LEXEND, padding: '40px 0' }}>

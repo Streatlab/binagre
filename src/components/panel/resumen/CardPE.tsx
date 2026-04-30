@@ -65,7 +65,7 @@ function diasEnMes(año: number, mes: number): number {
 export default function CardPE({
   peBruto, acumulado, pctProgreso,
   facturacionDia, pedidosDia, tmActual,
-  realFacDia,
+  realFacDia, realPedDia,
   año, mes,
 }: Props) {
   const sinDatos = peBruto <= 0
@@ -125,8 +125,8 @@ export default function CardPE({
             <div style={{ height: '100%', width: `${remaining}%`, background: COLOR.rojo }} />
           </div>
           <div style={{ fontSize: 11, color: COLOR.textMut, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
-            <span>Llevamos {fmtEur(acumulado, { showEuro: false, decimals: 0 })}</span>
-            <span>Faltan {fmtEur(falta, { showEuro: false, decimals: 0 })}</span>
+            <span>Llevamos {fmtEur(acumulado, { showEuro: false, decimals: 2 })}</span>
+            <span>Faltan {fmtEur(falta, { showEuro: false, decimals: 2 })}</span>
           </div>
 
           <div style={{ marginTop: 14, paddingTop: 10, borderTop: `0.5px solid ${COLOR.borde}` }}>
@@ -146,7 +146,7 @@ export default function CardPE({
               </span>
             </div>
 
-            {/* FIX 94: "Realidad hoy" con tooltip */}
+            {/* FIX 23+24+94: "Realidad hoy" con € y pedidos/día */}
             <div
               title="Lo que estamos facturando de media diaria en el periodo seleccionado"
               style={{
@@ -160,7 +160,10 @@ export default function CardPE({
               }}
             >
               <span>Realidad hoy</span>
-              <span>{fmtEur(realFacDia, { showEuro: false, decimals: 0 })}/día</span>
+              <span>
+                {fmtEur(realFacDia, { showEuro: true, decimals: 2 })}/día
+                {realPedDia > 0 && <> · {fmtNum(realPedDia, 0)} ped/día</>}
+              </span>
             </div>
           </div>
         </>

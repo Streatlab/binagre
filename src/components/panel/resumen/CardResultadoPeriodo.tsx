@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum, colorSemaforo } from '@/lib/format'
+import { fmtEur, fmtNum, fmtPct, colorSemaforo } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack } from './tokens'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
@@ -114,19 +114,21 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          {/* FIX 31: EBITDA con € */}
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: colorEbitda }}>
-            {fmtEur(ebitda, { showEuro: true, decimals: 2 })}
+          {/* FIX 10+31: si running null → "Datos insuficientes"; si hay datos → EBITDA con € */}
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: (running === null || running.resultado_limpio === null) ? COLOR.textMut : colorEbitda }}>
+            {(running === null || running.resultado_limpio === null)
+              ? 'Datos insuficientes'
+              : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
           </div>
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          {/* FIX 32: % sin € */}
+          {/* FIX 11+32: % sin €, sublabel "% s/netos · Banda 10-13%" */}
           <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorEbitda }}>
-            {fmtNum(ebitdaPct, 0)}%
+            {(running === null || running.resultado_limpio === null) ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorEbitda, textTransform: 'uppercase', fontWeight: 500 }}>
-            % S/NETOS
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorEbitda, fontWeight: 500 }}>
+            % s/netos · Banda 10-13%
           </div>
         </div>
       </div>
@@ -195,8 +197,8 @@ export default function CardResultadoPeriodo({
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería.">PRIME COST</span>
-          {/* FIX 41: color semáforo */}
-          <span style={{ ...lblSm, color: primeCostColor }}>{fmtNum(primeCostPct, 0)}%</span>
+          {/* FIX 38+41: fmtPct 2 decimales, color semáforo */}
+          <span style={{ ...lblSm, color: primeCostColor }}>{fmtPct(primeCostPct, 2)}</span>
         </div>
         {/* FIX 42: BarraCumplimiento */}
         <div style={{ marginBottom: 4 }}>

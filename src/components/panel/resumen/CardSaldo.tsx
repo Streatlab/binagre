@@ -117,9 +117,6 @@ export default function CardSaldo(_props: Props) {
       })
   }, [])
 
-  const proyeccion7d = cobros7d !== null && pagos7d !== null ? cobros7d - pagos7d : null
-  const proyeccion30d = cobros30d !== null && pagos30d !== null ? cobros30d - pagos30d : null
-
   return (
     <div style={card}>
       {/* FIX 73: título PROYECCIONES */}
@@ -163,22 +160,7 @@ export default function CardSaldo(_props: Props) {
         <Linea label="Pagos 30d" valor={pagos30d !== null ? fmtEur(pagos30d, { showEuro: false, decimals: 2 }) : '0,00'} />
       </div>
 
-      {/* FIX 80: Proyección sin € */}
-      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${COLOR.borde}` }}>
-        <div style={{ fontSize: 11, fontFamily: OSWALD, letterSpacing: '1px', color: COLOR.textMut, textTransform: 'uppercase', marginBottom: 6 }}>
-          PROYECCIÓN NETA
-        </div>
-        <Linea
-          label="Proyección 7d"
-          valor={proyeccion7d !== null ? fmtEur(proyeccion7d, { showEuro: false, decimals: 2 }) : 'Datos insuficientes'}
-          colorVal={proyeccion7d !== null ? (proyeccion7d >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
-        />
-        <Linea
-          label="Proyección 30d"
-          valor={proyeccion30d !== null ? fmtEur(proyeccion30d, { showEuro: false, decimals: 2 }) : 'Datos insuficientes'}
-          colorVal={proyeccion30d !== null ? (proyeccion30d >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
-        />
-      </div>
+      {/* FIX 30: PROYECCIÓN NETA eliminado — duplicaba info de Cobros/Pagos sin valor adicional */}
     </div>
   )
 }

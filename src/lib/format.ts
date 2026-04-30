@@ -13,9 +13,7 @@ export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; 
   const decimals = opts?.decimals ?? 0;
   const showEuro = opts?.showEuro !== false; // default true para compatibilidad
   const abs = Math.abs(num);
-  const parts = abs.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formatted = parts.join(',');
+  const formatted = abs.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   const prefix = opts?.signed && num > 0 ? '+' : num < 0 ? '−' : '';
   return showEuro ? `${prefix}${formatted} €` : `${prefix}${formatted}`;
 }

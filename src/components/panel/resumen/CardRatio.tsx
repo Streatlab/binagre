@@ -147,18 +147,18 @@ export default function CardRatio({
       {/* FIX 86: Ingresos netos / Gastos fijos / Gastos reales */}
       <Linea
         label="Ingresos netos"
-        valor={ratioInsuficiente ? '—' : `${fmtEur(ingresosNetos, { showEuro: false, decimals: 0 })} €`}
+        valor={ratioInsuficiente ? '—' : fmtEur(ingresosNetos, { showEuro: false, decimals: 2 })}
         tooltip=""
         top
       />
       <Linea
         label="Gastos fijos"
-        valor={ratioInsuficiente ? '—' : `${fmtEur(gFijos, { showEuro: false, decimals: 0 })} €`}
+        valor={ratioInsuficiente ? '—' : fmtEur(gFijos, { showEuro: false, decimals: 2 })}
         tooltip="Gastos fijos conocidos: alquiler, SS, nóminas, etc."
       />
       <Linea
         label="Gastos reales"
-        valor={ratioInsuficiente ? '—' : `${fmtEur(gVariables, { showEuro: false, decimals: 0 })} €`}
+        valor={ratioInsuficiente ? '—' : fmtEur(gVariables, { showEuro: false, decimals: 2 })}
         tooltip="Gastos variables que cambian mes a mes"
       />
 

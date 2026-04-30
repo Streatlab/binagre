@@ -24,16 +24,7 @@ export default function CardTopVentas({ tab, onTab, items, datosDemo }: Props) {
         </div>
       </div>
 
-      {datosDemo && items.length === 0 && (
-        <div style={{
-          position: 'absolute', top: 8, right: 10,
-          background: '#f5a62320', color: '#854F0B',
-          fontSize: 10, padding: '2px 8px', borderRadius: 4,
-          fontFamily: 'Lexend, sans-serif', fontWeight: 500,
-        }}>
-          datos demo
-        </div>
-      )}
+      {/* FIX 27: badge "datos demo" eliminado */}
       <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
         <tbody>
           {items.length === 0 ? (

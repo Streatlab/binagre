@@ -124,7 +124,7 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           datos={uber}
         />
 
-        {/* FIX 48: Glovo border 1px solid #5a5500 */}
+        {/* FIX 12+48: Glovo border 1px solid #5a5500 */}
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
