@@ -1,27 +1,15 @@
 /**
- * CardVentas — Fixes 1-17
- * FIX 2: sin € bruto
- * FIX 3: sin € neto
- * FIX 4: sin € objetivos
- * FIX 5: sin € faltan
- * FIX 6: sublabel FACTURACIÓN
- * FIX 7: fmtSemana formato S18_27_04_26
- * FIX 8: fmtMes solo nombre
- * FIX 9: solo año string
- * FIX 10: bruto fontSize 38 fontWeight 600 color #111111
- * FIX 11: neto fontSize 38 fontWeight 600 color verde
- * FIX 12-13: objetivos desde Supabase con override_usuario
- * FIX 14-15: EditableInline
- * FIX 16: BarraCumplimiento
- * FIX 17: colorSemaforo para %
+ * CardVentas — Ronda 8
+ * R8-01: objetivos editables usan handler saveObjetivoVenta del padre (upsert por tipo en tabla objetivos)
+ *        en lugar de EditableInline genérico que apunta a campos inexistentes
+ *        Si se borra el valor → restaurar valor base por defecto desde tabla
  */
-import { useEffect, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm,
 } from './tokens'
 import { fmtEur, fmtNum, fmtSemana, fmtMes, colorSemaforo } from '@/lib/format'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
-import { EditableInline } from '@/components/ui/EditableInline'
 import type { ObjetivosVentas, ToastFn } from './types'
 
 interface Props {
@@ -49,7 +37,6 @@ export default function CardVentas({
 }: Props) {
   const pctNeto = bruto > 0 ? Math.round((netoEstimado / bruto) * 100) : 0
 
-  // FIX 7: semana label usando fmtSemana
   const lunesRef = lunesSemana ?? (() => {
     const now = new Date()
     const day = now.getDay()
@@ -60,13 +47,8 @@ export default function CardVentas({
   })()
   const semLabel = fmtSemana(nSemana, lunesRef)
 
-  // FIX 8: mes label usando fmtMes
   const mesActual = mes ?? (new Date().getMonth() + 1)
   const mesLabel = fmtMes(mesActual)
-
-  const handleUpdate = useCallback(() => {
-    refetchObjetivos?.()
-  }, [refetchObjetivos])
 
   function rowBarra(
     tipo: 'semanal' | 'mensual' | 'anual',
@@ -76,42 +58,28 @@ export default function CardVentas({
     marginBottom: number
   ) {
     const pct = objetivo > 0 ? Math.min(100, (valor / objetivo) * 100) : 0
-    // FIX 17: colorSemaforo
     const sem = colorSemaforo(pct)
     const faltan = Math.max(0, objetivo - valor)
 
     return (
       <div key={tipo} style={{ marginBottom }}>
-        {/* FIX 7/8/9: solo label sin prefijo SEMANAL/MENSUAL/ANUAL */}
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={{ ...lblSm, textTransform: 'none' }}>{label}</span>
-          {/* FIX 17: % coloreado con semáforo */}
           <span style={{ ...lblSm, color: sem }}>{fmtNum(pct, 0)}%</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
-          {/* FIX 5+17: sin €, color semáforo */}
           <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false, decimals: 2 })}</span>
           <span>de</span>
-          {/* FIX 14: EditableInline */}
-          <EditableInline
+          {/* R8-01: usa onSaveObjetivo del padre (upsert por tipo, no EditableInline genérico) */}
+          <ObjetivoEditable
+            tipo={tipo}
             valor={objetivo}
-            tabla="objetivos"
-            campo="override_usuario"
-            filtros={
-              tipo === 'semanal'
-                ? { tipo: 'semanal', año: ano, semana: nSemana }
-                : tipo === 'mensual'
-                  ? { tipo: 'mensual', año: ano, mes: mesActual }
-                  : { tipo: 'anual', año: ano }
-            }
-            decimales={2}
-            unidad=""
-            color="#3a4050"
-            onUpdate={handleUpdate}
+            onSave={onSaveObjetivo}
+            onRefetch={refetchObjetivos}
+            toast={toast}
           />
         </div>
-        {/* FIX 16: BarraCumplimiento */}
         <BarraCumplimiento pct={pct} altura={8} />
       </div>
     )
@@ -122,19 +90,16 @@ export default function CardVentas({
 
   return (
     <div style={cardBig}>
-      {/* FIX 6: FACTURACIÓN */}
       <div style={lbl}>FACTURACIÓN</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          {/* FIX 10: fontSize 38, #111111, sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#111111' }}>
             {fmtEur(bruto, { showEuro: false, decimals: 2 })}
           </div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
-          {/* FIX 11: fontSize 38 verde, sin € */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
             {fmtEur(netoEstimado, { showEuro: false, decimals: 2 })}
           </div>
@@ -150,12 +115,98 @@ export default function CardVentas({
         </div>
       )}
 
-      {/* FIX 7: semLabel = S18_27_04_26 */}
       {rowBarra('semanal', ventasSemana, objetivos.semanal, semLabel, 14)}
-      {/* FIX 8: mesLabel = Abril */}
       {rowBarra('mensual', ventasMes, objetivos.mensual, mesLabel, 14)}
-      {/* FIX 9: solo año */}
       {rowBarra('anual', ventasAno, objetivos.anual, String(ano), 0)}
     </div>
+  )
+}
+
+// R8-01: editable inline con borrar→restaurar último valor válido
+function ObjetivoEditable({
+  tipo, valor, onSave, onRefetch, toast,
+}: {
+  tipo: 'semanal' | 'mensual' | 'anual'
+  valor: number
+  onSave: (tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) => Promise<void>
+  onRefetch?: () => void
+  toast: ToastFn
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(valor ?? ''))
+  const inputRef = useRef<HTMLInputElement>(null)
+  const lastValid = useRef<number>(valor)
+
+  useEffect(() => {
+    if (valor != null && !isNaN(valor)) lastValid.current = valor
+    setDraft(String(valor ?? ''))
+  }, [valor])
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus()
+  }, [editing])
+
+  const guardar = useCallback(async () => {
+    const trimmed = draft.trim()
+    if (trimmed === '') {
+      // Borrado → restaurar último valor válido (no se persiste)
+      setDraft(String(lastValid.current))
+      setEditing(false)
+      toast?.('Valor anterior restaurado', 'info')
+      return
+    }
+    const num = parseFloat(trimmed.replace(',', '.'))
+    if (isNaN(num) || num <= 0) {
+      setDraft(String(lastValid.current))
+      setEditing(false)
+      return
+    }
+    lastValid.current = num
+    await onSave(tipo, num)
+    setEditing(false)
+    onRefetch?.()
+    toast?.('Objetivo actualizado', 'success')
+  }, [draft, onSave, onRefetch, tipo, toast])
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') guardar()
+    if (e.key === 'Escape') {
+      setDraft(String(valor ?? ''))
+      setEditing(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        value={draft}
+        step="any"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={guardar}
+        onKeyDown={onKey}
+        style={{
+          width: 80, padding: '0 4px', border: '1px solid #FF4757',
+          borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
+          color: '#3a4050', background: '#fff',
+        }}
+      />
+    )
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      style={{
+        borderBottom: '1px dashed #d0c8bc',
+        cursor: 'text',
+        color: '#3a4050',
+        padding: '0 2px',
+      }}
+      title="Click para editar — vacío restaura el anterior"
+    >
+      {fmtEur(valor, { showEuro: false, decimals: 2 })}
+    </span>
   )
 }
