@@ -1,8 +1,7 @@
 /**
- * ColFacturacionCanal — Ronda 8
- * R8-02: Web/Directa cards mini → mostrar "0,00" cuando no hay datos en lugar de "— €" / "sin datos"
- * R8-03: Glovo border más sutil rgba(200,180,0,0.30) sin boxShadow
- * Mantiene: bruto+neto 24px, "Bruto" mayúscula, "Margen X,XX%", lectura de resumenes_plataforma_marca_mensual
+ * ColFacturacionCanal — Ronda 9
+ * R9-07: Bruto en negro #111111 (mismo negro que Card Facturación principal)
+ * Mantiene: Web/Directa muestran 0,00 + Glovo border sutil + lectura resumenes_plataforma_marca_mensual
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -113,18 +112,15 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           bg={`${COLOR.uber}20`}
           border={COLOR.uber}
           colorLabel={COLOR.verdeOscuro}
-          colorBruto={COLOR.verdeOscuro}
           datos={uber}
         />
 
-        {/* R8-03: Glovo border sutil sin boxShadow */}
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
           border="rgba(200,180,0,0.30)"
           borderWidth="1px"
           colorLabel={COLOR.glovoDark}
-          colorBruto={COLOR.glovoTexto}
           datos={glovo}
         />
 
@@ -133,7 +129,6 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           bg={`${COLOR.je}20`}
           border={COLOR.je}
           colorLabel={COLOR.jeDark}
-          colorBruto={COLOR.jeDark}
           datos={je}
         />
 
@@ -143,7 +138,6 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
             bg={`${COLOR.webSL}10`}
             border={`${COLOR.webSL}50`}
             colorLabel={COLOR.webDark}
-            colorBruto={COLOR.webDark}
             datos={web}
           />
           <CardCanalMini
@@ -151,7 +145,6 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
             bg={`${COLOR.directa}20`}
             border={COLOR.directa}
             colorLabel={COLOR.directaDark}
-            colorBruto={COLOR.directaDark}
             datos={dir}
           />
         </div>
@@ -167,12 +160,15 @@ interface CardCanalProps {
   borderWidth?: string
   boxShadow?: string
   colorLabel: string
-  colorBruto: string
   datos: DatosCanal
 }
 
-function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorLabel, colorBruto, datos }: CardCanalProps) {
+function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorLabel, datos }: CardCanalProps) {
   const tieneDatos = !datos.sinDatos && datos.bruto !== null
+  const brutoVal = tieneDatos ? datos.bruto! : 0
+  const netoVal = tieneDatos ? (datos.neto ?? 0) : 0
+  const margenVal = tieneDatos ? (datos.margenPct ?? 0) : 0
+
   return (
     <div style={{
       background: bg,
@@ -187,29 +183,30 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorL
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-          {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : fmtEur(0, { showEuro: false, decimals: 2 })}
+        {/* R9-07: Bruto en negro #111111 */}
+        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111111', marginTop: 2 }}>
+          {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
         </div>
-        <div style={{ fontSize: 11, color: colorBruto, fontFamily: LEXEND }}>Bruto</div>
+        <div style={{ fontSize: 11, color: '#3a4050', fontFamily: LEXEND }}>Bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: COLOR.verde }}>
-          {tieneDatos ? fmtEur(datos.neto, { showEuro: false, decimals: 2 }) : fmtEur(0, { showEuro: false, decimals: 2 })}
+          {fmtEur(netoVal, { showEuro: false, decimals: 2 })}
         </div>
         <div style={{ fontSize: 14, color: COLOR.verde, fontFamily: LEXEND }}>
-          {tieneDatos && datos.margenPct !== null ? `Margen ${fmtPct(datos.margenPct, 2)}` : `Margen ${fmtPct(0, 2)}`}
+          {`Margen ${fmtPct(margenVal, 2)}`}
         </div>
       </div>
     </div>
   )
 }
 
-// R8-02: cards mini Web/Directa muestran 0,00 cuando no hay datos en lugar de "— €" / "sin datos"
-function CardCanalMini({ label, bg, border, colorLabel, colorBruto, datos }: Omit<CardCanalProps, 'colorBrutoSub'>) {
+function CardCanalMini({ label, bg, border, colorLabel, datos }: Omit<CardCanalProps, 'colorBruto'>) {
   const tieneDatos = !datos.sinDatos && datos.bruto !== null
   const brutoVal = tieneDatos ? datos.bruto! : 0
   const netoVal = tieneDatos ? (datos.neto ?? 0) : 0
   const margenVal = tieneDatos ? (datos.margenPct ?? 0) : 0
+
   return (
     <div style={{
       background: bg,
@@ -218,7 +215,8 @@ function CardCanalMini({ label, bg, border, colorLabel, colorBruto, datos }: Omi
       padding: '10px 12px',
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-      <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
+      {/* R9-07: Bruto en negro #111111 también en mini */}
+      <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: '#111111', marginTop: 2 }}>
         {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
       </div>
       <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: LEXEND }}>
