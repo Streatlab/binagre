@@ -152,7 +152,7 @@ function ObjetivoEditable({
       // Borrado → restaurar último valor válido (no se persiste)
       setDraft(String(lastValid.current))
       setEditing(false)
-      toast?.('Valor anterior restaurado', 'info')
+      toast?.('Valor anterior restaurado', 'warning')
       return
     }
     const num = parseFloat(trimmed.replace(',', '.'))
