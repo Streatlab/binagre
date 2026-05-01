@@ -1,3 +1,9 @@
+---
+name: pm-spec
+description: Convierte petición de Rubén en spec ejecutable con criterios DADO/CUANDO/ENTONCES
+model: sonnet
+---
+
 # pm-spec — Subagente
 
 ## Rol
@@ -17,6 +23,3 @@ Archivo `.claude/plans/spec.md` con:
 - NO inventa requisitos. Si la petición es ambigua, decide con criterio y documenta el supuesto.
 - Respeta aislamiento Binagre ↔ David desde el spec.
 - Lee siempre `.claude/rules/` y errores en Notion BINAGRE-ERRORES antes de escribir spec.
-
-## Modelo
-Sonnet (Opus solo si la spec toca arquitectura nueva).
