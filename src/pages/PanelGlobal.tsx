@@ -59,13 +59,15 @@ const menuStyle: React.CSSProperties = {
   background: '#ffffff',
   border: '0.5px solid #d0c8bc',
   borderRadius: 8,
-  width: 220,
+  width: 280,
   fontSize: 12,
   color: '#3a4050',
   boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
   zIndex: 100,
   maxHeight: 360,
   overflowY: 'auto',
+  paddingTop: 2,
+  paddingBottom: 2,
 }
 
 function toLocalDateStr(d: Date): string {
@@ -128,11 +130,12 @@ function MultiSelect({
               key={o.id}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '3px 8px', cursor: 'pointer',
-                lineHeight: 1.2,
+                padding: '2px 10px', cursor: 'pointer',
+                lineHeight: 1.3,
                 background: selected.includes(o.id) ? '#FF475715' : 'transparent',
                 color: selected.includes(o.id) ? '#FF4757' : '#7a8090',
                 fontFamily: 'Lexend, sans-serif', fontSize: 12,
+                whiteSpace: 'nowrap',
               }}
             >
               <input

@@ -675,6 +675,8 @@ export default function TabResumen({
           totalGastos={totalGastosPeriodo}
           resultadoLimpio={resultadoLimpio}
           primeCostPct={primeCostPct}
+          facturacionBruta={ventasPeriodo}
+          margenNetoEstimadoPct={ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0}
         />
       </div>
 
@@ -694,6 +696,8 @@ export default function TabResumen({
           dias={diasPico}
           media={mediaDiariaPico}
           nombreMes={nombreMes}
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
           onClickDia={onFiltrarDiaSemana}
         />
       </div>
