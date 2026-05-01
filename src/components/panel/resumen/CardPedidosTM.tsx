@@ -1,17 +1,8 @@
 /**
- * CardPedidosTM — Fixes 18-29
- * FIX 18: Pedidos fontSize 38 color #1E5BCC
- * FIX 19: TM Bruto fontSize 38 color #F26B1F
- * FIX 20: TM Neto fontSize 38 color #1D9E75
- * FIX 21: fmtEur(tmBruto, { showEuro: true, decimals: 2 })
- * FIX 22: fmtEur(tmNeto, { showEuro: true, decimals: 2 })
- * FIX 23: pedidos canal color #1E5BCC
- * FIX 24: TM Bruto canal color #F26B1F
- * FIX 25: TM Neto canal color #1D9E75
- * FIX 26: barra mini color del canal
- * FIX 27: 0 pedidos → "0" no "—"
- * FIX 28: fmtNum(pedidos, 0)
- * FIX 29: PROHIBIDO "Ticket Medio"
+ * CardPedidosTM — Ronda 7
+ * R7-04: formato canales "1097 / 26,76 / 17,05" sin €, sin punto medio
+ * R7-04b: barras Web (#8B5CF6 violeta) y Directa (#06B6D4 cyan) visibles
+ * R7-04c: si pedidos === 0 → "0 / 0,00 / 0,00" (no "—")
  */
 import { fmtNum, fmtEur } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, fmtDec } from './tokens'
@@ -30,8 +21,8 @@ const CANAL_VISUAL: Record<string, { label: string; color: string }> = {
   uber:  { label: 'Uber Eats', color: '#06C167'  },
   glovo: { label: 'Glovo',     color: '#e8f442'  },
   je:    { label: 'Just Eat',  color: '#f5a623'  },
-  web:   { label: 'Web',       color: '#B01D23'  },
-  dir:   { label: 'Directa',   color: '#66aaff'  },
+  web:   { label: 'Web',       color: '#8B5CF6'  },
+  dir:   { label: 'Directa',   color: '#06B6D4'  },
 }
 
 const ORDEN: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']
@@ -47,28 +38,22 @@ export default function CardPedidosTM({
 
   return (
     <div style={cardBig}>
-      {/* FIX 29: PEDIDOS · TM no "Ticket Medio" */}
       <div style={lbl}>PEDIDOS · TM</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          {/* FIX 18: fontSize 38 fontWeight 600 color #1E5BCC */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#1E5BCC' }}>
             {fmtNum(pedidos, 0)}
           </div>
           <div style={{ ...lblXs, color: '#1E5BCC' }}>PEDIDOS</div>
         </div>
         <div>
-          {/* FIX 19: fontSize 38 fontWeight 600 color #F26B1F */}
-          {/* FIX 21: fmtEur con showEuro:true decimals:2 */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#F26B1F' }}>
             {fmtEur(tmBruto, { showEuro: true, decimals: 2 })}
           </div>
           <div style={{ ...lblXs, color: '#F26B1F' }}>TM BRUTO</div>
         </div>
         <div>
-          {/* FIX 20: fontSize 38 fontWeight 600 color #1D9E75 */}
-          {/* FIX 22: fmtEur con showEuro:true decimals:2 */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
             {fmtEur(tmNeto, { showEuro: true, decimals: 2 })}
           </div>
@@ -110,22 +95,18 @@ export default function CardPedidosTM({
               }}>
                 <span>● {visual.label}</span>
                 <span>
-                  {/* FIX 23: pedidos azul #1E5BCC, FIX 27: mostrar 0 si 0 */}
-                  {/* FIX 28: fmtNum(ped, 0) */}
+                  {/* R7-04: pedidos / TM bruto / TM neto sin €, separador / con espacios */}
                   <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{fmtNum(ped, 0)}</b>
-                  {' · '}
-                  {/* FIX 24+32: TM Bruto naranja #F26B1F, con € */}
-                  <span style={{ color: '#F26B1F' }}>{fmtEur(tBruto, { showEuro: true, decimals: 2 })}</span>
                   {' / '}
-                  {/* FIX 25+32: TM Neto verde #1D9E75, con € */}
-                  <span style={{ color: COLOR.verde }}>{fmtEur(tNeto, { showEuro: true, decimals: 2 })}</span>
+                  <span style={{ color: '#F26B1F' }}>{fmtNum(tBruto, 2)}</span>
+                  {' / '}
+                  <span style={{ color: COLOR.verde }}>{fmtNum(tNeto, 2)}</span>
                 </span>
               </div>
-              {/* FIX 26: barra mini con color del canal */}
               <div style={{ height: 5, borderRadius: 3, background: COLOR.bordeClaro, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
-                  width: `${pctBarra}%`,
+                  width: `${Math.max(pctBarra, ped > 0 ? 2 : 0)}%`,
                   background: visual.color,
                   transition: 'width 0.5s ease',
                 }} />
