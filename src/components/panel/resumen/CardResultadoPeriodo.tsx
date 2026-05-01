@@ -1,10 +1,15 @@
 /**
  * CardResultadoPeriodo — Ronda 10
- * R10-01: EBITDA grande = mismo cálculo que Resultado neto de la cascada (no usar el prop legacy)
- *         Así arriba y abajo cuadran. Si hay datos parciales, ambos muestran lo mismo.
- *         Como son iguales, "Resultado neto" abajo NO se muestra (evita duplicar).
- * R10-02: EBITDA % = (EBITDA / Ingresos netos) × 100, recalculado localmente
- * Mantiene resto: Producto · COGS, Equipo, Local, Controlables, sin asterisco, etc.
+ * R10-01: cascada usa rango fechaDesde/fechaHasta del periodo (oculto al usuario)
+ * R10-02: prioridad de fuentes:
+ *   1) tabla running mensual si existe row → usa esos valores
+ *   2) fallback → valores calculados desde gastos (recibidos por props desde TabResumen)
+ * R10-03: facturación e ingresos netos siempre del periodo elegido (vienen ya filtrados)
+ *
+ * Cuando Conciliación pueble running con agregados mensuales:
+ *   - si periodo elegido = mes completo Y existe row running → priorizar running
+ *   - si periodo elegido ≠ mes completo (semana, rango custom) → siempre cálculo desde gastos
+ *   - si no hay running ni gastos → "Datos insuficientes"
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -14,16 +19,12 @@ import { EditableInline } from '@/components/ui/EditableInline'
 
 interface RunningRow {
   ingresos_brutos: number | null
-  comisiones_plataforma: number | null
-  iva_comisiones: number | null
   ingresos_netos: number | null
   producto: number | null
   margen_bruto: number | null
   personal: number | null
   local: number | null
   controlables: number | null
-  provisiones_iva: number | null
-  provisiones_irpf: number | null
   resultado_limpio: number | null
 }
 
@@ -41,17 +42,32 @@ interface Props {
   totalGastos: number
   resultadoLimpio: number
   primeCostPct: number
+  /** Facturación bruta del periodo seleccionado (siempre disponible, la mete Rubén) */
   facturacionBruta?: number
+  /** % margen neto estimado del periodo (calculado en CardVentas) */
   margenNetoEstimadoPct?: number
+  /** R10-02: gastos del periodo desde tabla gastos, agrupados (fallback cuando running está vacío) */
+  gastosPorGrupo?: {
+    producto: number
+    equipo: number
+    local: number
+    controlables: number
+  }
+  /** R10-01: rango del periodo elegido. Oculto al usuario, solo determina el filtro */
+  fechaDesde?: Date
+  fechaHasta?: Date
   año?: number
   mes?: number
 }
 
 export default function CardResultadoPeriodo({
-  ebitdaPct: ebitdaPctProp, deltaPp,
+  ebitda, ebitdaPct, deltaPp,
   primeCostPct,
   facturacionBruta,
   margenNetoEstimadoPct,
+  gastosPorGrupo,
+  fechaDesde,
+  fechaHasta,
   año, mes,
 }: Props) {
   const [running, setRunning] = useState<RunningRow | null>(null)
@@ -61,17 +77,36 @@ export default function CardResultadoPeriodo({
   const añoActual = año ?? new Date().getFullYear()
   const mesActual = mes ?? (new Date().getMonth() + 1)
 
+  // R10-02: solo intenta priorizar running cuando el periodo es exactamente un mes completo
+  const esMesCompleto = (() => {
+    if (!fechaDesde || !fechaHasta) return false
+    const inicioMes = new Date(fechaDesde.getFullYear(), fechaDesde.getMonth(), 1)
+    const finMes = new Date(fechaDesde.getFullYear(), fechaDesde.getMonth() + 1, 0)
+    const sameStart = fechaDesde.getDate() === 1
+    const sameEnd = fechaHasta.getDate() === finMes.getDate() &&
+                    fechaHasta.getMonth() === finMes.getMonth() &&
+                    fechaHasta.getFullYear() === finMes.getFullYear()
+    return sameStart && sameEnd
+  })()
+
   useEffect(() => {
+    if (!esMesCompleto) {
+      setRunning(null)
+      return
+    }
+    const añoConsulta = fechaDesde?.getFullYear() ?? añoActual
+    const mesConsulta = fechaDesde ? fechaDesde.getMonth() + 1 : mesActual
+
     supabase
       .from('running')
-      .select('*')
-      .eq('año', añoActual)
-      .eq('mes', mesActual)
+      .select('ingresos_brutos, ingresos_netos, producto, margen_bruto, personal, local, controlables, resultado_limpio')
+      .eq('año', añoConsulta)
+      .eq('mes', mesConsulta)
       .maybeSingle()
       .then(({ data }) => {
         setRunning(data as RunningRow | null)
       })
-  }, [añoActual, mesActual])
+  }, [esMesCompleto, fechaDesde?.getTime(), añoActual, mesActual])
 
   useEffect(() => {
     supabase
@@ -84,45 +119,56 @@ export default function CardResultadoPeriodo({
       })
   }, [kpiVersion])
 
+  const colorEbitda = ebitda >= 0 ? COLOR.verde : COLOR.rojo
   const flecha = (deltaPp ?? 0) >= 0 ? '▲' : '▼'
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
   const objetivoPC = kpiObj?.prime_cost_target ?? 60
   const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : '#B01D23'
 
-  const r = running
+  // R10-02: resolución de cada fila — prioridad running, fallback gastos
+  function resolverValor(
+    valorRunning: number | null | undefined,
+    valorGastos: number | undefined
+  ): number | null {
+    if (valorRunning != null) return valorRunning
+    if (valorGastos != null && valorGastos > 0) return valorGastos
+    return null
+  }
 
-  const facturacion = facturacionBruta ?? r?.ingresos_brutos ?? null
+  // Línea 1: Facturación
+  const facturacion = facturacionBruta ?? running?.ingresos_brutos ?? null
 
-  const tieneNetoReal = r?.ingresos_netos != null
+  // Línea 2: Ingresos netos
+  const tieneNetoReal = running?.ingresos_netos != null
   let ingresosNetos: number | null = null
   if (tieneNetoReal) {
-    ingresosNetos = r!.ingresos_netos
+    ingresosNetos = running!.ingresos_netos
   } else if (facturacion != null && margenNetoEstimadoPct != null && margenNetoEstimadoPct > 0) {
     ingresosNetos = facturacion * (margenNetoEstimadoPct / 100)
   }
 
-  const producto = r?.producto ?? 0
+  // Línea 3: Producto · COGS — running > gastos
+  const producto = resolverValor(running?.producto, gastosPorGrupo?.producto) ?? 0
 
+  // Línea 4: Margen bruto = netos - producto
   const margenBruto = ingresosNetos != null
     ? ingresosNetos - producto
     : null
 
-  const equipo = r?.personal ?? null
-  const local = r?.local ?? null
-  const controlables = r?.controlables ?? null
+  // Línea 5: Equipo
+  const equipo = resolverValor(running?.personal, gastosPorGrupo?.equipo)
 
-  // R10-01: EBITDA = lo que calcula la cascada (margen bruto - equipo - local - controlables)
-  const ebitdaCalc = margenBruto != null
+  // Líneas 6-7: Local y Controlables
+  const local = resolverValor(running?.local, gastosPorGrupo?.local)
+  const controlables = resolverValor(running?.controlables, gastosPorGrupo?.controlables)
+
+  // Línea 8: Resultado neto
+  const resultadoNetoCalc = margenBruto != null
     ? margenBruto - (equipo ?? 0) - (local ?? 0) - (controlables ?? 0)
     : null
 
-  // R10-02: EBITDA % calculado sobre ingresos netos
-  const ebitdaPctCalc = (ebitdaCalc != null && ingresosNetos != null && ingresosNetos > 0)
-    ? (ebitdaCalc / ingresosNetos) * 100
-    : null
-
-  const colorEbitda = ebitdaCalc != null ? (ebitdaCalc >= 0 ? COLOR.verde : COLOR.rojo) : '#3a4050'
+  const mostrarResultadoNeto = resultadoNetoCalc != null && Math.abs(resultadoNetoCalc - ebitda) > 0.01
 
   function valNum(v: number | null | undefined): string {
     if (v === null || v === undefined) return 'Datos insuficientes'
@@ -137,16 +183,16 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: colorEbitda }}>
-            {ebitdaCalc != null
-              ? fmtEur(ebitdaCalc, { showEuro: true, decimals: 2 })
-              : 'Datos insuficientes'}
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
+            {sinDatosCascada
+              ? 'Datos insuficientes'
+              : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
           </div>
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorEbitda }}>
-            {ebitdaPctCalc != null ? `${fmtNum(ebitdaPctCalc, 0)}%` : '—'}
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
+            {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#3a4050', fontWeight: 600 }}>
             % s/netos
@@ -164,12 +210,12 @@ export default function CardResultadoPeriodo({
         <LineaPyG
           label="Facturación"
           valor={valNum(facturacion)}
-          tooltip="Ventas brutas del periodo (introducidas en módulo Facturación)"
+          tooltip="Ventas brutas del periodo (módulo Facturación)"
         />
         <LineaPyG
           label="Ingresos netos"
           valor={valNum(ingresosNetos)}
-          tooltip="Ingresos netos del periodo (real o estimado vía margen neto medio)"
+          tooltip="Ingresos netos del periodo (real o estimado vía margen neto)"
           bold
         />
         <LineaPyG
@@ -198,7 +244,15 @@ export default function CardResultadoPeriodo({
           valor={valNum(controlables)}
           tooltip="Marketing + software + gestoría + bancos + transporte"
         />
-        {/* R10-01: NO mostramos "Resultado neto" abajo porque arriba ya está como EBITDA grande */}
+        {mostrarResultadoNeto && (
+          <LineaPyG
+            label="Resultado neto"
+            valor={valNum(resultadoNetoCalc)}
+            tooltip="Margen bruto − Equipo − Local − Controlables"
+            bold
+            colorVal={resultadoNetoCalc != null ? (resultadoNetoCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
+          />
+        )}
       </div>
 
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
