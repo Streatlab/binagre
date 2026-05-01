@@ -45,5 +45,20 @@
     ],
     "defaultMode": "bypassPermissions"
   },
-  "model": "claude-sonnet-4-6"
+  "model": "claude-sonnet-4-6",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/streatlab-erp && npm run build && npx vercel --prod --yes",
+            "shell": "bash",
+            "timeout": 300,
+            "statusMessage": "Build + deploy Vercel..."
+          }
+        ]
+      }
+    ]
+  }
 }

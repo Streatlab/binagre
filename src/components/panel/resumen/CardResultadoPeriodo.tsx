@@ -128,7 +128,7 @@ export default function CardResultadoPeriodo({
             {(running === null || running.resultado_limpio === null) ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorEbitda, fontWeight: 500 }}>
-            % s/netos · Banda 10-13%
+            % s/netos
           </div>
         </div>
       </div>

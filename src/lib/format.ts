@@ -18,7 +18,7 @@ export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; 
   return showEuro ? `${prefix}${formatted} €` : `${prefix}${formatted}`;
 }
 
-export function fmtPct(n: number | null | undefined, decimals = 0): string {
+export function fmtPct(n: number | null | undefined, decimals = 2): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
   return `${fmtNum(Number(n), decimals)}%`;
 }
@@ -48,9 +48,9 @@ export function fmtSemana(numSemana: number, lunes: Date): string {
   return `S${numSemana}_${dd}_${mm}_${yy}`;
 }
 
-/** Color semáforo para % cumplimiento */
-export function colorSemaforo(pct: number): string {
-  if (pct >= 50) return '#1D9E75'; // verde
-  if (pct >= 1)  return '#f5a623'; // amarillo
-  return '#E24B4A';                // rojo
+/** Color semáforo para % cumplimiento. objetivo por defecto 50. */
+export function colorSemaforo(pct: number, objetivo = 50): string {
+  if (pct >= objetivo)           return '#1D9E75'; // verde
+  if (pct >= objetivo * 0.5)     return '#e8f442'; // amarillo (#e8f442 = token panel)
+  return '#B01D23';                                 // rojo (#B01D23 = token canónico)
 }
