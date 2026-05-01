@@ -1,23 +1,12 @@
 {
-  "defaultMode": "bypassPermissions",
-  "project": "binagre-erp",
-  "owner": "Streatlab",
-  "repo": "binagre",
-  "branch": "master",
-  "deployUrl": "https://binagre.vercel.app",
-  "isolation": {
-    "forbiddenRepos": ["erp-david"],
-    "forbiddenTokens": ["#16355C", "#F26B1F"],
-    "forbiddenContexts": ["David Reparte", "Cade", "Marino+Fuego"]
+  "model": "sonnet",
+  "env": {
+    "MAX_THINKING_TOKENS": "10000",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
   },
-  "deployChain": "git add . && git commit -m \"...\" && git push origin master && npx vercel --prod && git pull origin master",
-  "permissions": {
-    "allow": [
-      "Bash(git *)",
-      "Bash(npm *)",
-      "Bash(npx *)",
-      "Bash(node *)",
-      "Bash(vercel *)"
-    ]
+  "hooks": {
+    "PreToolUse": ".claude/hooks/pre-tool-use.sh",
+    "PostToolUse": ".claude/hooks/post-tool-use.sh",
+    "SubagentStop": ".claude/hooks/subagent-stop.sh"
   }
 }
