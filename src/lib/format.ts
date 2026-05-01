@@ -1,6 +1,10 @@
 export function fmtNum(n: number | null | undefined, decimals = 2): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
-  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return Number(n).toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  });
 }
 
 export function fmtMes(mes: number): string {
@@ -11,9 +15,13 @@ export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; 
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
   const num = Number(n);
   const decimals = opts?.decimals ?? 0;
-  const showEuro = opts?.showEuro !== false; // default true para compatibilidad
+  const showEuro = opts?.showEuro !== false;
   const abs = Math.abs(num);
-  const formatted = abs.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const formatted = abs.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  });
   const prefix = opts?.signed && num > 0 ? '+' : num < 0 ? '−' : '';
   return showEuro ? `${prefix}${formatted} €` : `${prefix}${formatted}`;
 }
@@ -31,7 +39,6 @@ export function fmtDate(d: Date | string): string {
   return `${dd}/${mm}/${yy}`;
 }
 
-/** Formato canónico Panel: dd/mm/yy (sin año completo) */
 export function formatearFechaCorta(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d + 'T12:00:00') : d;
   const dd = String(date.getDate()).padStart(2, '0');
@@ -40,7 +47,6 @@ export function formatearFechaCorta(d: Date | string): string {
   return `${dd}/${mm}/${yy}`;
 }
 
-/** Semana en formato Panel: S18_27_04_26 */
 export function fmtSemana(numSemana: number, lunes: Date): string {
   const dd = String(lunes.getDate()).padStart(2, '0');
   const mm = String(lunes.getMonth() + 1).padStart(2, '0');
@@ -48,9 +54,8 @@ export function fmtSemana(numSemana: number, lunes: Date): string {
   return `S${numSemana}_${dd}_${mm}_${yy}`;
 }
 
-/** Color semáforo para % cumplimiento. objetivo por defecto 50. */
 export function colorSemaforo(pct: number, objetivo = 50): string {
-  if (pct >= objetivo)           return '#1D9E75'; // verde
-  if (pct >= objetivo * 0.5)     return '#e8f442'; // amarillo (#e8f442 = token panel)
-  return '#B01D23';                                 // rojo (#B01D23 = token canónico)
+  if (pct >= objetivo)           return '#1D9E75';
+  if (pct >= objetivo * 0.5)     return '#e8f442';
+  return '#B01D23';
 }
