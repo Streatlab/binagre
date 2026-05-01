@@ -677,6 +677,14 @@ export default function TabResumen({
           primeCostPct={primeCostPct}
           facturacionBruta={ventasPeriodo}
           margenNetoEstimadoPct={ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0}
+          gastosPorGrupo={{
+            producto: gruposData.producto.gasto,
+            equipo: gruposData.equipo.gasto,
+            local: gruposData.local.gasto,
+            controlables: gruposData.controlables.gasto,
+          }}
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
         />
       </div>
 
