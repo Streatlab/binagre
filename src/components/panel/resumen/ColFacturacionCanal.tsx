@@ -1,12 +1,8 @@
 /**
- * ColFacturacionCanal — Fixes 43-51
- * FIX 43: bruto+neto fontSize 24 fontWeight 600
- * FIX 44: fmtEur(bruto, {showEuro:false, decimals:2})
- * FIX 45: fmtEur(neto, {showEuro:false, decimals:2})
- * FIX 46: "Margen X,XX%"
- * FIX 47: "Bruto" con B mayúscula
- * FIX 48: Glovo border 1px solid #5a5500
- * FIX 49-51: calcularDatosCanal desde resumenes_plataforma_marca_mensual (pasado como prop)
+ * ColFacturacionCanal — Ronda 8
+ * R8-02: Web/Directa cards mini → mostrar "0,00" cuando no hay datos en lugar de "— €" / "sin datos"
+ * R8-03: Glovo border más sutil rgba(200,180,0,0.30) sin boxShadow
+ * Mantiene: bruto+neto 24px, "Bruto" mayúscula, "Margen X,XX%", lectura de resumenes_plataforma_marca_mensual
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -62,7 +58,6 @@ async function calcularDatosCanal(canal: CanalId, mes: number, año: number): Pr
   return { bruto, neto, margenPct, sinDatos: false }
 }
 
-// Mapping de id canal stats → id tabla
 const CANAL_MAP: Record<string, CanalId> = {
   uber: 'uber',
   glovo: 'glovo',
@@ -91,14 +86,12 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
     })
   }, [mesActual, añoActual])
 
-  // Fallback a canalStats si tabla vacía
   const map = new Map(canales.map(c => [c.id, c]))
 
-  function getDatos(id: string): { bruto: number | null; neto: number | null; margenPct: number | null; sinDatos: boolean } {
+  function getDatos(id: string): DatosCanal {
     const tableKey = CANAL_MAP[id]
     const td = tableKey ? datosTabla[tableKey] : undefined
     if (td && !td.sinDatos) return td
-    // FIX 50: si tabla tiene datos los usa; si no, fallback a canalStats
     const c = map.get(id as CanalStat['id'])
     if (c && c.bruto > 0) return { bruto: c.bruto, neto: c.neto, margenPct: c.margen, sinDatos: false }
     return { bruto: null, neto: null, margenPct: null, sinDatos: true }
@@ -124,7 +117,7 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           datos={uber}
         />
 
-        {/* R7-06: Glovo border más sutil */}
+        {/* R8-03: Glovo border sutil sin boxShadow */}
         <CardCanal
           label="GLOVO"
           bg={`${COLOR.glovo}30`}
@@ -135,7 +128,6 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
           datos={glovo}
         />
 
-        {/* FIX 51: Just Eat muestra datos reales */}
         <CardCanal
           label="JUST EAT"
           bg={`${COLOR.je}20`}
@@ -176,7 +168,7 @@ interface CardCanalProps {
   boxShadow?: string
   colorLabel: string
   colorBruto: string
-  datos: { bruto: number | null; neto: number | null; margenPct: number | null; sinDatos: boolean }
+  datos: DatosCanal
 }
 
 function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorLabel, colorBruto, datos }: CardCanalProps) {
@@ -195,31 +187,29 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorL
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        {/* FIX 43: fontSize 24 fontWeight 600 */}
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-          {/* FIX 44: sin €, decimals:2 */}
-          {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : 'Datos insuficientes'}
+          {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : fmtEur(0, { showEuro: false, decimals: 2 })}
         </div>
-        {/* FIX 47: "Bruto" con B mayúscula */}
         <div style={{ fontSize: 11, color: colorBruto, fontFamily: LEXEND }}>Bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
-        {/* FIX 43: neto mismo tamaño */}
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: COLOR.verde }}>
-          {/* FIX 45: neto sin €, decimals:2 */}
-          {tieneDatos ? fmtEur(datos.neto, { showEuro: false, decimals: 2 }) : '—'}
+          {tieneDatos ? fmtEur(datos.neto, { showEuro: false, decimals: 2 }) : fmtEur(0, { showEuro: false, decimals: 2 })}
         </div>
-        {/* FIX 46: "Margen X,XX%" con 2 decimales */}
         <div style={{ fontSize: 14, color: COLOR.verde, fontFamily: LEXEND }}>
-          {tieneDatos && datos.margenPct !== null ? `Margen ${fmtPct(datos.margenPct, 2)}` : ''}
+          {tieneDatos && datos.margenPct !== null ? `Margen ${fmtPct(datos.margenPct, 2)}` : `Margen ${fmtPct(0, 2)}`}
         </div>
       </div>
     </div>
   )
 }
 
+// R8-02: cards mini Web/Directa muestran 0,00 cuando no hay datos en lugar de "— €" / "sin datos"
 function CardCanalMini({ label, bg, border, colorLabel, colorBruto, datos }: Omit<CardCanalProps, 'colorBrutoSub'>) {
   const tieneDatos = !datos.sinDatos && datos.bruto !== null
+  const brutoVal = tieneDatos ? datos.bruto! : 0
+  const netoVal = tieneDatos ? (datos.neto ?? 0) : 0
+  const margenVal = tieneDatos ? (datos.margenPct ?? 0) : 0
   return (
     <div style={{
       background: bg,
@@ -229,12 +219,10 @@ function CardCanalMini({ label, bg, border, colorLabel, colorBruto, datos }: Omi
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
       <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: colorBruto, marginTop: 2 }}>
-        {tieneDatos ? fmtEur(datos.bruto, { showEuro: false, decimals: 2 }) : '— €'}
+        {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
       </div>
       <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: LEXEND }}>
-        {tieneDatos
-          ? `${fmtEur(datos.neto, { showEuro: false, decimals: 2 })} neto · ${fmtPct(datos.margenPct ?? 0, 2)}`
-          : 'sin datos'}
+        {`${fmtEur(netoVal, { showEuro: false, decimals: 2 })} neto · ${fmtPct(margenVal, 2)}`}
       </div>
     </div>
   )
