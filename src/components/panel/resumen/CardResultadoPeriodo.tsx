@@ -1,19 +1,15 @@
 /**
- * CardResultadoPeriodo — Ronda 7
- * R7-05: cascada con datos reales disponibles (facturación de Rubén) + estimaciones cuando falten
- *   - "Ingresos brutos" → "Facturación" (usa el bruto que mete Rubén)
- *   - "Comisiones + IVA" → eliminada
- *   - "Provisiones" → eliminada (se ven en CardProvisiones)
- *   - "Ingresos netos" estimado vía margen neto si no hay running
- *   - "Margen bruto" calculado = ingresos netos - producto
- *   - "Resultado limpio" calculado = margen bruto - personal - local - controlables
- *   - % s/netos color según barra (verde si OK, rojo en cualquier otro caso, nunca amarillo invisible)
+ * CardResultadoPeriodo — Ronda 8
+ * R8-04: % s/netos siempre visible (color #3a4050 mínimo, rojo o verde según valor)
+ * R8-05: PRIME COST con lógica invertida (menos es mejor)
+ *        - color del % cabecera: verde si <= objetivo, rojo en cualquier otro caso
+ *        - barra: si > 100% mostrar barra llena en rojo (alarma)
+ * Mantiene: cascada con facturación real + estimaciones, Comisiones y Provisiones eliminadas
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum, fmtPct } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm } from './tokens'
-import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
 
 interface RunningRow {
@@ -45,9 +41,7 @@ interface Props {
   totalGastos: number
   resultadoLimpio: number
   primeCostPct: number
-  /** Facturación bruta del periodo (la que mete Rubén a mano) */
   facturacionBruta?: number
-  /** % margen neto estimado del periodo (viene de CardVentas) */
   margenNetoEstimadoPct?: number
   año?: number
   mes?: number
@@ -94,18 +88,14 @@ export default function CardResultadoPeriodo({
   const flecha = (deltaPp ?? 0) >= 0 ? '▲' : '▼'
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
-  // R7-05: % s/netos: verde si prime cost <= objetivo, rojo en cualquier otro caso (nunca amarillo)
+  // R8-05: Prime cost lógica invertida — menos es mejor
   const objetivoPC = kpiObj?.prime_cost_target ?? 60
   const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : '#B01D23'
-  const pcCapped = Math.min(100, Math.max(0, primeCostPct))
 
-  // R7-05: lógica de cascada con datos reales + estimaciones
   const r = running
 
-  // Línea 1: FACTURACIÓN — viene de la facturación que mete Rubén (siempre disponible)
   const facturacion = facturacionBruta ?? r?.ingresos_brutos ?? null
 
-  // Línea 3: INGRESOS NETOS — real si existe, si no estimado vía margen neto
   const tieneNetoReal = r?.ingresos_netos != null
   let ingresosNetos: number | null = null
   let netoEsEstimado = false
@@ -116,35 +106,25 @@ export default function CardResultadoPeriodo({
     netoEsEstimado = true
   }
 
-  // Línea 4: PRODUCTO
   const producto = r?.producto ?? null
-
-  // Línea 5: MARGEN BRUTO calculado
   const margenBruto = (ingresosNetos != null && producto != null)
     ? ingresosNetos - producto
     : null
-
-  // Línea 6: PERSONAL
   const personal = r?.personal ?? null
-
-  // Línea 7: LOCAL + CONTROLABLES
   const localControlables = r ? (r.local != null || r.controlables != null
     ? (r.local ?? 0) + (r.controlables ?? 0)
     : null) : null
 
-  // Línea 8: RESULTADO LIMPIO calculado
   const resultadoLimpioCalc = (margenBruto != null && personal != null && localControlables != null)
     ? margenBruto - personal - localControlables
     : (r?.resultado_limpio ?? null)
 
-  // Helpers cascada
   function valNum(v: number | null | undefined, esEstimado = false): string {
     if (v === null || v === undefined) return 'Datos insuficientes'
     const txt = fmtEur(v, { showEuro: false, decimals: 2 })
     return esEstimado ? `${txt} *` : txt
   }
 
-  // EBITDA: si no hay datos suficientes para calcular nada, mostrar "Datos insuficientes"
   const sinDatosCascada = facturacion == null && ingresosNetos == null && resultadoLimpioCalc == null
 
   return (
@@ -153,7 +133,7 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? COLOR.textMut : colorEbitda }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
             {sinDatosCascada
               ? 'Datos insuficientes'
               : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
@@ -161,10 +141,11 @@ export default function CardResultadoPeriodo({
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? COLOR.textMut : colorEbitda }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
             {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: sinDatosCascada ? COLOR.textMut : colorEbitda, fontWeight: 500 }}>
+          {/* R8-04: % s/netos siempre visible — color oscuro mínimo */}
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#3a4050', fontWeight: 600 }}>
             % s/netos
           </div>
         </div>
@@ -176,7 +157,6 @@ export default function CardResultadoPeriodo({
         </div>
       )}
 
-      {/* Cascada PyG simplificada — sin Comisiones, sin Provisiones */}
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12 }}>
         <LineaPyG
           label="Facturación"
@@ -218,22 +198,20 @@ export default function CardResultadoPeriodo({
           colorVal={resultadoLimpioCalc != null ? (resultadoLimpioCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
         />
         {netoEsEstimado && (
-          <div style={{ fontSize: 10, color: COLOR.textMut, marginTop: 6, fontFamily: LEXEND, fontStyle: 'italic' }}>
+          <div style={{ fontSize: 10, color: '#7a8090', marginTop: 6, fontFamily: LEXEND, fontStyle: 'italic' }}>
             * estimado a partir del margen neto medio del periodo
           </div>
         )}
       </div>
 
-      {/* Prime Cost */}
+      {/* R8-05: Prime Cost barra invertida — si supera objetivo, llenar en rojo */}
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería.">PRIME COST</span>
+          <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería. Menos es mejor.">PRIME COST</span>
           <span style={{ ...lblSm, color: primeCostColor }}>{fmtPct(primeCostPct, 2)}</span>
         </div>
-        <div style={{ marginBottom: 4 }}>
-          <BarraCumplimiento pct={pcCapped} altura={8} />
-        </div>
-        <div style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
+        <BarraPrimeCost pctActual={primeCostPct} objetivo={objetivoPC} />
+        <div style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, marginTop: 4 }}>
           <span>
             <span style={{ color: COLOR.verde }}>Objetivo</span>{' '}
             <EditableInline
@@ -249,6 +227,23 @@ export default function CardResultadoPeriodo({
           </span>
         </div>
       </div>
+    </div>
+  )
+}
+
+// R8-05: barra Prime Cost invertida (menos es mejor)
+function BarraPrimeCost({ pctActual, objetivo }: { pctActual: number; objetivo: number }) {
+  // Si pctActual <= objetivo: barra verde proporcional al uso
+  // Si pctActual > objetivo: barra completamente roja como alarma
+  const dentroObjetivo = pctActual <= objetivo
+  const fillPct = dentroObjetivo
+    ? Math.min(100, (pctActual / objetivo) * 100)
+    : 100
+  const colorFill = dentroObjetivo ? '#1D9E75' : '#B01D23'
+
+  return (
+    <div style={{ height: 8, borderRadius: 4, background: '#ebe8e2', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${fillPct}%`, background: colorFill, transition: 'width 0.4s' }} />
     </div>
   )
 }
