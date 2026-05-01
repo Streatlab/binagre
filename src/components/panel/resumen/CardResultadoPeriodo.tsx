@@ -1,11 +1,11 @@
 /**
  * CardResultadoPeriodo — Ronda 9
- * R9-01: quitar asterisco de "Ingresos netos *"
+ * R9-01: quitar asterisco de "Ingresos netos"
  * R9-02: "Producto" → "Producto · COGS"
- * R9-03: "Margen bruto" calculado siempre (ingresos netos - producto). Si producto=0 → igual a netos
+ * R9-03: Margen bruto = ingresos netos − producto (siempre calculado, aunque producto=0)
  * R9-04: "Personal" → "Equipo"
- * R9-05: "Local + Controlables" en 2 líneas separadas: "Local" y "Controlables"
- * R9-06: "Resultado limpio" → "Resultado neto", solo aparece si ≠ EBITDA
+ * R9-05: Local y Controlables en 2 líneas separadas
+ * R9-06: "Resultado limpio" → "Resultado neto", solo aparece si difiere de EBITDA
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -104,10 +104,10 @@ export default function CardResultadoPeriodo({
     ingresosNetos = facturacion * (margenNetoEstimadoPct / 100)
   }
 
-  // R9-02: Producto · COGS
-  const producto = r?.producto ?? 0  // si no hay dato, asumimos 0 para poder calcular margen bruto
+  // R9-02: Producto · COGS — si no hay dato asumimos 0 para poder calcular margen bruto
+  const producto = r?.producto ?? 0
 
-  // R9-03: Margen bruto = netos - producto siempre que haya netos
+  // R9-03: Margen bruto = netos - producto (calculado siempre que haya netos)
   const margenBruto = ingresosNetos != null
     ? ingresosNetos - producto
     : null
@@ -115,17 +115,17 @@ export default function CardResultadoPeriodo({
   // R9-04: Equipo (antes Personal)
   const equipo = r?.personal ?? null
 
-  // R9-05: local y controlables separados
+  // R9-05: Local y Controlables separados
   const local = r?.local ?? null
   const controlables = r?.controlables ?? null
 
-  // R9-06: Resultado neto (calculado) = margen bruto - equipo - local - controlables
-  // Para calcular usamos 0 cuando alguno es null (estimación parcial)
+  // R9-06: Resultado neto = margen bruto - equipo - local - controlables
+  // Calculamos con 0 cuando alguno es null (estimación parcial)
   const resultadoNetoCalc = margenBruto != null
     ? margenBruto - (equipo ?? 0) - (local ?? 0) - (controlables ?? 0)
     : null
 
-  // R9-06: solo mostrar línea "Resultado neto" si difiere de EBITDA
+  // R9-06: solo mostrar línea "Resultado neto" si difiere claramente de EBITDA
   const mostrarResultadoNeto = resultadoNetoCalc != null && Math.abs(resultadoNetoCalc - ebitda) > 0.01
 
   function valNum(v: number | null | undefined): string {
@@ -141,6 +141,7 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
+          {/* R9: usa fmtEur con useGrouping (separador miles ya aplicado en format.ts) */}
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
             {sinDatosCascada
               ? 'Datos insuficientes'
@@ -170,7 +171,7 @@ export default function CardResultadoPeriodo({
           valor={valNum(facturacion)}
           tooltip="Ventas brutas del periodo (introducidas en módulo Facturación)"
         />
-        {/* R9-01: sin asterisco */}
+        {/* R9-01: Ingresos netos sin asterisco */}
         <LineaPyG
           label="Ingresos netos"
           valor={valNum(ingresosNetos)}
@@ -196,7 +197,7 @@ export default function CardResultadoPeriodo({
           valor={valNum(equipo)}
           tooltip="Sueldos + SS + sueldos socios"
         />
-        {/* R9-05: Local y Controlables separados */}
+        {/* R9-05: Local y Controlables separados en 2 líneas */}
         <LineaPyG
           label="Local"
           valor={valNum(local)}
