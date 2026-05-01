@@ -61,7 +61,7 @@ export const COLORS = {
   // Titulares
   ruben: '#F26B1F',
   emilio: '#1E5BCC',
-  // Alias para compatibilidad con código existente
+  // Alias
   glovoAccent: '#e8f442',
 } as const
 
@@ -122,14 +122,15 @@ export const CARDS = {
 } as const
 
 /* ── TABS PASTILLA ────────────────────────────────── */
+/* R9-08: tabs pegados a la zona blanca — ~1mm = 3px arriba y abajo */
 export const TABS_PILL = {
   container: {
     background: '#ffffff',
     border: '0.5px solid #d0c8bc',
     borderRadius: 10,
     padding: '4px 6px',
-    marginBottom: 4,
-    marginTop: 4,
+    marginBottom: 3,
+    marginTop: 3,
     display: 'inline-flex',
     gap: 4,
   } as CSSProperties,
@@ -373,13 +374,22 @@ export function colorPrimeCost(pct: number): { color: string; estado: 'OK' | 'Al
 }
 
 /* ── Format helpers ───────────────────────────────── */
+/* R9: añadir useGrouping:true para forzar separador de miles */
 export function fmtDec(v: number, decimals = 1): string {
   if (!isFinite(v)) return '—'
-  return v.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  return v.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  })
 }
 
 export function fmtPp(pp: number): string {
-  return `${pp >= 0 ? '+' : ''}${pp.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pp`
+  return `${pp >= 0 ? '+' : ''}${pp.toLocaleString('es-ES', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    useGrouping: true,
+  })} pp`
 }
 
 /* ── Mini-tabs ────────────────────────────────────── */
