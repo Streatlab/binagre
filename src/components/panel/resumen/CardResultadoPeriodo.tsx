@@ -1,23 +1,18 @@
 /**
- * CardResultadoPeriodo — Fixes 30-42
- * FIX 30: sublabel "RESULTADO"
- * FIX 31: EBITDA con €
- * FIX 32: demás cifras sin €
- * FIX 33: "puntos porcentuales"
- * FIX 34: cascada PyG 9 líneas
- * FIX 35: datos desde tabla running
- * FIX 36: tooltips HTML
- * FIX 37: Prime Cost tooltip
- * FIX 38: eliminar "Banda sector 55-65%"
- * FIX 39: objetivo editable inline kpi_objetivos
- * FIX 40: "Objetivo" en verde
- * FIX 41: % prime cost con colorSemaforo(100-pct)
- * FIX 42: BarraCumplimiento prime cost
+ * CardResultadoPeriodo — Ronda 7
+ * R7-05: cascada con datos reales disponibles (facturación de Rubén) + estimaciones cuando falten
+ *   - "Ingresos brutos" → "Facturación" (usa el bruto que mete Rubén)
+ *   - "Comisiones + IVA" → eliminada
+ *   - "Provisiones" → eliminada (se ven en CardProvisiones)
+ *   - "Ingresos netos" estimado vía margen neto si no hay running
+ *   - "Margen bruto" calculado = ingresos netos - producto
+ *   - "Resultado limpio" calculado = margen bruto - personal - local - controlables
+ *   - % s/netos color según barra (verde si OK, rojo en cualquier otro caso, nunca amarillo invisible)
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum, fmtPct, colorSemaforo } from '@/lib/format'
-import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm, barTrack } from './tokens'
+import { fmtEur, fmtNum, fmtPct } from '@/lib/format'
+import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, lblSm } from './tokens'
 import { BarraCumplimiento } from '@/components/ui/BarraCumplimiento'
 import { EditableInline } from '@/components/ui/EditableInline'
 
@@ -50,6 +45,10 @@ interface Props {
   totalGastos: number
   resultadoLimpio: number
   primeCostPct: number
+  /** Facturación bruta del periodo (la que mete Rubén a mano) */
+  facturacionBruta?: number
+  /** % margen neto estimado del periodo (viene de CardVentas) */
+  margenNetoEstimadoPct?: number
   año?: number
   mes?: number
 }
@@ -57,6 +56,8 @@ interface Props {
 export default function CardResultadoPeriodo({
   ebitda, ebitdaPct, deltaPp,
   primeCostPct,
+  facturacionBruta,
+  margenNetoEstimadoPct,
   año, mes,
 }: Props) {
   const [running, setRunning] = useState<RunningRow | null>(null)
@@ -66,7 +67,6 @@ export default function CardResultadoPeriodo({
   const añoActual = año ?? new Date().getFullYear()
   const mesActual = mes ?? (new Date().getMonth() + 1)
 
-  // FIX 35: lectura running
   useEffect(() => {
     supabase
       .from('running')
@@ -79,7 +79,6 @@ export default function CardResultadoPeriodo({
       })
   }, [añoActual, mesActual])
 
-  // FIX 39: lectura kpi_objetivos
   useEffect(() => {
     supabase
       .from('kpi_objetivos')
@@ -95,118 +94,146 @@ export default function CardResultadoPeriodo({
   const flecha = (deltaPp ?? 0) >= 0 ? '▲' : '▼'
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
-  // FIX 41: colorSemaforo(100 - primeCostPct) porque menor = mejor
-  const primeCostColor = colorSemaforo(100 - Math.min(primeCostPct, 100))
+  // R7-05: % s/netos: verde si prime cost <= objetivo, rojo en cualquier otro caso (nunca amarillo)
+  const objetivoPC = kpiObj?.prime_cost_target ?? 60
+  const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : '#B01D23'
   const pcCapped = Math.min(100, Math.max(0, primeCostPct))
 
-  // Helpers cascada PyG
-  function val(v: number | null | undefined): string {
-    if (v === null || v === undefined) return 'Datos insuficientes'
-    return fmtEur(v, { showEuro: false })
+  // R7-05: lógica de cascada con datos reales + estimaciones
+  const r = running
+
+  // Línea 1: FACTURACIÓN — viene de la facturación que mete Rubén (siempre disponible)
+  const facturacion = facturacionBruta ?? r?.ingresos_brutos ?? null
+
+  // Línea 3: INGRESOS NETOS — real si existe, si no estimado vía margen neto
+  const tieneNetoReal = r?.ingresos_netos != null
+  let ingresosNetos: number | null = null
+  let netoEsEstimado = false
+  if (tieneNetoReal) {
+    ingresosNetos = r!.ingresos_netos
+  } else if (facturacion != null && margenNetoEstimadoPct != null && margenNetoEstimadoPct > 0) {
+    ingresosNetos = facturacion * (margenNetoEstimadoPct / 100)
+    netoEsEstimado = true
   }
 
-  const r = running
+  // Línea 4: PRODUCTO
+  const producto = r?.producto ?? null
+
+  // Línea 5: MARGEN BRUTO calculado
+  const margenBruto = (ingresosNetos != null && producto != null)
+    ? ingresosNetos - producto
+    : null
+
+  // Línea 6: PERSONAL
+  const personal = r?.personal ?? null
+
+  // Línea 7: LOCAL + CONTROLABLES
+  const localControlables = r ? (r.local != null || r.controlables != null
+    ? (r.local ?? 0) + (r.controlables ?? 0)
+    : null) : null
+
+  // Línea 8: RESULTADO LIMPIO calculado
+  const resultadoLimpioCalc = (margenBruto != null && personal != null && localControlables != null)
+    ? margenBruto - personal - localControlables
+    : (r?.resultado_limpio ?? null)
+
+  // Helpers cascada
+  function valNum(v: number | null | undefined, esEstimado = false): string {
+    if (v === null || v === undefined) return 'Datos insuficientes'
+    const txt = fmtEur(v, { showEuro: false, decimals: 2 })
+    return esEstimado ? `${txt} *` : txt
+  }
+
+  // EBITDA: si no hay datos suficientes para calcular nada, mostrar "Datos insuficientes"
+  const sinDatosCascada = facturacion == null && ingresosNetos == null && resultadoLimpioCalc == null
 
   return (
     <div style={cardBig}>
-      {/* FIX 30: RESULTADO */}
       <div style={lbl}>RESULTADO</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          {/* FIX 10+31: si running null → "Datos insuficientes"; si hay datos → EBITDA con € */}
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: (running === null || running.resultado_limpio === null) ? COLOR.textMut : colorEbitda }}>
-            {(running === null || running.resultado_limpio === null)
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? COLOR.textMut : colorEbitda }}>
+            {sinDatosCascada
               ? 'Datos insuficientes'
               : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
           </div>
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          {/* FIX 11+32: % sin €, sublabel "% s/netos · Banda 10-13%" */}
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorEbitda }}>
-            {(running === null || running.resultado_limpio === null) ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? COLOR.textMut : colorEbitda }}>
+            {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorEbitda, fontWeight: 500 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: sinDatosCascada ? COLOR.textMut : colorEbitda, fontWeight: 500 }}>
             % s/netos
           </div>
         </div>
       </div>
 
-      {deltaPp !== null && (
+      {deltaPp !== null && !sinDatosCascada && (
         <div style={{ fontSize: 12, color: colorDelta, margin: '10px 0 16px', fontFamily: LEXEND }}>
-          {/* FIX 33: "puntos porcentuales" con coma decimal */}
           {flecha} {fmtNum(Math.abs(deltaPp), 1)} puntos porcentuales vs anterior
         </div>
       )}
 
-      {/* FIX 34-36: cascada PyG 9 líneas con tooltips */}
+      {/* Cascada PyG simplificada — sin Comisiones, sin Provisiones */}
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12 }}>
         <LineaPyG
-          label="Ingresos brutos"
-          valor={val(r?.ingresos_brutos)}
-          tooltip="Facturación plataforma + venta directa"
-        />
-        <LineaPyG
-          label="Comisiones + IVA"
-          valor={val(r ? (r.comisiones_plataforma ?? 0) + (r.iva_comisiones ?? 0) : null)}
-          tooltip="Comisiones plataformas + 21% IVA sobre comisiones"
+          label="Facturación"
+          valor={valNum(facturacion)}
+          tooltip="Ventas brutas del periodo (introducidas en módulo Facturación)"
         />
         <LineaPyG
           label="Ingresos netos"
-          valor={val(r?.ingresos_netos)}
-          tooltip="Lo que de verdad entra a Streat Lab"
+          valor={valNum(ingresosNetos, netoEsEstimado)}
+          tooltip={netoEsEstimado ? "Estimado a partir del margen neto del periodo" : "Ingresos netos reales del running"}
           bold
         />
         <LineaPyG
           label="Producto"
-          valor={val(r?.producto)}
+          valor={valNum(producto)}
           tooltip="Food cost + bebida + packaging + mermas"
         />
         <LineaPyG
           label="Margen bruto"
-          valor={val(r?.margen_bruto)}
-          tooltip=""
+          valor={valNum(margenBruto)}
+          tooltip="Ingresos netos − Producto"
           bold
         />
         <LineaPyG
           label="Personal"
-          valor={val(r?.personal)}
+          valor={valNum(personal)}
           tooltip="Sueldos + SS + sueldos socios"
         />
         <LineaPyG
           label="Local + Controlables"
-          valor={val(r ? (r.local ?? 0) + (r.controlables ?? 0) : null)}
-          tooltip="Alquiler + IRPF + suministros + marketing + software + gestoría + bancos + transporte + seguros"
-        />
-        <LineaPyG
-          label="Provisiones"
-          valor={val(r ? (r.provisiones_iva ?? 0) + (r.provisiones_irpf ?? 0) : null)}
-          tooltip="Provisión IVA + IRPF"
+          valor={valNum(localControlables)}
+          tooltip="Alquiler + suministros + marketing + software + gestoría + bancos + transporte + seguros"
         />
         <LineaPyG
           label="Resultado limpio"
-          valor={val(r?.resultado_limpio)}
-          tooltip="Lo que queda tras provisiones"
+          valor={valNum(resultadoLimpioCalc)}
+          tooltip="Margen bruto − Personal − Local + Controlables"
           bold
-          colorVal={r?.resultado_limpio != null ? (r.resultado_limpio >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
+          colorVal={resultadoLimpioCalc != null ? (resultadoLimpioCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
         />
+        {netoEsEstimado && (
+          <div style={{ fontSize: 10, color: COLOR.textMut, marginTop: 6, fontFamily: LEXEND, fontStyle: 'italic' }}>
+            * estimado a partir del margen neto medio del periodo
+          </div>
+        )}
       </div>
 
-      {/* FIX 37-42: Prime Cost */}
+      {/* Prime Cost */}
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería.">PRIME COST</span>
-          {/* FIX 38+41: fmtPct 2 decimales, color semáforo */}
           <span style={{ ...lblSm, color: primeCostColor }}>{fmtPct(primeCostPct, 2)}</span>
         </div>
-        {/* FIX 42: BarraCumplimiento */}
         <div style={{ marginBottom: 4 }}>
           <BarraCumplimiento pct={pcCapped} altura={8} />
         </div>
         <div style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND }}>
-          {/* FIX 38: eliminar "Banda sector 55-65%" */}
-          {/* FIX 39-40: "Objetivo X%" editable, "Objetivo" en verde */}
           <span>
             <span style={{ color: COLOR.verde }}>Objetivo</span>{' '}
             <EditableInline
@@ -248,7 +275,7 @@ function LineaPyG({
       }}
     >
       <span style={{ color: '#7a8090', cursor: tooltip ? 'help' : 'default' }}>{label}</span>
-      <span style={{ color: colorVal ?? '#111111' }}>{valor}</span>
+      <span style={{ color: colorVal ?? (valor === 'Datos insuficientes' ? '#7a8090' : '#111111'), fontStyle: valor === 'Datos insuficientes' ? 'italic' : 'normal' }}>{valor}</span>
     </div>
   )
 }
