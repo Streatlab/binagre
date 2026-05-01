@@ -1,10 +1,11 @@
 /**
- * CardResultadoPeriodo — Ronda 8
- * R8-04: % s/netos siempre visible (color #3a4050 mínimo, rojo o verde según valor)
- * R8-05: PRIME COST con lógica invertida (menos es mejor)
- *        - color del % cabecera: verde si <= objetivo, rojo en cualquier otro caso
- *        - barra: si > 100% mostrar barra llena en rojo (alarma)
- * Mantiene: cascada con facturación real + estimaciones, Comisiones y Provisiones eliminadas
+ * CardResultadoPeriodo — Ronda 9
+ * R9-01: quitar asterisco de "Ingresos netos *"
+ * R9-02: "Producto" → "Producto · COGS"
+ * R9-03: "Margen bruto" calculado siempre (ingresos netos - producto). Si producto=0 → igual a netos
+ * R9-04: "Personal" → "Equipo"
+ * R9-05: "Local + Controlables" en 2 líneas separadas: "Local" y "Controlables"
+ * R9-06: "Resultado limpio" → "Resultado neto", solo aparece si ≠ EBITDA
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -88,7 +89,6 @@ export default function CardResultadoPeriodo({
   const flecha = (deltaPp ?? 0) >= 0 ? '▲' : '▼'
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
-  // R8-05: Prime cost lógica invertida — menos es mejor
   const objetivoPC = kpiObj?.prime_cost_target ?? 60
   const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : '#B01D23'
 
@@ -98,34 +98,42 @@ export default function CardResultadoPeriodo({
 
   const tieneNetoReal = r?.ingresos_netos != null
   let ingresosNetos: number | null = null
-  let netoEsEstimado = false
   if (tieneNetoReal) {
     ingresosNetos = r!.ingresos_netos
   } else if (facturacion != null && margenNetoEstimadoPct != null && margenNetoEstimadoPct > 0) {
     ingresosNetos = facturacion * (margenNetoEstimadoPct / 100)
-    netoEsEstimado = true
   }
 
-  const producto = r?.producto ?? null
-  const margenBruto = (ingresosNetos != null && producto != null)
+  // R9-02: Producto · COGS
+  const producto = r?.producto ?? 0  // si no hay dato, asumimos 0 para poder calcular margen bruto
+
+  // R9-03: Margen bruto = netos - producto siempre que haya netos
+  const margenBruto = ingresosNetos != null
     ? ingresosNetos - producto
     : null
-  const personal = r?.personal ?? null
-  const localControlables = r ? (r.local != null || r.controlables != null
-    ? (r.local ?? 0) + (r.controlables ?? 0)
-    : null) : null
 
-  const resultadoLimpioCalc = (margenBruto != null && personal != null && localControlables != null)
-    ? margenBruto - personal - localControlables
-    : (r?.resultado_limpio ?? null)
+  // R9-04: Equipo (antes Personal)
+  const equipo = r?.personal ?? null
 
-  function valNum(v: number | null | undefined, esEstimado = false): string {
+  // R9-05: local y controlables separados
+  const local = r?.local ?? null
+  const controlables = r?.controlables ?? null
+
+  // R9-06: Resultado neto (calculado) = margen bruto - equipo - local - controlables
+  // Para calcular usamos 0 cuando alguno es null (estimación parcial)
+  const resultadoNetoCalc = margenBruto != null
+    ? margenBruto - (equipo ?? 0) - (local ?? 0) - (controlables ?? 0)
+    : null
+
+  // R9-06: solo mostrar línea "Resultado neto" si difiere de EBITDA
+  const mostrarResultadoNeto = resultadoNetoCalc != null && Math.abs(resultadoNetoCalc - ebitda) > 0.01
+
+  function valNum(v: number | null | undefined): string {
     if (v === null || v === undefined) return 'Datos insuficientes'
-    const txt = fmtEur(v, { showEuro: false, decimals: 2 })
-    return esEstimado ? `${txt} *` : txt
+    return fmtNum(v, 2)
   }
 
-  const sinDatosCascada = facturacion == null && ingresosNetos == null && resultadoLimpioCalc == null
+  const sinDatosCascada = facturacion == null && ingresosNetos == null
 
   return (
     <div style={cardBig}>
@@ -144,7 +152,6 @@ export default function CardResultadoPeriodo({
           <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
             {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
-          {/* R8-04: % s/netos siempre visible — color oscuro mínimo */}
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#3a4050', fontWeight: 600 }}>
             % s/netos
           </div>
@@ -163,48 +170,55 @@ export default function CardResultadoPeriodo({
           valor={valNum(facturacion)}
           tooltip="Ventas brutas del periodo (introducidas en módulo Facturación)"
         />
+        {/* R9-01: sin asterisco */}
         <LineaPyG
           label="Ingresos netos"
-          valor={valNum(ingresosNetos, netoEsEstimado)}
-          tooltip={netoEsEstimado ? "Estimado a partir del margen neto del periodo" : "Ingresos netos reales del running"}
+          valor={valNum(ingresosNetos)}
+          tooltip="Ingresos netos del periodo (real o estimado vía margen neto)"
           bold
         />
+        {/* R9-02: Producto · COGS */}
         <LineaPyG
-          label="Producto"
+          label="Producto · COGS"
           valor={valNum(producto)}
           tooltip="Food cost + bebida + packaging + mermas"
         />
+        {/* R9-03: Margen bruto siempre calculado */}
         <LineaPyG
           label="Margen bruto"
           valor={valNum(margenBruto)}
           tooltip="Ingresos netos − Producto"
           bold
         />
+        {/* R9-04: Equipo (antes Personal) */}
         <LineaPyG
-          label="Personal"
-          valor={valNum(personal)}
+          label="Equipo"
+          valor={valNum(equipo)}
           tooltip="Sueldos + SS + sueldos socios"
         />
+        {/* R9-05: Local y Controlables separados */}
         <LineaPyG
-          label="Local + Controlables"
-          valor={valNum(localControlables)}
-          tooltip="Alquiler + suministros + marketing + software + gestoría + bancos + transporte + seguros"
+          label="Local"
+          valor={valNum(local)}
+          tooltip="Alquiler + suministros + seguros"
         />
         <LineaPyG
-          label="Resultado limpio"
-          valor={valNum(resultadoLimpioCalc)}
-          tooltip="Margen bruto − Personal − Local + Controlables"
-          bold
-          colorVal={resultadoLimpioCalc != null ? (resultadoLimpioCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
+          label="Controlables"
+          valor={valNum(controlables)}
+          tooltip="Marketing + software + gestoría + bancos + transporte"
         />
-        {netoEsEstimado && (
-          <div style={{ fontSize: 10, color: '#7a8090', marginTop: 6, fontFamily: LEXEND, fontStyle: 'italic' }}>
-            * estimado a partir del margen neto medio del periodo
-          </div>
+        {/* R9-06: Resultado neto solo si difiere de EBITDA */}
+        {mostrarResultadoNeto && (
+          <LineaPyG
+            label="Resultado neto"
+            valor={valNum(resultadoNetoCalc)}
+            tooltip="Margen bruto − Equipo − Local − Controlables"
+            bold
+            colorVal={resultadoNetoCalc != null ? (resultadoNetoCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
+          />
         )}
       </div>
 
-      {/* R8-05: Prime Cost barra invertida — si supera objetivo, llenar en rojo */}
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
         <div style={{ ...lblSm, display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={lblSm} title="COGS + Personal sobre netos. KPI hostelería. Menos es mejor.">PRIME COST</span>
@@ -231,10 +245,7 @@ export default function CardResultadoPeriodo({
   )
 }
 
-// R8-05: barra Prime Cost invertida (menos es mejor)
 function BarraPrimeCost({ pctActual, objetivo }: { pctActual: number; objetivo: number }) {
-  // Si pctActual <= objetivo: barra verde proporcional al uso
-  // Si pctActual > objetivo: barra completamente roja como alarma
   const dentroObjetivo = pctActual <= objetivo
   const fillPct = dentroObjetivo
     ? Math.min(100, (pctActual / objetivo) * 100)
