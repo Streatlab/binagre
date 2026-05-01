@@ -1,101 +1,208 @@
-# Tasks: Helper paginado PostgREST
+# Tasks — Conciliación KPIs cuadrar al milímetro
 
-Ejecución secuencial T1 → T5. Modo localhost (NO `npx vercel --prod`).
+Ejecución secuencial T1 → T9. El implementer trabaja en worktree aislado sobre `master`. Cada tarea <5 min.
 
 ---
 
-## T1. Crear helper paginado
-**Archivo:** `src/lib/supabasePaginated.ts` (NUEVO)
-**Acción:** Crear archivo con función genérica `fetchAllPaginated<T>(builderFn)` que pagina con `.range()` hasta agotar.
-**Contenido:**
-```ts
-const PAGE_SIZE = 1000;
+## T1. Pre-flight: verificar helper existente
+**Archivo:** `src/lib/supabasePaginated.ts`
+**Acción:** Leer y confirmar export `fetchAllPaginated<T>(builderFn: () => any): Promise<T[]>` con `PAGE_SIZE = 1000`. NO modificar.
+**Output esperado:** Nota en summary.md "Helper ya existe, sin cambios".
 
-export async function fetchAllPaginated<T>(
-  builderFn: () => any
-): Promise<T[]> {
-  const all: T[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await builderFn().range(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    all.push(...(data as T[]));
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+---
+
+## T2. Pre-flight: verificar useConciliacion ya pagina
+**Archivo:** `src/hooks/useConciliacion.ts`
+**Acción:** Leer y confirmar que línea 8 importa `fetchAllPaginated` y línea ~64 lo usa para cargar `movimientos`. NO modificar.
+**Output esperado:** Nota en summary.md "Tab Resumen ya pagina via useConciliacion, sin cambios".
+
+---
+
+## T3. Añadir import en TabMovimientos
+**Archivo:** `src/components/conciliacion/TabMovimientos.tsx`
+**Acción:** En el bloque de imports superior (junto a `import { supabase } from '@/lib/supabase'`), añadir:
+```ts
+import { fetchAllPaginated } from '@/lib/supabasePaginated'
+```
+**Output esperado:** Nuevo import en cabecera. Resto del archivo sin tocar.
+
+---
+
+## T4. Refactorizar cargarAgregados
+**Archivo:** `src/components/conciliacion/TabMovimientos.tsx`
+**Acción:** Reemplazar el cuerpo del `useCallback` `cargarAgregados` (líneas ~211-240) por:
+```ts
+const cargarAgregados = useCallback(async () => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await fetchAllPaginated<any>(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from('conciliacion')
+        .select('importe, categoria, doc_estado, titular_id')
+        .gte('fecha', periodoDesdeStr)
+        .lte('fecha', periodoHastaStr)
+
+      if (filtroTitular !== 'todos' && titulares.length > 0) {
+        const matchIds = titulares
+          .filter(t => {
+            const n = t.nombre.toLowerCase()
+            if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+            if (filtroTitular === 'emilio') return n.includes('emilio')
+            return false
+          })
+          .map(t => t.id)
+        if (matchIds.length === 1)      q = q.eq('titular_id', matchIds[0])
+        else if (matchIds.length > 1)   q = q.in('titular_id', matchIds)
+      }
+      return q
+    })
+
+    let ingresosImporte = 0, gastosImporte = 0
+    let pendientesCount = 0, pendientesImporte = 0
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of data as any[]) {
+      const imp = Number(r.importe) || 0
+      if (imp > 0) ingresosImporte += imp
+      if (imp < 0) gastosImporte   += imp
+      const tieneCategoria = !!r.categoria
+      const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
+      if (!(tieneCategoria && tieneDoc)) {
+        pendientesCount   += 1
+        pendientesImporte += Math.abs(imp)
+      }
+    }
+    setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+  } catch {
+    setAgregados(null)
   }
-  return all;
+}, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares])
+```
+**Cambios clave**:
+- Query envuelta en `fetchAllPaginated` (todos los filtros DENTRO del closure).
+- Filtro titular añadido (CA2).
+- Try/catch para setear `null` en error.
+- Deps actualizadas: añadir `filtroTitular` y `titulares`.
+**Output esperado:** KPIs recalculan al cambiar período O titular, y suman sobre los 5.582 movs reales.
+
+---
+
+## T5. Refactorizar handleExportar
+**Archivo:** `src/components/conciliacion/TabMovimientos.tsx`
+**Acción:** Reemplazar el cuerpo de `handleExportar` (líneas ~317-369) por:
+```ts
+const handleExportar = async () => {
+  setExportando(true)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await fetchAllPaginated<any>(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from('conciliacion')
+        .select('*')
+        .gte('fecha', periodoDesdeStr)
+        .lte('fecha', periodoHastaStr)
+
+      if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+      if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+      if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+      if (filtroTitular !== 'todos' && titulares.length > 0) {
+        const matchIds = titulares
+          .filter(t => {
+            const n = t.nombre.toLowerCase()
+            if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+            if (filtroTitular === 'emilio') return n.includes('emilio')
+            return false
+          })
+          .map(t => t.id)
+        if (matchIds.length === 1)    q = q.eq('titular_id', matchIds[0])
+        else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
+      }
+      return q.order('fecha', { ascending: false })
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = data.map((m: any) => [
+      m.fecha,
+      (m.concepto ?? '').replace(/,/g, ' '),
+      (m.proveedor ?? '').replace(/,/g, ' '),
+      m.importe,
+      m.categoria ?? '',
+      (m.doc_estado ?? 'falta'),
+    ])
+    const csv = [
+      ['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc Estado'].join(','),
+      ...rows.map(r => r.join(',')),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+  } catch {
+    // swallow: el botón vuelve a su estado normal en finally
+  } finally {
+    setExportando(false)
+  }
 }
 ```
-**Notas:**
-- `builderFn: () => any` evita pelearse con el sistema de tipos union de PostgrestBuilder. El genérico `<T>` se mantiene en el retorno, que es lo que importa al caller.
-- NO importar tipos de `@supabase/postgrest-js` para no acoplar el helper a versión específica del SDK.
-**Output esperado:** Archivo nuevo, ~17 líneas. Compila aislado.
-**Verificación:** `npx tsc --no-emit` sin errores nuevos en este archivo.
+**Cambios clave**:
+- Query envuelta en `fetchAllPaginated` (todos filtros + `.order('fecha', desc)` DENTRO del closure ANTES del retorno).
+- `.order()` movido al final del closure (antes era post-await).
+- Try/catch/finally para garantizar reset de `exportando`.
+- Resto (mapeo CSV, blob, download) sin cambios.
+**Output esperado:** CSV con 5.582 filas reales sin truncar.
 
 ---
 
-## T2. Actualizar hook useConciliacion
-**Archivo:** `src/hooks/useConciliacion.ts`
-**Acción:**
-1. Leer archivo completo primero (regla 1 de `.claude/CLAUDE.md`)
-2. Añadir import: `import { fetchAllPaginated } from '../lib/supabasePaginated';` (ajustar ruta relativa real)
-3. Localizar la query actual a `facturacion_diario` (con `.range(0, 999999)` o similar)
-4. Reemplazar el bloque `const { data, error } = await supabase.from('facturacion_diario').select(...).range(0, 999999);` por:
-   ```ts
-   const data = await fetchAllPaginated<MovimientoRow>(() =>
-     supabase
-       .from('facturacion_diario')
-       .select('*')
-       .order('fecha', { ascending: false })
-       // mantener TODOS los filtros existentes aquí dentro (.eq, .gte, .lte, ...)
-   );
-   ```
-5. Eliminar el `.range(0, 999999)` antiguo
-6. Mantener el try/catch externo intacto — el helper hace `throw` en error
-7. Si el código antiguo tenía `if (error) throw error;` separado, ya no aplica (el helper lo hace internamente)
-8. Tipo `MovimientoRow`: usar el que ya exista en el hook; si no existe nombre, inferir del esquema actual sin redefinirlo
-**Output esperado:** Hook devuelve 5.582 filas en vez de 1.000. Firma pública del hook sin cambios. Filtros vivos en el callback se aplican en cada página.
+## T6. Verificar zonas no tocadas
+**Archivo:** `src/components/conciliacion/TabMovimientos.tsx`
+**Acción:** Inspeccionar diff y confirmar:
+- `cargarPagina()` (UI-paginated) NO tocado
+- Render JSX (cards, tabla, paginador, modal) NO tocado
+- Solo cambios: 1 import + 2 funciones refactorizadas
+**Output esperado:** Diff limpio. Cero cambios visuales.
 
 ---
 
-## T3. Verificar Conciliacion.tsx
-**Archivo:** `src/pages/Conciliacion.tsx`
-**Acción:** Leer archivo y comprobar que:
-- Consume `movimientos` (o el nombre real) del hook sin slice/limit hardcodeado client-side
-- Pasa el array completo a `TabMovimientos` por props
-- NO hay `.slice(0, 1000)` ni `Math.min(..., 1000)` ocultos
-**Si todo OK:** archivo intacto, no se commitea.
-**Si hay slice:** eliminar, commitear con T5.
-**Output esperado:** Confirmación escrita en summary.md (T5) de qué se encontró y si se modificó.
-
----
-
-## T4. Validar build TypeScript + Vite
-**Acción:**
-1. `npx tsc --no-emit` desde raíz
-2. `npm run build`
-**Output esperado:** Ambos sin errores.
-**Si T1 da error TS por tipos:** ya está mitigado con `builderFn: () => any` en el contenido de T1. Si aún así falla, dejar `any` también en el parámetro de salida y documentar como DECISIÓN AUTÓNOMA en summary.md.
-**Si npm run build falla:** NO continuar a T5 hasta resolverlo.
-
----
-
-## T5. Cadena git LOCAL (sin Vercel)
-**Acción:** Según `.claude/rules/RULES.md` sección 3 (modo localhost activo, NO desplegar a Vercel hasta autorización explícita "deploy Vercel"):
+## T7. Validar build TypeScript
+**Acción:** Desde raíz del repo:
 ```bash
-git add src/lib/supabasePaginated.ts src/hooks/useConciliacion.ts src/pages/Conciliacion.tsx
-git commit -m "fix(conciliacion): helper paginado supera limite PostgREST 1K filas"
-git push origin master
+npx tsc --no-emit
+```
+Si hay errores en `TabMovimientos.tsx`, fallback a `any` total (autorizado por spec). Si el error es ajeno al cambio, abortar y documentar.
+**Output esperado:** Exit code 0.
+
+---
+
+## T8. Validar build Vite
+**Acción:** Desde raíz del repo:
+```bash
+npm run build
+```
+**Output esperado:** Build exitoso, dist/ generado, sin warnings nuevos relevantes.
+
+---
+
+## T9. Cadena git+vercel obligatoria
+**Acción:** Desde raíz del repo, ejecutar como cadena única:
+```bash
+git add src/components/conciliacion/TabMovimientos.tsx && \
+git commit -m "fix(conciliacion): KPIs y export CSV usan fetchAllPaginated, eliminan cap 1K" && \
+git push origin master && \
+npx vercel --prod --yes && \
 git pull origin master
 ```
-**NO ejecutar `npx vercel --prod`.**
-**Output esperado:** Commit en master, working tree limpio. Validación visual pendiente: Rubén levanta `npm run dev`, abre tab Movimientos en Conciliación y confirma "X de 5582".
+Si Vercel falla en 1er intento → 1 reintento autorizado. Si falla 2 veces → documentar en summary.md y parar (autorizado por spec).
+**Output esperado:** Commit en master con SHA, deploy URL en https://binagre.vercel.app, working tree limpio. summary.md con commit SHA, URL de deploy y check pasos CA1/CA2/CA3.
 
 ---
 
 ## Notas para implementer
-- Si los filtros del hook actual (`.eq('canal', x)`, `.gte('fecha', y)`, `.order(...)`) no van DENTRO del callback `() => supabase.from(...)...`, los resultados serán incorrectos a partir de la 2ª página. Verificar dos veces.
-- Si `MovimientoRow` no está definido, inferir del retorno actual del hook y reutilizar; no redefinir tipos del esquema.
-- Tras T2, el `.range(0, 999999)` debe haber DESAPARECIDO del hook. Si queda residual, helper no surte efecto (Supabase aplica el último range).
-- Cualquier desviación → anotar en `summary.md` como DECISIÓN AUTÓNOMA.
+- Los filtros DEBEN ir dentro del closure `() => { ... return q }` que se pasa al helper. Si quedan fuera, sólo aplican a la 1ª iteración (resultado incorrecto desde la página 2).
+- El `.order('fecha', { ascending: false })` en `handleExportar` va DENTRO del closure, ANTES del retorno. El helper añade `.range()` después automáticamente.
+- En `cargarAgregados` no se usa `.order()` (suma es asociativa).
+- Cualquier desviación → documentar en `summary.md` como DECISIÓN AUTÓNOMA.
+- NO tocar `cargarPagina()`, JSX, ni otros archivos. Cambios visuales = cero.

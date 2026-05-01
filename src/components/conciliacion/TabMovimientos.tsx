@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
+import { fetchAllPaginated } from '@/lib/supabasePaginated'
 import type { Movimiento } from '@/types/conciliacion'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
@@ -209,35 +210,51 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   /* ── Query de agregados KPI (solo en cambio de período) ── */
   const cargarAgregados = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('conciliacion')
-      .select('importe, categoria, doc_estado, titular_id')
-      .gte('fecha', periodoDesdeStr)
-      .lte('fecha', periodoHastaStr)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await fetchAllPaginated<any>(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = supabase
+          .from('conciliacion')
+          .select('importe, categoria, doc_estado, titular_id')
+          .gte('fecha', periodoDesdeStr)
+          .lte('fecha', periodoHastaStr)
 
-    if (error || !data) {
-      setAgregados(null)
-      return
-    }
+        if (filtroTitular !== 'todos' && titulares.length > 0) {
+          const matchIds = titulares
+            .filter(t => {
+              const n = t.nombre.toLowerCase()
+              if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+              if (filtroTitular === 'emilio') return n.includes('emilio')
+              return false
+            })
+            .map(t => t.id)
+          if (matchIds.length === 1)      q = q.eq('titular_id', matchIds[0])
+          else if (matchIds.length > 1)   q = q.in('titular_id', matchIds)
+        }
+        return q
+      })
 
-    let ingresosImporte = 0, gastosImporte = 0
-    let pendientesCount = 0, pendientesImporte = 0
+      let ingresosImporte = 0, gastosImporte = 0
+      let pendientesCount = 0, pendientesImporte = 0
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const r of data as any[]) {
-      const imp = Number(r.importe) || 0
-      if (imp > 0) ingresosImporte += imp
-      if (imp < 0) gastosImporte   += imp
-      // "pendiente" = sin categoria O doc_estado === 'falta'
-      const tieneCategoria = !!r.categoria
-      const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
-      if (!(tieneCategoria && tieneDoc)) {
-        pendientesCount   += 1
-        pendientesImporte += Math.abs(imp)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of data as any[]) {
+        const imp = Number(r.importe) || 0
+        if (imp > 0) ingresosImporte += imp
+        if (imp < 0) gastosImporte   += imp
+        const tieneCategoria = !!r.categoria
+        const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
+        if (!(tieneCategoria && tieneDoc)) {
+          pendientesCount   += 1
+          pendientesImporte += Math.abs(imp)
+        }
       }
+      setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+    } catch {
+      setAgregados(null)
     }
-    setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
-  }, [periodoDesdeStr, periodoHastaStr])
+  }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares])
 
   /* ── Efectos de disparo ── */
   useEffect(() => { cargarPagina() }, [cargarPagina])
@@ -318,31 +335,31 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     setExportando(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q: any = supabase
-        .from('conciliacion')
-        .select('*')
-        .gte('fecha', periodoDesdeStr)
-        .lte('fecha', periodoHastaStr)
+      const data = await fetchAllPaginated<any>(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = supabase
+          .from('conciliacion')
+          .select('*')
+          .gte('fecha', periodoDesdeStr)
+          .lte('fecha', periodoHastaStr)
 
-      if (filtroCard === 'ingresos') q = q.gt('importe', 0)
-      if (filtroCard === 'gastos')   q = q.lt('importe', 0)
-      if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
-      if (filtroTitular !== 'todos' && titulares.length > 0) {
-        const matchIds = titulares
-          .filter(t => {
-            const n = t.nombre.toLowerCase()
-            if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
-            if (filtroTitular === 'emilio') return n.includes('emilio')
-            return false
-          })
-          .map(t => t.id)
-        if (matchIds.length === 1) q = q.eq('titular_id', matchIds[0])
-        else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await q.order('fecha', { ascending: false }) as { data: any[] | null; error: unknown }
-      if (error || !data) return
+        if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+        if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+        if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+        if (filtroTitular !== 'todos' && titulares.length > 0) {
+          const matchIds = titulares
+            .filter(t => {
+              const n = t.nombre.toLowerCase()
+              if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+              if (filtroTitular === 'emilio') return n.includes('emilio')
+              return false
+            })
+            .map(t => t.id)
+          if (matchIds.length === 1)    q = q.eq('titular_id', matchIds[0])
+          else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
+        }
+        return q.order('fecha', { ascending: false })
+      })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = data.map((m: any) => [
@@ -363,6 +380,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       a.href = url
       a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
+    } catch {
+      // swallow: el botón vuelve a su estado normal en finally
     } finally {
       setExportando(false)
     }

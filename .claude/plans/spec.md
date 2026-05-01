@@ -1,36 +1,49 @@
-# Spec: Fix paginación PostgREST - 5.582 movimientos completos
+# Spec: Conciliación — KPIs cuadrar al milímetro con paginación
 
 ## Contexto
-PostgREST server-side limita a 1.000 filas por defecto. El hook `useConciliacion` usa `.range(0, 999999)` que NO funciona, cortando en 1K registros cuando la BBDD real tiene 5.582 movimientos. Tab Movimientos muestra datos incompletos.
+Módulo de conciliación en `TabMovimientos.tsx`. Las funciones `cargarAgregados()` y `handleExportar` no paginan las consultas Supabase, por lo que PostgREST las recorta a 1.000 filas server-side. Esto provoca KPIs incorrectos que muestran datos truncados en lugar del total real de 5.582 movimientos en el rango 2023-2026.
 
 ## Petición original
-Paginación automática para sortear límite PostgREST 1K filas. Helper genérico `fetchAllPaginated` que itera `.range()` hasta agotar. Aplicar en hook conciliación para obtener 5.582 movimientos completos.
+**Modo autónomo total.** Fix crítico: los KPIs de conciliación no cuadran porque `cargarAgregados()` y `handleExportar` no paginan. PostgREST recorta a 1K filas. Crear helper `fetchAllPaginated` y aplicar a ambas funciones. Criterios CA1-CA3 definidos con datos específicos. No preguntar, ejecutar hasta deploy confirmado.
 
 ## Criterios DADO/CUANDO/ENTONCES
-1. DADO 5.582 registros en `facturacion_diario`, CUANDO cargo tab Movimientos, ENTONCES veo "100 de 5582" en paginador visual
-2. DADO helper `fetchAllPaginated`, CUANDO recibe query builder función, ENTONCES devuelve array completo sin límite 1K
-3. DADO error de red durante paginación, CUANDO falla página N, ENTONCES helper propaga error sin datos parciales
-4. DADO `npm run build`, CUANDO importo helper en hook, ENTONCES compila sin errores TypeScript
+
+### CA1 — KPIs exactos
+**DADO** que la tabla contiene 5.582 movimientos en el rango 2023-2026  
+**CUANDO** la tab Movimientos carga con ese rango  
+**ENTONCES** Card "Ingresos" muestra **+319.693,18 €**  
+**Y** Card "Gastos" muestra **-315.573,68 €**  
+**Y** Card "Pendientes" muestra el conteo real (no truncado a 1000)  
+**Y** Card "Pendientes" muestra el importe acumulado real
+
+### CA2 — Filtro titular cuadra
+**DADO** los KPIs anteriores  
+**CUANDO** se cambia filtroTitular a Rubén o Emilio  
+**ENTONCES** los 4 KPIs deben recalcularse aplicando el filtro de titular sobre TODOS los movs (no solo los 1000 primeros)
+
+### CA3 — Exportar CSV completo
+**DADO** que se hace click en "Exportar"  
+**CUANDO** se descarga el CSV  
+**ENTONCES** el archivo contiene los 5.582 movs (no 1.000) si no hay otros filtros aplicados
 
 ## Alcance
 - Archivos que tocar:
-  - `src/lib/supabasePaginated.ts` (NUEVO - helper genérico)
-  - `src/hooks/useConciliacion.ts` (reemplazar query por helper)
-  - `src/pages/Conciliacion.tsx` (verificar tab Movimientos recibe datos completos)
-
-- Archivos que NO tocar:
-  - Componente `TabMovimientos.tsx` (paginación UI sin cambios)
-  - Estilos/tokens (mantener visual actual)
-  - Filtros existentes (fechas, canal, etc.)
+  - `src/lib/supabasePaginated.ts` (crear si no existe)
+  - `src/components/conciliacion/TabMovimientos.tsx` (modificar `cargarAgregados` y `handleExportar`)
+  - `src/hooks/useConciliacion.ts` (revisar y aplicar mismo patrón si necesario)
 
 ## Fuera de alcance
-- Optimización render 5K filas
-- Paginación UI server-side
-- Otros hooks que usen Supabase
-- Refactor arquitectura global
+- `cargarPagina()` (la query de la tabla con `.range(from, to)` paginada por UI) — ya funciona bien
+- Estilos, fuentes, colores, layout — cero cambios visuales
+- `Conciliacion.tsx` página padre
 
 ## Riesgos identificados
-- Helper recibe FUNCIÓN que devuelve builder fresco, no builder directo (evitar stale state)
-- `fetchAllPaginated` devuelve array directo, no `{data, error}` wrapper (consistencia con Supabase client)
-- Import correcto `@supabase/supabase-js` en helper
-- Tipos TypeScript genéricos `<T>` para reutilización
+- Tipos del helper: si `PostgrestFilterBuilder` no funciona, usar `any` y documentar
+- Vercel deploy: 1 reintento máximo, si falla documentar
+- Tab Resumen: puede necesitar mismo fix en `useConciliacion.ts`
+
+## Decisiones autónomas autorizadas
+- Usar `any` en tipos si hay conflictos TypeScript con PostgREST
+- Aplicar mismo patrón a `useConciliacion.ts` si detecta mismo problema
+- Saltar validación localhost si no arranca, ir directo a deploy
+- PAGE_SIZE: mantener 1000 (valor actual PostgREST)
