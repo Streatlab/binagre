@@ -1,11 +1,10 @@
 /**
- * CardResultadoPeriodo — Ronda 9
- * R9-01: quitar asterisco de "Ingresos netos"
- * R9-02: "Producto" → "Producto · COGS"
- * R9-03: Margen bruto = ingresos netos − producto (siempre calculado, aunque producto=0)
- * R9-04: "Personal" → "Equipo"
- * R9-05: Local y Controlables en 2 líneas separadas
- * R9-06: "Resultado limpio" → "Resultado neto", solo aparece si difiere de EBITDA
+ * CardResultadoPeriodo — Ronda 10
+ * R10-01: EBITDA grande = mismo cálculo que Resultado neto de la cascada (no usar el prop legacy)
+ *         Así arriba y abajo cuadran. Si hay datos parciales, ambos muestran lo mismo.
+ *         Como son iguales, "Resultado neto" abajo NO se muestra (evita duplicar).
+ * R10-02: EBITDA % = (EBITDA / Ingresos netos) × 100, recalculado localmente
+ * Mantiene resto: Producto · COGS, Equipo, Local, Controlables, sin asterisco, etc.
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -49,7 +48,7 @@ interface Props {
 }
 
 export default function CardResultadoPeriodo({
-  ebitda, ebitdaPct, deltaPp,
+  ebitdaPct: ebitdaPctProp, deltaPp,
   primeCostPct,
   facturacionBruta,
   margenNetoEstimadoPct,
@@ -85,7 +84,6 @@ export default function CardResultadoPeriodo({
       })
   }, [kpiVersion])
 
-  const colorEbitda = ebitda >= 0 ? COLOR.verde : COLOR.rojo
   const flecha = (deltaPp ?? 0) >= 0 ? '▲' : '▼'
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
@@ -104,29 +102,27 @@ export default function CardResultadoPeriodo({
     ingresosNetos = facturacion * (margenNetoEstimadoPct / 100)
   }
 
-  // R9-02: Producto · COGS — si no hay dato asumimos 0 para poder calcular margen bruto
   const producto = r?.producto ?? 0
 
-  // R9-03: Margen bruto = netos - producto (calculado siempre que haya netos)
   const margenBruto = ingresosNetos != null
     ? ingresosNetos - producto
     : null
 
-  // R9-04: Equipo (antes Personal)
   const equipo = r?.personal ?? null
-
-  // R9-05: Local y Controlables separados
   const local = r?.local ?? null
   const controlables = r?.controlables ?? null
 
-  // R9-06: Resultado neto = margen bruto - equipo - local - controlables
-  // Calculamos con 0 cuando alguno es null (estimación parcial)
-  const resultadoNetoCalc = margenBruto != null
+  // R10-01: EBITDA = lo que calcula la cascada (margen bruto - equipo - local - controlables)
+  const ebitdaCalc = margenBruto != null
     ? margenBruto - (equipo ?? 0) - (local ?? 0) - (controlables ?? 0)
     : null
 
-  // R9-06: solo mostrar línea "Resultado neto" si difiere claramente de EBITDA
-  const mostrarResultadoNeto = resultadoNetoCalc != null && Math.abs(resultadoNetoCalc - ebitda) > 0.01
+  // R10-02: EBITDA % calculado sobre ingresos netos
+  const ebitdaPctCalc = (ebitdaCalc != null && ingresosNetos != null && ingresosNetos > 0)
+    ? (ebitdaCalc / ingresosNetos) * 100
+    : null
+
+  const colorEbitda = ebitdaCalc != null ? (ebitdaCalc >= 0 ? COLOR.verde : COLOR.rojo) : '#3a4050'
 
   function valNum(v: number | null | undefined): string {
     if (v === null || v === undefined) return 'Datos insuficientes'
@@ -141,17 +137,16 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          {/* R9: usa fmtEur con useGrouping (separador miles ya aplicado en format.ts) */}
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
-            {sinDatosCascada
-              ? 'Datos insuficientes'
-              : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: colorEbitda }}>
+            {ebitdaCalc != null
+              ? fmtEur(ebitdaCalc, { showEuro: true, decimals: 2 })
+              : 'Datos insuficientes'}
           </div>
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
-            {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: colorEbitda }}>
+            {ebitdaPctCalc != null ? `${fmtNum(ebitdaPctCalc, 0)}%` : '—'}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#3a4050', fontWeight: 600 }}>
             % s/netos
@@ -171,33 +166,28 @@ export default function CardResultadoPeriodo({
           valor={valNum(facturacion)}
           tooltip="Ventas brutas del periodo (introducidas en módulo Facturación)"
         />
-        {/* R9-01: Ingresos netos sin asterisco */}
         <LineaPyG
           label="Ingresos netos"
           valor={valNum(ingresosNetos)}
-          tooltip="Ingresos netos del periodo (real o estimado vía margen neto)"
+          tooltip="Ingresos netos del periodo (real o estimado vía margen neto medio)"
           bold
         />
-        {/* R9-02: Producto · COGS */}
         <LineaPyG
           label="Producto · COGS"
           valor={valNum(producto)}
           tooltip="Food cost + bebida + packaging + mermas"
         />
-        {/* R9-03: Margen bruto siempre calculado */}
         <LineaPyG
           label="Margen bruto"
           valor={valNum(margenBruto)}
           tooltip="Ingresos netos − Producto"
           bold
         />
-        {/* R9-04: Equipo (antes Personal) */}
         <LineaPyG
           label="Equipo"
           valor={valNum(equipo)}
           tooltip="Sueldos + SS + sueldos socios"
         />
-        {/* R9-05: Local y Controlables separados en 2 líneas */}
         <LineaPyG
           label="Local"
           valor={valNum(local)}
@@ -208,16 +198,7 @@ export default function CardResultadoPeriodo({
           valor={valNum(controlables)}
           tooltip="Marketing + software + gestoría + bancos + transporte"
         />
-        {/* R9-06: Resultado neto solo si difiere de EBITDA */}
-        {mostrarResultadoNeto && (
-          <LineaPyG
-            label="Resultado neto"
-            valor={valNum(resultadoNetoCalc)}
-            tooltip="Margen bruto − Equipo − Local − Controlables"
-            bold
-            colorVal={resultadoNetoCalc != null ? (resultadoNetoCalc >= 0 ? COLOR.verde : COLOR.rojo) : undefined}
-          />
-        )}
+        {/* R10-01: NO mostramos "Resultado neto" abajo porque arriba ya está como EBITDA grande */}
       </div>
 
       <div style={{ borderTop: `0.5px solid ${COLOR.borde}`, paddingTop: 12, marginTop: 12 }}>
