@@ -157,39 +157,7 @@ export default function Conciliacion() {
     [movimientosBD]
   )
 
-  /* — Movimientos filtrados por período para TabMovimientos — query directa a BD sin cap 1000 */
-  const [movimientosPeriodo, setMovimientosPeriodo] = useState<Movimiento[]>([])
-
-  useEffect(() => {
-    const desdeStr = periodoDesde.toISOString().slice(0, 10)
-    const hastaStr = periodoHasta.toISOString().slice(0, 10)
-    let cancel = false
-    supabase
-      .from('conciliacion')
-      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
-      .gte('fecha', desdeStr)
-      .lte('fecha', hastaStr)
-      .order('fecha', { ascending: false })
-      .range(0, 999999)
-      .then(({ data }) => {
-        if (cancel) return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setMovimientosPeriodo((data ?? []).map((m: any) => ({
-          id: m.id,
-          fecha: m.fecha,
-          concepto: m.concepto,
-          importe: Number(m.importe),
-          categoria_id: m.categoria ?? null,
-          contraparte: m.proveedor ?? '',
-          gasto_id: m.gasto_id ?? null,
-          factura_id: m.factura_id ?? null,
-          factura_data: m.factura_data ?? null,
-          titular_id: m.titular_id ?? null,
-          doc_estado: (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
-        })))
-      })
-    return () => { cancel = true }
-  }, [periodoDesde, periodoHasta])
+  /* — movimientosPeriodo eliminado: TabMovimientos gestiona su propia query server-side paginada — */
 
   /* — Categorización inline con aprendizaje (persiste en BD) — */
   const handleCategorizar = async (movId: string, catId: string, concepto: string) => {
@@ -466,7 +434,6 @@ export default function Conciliacion() {
       {/* Pestaña Movimientos — nuevo TabMovimientos */}
       {tab === 'movimientos' && (
         <TabMovimientos
-          movimientos={movimientosPeriodo}
           periodoLabel={periodoLabelSFU}
           periodoDesde={periodoDesde}
           periodoHasta={periodoHasta}

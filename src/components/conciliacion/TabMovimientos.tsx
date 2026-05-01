@@ -1,12 +1,26 @@
-import React, { useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import type { Movimiento } from '@/types/conciliacion'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
+/* ─── Paginación ─── */
+const PAGE_SIZES = [25, 50, 100, 200] as const
+type PageSize = typeof PAGE_SIZES[number]
+const DEFAULT_PAGE_SIZE: PageSize = 50
+
+function parsePageSize(raw: string | null): PageSize {
+  const n = Number(raw)
+  return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
+}
+function parsePage(raw: string | null): number {
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+/* ─── Interfaces ─── */
 interface TabMovimientosProps {
-  movimientos: Movimiento[]
   periodoLabel: string
   periodoDesde: Date
   periodoHasta: Date
@@ -15,18 +29,23 @@ interface TabMovimientosProps {
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
 
+type Agregados = {
+  ingresosImporte: number
+  gastosImporte: number
+  pendientesCount: number
+  pendientesImporte: number
+}
+
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
 
-const PAGE_SIZE = 100
-
+/* ─── Helpers ─── */
 function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
   const tieneCategoria = !!m.categoria_id
   const tieneDoc = m.doc_estado === 'tiene' || m.doc_estado === 'no_requiere'
   return tieneCategoria && tieneDoc ? 'conciliado' : 'pendiente'
 }
 
-// FIX CRÍTICO: busca por id directo (ej "2.11.1") sin pasar por mapeo legacy
 function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
   if (!m.categoria_id) return null
   const cat = categoriasPyg.find(c => c.id === m.categoria_id)
@@ -34,19 +53,58 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
   return null
 }
 
-export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodoHasta: _ph, periodoLabel: _pl }: TabMovimientosProps) {
+/* ─── Componente ─── */
+export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
   const navigate = useNavigate()
+
+  /* — URL params — */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page     = parsePage(searchParams.get('page'))
+  const pageSize = parsePageSize(searchParams.get('size'))
+
+  const updateUrl = useCallback((next: { page?: number; size?: PageSize }) => {
+    const params = new URLSearchParams(searchParams)
+    if (next.page !== undefined) params.set('page', String(next.page))
+    if (next.size !== undefined) params.set('size', String(next.size))
+    setSearchParams(params, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  /* — Filtros UI — */
   const [filtroCard, setFiltroCard] = useState<'ingresos' | 'gastos' | 'pendientes' | null>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [catFiltro, setCatFiltro] = useState('todas')
-  const [page, setPage] = useState(1)
-  const [modalMov, setModalMov] = useState<Movimiento | null>(null)
-  const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
-  const [titulares, setTitulares] = useState<Titular[]>([])
-  const [sortColumn, setSortColumn] = useState<SortColumn | null>('fecha')
+  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  /* — Estado datos — */
+  const [filas, setFilas]           = useState<Movimiento[]>([])
+  const [total, setTotal]           = useState<number>(0)
+  const [cargando, setCargando]     = useState<boolean>(true)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const fetchIdRef                  = useRef<number>(0)
+
+  /* — Agregados KPI — */
+  const [agregados, setAgregados] = useState<Agregados | null>(null)
+
+  /* — Lookup data — */
+  const [modalMov, setModalMov]           = useState<Movimiento | null>(null)
+  const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
+  const [titulares, setTitulares]         = useState<Titular[]>([])
+
+  /* — Exportar — */
+  const [exportando, setExportando] = useState(false)
+
+  /* ── Corregir size inválido en montaje ── */
+  useEffect(() => {
+    const raw = searchParams.get('size')
+    if (raw !== null && !(PAGE_SIZES as readonly number[]).includes(Number(raw))) {
+      updateUrl({ size: DEFAULT_PAGE_SIZE })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* ── Cargar lookup tables ── */
   useEffect(() => {
     Promise.all([
       supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'),
@@ -57,97 +115,260 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
     })
   }, [])
 
+  /* ── Calcular string de período ── */
+  const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
+  const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
+
+  /* ── Query paginada principal ── */
+  const cargarPagina = useCallback(async () => {
+    const myFetchId = ++fetchIdRef.current
+    setCargando(true)
+    setErrorCarga(null)
+
+    const from = (page - 1) * pageSize
+    const to   = from + pageSize - 1
+
+    const sortMap: Record<string, string | null> = {
+      fecha:       'fecha',
+      concepto:    'concepto',
+      contraparte: 'proveedor',
+      importe:     'importe',
+      categoria:   'categoria',
+      doc:         'doc_estado',
+      titular:     'titular_id',
+      estado:      null, // client-side
+    }
+    const sortField = sortMap[sortColumn] ?? 'fecha'
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = supabase
+      .from('conciliacion')
+      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)', { count: 'exact' })
+      .gte('fecha', periodoDesdeStr)
+      .lte('fecha', periodoHastaStr)
+
+    if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+    if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+    // pendientes es client-side
+
+    if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
+
+    if (filtroTitular !== 'todos' && titulares.length > 0) {
+      // Resolver ids que coincidan con el nombre del titular
+      const matchIds = titulares
+        .filter(t => {
+          const n = t.nombre.toLowerCase()
+          if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+          if (filtroTitular === 'emilio') return n.includes('emilio')
+          return false
+        })
+        .map(t => t.id)
+      if (matchIds.length === 1) {
+        q = q.eq('titular_id', matchIds[0])
+      } else if (matchIds.length > 1) {
+        q = q.in('titular_id', matchIds)
+      }
+      // Si no hay match → no filtrar (equivale a 'todos')
+    }
+
+    if (sortField) {
+      q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
+    } else {
+      // estado → order client-side; server sort por fecha
+      q = q.order('fecha', { ascending: false }).range(from, to)
+    }
+
+    const { data, error, count } = await q
+
+    if (myFetchId !== fetchIdRef.current) return // respuesta obsoleta
+
+    if (error) {
+      setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
+      setFilas([])
+      setTotal(0)
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped = (data ?? []).map((m: any): Movimiento => ({
+        id:          m.id,
+        fecha:       m.fecha,
+        concepto:    m.concepto,
+        importe:     Number(m.importe),
+        categoria_id: m.categoria ?? null,
+        contraparte: m.proveedor ?? '',
+        gasto_id:    m.gasto_id ?? null,
+        factura_id:  m.factura_id ?? null,
+        factura_data: m.factura_data ?? null,
+        titular_id:  m.titular_id ?? null,
+        doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
+      }))
+      setFilas(mapped)
+      setTotal(count ?? 0)
+    }
+    setCargando(false)
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr])
+
+  /* ── Query de agregados KPI (solo en cambio de período) ── */
+  const cargarAgregados = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('conciliacion')
+      .select('importe, categoria, doc_estado, titular_id')
+      .gte('fecha', periodoDesdeStr)
+      .lte('fecha', periodoHastaStr)
+
+    if (error || !data) {
+      setAgregados(null)
+      return
+    }
+
+    let ingresosImporte = 0, gastosImporte = 0
+    let pendientesCount = 0, pendientesImporte = 0
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of data as any[]) {
+      const imp = Number(r.importe) || 0
+      if (imp > 0) ingresosImporte += imp
+      if (imp < 0) gastosImporte   += imp
+      // "pendiente" = sin categoria O doc_estado === 'falta'
+      const tieneCategoria = !!r.categoria
+      const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
+      if (!(tieneCategoria && tieneDoc)) {
+        pendientesCount   += 1
+        pendientesImporte += Math.abs(imp)
+      }
+    }
+    setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+  }, [periodoDesdeStr, periodoHastaStr])
+
+  /* ── Efectos de disparo ── */
+  useEffect(() => { cargarPagina() }, [cargarPagina])
+  useEffect(() => { cargarAgregados() }, [cargarAgregados])
+
+  /* ── Auto-corrección de page > totalPages ── */
+  useEffect(() => {
+    if (cargando) return
+    if (total === 0) return
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (page > totalPages) updateUrl({ page: totalPages })
+  }, [cargando, total, pageSize, page, updateUrl])
+
+  /* ── Handlers de filtros con reset de página ── */
+  const onCambiarFiltroCard = (v: 'ingresos' | 'gastos' | 'pendientes') => {
+    setFiltroCard(prev => prev === v ? null : v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarFiltroTitular = (v: 'todos' | 'ruben' | 'emilio') => {
+    setFiltroTitular(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarBusqueda = (v: string) => {
+    setBusqueda(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarCatFiltro = (v: string) => {
+    setCatFiltro(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  /* ── Sort ── */
   function handleSort(col: SortColumn) {
     if (sortColumn === col) {
       if (sortDir === 'asc') setSortDir('desc')
-      else { setSortColumn(null); setSortDir('asc') }
+      else setSortDir('asc')
     } else {
       setSortColumn(col)
       setSortDir('asc')
     }
-    setPage(1)
+    if (page !== 1) updateUrl({ page: 1 })
   }
 
-  const totales = useMemo(() => {
-    const ingresos = movimientos.filter(m => m.importe > 0)
-    const gastos = movimientos.filter(m => m.importe < 0)
-    const pendientes = movimientos.filter(m => calcularEstado(m) === 'pendiente')
-    return {
-      ingresosImporte: ingresos.reduce((s, m) => s + m.importe, 0),
-      gastosImporte: Math.abs(gastos.reduce((s, m) => s + m.importe, 0)),
-      pendientesCount: pendientes.length,
-      pendientesImporte: Math.abs(pendientes.reduce((s, m) => s + m.importe, 0)),
+  /* ── filasVisibles: búsqueda + sort estado client-side ── */
+  const filasVisibles = useMemo(() => {
+    let out = filas
+
+    // Filtro pendientes client-side (server-side no aplica para este filtro)
+    if (filtroCard === 'pendientes') {
+      out = out.filter(m => calcularEstado(m) === 'pendiente')
     }
-  }, [movimientos])
 
-  const filtrados = useMemo(() => {
-    return movimientos
-      .filter(m => {
-        if (filtroCard === 'ingresos') return m.importe > 0
-        if (filtroCard === 'gastos') return m.importe < 0
-        if (filtroCard === 'pendientes') return calcularEstado(m) === 'pendiente'
-        return true
-      })
-      .filter(m => {
-        if (filtroTitular === 'todos') return true
-        const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
-        if (filtroTitular === 'ruben') return titNombre.includes('rubén') || titNombre.includes('ruben')
-        if (filtroTitular === 'emilio') return titNombre.includes('emilio')
-        return true
-      })
-      .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
-      .filter(m => {
-        if (!busqueda) return true
-        const q = busqueda.toLowerCase()
-        return (
-          m.concepto.toLowerCase().includes(q) ||
-          (m.contraparte && m.contraparte.toLowerCase().includes(q)) ||
-          (m.factura_id && m.factura_id.toLowerCase().includes(q)) ||
-          String(Math.abs(m.importe)).includes(q)
-        )
-      })
-      .sort((a, b) => {
-        if (!sortColumn) return b.fecha.localeCompare(a.fecha)
-        const dir = sortDir === 'asc' ? 1 : -1
-        if (sortColumn === 'fecha') return a.fecha.localeCompare(b.fecha) * dir
-        if (sortColumn === 'concepto') return a.concepto.localeCompare(b.concepto) * dir
-        if (sortColumn === 'contraparte') return (a.contraparte || '').localeCompare(b.contraparte || '') * dir
-        if (sortColumn === 'importe') return (a.importe - b.importe) * dir
-        if (sortColumn === 'categoria') return (a.categoria_id || 'zzz').localeCompare(b.categoria_id || 'zzz') * dir
-        if (sortColumn === 'doc') {
-          const order: Record<string, number> = { tiene: 0, no_requiere: 1, falta: 2 }
-          return ((order[a.doc_estado as string] ?? 3) - (order[b.doc_estado as string] ?? 3)) * dir
-        }
-        if (sortColumn === 'estado') return calcularEstado(a).localeCompare(calcularEstado(b)) * dir
-        if (sortColumn === 'titular') {
-          const aT = titulares.find(t => t.id === a.titular_id)?.nombre ?? ''
-          const bT = titulares.find(t => t.id === b.titular_id)?.nombre ?? ''
-          return aT.localeCompare(bT) * dir
-        }
-        return 0
-      })
-  }, [movimientos, filtroCard, filtroTitular, catFiltro, busqueda, titulares, sortColumn, sortDir])
+    if (busqueda.trim()) {
+      const q = busqueda.trim().toLowerCase()
+      out = out.filter(m =>
+        (m.concepto ?? '').toLowerCase().includes(q) ||
+        (m.contraparte ?? '').toLowerCase().includes(q) ||
+        (m.categoria_id ?? '').toLowerCase().includes(q)
+      )
+    }
 
-  const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
-  const paginated = filtrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    if (sortColumn === 'estado') {
+      out = [...out].sort((a, b) => {
+        const ea = calcularEstado(a)
+        const eb = calcularEstado(b)
+        return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
+      })
+    }
 
-  function handleExportar() {
-    const rows = filtrados.map(m => [
-      m.fecha, m.concepto.replace(/,/g, ' '), m.contraparte.replace(/,/g, ' '), m.importe, m.categoria_id ?? '', calcularEstado(m)
-    ])
-    const csv = [
-      ['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Estado'].join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
+    return out
+  }, [filas, busqueda, sortColumn, sortDir, filtroCard])
+
+  /* ── Exportar CSV ── */
+  const handleExportar = async () => {
+    setExportando(true)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from('conciliacion')
+        .select('*')
+        .gte('fecha', periodoDesdeStr)
+        .lte('fecha', periodoHastaStr)
+
+      if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+      if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+      if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+      if (filtroTitular !== 'todos' && titulares.length > 0) {
+        const matchIds = titulares
+          .filter(t => {
+            const n = t.nombre.toLowerCase()
+            if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+            if (filtroTitular === 'emilio') return n.includes('emilio')
+            return false
+          })
+          .map(t => t.id)
+        if (matchIds.length === 1) q = q.eq('titular_id', matchIds[0])
+        else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await q.order('fecha', { ascending: false }) as { data: any[] | null; error: unknown }
+      if (error || !data) return
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = data.map((m: any) => [
+        m.fecha,
+        (m.concepto ?? '').replace(/,/g, ' '),
+        (m.proveedor ?? '').replace(/,/g, ' '),
+        m.importe,
+        m.categoria ?? '',
+        (m.doc_estado ?? 'falta'),
+      ])
+      const csv = [
+        ['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc Estado'].join(','),
+        ...rows.map(r => r.join(',')),
+      ].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+    } finally {
+      setExportando(false)
+    }
   }
 
+  /* ── Estilos ── */
   const cardStyle = (filtro: 'ingresos' | 'gastos' | 'pendientes'): React.CSSProperties => ({
     background: '#fff',
     border: filtroCard === filtro ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
@@ -159,48 +380,51 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
   })
 
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
-    { label: 'Fecha', col: 'fecha', align: 'left' },
-    { label: 'Concepto', col: 'concepto', align: 'left' },
+    { label: 'Fecha',       col: 'fecha',       align: 'left' },
+    { label: 'Concepto',    col: 'concepto',    align: 'left' },
     { label: 'Contraparte', col: 'contraparte', align: 'left' },
-    { label: 'Importe', col: 'importe', align: 'right' },
-    { label: 'Categoría', col: 'categoria', align: 'left' },
-    { label: 'Doc', col: 'doc', align: 'center' },
-    { label: 'Estado', col: 'estado', align: 'left' },
-    { label: 'Titular', col: 'titular', align: 'left' },
+    { label: 'Importe',     col: 'importe',     align: 'right' },
+    { label: 'Categoría',   col: 'categoria',   align: 'left' },
+    { label: 'Doc',         col: 'doc',         align: 'center' },
+    { label: 'Estado',      col: 'estado',      align: 'left' },
+    { label: 'Titular',     col: 'titular',     align: 'left' },
   ]
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  /* ── Render ── */
   return (
     <div>
-      {/* 4 CARDS */}
+      {/* 4 CARDS KPI */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
 
-        <div onClick={() => { setFiltroCard(prev => prev === 'ingresos' ? null : 'ingresos'); setPage(1) }} style={cardStyle('ingresos')}>
+        <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
-            +{fmtEur(totales.ingresosImporte)}
+            {agregados !== null ? `+${fmtEur(agregados.ingresosImporte)}` : '—'}
           </div>
         </div>
 
-        <div onClick={() => { setFiltroCard(prev => prev === 'gastos' ? null : 'gastos'); setPage(1) }} style={cardStyle('gastos')}>
+        <div onClick={() => onCambiarFiltroCard('gastos')} style={cardStyle('gastos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
-            -{fmtEur(totales.gastosImporte)}
+            {agregados !== null ? `-${fmtEur(agregados.gastosImporte)}` : '—'}
           </div>
         </div>
 
-        <div onClick={() => { setFiltroCard(prev => prev === 'pendientes' ? null : 'pendientes'); setPage(1) }} style={cardStyle('pendientes')}>
+        <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
             <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
-              {totales.pendientesCount}
+              {agregados !== null ? agregados.pendientesCount : '—'}
             </span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
-            {fmtEur(totales.pendientesImporte)}
+            {agregados !== null ? fmtEur(agregados.pendientesImporte) : '—'}
           </div>
         </div>
 
@@ -214,11 +438,11 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
           <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
             {(['todos', 'ruben', 'emilio'] as const).map(t => {
               const isActive = filtroTitular === t
-              const bg = isActive ? (t === 'todos' ? '#3a4050' : t === 'ruben' ? '#F26B1F' : '#1E5BCC') : '#fff'
+              const bg  = isActive ? (t === 'todos' ? '#3a4050' : t === 'ruben' ? '#F26B1F' : '#1E5BCC') : '#fff'
               const clr = isActive ? '#fff' : '#3a4050'
-              const bd = isActive ? 'none' : '0.5px solid #d0c8bc'
+              const bd  = isActive ? 'none' : '0.5px solid #d0c8bc'
               return (
-                <button key={t} onClick={() => { setFiltroTitular(t); setPage(1) }}
+                <button key={t} onClick={() => onCambiarFiltroTitular(t)}
                   style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
                 </button>
@@ -230,166 +454,293 @@ export default function TabMovimientos({ movimientos, periodoDesde: _pd, periodo
 
       {/* BARRA FILTROS */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <input type="text" value={busqueda} onChange={e => { setBusqueda(e.target.value); setPage(1) }}
-          placeholder="Buscar proveedor / nº factura / importe / concepto"
-          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }} />
-        <select value={catFiltro} onChange={e => { setCatFiltro(e.target.value); setPage(1) }}
-          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}>
+        <input
+          type="text"
+          value={busqueda}
+          onChange={e => onCambiarBusqueda(e.target.value)}
+          placeholder="Buscar en página actual"
+          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }}
+        />
+        <select
+          value={catFiltro}
+          onChange={e => onCambiarCatFiltro(e.target.value)}
+          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}
+        >
           <option value="todas">Categoría · Todas las categorías</option>
           {categoriasPyg.filter(c => c.nivel === 3).map(c => (
             <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
           ))}
         </select>
-        <button onClick={handleExportar}
-          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', fontWeight: 500 }}>
-          Exportar
+        <button
+          onClick={handleExportar}
+          disabled={exportando}
+          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
+        >
+          {exportando ? 'Exportando...' : 'Exportar'}
         </button>
       </div>
 
-      {movimientos.length === 0 ? (
+      {/* BANNER ERROR */}
+      {errorCarga && (
+        <div style={{
+          background: '#fff5f5',
+          border: '0.5px solid #B01D23',
+          borderRadius: 8,
+          padding: '10px 14px',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontFamily: 'Lexend, sans-serif',
+          fontSize: 13,
+          color: '#B01D23',
+        }}>
+          <span>{errorCarga}</span>
+          <button
+            onClick={() => { cargarPagina(); cargarAgregados() }}
+            style={{
+              background: '#B01D23',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '6px 14px',
+              fontFamily: 'Oswald, sans-serif',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {/* EMPTY STATE o TABLA */}
+      {!cargando && total === 0 && !errorCarga ? (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos en este periodo</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Importa un extracto bancario desde el Importador</div>
-          <button onClick={() => navigate('/importador')}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+          <button
+            onClick={() => navigate('/importador')}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+          >
             Ir al Importador
           </button>
         </div>
       ) : (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-              <colgroup>
-                <col style={{ width: 90 }} />
-                <col />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 200 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 100 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  {HEADERS.map(h => {
-                    const isActive = sortColumn === h.col
-                    const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
-                    return (
-                      <th key={h.col} onClick={() => handleSort(h.col)}
-                        style={{
-                          fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
-                          color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
-                          padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
-                          whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
-                        }}>
-                        {h.label}{arrow}
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.length === 0 ? (
+          {cargando && (
+            <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+              Cargando…
+            </div>
+          )}
+          {!cargando && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 100 }} />
+                </colgroup>
+                <thead>
                   <tr>
-                    <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
-                      Sin movimientos con los filtros actuales
-                    </td>
+                    {HEADERS.map(h => {
+                      const isActive = sortColumn === h.col
+                      const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+                      return (
+                        <th key={h.col} onClick={() => handleSort(h.col)}
+                          style={{
+                            fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
+                            color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
+                            padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
+                            whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+                          }}>
+                          {h.label}{arrow}
+                        </th>
+                      )
+                    })}
                   </tr>
-                ) : paginated.map((m, idx) => {
-                  const isLast = idx === paginated.length - 1
-                  const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
-                  const catInfo = getBadgeCategoria(m, categoriasPyg)
-                  const estado = calcularEstado(m)
-                  const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
-                  const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
-                  const isEmilio = titNombre.includes('emilio')
-
-                  return (
-                    <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
-                      <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
-                        {fmtDate(m.fecha)}
-                      </td>
-                      <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {m.concepto.length > 40 ? m.concepto.slice(0, 40) + '…' : m.concepto}
-                      </td>
-                      <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {m.contraparte || 'Sin identificar'}
-                      </td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
-                        {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
-                      </td>
-                      <td style={{ ...tdBase, overflow: 'hidden' }}>
-                        {catInfo ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
-                            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
-                            {catInfo.nombre}
-                          </span>
-                        ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
-                            sin categoría
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ ...tdBase, textAlign: 'center' }}>
-                        {m.doc_estado === 'tiene' || (m.factura_id && (m as any).factura_data?.pdf_drive_url) ? (
-                          <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
-                        ) : m.doc_estado === 'no_requiere' ? (
-                          <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
-                        ) : (
-                          <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
-                        )}
-                      </td>
-                      <td style={tdBase}>
-                        {estado === 'conciliado' ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
-                            Conciliado
-                          </span>
-                        ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
-                            Pendiente
-                          </span>
-                        )}
-                      </td>
-                      <td style={tdBase}>
-                        {isRuben ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
-                            Rubén
-                          </span>
-                        ) : isEmilio ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
-                            Emilio
-                          </span>
-                        ) : (
-                          <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
-                        )}
+                </thead>
+                <tbody>
+                  {filasVisibles.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+                        Sin movimientos con los filtros actuales
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ) : filasVisibles.map((m, idx) => {
+                    const isLast = idx === filasVisibles.length - 1
+                    const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
+                    const catInfo = getBadgeCategoria(m, categoriasPyg)
+                    const estado = calcularEstado(m)
+                    const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
+                    const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
+                    const isEmilio = titNombre.includes('emilio')
 
-          <div style={{ padding: '14px 16px', borderTop: '0.5px solid #d0c8bc', background: '#fafaf7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
-              Mostrando {paginated.length} de {filtrados.length} movimientos
-            </span>
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}
-                  style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === 1 ? '#ccc' : '#111', cursor: currentPage === 1 ? 'default' : 'pointer' }}>‹</button>
-                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', padding: '0 8px' }}>
-                  Página {currentPage} de {totalPages}
+                    return (
+                      <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                        <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {fmtDate(m.fecha)}
+                        </td>
+                        <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.concepto.length > 40 ? m.concepto.slice(0, 40) + '…' : m.concepto}
+                        </td>
+                        <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.contraparte || 'Sin identificar'}
+                        </td>
+                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
+                          {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
+                        </td>
+                        <td style={{ ...tdBase, overflow: 'hidden' }}>
+                          {catInfo ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
+                              {catInfo.nombre}
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
+                              sin categoría
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ ...tdBase, textAlign: 'center' }}>
+                          {m.doc_estado === 'tiene' || (m.factura_id && (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url) ? (
+                            <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
+                          ) : m.doc_estado === 'no_requiere' ? (
+                            <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
+                          ) : (
+                            <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
+                          )}
+                        </td>
+                        <td style={tdBase}>
+                          {estado === 'conciliado' ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
+                              Conciliado
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+                        <td style={tdBase}>
+                          {isRuben ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
+                              Rubén
+                            </span>
+                          ) : isEmilio ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
+                              Emilio
+                            </span>
+                          ) : (
+                            <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* PIE DE TABLA — paginación */}
+          {total > 0 && (() => {
+            const desde = (page - 1) * pageSize + 1
+            const hasta = Math.min(page * pageSize, total)
+            const isFirst = page === 1
+            const isLast  = page === totalPages
+
+            const btnBase: React.CSSProperties = {
+              background: '#fff',
+              border: '0.5px solid #d0c8bc',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontFamily: 'Lexend, sans-serif',
+              fontSize: 13,
+              color: '#111',
+              cursor: 'pointer',
+            }
+            const btnDisabled: React.CSSProperties = { ...btnBase, opacity: 0.35, cursor: 'default' }
+
+            return (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                background: '#fafaf7',
+                borderTop: '0.5px solid #d0c8bc',
+              }}>
+                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+                  {`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')} movimientos`}
                 </span>
-                <button disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: currentPage === totalPages ? '#ccc' : '#111', cursor: currentPage === totalPages ? 'default' : 'pointer' }}>›</button>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#7a8090', textTransform: 'uppercase' }}>
+                      Filas:
+                    </label>
+                    <select
+                      value={pageSize}
+                      onChange={e => updateUrl({ page: 1, size: Number(e.target.value) as PageSize })}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        border: '0.5px solid #d0c8bc',
+                        background: '#fff',
+                        fontFamily: 'Lexend, sans-serif',
+                        fontSize: 13,
+                      }}
+                    >
+                      {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+
+                    <button
+                      style={isFirst ? btnDisabled : btnBase}
+                      disabled={isFirst}
+                      onClick={() => !isFirst && updateUrl({ page: 1 })}
+                    >
+                      Primera
+                    </button>
+                    <button
+                      style={isFirst ? btnDisabled : btnBase}
+                      disabled={isFirst}
+                      onClick={() => !isFirst && updateUrl({ page: page - 1 })}
+                    >
+                      ‹ Anterior
+                    </button>
+                    <span style={{ ...btnBase, cursor: 'default' }}>
+                      {`Página ${page} de ${totalPages}`}
+                    </span>
+                    <button
+                      style={isLast ? btnDisabled : btnBase}
+                      disabled={isLast}
+                      onClick={() => !isLast && updateUrl({ page: page + 1 })}
+                    >
+                      Siguiente ›
+                    </button>
+                    <button
+                      style={isLast ? btnDisabled : btnBase}
+                      disabled={isLast}
+                      onClick={() => !isLast && updateUrl({ page: totalPages })}
+                    >
+                      Última
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()}
         </div>
       )}
 

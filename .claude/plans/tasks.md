@@ -1,373 +1,531 @@
-# TASKS — Implementación mockups validados (3 módulos)
+# Tasks: Conciliación — paginación server-side con URL params
 
-> Spec fuente: `.claude/plans/spec-mockups-validados.md`
-> ADR: `.claude/plans/adr.md`
-> Ejecutar en orden estricto. NO saltarse tareas. NO parar entre fases salvo fallo irrecuperable.
+Ejecución secuencial T1 → T18. Cada tarea es atómica y verificable. Modo localhost (sin `npx vercel --prod`).
 
 ---
 
-## FASE A — Componentes compartidos + Panel Global tab Resumen
+## T1 — Inspección previa (no edita código)
 
-### A0 — Pre-flight
-1. **Supabase schema check** — Ejecutar via MCP `SELECT table_name FROM information_schema.tables WHERE table_schema='public'` y verificar qué tablas del spec existen (`tareas_pendientes`, `imports_log`, `reglas_auto_categoria`, `objetivos`, `marcas`). Documentar resultado en `summary.md` sección "Tablas encontradas / no encontradas". Output esperado: lista confirmada de tablas existentes vs faltantes.
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx` (read-only)
+**Acción**: leer el archivo completo y anotar:
+- Firma actual de props (interface/type)
+- Estados existentes (`busqueda`, `catFiltro`, `filtroCard`, `filtroTitular`, `sortColumn`, `sortDir`, `paginaActual` o equivalente)
+- Imports actuales de `react-router-dom`
+- Cómo se construye `movimientosFiltrados` y `movimientosPaginados`
+- Cómo se renderizan las cards KPI (`ingresosImporte`, `gastosImporte`, `pendientesCount`, `pendientesImporte`)
+- Cómo funciona `handleExportar` actual
 
-2. **Migraciones BD faltantes** — Para cada tabla que NO exista, crear SQL migration mínima con los campos necesarios para que las queries del spec funcionen sin errores en runtime. Ejecutar en Supabase MCP. Tablas candidatas:
-   - `tareas_pendientes (id, nombre, estado, urgencia, fecha_limite)`
-   - `imports_log (id, archivo, tipo_detectado, contraparte_nombre, contraparte_nif, importe, categoria_codigo, estado, created_at)`
-   - `reglas_auto_categoria (id, patron_nif, patron_concepto, categoria_codigo, prioridad)`
-   - `objetivos (id, tipo, periodo_label, valor, created_at)` — si no hay tabla similar
-   - `marcas (id, nombre, estado)` — si no existe
-   Output esperado: migraciones aplicadas sin error, tablas visibles en Supabase.
-
-### A1 — Tokens canónicos
-3. **`src/components/panel/resumen/tokens.ts`** — Sustituir contenido completo con los tokens del spec (COLORS, FONT, SIZES, CARDS, TABS_PILL, SUBTABS, DROPDOWN_BTN, BAR, LAYOUT, EDITABLE, TAG). Resolver conflicto de doble definición `COLORS.glovo`: mantener `glovo: '#e8f442'` en posición final, añadir `glovoAccent: '#e8f442'` como alias. Output esperado: archivo compilable con todas las constantes exportadas, `npx tsc --no-emit` sin errores en este archivo.
-
-### A2 — Componentes UI compartidos
-4. **`src/components/ui/TabsPastilla.tsx`** — CREAR. Props: `{ tabs: Array<{ id: string; label: string; badge?: number }>; activeId: string; onChange: (id: string) => void }`. Estilos exactos `TABS_PILL` del spec. Badge: número rojo `#E24B4A` si `badge > 0`, oculto si 0. Output esperado: componente exportable sin errores TS.
-
-5. **`src/components/ui/SubTabsInverso.tsx`** — CREAR. Props: `{ tabs: Array<{ id: string; label: string }>; activeId: string; onChange: (id: string) => void; prefijoLbl?: string }`. Estilos exactos `SUBTABS` del spec. Label prefijo en Oswald 10px uppercase muted a la izquierda si `prefijoLbl` presente. Output esperado: componente exportable sin errores TS.
-
-6. **Verificar `src/components/ui/BarraCumplimiento.tsx`** — Leer archivo, confirmar que soporta props `{ pct: number; altura?: 8 | 6 | 5; multiSeg?: boolean }` y lógica semáforo del spec (verde >=80, ámbar 50-79, rojo <50). Si no, actualizar para hacerlo compatible. Output esperado: interfaz confirmada o actualizada.
-
-7. **Verificar `src/components/ui/SelectorFechaUniversal.tsx`** — Leer archivo, confirmar que soporta las 7 opciones exactas del spec y persistencia `sessionStorage` key `selector_fecha_${nombreModulo}`. Si faltan opciones, añadirlas. Output esperado: interfaz confirmada o actualizada.
-
-### A3 — Panel Global: página wrapper
-8. **`src/pages/PanelGlobal.tsx`** — CREAR. Estructura:
-   - Fondo página: `#f5f3ef`, padding `24px 28px`.
-   - Header (A.1 spec): flex space-between, título "PANEL GLOBAL" Oswald 22/600/`#B01D23`/ls3/uppercase, subtítulo dinámico Lexend 13 `#7a8090`, 3 dropdowns derecha (SelectorFechaUniversal + "Todas las marcas" multiselect + "Canales" multiselect).
-   - Dropdown marcas: lee `supabase.from('marcas').select('id,nombre').eq('estado','activa')`. Default "Todas las marcas". Multi-select con checkboxes.
-   - TabsPastilla con 5 tabs: Resumen / Operaciones / Finanzas / Cashflow / Marcas.
-   - Tab Resumen: renderiza `<TabResumen rowsPeriodo={...} />` con los datos del periodo seleccionado.
-   - Tabs Operaciones/Finanzas/Cashflow/Marcas: placeholder `<div style={{padding:40,textAlign:'center',color:'#7a8090',fontFamily:'Lexend'}}>Próximamente</div>`.
-   - Estado: `periodoKey`, `marcasFiltro: string[]`, `canalesFiltro: string[]`, `activeTab`.
-   Output esperado: página compilable que carga en `/panel`.
-
-9. **`src/App.tsx`** — Añadir import de `PanelGlobal` y ruta `<Route path="panel" element={<ProtectedRoute><PanelGlobal /></ProtectedRoute>} />` dentro del Layout existente. Output esperado: ruta navegable sin 404.
-
-10. **`src/components/Layout.tsx`** — Leer archivo. Si no existe enlace "Panel" en sidebar, añadirlo con el mismo patrón de los demás enlaces (icono, label, path `/panel`). Usar ícono Lucide `LayoutDashboard` o similar. Output esperado: sidebar muestra enlace Panel.
-
-### A4 — Panel Global: tab Resumen — revisión de cards existentes
-11. **`src/components/panel/resumen/CardVentas.tsx`** — Leer + verificar contra spec A Card 1.1. Verificar: sublabel "VENTAS" cardLabel, kpiBig para bruto, 3 barras objetivos con editable inline, cálculo neto estimado, comparativa ▼ rojo. Corregir si hay divergencias. Output esperado: card fiel al spec.
-
-12. **`src/components/panel/resumen/CardPedidosTM.tsx`** — Verificar contra spec A Card 1.2. Layout 3 valores, 5 filas canal con BAR.trackXs y colores de canal. Corregir si hay divergencias. Output esperado: card fiel al spec.
-
-13. **`src/components/panel/resumen/CardResultadoPeriodo.tsx`** — Verificar contra spec A Card 1.3. EBITDA color dinámico, bloque Detalle + Prime Cost con barra semáforo. Corregir si hay divergencias. Output esperado: card fiel al spec.
-
-14. **`src/components/panel/resumen/ColFacturacionCanal.tsx`** — Verificar contra spec A Tercio 2.1. 5 cards canal en orden (Uber/Glovo/JE/Web+Directa grid), fórmulas neto por canal. Corregir si hay divergencias. Output esperado: columna fiel al spec.
-
-15. **`src/components/panel/resumen/ColGruposGasto.tsx`** — Verificar contra spec A Tercio 2.2. 4 cards (PRODUCTO/EQUIPO/LOCAL/CONTROLABLES), editable inline presupuesto, barra semáforo. Corregir si hay divergencias. Output esperado: columna fiel al spec.
-
-16. **`src/components/panel/resumen/ColDiasPico.tsx`** — Verificar contra spec A Tercio 2.3. SVG bar chart 7 barras, viewBox 480x230, posiciones X exactas, 3 líneas resumen. Corregir si hay divergencias. Output esperado: columna fiel al spec.
-
-17. **`src/components/panel/resumen/CardSaldo.tsx`** — Verificar contra spec A Tercio 3.1. kpiMid, 6 líneas cobros/pagos/proyección 7d+30d, barra horizontal con 2 puntos. Corregir. Output esperado: card fiel.
-
-18. **`src/components/panel/resumen/CardRatio.tsx`** — Verificar contra spec A Tercio 3.2. Oswald 38px color semáforo, objetivo editable inline (default 1.80), 4 líneas detalle, barra multi-segmento. Corregir. Output esperado: card fiel.
-
-19. **`src/components/panel/resumen/CardPE.tsx`** — Verificar contra spec A Tercio 3.3. kpiSm + % semáforo, barra multi-segmento, 4 líneas (día verde, facturación/día, pedidos/día, real). Corregir. Output esperado: card fiel.
-
-20. **`src/components/panel/resumen/CardProvisiones.tsx`** — Verificar contra spec A Tercio 4.1. kpiMid + 6 líneas pagos próximos. Corregir. Output esperado: card fiel.
-
-21. **`src/components/panel/resumen/CardPendientesSubir.tsx`** — Verificar contra spec A Tercio 4.2. border-left rojo, badge count, lista 6 items con colores urgencia, botón CTA "Ir al Importador →" navega `/importador`. Corregir. Output esperado: card fiel.
-
-22. **`src/components/panel/resumen/CardTopVentas.tsx`** — Verificar contra spec A Tercio 4.3. Toggle Productos/Modif., tabla 5 cols con badges canal coloreados. Corregir. Output esperado: card fiel.
-
-23. **`src/components/panel/resumen/TabResumen.tsx`** — Verificar layout 4 filas: `grid-template-columns: repeat(3,1fr); gap:14px` en filas 1/2/3/4, margin-bottom 14px entre filas. Asegurarse de que renderiza las 12 cards/columnas en orden correcto. Output esperado: layout fiel al spec.
-
-### A5 — Build check FASE A
-24. **Build check** — `npx tsc --no-emit`. Si hay errores, corregirlos. Output esperado: 0 errores TypeScript.
-
-25. **Commit FASE A** — `git add . && git commit -m "feat(mockups): FASE A - Panel Global tab Resumen + componentes compartidos" && git push origin master`. Output esperado: commit pushed sin errores.
+**Criterio de aceptación**: producir un comentario interno (mental, no archivo) con la lista exacta de cambios que harán T2–T16. No se edita nada todavía.
 
 ---
 
-## FASE B — Conciliación · Tab Movimientos
+## T2 — Constantes y tipos de paginación
 
-### B1 — Componente TabMovimientos
-26. **`src/components/conciliacion/CardFiltro.tsx`** — CREAR. Props: `{ tipo: 'ingresos'|'gastos'|'pendientes'; count: number; importe: number; active: boolean; onClick: ()=>void }`. Estilos exactos del spec B.4: container `CARDS.filter`, active state con border+shadow específico por tipo, contenido con cardLabelSm color tipo, Oswald 26 importe, Lexend 11 descripción. Output esperado: 3 instancias del componente cubren Ingresos/Gastos/Pendientes.
-
-27. **`src/components/conciliacion/TagFiltroActivo.tsx`** — CREAR. Props: `{ label: string; count: number; onRemove: ()=>void }`. Estilos exactos spec B.3: flex, "Filtro activo:" muted, tag pill `TAG` con texto + " x", "· N movimientos". Si ningún filtro activo, no renderizar (return null). Output esperado: componente compilable.
-
-28. **`src/components/conciliacion/ModalDetalleMovimiento.tsx`** — CREAR. Modal con datos completos del movimiento (spec B.8): datos crudos, PDF embebido si Drive URL, botones Reasignar/Recategorizar/Marcar no requiere doc. Fondo modal `#484f66` (spec COLORS.modal). Output esperado: modal abre al click de fila.
-
-29. **`src/components/conciliacion/TabMovimientos.tsx`** — CREAR. Recibe `{ movimientos: Movimiento[]; periodoLabel: string }`. Estructura interna:
-   - Tag filtro activo (B.3)
-   - 3 cards filtro (B.4): lógica radio (solo 1 activa), default Pendientes si count>0
-   - Buscador (B.5): input fulltext + dropdown Categoría + dropdown Exportar
-   - Tabla movimientos (B.6): 7 cols, header bg `#ebe8e2`, body rows con border-bottom, badges categoría coloreados por código, col Doc con iconos, col Estado pill rojo/verde, footer paginación
-   - Click fila: abre `ModalDetalleMovimiento`
-   Output esperado: componente completo compilable.
-
-### B2 — Integración en página Conciliacion
-30. **`src/pages/Conciliacion.tsx`** — Modificar:
-   - Cambiar fondo exterior a `#f5f3ef`, padding `24px 28px`.
-   - Header spec B.1: título "CONCILIACIÓN" + subtítulo + SelectorFechaUniversal + dropdown marcas (sin dropdown cuenta, sin dropdown titular).
-   - Reemplazar sistema de tabs actual por `TabsPastilla` con tabs: Resumen / Movimientos.
-   - Tab "Movimientos": renderizar `<TabMovimientos movimientos={...} />` con datos del hook `useConciliacion` o query directa.
-   - Tab "Resumen": mantener `ResumenDashboard` existente si sigue siendo útil, o placeholder si no aplica al nuevo estilo.
-   Output esperado: `/conciliacion` tab Movimientos funcional con spec.
-
-### B3 — Build check FASE B
-31. **Build check** — `npx tsc --no-emit`. Corregir errores. Output esperado: 0 errores TS.
-
-32. **Commit FASE B** — `git add . && git commit -m "feat(mockups): FASE B - Conciliacion tab Movimientos" && git push origin master`. Output esperado: commit pushed.
-
----
-
-## FASE C — Importador · Tab Subir
-
-### C1 — Componente TabSubirV2
-33. **`src/components/importador/TabSubirV2.tsx`** — CREAR (no eliminar TabSubir.tsx aún). Estructura completa spec C.3-C.7:
-   - SubTabsInverso `prefijoLbl="TIPO"` con "Facturas" / "Extractos bancarios". Margin-bottom 14.
-   - Dropzone C.4: border `2px dashed #d0c8bc`, bg `#fafaf7`, hover border `#FF4757` bg `#ffffff`, transición 200ms, icono "⬆" Oswald 32 `#d0c8bc`, texto Lexend 14/500 `#3a4050`. SIN línea formatos, SIN botón extra. Extensiones aceptadas silenciosamente.
-   - Bloque progreso C.5: visible solo cuando `procesando=true`. Layout flex, pill pulsante rojo, barra 3 segmentos (verde/rojo/gris), contadores OK/sin NIF/duplicadas.
-   - Tabla proceso C.6: `CARDS.big` padding 0 overflow hidden, 6 cols, estados por fila (En proceso OCR con barra mini / Asociada Drive verde / Revisión manual rojo / Duplicada ámbar). Última fila resumen cola bg `#fafaf7`. Footer con "Última tanda" + botón Cancelar.
-   - Flujo C.7: al soltar archivos → validar extensiones → INSERT `imports_log` estado=procesando → mostrar bloque progreso → procesar paralelo max 3 → actualizar barra en tiempo real → toast 5s al terminar → vaciar tabla 5s.
-   - Si subtab "Extractos bancarios": parser CSV/XLSX BBVA → INSERT en `movimientos_bancarios` → auto-NIF + auto-categorización + auto-asociación.
-   Output esperado: componente completo compilable.
-
-### C2 — Integración en página Importador
-34. **`src/pages/Importador.tsx`** — Modificar:
-   - Cambiar fondo exterior a `#f5f3ef`, padding `24px 28px`.
-   - Header C.1: título "IMPORTADOR", subtítulo "Punto único de entrada de documentación al ERP", SIN dropdowns a la derecha.
-   - Reemplazar sistema de tabs actual por `TabsPastilla` con 3 tabs: "Subir" / "Histórico" / "Pendientes sistema" (badge count de imports_log pendientes).
-   - Eliminar tab "Resúmenes plataforma" del menú (no borrar archivo TabResumenes.tsx).
-   - Tab "Subir": renderizar `<TabSubirV2 />`.
-   - Tabs Histórico y Pendientes: mantener componentes existentes `TabHistorico` y `TabPendientes` pero envueltos en el nuevo layout light.
-   Output esperado: `/importador` con nuevo estilo fiel al spec.
-
-### C3 — Build check FASE C
-35. **Build check** — `npx tsc --no-emit`. Corregir errores. Output esperado: 0 errores TS.
-
-36. **Commit FASE C** — `git add . && git commit -m "feat(mockups): FASE C - Importador tab Subir" && git push origin master`. Output esperado: commit pushed.
-
----
-
-## FASE D — Cierre
-
-37. **`npm run build`** — Build de producción completo. Si hay errores de build distintos a TS (Vite/CSS/imports), corregirlos. Output esperado: build OK sin warnings críticos.
-
-38. **`.claude/tracking/informe-mockups.md`** — CREAR. Registrar:
-   - Build OK/KO con detalles.
-   - Por cada FASE: archivos creados/modificados, validaciones pasadas, fallidas.
-   - Decisiones autónomas tomadas (DECISION AUTONOMA: ....).
-   - Tablas BD creadas (lista).
-   Output esperado: archivo creado con informe completo.
-
-39. **Commit y push final** — `git add . && git commit -m "feat(mockups): completo - Panel Global · Conciliacion Movimientos · Importador Subir" && git push origin master`. Output esperado: rama actualizada en remote.
-
----
-
-## Notas para el implementer
-
-- Leer siempre el archivo antes de tocarlo (regla absoluta CLAUDE.md).
-- `fmtNum` acepta solo 1 argumento.
-- `fmtEur(n)` para euros, `fmtPct(n)` para porcentajes.
-- Campos calculados: NUNCA `<input disabled>` — siempre `<div style editable>`.
-- NO cambiar tamaños/colores/paddings del spec. PROHIBIDO improvisar elementos no listados.
-- Si encuentras ambigüedad no resoluble: documentar en `informe-mockups.md` sección "Ambigüedades encontradas" y continuar con decisión autónoma sensata.
-- Stack: React + TypeScript + Vite (NO Next.js). Imports con alias `@/`.
-
-## T1 · src/lib/normalizar.ts (NUEVO)
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir al inicio del archivo (después de imports, fuera del componente):
 ```ts
-export function normalizarConcepto(c: string): string {
-  return (c ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
-}
+const PAGE_SIZES = [25, 50, 100, 200] as const
+type PageSize = typeof PAGE_SIZES[number]
+const DEFAULT_PAGE_SIZE: PageSize = 50
 
-export async function calcularDedupKey(
-  titularId: string,
-  fecha: string,
-  importe: number,
-  concepto: string
-): Promise<string> {
-  const data = new TextEncoder().encode(
-    `${titularId}${fecha}${Math.round(importe * 100)}${normalizarConcepto(concepto)}`
-  )
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
+function parsePageSize(raw: string | null): PageSize {
+  const n = Number(raw)
+  return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
+}
+function parsePage(raw: string | null): number {
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 1 ? n : 1
 }
 ```
 
-## T2 · src/lib/aplicarReglas.ts (NUEVO)
-Motor de reglas multi-dimensión. Carga reglas activas, aplica la primera que matchea TODAS las condiciones no-NULL.
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. Las constantes son referenciables desde el componente.
 
+---
+
+## T3 — Cambiar firma de props de `TabMovimientos`
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: en la `interface` o `type` de props:
+- Eliminar `movimientos: Movimiento[]` (o el nombre que tenga)
+- Mantener: `periodoDesde: string`, `periodoHasta: string`, `periodoLabel: string`
+- Mantener: `titulares` (si ya existe como prop) — si no existe, dejar para T7
+- Mantener: cualquier callback existente (`onMatching`, `onCategorizar`, etc.) sin tocar
+
+**Criterio de aceptación**: TypeScript marca error en `Conciliacion.tsx` por prop inexistente; ese error se resolverá en T16.
+
+---
+
+## T4 — Hook `useSearchParams` + helper `updateUrl`
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: dentro del componente, justo después del primer `useState`:
 ```ts
-import { supabase } from '@/lib/supabase'
+import { useSearchParams } from 'react-router-dom' // añadir si no está
+// ...
+const [searchParams, setSearchParams] = useSearchParams()
+const page     = parsePage(searchParams.get('page'))
+const pageSize = parsePageSize(searchParams.get('size'))
+```
 
-export interface ReglaConciliacion {
-  id: string
-  patron: string | null
-  match_ordenante: string | null
-  match_beneficiario: string | null
-  match_titular_id: string | null
-  match_importe_min: number | null
-  match_importe_max: number | null
-  set_proveedor: string | null
-  categoria_codigo: string | null
-  borrar: boolean
-  prioridad: number
-  activa: boolean
+Y un helper estable (con `useCallback`):
+```ts
+const updateUrl = useCallback((next: { page?: number; size?: PageSize }) => {
+  const params = new URLSearchParams(searchParams)
+  if (next.page  !== undefined) params.set('page', String(next.page))
+  if (next.size  !== undefined) params.set('size', String(next.size))
+  setSearchParams(params, { replace: true })
+}, [searchParams, setSearchParams])
+```
+
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. `page` y `pageSize` son números válidos siempre.
+
+---
+
+## T5 — Estado interno de datos paginados
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: eliminar (si existe) el cálculo client-side de `movimientosPaginados` con `useMemo`. Añadir estados:
+```ts
+const [filas, setFilas]               = useState<Movimiento[]>([])
+const [total, setTotal]               = useState<number>(0)
+const [cargando, setCargando]         = useState<boolean>(true)
+const [errorCarga, setErrorCarga]     = useState<string | null>(null)
+const fetchIdRef                      = useRef<number>(0)
+```
+
+Importar `useRef` de React si no estaba.
+
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. Los estados están visibles en el componente.
+
+---
+
+## T6 — Estado de agregados KPI
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir:
+```ts
+type Agregados = {
+  ingresosImporte: number
+  gastosImporte: number
+  pendientesCount: number
+  pendientesImporte: number
 }
+const [agregados, setAgregados] = useState<Agregados | null>(null)
+```
 
-export interface MovParaRegla {
-  titular_id: string | null
-  concepto: string | null
-  ordenante: string | null
-  beneficiario: string | null
-  importe: number
-  proveedor?: string | null
-  categoria?: string | null
-}
+Eliminar (si existen) los `useMemo` que calculaban estos 4 valores desde la prop `movimientos`. Reemplazar las referencias en JSX por `agregados?.ingresosImporte ?? null` (mostrar `—` si null).
 
-let cacheReglas: ReglaConciliacion[] | null = null
+**Criterio de aceptación**: las 4 cards leen de `agregados`; si `agregados === null` muestran `—`. `npx tsc --no-emit` pasa.
 
-export async function cargarReglas(): Promise<ReglaConciliacion[]> {
-  if (cacheReglas) return cacheReglas
-  const { data, error } = await supabase
-    .from('reglas_conciliacion')
-    .select('*')
-    .eq('activa', true)
-    .order('prioridad', { ascending: true })
-  if (error) throw error
-  cacheReglas = data ?? []
-  return cacheReglas
-}
+---
 
-export function invalidarCacheReglas() { cacheReglas = null }
+## T7 — Función `cargarPagina` (query principal)
 
-function matcheaTexto(valor: string | null, patron: string | null): boolean {
-  if (!patron) return true // condición no-evaluada = pasa
-  if (!valor) return false
-  return valor.toLowerCase().includes(patron.toLowerCase())
-}
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir dentro del componente:
+```ts
+const cargarPagina = useCallback(async () => {
+  const myFetchId = ++fetchIdRef.current
+  setCargando(true)
+  setErrorCarga(null)
 
-export function aplicarReglas(
-  mov: MovParaRegla, 
-  reglas: ReglaConciliacion[]
-): { mov: MovParaRegla; borrar: boolean; reglaAplicada: string | null } {
-  for (const r of reglas) {
-    const ok = (
-      matcheaTexto(mov.concepto, r.patron) &&
-      matcheaTexto(mov.ordenante, r.match_ordenante) &&
-      matcheaTexto(mov.beneficiario, r.match_beneficiario) &&
-      (r.match_titular_id === null || mov.titular_id === r.match_titular_id) &&
-      (r.match_importe_min === null || mov.importe >= r.match_importe_min) &&
-      (r.match_importe_max === null || mov.importe <= r.match_importe_max)
-    )
-    if (!ok) continue
-    
-    if (r.borrar) {
-      return { mov, borrar: true, reglaAplicada: r.patron ?? r.id }
-    }
-    
-    return {
-      mov: {
-        ...mov,
-        proveedor: r.set_proveedor ?? mov.proveedor,
-        categoria: r.categoria_codigo ?? mov.categoria,
-      },
-      borrar: false,
-      reglaAplicada: r.patron ?? r.id,
-    }
+  const from = (page - 1) * pageSize
+  const to   = from + pageSize - 1
+
+  const sortMap: Record<string, string | null> = {
+    fecha: 'fecha',
+    concepto: 'concepto',
+    contraparte: 'proveedor',
+    importe: 'importe',
+    categoria: 'categoria',
+    doc: 'doc_estado',
+    titular: 'titular_id',
+    estado: null, // client-side
   }
-  return { mov, borrar: false, reglaAplicada: null }
-}
+  const sortField = sortMap[sortColumn] ?? 'fecha'
+
+  let q = supabase
+    .from('conciliacion')
+    .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)', { count: 'exact' })
+    .gte('fecha', periodoDesde)
+    .lte('fecha', periodoHasta)
+
+  if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+  if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+  if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+  if (filtroTitular !== 'todos' && titulares.length > 0) {
+    const t = titulares.find(x => x.nombre === filtroTitular)
+    if (t) q = q.eq('titular_id', t.id)
+  }
+
+  q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
+
+  const { data, error, count } = await q
+
+  if (myFetchId !== fetchIdRef.current) return // respuesta obsoleta
+
+  if (error) {
+    setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
+    setFilas([])
+    setTotal(0)
+  } else {
+    setFilas((data ?? []) as Movimiento[])
+    setTotal(count ?? 0)
+  }
+  setCargando(false)
+}, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesde, periodoHasta])
 ```
 
-## T3 · Parser BBVA en `src/components/conciliacion/ImportDropzone.tsx`
-1. Detectar columnas adicionales (case-insensitive): "Ordenante", "Beneficiario".
-2. Mapear a row: `{ ...existente, ordenante, beneficiario }`.
+Verificar que `Movimiento` (o el tipo equivalente) esté importado.
 
-## T4 · `src/hooks/useConciliacion.ts` — `insertMovimientos`
-**Refactor del flujo (orden):**
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. La función no se llama todavía; solo está definida.
 
+---
+
+## T8 — Función `cargarAgregados` (query paralela KPIs)
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir:
 ```ts
-import { calcularDedupKey } from '@/lib/normalizar'
-import { cargarReglas, aplicarReglas } from '@/lib/aplicarReglas'
-import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
-
-async function insertMovimientos(rows, onProgress) {
-  // 0. Cargar reglas y alias en paralelo
-  const [reglas, aliases] = await Promise.all([cargarReglas(), loadAliases()])
-  
-  // 1. Aplicar matching de proveedor (alias) para los que vengan sin
-  rows = rows.map(r => ({
-    ...r,
-    proveedor: r.proveedor && r.proveedor.trim() !== ''
-      ? r.proveedor
-      : matchProveedor(r.concepto ?? '', aliases),
-  }))
-  
-  // 2. Aplicar motor de reglas multi-dimensión
-  let omitidos = 0
-  rows = rows
-    .map(r => {
-      const { mov, borrar } = aplicarReglas(r, reglas)
-      if (borrar) { omitidos++; return null }
-      return mov
-    })
-    .filter(Boolean)
-  
-  // 3. Calcular dedup_key para cada row
-  rows = await Promise.all(rows.map(async r => ({
-    ...r,
-    dedup_key: await calcularDedupKey(r.titular_id, r.fecha, r.importe, r.concepto ?? ''),
-  })))
-  
-  // 4. INSERT con upsert (ignore duplicates)
+const cargarAgregados = useCallback(async () => {
   const { data, error } = await supabase
     .from('conciliacion')
-    .upsert(rows, { ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })
-    .select()
-  
-  if (error) throw error
-  
-  return {
-    insertados: data?.length ?? 0,
-    duplicados: rows.length - (data?.length ?? 0),
-    omitidos,
+    .select('importe, categoria, doc_estado, titular_id')
+    .gte('fecha', periodoDesde)
+    .lte('fecha', periodoHasta)
+
+  if (error || !data) {
+    setAgregados(null)
+    return
+  }
+
+  let ingresosImporte = 0, gastosImporte = 0
+  let pendientesCount = 0, pendientesImporte = 0
+
+  for (const r of data) {
+    const imp = Number(r.importe) || 0
+    if (imp > 0) ingresosImporte += imp
+    if (imp < 0) gastosImporte   += imp
+    if (!r.categoria || r.categoria === 'pendiente') {
+      pendientesCount += 1
+      pendientesImporte += imp
+    }
+  }
+  setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+}, [periodoDesde, periodoHasta])
+```
+
+NOTA: la lógica de "qué es pendiente" debe alinearse con la lógica que tenía el componente antes (revisar en T1). Si era distinta (p.ej. `doc_estado === 'pendiente'`), ajustar el `if`.
+
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. La lógica de `pendiente` coincide con la lógica eliminada en T6.
+
+---
+
+## T9 — `useEffect`s de disparo
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir dos efectos:
+```ts
+// 1) Query paginada: en cada cambio de page/size/orden/filtros/período
+useEffect(() => { cargarPagina() }, [cargarPagina])
+
+// 2) Query agregados: solo en cambio de período
+useEffect(() => { cargarAgregados() }, [cargarAgregados])
+```
+
+**Criterio de aceptación**: al montar, se lanzan ambas queries. Cambiar página relanza solo la paginada (verificar con `console.log` temporal en cada función, eliminarlos antes de T17).
+
+---
+
+## T10 — Reset de página al cambiar filtros / orden / período
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: en CADA setter que ya existía (`setBusqueda`, `setCatFiltro`, `setFiltroCard`, `setFiltroTitular`, `setSortColumn`, `setSortDir`) y en cualquier handler que cambie `periodoDesde`/`periodoHasta` (si aplica), llamar inmediatamente después:
+```ts
+if (page !== 1) updateUrl({ page: 1 })
+```
+
+Patrón recomendado: envolver cada setter en un handler local:
+```ts
+const onCambiarCatFiltro = (v: string) => {
+  setCatFiltro(v)
+  if (page !== 1) updateUrl({ page: 1 })
+}
+```
+
+Y usar `onCambiarCatFiltro` en el JSX en lugar del `setCatFiltro` directo.
+
+**Criterio de aceptación**: cambiar un filtro estando en página 5 lleva a página 1 y URL `?page=1&size=...`.
+
+---
+
+## T11 — Auto-corrección de `page` y `size` fuera de rango
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir un `useEffect` que, tras cargar, corrija la URL si `page > totalPages`:
+```ts
+useEffect(() => {
+  if (cargando) return
+  if (total === 0) return
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (page > totalPages) updateUrl({ page: totalPages })
+}, [cargando, total, pageSize, page, updateUrl])
+```
+
+También añadir corrección de `size` inválido en montaje (una sola vez):
+```ts
+useEffect(() => {
+  const raw = searchParams.get('size')
+  if (raw !== null && !PAGE_SIZES.includes(Number(raw) as PageSize)) {
+    updateUrl({ size: DEFAULT_PAGE_SIZE })
+  }
+}, []) // eslint-disable-line react-hooks/exhaustive-deps
+```
+
+**Criterio de aceptación**: pegar `?page=99&size=50` en URL con 3 páginas → carga página 3 y URL queda `?page=3&size=50`. Pegar `?size=999` → URL queda `?size=50`.
+
+---
+
+## T12 — Controles de pie de tabla
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: justo debajo de `</table>` (o donde acaba la tabla), añadir bloque condicional:
+```tsx
+{total > 0 && (() => {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (totalPages === 1) return null
+  const desde = (page - 1) * pageSize + 1
+  const hasta = Math.min(page * pageSize, total)
+  const isFirst = page === 1
+  const isLast  = page === totalPages
+
+  const btnBase: React.CSSProperties = {
+    background: '#fff',
+    border: '0.5px solid #d0c8bc',
+    borderRadius: 8,
+    padding: '6px 12px',
+    fontFamily: 'Lexend, sans-serif',
+    fontSize: 13,
+    color: '#111',
+    cursor: 'pointer',
+  }
+  const btnDisabled: React.CSSProperties = { ...btnBase, opacity: 0.35, cursor: 'default' }
+
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '14px 16px',
+      background: '#fafaf7',
+      borderTop: '0.5px solid #d0c8bc',
+    }}>
+      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+        {`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')} movimientos`}
+      </span>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#7a8090', textTransform: 'uppercase' }}>
+          Filas:
+        </label>
+        <select
+          value={pageSize}
+          onChange={(e) => updateUrl({ page: 1, size: Number(e.target.value) as PageSize })}
+          style={{
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '0.5px solid #d0c8bc',
+            background: '#fff',
+            fontFamily: 'Lexend, sans-serif',
+            fontSize: 13,
+          }}
+        >
+          {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <button style={isFirst ? btnDisabled : btnBase} disabled={isFirst}
+                onClick={() => !isFirst && updateUrl({ page: 1 })}>
+          Primera
+        </button>
+        <button style={isFirst ? btnDisabled : btnBase} disabled={isFirst}
+                onClick={() => !isFirst && updateUrl({ page: page - 1 })}>
+          ‹ Anterior
+        </button>
+        <span style={{ ...btnBase, cursor: 'default' }}>
+          {`Página ${page} de ${totalPages}`}
+        </span>
+        <button style={isLast ? btnDisabled : btnBase} disabled={isLast}
+                onClick={() => !isLast && updateUrl({ page: page + 1 })}>
+          Siguiente ›
+        </button>
+        <button style={isLast ? btnDisabled : btnBase} disabled={isLast}
+                onClick={() => !isLast && updateUrl({ page: totalPages })}>
+          Última
+        </button>
+      </div>
+    </div>
+  )
+})()}
+```
+
+**Criterio de aceptación**: pie aparece con texto + selector + 5 botones. En página 1, "Primera"/"Anterior" tienen `opacity 0.35` y no responden a click. En última página idem con "Siguiente"/"Última". Selector cambia tamaño y resetea a página 1.
+
+---
+
+## T13 — Banner de error + reintentar
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: justo encima de la tabla (dentro del contenedor principal del tab), añadir:
+```tsx
+{errorCarga && (
+  <div style={{
+    background: '#fff5f5',
+    border: '0.5px solid #B01D23',
+    borderRadius: 8,
+    padding: '10px 14px',
+    margin: '12px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    fontFamily: 'Lexend, sans-serif',
+    fontSize: 13,
+    color: '#B01D23',
+  }}>
+    <span>{errorCarga}</span>
+    <button
+      onClick={() => { cargarPagina(); cargarAgregados() }}
+      style={{
+        background: '#B01D23',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 6,
+        padding: '6px 14px',
+        fontFamily: 'Oswald, sans-serif',
+        fontSize: 11,
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+      }}
+    >
+      Reintentar
+    </button>
+  </div>
+)}
+```
+
+**Criterio de aceptación**: simular error (apagar wifi, recargar) → banner visible con botón funcional. Click "Reintentar" relanza ambas queries.
+
+---
+
+## T14 — Búsqueda y sort `estado` client-side sobre `filas`
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: la variable que se mapea en `<tbody>` ya no es `movimientosPaginados` sino una derivada de `filas`:
+```ts
+const filasVisibles = useMemo(() => {
+  let out = filas
+  if (busqueda.trim()) {
+    const q = busqueda.trim().toLowerCase()
+    out = out.filter(m =>
+      (m.concepto ?? '').toLowerCase().includes(q) ||
+      (m.proveedor ?? '').toLowerCase().includes(q) ||
+      (m.categoria ?? '').toLowerCase().includes(q)
+    )
+  }
+  if (sortColumn === 'estado') {
+    out = [...out].sort((a, b) => {
+      const ea = (a as any).estado_calc ?? ''
+      const eb = (b as any).estado_calc ?? ''
+      return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
+    })
+  }
+  return out
+}, [filas, busqueda, sortColumn, sortDir])
+```
+
+Reemplazar el `.map()` de `<tbody>` para iterar sobre `filasVisibles`.
+
+Actualizar el placeholder del input de búsqueda a "Buscar en página actual".
+
+**Criterio de aceptación**: la búsqueda filtra solo dentro de la página visible. Click en th "Estado" ordena client-side. `npx tsc --no-emit` pasa.
+
+---
+
+## T15 — Adaptar `handleExportar` a query sin range
+
+**Archivo**: `src/components/conciliacion/TabMovimientos.tsx`
+**Acción**: añadir estado `exportando` y reemplazar el cuerpo de `handleExportar`:
+```ts
+const [exportando, setExportando] = useState(false)
+
+const handleExportar = async () => {
+  setExportando(true)
+  try {
+    let q = supabase
+      .from('conciliacion')
+      .select('*')
+      .gte('fecha', periodoDesde)
+      .lte('fecha', periodoHasta)
+    if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+    if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+    if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+    if (filtroTitular !== 'todos' && titulares.length > 0) {
+      const t = titulares.find(x => x.nombre === filtroTitular)
+      if (t) q = q.eq('titular_id', t.id)
+    }
+    const { data, error } = await q.order('fecha', { ascending: false })
+    if (error || !data) return
+    // Mantener la lógica de generación de CSV existente, alimentándola con `data`
+  } finally {
+    setExportando(false)
   }
 }
 ```
 
-## T5 · UI Feedback Import
-En ImportDropzone, mostrar al terminar:
-"✅ X importados, Y duplicados (ya existían), Z omitidos por reglas"
+En el botón de exportar: `disabled={exportando}` + texto `{exportando ? 'Exportando...' : 'Exportar'}`.
 
-## T6 · Hook Running `src/hooks/useRunningSueldos.ts` (NUEVO)
-```ts
-export function useRunningSueldos(mes: string) {
-  // mes formato 'YYYY-MM'
-  // Devuelve: { ruben, emilio, desgloseEmilio: { plataformas, complementoSL } }
-  
-  const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
-  const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
-  
-  // Ingresos plataforma Emilio:
-  // SUM(importe) WHERE titular_id = EMILIO AND importe > 0 AND fecha BETWEEN inicio_mes AND fin_mes
-  
-  // Complemento SL:
-  // SUM(ABS(importe)) WHERE titular_id = RUBEN AND categoria = 'RRH-NOM-EMI' AND fecha BETWEEN inicio_mes AND fin_mes
-  
-  // Sueldo total Emilio = plataformas + complementoSL
-}
+**Criterio de aceptación**: click "Exportar" descarga CSV con TODOS los registros del período + filtros activos (no solo la página). Botón muestra "Exportando..." durante la descarga.
+
+---
+
+## T16 — Limpiar `Conciliacion.tsx`
+
+**Archivo**: `src/pages/Conciliacion.tsx`
+**Acción**:
+1. Eliminar el `useEffect` de líneas 163–192 que carga `movimientosPeriodo`
+2. Eliminar el `useState` de `movimientosPeriodo` (y su setter)
+3. Eliminar la prop `movimientos={movimientosPeriodo}` del JSX `<TabMovimientos ... />`
+4. Verificar que `periodoDesde`, `periodoHasta`, `periodoLabel`, `titulares` (si aplica) siguen pasándose
+
+**Criterio de aceptación**: `npx tsc --no-emit` pasa. No hay imports muertos. El JSX `<TabMovimientos>` solo recibe las props nuevas definidas en T3.
+
+---
+
+## T17 — Validación localhost
+
+**Archivo**: ninguno (validación)
+**Acción**: ejecutar:
+```bash
+npx tsc --no-emit
+npm run build
+```
+Luego `npm run dev` y verificar manualmente la lista de validación del ADR (puntos 1–13).
+
+**Criterio de aceptación**:
+- TS: 0 errores
+- Build: 0 errores
+- Los 13 puntos de validación del ADR pasan en localhost
+
+---
+
+## T18 — Cadena git (sin Vercel)
+
+**Archivo**: ninguno (terminal)
+**Acción**: ejecutar la cadena obligatoria en MODO LOCALHOST (sin `npx vercel --prod`):
+```bash
+git add src/pages/Conciliacion.tsx src/components/conciliacion/TabMovimientos.tsx .claude/plans/adr.md .claude/plans/tasks.md
+git commit -m "feat(conciliacion): paginación server-side con URL params + KPIs paralelos"
+git push origin master
+git pull origin master
 ```
 
-## T7 · Integrar en `src/pages/finanzas/Running.tsx`
-Mostrar tabla de sueldos con:
-- Fila Emilio: "Plataformas: X€ + Complemento SL: Y€ = Total Z€"
-- Fila Rubén: pendiente lógica (autosueldos por definir)
-
-## T8 · QA Validations
-1. `npm run build` 0 errores.
-2. Re-importar el Excel Emilio actual: "0 importados, 61 duplicados, 0 omitidos".
-3. Crear Excel sintético con: 1 traspaso Emilio + 1 transferencia Rubén beneficiario "Timoteo Hnz" 867€ + 1 transferencia Rubén beneficiario "Emilio Dorca" 500€.
-   - Resultado esperado: "2 importados, 0 duplicados, 1 omitido".
-   - El de Timoteo aparece con ALQ-LOC.
-   - El de Emilio aparece con RRH-NOM-EMI.
-4. Running > Emilio abr 2026: plataformas ~1.710€ + complemento SL 500€ = ~2.210€.
-
-## T9 · Cierre
-git add . && git commit -m "feat(conciliacion): bloque B - reglas multi-dim + dedup robusto + sueldos Running" && git push origin master && git pull origin master
-NO Vercel (regla 3).
+**Criterio de aceptación**: commit en master, push OK, pull OK. NO ejecutar `npx vercel --prod` (RULES.md sección 3, modo localhost).
