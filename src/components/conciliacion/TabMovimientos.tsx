@@ -1,1 +1,777 @@
-aW1wb3J0IFJlYWN0LCB7IHVzZU1lbW8sIHVzZVN0YXRlLCB1c2VFZmZlY3QsIHVzZVJlZiwgdXNlQ2FsbGJhY2sgfSBmcm9tICdyZWFjdCcKaW1wb3J0IHsgdXNlTmF2aWdhdGUsIHVzZVNlYXJjaFBhcmFtcyB9IGZyb20gJ3JlYWN0LXJvdXRlci1kb20nCmltcG9ydCB7IGZtdEV1ciwgZm10RGF0ZSB9IGZyb20gJ0AvdXRpbHMvZm9ybWF0JwppbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gJ0AvbGliL3N1cGFiYXNlJwppbXBvcnQgeyBmZXRjaEFsbFBhZ2luYXRlZCB9IGZyb20gJ0AvbGliL3N1cGFiYXNlUGFnaW5hdGVkJwppbXBvcnQgdHlwZSB7IE1vdmltaWVudG8gfSBmcm9tICdAL3R5cGVzL2NvbmNpbGlhY2lvbicKaW1wb3J0IE1vZGFsRGV0YWxsZU1vdmltaWVudG8gZnJvbSAnLi9Nb2RhbERldGFsbGVNb3ZpbWllbnRvJwoKLyog4pSA4pSA4pSAIFBhZ2luYWNpw7NuIOKUgOKUgOKUgCAqLwpjb25zdCBQQUdFX1NJWkVTID0gWzI1LCA1MCwgMTAwLCAyMDBdIGFzIGNvbnN0CnR5cGUgUGFnZVNpemUgPSB0eXBlb2YgUEFHRV9TSVpFU1tudW1iZXJdCmNvbnN0IERFRkFVTFRfUEFHRV9TSVpFOiBQYWdlU2l6ZSA9IDUwCgpmdW5jdGlvbiBwYXJzZVBhZ2VTaXplKHJhdzogc3RyaW5nIHwgbnVsbCk6IFBhZ2VTaXplIHsKICBjb25zdCBuID0gTnVtYmVyKHJhdykKICByZXR1cm4gKFBBR0VfU0laRVMgYXMgcmVhZG9ubHkgbnVtYmVyW10pLmluY2x1ZGVzKG4pID8gKG4gYXMgUGFnZVNpemUpIDogREVGQVVMVF9QQUdFX1NJWkUKfQpmdW5jdGlvbiBwYXJzZVBhZ2UocmF3OiBzdHJpbmcgfCBudWxsKTogbnVtYmVyIHsKICBjb25zdCBuID0gTnVtYmVyKHJhdykKICByZXR1cm4gTnVtYmVyLmlzSW50ZWdlcihuKSAmJiBuID49IDEgPyBuIDogMQp9CgovKiDilIDilIDilIAgSW50ZXJmYWNlcyDilIDilIDilIAgKi8KaW50ZXJmYWNlIFRhYk1vdmltaWVudG9zUHJvcHMgewogIHBlcmlvZG9MYWJlbDogc3RyaW5nCiAgcGVyaW9kb0Rlc2RlOiBEYXRlCiAgcGVyaW9kb0hhc3RhOiBEYXRlCn0KCmludGVyZmFjZSBDYXRQeWcgeyBpZDogc3RyaW5nOyBub21icmU6IHN0cmluZzsgbml2ZWw6IG51bWJlcjsgcGFyZW50X2lkOiBzdHJpbmcgfCBudWxsIH0KaW50ZXJmYWNlIFRpdHVsYXIgeyBpZDogc3RyaW5nOyBub21icmU6IHN0cmluZyB9Cgp0eXBlIEFncmVnYWRvcyA9IHsKICBpbmdyZXNvc0ltcG9ydGU6IG51bWJlcgogIGdhc3Rvc0ltcG9ydGU6IG51bWJlcgogIHBlbmRpZW50ZXNDb3VudDogbnVtYmVyCiAgcGVuZGllbnRlc0ltcG9ydGU6IG51bWJlcgp9Cgp0eXBlIFNvcnRDb2x1bW4gPSAnZmVjaGEnIHwgJ2NvbmNlcHRvJyB8ICdjb250cmFwYXJ0ZScgfCAnaW1wb3J0ZScgfCAnY2F0ZWdvcmlhJyB8ICdkb2MnIHwgJ2VzdGFkbycgfCAndGl0dWxhcicKdHlwZSBTb3J0RGlyID0gJ2FzYycgfCAnZGVzYycKCi8qIOKUgOKUgOKUgCBIZWxwZXJzIOKUgOKUgOKUgCAqLwpmdW5jdGlvbiBjYWxjdWxhckVzdGFkbyhtOiBNb3ZpbWllbnRvKTogJ2NvbmNpbGlhZG8nIHwgJ3BlbmRpZW50ZScgewogIGNvbnN0IHRpZW5lQ2F0ZWdvcmlhID0gISFtLmNhdGVnb3JpYV9pZAogIGNvbnN0IHRpZW5lRG9jID0gbS5kb2NfZXN0YWRvID09PSAndGllbmUnIHx8IG0uZG9jX2VzdGFkbyA9PT0gJ25vX3JlcXVpZXJlJwogIHJldHVybiB0aWVuZUNhdGVnb3JpYSAmJiB0aWVuZURvYyA/ICdjb25jaWxpYWRvJyA6ICdwZW5kaWVudGUnCn0KCmZ1bmN0aW9uIGdldEJhZGdlQ2F0ZWdvcmlhKG06IE1vdmltaWVudG8sIGNhdGVnb3JpYXNQeWc6IENhdFB5Z1tdKSB7CiAgaWYgKCFtLmNhdGVnb3JpYV9pZCkgcmV0dXJuIG51bGwKICBjb25zdCBjYXQgPSBjYXRlZ29yaWFzUHlnLmZpbmQoYyA9PiBjLmlkID09PSBtLmNhdGVnb3JpYV9pZCkKICBpZiAoY2F0KSByZXR1cm4geyBpZDogY2F0LmlkLCBub21icmU6IGNhdC5ub21icmUgfQogIHJldHVybiBudWxsCn0KCi8qIOKUgOKUgOKUgCBDb21wb25lbnRlIOKUgOKUgOKUgCAqLwpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBUYWJNb3ZpbWllbnRvcyh7IHBlcmlvZG9EZXNkZSwgcGVyaW9kb0hhc3RhIH06IFRhYk1vdmltaWVudG9zUHJvcHMpIHsKICBjb25zdCBuYXZpZ2F0ZSA9IHVzZU5hdmlnYXRlKCkKCiAgLyog4oCUIFVSTCBwYXJhbXMg4oCUICovCiAgY29uc3QgW3NlYXJjaFBhcmFtcywgc2V0U2VhcmNoUGFyYW1zXSA9IHVzZVNlYXJjaFBhcmFtcygpCiAgY29uc3QgcGFnZSAgICAgPSBwYXJzZVBhZ2Uoc2VhcmNoUGFyYW1zLmdldCgncGFnZScpKQogIGNvbnN0IHBhZ2VTaXplID0gcGFyc2VQYWdlU2l6ZShzZWFyY2hQYXJhbXMuZ2V0KCdzaXplJykpCgogIGNvbnN0IHVwZGF0ZVVybCA9IHVzZUNhbGxiYWNrKChuZXh0OiB7IHBhZ2U/OiBudW1iZXI7IHNpemU/OiBQYWdlU2l6ZSB9KSA9PiB7CiAgICBjb25zdCBwYXJhbXMgPSBuZXcgVVJMU2VhcmNoUGFyYW1zKHNlYXJjaFBhcmFtcykKICAgIGlmIChuZXh0LnBhZ2UgIT09IHVuZGVmaW5lZCkgcGFyYW1zLnNldCgncGFnZScsIFN0cmluZyhuZXh0LnBhZ2UpKQogICAgaWYgKG5leHQuc2l6ZSAhPT0gdW5kZWZpbmVkKSBwYXJhbXMuc2V0KCdzaXplJywgU3RyaW5nKG5leHQuc2l6ZSkpCiAgICBzZXRTZWFyY2hQYXJhbXMocGFyYW1zLCB7IHJlcGxhY2U6IHRydWUgfSkKICB9LCBbc2VhcmNoUGFyYW1zLCBzZXRTZWFyY2hQYXJhbXNdKQoKICAvKiDigJQgRmlsdHJvcyBVSSDigJQgKi8KICBjb25zdCBbZmlsdHJvQ2FyZCwgc2V0RmlsdHJvQ2FyZF0gPSB1c2VTdGF0ZTwnaW5ncmVzb3MnIHwgJ2dhc3RvcycgfCAncGVuZGllbnRlcycgfCBudWxsPihudWxsKQogIGNvbnN0IFtmaWx0cm9UaXR1bGFyLCBzZXRGaWx0cm9UaXR1bGFyXSA9IHVzZVN0YXRlPCd0b2RvcycgfCAncnViZW4nIHwgJ2VtaWxpbyc+KCd0b2RvcycpCiAgY29uc3QgW2J1c3F1ZWRhLCBzZXRCdXNxdWVkYV0gPSB1c2VTdGF0ZSgnJykKICBjb25zdCBbY2F0RmlsdHJvLCBzZXRDYXRGaWx0cm9dID0gdXNlU3RhdGUoJ3RvZGFzJykKICBjb25zdCBbc29ydENvbHVtbiwgc2V0U29ydENvbHVtbl0gPSB1c2VTdGF0ZTxTb3J0Q29sdW1uPignZmVjaGEnKQogIGNvbnN0IFtzb3J0RGlyLCBzZXRTb3J0RGlyXSA9IHVzZVN0YXRlPFNvcnREaXI+KCdkZXNjJykKCiAgLyog4oCUIEVzdGFkbyBkYXRvcyDigJQgKi8KICBjb25zdCBbZmlsYXMsIHNldEZpbGFzXSAgICAgICAgICAgPSB1c2VTdGF0ZTxNb3ZpbWllbnRvW10+KFtdKQogIGNvbnN0IFt0b3RhbCwgc2V0VG90YWxdICAgICAgICAgICA9IHVzZVN0YXRlPG51bWJlcj4oMCkKICBjb25zdCBbY2FyZ2FuZG8sIHNldENhcmdhbmRvXSAgICAgPSB1c2VTdGF0ZTxib29sZWFuPih0cnVlKQogIGNvbnN0IFtlcnJvckNhcmdhLCBzZXRFcnJvckNhcmdhXSA9IHVzZVN0YXRlPHN0cmluZyB8IG51bGw+KG51bGwpCiAgY29uc3QgZmV0Y2hJZFJlZiAgICAgICAgICAgICAgICAgID0gdXNlUmVmPG51bWJlcj4oMCkKCiAgLyog4oCUIEFncmVnYWRvcyBLUEkg4oCUICovCiAgY29uc3QgW2FncmVnYWRvcywgc2V0QWdyZWdhZG9zXSA9IHVzZVN0YXRlPEFncmVnYWRvcyB8IG51bGw+KG51bGwpCgogIC8qIOKAlCBMb29rdXAgZGF0YSDigJQgKi8KICBjb25zdCBbbW9kYWxNb3YsIHNldE1vZGFsTW92XSAgICAgICAgICAgPSB1c2VTdGF0ZTxNb3ZpbWllbnRvIHwgbnVsbD4obnVsbCkKICBjb25zdCBbY2F0ZWdvcmlhc1B5Zywgc2V0Q2F0ZWdvcmlhc1B5Z10gPSB1c2VTdGF0ZTxDYXRQeWdbXT4oW10pCiAgY29uc3QgW3RpdHVsYXJlcywgc2V0VGl0dWxhcmVzXSAgICAgICAgID0gdXNlU3RhdGU8VGl0dWxhcltdPihbXSkKCiAgLyog4oCUIEV4cG9ydGFyIOKAlCAqLwogIGNvbnN0IFtleHBvcnRhbmRvLCBzZXRFeHBvcnRhbmRvXSA9IHVzZVN0YXRlKGZhbHNlKQoKICAvKiDilIDilIAgQ29ycmVnaXIgc2l6ZSBpbnbDoWxpZG8gZW4gbW9udGFqZSDilIDilIAgKi8KICB1c2VFZmZlY3QoKCkgPT4gewogICAgY29uc3QgcmF3ID0gc2VhcmNoUGFyYW1zLmdldCgnc2l6ZScpCiAgICBpZiAocmF3ICE9PSBudWxsICYmICEoUEFHRV9TSVpFUyBhcyByZWFkb25seSBudW1iZXJbXSkuaW5jbHVkZXMoTnVtYmVyKHJhdykpKSB7CiAgICAgIHVwZGF0ZVVybCh7IHNpemU6IERFRkFVTFRfUEFHRV9TSVpFIH0pCiAgICB9CiAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIHJlYWN0LWhvb2tzL2V4aGF1c3RpdmUtZGVwcwogIH0sIFtdKQoKICAvKiDilIDilIAgQ2FyZ2FyIGxvb2t1cCB0YWJsZXMg4pSA4pSAICovCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIFByb21pc2UuYWxsKFsKICAgICAgc3VwYWJhc2UuZnJvbSgnY2F0ZWdvcmlhc19weWcnKS5zZWxlY3QoJ2lkLCBub21icmUsIG5pdmVsLCBwYXJlbnRfaWQnKS5lcSgnYWN0aXZhJywgdHJ1ZSkub3JkZXIoJ29yZGVuJyksCiAgICAgIHN1cGFiYXNlLmZyb20oJ3RpdHVsYXJlcycpLnNlbGVjdCgnaWQsIG5vbWJyZScpLmVxKCdhY3Rpdm8nLCB0cnVlKS5vcmRlcignb3JkZW4nKSwKICAgIF0pLnRoZW4oKFtjYXRzLCB0aXRzXSkgPT4gewogICAgICBpZiAoIWNhdHMuZXJyb3IpIHNldENhdGVnb3JpYXNQeWcoY2F0cy5kYXRhID8/IFtdKQogICAgICBpZiAoIXRpdHMuZXJyb3IpIHNldFRpdHVsYXJlcyh0aXRzLmRhdGEgPz8gW10pCiAgICB9KQogIH0sIFtdKQoKICAvKiDilIDilIAgQ2FsY3VsYXIgc3RyaW5nIGRlIHBlcsOtb2RvIOKUgOKUgCAqLwogIGNvbnN0IHBlcmlvZG9EZXNkZVN0ciA9IHBlcmlvZG9EZXNkZS50b0lTT1N0cmluZygpLnNsaWNlKDAsIDEwKQogIGNvbnN0IHBlcmlvZG9IYXN0YVN0ciA9IHBlcmlvZG9IYXN0YS50b0lTT1N0cmluZygpLnNsaWNlKDAsIDEwKQoKICAvKiDilIDilIAgUXVlcnkgcGFnaW5hZGEgcHJpbmNpcGFsIOKUgOKUgCAqLwogIGNvbnN0IGNhcmdhclBhZ2luYSA9IHVzZUNhbGxiYWNrKGFzeW5jICgpID0+IHsKICAgIGNvbnN0IG15RmV0Y2hJZCA9ICsrZmV0Y2hJZFJlZi5jdXJyZW50CiAgICBzZXRDYXJnYW5kbyh0cnVlKQogICAgc2V0RXJyb3JDYXJnYShudWxsKQoKICAgIGNvbnN0IGZyb20gPSAocGFnZSAtIDEpICogcGFnZVNpemUKICAgIGNvbnN0IHRvICAgPSBmcm9tICsgcGFnZVNpemUgLSAxCgogICAgY29uc3Qgc29ydE1hcDogUmVjb3JkPHN0cmluZywgc3RyaW5nIHwgbnVsbD4gPSB7CiAgICAgIGZlY2hhOiAgICAgICAnZmVjaGEnLAogICAgICBjb25jZXB0bzogICAgJ2NvbmNlcHRvJywKICAgICAgY29udHJhcGFydGU6ICdwcm92ZWVkb3InLAogICAgICBpbXBvcnRlOiAgICAgJ2ltcG9ydGUnLAogICAgICBjYXRlZ29yaWE6ICAgJ2NhdGVnb3JpYScsCiAgICAgIGRvYzogICAgICAgICAnZG9jX2VzdGFkbycsCiAgICAgIHRpdHVsYXI6ICAgICAndGl0dWxhcl9pZCcsCiAgICAgIGVzdGFkbzogICAgICBudWxsLCAvLyBjbGllbnQtc2lkZQogICAgfQogICAgY29uc3Qgc29ydEZpZWxkID0gc29ydE1hcFtzb3J0Q29sdW1uXSA/PyAnZmVjaGEnCgogICAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uby1leHBsaWNpdC1hbnkKICAgIGxldCBxOiBhbnkgPSBzdXBhYmFzZQogICAgICAuZnJvbSgnY29uY2lsaWFjaW9uJykKICAgICAgLnNlbGVjdCgnKiwgZmFjdHVyYV9kYXRhOmZhY3R1cmFzKHBkZl9kcml2ZV91cmwsIHBkZl9maWxlbmFtZSknLCB7IGNvdW50OiAnZXhhY3QnIH0pCiAgICAgIC5ndGUoJ2ZlY2hhJywgcGVyaW9kb0Rlc2RlU3RyKQogICAgICAubHRlKCdmZWNoYScsIHBlcmlvZG9IYXN0YVN0cikKCiAgICBpZiAoZmlsdHJvQ2FyZCA9PT0gJ2luZ3Jlc29zJykgcSA9IHEuZ3QoJ2ltcG9ydGUnLCAwKQogICAgaWYgKGZpbHRyb0NhcmQgPT09ICdnYXN0b3MnKSAgIHEgPSBxLmx0KCdpbXBvcnRlJywgMCkKICAgIC8vIHBlbmRpZW50ZXMgZXMgY2xpZW50LXNpZGUKCiAgICBpZiAoY2F0RmlsdHJvICE9PSAndG9kYXMnKSBxID0gcS5lcSgnY2F0ZWdvcmlhJywgY2F0RmlsdHJvKQoKICAgIGlmIChmaWx0cm9UaXR1bGFyICE9PSAndG9kb3MnICYmIHRpdHVsYXJlcy5sZW5ndGggPiAwKSB7CiAgICAgIC8vIFJlc29sdmVyIGlkcyBxdWUgY29pbmNpZGFuIGNvbiBlbCBub21icmUgZGVsIHRpdHVsYXIKICAgICAgY29uc3QgbWF0Y2hJZHMgPSB0aXR1bGFyZXMKICAgICAgICAuZmlsdGVyKHQgPT4gewogICAgICAgICAgY29uc3QgbiA9IHQubm9tYnJlLnRvTG93ZXJDYXNlKCkKICAgICAgICAgIGlmIChmaWx0cm9UaXR1bGFyID09PSAncnViZW4nKSAgcmV0dXJuIG4uaW5jbHVkZXMoJ3J1YsOpbicpIHx8IG4uaW5jbHVkZXMoJ3J1YmVuJykKICAgICAgICAgIGlmIChmaWx0cm9UaXR1bGFyID09PSAnZW1pbGlvJykgcmV0dXJuIG4uaW5jbHVkZXMoJ2VtaWxpbycpCiAgICAgICAgICByZXR1cm4gZmFsc2UKICAgICAgICB9KQogICAgICAgIC5tYXAodCA9PiB0LmlkKQogICAgICBpZiAobWF0Y2hJZHMubGVuZ3RoID09PSAxKSB7CiAgICAgICAgcSA9IHEuZXEoJ3RpdHVsYXJfaWQnLCBtYXRjaElkc1swXSkKICAgICAgfSBlbHNlIGlmIChtYXRjaElkcy5sZW5ndGggPiAxKSB7CiAgICAgICAgcSA9IHEuaW4oJ3RpdHVsYXJfaWQnLCBtYXRjaElkcykKICAgICAgfQogICAgICAvLyBTaSBubyBoYXkgbWF0Y2gg4oaSIG5vIGZpbHRyYXIgKGVxdWl2YWxlIGEgJ3RvZG9zJykKICAgIH0KCiAgICBpZiAoc29ydEZpZWxkKSB7CiAgICAgIHEgPSBxLm9yZGVyKHNvcnRGaWVsZCwgeyBhc2NlbmRpbmc6IHNvcnREaXIgPT09ICdhc2MnIH0pLnJhbmdlKGZyb20sIHRvKQogICAgfSBlbHNlIHsKICAgICAgLy8gZXN0YWRvIOKGkiBvcmRlciBjbGllbnQtc2lkZTsgc2VydmVyIHNvcnQgcG9yIGZlY2hhCiAgICAgIHEgPSBxLm9yZGVyKCdmZWNoYScsIHsgYXNjZW5kaW5nOiBmYWxzZSB9KS5yYW5nZShmcm9tLCB0bykKICAgIH0KCiAgICBjb25zdCB7IGRhdGEsIGVycm9yLCBjb3VudCB9ID0gYXdhaXQgcQoKICAgIGlmIChteUZldGNoSWQgIT09IGZldGNoSWRSZWYuY3VycmVudCkgcmV0dXJuIC8vIHJlc3B1ZXN0YSBvYnNvbGV0YQoKICAgIGlmIChlcnJvcikgewogICAgICBzZXRFcnJvckNhcmdhKCdFcnJvciBjYXJnYW5kbyBtb3ZpbWllbnRvcy4gSW50ZW50YSBkZSBudWV2by4nKQogICAgICBzZXRGaWxhcyhbXSkKICAgICAgc2V0VG90YWwoMCkKICAgIH0gZWxzZSB7CiAgICAgIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbm8tZXhwbGljaXQtYW55CiAgICAgIGNvbnN0IG1hcHBlZCA9IChkYXRhID8/IFtdKS5tYXAoKG06IGFueSk6IE1vdmltaWVudG8gPT4gKHsKICAgICAgICBpZDogICAgICAgICAgbS5pZCwKICAgICAgICBmZWNoYTogICAgICAgbS5mZWNoYSwKICAgICAgICBjb25jZXB0bzogICAgbS5jb25jZXB0bywKICAgICAgICBpbXBvcnRlOiAgICAgTnVtYmVyKG0uaW1wb3J0ZSksCiAgICAgICAgY2F0ZWdvcmlhX2lkOiBtLmNhdGVnb3JpYSA/PyBudWxsLAogICAgICAgIGNvbnRyYXBhcnRlOiBtLnByb3ZlZWRvciA/PyAnJywKICAgICAgICBnYXN0b19pZDogICAgbS5nYXN0b19pZCA/PyBudWxsLAogICAgICAgIGZhY3R1cmFfaWQ6ICBtLmZhY3R1cmFfaWQgPz8gbnVsbCwKICAgICAgICBmYWN0dXJhX2RhdGE6IG0uZmFjdHVyYV9kYXRhID8/IG51bGwsCiAgICAgICAgdGl0dWxhcl9pZDogIG0udGl0dWxhcl9pZCA/PyBudWxsLAogICAgICAgIGRvY19lc3RhZG86ICAobS5kb2NfZXN0YWRvID8/ICdmYWx0YScpIGFzICd0aWVuZScgfCAnZmFsdGEnIHwgJ25vX3JlcXVpZXJlJywKICAgICAgfSkpCiAgICAgIHNldEZpbGFzKG1hcHBlZCkKICAgICAgc2V0VG90YWwoY291bnQgPz8gMCkKICAgIH0KICAgIHNldENhcmdhbmRvKGZhbHNlKQogIH0sIFtwYWdlLCBwYWdlU2l6ZSwgc29ydENvbHVtbiwgc29ydERpciwgZmlsdHJvQ2FyZCwgY2F0RmlsdHJvLCBmaWx0cm9UaXR1bGFyLCB0aXR1bGFyZXMsIHBlcmlvZG9EZXNkZVN0ciwgcGVyaW9kb0hhc3RhU3RyXSkKCiAgLyog4pSA4pSAIFF1ZXJ5IGRlIGFncmVnYWRvcyBLUEkgKHBhZ2luYWRhIHBhcmEgbm8gY2FlciBlbiBjYXAgMUspIOKUgOKUgCAqLwogIGNvbnN0IGNhcmdhckFncmVnYWRvcyA9IHVzZUNhbGxiYWNrKGFzeW5jICgpID0+IHsKICAgIHRyeSB7CiAgICAgIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbm8tZXhwbGljaXQtYW55CiAgICAgIGNvbnN0IGRhdGEgPSBhd2FpdCBmZXRjaEFsbFBhZ2luYXRlZDxhbnk+KCgpID0+IHsKICAgICAgICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25vLWV4cGxpY2l0LWFueQogICAgICAgIGxldCBxOiBhbnkgPSBzdXBhYmFzZQogICAgICAgICAgLmZyb20oJ2NvbmNpbGlhY2lvbicpCiAgICAgICAgICAuc2VsZWN0KCdpbXBvcnRlLCBjYXRlZ29yaWEsIGRvY19lc3RhZG8sIHRpdHVsYXJfaWQnKQogICAgICAgICAgLmd0ZSgnZmVjaGEnLCBwZXJpb2RvRGVzZGVTdHIpCiAgICAgICAgICAubHRlKCdmZWNoYScsIHBlcmlvZG9IYXN0YVN0cikKCiAgICAgICAgaWYgKGNhdEZpbHRybyAhPT0gJ3RvZGFzJykgcSA9IHEuZXEoJ2NhdGVnb3JpYScsIGNhdEZpbHRybykKCiAgICAgICAgaWYgKGZpbHRyb1RpdHVsYXIgIT09ICd0b2RvcycgJiYgdGl0dWxhcmVzLmxlbmd0aCA+IDApIHsKICAgICAgICAgIGNvbnN0IG1hdGNoSWRzID0gdGl0dWxhcmVzCiAgICAgICAgICAgIC5maWx0ZXIodCA9PiB7CiAgICAgICAgICAgICAgY29uc3QgbiA9IHQubm9tYnJlLnRvTG93ZXJDYXNlKCkKICAgICAgICAgICAgICBpZiAoZmlsdHJvVGl0dWxhciA9PT0gJ3J1YmVuJykgIHJldHVybiBuLmluY2x1ZGVzKCdydWLDqW4nKSB8fCBuLmluY2x1ZGVzKCdydWJlbicpCiAgICAgICAgICAgICAgaWYgKGZpbHRyb1RpdHVsYXIgPT09ICdlbWlsaW8nKSByZXR1cm4gbi5pbmNsdWRlcygnZW1pbGlvJykKICAgICAgICAgICAgICByZXR1cm4gZmFsc2UKICAgICAgICAgICAgfSkKICAgICAgICAgICAgLm1hcCh0ID0+IHQuaWQpCiAgICAgICAgICBpZiAobWF0Y2hJZHMubGVuZ3RoID09PSAxKSBxID0gcS5lcSgndGl0dWxhcl9pZCcsIG1hdGNoSWRzWzBdKQogICAgICAgICAgZWxzZSBpZiAobWF0Y2hJZHMubGVuZ3RoID4gMSkgcSA9IHEuaW4oJ3RpdHVsYXJfaWQnLCBtYXRjaElkcykKICAgICAgICB9CgogICAgICAgIHJldHVybiBxLm9yZGVyKCdmZWNoYScsIHsgYXNjZW5kaW5nOiBmYWxzZSB9KQogICAgICB9KQoKICAgICAgbGV0IGluZ3Jlc29zSW1wb3J0ZSA9IDAsIGdhc3Rvc0ltcG9ydGUgPSAwCiAgICAgIGxldCBwZW5kaWVudGVzQ291bnQgPSAwLCBwZW5kaWVudGVzSW1wb3J0ZSA9IDAKCiAgICAgIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbm8tZXhwbGljaXQtYW55CiAgICAgIGZvciAoY29uc3QgciBvZiBkYXRhIGFzIGFueVtdKSB7CiAgICAgICAgY29uc3QgaW1wID0gTnVtYmVyKHIuaW1wb3J0ZSkgfHwgMAogICAgICAgIGlmIChpbXAgPiAwKSBpbmdyZXNvc0ltcG9ydGUgKz0gaW1wCiAgICAgICAgaWYgKGltcCA8IDApIGdhc3Rvc0ltcG9ydGUgICArPSBpbXAKICAgICAgICBjb25zdCB0aWVuZUNhdGVnb3JpYSA9ICEhci5jYXRlZ29yaWEKICAgICAgICBjb25zdCB0aWVuZURvYyA9IHIuZG9jX2VzdGFkbyA9PT0gJ3RpZW5lJyB8fCByLmRvY19lc3RhZG8gPT09ICdub19yZXF1aWVyZScKICAgICAgICBpZiAoISh0aWVuZUNhdGVnb3JpYSAmJiB0aWVuZURvYykpIHsKICAgICAgICAgIHBlbmRpZW50ZXNDb3VudCAgICs9IDEKICAgICAgICAgIHBlbmRpZW50ZXNJbXBvcnRlICs9IE1hdGguYWJzKGltcCkKICAgICAgICB9CiAgICAgIH0KICAgICAgc2V0QWdyZWdhZG9zKHsgaW5ncmVzb3NJbXBvcnRlLCBnYXN0b3NJbXBvcnRlLCBwZW5kaWVudGVzQ291bnQsIHBlbmRpZW50ZXNJbXBvcnRlIH0pCiAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgY29uc29sZS5lcnJvcignRXJyb3IgY2FyZ2FuZG8gYWdyZWdhZG9zIEtQSTonLCBlcnIpCiAgICAgIHNldEFncmVnYWRvcyhudWxsKQogICAgfQogIH0sIFtwZXJpb2RvRGVzZGVTdHIsIHBlcmlvZG9IYXN0YVN0ciwgY2F0RmlsdHJvLCBmaWx0cm9UaXR1bGFyLCB0aXR1bGFyZXNdKQoKICAvKiDilIDilIAgRWZlY3RvcyBkZSBkaXNwYXJvIOKUgOKUgCAqLwogIHVzZUVmZmVjdCgoKSA9PiB7IGNhcmdhclBhZ2luYSgpIH0sIFtjYXJnYXJQYWdpbmFdKQogIHVzZUVmZmVjdCgoKSA9PiB7IGNhcmdhckFncmVnYWRvcygpIH0sIFtjYXJnYXJBZ3JlZ2Fkb3NdKQoKICAvKiDilIDilIAgQXV0by1jb3JyZWNjacOzbiBkZSBwYWdlID4gdG90YWxQYWdlcyDilIDilIAgKi8KICB1c2VFZmZlY3QoKCkgPT4gewogICAgaWYgKGNhcmdhbmRvKSByZXR1cm4KICAgIGlmICh0b3RhbCA9PT0gMCkgcmV0dXJuCiAgICBjb25zdCB0b3RhbFBhZ2VzID0gTWF0aC5tYXgoMSwgTWF0aC5jZWlsKHRvdGFsIC8gcGFnZVNpemUpKQogICAgaWYgKHBhZ2UgPiB0b3RhbFBhZ2VzKSB1cGRhdGVVcmwoeyBwYWdlOiB0b3RhbFBhZ2VzIH0pCiAgfSwgW2NhcmdhbmRvLCB0b3RhbCwgcGFnZVNpemUsIHBhZ2UsIHVwZGF0ZVVybF0pCgogIC8qIOKUgOKUgCBIYW5kbGVycyBkZSBmaWx0cm9zIGNvbiByZXNldCBkZSBww6FnaW5hIOKUgOKUgCAqLwogIGNvbnN0IG9uQ2FtYmlhckZpbHRyb0NhcmQgPSAodjogJ2luZ3Jlc29zJyB8ICdnYXN0b3MnIHwgJ3BlbmRpZW50ZXMnKSA9PiB7CiAgICBzZXRGaWx0cm9DYXJkKHByZXYgPT4gcHJldiA9PT0gdiA/IG51bGwgOiB2KQogICAgaWYgKHBhZ2UgIT09IDEpIHVwZGF0ZVVybCh7IHBhZ2U6IDEgfSkKICB9CgogIGNvbnN0IG9uQ2FtYmlhckZpbHRyb1RpdHVsYXIgPSAodjogJ3RvZG9zJyB8ICdydWJlbicgfCAnZW1pbGlvJykgPT4gewogICAgc2V0RmlsdHJvVGl0dWxhcih2KQogICAgaWYgKHBhZ2UgIT09IDEpIHVwZGF0ZVVybCh7IHBhZ2U6IDEgfSkKICB9CgogIGNvbnN0IG9uQ2FtYmlhckJ1c3F1ZWRhID0gKHY6IHN0cmluZykgPT4gewogICAgc2V0QnVzcXVlZGEodikKICAgIGlmIChwYWdlICE9PSAxKSB1cGRhdGVVcmwoeyBwYWdlOiAxIH0pCiAgfQoKICBjb25zdCBvbkNhbWJpYXJDYXRGaWx0cm8gPSAodjogc3RyaW5nKSA9PiB7CiAgICBzZXRDYXRGaWx0cm8odikKICAgIGlmIChwYWdlICE9PSAxKSB1cGRhdGVVcmwoeyBwYWdlOiAxIH0pCiAgfQoKICAvKiDilIDilIAgU29ydCDilIDilIAgKi8KICBmdW5jdGlvbiBoYW5kbGVTb3J0KGNvbDogU29ydENvbHVtbikgewogICAgaWYgKHNvcnRDb2x1bW4gPT09IGNvbCkgewogICAgICBpZiAoc29ydERpciA9PT0gJ2FzYycpIHNldFNvcnREaXIoJ2Rlc2MnKQogICAgICBlbHNlIHNldFNvcnREaXIoJ2FzYycpCiAgICB9IGVsc2UgewogICAgICBzZXRTb3J0Q29sdW1uKGNvbCkKICAgICAgc2V0U29ydERpcignYXNjJykKICAgIH0KICAgIGlmIChwYWdlICE9PSAxKSB1cGRhdGVVcmwoeyBwYWdlOiAxIH0pCiAgfQoKICAvKiDilIDilIAgZmlsYXNWaXNpYmxlczogYsO6c3F1ZWRhICsgc29ydCBlc3RhZG8gY2xpZW50LXNpZGUg4pSA4pSAICovCiAgY29uc3QgZmlsYXNWaXNpYmxlcyA9IHVzZU1lbW8oKCkgPT4gewogICAgbGV0IG91dCA9IGZpbGFzCgogICAgLy8gRmlsdHJvIHBlbmRpZW50ZXMgY2xpZW50LXNpZGUgKHNlcnZlci1zaWRlIG5vIGFwbGljYSBwYXJhIGVzdGUgZmlsdHJvKQogICAgaWYgKGZpbHRyb0NhcmQgPT09ICdwZW5kaWVudGVzJykgewogICAgICBvdXQgPSBvdXQuZmlsdGVyKG0gPT4gY2FsY3VsYXJFc3RhZG8obSkgPT09ICdwZW5kaWVudGUnKQogICAgfQoKICAgIGlmIChidXNxdWVkYS50cmltKCkpIHsKICAgICAgY29uc3QgcSA9IGJ1c3F1ZWRhLnRyaW0oKS50b0xvd2VyQ2FzZSgpCiAgICAgIG91dCA9IG91dC5maWx0ZXIobSA9PgogICAgICAgIChtLmNvbmNlcHRvID8/ICcnKS50b0xvd2VyQ2FzZSgpLmluY2x1ZGVzKHEpIHx8CiAgICAgICAgKG0uY29udHJhcGFydGUgPz8gJycpLnRvTG93ZXJDYXNlKCkuaW5jbHVkZXMocSkgfHwKICAgICAgICAobS5jYXRlZ29yaWFfaWQgPz8gJycpLnRvTG93ZXJDYXNlKCkuaW5jbHVkZXMocSkKICAgICAgKQogICAgfQoKICAgIGlmIChzb3J0Q29sdW1uID09PSAnZXN0YWRvJykgewogICAgICBvdXQgPSBbLi4ub3V0XS5zb3J0KChhLCBiKSA9PiB7CiAgICAgICAgY29uc3QgZWEgPSBjYWxjdWxhckVzdGFkbyhhKQogICAgICAgIGNvbnN0IGViID0gY2FsY3VsYXJFc3RhZG8oYikKICAgICAgICByZXR1cm4gc29ydERpciA9PT0gJ2FzYycgPyBlYS5sb2NhbGVDb21wYXJlKGViKSA6IGViLmxvY2FsZUNvbXBhcmUoZWEpCiAgICAgIH0pCiAgICB9CgogICAgcmV0dXJuIG91dAogIH0sIFtmaWxhcywgYnVzcXVlZGEsIHNvcnRDb2x1bW4sIHNvcnREaXIsIGZpbHRyb0NhcmRdKQoKICAvKiDilIDilIAgRXhwb3J0YXIgQ1NWIChwYWdpbmFkbykg4pSA4pSAICovCiAgY29uc3QgaGFuZGxlRXhwb3J0YXIgPSBhc3luYyAoKSA9PiB7CiAgICBzZXRFeHBvcnRhbmRvKHRydWUpCiAgICB0cnkgewogICAgICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25vLWV4cGxpY2l0LWFueQogICAgICBjb25zdCBkYXRhID0gYXdhaXQgZmV0Y2hBbGxQYWdpbmF0ZWQ8YW55PigoKSA9PiB7CiAgICAgICAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uby1leHBsaWNpdC1hbnkKICAgICAgICBsZXQgcTogYW55ID0gc3VwYWJhc2UKICAgICAgICAgIC5mcm9tKCdjb25jaWxpYWNpb24nKQogICAgICAgICAgLnNlbGVjdCgnKicpCiAgICAgICAgICAuZ3RlKCdmZWNoYScsIHBlcmlvZG9EZXNkZVN0cikKICAgICAgICAgIC5sdGUoJ2ZlY2hhJywgcGVyaW9kb0hhc3RhU3RyKQoKICAgICAgICBpZiAoZmlsdHJvQ2FyZCA9PT0gJ2luZ3Jlc29zJykgcSA9IHEuZ3QoJ2ltcG9ydGUnLCAwKQogICAgICAgIGlmIChmaWx0cm9DYXJkID09PSAnZ2FzdG9zJykgICBxID0gcS5sdCgnaW1wb3J0ZScsIDApCiAgICAgICAgaWYgKGNhdEZpbHRybyAhPT0gJ3RvZGFzJykgICAgIHEgPSBxLmVxKCdjYXRlZ29yaWEnLCBjYXRGaWx0cm8pCiAgICAgICAgaWYgKGZpbHRyb1RpdHVsYXIgIT09ICd0b2RvcycgJiYgdGl0dWxhcmVzLmxlbmd0aCA+IDApIHsKICAgICAgICAgIGNvbnN0IG1hdGNoSWRzID0gdGl0dWxhcmVzCiAgICAgICAgICAgIC5maWx0ZXIodCA9PiB7CiAgICAgICAgICAgICAgY29uc3QgbiA9IHQubm9tYnJlLnRvTG93ZXJDYXNlKCkKICAgICAgICAgICAgICBpZiAoZmlsdHJvVGl0dWxhciA9PT0gJ3J1YmVuJykgIHJldHVybiBuLmluY2x1ZGVzKCdydWLDqW4nKSB8fCBuLmluY2x1ZGVzKCdydWJlbicpCiAgICAgICAgICAgICAgaWYgKGZpbHRyb1RpdHVsYXIgPT09ICdlbWlsaW8nKSByZXR1cm4gbi5pbmNsdWRlcygnZW1pbGlvJykKICAgICAgICAgICAgICByZXR1cm4gZmFsc2UKICAgICAgICAgICAgfSkKICAgICAgICAgICAgLm1hcCh0ID0+IHQuaWQpCiAgICAgICAgICBpZiAobWF0Y2hJZHMubGVuZ3RoID09PSAxKSBxID0gcS5lcSgndGl0dWxhcl9pZCcsIG1hdGNoSWRzWzBdKQogICAgICAgICAgZWxzZSBpZiAobWF0Y2hJZHMubGVuZ3RoID4gMSkgcSA9IHEuaW4oJ3RpdHVsYXJfaWQnLCBtYXRjaElkcykKICAgICAgICB9CiAgICAgICAgcmV0dXJuIHEub3JkZXIoJ2ZlY2hhJywgeyBhc2NlbmRpbmc6IGZhbHNlIH0pCiAgICAgIH0pCgogICAgICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25vLWV4cGxpY2l0LWFueQogICAgICBjb25zdCByb3dzID0gZGF0YS5tYXAoKG06IGFueSkgPT4gWwogICAgICAgIG0uZmVjaGEsCiAgICAgICAgKG0uY29uY2VwdG8gPz8gJycpLnJlcGxhY2UoLywvZywgJyAnKSwKICAgICAgICAobS5wcm92ZWVkb3IgPz8gJycpLnJlcGxhY2UoLywvZywgJyAnKSwKICAgICAgICBtLmltcG9ydGUsCiAgICAgICAgbS5jYXRlZ29yaWEgPz8gJycsCiAgICAgICAgKG0uZG9jX2VzdGFkbyA/PyAnZmFsdGEnKSwKICAgICAgXSkKICAgICAgY29uc3QgY3N2ID0gWwogICAgICAgIFsnRmVjaGEnLCAnQ29uY2VwdG8nLCAnQ29udHJhcGFydGUnLCAnSW1wb3J0ZScsICdDYXRlZ29yw61hJywgJ0RvYyBFc3RhZG8nXS5qb2luKCcsJyksCiAgICAgICAgLi4ucm93cy5tYXAociA9PiByLmpvaW4oJywnKSksCiAgICAgIF0uam9pbignXG4nKQogICAgICBjb25zdCBibG9iID0gbmV3IEJsb2IoW2Nzdl0sIHsgdHlwZTogJ3RleHQvY3N2JyB9KQogICAgICBjb25zdCB1cmwgPSBVUkwuY3JlYXRlT2JqZWN0VVJMKGJsb2IpCiAgICAgIGNvbnN0IGEgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdhJykKICAgICAgYS5ocmVmID0gdXJsCiAgICAgIGEuZG93bmxvYWQgPSBgbW92aW1pZW50b3NfJHtuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCkuc2xpY2UoMCwgMTApfS5jc3ZgCiAgICAgIGEuY2xpY2soKQogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIGNvbnNvbGUuZXJyb3IoJ0Vycm9yIGV4cG9ydGFuZG8gQ1NWOicsIGVycikKICAgIH0gZmluYWxseSB7CiAgICAgIHNldEV4cG9ydGFuZG8oZmFsc2UpCiAgICB9CiAgfQoKICAvKiDilIDilIAgRXN0aWxvcyDilIDilIAgKi8KICBjb25zdCBjYXJkU3R5bGUgPSAoZmlsdHJvOiAnaW5ncmVzb3MnIHwgJ2dhc3RvcycgfCAncGVuZGllbnRlcycpOiBSZWFjdC5DU1NQcm9wZXJ0aWVzID0+ICh7CiAgICBiYWNrZ3JvdW5kOiAnI2ZmZicsCiAgICBib3JkZXI6IGZpbHRyb0NhcmQgPT09IGZpbHRybyA/ICcxcHggc29saWQgI0ZGNDc1NycgOiAnMC41cHggc29saWQgI2QwYzhiYycsCiAgICBib3JkZXJSYWRpdXM6IDE0LAogICAgcGFkZGluZzogJzE4cHggMjBweCcsCiAgICBjdXJzb3I6ICdwb2ludGVyJywKICAgIGJveFNoYWRvdzogZmlsdHJvQ2FyZCA9PT0gZmlsdHJvID8gJzAgMCAwIDNweCAjRkY0NzU3MTUnIDogJ25vbmUnLAogICAgdHJhbnNpdGlvbjogJ2JvcmRlci1jb2xvciAwLjE1cywgYm94LXNoYWRvdyAwLjE1cycsCiAgfSkKCiAgY29uc3QgSEVBREVSUzogeyBsYWJlbDogc3RyaW5nOyBjb2w6IFNvcnRDb2x1bW47IGFsaWduOiAnbGVmdCcgfCAncmlnaHQnIHwgJ2NlbnRlcicgfVtdID0gWwogICAgeyBsYWJlbDogJ0ZlY2hhJywgICAgICAgY29sOiAnZmVjaGEnLCAgICAgICBhbGlnbjogJ2xlZnQnIH0sCiAgICB7IGxhYmVsOiAnQ29uY2VwdG8nLCAgICBjb2w6ICdjb25jZXB0bycsICAgIGFsaWduOiAnbGVmdCcgfSwKICAgIHsgbGFiZWw6ICdDb250cmFwYXJ0ZScsIGNvbDogJ2NvbnRyYXBhcnRlJywgYWxpZ246ICdsZWZ0JyB9LAogICAgeyBsYWJlbDogJ0ltcG9ydGUnLCAgICAgY29sOiAnaW1wb3J0ZScsICAgICBhbGlnbjogJ3JpZ2h0JyB9LAogICAgeyBsYWJlbDogJ0NhdGVnb3LDrWEnLCAgIGNvbDogJ2NhdGVnb3JpYScsICAgYWxpZ246ICdsZWZ0JyB9LAogICAgeyBsYWJlbDogJ0RvYycsICAgICAgICAgY29sOiAnZG9jJywgICAgICAgICBhbGlnbjogJ2NlbnRlcicgfSwKICAgIHsgbGFiZWw6ICdFc3RhZG8nLCAgICAgIGNvbDogJ2VzdGFkbycsICAgICAgYWxpZ246ICdsZWZ0JyB9LAogICAgeyBsYWJlbDogJ1RpdHVsYXInLCAgICAgY29sOiAndGl0dWxhcicsICAgICBhbGlnbjogJ2xlZnQnIH0sCiAgXQoKICBjb25zdCB0b3RhbFBhZ2VzID0gTWF0aC5tYXgoMSwgTWF0aC5jZWlsKHRvdGFsIC8gcGFnZVNpemUpKQoKICAvKiDilIDilIAgUmVuZGVyIOKUgOKUgCAqLwogIHJldHVybiAoCiAgICA8ZGl2PgogICAgICB7LyogNCBDQVJEUyBLUEkgKi99CiAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2dyaWQnLCBncmlkVGVtcGxhdGVDb2x1bW5zOiAncmVwZWF0KDQsIDFmciknLCBnYXA6IDEyLCBtYXJnaW5Cb3R0b206IDE0IH19PgoKICAgICAgICA8ZGl2IG9uQ2xpY2s9eygpID0+IG9uQ2FtYmlhckZpbHRyb0NhcmQoJ2luZ3Jlc29zJyl9IHN0eWxlPXtjYXJkU3R5bGUoJ2luZ3Jlc29zJyl9PgogICAgICAgICAgPGRpdiBzdHlsZT17eyBtYXJnaW5Cb3R0b206IDggfX0+CiAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZvbnRGYW1pbHk6ICdPc3dhbGQsIHNhbnMtc2VyaWYnLCBmb250U2l6ZTogMTEsIGZvbnRXZWlnaHQ6IDUwMCwgbGV0dGVyU3BhY2luZzogJzJweCcsIGNvbG9yOiAnIzdhODA5MCcsIHRleHRUcmFuc2Zvcm06ICd1cHBlcmNhc2UnIH19PkluZ3Jlc29zPC9zcGFuPgogICAgICAgICAgPC9kaXY+CiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRGYW1pbHk6ICdPc3dhbGQsIHNhbnMtc2VyaWYnLCBmb250U2l6ZTogMzAsIGZvbnRXZWlnaHQ6IDYwMCwgbGluZUhlaWdodDogMSwgbGV0dGVyU3BhY2luZzogJzAuNXB4JywgY29sb3I6ICcjMUQ5RTc1JyB9fT4KICAgICAgICAgICAge2FncmVnYWRvcyAhPT0gbnVsbCA/IGZtdEV1cihhZ3JlZ2Fkb3MuaW5ncmVzb3NJbXBvcnRlKSA6ICfigJQnfQogICAgICAgICAgPC9kaXY+CiAgICAgICAgPC9kaXY+CgogICAgICAgIDxkaXYgb25DbGljaz17KCkgPT4gb25DYW1iaWFyRmlsdHJvQ2FyZCgnZ2FzdG9zJyl9IHN0eWxlPXtjYXJkU3R5bGUoJ2dhc3RvcycpfT4KICAgICAgICAgIDxkaXYgc3R5bGU9e3sgbWFyZ2luQm90dG9tOiA4IH19PgogICAgICAgICAgICA8c3BhbiBzdHlsZT17eyBmb250RmFtaWx5OiAnT3N3YWxkLCBzYW5zLXNlcmlmJywgZm9udFNpemU6IDExLCBmb250V2VpZ2h0OiA1MDAsIGxldHRlclNwYWNpbmc6ICcycHgnLCBjb2xvcjogJyM3YTgwOTAnLCB0ZXh0VHJhbnNmb3JtOiAndXBwZXJjYXNlJyB9fT5HYXN0b3M8L3NwYW4+CiAgICAgICAgICA8L2Rpdj4KICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZm9udEZhbWlseTogJ09zd2FsZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAzMCwgZm9udFdlaWdodDogNjAwLCBsaW5lSGVpZ2h0OiAxLCBsZXR0ZXJTcGFjaW5nOiAnMC41cHgnLCBjb2xvcjogJyNFMjRCNEEnIH19PgogICAgICAgICAgICB7YWdyZWdhZG9zICE9PSBudWxsID8gZm10RXVyKE1hdGguYWJzKGFncmVnYWRvcy5nYXN0b3NJbXBvcnRlKSkgOiAn4oCUJ30KICAgICAgICAgIDwvZGl2PgogICAgICAgIDwvZGl2PgoKICAgICAgICA8ZGl2IG9uQ2xpY2s9eygpID0+IG9uQ2FtYmlhckZpbHRyb0NhcmQoJ3BlbmRpZW50ZXMnKX0gc3R5bGU9e2NhcmRTdHlsZSgncGVuZGllbnRlcycpfT4KICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBqdXN0aWZ5Q29udGVudDogJ3NwYWNlLWJldHdlZW4nLCBhbGlnbkl0ZW1zOiAnZmxleC1zdGFydCcsIG1hcmdpbkJvdHRvbTogOCB9fT4KICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udEZhbWlseTogJ09zd2FsZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAxMSwgZm9udFdlaWdodDogNTAwLCBsZXR0ZXJTcGFjaW5nOiAnMnB4JywgY29sb3I6ICcjN2E4MDkwJywgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScgfX0+UGVuZGllbnRlczwvc3Bhbj4KICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgYmFja2dyb3VuZDogJyNGMjZCMUYnLCBjb2xvcjogJyNmZmYnLCBwYWRkaW5nOiAnMXB4IDhweCcsIGJvcmRlclJhZGl1czogOSwgZm9udFNpemU6IDEwLCBmb250V2VpZ2h0OiA1MDAsIGZvbnRGYW1pbHk6ICdMZXhlbmQsIHNhbnMtc2VyaWYnIH19PgogICAgICAgICAgICAgIHthZ3JlZ2Fkb3MgIT09IG51bGwgPyBhZ3JlZ2Fkb3MucGVuZGllbnRlc0NvdW50IDogJ+KAlCd9CiAgICAgICAgICAgIDwvc3Bhbj4KICAgICAgICAgIDwvZGl2PgogICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250RmFtaWx5OiAnT3N3YWxkLCBzYW5zLXNlcmlmJywgZm9udFNpemU6IDMwLCBmb250V2VpZ2h0OiA2MDAsIGxpbmVIZWlnaHQ6IDEsIGxldHRlclNwYWNpbmc6ICcwLjVweCcsIGNvbG9yOiAnI0YyNkIxRicgfX0+CiAgICAgICAgICAgIHthZ3JlZ2Fkb3MgIT09IG51bGwgPyBmbXRFdXIoYWdyZWdhZG9zLnBlbmRpZW50ZXNJbXBvcnRlKSA6ICfigJQnfQogICAgICAgICAgPC9kaXY+CiAgICAgICAgPC9kaXY+CgogICAgICAgIDxkaXYgc3R5bGU9e3sgYmFja2dyb3VuZDogJyNmZmYnLCBib3JkZXI6ICcwLjVweCBzb2xpZCAjZDBjOGJjJywgYm9yZGVyUmFkaXVzOiAxNCwgcGFkZGluZzogJzE4cHggMjBweCcgfX0+CiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IG1hcmdpbkJvdHRvbTogOCB9fT4KICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udEZhbWlseTogJ09zd2FsZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAxMSwgZm9udFdlaWdodDogNTAwLCBsZXR0ZXJTcGFjaW5nOiAnMnB4JywgY29sb3I6ICcjN2E4MDkwJywgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScgfX0+VGl0dWxhcjwvc3Bhbj4KICAgICAgICAgIDwvZGl2PgogICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250RmFtaWx5OiAnT3N3YWxkLCBzYW5zLXNlcmlmJywgZm9udFNpemU6IDE4LCBmb250V2VpZ2h0OiA2MDAsIGNvbG9yOiAnIzExMScsIG1hcmdpbjogJzZweCAwIDhweCcgfX0+CiAgICAgICAgICAgIHtmaWx0cm9UaXR1bGFyID09PSAndG9kb3MnID8gJ1RvZG9zJyA6IGZpbHRyb1RpdHVsYXIgPT09ICdydWJlbicgPyAnUnViw6luJyA6ICdFbWlsaW8nfQogICAgICAgICAgPC9kaXY+CiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGRpc3BsYXk6ICdmbGV4JywgZ2FwOiA1LCBtYXJnaW5Ub3A6IDggfX0+CiAgICAgICAgICAgIHsoWyd0b2RvcycsICdydWJlbicsICdlbWlsaW8nXSBhcyBjb25zdCkubWFwKHQgPT4gewogICAgICAgICAgICAgIGNvbnN0IGlzQWN0aXZlID0gZmlsdHJvVGl0dWxhciA9PT0gdAogICAgICAgICAgICAgIGNvbnN0IGJnICA9IGlzQWN0aXZlID8gKHQgPT09ICd0b2RvcycgPyAnIzNhNDA1MCcgOiB0ID09PSAncnViZW4nID8gJyNGMjZCMUYnIDogJyMxRTVCQ0MnKSA6ICcjZmZmJwogICAgICAgICAgICAgIGNvbnN0IGNsciA9IGlzQWN0aXZlID8gJyNmZmYnIDogJyMzYTQwNTAnCiAgICAgICAgICAgICAgY29uc3QgYmQgID0gaXNBY3RpdmUgPyAnbm9uZScgOiAnMC41cHggc29saWQgI2QwYzhiYycKICAgICAgICAgICAgICByZXR1cm4gKAogICAgICAgICAgICAgICAgPGJ1dHRvbiBrZXk9e3R9IG9uQ2xpY2s9eygpID0+IG9uQ2FtYmlhckZpbHRyb1RpdHVsYXIodCl9CiAgICAgICAgICAgICAgICAgIHN0eWxlPXt7IGZsZXg6IDEsIHBhZGRpbmc6ICc1cHggOHB4JywgYm9yZGVyUmFkaXVzOiA2LCBib3JkZXI6IGJkLCBiYWNrZ3JvdW5kOiBiZywgZm9udEZhbWlseTogJ0xleGVuZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAxMiwgY29sb3I6IGNsciwgY3Vyc29yOiAncG9pbnRlcicsIHRleHRBbGlnbjogJ2NlbnRlcicsIGZvbnRXZWlnaHQ6IDUwMCB9fT4KICAgICAgICAgICAgICAgICAge3QgPT09ICd0b2RvcycgPyAnVG9kb3MnIDogdCA9PT0gJ3J1YmVuJyA/ICdSdWLDqW4nIDogJ0VtaWxpbyd9CiAgICAgICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICApCiAgICAgICAgICAgIH0pfQogICAgICAgICAgPC9kaXY+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgoKICAgICAgey8qIEJBUlJBIEZJTFRST1MgKi99CiAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBnYXA6IDEwLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgbWFyZ2luQm90dG9tOiAxNCwgZmxleFdyYXA6ICd3cmFwJyB9fT4KICAgICAgICA8aW5wdXQKICAgICAgICAgIHR5cGU9InRleHQiCiAgICAgICAgICB2YWx1ZT17YnVzcXVlZGF9CiAgICAgICAgICBvbkNoYW5nZT17ZSA9PiBvbkNhbWJpYXJCdXNxdWVkYShlLnRhcmdldC52YWx1ZSl9CiAgICAgICAgICBwbGFjZWhvbGRlcj0iQnVzY2FyIGVuIHDDoWdpbmEgYWN0dWFsIgogICAgICAgICAgc3R5bGU9e3sgZmxleDogMSwgbWluV2lkdGg6IDI0MCwgcGFkZGluZzogJzEwcHggMTRweCcsIGJvcmRlclJhZGl1czogMTAsIGJvcmRlcjogJzAuNXB4IHNvbGlkICNkMGM4YmMnLCBiYWNrZ3JvdW5kOiAnI2ZmZicsIGZvbnRGYW1pbHk6ICdMZXhlbmQsIHNhbnMtc2VyaWYnLCBmb250U2l6ZTogMTMsIGNvbG9yOiAnIzExMScsIG91dGxpbmU6ICdub25lJyB9fQogICAgICAgIC8+CiAgICAgICAgPHNlbGVjdAogICAgICAgICAgdmFsdWU9e2NhdEZpbHRyb30KICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IG9uQ2FtYmlhckNhdEZpbHRybyhlLnRhcmdldC52YWx1ZSl9CiAgICAgICAgICBzdHlsZT17eyBwYWRkaW5nOiAnMTBweCAxNHB4JywgYm9yZGVyUmFkaXVzOiAxMCwgYm9yZGVyOiAnMC41cHggc29saWQgI2QwYzhiYycsIGJhY2tncm91bmQ6ICcjZmZmJywgZm9udEZhbWlseTogJ0xleGVuZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAxMywgY29sb3I6ICcjMTExJywgbWluV2lkdGg6IDI4MCwgY3Vyc29yOiAncG9pbnRlcicgfX0KICAgICAgICA+CiAgICAgICAgICA8b3B0aW9uIHZhbHVlPSJ0b2RhcyI+Q2F0ZWdvcsOtYSDCtyBUb2RhcyBsYXMgY2F0ZWdvcsOtYXM8L29wdGlvbj4KICAgICAgICAgIHtjYXRlZ29yaWFzUHlnLmZpbHRlcihjID0+IGMubml2ZWwgPT09IDMpLm1hcChjID0+ICgKICAgICAgICAgICAgPG9wdGlvbiBrZXk9e2MuaWR9IHZhbHVlPXtjLmlkfT57Yy5pZH0gwrcge2Mubm9tYnJlfTwvb3B0aW9uPgogICAgICAgICAgKSl9CiAgICAgICAgPC9zZWxlY3Q+CiAgICAgICAgPGJ1dHRvbgogICAgICAgICAgb25DbGljaz17aGFuZGxlRXhwb3J0YXJ9CiAgICAgICAgICBkaXNhYmxlZD17ZXhwb3J0YW5kb30KICAgICAgICAgIHN0eWxlPXt7IHBhZGRpbmc6ICcxMHB4IDE4cHgnLCBib3JkZXJSYWRpdXM6IDEwLCBib3JkZXI6ICcwLjVweCBzb2xpZCAjZDBjOGJjJywgYmFja2dyb3VuZDogJyNmZmYnLCBmb250RmFtaWx5OiAnTGV4ZW5kLCBzYW5zLXNlcmlmJywgZm9udFNpemU6IDEzLCBjb2xvcjogJyMzYTQwNTAnLCBjdXJzb3I6IGV4cG9ydGFuZG8gPyAnZGVmYXVsdCcgOiAncG9pbnRlcicsIGZvbnRXZWlnaHQ6IDUwMCwgb3BhY2l0eTogZXhwb3J0YW5kbyA/IDAuNiA6IDEgfX0KICAgICAgICA+CiAgICAgICAgICB7ZXhwb3J0YW5kbyA/ICdFeHBvcnRhbmRvLi4uJyA6ICdFeHBvcnRhcid9CiAgICAgICAgPC9idXR0b24+CiAgICAgIDwvZGl2PgoKICAgICAgey8qIEJBTk5FUiBFUlJPUiAqL30KICAgICAge2Vycm9yQ2FyZ2EgJiYgKAogICAgICAgIDxkaXYgc3R5bGU9e3sKICAgICAgICAgIGJhY2tncm91bmQ6ICcjZmZmNWY1JywKICAgICAgICAgIGJvcmRlcjogJzAuNXB4IHNvbGlkICNCMDFEMjMnLAogICAgICAgICAgYm9yZGVyUmFkaXVzOiA4LAogICAgICAgICAgcGFkZGluZzogJzEwcHggMTRweCcsCiAgICAgICAgICBtYXJnaW46ICcwIDAgMTJweCAwJywKICAgICAgICAgIGRpc3BsYXk6ICdmbGV4JywKICAgICAgICAgIGFsaWduSXRlbXM6ICdjZW50ZXInLAogICAgICAgICAganVzdGlmeUNvbnRlbnQ6ICdzcGFjZS1iZXR3ZWVuJywKICAgICAgICAgIGZvbnRGYW1pbHk6ICdMZXhlbmQsIHNhbnMtc2VyaWYnLAogICAgICAgICAgZm9udFNpemU6IDEzLAogICAgICAgICAgY29sb3I6ICcjQjAxRDIzJywKICAgICAgICB9fT4KICAgICAgICAgIDxzcGFuPntlcnJvckNhcmdhfTwvc3Bhbj4KICAgICAgICAgIDxidXR0b24KICAgICAgICAgICAgb25DbGljaz17KCkgPT4geyBjYXJnYXJQYWdpbmEoKTsgY2FyZ2FyQWdyZWdhZG9zKCkgfX0KICAgICAgICAgICAgc3R5bGU9e3sKICAgICAgICAgICAgICBiYWNrZ3JvdW5kOiAnI0IwMUQyMycsCiAgICAgICAgICAgICAgY29sb3I6ICcjZmZmJywKICAgICAgICAgICAgICBib3JkZXI6ICdub25lJywKICAgICAgICAgICAgICBib3JkZXJSYWRpdXM6IDYsCiAgICAgICAgICAgICAgcGFkZGluZzogJzZweCAxNHB4JywKICAgICAgICAgICAgICBmb250RmFtaWx5OiAnT3N3YWxkLCBzYW5zLXNlcmlmJywKICAgICAgICAgICAgICBmb250U2l6ZTogMTEsCiAgICAgICAgICAgICAgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScsCiAgICAgICAgICAgICAgY3Vyc29yOiAncG9pbnRlcicsCiAgICAgICAgICAgIH19CiAgICAgICAgICA+CiAgICAgICAgICAgIFJlaW50ZW50YXIKICAgICAgICAgIDwvYnV0dG9uPgogICAgICAgIDwvZGl2PgogICAgICApfQoKICAgICAgey8qIEVNUFRZIFNUQVRFIG8gVEFCTEEgKi99CiAgICAgIHshY2FyZ2FuZG8gJiYgdG90YWwgPT09IDAgJiYgIWVycm9yQ2FyZ2EgPyAoCiAgICAgICAgPGRpdiBzdHlsZT17eyBiYWNrZ3JvdW5kOiAnI2ZmZicsIGJvcmRlcjogJzAuNXB4IHNvbGlkICNkMGM4YmMnLCBib3JkZXJSYWRpdXM6IDE0LCBwYWRkaW5nOiAnNDhweCAyOHB4JywgdGV4dEFsaWduOiAnY2VudGVyJyB9fT4KICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZm
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { fmtEur, fmtDate } from '@/utils/format'
+import { supabase } from '@/lib/supabase'
+import { fetchAllPaginated } from '@/lib/supabasePaginated'
+import type { Movimiento } from '@/types/conciliacion'
+import ModalDetalleMovimiento from './ModalDetalleMovimiento'
+
+/* ─── Paginación ─── */
+const PAGE_SIZES = [25, 50, 100, 200] as const
+type PageSize = typeof PAGE_SIZES[number]
+const DEFAULT_PAGE_SIZE: PageSize = 50
+
+function parsePageSize(raw: string | null): PageSize {
+  const n = Number(raw)
+  return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
+}
+function parsePage(raw: string | null): number {
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+/* ─── Interfaces ─── */
+interface TabMovimientosProps {
+  periodoLabel: string
+  periodoDesde: Date
+  periodoHasta: Date
+}
+
+interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
+interface Titular { id: string; nombre: string }
+
+type Agregados = {
+  ingresosImporte: number
+  gastosImporte: number
+  pendientesCount: number
+  pendientesImporte: number
+}
+
+type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
+type SortDir = 'asc' | 'desc'
+
+/* ─── Helpers ─── */
+function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
+  const tieneCategoria = !!m.categoria_id
+  const tieneDoc = m.doc_estado === 'tiene' || m.doc_estado === 'no_requiere'
+  return tieneCategoria && tieneDoc ? 'conciliado' : 'pendiente'
+}
+
+function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
+  if (!m.categoria_id) return null
+  const cat = categoriasPyg.find(c => c.id === m.categoria_id)
+  if (cat) return { id: cat.id, nombre: cat.nombre }
+  return null
+}
+
+/* ─── Componente ─── */
+export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
+  const navigate = useNavigate()
+
+  /* — URL params — */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page     = parsePage(searchParams.get('page'))
+  const pageSize = parsePageSize(searchParams.get('size'))
+
+  const updateUrl = useCallback((next: { page?: number; size?: PageSize }) => {
+    const params = new URLSearchParams(searchParams)
+    if (next.page !== undefined) params.set('page', String(next.page))
+    if (next.size !== undefined) params.set('size', String(next.size))
+    setSearchParams(params, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  /* — Filtros UI — */
+  const [filtroCard, setFiltroCard] = useState<'ingresos' | 'gastos' | 'pendientes' | null>(null)
+  const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
+  const [busqueda, setBusqueda] = useState('')
+  const [catFiltro, setCatFiltro] = useState('todas')
+  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  /* — Estado datos — */
+  const [filas, setFilas]           = useState<Movimiento[]>([])
+  const [total, setTotal]           = useState<number>(0)
+  const [cargando, setCargando]     = useState<boolean>(true)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const fetchIdRef                  = useRef<number>(0)
+
+  /* — Agregados KPI — */
+  const [agregados, setAgregados] = useState<Agregados | null>(null)
+
+  /* — Lookup data — */
+  const [modalMov, setModalMov]           = useState<Movimiento | null>(null)
+  const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
+  const [titulares, setTitulares]         = useState<Titular[]>([])
+
+  /* — Exportar — */
+  const [exportando, setExportando] = useState(false)
+
+  /* ── Corregir size inválido en montaje ── */
+  useEffect(() => {
+    const raw = searchParams.get('size')
+    if (raw !== null && !(PAGE_SIZES as readonly number[]).includes(Number(raw))) {
+      updateUrl({ size: DEFAULT_PAGE_SIZE })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* ── Cargar lookup tables ── */
+  useEffect(() => {
+    Promise.all([
+      supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'),
+      supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden'),
+    ]).then(([cats, tits]) => {
+      if (!cats.error) setCategoriasPyg(cats.data ?? [])
+      if (!tits.error) setTitulares(tits.data ?? [])
+    })
+  }, [])
+
+  /* ── Calcular string de período ── */
+  const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
+  const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
+
+  /* ── Query paginada principal ── */
+  const cargarPagina = useCallback(async () => {
+    const myFetchId = ++fetchIdRef.current
+    setCargando(true)
+    setErrorCarga(null)
+
+    const from = (page - 1) * pageSize
+    const to   = from + pageSize - 1
+
+    const sortMap: Record<string, string | null> = {
+      fecha:       'fecha',
+      concepto:    'concepto',
+      contraparte: 'proveedor',
+      importe:     'importe',
+      categoria:   'categoria',
+      doc:         'doc_estado',
+      titular:     'titular_id',
+      estado:      null, // client-side
+    }
+    const sortField = sortMap[sortColumn] ?? 'fecha'
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = supabase
+      .from('conciliacion')
+      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)', { count: 'exact' })
+      .gte('fecha', periodoDesdeStr)
+      .lte('fecha', periodoHastaStr)
+
+    if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+    if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+    // pendientes es client-side
+
+    if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
+
+    if (filtroTitular !== 'todos' && titulares.length > 0) {
+      // Resolver ids que coincidan con el nombre del titular
+      const matchIds = titulares
+        .filter(t => {
+          const n = t.nombre.toLowerCase()
+          if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+          if (filtroTitular === 'emilio') return n.includes('emilio')
+          return false
+        })
+        .map(t => t.id)
+      if (matchIds.length === 1) {
+        q = q.eq('titular_id', matchIds[0])
+      } else if (matchIds.length > 1) {
+        q = q.in('titular_id', matchIds)
+      }
+      // Si no hay match → no filtrar (equivale a 'todos')
+    }
+
+    if (sortField) {
+      q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
+    } else {
+      // estado → order client-side; server sort por fecha
+      q = q.order('fecha', { ascending: false }).range(from, to)
+    }
+
+    const { data, error, count } = await q
+
+    if (myFetchId !== fetchIdRef.current) return // respuesta obsoleta
+
+    if (error) {
+      setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
+      setFilas([])
+      setTotal(0)
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped = (data ?? []).map((m: any): Movimiento => ({
+        id:          m.id,
+        fecha:       m.fecha,
+        concepto:    m.concepto,
+        importe:     Number(m.importe),
+        categoria_id: m.categoria ?? null,
+        contraparte: m.proveedor ?? '',
+        gasto_id:    m.gasto_id ?? null,
+        factura_id:  m.factura_id ?? null,
+        factura_data: m.factura_data ?? null,
+        titular_id:  m.titular_id ?? null,
+        doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
+      }))
+      setFilas(mapped)
+      setTotal(count ?? 0)
+    }
+    setCargando(false)
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr])
+
+  /* ── Query de agregados KPI (solo en cambio de período) ── */
+  const cargarAgregados = useCallback(async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await fetchAllPaginated<any>(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = supabase
+          .from('conciliacion')
+          .select('importe, categoria, doc_estado, titular_id')
+          .gte('fecha', periodoDesdeStr)
+          .lte('fecha', periodoHastaStr)
+
+        if (filtroTitular !== 'todos' && titulares.length > 0) {
+          const matchIds = titulares
+            .filter(t => {
+              const n = t.nombre.toLowerCase()
+              if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+              if (filtroTitular === 'emilio') return n.includes('emilio')
+              return false
+            })
+            .map(t => t.id)
+          if (matchIds.length === 1)      q = q.eq('titular_id', matchIds[0])
+          else if (matchIds.length > 1)   q = q.in('titular_id', matchIds)
+        }
+        return q
+      })
+
+      let ingresosImporte = 0, gastosImporte = 0
+      let pendientesCount = 0, pendientesImporte = 0
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of data as any[]) {
+        const imp = Number(r.importe) || 0
+        if (imp > 0) ingresosImporte += imp
+        if (imp < 0) gastosImporte   += imp
+        const tieneCategoria = !!r.categoria
+        const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
+        if (!(tieneCategoria && tieneDoc)) {
+          pendientesCount   += 1
+          pendientesImporte += Math.abs(imp)
+        }
+      }
+      setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+    } catch {
+      setAgregados(null)
+    }
+  }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares])
+
+  /* ── Efectos de disparo ── */
+  useEffect(() => { cargarPagina() }, [cargarPagina])
+  useEffect(() => { cargarAgregados() }, [cargarAgregados])
+
+  /* ── Auto-corrección de page > totalPages ── */
+  useEffect(() => {
+    if (cargando) return
+    if (total === 0) return
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (page > totalPages) updateUrl({ page: totalPages })
+  }, [cargando, total, pageSize, page, updateUrl])
+
+  /* ── Handlers de filtros con reset de página ── */
+  const onCambiarFiltroCard = (v: 'ingresos' | 'gastos' | 'pendientes') => {
+    setFiltroCard(prev => prev === v ? null : v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarFiltroTitular = (v: 'todos' | 'ruben' | 'emilio') => {
+    setFiltroTitular(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarBusqueda = (v: string) => {
+    setBusqueda(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarCatFiltro = (v: string) => {
+    setCatFiltro(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  /* ── Sort ── */
+  function handleSort(col: SortColumn) {
+    if (sortColumn === col) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else setSortDir('asc')
+    } else {
+      setSortColumn(col)
+      setSortDir('asc')
+    }
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  /* ── filasVisibles: búsqueda + sort estado client-side ── */
+  const filasVisibles = useMemo(() => {
+    let out = filas
+
+    // Filtro pendientes client-side (server-side no aplica para este filtro)
+    if (filtroCard === 'pendientes') {
+      out = out.filter(m => calcularEstado(m) === 'pendiente')
+    }
+
+    if (busqueda.trim()) {
+      const q = busqueda.trim().toLowerCase()
+      out = out.filter(m =>
+        (m.concepto ?? '').toLowerCase().includes(q) ||
+        (m.contraparte ?? '').toLowerCase().includes(q) ||
+        (m.categoria_id ?? '').toLowerCase().includes(q)
+      )
+    }
+
+    if (sortColumn === 'estado') {
+      out = [...out].sort((a, b) => {
+        const ea = calcularEstado(a)
+        const eb = calcularEstado(b)
+        return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
+      })
+    }
+
+    return out
+  }, [filas, busqueda, sortColumn, sortDir, filtroCard])
+
+  /* ── Exportar CSV ── */
+  const handleExportar = async () => {
+    setExportando(true)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await fetchAllPaginated<any>(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = supabase
+          .from('conciliacion')
+          .select('*')
+          .gte('fecha', periodoDesdeStr)
+          .lte('fecha', periodoHastaStr)
+
+        if (filtroCard === 'ingresos') q = q.gt('importe', 0)
+        if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+        if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+        if (filtroTitular !== 'todos' && titulares.length > 0) {
+          const matchIds = titulares
+            .filter(t => {
+              const n = t.nombre.toLowerCase()
+              if (filtroTitular === 'ruben')  return n.includes('rubén') || n.includes('ruben')
+              if (filtroTitular === 'emilio') return n.includes('emilio')
+              return false
+            })
+            .map(t => t.id)
+          if (matchIds.length === 1)    q = q.eq('titular_id', matchIds[0])
+          else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
+        }
+        return q.order('fecha', { ascending: false })
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = data.map((m: any) => [
+        m.fecha,
+        (m.concepto ?? '').replace(/,/g, ' '),
+        (m.proveedor ?? '').replace(/,/g, ' '),
+        m.importe,
+        m.categoria ?? '',
+        (m.doc_estado ?? 'falta'),
+      ])
+      const csv = [
+        ['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc Estado'].join(','),
+        ...rows.map(r => r.join(',')),
+      ].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+    } catch {
+      // swallow: el botón vuelve a su estado normal en finally
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  /* ── Estilos ── */
+  const cardStyle = (filtro: 'ingresos' | 'gastos' | 'pendientes'): React.CSSProperties => ({
+    background: '#fff',
+    border: filtroCard === filtro ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
+    borderRadius: 14,
+    padding: '18px 20px',
+    cursor: 'pointer',
+    boxShadow: filtroCard === filtro ? '0 0 0 3px #FF475715' : 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  })
+
+  const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
+    { label: 'Fecha',       col: 'fecha',       align: 'left' },
+    { label: 'Concepto',    col: 'concepto',    align: 'left' },
+    { label: 'Contraparte', col: 'contraparte', align: 'left' },
+    { label: 'Importe',     col: 'importe',     align: 'right' },
+    { label: 'Categoría',   col: 'categoria',   align: 'left' },
+    { label: 'Doc',         col: 'doc',         align: 'center' },
+    { label: 'Estado',      col: 'estado',      align: 'left' },
+    { label: 'Titular',     col: 'titular',     align: 'left' },
+  ]
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  /* ── Render ── */
+  return (
+    <div>
+      {/* 4 CARDS KPI */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
+
+        <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos')}>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
+          </div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
+            {agregados !== null ? `+${fmtEur(agregados.ingresosImporte)}` : '—'}
+          </div>
+        </div>
+
+        <div onClick={() => onCambiarFiltroCard('gastos')} style={cardStyle('gastos')}>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
+          </div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
+            {agregados !== null ? `-${fmtEur(agregados.gastosImporte)}` : '—'}
+          </div>
+        </div>
+
+        <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
+            <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
+              {agregados !== null ? agregados.pendientesCount : '—'}
+            </span>
+          </div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
+            {agregados !== null ? fmtEur(agregados.pendientesImporte) : '—'}
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
+          </div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#111', margin: '6px 0 8px' }}>
+            {filtroTitular === 'todos' ? 'Todos' : filtroTitular === 'ruben' ? 'Rubén' : 'Emilio'}
+          </div>
+          <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
+            {(['todos', 'ruben', 'emilio'] as const).map(t => {
+              const isActive = filtroTitular === t
+              const bg  = isActive ? (t === 'todos' ? '#3a4050' : t === 'ruben' ? '#F26B1F' : '#1E5BCC') : '#fff'
+              const clr = isActive ? '#fff' : '#3a4050'
+              const bd  = isActive ? 'none' : '0.5px solid #d0c8bc'
+              return (
+                <button key={t} onClick={() => onCambiarFiltroTitular(t)}
+                  style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
+                  {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* BARRA FILTROS */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          value={busqueda}
+          onChange={e => onCambiarBusqueda(e.target.value)}
+          placeholder="Buscar en página actual"
+          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }}
+        />
+        <select
+          value={catFiltro}
+          onChange={e => onCambiarCatFiltro(e.target.value)}
+          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}
+        >
+          <option value="todas">Categoría · Todas las categorías</option>
+          {categoriasPyg.filter(c => c.nivel === 3).map(c => (
+            <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
+          ))}
+        </select>
+        <button
+          onClick={handleExportar}
+          disabled={exportando}
+          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
+        >
+          {exportando ? 'Exportando...' : 'Exportar'}
+        </button>
+      </div>
+
+      {/* BANNER ERROR */}
+      {errorCarga && (
+        <div style={{
+          background: '#fff5f5',
+          border: '0.5px solid #B01D23',
+          borderRadius: 8,
+          padding: '10px 14px',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontFamily: 'Lexend, sans-serif',
+          fontSize: 13,
+          color: '#B01D23',
+        }}>
+          <span>{errorCarga}</span>
+          <button
+            onClick={() => { cargarPagina(); cargarAgregados() }}
+            style={{
+              background: '#B01D23',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '6px 14px',
+              fontFamily: 'Oswald, sans-serif',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {/* EMPTY STATE o TABLA */}
+      {!cargando && total === 0 && !errorCarga ? (
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos en este periodo</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Importa un extracto bancario desde el Importador</div>
+          <button
+            onClick={() => navigate('/importador')}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+          >
+            Ir al Importador
+          </button>
+        </div>
+      ) : (
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
+          {cargando && (
+            <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+              Cargando…
+            </div>
+          )}
+          {!cargando && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 100 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {HEADERS.map(h => {
+                      const isActive = sortColumn === h.col
+                      const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+                      return (
+                        <th key={h.col} onClick={() => handleSort(h.col)}
+                          style={{
+                            fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
+                            color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
+                            padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
+                            whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+                          }}>
+                          {h.label}{arrow}
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasVisibles.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+                        Sin movimientos con los filtros actuales
+                      </td>
+                    </tr>
+                  ) : filasVisibles.map((m, idx) => {
+                    const isLast = idx === filasVisibles.length - 1
+                    const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
+                    const catInfo = getBadgeCategoria(m, categoriasPyg)
+                    const estado = calcularEstado(m)
+                    const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
+                    const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
+                    const isEmilio = titNombre.includes('emilio')
+
+                    return (
+                      <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                        <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {fmtDate(m.fecha)}
+                        </td>
+                        <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.concepto.length > 40 ? m.concepto.slice(0, 40) + '…' : m.concepto}
+                        </td>
+                        <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.contraparte || 'Sin identificar'}
+                        </td>
+                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
+                          {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
+                        </td>
+                        <td style={{ ...tdBase, overflow: 'hidden' }}>
+                          {catInfo ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
+                              {catInfo.nombre}
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
+                              sin categoría
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ ...tdBase, textAlign: 'center' }}>
+                          {m.doc_estado === 'tiene' || (m.factura_id && (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url) ? (
+                            <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
+                          ) : m.doc_estado === 'no_requiere' ? (
+                            <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
+                          ) : (
+                            <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
+                          )}
+                        </td>
+                        <td style={tdBase}>
+                          {estado === 'conciliado' ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
+                              Conciliado
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+                        <td style={tdBase}>
+                          {isRuben ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
+                              Rubén
+                            </span>
+                          ) : isEmilio ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
+                              Emilio
+                            </span>
+                          ) : (
+                            <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* PIE DE TABLA — paginación */}
+          {total > 0 && (() => {
+            const desde = (page - 1) * pageSize + 1
+            const hasta = Math.min(page * pageSize, total)
+            const isFirst = page === 1
+            const isLast  = page === totalPages
+
+            const btnBase: React.CSSProperties = {
+              background: '#fff',
+              border: '0.5px solid #d0c8bc',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontFamily: 'Lexend, sans-serif',
+              fontSize: 13,
+              color: '#111',
+              cursor: 'pointer',
+            }
+            const btnDisabled: React.CSSProperties = { ...btnBase, opacity: 0.35, cursor: 'default' }
+
+            return (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 16px',
+                background: '#fafaf7',
+                borderTop: '0.5px solid #d0c8bc',
+              }}>
+                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+                  {`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')} movimientos`}
+                </span>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#7a8090', textTransform: 'uppercase' }}>
+                      Filas:
+                    </label>
+                    <select
+                      value={pageSize}
+                      onChange={e => updateUrl({ page: 1, size: Number(e.target.value) as PageSize })}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        border: '0.5px solid #d0c8bc',
+                        background: '#fff',
+                        fontFamily: 'Lexend, sans-serif',
+                        fontSize: 13,
+                      }}
+                    >
+                      {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+
+                    <button
+                      style={isFirst ? btnDisabled : btnBase}
+                      disabled={isFirst}
+                      onClick={() => !isFirst && updateUrl({ page: 1 })}
+                    >
+                      Primera
+                    </button>
+                    <button
+                      style={isFirst ? btnDisabled : btnBase}
+                      disabled={isFirst}
+                      onClick={() => !isFirst && updateUrl({ page: page - 1 })}
+                    >
+                      ‹ Anterior
+                    </button>
+                    <span style={{ ...btnBase, cursor: 'default' }}>
+                      {`Página ${page} de ${totalPages}`}
+                    </span>
+                    <button
+                      style={isLast ? btnDisabled : btnBase}
+                      disabled={isLast}
+                      onClick={() => !isLast && updateUrl({ page: page + 1 })}
+                    >
+                      Siguiente ›
+                    </button>
+                    <button
+                      style={isLast ? btnDisabled : btnBase}
+                      disabled={isLast}
+                      onClick={() => !isLast && updateUrl({ page: totalPages })}
+                    >
+                      Última
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {modalMov && (
+        <ModalDetalleMovimiento
+          movimiento={modalMov}
+          categoriasPyg={categoriasPyg}
+          titulares={titulares}
+          onClose={() => setModalMov(null)}
+          onSaved={() => setModalMov(null)}
+        />
+      )}
+    </div>
+  )
+}

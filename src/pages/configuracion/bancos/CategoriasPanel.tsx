@@ -1,1 +1,248 @@
-aW1wb3J0IHsgRnJhZ21lbnQsIHVzZUVmZmVjdCwgdXNlTWVtbywgdXNlU3RhdGUsIHR5cGUgQ1NTUHJvcGVydGllcyB9IGZyb20gJ3JlYWN0JwppbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gJ0AvbGliL3N1cGFiYXNlJwppbXBvcnQgeyB1c2VUaGVtZSwgRk9OVCB9IGZyb20gJ0Avc3R5bGVzL3Rva2VucycKaW1wb3J0IENvbmZpZ0dyb3VwQ2FyZCBmcm9tICdAL2NvbXBvbmVudHMvY29uZmlndXJhY2lvbi9Db25maWdHcm91cENhcmQnCmltcG9ydCB7IElubGluZUVkaXQgfSBmcm9tICdAL2NvbXBvbmVudHMvY29uZmlndXJhY2lvbi9JbmxpbmVFZGl0JwoKaW50ZXJmYWNlIENhdFB5ZyB7CiAgaWQ6IHN0cmluZyAgICAgICAgICAgICAgIC8vIGVqOiAiMi4xMS4xIgogIG5vbWJyZTogc3RyaW5nCiAgbml2ZWw6IG51bWJlciAgICAgICAgICAgIC8vIDEsIDIsIDMKICBwYXJlbnRfaWQ6IHN0cmluZyB8IG51bGwKICBibG9xdWU6IHN0cmluZyB8IG51bGwKICBjb21wb3J0YW1pZW50bzogc3RyaW5nIHwgbnVsbAogIGFjdGl2YTogYm9vbGVhbgogIG9yZGVuOiBudW1iZXIgfCBudWxsCiAgcmVxdWllcmVfZmFjdHVyYTogYm9vbGVhbgp9CgpleHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBDYXRlZ29yaWFzUGFuZWwoKSB7CiAgY29uc3QgeyBULCBpc0RhcmsgfSA9IHVzZVRoZW1lKCkKICBjb25zdCBbY2F0cywgc2V0Q2F0c10gPSB1c2VTdGF0ZTxDYXRQeWdbXT4oW10pCiAgY29uc3QgW2xvYWRpbmcsIHNldExvYWRpbmddID0gdXNlU3RhdGUodHJ1ZSkKICBjb25zdCBbZXJyb3IsIHNldEVycm9yXSA9IHVzZVN0YXRlPHN0cmluZyB8IG51bGw+KG51bGwpCgogIGFzeW5jIGZ1bmN0aW9uIHJlZmV0Y2goKSB7CiAgICBjb25zdCB7IGRhdGEsIGVycm9yIH0gPSBhd2FpdCBzdXBhYmFzZQogICAgICAuZnJvbSgnY2F0ZWdvcmlhc19weWcnKQogICAgICAuc2VsZWN0KCdpZCwgbm9tYnJlLCBuaXZlbCwgcGFyZW50X2lkLCBibG9xdWUsIGNvbXBvcnRhbWllbnRvLCBhY3RpdmEsIG9yZGVuLCByZXF1aWVyZV9mYWN0dXJhJykKICAgICAgLmVxKCdhY3RpdmEnLCB0cnVlKQogICAgICAub3JkZXIoJ29yZGVuJywgeyBhc2NlbmRpbmc6IHRydWUgfSkKICAgICAgLm9yZGVyKCdpZCcsIHsgYXNjZW5kaW5nOiB0cnVlIH0pCiAgICBpZiAoZXJyb3IpIHRocm93IGVycm9yCiAgICBzZXRDYXRzKChkYXRhID8/IFtdKSBhcyBDYXRQeWdbXSkKICB9CgogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICAoYXN5bmMgKCkgPT4gewogICAgICB0cnkgeyBhd2FpdCByZWZldGNoKCkgfQogICAgICBjYXRjaCAoZTogYW55KSB7IHNldEVycm9yKGU/Lm1lc3NhZ2UgPz8gJ0Vycm9yJykgfQogICAgICBmaW5hbGx5IHsgc2V0TG9hZGluZyhmYWxzZSkgfQogICAgfSkoKQogIH0sIFtdKQoKICAvKiBDb25zdHJ1aXIgamVyYXJxdcOtYSBuaXZlbCAxIOKGkiAyIOKGkiAzICovCiAgY29uc3QgYXJib2wgPSB1c2VNZW1vKCgpID0+IHsKICAgIGNvbnN0IG5pdmVsMSA9IGNhdHMuZmlsdGVyKGMgPT4gYy5uaXZlbCA9PT0gMSkKICAgIHJldHVybiBuaXZlbDEubWFwKG4xID0+IHsKICAgICAgY29uc3QgaGlqb3MyID0gY2F0cy5maWx0ZXIoYyA9PiBjLm5pdmVsID09PSAyICYmIGMucGFyZW50X2lkID09PSBuMS5pZCkKICAgICAgY29uc3Qgc3VlbHRvczMgPSBjYXRzLmZpbHRlcihjID0+IGMubml2ZWwgPT09IDMgJiYgYy5wYXJlbnRfaWQgPT09IG4xLmlkKSAvLyBwb3Igc2kgbml2ZWwgMyBjdWVsZ2EgZGlyZWN0YW1lbnRlIGRlIDEgKGNhc28gIjMgTW92aW1pZW50b3MgaW50ZXJub3MiKQogICAgICByZXR1cm4gewogICAgICAgIG4xLAogICAgICAgIGdydXBvczogaGlqb3MyLm1hcChuMiA9PiAoewogICAgICAgICAgbjIsCiAgICAgICAgICBoaWpvczogY2F0cy5maWx0ZXIoYyA9PiBjLm5pdmVsID09PSAzICYmIGMucGFyZW50X2lkID09PSBuMi5pZCksCiAgICAgICAgfSkpLAogICAgICAgIHN1ZWx0b3MzLAogICAgICB9CiAgICB9KQogIH0sIFtjYXRzXSkKCiAgYXN5bmMgZnVuY3Rpb24gcGF0Y2hDYXQoaWQ6IHN0cmluZywgY2FtcG86IGtleW9mIENhdFB5ZywgdmFsdWU6IGFueSkgewogICAgY29uc3QgeyBlcnJvciB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnY2F0ZWdvcmlhc19weWcnKS51cGRhdGUoeyBbY2FtcG9dOiB2YWx1ZSB9KS5lcSgnaWQnLCBpZCkKICAgIGlmIChlcnJvcikgeyBzZXRFcnJvcihlcnJvci5tZXNzYWdlKTsgcmV0dXJuIH0KICAgIGF3YWl0IHJlZmV0Y2goKQogIH0KCiAgYXN5bmMgZnVuY3Rpb24gZWxpbWluYXJDb25DaGVjayhpZDogc3RyaW5nLCBub21icmU6IHN0cmluZykgewogICAgY29uc3QgeyBjb3VudDogdXNvQ29uYyB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnY29uY2lsaWFjaW9uJykuc2VsZWN0KCdpZCcsIHsgY291bnQ6ICdleGFjdCcsIGhlYWQ6IHRydWUgfSkuZXEoJ2NhdGVnb3JpYScsIGlkKQogICAgaWYgKCh1c29Db25jID8/IDApID4gMCkgewogICAgICBhbGVydChgTm8gc2UgcHVlZGUgZWxpbWluYXIgIiR7bm9tYnJlfSIgKCR7aWR9KTogZXN0w6EgZW4gdXNvIGVuICR7dXNvQ29uY30gbW92aW1pZW50byhzKSBiYW5jYXJpb3MuIFJlY2F0ZWdvcml6YSBwcmltZXJvLmApCiAgICAgIHJldHVybgogICAgfQogICAgaWYgKCFjb25maXJtKGBFbGltaW5hciAiJHtub21icmV9IiAoJHtpZH0pP2ApKSByZXR1cm4KICAgIGNvbnN0IHsgZXJyb3IgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ2NhdGVnb3JpYXNfcHlnJykudXBkYXRlKHsgYWN0aXZhOiBmYWxzZSB9KS5lcSgnaWQnLCBpZCkKICAgIGlmIChlcnJvcikgeyBzZXRFcnJvcihlcnJvci5tZXNzYWdlKTsgcmV0dXJuIH0KICAgIGF3YWl0IHJlZmV0Y2goKQogIH0KCiAgaWYgKGxvYWRpbmcpIHJldHVybiA8ZGl2IHN0eWxlPXt7IHBhZGRpbmc6IDI0LCBjb2xvcjogVC5tdXQsIGZvbnRGYW1pbHk6IEZPTlQuYm9keSB9fT5DYXJnYW5kb+KApjwvZGl2PgogIGlmIChlcnJvcikgewogICAgcmV0dXJuICgKICAgICAgPGRpdiBzdHlsZT17eyBwYWRkaW5nOiAxNiwgYmFja2dyb3VuZDogJyNCMDFEMjMyMCcsIGNvbG9yOiAnI0IwMUQyMycsIGJvcmRlclJhZGl1czogMTAsIGZvbnRGYW1pbHk6IEZPTlQuYm9keSB9fT4KICAgICAgICB7ZXJyb3J9CiAgICAgIDwvZGl2PgogICAgKQogIH0KCiAgLyogU1RZTEVTICovCiAgY29uc3QgdGg6IENTU1Byb3BlcnRpZXMgPSB7CiAgICBwYWRkaW5nOiAnMTBweCAxNnB4JywKICAgIGZvbnRGYW1pbHk6IEZPTlQuaGVhZGluZywKICAgIGZvbnRTaXplOiAxMSwKICAgIHRleHRUcmFuc2Zvcm06ICd1cHBlcmNhc2UnLAogICAgbGV0dGVyU3BhY2luZzogJzEuM3B4JywKICAgIGNvbG9yOiBULm11dCwKICAgIGZvbnRXZWlnaHQ6IDUwMCwKICAgIGJhY2tncm91bmQ6IFQuYmcsCiAgICBib3JkZXJCb3R0b206IGAxcHggc29saWQgJHtULmJyZH1gLAogICAgdGV4dEFsaWduOiAnbGVmdCcsCiAgfQogIGNvbnN0IHRkOiBDU1NQcm9wZXJ0aWVzID0gewogICAgcGFkZGluZzogJzhweCAxNnB4JywKICAgIGZvbnRGYW1pbHk6IEZPTlQuYm9keSwKICAgIGZvbnRTaXplOiAxMywKICAgIGNvbG9yOiBULnByaSwKICB9CiAgY29uc3QgY29kaWdvVGQ6IENTU1Byb3BlcnRpZXMgPSB7CiAgICAuLi50ZCwKICAgIGZvbnRGYW1pbHk6IEZPTlQuaGVhZGluZywKICAgIGZvbnRTaXplOiAxMSwKICAgIGxldHRlclNwYWNpbmc6ICcwLjVweCcsCiAgICBjb2xvcjogVC5zZWMsCiAgICB3aWR0aDogOTAsCiAgfQogIGNvbnN0IGdyb3VwUm93QmcgPSBpc0RhcmsgPyAncmdiYSgyNTUsMjU1LDI1NSwwLjA0KScgOiAncmdiYSgwLDAsMCwwLjA0KScKICBjb25zdCBzdWJHcm91cEJnID0gaXNEYXJrID8gJ3JnYmEoMjU1LDI1NSwyNTUsMC4wMiknIDogJ3JnYmEoMCwwLDAsMC4wMiknCiAgY29uc3QgYWNjZW50TjEgPSBpc0RhcmsgPyAnI0YwOTU5NScgOiAnI0EzMkQyRCcKICBjb25zdCBhY2NlbnRJbmcgPSBpc0RhcmsgPyAnIzVEQ0FBNScgOiAnIzNCNkQxMScKCiAgZnVuY3Rpb24gR3JvdXBIZWFkZXJOMSh7IGNhdCB9OiB7IGNhdDogQ2F0UHlnIH0pIHsKICAgIGNvbnN0IGFjY2VudCA9IGNhdC5pZCA9PT0gJzEnID8gYWNjZW50SW5nIDogYWNjZW50TjEKICAgIHJldHVybiAoCiAgICAgIDx0ciBzdHlsZT17eyBiYWNrZ3JvdW5kOiBncm91cFJvd0JnIH19PgogICAgICAgIDx0ZCBjb2xTcGFuPXs1fSBzdHlsZT17ewogICAgICAgICAgcGFkZGluZzogJzEycHggMTZweCcsCiAgICAgICAgICBmb250RmFtaWx5OiBGT05ULmhlYWRpbmcsCiAgICAgICAgICBmb250U2l6ZTogMTIsCiAgICAgICAgICBsZXR0ZXJTcGFjaW5nOiAnMS41cHgnLAogICAgICAgICAgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScsCiAgICAgICAgICBjb2xvcjogYWNjZW50LAogICAgICAgICAgZm9udFdlaWdodDogNzAwLAogICAgICAgICAgYm9yZGVyVG9wOiBgMXB4IHNvbGlkICR7VC5icmR9YCwKICAgICAgICAgIGJvcmRlckJvdHRvbTogYDAuNXB4IHNvbGlkICR7VC5icmR9YCwKICAgICAgICB9fT4KICAgICAgICAgIHtjYXQuaWR9IMK3IHtjYXQubm9tYnJlfQogICAgICAgIDwvdGQ+CiAgICAgIDwvdHI+CiAgICApCiAgfQoKICBmdW5jdGlvbiBHcm91cEhlYWRlck4yKHsgY2F0IH06IHsgY2F0OiBDYXRQeWcgfSkgewogICAgcmV0dXJuICgKICAgICAgPHRyIHN0eWxlPXt7IGJhY2tncm91bmQ6IHN1Ykdyb3VwQmcgfX0+CiAgICAgICAgPHRkIGNvbFNwYW49ezV9IHN0eWxlPXt7CiAgICAgICAgICBwYWRkaW5nOiAnOHB4IDE2cHggOHB4IDMycHgnLAogICAgICAgICAgZm9udEZhbWlseTogRk9OVC5oZWFkaW5nLAogICAgICAgICAgZm9udFNpemU6IDEwLAogICAgICAgICAgbGV0dGVyU3BhY2luZzogJzEuMnB4JywKICAgICAgICAgIHRleHRUcmFuc2Zvcm06ICd1cHBlcmNhc2UnLAogICAgICAgICAgY29sb3I6IFQubXV0LAogICAgICAgICAgZm9udFdlaWdodDogNjAwLAogICAgICAgIH19PgogICAgICAgICAge2NhdC5pZH0gwrcge2NhdC5ub21icmV9CiAgICAgICAgPC90ZD4KICAgICAgPC90cj4KICAgICkKICB9CgogIGZ1bmN0aW9uIEZpbGFOMyh7IGMgfTogeyBjOiBDYXRQeWcgfSkgewogICAgcmV0dXJuICgKICAgICAgPHRyIHN0eWxlPXt7IGJvcmRlckJvdHRvbTogYDAuNXB4IHNvbGlkICR7VC5icmR9YCB9fT4KICAgICAgICA8dGQgc3R5bGU9e2NvZGlnb1RkfT57Yy5pZH08L3RkPgogICAgICAgIDx0ZCBzdHlsZT17eyAuLi50ZCwgZm9udFdlaWdodDogNTAwIH19PgogICAgICAgICAgPElubGluZUVkaXQgdmFsdWU9e2Mubm9tYnJlfSB0eXBlPSJ0ZXh0IiBvblN1Ym1pdD17diA9PiBwYXRjaENhdChjLmlkLCAnbm9tYnJlJywgU3RyaW5nKHYpKX0gLz4KICAgICAgICA8L3RkPgogICAgICAgIDx0ZCBzdHlsZT17eyAuLi50ZCwgdGV4dEFsaWduOiAnY2VudGVyJywgd2lkdGg6IDEzMCB9fT4KICAgICAgICAgIDxsYWJlbCBzdHlsZT17eyBkaXNwbGF5OiAnaW5saW5lLWZsZXgnLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgZ2FwOiA2LCBjdXJzb3I6ICdwb2ludGVyJywgZm9udFNpemU6IDEyLCBjb2xvcjogYy5yZXF1aWVyZV9mYWN0dXJhID8gVC5wcmkgOiBULm11dCB9fT4KICAgICAgICAgICAgPGlucHV0CiAgICAgICAgICAgICAgdHlwZT0iY2hlY2tib3giCiAgICAgICAgICAgICAgY2hlY2tlZD17Yy5yZXF1aWVyZV9mYWN0dXJhfQogICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IHBhdGNoQ2F0KGMuaWQsICdyZXF1aWVyZV9mYWN0dXJhJywgZS50YXJnZXQuY2hlY2tlZCl9CiAgICAgICAgICAgICAgc3R5bGU9e3sgY3Vyc29yOiAncG9pbnRlcicgfX0KICAgICAgICAgICAgLz4KICAgICAgICAgICAge2MucmVxdWllcmVfZmFjdHVyYSA/ICdTw60nIDogJ05vJ30KICAgICAgICAgIDwvbGFiZWw+CiAgICAgICAgPC90ZD4KICAgICAgICA8dGQgc3R5bGU9e3sgLi4udGQsIHRleHRBbGlnbjogJ2NlbnRlcicsIHdpZHRoOiA4MCB9fT4KICAgICAgICAgIDxJbmxpbmVFZGl0IHZhbHVlPXtjLm9yZGVuID8/IDB9IHR5cGU9Im51bWJlciIgYWxpZ249InJpZ2h0IiBvblN1Ym1pdD17diA9PiBwYXRjaENhdChjLmlkLCAnb3JkZW4nLCBOdW1iZXIodikpfSAvPgogICAgICAgIDwvdGQ+CiAgICAgICAgPHRkIHN0eWxlPXt7IC4uLnRkLCB0ZXh0QWxpZ246ICdyaWdodCcsIHBhZGRpbmdSaWdodDogMjAsIHdpZHRoOiA5MCB9fT4KICAgICAgICAgIDxidXR0b24KICAgICAgICAgICAgb25DbGljaz17KCkgPT4gZWxpbWluYXJDb25DaGVjayhjLmlkLCBjLm5vbWJyZSl9CiAgICAgICAgICAgIHN0eWxlPXt7CiAgICAgICAgICAgICAgYmFja2dyb3VuZDogJ3RyYW5zcGFyZW50JywgYm9yZGVyOiAnbm9uZScsIGNvbG9yOiBULm11dCwKICAgICAgICAgICAgICBmb250U2l6ZTogMTEsIGN1cnNvcjogJ3BvaW50ZXInLCBmb250RmFtaWx5OiBGT05ULmhlYWRpbmcsCiAgICAgICAgICAgICAgbGV0dGVyU3BhY2luZzogJzAuMDZlbScsIHRleHRUcmFuc2Zvcm06ICd1cHBlcmNhc2UnLCBmb250V2VpZ2h0OiA2MDAsIHBhZGRpbmc6IDAsCiAgICAgICAgICAgIH19CiAgICAgICAgICAgIG9uTW91c2VFbnRlcj17KGUpID0+IChlLmN1cnJlbnRUYXJnZXQuc3R5bGUuY29sb3IgPSAnI0IwMUQyMycpfQogICAgICAgICAgICBvbk1vdXNlTGVhdmU9eyhlKSA9PiAoZS5jdXJyZW50VGFyZ2V0LnN0eWxlLmNvbG9yID0gVC5tdXQpfQogICAgICAgICAgPkVsaW1pbmFyPC9idXR0b24+CiAgICAgICAgPC90ZD4KICAgICAgPC90cj4KICAgICkKICB9CgogIGNvbnN0IHRvdGFsQWN0aXZhcyA9IGNhdHMubGVuZ3RoCgogIHJldHVybiAoCiAgICA8Q29uZmlnR3JvdXBDYXJkIHRpdGxlPSJDYXRlZ29yw61hcyBQJkciIHN1YnRpdGxlPXtgJHt0b3RhbEFjdGl2YXN9IGNhdGVnb3LDrWFzYH0+CiAgICAgIDxkaXYKICAgICAgICBzdHlsZT17ewogICAgICAgICAgbWFyZ2luOiAnMCAyMnB4IDE0cHgnLAogICAgICAgICAgcGFkZGluZzogMTQsCiAgICAgICAgICBiYWNrZ3JvdW5kOiBpc0RhcmsgPyAncmdiYSgxODYsMTE3LDIzLDAuMTgpJyA6ICcjRkFFRURBJywKICAgICAgICAgIGJvcmRlcjogYDFweCBzb2xpZCAke2lzRGFyayA/ICdyZ2JhKDI1MCwxOTksMTE3LDAuMjgpJyA6ICcjRkFDNzc1J31gLAogICAgICAgICAgYm9yZGVyUmFkaXVzOiA4LAogICAgICAgICAgZm9udFNpemU6IDEyLjUsCiAgICAgICAgICBjb2xvcjogaXNEYXJrID8gJyNGNUMzNkInIDogJyM4NTRGMEInLAogICAgICAgICAgZm9udEZhbWlseTogRk9OVC5ib2R5LAogICAgICAgIH19CiAgICAgID4KICAgICAgICA8c3Ryb25nIHN0eWxlPXt7IGNvbG9yOiBpc0RhcmsgPyAnI0ZBQzc3NScgOiAnIzQxMjQwMicgfX0+Q2F0ZWdvcsOtYXMgY2Fuw7NuaWNhcyBQJmFtcDtHLjwvc3Ryb25nPnsnICd9CiAgICAgICAgRXN0YXMgc29uIGxhcyDDum5pY2FzIGNhdGVnb3LDrWFzIHbDoWxpZGFzIHBhcmEgY29uY2lsaWFjacOzbiwgZ2FzdG9zLCBwcmVzdXB1ZXN0b3MgeSBQJmFtcDtHLiBMYSBjb2x1bW5hCiAgICAgICAgPGVtPiBSZXF1aWVyZSBmYWN0dXJhPC9lbT4gZGV0ZXJtaW5hIHNpIHVuIG1vdmltaWVudG8gYmFuY2FyaW8gbmVjZXNpdGEgZmFjdHVyYSBhZGp1bnRhIHBhcmEgY29uc2lkZXJhcnNlIGNvbmNpbGlhZG8uCiAgICAgIDwvZGl2PgoKICAgICAgPGRpdiBzdHlsZT17eyBvdmVyZmxvd1g6ICdhdXRvJyB9fT4KICAgICAgICA8dGFibGUgc3R5bGU9e3sgd2lkdGg6ICcxMDAlJywgZm9udFNpemU6IDEzLCB3aGl0ZVNwYWNlOiAnbm93cmFwJywgYm9yZGVyQ29sbGFwc2U6ICdjb2xsYXBzZScgfX0+CiAgICAgICAgICA8dGhlYWQ+CiAgICAgICAgICAgIDx0cj4KICAgICAgICAgICAgICA8dGggc3R5bGU9e3RofT5Dw7NkaWdvPC90aD4KICAgICAgICAgICAgICA8dGggc3R5bGU9e3RofT5Ob21icmU8L3RoPgogICAgICAgICAgICAgIDx0aCBzdHlsZT17eyAuLi50aCwgdGV4dEFsaWduOiAnY2VudGVyJyB9fT5SZXF1aWVyZSBmYWN0dXJhPC90aD4KICAgICAgICAgICAgICA8dGggc3R5bGU9e3sgLi4udGgsIHRleHRBbGlnbjogJ2NlbnRlcicgfX0+T3JkZW48L3RoPgogICAgICAgICAgICAgIDx0aCBzdHlsZT17eyAuLi50aCwgdGV4dEFsaWduOiAncmlnaHQnIH19PjwvdGg+CiAgICAgICAgICAgIDwvdHI+CiAgICAgICAgICA8L3RoZWFkPgogICAgICAgICAgPHRib2R5PgogICAgICAgICAgICB7YXJib2wubWFwKCh7IG4xLCBncnVwb3MsIHN1ZWx0b3MzIH0pID0+ICgKICAgICAgICAgICAgICA8RnJhZ21lbnQga2V5PXtuMS5pZH0+CiAgICAgICAgICAgICAgICA8R3JvdXBIZWFkZXJOMSBjYXQ9e24xfSAvPgogICAgICAgICAgICAgICAge2dydXBvcy5tYXAoKHsgbjIsIGhpam9zIH0pID0+ICgKICAgICAgICAgICAgICAgICAgPEZyYWdtZW50IGtleT17bjIuaWR9PgogICAgICAgICAgICAgICAgICAgIHtncnVwb3MubGVuZ3RoID4gMSB8fCAoZ3J1cG9zLmxlbmd0aCA9PT0gMSAmJiBoaWpvcy5sZW5ndGggPiAwKSA/IDxHcm91cEhlYWRlck4yIGNhdD17bjJ9IC8+IDogbnVsbH0KICAgICAgICAgICAgICAgICAgICB7aGlqb3MubWFwKGMgPT4gPEZpbGFOMyBrZXk9e2MuaWR9IGM9e2N9IC8+KX0KICAgICAgICAgICAgICAgICAgPC9GcmFnbWVudD4KICAgICAgICAgICAgICAgICkpfQogICAgICAgICAgICAgICAge3N1ZWx0b3MzLm1hcChjID0+IDxGaWxhTjMga2V5PXtjLmlkfSBjPXtjfSAvPil9CiAgICAgICAgICAgICAgPC9GcmFnbWVudD4KICAgICAgICAgICAgKSl9CiAgICAgICAgICA8L3Rib2R5PgogICAgICAgIDwvdGFibGU+CiAgICAgIDwvZGl2PgogICAgPC9Db25maWdHcm91cENhcmQ+CiAgKQp9Cg==
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useTheme, FONT } from '@/styles/tokens'
+import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
+import { InlineEdit } from '@/components/configuracion/InlineEdit'
+
+interface CatPyg {
+  id: string               // ej: "2.11.1"
+  nombre: string
+  nivel: number            // 1, 2, 3
+  parent_id: string | null
+  bloque: string | null
+  comportamiento: string | null
+  activa: boolean
+  orden: number | null
+  requiere_factura: boolean
+  banda_min_pct: number | null
+  banda_max_pct: number | null
+}
+
+export default function CategoriasPanel() {
+  const { T, isDark } = useTheme()
+  const [cats, setCats] = useState<CatPyg[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  async function refetch() {
+    const { data, error } = await supabase
+      .from('categorias_pyg')
+      .select('id, nombre, nivel, parent_id, bloque, comportamiento, activa, orden, requiere_factura, banda_min_pct, banda_max_pct')
+      .eq('activa', true)
+      .order('orden', { ascending: true })
+      .order('id', { ascending: true })
+    if (error) throw error
+    setCats((data ?? []) as CatPyg[])
+  }
+
+  useEffect(() => {
+    (async () => {
+      try { await refetch() }
+      catch (e: any) { setError(e?.message ?? 'Error') }
+      finally { setLoading(false) }
+    })()
+  }, [])
+
+  /* Construir jerarquía nivel 1 → 2 → 3 */
+  const arbol = useMemo(() => {
+    const nivel1 = cats.filter(c => c.nivel === 1)
+    return nivel1.map(n1 => {
+      const hijos2 = cats.filter(c => c.nivel === 2 && c.parent_id === n1.id)
+      const sueltos3 = cats.filter(c => c.nivel === 3 && c.parent_id === n1.id) // por si nivel 3 cuelga directamente de 1 (caso "3 Movimientos internos")
+      return {
+        n1,
+        grupos: hijos2.map(n2 => ({
+          n2,
+          hijos: cats.filter(c => c.nivel === 3 && c.parent_id === n2.id),
+        })),
+        sueltos3,
+      }
+    })
+  }, [cats])
+
+  async function patchCat(id: string, campo: keyof CatPyg, value: any) {
+    const { error } = await supabase.from('categorias_pyg').update({ [campo]: value }).eq('id', id)
+    if (error) { setError(error.message); return }
+    await refetch()
+  }
+
+  async function eliminarConCheck(id: string, nombre: string) {
+    const { count: usoConc } = await supabase.from('conciliacion').select('id', { count: 'exact', head: true }).eq('categoria', id)
+    if ((usoConc ?? 0) > 0) {
+      alert(`No se puede eliminar "${nombre}" (${id}): está en uso en ${usoConc} movimiento(s) bancarios. Recategoriza primero.`)
+      return
+    }
+    if (!confirm(`Eliminar "${nombre}" (${id})?`)) return
+    const { error } = await supabase.from('categorias_pyg').update({ activa: false }).eq('id', id)
+    if (error) { setError(error.message); return }
+    await refetch()
+  }
+
+  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+        {error}
+      </div>
+    )
+  }
+
+  /* STYLES */
+  const th: CSSProperties = {
+    padding: '10px 16px',
+    fontFamily: FONT.heading,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '1.3px',
+    color: T.mut,
+    fontWeight: 500,
+    background: T.bg,
+    borderBottom: `1px solid ${T.brd}`,
+    textAlign: 'left',
+  }
+  const td: CSSProperties = {
+    padding: '8px 16px',
+    fontFamily: FONT.body,
+    fontSize: 13,
+    color: T.pri,
+  }
+  const codigoTd: CSSProperties = {
+    ...td,
+    fontFamily: FONT.heading,
+    fontSize: 11,
+    letterSpacing: '0.5px',
+    color: T.sec,
+    width: 90,
+  }
+  const groupRowBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+  const subGroupBg = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+  const accentN1 = isDark ? '#F09595' : '#A32D2D'
+  const accentIng = isDark ? '#5DCAA5' : '#3B6D11'
+
+  function GroupHeaderN1({ cat }: { cat: CatPyg }) {
+    const accent = cat.id === '1' ? accentIng : accentN1
+    return (
+      <tr style={{ background: groupRowBg }}>
+        <td colSpan={5} style={{
+          padding: '12px 16px',
+          fontFamily: FONT.heading,
+          fontSize: 12,
+          letterSpacing: '1.5px',
+          textTransform: 'uppercase',
+          color: accent,
+          fontWeight: 700,
+          borderTop: `1px solid ${T.brd}`,
+          borderBottom: `0.5px solid ${T.brd}`,
+        }}>
+          {cat.id} · {cat.nombre}
+        </td>
+      </tr>
+    )
+  }
+
+  function GroupHeaderN2({ cat }: { cat: CatPyg }) {
+    return (
+      <tr style={{ background: subGroupBg }}>
+        <td colSpan={5} style={{
+          padding: '8px 16px 8px 32px',
+          fontFamily: FONT.heading,
+          fontSize: 10,
+          letterSpacing: '1.2px',
+          textTransform: 'uppercase',
+          color: T.mut,
+          fontWeight: 600,
+        }}>
+          {cat.id} · {cat.nombre}
+        </td>
+      </tr>
+    )
+  }
+
+  function FilaN3({ c }: { c: CatPyg }) {
+    return (
+      <tr style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+        <td style={codigoTd}>{c.id}</td>
+        <td style={{ ...td, fontWeight: 500 }}>
+          <InlineEdit value={c.nombre} type="text" onSubmit={v => patchCat(c.id, 'nombre', String(v))} />
+        </td>
+        <td style={{ ...td, textAlign: 'center', width: 130 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: c.requiere_factura ? T.pri : T.mut }}>
+            <input
+              type="checkbox"
+              checked={c.requiere_factura}
+              onChange={e => patchCat(c.id, 'requiere_factura', e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            {c.requiere_factura ? 'Sí' : 'No'}
+          </label>
+        </td>
+        <td style={{ ...td, textAlign: 'center', width: 80 }}>
+          <InlineEdit value={c.orden ?? 0} type="number" align="right" onSubmit={v => patchCat(c.id, 'orden', Number(v))} />
+        </td>
+        <td style={{ ...td, textAlign: 'right', paddingRight: 20, width: 90 }}>
+          <button
+            onClick={() => eliminarConCheck(c.id, c.nombre)}
+            style={{
+              background: 'transparent', border: 'none', color: T.mut,
+              fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading,
+              letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, padding: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
+          >Eliminar</button>
+        </td>
+      </tr>
+    )
+  }
+
+  const totalActivas = cats.length
+
+  return (
+    <ConfigGroupCard title="Categorías P&G" subtitle={`${totalActivas} categorías`}>
+      <div
+        style={{
+          margin: '0 22px 14px',
+          padding: 14,
+          background: isDark ? 'rgba(186,117,23,0.18)' : '#FAEEDA',
+          border: `1px solid ${isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'}`,
+          borderRadius: 8,
+          fontSize: 12.5,
+          color: isDark ? '#F5C36B' : '#854F0B',
+          fontFamily: FONT.body,
+        }}
+      >
+        <strong style={{ color: isDark ? '#FAC775' : '#412402' }}>Categorías canónicas P&amp;G.</strong>{' '}
+        Estas son las únicas categorías válidas para conciliación, gastos, presupuestos y P&amp;G. La columna
+        <em> Requiere factura</em> determina si un movimiento bancario necesita factura adjunta para considerarse conciliado.
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Código</th>
+              <th style={th}>Nombre</th>
+              <th style={{ ...th, textAlign: 'center' }}>Requiere factura</th>
+              <th style={{ ...th, textAlign: 'center' }}>Orden</th>
+              <th style={{ ...th, textAlign: 'right' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {arbol.map(({ n1, grupos, sueltos3 }) => (
+              <Fragment key={n1.id}>
+                <GroupHeaderN1 cat={n1} />
+                {grupos.map(({ n2, hijos }) => (
+                  <Fragment key={n2.id}>
+                    {grupos.length > 1 || (grupos.length === 1 && hijos.length > 0) ? <GroupHeaderN2 cat={n2} /> : null}
+                    {hijos.map(c => <FilaN3 key={c.id} c={c} />)}
+                  </Fragment>
+                ))}
+                {sueltos3.map(c => <FilaN3 key={c.id} c={c} />)}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ConfigGroupCard>
+  )
+}
