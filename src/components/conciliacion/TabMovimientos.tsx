@@ -34,11 +34,11 @@ type Agregados = {
   ingresosImporte: number
   gastosImporte: number
   pendTotalCount: number
-  pendTotalImporte: number
+  pendTotalNeto: number
   pendSinCatCount: number
-  pendSinCatImporte: number
+  pendSinCatNeto: number
   pendSinDocCount: number
-  pendSinDocImporte: number
+  pendSinDocNeto: number
 }
 
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
@@ -263,8 +263,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       })
 
       let ingresosImporte = 0, gastosImporte = 0
-      let pendSinCatCount = 0, pendSinCatImporte = 0
-      let pendSinDocCount = 0, pendSinDocImporte = 0
+      let pendSinCatCount = 0, pendSinCatNeto = 0
+      let pendSinDocCount = 0, pendSinDocNeto = 0
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of data as any[]) {
@@ -273,20 +273,20 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         if (imp < 0) gastosImporte   += imp
 
         if (!r.categoria) {
-          pendSinCatCount   += 1
-          pendSinCatImporte += Math.abs(imp)
+          pendSinCatCount += 1
+          pendSinCatNeto  += imp
         } else if (r.doc_estado === 'falta') {
-          pendSinDocCount   += 1
-          pendSinDocImporte += Math.abs(imp)
+          pendSinDocCount += 1
+          pendSinDocNeto  += imp
         }
       }
 
       setAgregados({
         ingresosImporte, gastosImporte,
         pendTotalCount: pendSinCatCount + pendSinDocCount,
-        pendTotalImporte: pendSinCatImporte + pendSinDocImporte,
-        pendSinCatCount, pendSinCatImporte,
-        pendSinDocCount, pendSinDocImporte,
+        pendTotalNeto: pendSinCatNeto + pendSinDocNeto,
+        pendSinCatCount, pendSinCatNeto,
+        pendSinDocCount, pendSinDocNeto,
       })
     } catch {
       setAgregados(null)
@@ -459,8 +459,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <div style={{ marginBottom: 4 }}>
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
             </div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
-              {agregados !== null ? fmtEur(agregados.pendTotalImporte) : '—'}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: agregados !== null && agregados.pendTotalNeto < 0 ? '#E24B4A' : '#1D9E75' }}>
+              {agregados !== null ? fmtEur(agregados.pendTotalNeto) : '—'}
             </div>
           </div>
 
