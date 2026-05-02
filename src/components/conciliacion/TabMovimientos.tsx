@@ -58,7 +58,6 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
 export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
   const navigate = useNavigate()
 
-  /* — URL params — */
   const [searchParams, setSearchParams] = useSearchParams()
   const page     = parsePage(searchParams.get('page'))
   const pageSize = parsePageSize(searchParams.get('size'))
@@ -70,7 +69,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     setSearchParams(params, { replace: true })
   }, [searchParams, setSearchParams])
 
-  /* — Filtros UI — */
   const [filtroCard, setFiltroCard] = useState<'ingresos' | 'gastos' | 'pendientes' | null>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
   const [busqueda, setBusqueda] = useState('')
@@ -78,25 +76,21 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  /* — Estado datos — */
   const [filas, setFilas]           = useState<Movimiento[]>([])
   const [total, setTotal]           = useState<number>(0)
   const [cargando, setCargando]     = useState<boolean>(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const fetchIdRef                  = useRef<number>(0)
 
-  /* — Agregados KPI — */
   const [agregados, setAgregados] = useState<Agregados | null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
 
-  /* — Lookup data — */
   const [modalMov, setModalMov]           = useState<Movimiento | null>(null)
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares]         = useState<Titular[]>([])
 
-  /* — Exportar — */
   const [exportando, setExportando] = useState(false)
 
-  /* ── Corregir size inválido en montaje ── */
   useEffect(() => {
     const raw = searchParams.get('size')
     if (raw !== null && !(PAGE_SIZES as readonly number[]).includes(Number(raw))) {
@@ -105,7 +99,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ── Cargar lookup tables ── */
   useEffect(() => {
     Promise.all([
       supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'),
@@ -116,11 +109,37 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     })
   }, [])
 
-  /* ── Calcular string de período ── */
   const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
   const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
 
-  /* ── Query paginada principal ── */
+  /* ── Auto-refresh: realtime + visibilidad + polling 30s ── */
+  useEffect(() => {
+    let debounce: ReturnType<typeof setTimeout> | null = null
+    const trigger = () => {
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(() => setRefreshTick(t => t + 1), 800)
+    }
+
+    const channel = supabase
+      .channel('conciliacion-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conciliacion' }, trigger)
+      .subscribe()
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setRefreshTick(t => t + 1)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    const interval = setInterval(() => setRefreshTick(t => t + 1), 30000)
+
+    return () => {
+      if (debounce) clearTimeout(debounce)
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(interval)
+    }
+  }, [])
+
   const cargarPagina = useCallback(async () => {
     const myFetchId = ++fetchIdRef.current
     setCargando(true)
@@ -137,7 +156,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       categoria:   'categoria',
       doc:         'doc_estado',
       titular:     'titular_id',
-      estado:      null, // client-side
+      estado:      null,
     }
     const sortField = sortMap[sortColumn] ?? 'fecha'
 
@@ -150,7 +169,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     if (filtroCard === 'ingresos') q = q.gt('importe', 0)
     if (filtroCard === 'gastos')   q = q.lt('importe', 0)
-    // pendientes es client-side
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
@@ -203,9 +221,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr])
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick])
 
-  /* ── Query de agregados KPI ── */
   const cargarAgregados = useCallback(async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,13 +268,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     } catch {
       setAgregados(null)
     }
-  }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares])
+  }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares, refreshTick])
 
-  /* ── Efectos de disparo ── */
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
 
-  /* ── Auto-corrección de page > totalPages ── */
   useEffect(() => {
     if (cargando) return
     if (total === 0) return
@@ -265,7 +280,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page > totalPages) updateUrl({ page: totalPages })
   }, [cargando, total, pageSize, page, updateUrl])
 
-  /* ── Handlers ── */
   const onCambiarFiltroCard = (v: 'ingresos' | 'gastos' | 'pendientes') => {
     setFiltroCard(prev => prev === v ? null : v)
     if (page !== 1) updateUrl({ page: 1 })
@@ -297,7 +311,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  /* ── filasVisibles ── */
   const filasVisibles = useMemo(() => {
     let out = filas
 
@@ -325,7 +338,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     return out
   }, [filas, busqueda, sortColumn, sortDir, filtroCard])
 
-  /* ── Exportar CSV ── */
   const handleExportar = async () => {
     setExportando(true)
     try {
@@ -382,7 +394,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }
 
-  /* ── Estilos ── */
   const cardStyle = (filtro: 'ingresos' | 'gastos' | 'pendientes'): React.CSSProperties => ({
     background: '#fff',
     border: filtroCard === filtro ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
@@ -406,10 +417,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
-  /* ── Render ── */
   return (
     <div>
-      {/* 4 CARDS KPI */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
 
         <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos')}>
@@ -466,7 +475,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         </div>
       </div>
 
-      {/* BARRA FILTROS */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <input
           type="text"
@@ -494,7 +502,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         </button>
       </div>
 
-      {/* BANNER ERROR */}
       {errorCarga && (
         <div style={{
           background: '#fff5f5',
@@ -529,7 +536,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         </div>
       )}
 
-      {/* EMPTY STATE o TABLA */}
       {!cargando && total === 0 && !errorCarga ? (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos en este periodo</div>
@@ -667,7 +673,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             </div>
           )}
 
-          {/* PIE DE TABLA — paginación */}
           {total > 0 && (() => {
             const desde = (page - 1) * pageSize + 1
             const hasta = Math.min(page * pageSize, total)
