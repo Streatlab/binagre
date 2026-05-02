@@ -28,18 +28,27 @@ interface TabMovimientosProps {
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
 
+type FiltroCard = 'ingresos' | 'gastos' | 'pend_total' | 'pend_sin_cat' | 'pend_sin_doc' | null
+
 type Agregados = {
   ingresosImporte: number
   gastosImporte: number
-  pendientesCount: number
-  pendientesImporte: number
+  pendTotalCount: number
+  pendTotalImporte: number
+  pendSinCatCount: number
+  pendSinCatImporte: number
+  pendSinDocCount: number
+  pendSinDocImporte: number
 }
 
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
 
 function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
-  return m.categoria_id ? 'conciliado' : 'pendiente'
+  if (!m.categoria_id) return 'pendiente'
+  if (m.doc_estado === 'no_requiere') return 'conciliado'
+  if (m.doc_estado === 'tiene') return 'conciliado'
+  return 'pendiente'
 }
 
 function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
@@ -63,7 +72,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     setSearchParams(params, { replace: true })
   }, [searchParams, setSearchParams])
 
-  const [filtroCard, setFiltroCard] = useState<'ingresos' | 'gastos' | 'pendientes' | null>(null)
+  const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [catFiltro, setCatFiltro] = useState('todas')
@@ -162,7 +171,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     if (filtroCard === 'ingresos') q = q.gt('importe', 0)
     if (filtroCard === 'gastos')   q = q.lt('importe', 0)
-    if (filtroCard === 'pendientes') q = q.is('categoria', null)
+    if (filtroCard === 'pend_sin_cat') q = q.is('categoria', null)
+    if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
+    if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
@@ -244,19 +255,31 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       })
 
       let ingresosImporte = 0, gastosImporte = 0
-      let pendientesCount = 0, pendientesImporte = 0
+      let pendSinCatCount = 0, pendSinCatImporte = 0
+      let pendSinDocCount = 0, pendSinDocImporte = 0
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of data as any[]) {
         const imp = Number(r.importe) || 0
         if (imp > 0) ingresosImporte += imp
         if (imp < 0) gastosImporte   += imp
+
         if (!r.categoria) {
-          pendientesCount   += 1
-          pendientesImporte += Math.abs(imp)
+          pendSinCatCount   += 1
+          pendSinCatImporte += Math.abs(imp)
+        } else if (r.doc_estado === 'falta') {
+          pendSinDocCount   += 1
+          pendSinDocImporte += Math.abs(imp)
         }
       }
-      setAgregados({ ingresosImporte, gastosImporte, pendientesCount, pendientesImporte })
+
+      setAgregados({
+        ingresosImporte, gastosImporte,
+        pendTotalCount: pendSinCatCount + pendSinDocCount,
+        pendTotalImporte: pendSinCatImporte + pendSinDocImporte,
+        pendSinCatCount, pendSinCatImporte,
+        pendSinDocCount, pendSinDocImporte,
+      })
     } catch {
       setAgregados(null)
     }
@@ -272,7 +295,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page > totalPages) updateUrl({ page: totalPages })
   }, [cargando, total, pageSize, page, updateUrl])
 
-  const onCambiarFiltroCard = (v: 'ingresos' | 'gastos' | 'pendientes') => {
+  const onCambiarFiltroCard = (v: FiltroCard) => {
     setFiltroCard(prev => prev === v ? null : v)
     if (page !== 1) updateUrl({ page: 1 })
   }
@@ -340,7 +363,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
         if (filtroCard === 'ingresos') q = q.gt('importe', 0)
         if (filtroCard === 'gastos')   q = q.lt('importe', 0)
-        if (filtroCard === 'pendientes') q = q.is('categoria', null)
+        if (filtroCard === 'pend_sin_cat') q = q.is('categoria', null)
+        if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
+        if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
         if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
         if (filtroTitular !== 'todos' && titulares.length > 0) {
           const matchIds = titulares
@@ -383,13 +408,13 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }
 
-  const cardStyle = (filtro: 'ingresos' | 'gastos' | 'pendientes'): React.CSSProperties => ({
+  const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
     background: '#fff',
-    border: filtroCard === filtro ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
+    border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
     borderRadius: 14,
     padding: '18px 20px',
     cursor: 'pointer',
-    boxShadow: filtroCard === filtro ? '0 0 0 3px #FF475715' : 'none',
+    boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   })
 
@@ -410,7 +435,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
 
-        <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos')}>
+        <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos', filtroCard === 'ingresos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
           </div>
@@ -419,7 +444,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           </div>
         </div>
 
-        <div onClick={() => onCambiarFiltroCard('gastos')} style={cardStyle('gastos')}>
+        <div onClick={() => onCambiarFiltroCard('gastos')} style={cardStyle('gastos', filtroCard === 'gastos')}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
           </div>
@@ -428,15 +453,47 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           </div>
         </div>
 
-        <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes')}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
-            <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
-              {agregados !== null ? agregados.pendientesCount : '—'}
-            </span>
+        {/* Card Pendientes con desglose */}
+        <div style={{ ...cardStyle('pend_total', filtroCard === 'pend_total' || filtroCard === 'pend_sin_cat' || filtroCard === 'pend_sin_doc'), padding: '14px 16px', cursor: 'default' }}>
+          <div onClick={() => onCambiarFiltroCard('pend_total')} style={{ cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2', paddingBottom: 8, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
+              <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
+                {agregados !== null ? agregados.pendTotalCount : '—'}
+              </span>
+            </div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
+              {agregados !== null ? fmtEur(agregados.pendTotalImporte) : '—'}
+            </div>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
-            {agregados !== null ? fmtEur(agregados.pendientesImporte) : '—'}
+
+          <div style={{ display: 'flex', gap: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
+            <button
+              onClick={() => onCambiarFiltroCard('pend_sin_cat')}
+              style={{
+                flex: 1, padding: '5px 6px', borderRadius: 5,
+                border: filtroCard === 'pend_sin_cat' ? '1px solid #E24B4A' : '0.5px solid #d0c8bc',
+                background: filtroCard === 'pend_sin_cat' ? '#E24B4A10' : '#fff',
+                cursor: 'pointer', textAlign: 'center',
+              }}>
+              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin categoría</div>
+              <div style={{ color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
+                {agregados !== null ? agregados.pendSinCatCount : '—'}
+              </div>
+            </button>
+            <button
+              onClick={() => onCambiarFiltroCard('pend_sin_doc')}
+              style={{
+                flex: 1, padding: '5px 6px', borderRadius: 5,
+                border: filtroCard === 'pend_sin_doc' ? '1px solid #F26B1F' : '0.5px solid #d0c8bc',
+                background: filtroCard === 'pend_sin_doc' ? '#F26B1F10' : '#fff',
+                cursor: 'pointer', textAlign: 'center',
+              }}>
+              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin doc</div>
+              <div style={{ color: '#F26B1F', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
+                {agregados !== null ? agregados.pendSinDocCount : '—'}
+              </div>
+            </button>
           </div>
         </div>
 
@@ -621,11 +678,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         </td>
                         <td style={{ ...tdBase, textAlign: 'center' }}>
                           {m.doc_estado === 'tiene' || (m.factura_id && (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url) ? (
-                            <span style={{ color: '#7a8090', fontSize: 14 }}>📎</span>
+                            <span style={{ color: '#1D9E75', fontSize: 14 }}>📎</span>
                           ) : m.doc_estado === 'no_requiere' ? (
-                            <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>no requiere</span>
+                            <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
                           ) : (
-                            <span style={{ color: '#E24B4A', fontSize: 14 }}>✕</span>
+                            <span style={{ color: '#F26B1F', fontSize: 14 }}>✕</span>
                           )}
                         </td>
                         <td style={tdBase}>
