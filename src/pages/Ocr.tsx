@@ -173,7 +173,7 @@ export default function Ocr() {
       setFilas([])
       setTotal(0)
     } else {
-      const mapped = (data ?? []).map((m: any): Factura => ({
+      const mapped: Factura[] = (data ?? []).map((m: any) => ({
         id: m.id,
         fecha_factura: m.fecha_factura,
         proveedor_nombre: m.proveedor_nombre ?? '',
@@ -189,11 +189,11 @@ export default function Ocr() {
         facturas_gastos: m.facturas_gastos ?? [],
       }))
 
-      let filtradas = mapped
+      let filtradas: Factura[] = mapped
       if (filtroCard === 'conciliadas') {
-        filtradas = mapped.filter(f => calcularEstado(f) === 'conciliado')
+        filtradas = mapped.filter((f: Factura) => calcularEstado(f) === 'conciliado')
       } else if (filtroCard === 'sin_conciliar') {
-        filtradas = mapped.filter(f => calcularEstado(f) === 'pendiente')
+        filtradas = mapped.filter((f: Factura) => calcularEstado(f) === 'pendiente')
       }
 
       setFilas(filtradas)
