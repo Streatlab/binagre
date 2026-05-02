@@ -74,6 +74,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
+  const [ocultarConciliados, setOcultarConciliados] = useState<boolean>(true)
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [catFiltro, setCatFiltro] = useState('todas')
@@ -121,11 +122,13 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
   const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
 
+  // Solo refresca por realtime (cuando alguien modifica BBDD), no por polling automático
+  // Esto evita aggregates inconsistentes y "flicker" de cifras cada 30s
   useEffect(() => {
     let debounce: ReturnType<typeof setTimeout> | null = null
     const trigger = () => {
       if (debounce) clearTimeout(debounce)
-      debounce = setTimeout(() => setRefreshTick(t => t + 1), 800)
+      debounce = setTimeout(() => setRefreshTick(t => t + 1), 1500)
     }
 
     const channel = supabase
@@ -133,18 +136,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conciliacion' }, trigger)
       .subscribe()
 
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') setRefreshTick(t => t + 1)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-
-    const interval = setInterval(() => setRefreshTick(t => t + 1), 30000)
-
     return () => {
       if (debounce) clearTimeout(debounce)
       supabase.removeChannel(channel)
-      document.removeEventListener('visibilitychange', onVisible)
-      clearInterval(interval)
     }
   }, [])
 
@@ -180,6 +174,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (filtroCard === 'pend_sin_cat') q = q.is('categoria', null)
     if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
     if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
+
+    // Ocultar conciliados (chequeado por defecto): solo mostrar pendientes
+    if (ocultarConciliados && !filtroCard) {
+      q = q.or('categoria.is.null,doc_estado.eq.falta')
+    }
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
@@ -234,7 +233,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced])
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -243,7 +242,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
           .from('conciliacion')
-          .select('importe, categoria, doc_estado, titular_id')
+          .select('id, importe, categoria, doc_estado, titular_id')
           .gte('fecha', periodoDesdeStr)
           .lte('fecha', periodoHastaStr)
 
@@ -266,8 +265,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       let pendSinCatCount = 0, pendSinCatNeto = 0
       let pendSinDocCount = 0, pendSinDocNeto = 0
 
+      // Dedup por id (defensa contra duplicados en paginación)
+      const seen = new Set<string>()
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of data as any[]) {
+        if (seen.has(r.id)) continue
+        seen.add(r.id)
+
         const imp = Number(r.importe) || 0
         if (imp > 0) ingresosImporte += imp
         if (imp < 0) gastosImporte   += imp
@@ -310,6 +315,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const onCambiarFiltroTitular = (v: 'todos' | 'ruben' | 'emilio') => {
     setFiltroTitular(v)
+    if (page !== 1) updateUrl({ page: 1 })
+  }
+
+  const onCambiarOcultarConciliados = (v: boolean) => {
+    setOcultarConciliados(v)
     if (page !== 1) updateUrl({ page: 1 })
   }
 
@@ -380,7 +390,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           if (matchIds.length === 1)    q = q.eq('titular_id', matchIds[0])
           else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
         }
-        return q.order('fecha', { ascending: false })
+        return q
       })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -494,11 +504,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
-          <div style={{ marginBottom: 8 }}>
+        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '14px 16px' }}>
+          <div style={{ marginBottom: 6 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
           </div>
-          <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
             {(['todos', 'ruben', 'emilio'] as const).map(t => {
               const isActive = filtroTitular === t
               const bg  = isActive ? (t === 'todos' ? '#3a4050' : t === 'ruben' ? '#F26B1F' : '#1E5BCC') : '#fff'
@@ -506,12 +516,21 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               const bd  = isActive ? 'none' : '0.5px solid #d0c8bc'
               return (
                 <button key={t} onClick={() => onCambiarFiltroTitular(t)}
-                  style={{ flex: 1, padding: '8px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
+                  style={{ flex: 1, padding: '7px 6px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
                 </button>
               )
             })}
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={ocultarConciliados}
+              onChange={e => onCambiarOcultarConciliados(e.target.checked)}
+              style={{ width: 14, height: 14, accentColor: '#FF4757', margin: 0, cursor: 'pointer' }}
+            />
+            <span>Ocultar conciliados</span>
+          </label>
         </div>
       </div>
 
