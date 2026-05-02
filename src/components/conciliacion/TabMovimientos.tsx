@@ -155,7 +155,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
     if (filtroTitular !== 'todos' && titulares.length > 0) {
-      // Resolver ids que coincidan con el nombre del titular
       const matchIds = titulares
         .filter(t => {
           const n = t.nombre.toLowerCase()
@@ -169,19 +168,17 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       } else if (matchIds.length > 1) {
         q = q.in('titular_id', matchIds)
       }
-      // Si no hay match → no filtrar (equivale a 'todos')
     }
 
     if (sortField) {
       q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
     } else {
-      // estado → order client-side; server sort por fecha
       q = q.order('fecha', { ascending: false }).range(from, to)
     }
 
     const { data, error, count } = await q
 
-    if (myFetchId !== fetchIdRef.current) return // respuesta obsoleta
+    if (myFetchId !== fetchIdRef.current) return
 
     if (error) {
       setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
@@ -208,7 +205,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     setCargando(false)
   }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr])
 
-  /* ── Query de agregados KPI (solo en cambio de período) ── */
+  /* ── Query de agregados KPI ── */
   const cargarAgregados = useCallback(async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -268,7 +265,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page > totalPages) updateUrl({ page: totalPages })
   }, [cargando, total, pageSize, page, updateUrl])
 
-  /* ── Handlers de filtros con reset de página ── */
+  /* ── Handlers ── */
   const onCambiarFiltroCard = (v: 'ingresos' | 'gastos' | 'pendientes') => {
     setFiltroCard(prev => prev === v ? null : v)
     if (page !== 1) updateUrl({ page: 1 })
@@ -289,7 +286,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  /* ── Sort ── */
   function handleSort(col: SortColumn) {
     if (sortColumn === col) {
       if (sortDir === 'asc') setSortDir('desc')
@@ -301,11 +297,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  /* ── filasVisibles: búsqueda + sort estado client-side ── */
+  /* ── filasVisibles ── */
   const filasVisibles = useMemo(() => {
     let out = filas
 
-    // Filtro pendientes client-side (server-side no aplica para este filtro)
     if (filtroCard === 'pendientes') {
       out = out.filter(m => calcularEstado(m) === 'pendiente')
     }
@@ -381,7 +376,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
     } catch {
-      // swallow: el botón vuelve a su estado normal en finally
+      // swallow
     } finally {
       setExportando(false)
     }
@@ -422,7 +417,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
-            {agregados !== null ? `+${fmtEur(agregados.ingresosImporte)}` : '—'}
+            {agregados !== null ? fmtEur(agregados.ingresosImporte) : '—'}
           </div>
         </div>
 
@@ -431,7 +426,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
-            {agregados !== null ? `-${fmtEur(agregados.gastosImporte)}` : '—'}
+            {agregados !== null ? fmtEur(Math.abs(agregados.gastosImporte)) : '—'}
           </div>
         </div>
 
@@ -615,7 +610,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                           {m.contraparte || 'Sin identificar'}
                         </td>
                         <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
-                          {m.importe >= 0 ? '+' : ''}{fmtEur(m.importe)}
+                          {fmtEur(m.importe)}
                         </td>
                         <td style={{ ...tdBase, overflow: 'hidden' }}>
                           {catInfo ? (
