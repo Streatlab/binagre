@@ -175,7 +175,7 @@ const btnStyle: React.CSSProperties = {
 
 const menuStyle: React.CSSProperties = {
   position: 'absolute',
-  top: 38,
+  top: '100%',
   right: 0,
   background: '#fff',
   border: '0.5px solid #d0c8bc',
@@ -184,8 +184,9 @@ const menuStyle: React.CSSProperties = {
   fontSize: 13,
   color: '#3a4050',
   boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-  zIndex: 10,
-  overflow: 'hidden',
+  zIndex: 50,
+  maxHeight: '80vh',
+  overflowY: 'auto',
 }
 
 const itemStyle: React.CSSProperties = {
