@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
+import ReglasPanel from './ReglasPanel'
+import CuentasPanel from './CuentasPanel'
 
 interface CategoriaPyg {
   id: string
@@ -66,17 +68,14 @@ export default function BancosYCuentasPage() {
   return (
     <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
 
-      {/* Breadcrumb */}
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 4 }}>
         Configuración
       </div>
 
-      {/* Título */}
       <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', color: '#B01D23', margin: '0 0 18px', textTransform: 'uppercase' }}>
         Bancos y Cuentas
       </h1>
 
-      {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         {[
           { id: 'cuentas', label: 'Cuentas bancarias', path: '/configuracion/bancos-y-cuentas/cuentas' },
@@ -106,17 +105,14 @@ export default function BancosYCuentasPage() {
         })}
       </div>
 
-      {/* Contenido según sub-tab */}
       {subTab === 'categorias' && (
         <TabCategorias categorias={categorias} loading={loading} onRename={handleRename} onDelete={handleDelete} />
       )}
-      {subTab === 'cuentas' && <PlaceholderSubtab label="Cuentas bancarias" />}
-      {subTab === 'reglas' && <PlaceholderSubtab label="Reglas" />}
+      {subTab === 'cuentas' && <CuentasPanel />}
+      {subTab === 'reglas' && <ReglasPanel />}
     </div>
   )
 }
-
-/* ─── TabCategorias ─── */
 
 function TabCategorias({
   categorias,
@@ -175,7 +171,6 @@ function TabCategorias({
                 </tr>
               )
             }
-            // nivel 3 - editable
             const valEdit = editValues[cat.id] ?? cat.nombre
             return (
               <tr key={cat.id}>
@@ -227,14 +222,6 @@ function TabCategorias({
           })}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function PlaceholderSubtab({ label }: { label: string }) {
-  return (
-    <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '40px 28px', textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-      Próximamente · módulo {label} aún no implementado
     </div>
   )
 }
