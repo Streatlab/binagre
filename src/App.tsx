@@ -55,8 +55,8 @@ import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 // Panel Global
 import PanelGlobal from '@/pages/PanelGlobal'
 
-// Importador unificado (FASE 7)
-import Importador from '@/pages/Importador'
+// OCR (renombrado desde Importador FASE 7)
+import Ocr from '@/pages/Ocr'
 
 // Tareas pendientes (FASE 8)
 import Tareas from '@/pages/Tareas'
