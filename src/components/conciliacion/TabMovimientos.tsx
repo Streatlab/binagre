@@ -58,10 +58,6 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
   return null
 }
 
-function fmtNum(n: number): string {
-  return new Intl.NumberFormat('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(n))
-}
-
 export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
   const navigate = useNavigate()
 
@@ -444,8 +440,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
-            {agregados !== null ? fmtNum(agregados.ingresosImporte) : '—'}
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
+            {agregados !== null ? fmtEur(agregados.ingresosImporte) : '—'}
           </div>
         </div>
 
@@ -453,8 +449,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
-            {agregados !== null ? fmtNum(Math.abs(agregados.gastosImporte)) : '—'}
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
+            {agregados !== null ? fmtEur(Math.abs(agregados.gastosImporte)) : '—'}
           </div>
         </div>
 
@@ -463,8 +459,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <div style={{ marginBottom: 4 }}>
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
             </div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
-              {agregados !== null ? fmtNum(agregados.pendTotalImporte) : '—'}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
+              {agregados !== null ? fmtEur(agregados.pendTotalImporte) : '—'}
             </div>
           </div>
 
