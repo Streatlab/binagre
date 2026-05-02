@@ -47,7 +47,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Eres el implementer del pipeline ERP. Lee la siguiente tarea y ejecútala paso a paso.
+            Eres el implementer del pipeline ERP. Lee la siguiente tarea y ejecutala paso a paso.
 
             ${{ steps.find_job.outputs.JOB_CONTENT }}
 
@@ -56,7 +56,8 @@ jobs:
             - Respeta los design tokens del repo (CLAUDE.md).
             - Al terminar, NO hagas commit ni push: el siguiente step se encarga.
           allowed_tools: "Bash,View,Read,Write,Edit,GlobTool,GrepTool,BatchTool"
-          claude_code_args: "--max-turns 20 --model claude-sonnet-4-5"
+          max_turns: "20"
+          model: "claude-sonnet-4-5"
 
       - name: Commit and push changes
         run: |
