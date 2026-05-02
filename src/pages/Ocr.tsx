@@ -26,16 +26,21 @@ function parsePage(raw: string | null): number {
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
+interface FgItem { id: string; confirmado: boolean; conciliacion_id: string }
 interface Factura {
   id: string
-  fecha: string
-  concepto: string
-  importe: number
-  categoria_id: string | null
-  contraparte: string | null
+  fecha_factura: string
+  proveedor_nombre: string
+  total: number
+  tipo: string
+  categoria_factura: string | null
+  nif_emisor: string | null
   titular_id: string | null
   pdf_drive_url: string | null
-  conciliado: boolean
+  pdf_filename: string | null
+  numero_factura: string | null
+  estado: string
+  facturas_gastos: FgItem[]
 }
 
 interface Agregados {
@@ -46,6 +51,13 @@ interface Agregados {
   conciliadasImporte: number
   faltaDriveCount: number
   sinConciliarCount: number
+}
+
+function calcularEstado(f: Factura): 'conciliado' | 'pendiente' | 'falta_drive' {
+  if (!f.pdf_drive_url) return 'falta_drive'
+  const tieneAsoc = Array.isArray(f.facturas_gastos) && f.facturas_gastos.some(fg => fg.confirmado)
+  if (tieneAsoc) return 'conciliado'
+  return 'pendiente'
 }
 
 export default function Ocr() {
@@ -79,7 +91,7 @@ export default function Ocr() {
   const fetchIdRef = useRef(0)
 
   const [agregados, setAgregados] = useState<Agregados | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
+  const [refreshTick] = useState(0)
 
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
@@ -113,38 +125,43 @@ export default function Ocr() {
     const to = from + pageSize - 1
 
     const sortMap: Record<string, string | null> = {
-      fecha: 'fecha',
-      concepto: 'concepto',
-      contraparte: 'contraparte',
-      importe: 'importe',
-      categoria: 'categoria_id',
+      fecha: 'fecha_factura',
+      concepto: 'proveedor_nombre',
+      contraparte: 'proveedor_nombre',
+      importe: 'total',
+      categoria: 'categoria_factura',
       doc: 'pdf_drive_url',
       titular: 'titular_id',
       estado: null,
     }
-    const sortField = sortMap[sortColumn] ?? 'fecha'
+    const sortField = sortMap[sortColumn] ?? 'fecha_factura'
 
     let q: any = supabase
       .from('facturas')
-      .select('*', { count: 'exact' })
-      .gte('fecha', periodoDesdeStr)
-      .lte('fecha', periodoHastaStr)
+      .select(
+        'id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_filename, numero_factura, estado, facturas_gastos(id, confirmado, conciliacion_id)',
+        { count: 'exact' }
+      )
+      .gte('fecha_factura', periodoDesdeStr)
+      .lte('fecha_factura', periodoHastaStr)
 
-    if (filtroCard === 'conciliadas') q = q.eq('conciliado', true)
+    if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
+    else if (tab === 'extractos') q = q.eq('tipo', 'otro').eq('categoria_factura', 'extracto_bancario')
+    else if (tab === 'otros') q = q.eq('tipo', 'otro').neq('categoria_factura', 'extracto_bancario')
+
     if (filtroCard === 'falta_drive') q = q.is('pdf_drive_url', null)
-    if (filtroCard === 'sin_conciliar') q = q.eq('conciliado', false).not('pdf_drive_url', 'is', null)
 
-    if (catFiltro !== 'todas') q = q.eq('categoria_id', catFiltro)
+    if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
 
     if (busquedaDebounced) {
       const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
-      if (safe) q = q.or(`concepto.ilike.%${safe}%,contraparte.ilike.%${safe}%`)
+      if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`)
     }
 
     if (sortField) {
       q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
     } else {
-      q = q.order('fecha', { ascending: false }).range(from, to)
+      q = q.order('fecha_factura', { ascending: false }).range(from, to)
     }
 
     const { data, error, count } = await q
@@ -158,28 +175,40 @@ export default function Ocr() {
     } else {
       const mapped = (data ?? []).map((m: any): Factura => ({
         id: m.id,
-        fecha: m.fecha,
-        concepto: m.concepto ?? '',
-        importe: Number(m.importe) || 0,
-        categoria_id: m.categoria_id ?? null,
-        contraparte: m.contraparte ?? null,
+        fecha_factura: m.fecha_factura,
+        proveedor_nombre: m.proveedor_nombre ?? '',
+        total: Number(m.total) || 0,
+        tipo: m.tipo ?? 'proveedor',
+        categoria_factura: m.categoria_factura ?? null,
+        nif_emisor: m.nif_emisor ?? null,
         titular_id: m.titular_id ?? null,
         pdf_drive_url: m.pdf_drive_url ?? null,
-        conciliado: m.conciliado ?? false,
+        pdf_filename: m.pdf_filename ?? null,
+        numero_factura: m.numero_factura ?? null,
+        estado: m.estado ?? '',
+        facturas_gastos: m.facturas_gastos ?? [],
       }))
-      setFilas(mapped)
+
+      let filtradas = mapped
+      if (filtroCard === 'conciliadas') {
+        filtradas = mapped.filter(f => calcularEstado(f) === 'conciliado')
+      } else if (filtroCard === 'sin_conciliar') {
+        filtradas = mapped.filter(f => calcularEstado(f) === 'pendiente')
+      }
+
+      setFilas(filtradas)
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced])
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab])
 
   const cargarAgregados = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('facturas')
-        .select('id, importe, pdf_drive_url, conciliado')
-        .gte('fecha', periodoDesdeStr)
-        .lte('fecha', periodoHastaStr)
+        .select('id, total, pdf_drive_url, facturas_gastos(confirmado)')
+        .gte('fecha_factura', periodoDesdeStr)
+        .lte('fecha_factura', periodoHastaStr)
 
       if (error) throw error
 
@@ -192,18 +221,18 @@ export default function Ocr() {
 
       for (const r of data ?? []) {
         totalCount += 1
-        const imp = Number(r.importe) || 0
+        const imp = Number(r.total) || 0
         totalImporte += imp
 
-        if (r.conciliado) {
+        const tieneAsoc = Array.isArray(r.facturas_gastos) && r.facturas_gastos.some((fg: any) => fg.confirmado)
+
+        if (!r.pdf_drive_url) {
+          faltaDriveCount += 1
+        } else if (tieneAsoc) {
           conciliadasCount += 1
           conciliadasImporte += imp
         } else {
-          if (!r.pdf_drive_url) {
-            faltaDriveCount += 1
-          } else {
-            sinConciliarCount += 1
-          }
+          sinConciliarCount += 1
         }
       }
 
@@ -271,17 +300,11 @@ export default function Ocr() {
     return out
   }, [filas, sortColumn, sortDir])
 
-  function calcularEstado(f: Factura): 'conciliado' | 'pendiente' | 'falta_drive' {
-    if (f.conciliado) return 'conciliado'
-    if (!f.pdf_drive_url) return 'falta_drive'
-    return 'pendiente'
-  }
-
   function getBadgeCategoria(f: Factura) {
-    if (!f.categoria_id) return null
-    const cat = categoriasPyg.find(c => c.id === f.categoria_id)
+    if (!f.categoria_factura) return null
+    const cat = categoriasPyg.find(c => c.id === f.categoria_factura)
     if (cat) return { id: cat.id, nombre: cat.nombre }
-    return null
+    return { id: f.categoria_factura, nombre: f.categoria_factura }
   }
 
   const handleExportar = async () => {
@@ -289,20 +312,20 @@ export default function Ocr() {
     try {
       const { data } = await supabase
         .from('facturas')
-        .select('*')
-        .gte('fecha', periodoDesdeStr)
-        .lte('fecha', periodoHastaStr)
+        .select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url')
+        .gte('fecha_factura', periodoDesdeStr)
+        .lte('fecha_factura', periodoHastaStr)
 
       const rows = (data ?? []).map((m: any) => [
-        m.fecha,
-        (m.concepto ?? '').replace(/,/g, ' '),
-        (m.contraparte ?? '').replace(/,/g, ' '),
-        m.importe,
-        m.categoria_id ?? '',
+        m.fecha_factura,
+        (m.proveedor_nombre ?? '').replace(/,/g, ' '),
+        (m.nif_emisor ?? '').replace(/,/g, ' '),
+        m.total,
+        m.categoria_factura ?? '',
         m.pdf_drive_url ? 'Sí' : 'No',
       ])
       const csv = [
-        ['Fecha', 'Concepto', 'Contraparte', 'Importe', 'Categoría', 'Doc'].join(','),
+        ['Fecha', 'Proveedor', 'NIF', 'Total', 'Categoría', 'Doc'].join(','),
         ...rows.map(r => r.join(',')),
       ].join('\n')
       const blob = new Blob([csv], { type: 'text/csv' })
@@ -330,7 +353,7 @@ export default function Ocr() {
     input.click()
   }
 
-  const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
+  const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
     background: '#fff',
     border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
     borderRadius: 14,
@@ -343,7 +366,7 @@ export default function Ocr() {
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha', col: 'fecha', align: 'left' },
     { label: 'Concepto', col: 'concepto', align: 'left' },
-    { label: 'Contraparte', col: 'contraparte', align: 'left' },
+    { label: 'NIF/Contraparte', col: 'contraparte', align: 'left' },
     { label: 'Importe', col: 'importe', align: 'right' },
     { label: 'Categoría', col: 'categoria', align: 'left' },
     { label: 'Doc', col: 'doc', align: 'center' },
@@ -497,7 +520,7 @@ export default function Ocr() {
             type="text"
             value={busqueda}
             onChange={e => onCambiarBusqueda(e.target.value)}
-            placeholder="Buscar concepto, contraparte o NIF…"
+            placeholder="Buscar proveedor, NIF o número de factura…"
             style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }}
           />
           {busqueda && (
@@ -625,22 +648,23 @@ export default function Ocr() {
                     const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() ?? ''
                     const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                     const isEmilio = titNombre.includes('emilio')
+                    const concepto = f.proveedor_nombre || '—'
 
                     return (
                       <tr key={f.id} style={{ cursor: 'pointer' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
                         <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
-                          {fmtDate(f.fecha)}
+                          {fmtDate(f.fecha_factura)}
                         </td>
                         <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {f.concepto.length > 40 ? f.concepto.slice(0, 40) + '…' : f.concepto}
+                          {concepto.length > 40 ? concepto.slice(0, 40) + '…' : concepto}
                         </td>
-                        <td style={{ ...tdBase, color: f.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {f.contraparte || 'Sin identificar'}
+                        <td style={{ ...tdBase, color: f.nif_emisor ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.nif_emisor || 'Sin identificar'}
                         </td>
-                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: f.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
-                          {fmtEur(f.importe)}
+                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: f.total >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
+                          {fmtEur(f.total)}
                         </td>
                         <td style={{ ...tdBase, overflow: 'hidden' }}>
                           {catInfo ? (
@@ -674,7 +698,7 @@ export default function Ocr() {
                               Falta Drive
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>
                               Pendiente
                             </span>
                           )}
@@ -753,37 +777,11 @@ export default function Ocr() {
                       {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
 
-                    <button
-                      style={isFirst ? btnDisabled : btnBase}
-                      disabled={isFirst}
-                      onClick={() => !isFirst && updateUrl({ page: 1 })}
-                    >
-                      Primera
-                    </button>
-                    <button
-                      style={isFirst ? btnDisabled : btnBase}
-                      disabled={isFirst}
-                      onClick={() => !isFirst && updateUrl({ page: page - 1 })}
-                    >
-                      ‹ Anterior
-                    </button>
-                    <span style={{ ...btnBase, cursor: 'default' }}>
-                      {`Página ${page} de ${totalPages}`}
-                    </span>
-                    <button
-                      style={isLast ? btnDisabled : btnBase}
-                      disabled={isLast}
-                      onClick={() => !isLast && updateUrl({ page: page + 1 })}
-                    >
-                      Siguiente ›
-                    </button>
-                    <button
-                      style={isLast ? btnDisabled : btnBase}
-                      disabled={isLast}
-                      onClick={() => !isLast && updateUrl({ page: totalPages })}
-                    >
-                      Última
-                    </button>
+                    <button style={isFirst ? btnDisabled : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: 1 })}>Primera</button>
+                    <button style={isFirst ? btnDisabled : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: page - 1 })}>‹ Anterior</button>
+                    <span style={{ ...btnBase, cursor: 'default' }}>{`Página ${page} de ${totalPages}`}</span>
+                    <button style={isLast ? btnDisabled : btnBase} disabled={isLast} onClick={() => !isLast && updateUrl({ page: page + 1 })}>Siguiente ›</button>
+                    <button style={isLast ? btnDisabled : btnBase} disabled={isLast} onClick={() => !isLast && updateUrl({ page: totalPages })}>Última</button>
                   </div>
                 )}
               </div>
