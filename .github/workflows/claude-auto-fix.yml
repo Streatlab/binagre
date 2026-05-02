@@ -1,0 +1,43 @@
+name: Claude Auto Fix
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.claude/jobs/**.md'
+
+jobs:
+  claude-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Run Claude Code on job spec
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Hay un nuevo archivo de tarea en .claude/jobs/. Lee el más reciente.
+            Sigue exactamente las instrucciones que contiene:
+            - Ejecuta el plan paso a paso
+            - Aplica los cambios en los archivos indicados
+            - Respeta los design tokens definidos en CLAUDE.md y .claude/rules/
+            - Si la tarea menciona subagentes, usa los definidos en .claude/agents/
+            - Al terminar, haz commit con mensaje descriptivo y push a master
+            - Documenta el resultado en un comentario en el commit
+          claude_args: |
+            --max-turns 30
+            --model claude-sonnet-4-5
