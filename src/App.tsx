@@ -199,8 +199,9 @@ function AppRoutes() {
         {/* Panel Global */}
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
-        {/* Importador unificado FASE 7 */}
-        <Route path="importador" element={<ProtectedRoute solo={['admin']}><Importador /></ProtectedRoute>} />
+        {/* Importador unificado FASE 7 → OCR */}
+        <Route path="importador" element={<Navigate to="/ocr" replace />} />
+        <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
 
         {/* Tareas pendientes FASE 8 */}
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />

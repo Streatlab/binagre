@@ -384,7 +384,7 @@ export default function Ocr() {
           <SelectorFechaUniversal
             nombreModulo="ocr"
             defaultOpcion="mes_en_curso"
-            onCambio={(desde, hasta, label) => {
+            onChange={(desde, hasta, label) => {
               setFechaDesde(desde)
               setFechaHasta(hasta)
               setPeriodoLabel(label)
