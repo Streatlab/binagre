@@ -6,7 +6,6 @@ import { fetchAllPaginated } from '@/lib/supabasePaginated'
 import type { Movimiento } from '@/types/conciliacion'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
-/* ─── Paginación ─── */
 const PAGE_SIZES = [25, 50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
 const DEFAULT_PAGE_SIZE: PageSize = 50
@@ -20,7 +19,6 @@ function parsePage(raw: string | null): number {
   return Number.isInteger(n) && n >= 1 ? n : 1
 }
 
-/* ─── Interfaces ─── */
 interface TabMovimientosProps {
   periodoLabel: string
   periodoDesde: Date
@@ -40,11 +38,8 @@ type Agregados = {
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
 
-/* ─── Helpers ─── */
 function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
-  const tieneCategoria = !!m.categoria_id
-  const tieneDoc = m.doc_estado === 'tiene' || m.doc_estado === 'no_requiere'
-  return tieneCategoria && tieneDoc ? 'conciliado' : 'pendiente'
+  return m.categoria_id ? 'conciliado' : 'pendiente'
 }
 
 function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
@@ -54,7 +49,6 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
   return null
 }
 
-/* ─── Componente ─── */
 export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
   const navigate = useNavigate()
 
@@ -112,7 +106,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
   const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
 
-  /* ── Auto-refresh: realtime + visibilidad + polling 30s ── */
   useEffect(() => {
     let debounce: ReturnType<typeof setTimeout> | null = null
     const trigger = () => {
@@ -169,6 +162,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     if (filtroCard === 'ingresos') q = q.gt('importe', 0)
     if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+    if (filtroCard === 'pendientes') q = q.is('categoria', null)
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
@@ -257,9 +251,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         const imp = Number(r.importe) || 0
         if (imp > 0) ingresosImporte += imp
         if (imp < 0) gastosImporte   += imp
-        const tieneCategoria = !!r.categoria
-        const tieneDoc = r.doc_estado === 'tiene' || r.doc_estado === 'no_requiere'
-        if (!(tieneCategoria && tieneDoc)) {
+        if (!r.categoria) {
           pendientesCount   += 1
           pendientesImporte += Math.abs(imp)
         }
@@ -314,10 +306,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const filasVisibles = useMemo(() => {
     let out = filas
 
-    if (filtroCard === 'pendientes') {
-      out = out.filter(m => calcularEstado(m) === 'pendiente')
-    }
-
     if (busqueda.trim()) {
       const q = busqueda.trim().toLowerCase()
       out = out.filter(m =>
@@ -336,7 +324,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
 
     return out
-  }, [filas, busqueda, sortColumn, sortDir, filtroCard])
+  }, [filas, busqueda, sortColumn, sortDir])
 
   const handleExportar = async () => {
     setExportando(true)
@@ -352,6 +340,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
         if (filtroCard === 'ingresos') q = q.gt('importe', 0)
         if (filtroCard === 'gastos')   q = q.lt('importe', 0)
+        if (filtroCard === 'pendientes') q = q.is('categoria', null)
         if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
         if (filtroTitular !== 'todos' && titulares.length > 0) {
           const matchIds = titulares
