@@ -6,9 +6,9 @@ import { fetchAllPaginated } from '@/lib/supabasePaginated'
 import type { Movimiento } from '@/types/conciliacion'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
-const PAGE_SIZES = [25, 50, 100, 200] as const
+const PAGE_SIZES = [50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
-const DEFAULT_PAGE_SIZE: PageSize = 50
+const DEFAULT_PAGE_SIZE: PageSize = 100
 
 function parsePageSize(raw: string | null): PageSize {
   const n = Number(raw)
@@ -58,6 +58,10 @@ function getBadgeCategoria(m: Movimiento, categoriasPyg: CatPyg[]) {
   return null
 }
 
+function fmtNum(n: number): string {
+  return new Intl.NumberFormat('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(n))
+}
+
 export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimientosProps) {
   const navigate = useNavigate()
 
@@ -95,7 +99,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const [exportando, setExportando] = useState(false)
 
-  // Debounce búsqueda 400ms
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
     return () => clearTimeout(t)
@@ -184,12 +187,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
-    // Búsqueda en BBDD: concepto, notas, proveedor (case-insensitive)
     if (busquedaDebounced) {
       const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
-      if (safe) {
-        q = q.or(`concepto.ilike.%${safe}%,notas.ilike.%${safe}%,proveedor.ilike.%${safe}%`)
-      }
+      if (safe) q = q.or(`concepto.ilike.%${safe}%,notas.ilike.%${safe}%,proveedor.ilike.%${safe}%`)
     }
 
     if (filtroTitular !== 'todos' && titulares.length > 0) {
@@ -201,11 +201,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           return false
         })
         .map(t => t.id)
-      if (matchIds.length === 1) {
-        q = q.eq('titular_id', matchIds[0])
-      } else if (matchIds.length > 1) {
-        q = q.in('titular_id', matchIds)
-      }
+      if (matchIds.length === 1) q = q.eq('titular_id', matchIds[0])
+      else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
     }
 
     if (sortField) {
@@ -448,7 +445,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
-            {agregados !== null ? fmtEur(agregados.ingresosImporte) : '—'}
+            {agregados !== null ? fmtNum(agregados.ingresosImporte) : '—'}
           </div>
         </div>
 
@@ -457,20 +454,17 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
           </div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
-            {agregados !== null ? fmtEur(Math.abs(agregados.gastosImporte)) : '—'}
+            {agregados !== null ? fmtNum(Math.abs(agregados.gastosImporte)) : '—'}
           </div>
         </div>
 
         <div style={{ ...cardStyle('pend_total', filtroCard === 'pend_total' || filtroCard === 'pend_sin_cat' || filtroCard === 'pend_sin_doc'), padding: '14px 16px', cursor: 'default' }}>
-          <div onClick={() => onCambiarFiltroCard('pend_total')} style={{ cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2', paddingBottom: 8, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+          <div onClick={() => onCambiarFiltroCard('pend_total')} style={{ cursor: 'pointer', marginBottom: 8 }}>
+            <div style={{ marginBottom: 4 }}>
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
-              <span style={{ background: '#F26B1F', color: '#fff', padding: '1px 8px', borderRadius: 9, fontSize: 10, fontWeight: 500, fontFamily: 'Lexend, sans-serif' }}>
-                {agregados !== null ? agregados.pendTotalCount : '—'}
-              </span>
             </div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
-              {agregados !== null ? fmtEur(agregados.pendTotalImporte) : '—'}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
+              {agregados !== null ? fmtNum(agregados.pendTotalImporte) : '—'}
             </div>
           </div>
 
@@ -508,9 +502,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#111', margin: '6px 0 8px' }}>
-            {filtroTitular === 'todos' ? 'Todos' : filtroTitular === 'ruben' ? 'Rubén' : 'Emilio'}
-          </div>
           <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
             {(['todos', 'ruben', 'emilio'] as const).map(t => {
               const isActive = filtroTitular === t
@@ -519,7 +510,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               const bd  = isActive ? 'none' : '0.5px solid #d0c8bc'
               return (
                 <button key={t} onClick={() => onCambiarFiltroTitular(t)}
-                  style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
+                  style={{ flex: 1, padding: '8px 8px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
                 </button>
               )
@@ -529,19 +520,33 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          value={busqueda}
-          onChange={e => onCambiarBusqueda(e.target.value)}
-          placeholder="Buscar concepto, notas o proveedor en toda la BBDD"
-          style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }}
-        />
+        <div style={{ flex: 1, minWidth: 240, position: 'relative' }}>
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => onCambiarBusqueda(e.target.value)}
+            placeholder="Buscar concepto, notas o proveedor en toda la BBDD"
+            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }}
+          />
+          {busqueda && (
+            <button
+              onClick={() => onCambiarBusqueda('')}
+              aria-label="Limpiar búsqueda"
+              style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22,
+                cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+              }}>
+              ×
+            </button>
+          )}
+        </div>
         <select
           value={catFiltro}
           onChange={e => onCambiarCatFiltro(e.target.value)}
           style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}
         >
-          <option value="todas">Categoría · Todas las categorías</option>
+          <option value="todas">Categorías</option>
           {categoriasPyg.filter(c => c.nivel === 3).map(c => (
             <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
           ))}
