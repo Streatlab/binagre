@@ -1,4 +1,4 @@
-# Job — Test pipeline visual (retry)
+# Job — Test pipeline visual (retry 2)
 
 **Fecha:** 2026-05-02
 **Tipo:** Fix visual mínimo
