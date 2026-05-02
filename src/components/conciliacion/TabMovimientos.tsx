@@ -75,6 +75,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
   const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [catFiltro, setCatFiltro] = useState('todas')
   const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -93,6 +94,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [titulares, setTitulares]         = useState<Titular[]>([])
 
   const [exportando, setExportando] = useState(false)
+
+  // Debounce búsqueda 400ms
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
+    return () => clearTimeout(t)
+  }, [busqueda])
 
   useEffect(() => {
     const raw = searchParams.get('size')
@@ -177,6 +184,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
+    // Búsqueda en BBDD: concepto, notas, proveedor (case-insensitive)
+    if (busquedaDebounced) {
+      const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
+      if (safe) {
+        q = q.or(`concepto.ilike.%${safe}%,notas.ilike.%${safe}%,proveedor.ilike.%${safe}%`)
+      }
+    }
+
     if (filtroTitular !== 'todos' && titulares.length > 0) {
       const matchIds = titulares
         .filter(t => {
@@ -226,7 +241,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick])
+  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -328,16 +343,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const filasVisibles = useMemo(() => {
     let out = filas
-
-    if (busqueda.trim()) {
-      const q = busqueda.trim().toLowerCase()
-      out = out.filter(m =>
-        (m.concepto ?? '').toLowerCase().includes(q) ||
-        (m.contraparte ?? '').toLowerCase().includes(q) ||
-        (m.categoria_id ?? '').toLowerCase().includes(q)
-      )
-    }
-
     if (sortColumn === 'estado') {
       out = [...out].sort((a, b) => {
         const ea = calcularEstado(a)
@@ -345,9 +350,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
       })
     }
-
     return out
-  }, [filas, busqueda, sortColumn, sortDir])
+  }, [filas, sortColumn, sortDir])
 
   const handleExportar = async () => {
     setExportando(true)
@@ -367,6 +371,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
         if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
         if (catFiltro !== 'todas')     q = q.eq('categoria', catFiltro)
+        if (busquedaDebounced) {
+          const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
+          if (safe) q = q.or(`concepto.ilike.%${safe}%,notas.ilike.%${safe}%,proveedor.ilike.%${safe}%`)
+        }
         if (filtroTitular !== 'todos' && titulares.length > 0) {
           const matchIds = titulares
             .filter(t => {
@@ -453,7 +461,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           </div>
         </div>
 
-        {/* Card Pendientes con desglose */}
         <div style={{ ...cardStyle('pend_total', filtroCard === 'pend_total' || filtroCard === 'pend_sin_cat' || filtroCard === 'pend_sin_doc'), padding: '14px 16px', cursor: 'default' }}>
           <div onClick={() => onCambiarFiltroCard('pend_total')} style={{ cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2', paddingBottom: 8, marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
@@ -526,7 +533,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           type="text"
           value={busqueda}
           onChange={e => onCambiarBusqueda(e.target.value)}
-          placeholder="Buscar en página actual"
+          placeholder="Buscar concepto, notas o proveedor en toda la BBDD"
           style={{ flex: 1, minWidth: 240, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none' }}
         />
         <select
@@ -584,14 +591,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
       {!cargando && total === 0 && !errorCarga ? (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos en este periodo</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Importa un extracto bancario desde el Importador</div>
-          <button
-            onClick={() => navigate('/importador')}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF4757', color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-          >
-            Ir al Importador
-          </button>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo</div>
         </div>
       ) : (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
