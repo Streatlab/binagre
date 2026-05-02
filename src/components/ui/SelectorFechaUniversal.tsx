@@ -372,20 +372,9 @@ export default function SelectorFechaUniversal({
             ))}
           </div>
         )}
-      </div>
 
-      {/* Semanas secondary dropdown — rendered to the RIGHT */}
-      {semanaOpen && (
-        <div style={{ position: 'relative' }}>
-          <div
-            style={{
-              ...menuStyle,
-              left: 0,
-              top: 0,
-              maxHeight: 260,
-              overflowY: 'auto',
-            }}
-          >
+        {semanaOpen && (
+          <div style={{ ...menuStyle, maxHeight: 260, overflowY: 'auto' }}>
             {semanas.map(s => (
               <button
                 key={`${s.year}-${s.semanaISO}`}
@@ -396,8 +385,8 @@ export default function SelectorFechaUniversal({
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Personalizado inline inputs */}
       {opcion === 'personalizado' && (
