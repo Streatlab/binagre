@@ -391,7 +391,7 @@ export default function Conciliacion() {
             margin: 0,
             textTransform: 'uppercase',
           }}>
-            CONCILIACIÓN.
+            CONCILIACIÓN..
           </h2>
           <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
             {fmtFechaCorta(periodoDesde.toISOString().slice(0, 10))} — {fmtFechaCorta(periodoHasta.toISOString().slice(0, 10))}
