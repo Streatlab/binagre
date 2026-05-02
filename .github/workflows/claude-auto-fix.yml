@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -25,19 +26,48 @@ jobs:
       - name: Install deps
         run: npm ci || npm install
 
+      - name: Find latest job spec
+        id: find_job
+        run: |
+          LATEST=$(ls -t .claude/jobs/*.md 2>/dev/null | head -n 1)
+          if [ -z "$LATEST" ]; then
+            echo "No hay jobs pendientes"
+            exit 1
+          fi
+          echo "Latest job: $LATEST"
+          {
+            echo "JOB_CONTENT<<EOF"
+            cat "$LATEST"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          echo "JOB_PATH=$LATEST" >> $GITHUB_OUTPUT
+
       - name: Run Claude Code on job spec
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Hay un nuevo archivo de tarea en .claude/jobs/. Lee el más reciente.
-            Sigue exactamente las instrucciones que contiene:
-            - Ejecuta el plan paso a paso
-            - Aplica los cambios en los archivos indicados
-            - Respeta los design tokens definidos en CLAUDE.md y .claude/rules/
-            - Si la tarea menciona subagentes, usa los definidos en .claude/agents/
-            - Al terminar, haz commit con mensaje descriptivo y push a master
-            - Documenta el resultado en un comentario en el commit
-          claude_args: |
-            --max-turns 30
-            --model claude-sonnet-4-5
+            Eres el implementer del pipeline ERP. Lee la siguiente tarea y ejecútala paso a paso.
+
+            ${{ steps.find_job.outputs.JOB_CONTENT }}
+
+            Reglas:
+            - Aplica los cambios exactamente como indica la tarea.
+            - Respeta los design tokens del repo (CLAUDE.md).
+            - Al terminar, NO hagas commit ni push: el siguiente step se encarga.
+          allowed_tools: "Bash,View,Read,Write,Edit,GlobTool,GrepTool,BatchTool"
+          claude_code_args: "--max-turns 20 --model claude-sonnet-4-5"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "claude-code-bot"
+          git config user.email "claude-code@streatlab.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "feat(auto): aplicado job ${{ steps.find_job.outputs.JOB_PATH }}"
+            git push origin master
+            echo "Push completado"
+          else
+            echo "No hay cambios para commitear"
+            exit 1
+          fi
