@@ -108,7 +108,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     cargarAsociadas(movimiento.id)
   }, [movimiento, categoriasPyg, cargarAsociadas])
 
-  // Buscar facturas candidatas
   useEffect(() => {
     if (!movimiento || !mostrarBuscador) return
     let cancelado = false
@@ -126,7 +125,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           const safe = busquedaFactura.trim().replace(/[%_,()]/g, ' ')
           q = q.or(`numero_factura.ilike.%${safe}%,proveedor_nombre.ilike.%${safe}%`)
         } else {
-          // Sin búsqueda: sugerir por proximidad de importe (±5%) y fecha (±15 días)
           const min = importeAbs * 0.95
           const max = importeAbs * 1.05
           q = q.gte('total', min).lte('total', max)
@@ -135,7 +133,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         const { data } = await q
         if (cancelado) return
 
-        // Para cada factura, calcular importe ya asociado y restante
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const candidatasRaw: any[] = data ?? []
         const ids = candidatasRaw.map(f => f.id)
@@ -226,7 +223,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
   async function handleGuardar() {
     setSaving(true)
     try {
-      // doc_estado: tiene si hay asociaciones, no_requiere si check, else falta
       let docEstado: 'tiene' | 'falta' | 'no_requiere' = 'falta'
       if (facturasAsociadas.length > 0 && Math.abs(restante) < 0.01) docEstado = 'tiene'
       else if (noRequiere) docEstado = 'no_requiere'
@@ -241,7 +237,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       const { error } = await supabase.from('conciliacion').update(updates).eq('id', movimiento!.id)
       if (error) throw error
 
-      // Crear regla auto si cambió categoría
       const categoriaAnterior = movimiento!.categoria_id
       if (selectedDetalle && selectedDetalle !== categoriaAnterior) {
         const palabras = movimiento!.concepto.toUpperCase().split(/\s+/).filter(w => w.length > 3)
@@ -305,13 +300,12 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           </div>
         </div>
 
-        {/* CATEGORÍA */}
         <div style={{ marginBottom: 18 }}>
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Categoría</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             <select value={selectedBloque} onChange={e => { setSelectedBloque(e.target.value); setSelectedSubgrupo(''); setSelectedDetalle('') }}
               style={{ padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}>
-              <option value="">Bloque</option>
+              <option value="">Categoría</option>
               {bloques.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select>
             <select value={selectedSubgrupo} onChange={e => { setSelectedSubgrupo(e.target.value); setSelectedDetalle('') }}
@@ -328,7 +322,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           </div>
         </div>
 
-        {/* TITULAR */}
         <div style={{ marginBottom: 18 }}>
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Titular</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -350,7 +343,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           </div>
         </div>
 
-        {/* FACTURAS ASOCIADAS */}
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>
@@ -358,7 +350,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             </label>
             <button onClick={() => setMostrarBuscador(v => !v)} 
               style={{ padding: '5px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', cursor: 'pointer' }}>
-              {mostrarBuscador ? 'Cerrar' : '+ Asociar factura'}
+              {mostrarBuscador ? 'Cerrar' : '+ Asociar'}
             </button>
           </div>
 
@@ -443,14 +435,12 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           )}
         </div>
 
-        {/* CHECK no requiere */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', marginBottom: 22, padding: '10px 12px', background: '#f5f3ef', borderRadius: 8 }}>
           <input type="checkbox" checked={noRequiere} onChange={e => setNoRequiere(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: '#FF4757', margin: 0 }} />
           <span>No requiere documento</span>
         </label>
 
-        {/* FOOTER */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose}
             style={{ padding: '8px 18px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: 'transparent', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
