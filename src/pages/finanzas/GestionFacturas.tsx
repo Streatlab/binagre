@@ -249,7 +249,6 @@ export default function GestionFacturas() {
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
   // Filtro fecha OPT-IN: por defecto NO se aplica → se muestran TODAS las facturas
-  // (la factura más antigua puede ser de hace meses; queremos histórico completo)
   const [filtrarPorFecha, setFiltrarPorFecha] = useState(false)
   const [periodoLabel, setPeriodoLabel] = useState('Todo el histórico')
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
@@ -333,7 +332,6 @@ export default function GestionFacturas() {
         }
         if (driveFiltro.mes && d.getMonth() + 1 !== driveFiltro.mes) return false
       }
-      // El filtro por fecha SOLO se aplica si el usuario lo activa explícitamente
       if (filtrarPorFecha && fechaDesde && fechaHasta && f.fecha_factura) {
         const d = new Date(f.fecha_factura + 'T00:00:00')
         if (d < fechaDesde || d > fechaHasta) return false
@@ -443,7 +441,7 @@ export default function GestionFacturas() {
 
       {activeTab === 'facturas' && (
         <>
-          {/* FILA ÚNICA: titular + buscador + dropdown categorías + exportar */}
+          {/* FILA ÚNICA */}
           <div style={{
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
@@ -589,7 +587,7 @@ export default function GestionFacturas() {
                       <th style={{ ...thStyle, textAlign: 'right' }}>Importe</th>
                       <th style={thStyle}>Categoría</th>
                       <th style={thStyle}>Titular</th>
-                      <th style={thStyle}>PDF</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Doc</th>
                       <th style={thStyle}>Estado</th>
                     </tr>
                   </thead>
@@ -601,13 +599,20 @@ export default function GestionFacturas() {
                         }}>Cargando…</td>
                       </tr>
                     )}
-                    {!loading && facturasFiltradas.map(f => {
+                    {!loading && facturasFiltradas.map((f, idx) => {
                       const tit = titulares.find(t => t.id === f.titular_id)
                       const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
                       const catLbl = f.categoria_factura
                         ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
                         : '—'
+                      const isLast = idx === facturasFiltradas.length - 1
+                      const tdDocBase: CSSProperties = {
+                        padding: 0,
+                        borderBottom: isLast ? 'none' : `0.5px solid ${COLORS.brd}`,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                      }
                       return (
                         <tr
                           key={f.id}
@@ -640,16 +645,32 @@ export default function GestionFacturas() {
                               </span>
                             ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
-                          <td style={{ ...tdStyle, fontSize: 12 }}>
-                            {f.pdf_drive_url ? (
-                              <a
-                                href={f.pdf_drive_url}
-                                target="_blank" rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: COLORS.ok, fontWeight: 500, textDecoration: 'none' }}
-                              >Ver PDF</a>
-                            ) : <span style={{ color: COLORS.err }}>—</span>}
-                          </td>
+                          {/* CELDA DOC ESTILO CONCILIACIÓN: clip grande, fondo verde, ocupa toda la celda */}
+                          {f.pdf_drive_url ? (
+                            <td
+                              style={tdDocBase}
+                              onClick={(e) => { e.stopPropagation(); window.open(f.pdf_drive_url!, '_blank', 'noopener,noreferrer') }}
+                              title="Ver factura"
+                            >
+                              <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '100%', height: '100%', minHeight: 38,
+                                background: '#1D9E7515',
+                                fontSize: 22, lineHeight: 1, color: '#0F6E56',
+                                cursor: 'pointer', userSelect: 'none',
+                              }}>
+                                📎
+                              </div>
+                            </td>
+                          ) : (
+                            <td style={tdDocBase}>
+                              <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '100%', height: '100%', minHeight: 38,
+                                fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600,
+                              }}>✕</div>
+                            </td>
+                          )}
                           <td style={tdStyle}>
                             <span style={{
                               background: est.bg, color: est.col, fontFamily: FONT.heading,
