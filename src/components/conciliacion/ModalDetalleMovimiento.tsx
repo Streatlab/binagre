@@ -41,6 +41,8 @@ interface Props {
   onSaved: (m: Movimiento) => void
 }
 
+const MATCH_DAYS_WINDOW = 60
+
 function diffDias(d1: string, d2: string): number {
   const a = new Date(d1).getTime()
   const b = new Date(d2).getTime()
@@ -121,10 +123,11 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     const timer = setTimeout(async () => {
       setCargandoCandidatas(true)
       try {
-        // Match ±30 días desde fecha del movimiento + titular + importe (±5% si sin búsqueda)
+        // Match ±60 días desde fecha del movimiento + titular + importe (±5% si sin búsqueda)
+        // Algunas facturas se emiten meses después del cargo bancario
         const fechaMov = new Date(movimiento.fecha)
-        const desde = new Date(fechaMov.getTime() - 30 * 86400000).toISOString().slice(0, 10)
-        const hasta = new Date(fechaMov.getTime() + 30 * 86400000).toISOString().slice(0, 10)
+        const desde = new Date(fechaMov.getTime() - MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
+        const hasta = new Date(fechaMov.getTime() + MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
@@ -414,7 +417,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           {mostrarBuscador && (
             <div style={{ background: '#fafaf7', borderRadius: 8, padding: 12, border: '0.5px solid #d0c8bc' }}>
               <input type="text" value={busquedaFactura} onChange={e => setBusquedaFactura(e.target.value)}
-                placeholder="Buscar factura por nº o proveedor (vacío = match ±30 días + importe ±5%)"
+                placeholder="Buscar factura por nº o proveedor (vacío = match ±60 días + importe ±5%)"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 12, marginBottom: 10, boxSizing: 'border-box', outline: 'none' }} />
 
               {cargandoCandidatas && (
@@ -423,7 +426,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
               {!cargandoCandidatas && candidatas.length === 0 && (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#7a8090' }}>
-                  Sin candidatas en ±30 días. Las facturas se suben desde el módulo Importador.
+                  Sin candidatas en ±60 días. Las facturas se suben desde el módulo OCR.
                 </div>
               )}
 
