@@ -333,52 +333,78 @@ export default function Objetivos() {
     return arr
   }, [ventas, hoy])
 
-  const mondayStr = useMemo(() => { const d = mondayOfWeek(curYear, curWeek); return d.toISOString().slice(0, 10) }, [curYear, curWeek])
-  const sundayStr = useMemo(() => { const d = mondayOfWeek(curYear, curWeek); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10) }, [curYear, curWeek])
-
   const historico = useMemo(() => {
     const esAnioActual = histAnio === hoy.getFullYear()
     const ventasFiltAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
 
     if (histTipo === 'dias') {
-      const base = esAnioActual ? ventasFiltAnio.filter(r => r.fecha !== hoyStr) : ventasFiltAnio
-      return [...base].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
+      // Incluye HOY como "en curso"
+      return [...ventasFiltAnio].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
         const d = new Date(r.fecha + 'T12:00:00')
         const ds = d.getDay() === 0 ? 7 : d.getDay()
-        return { label: d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }), real: r.total_bruto, objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0 }
+        const enCurso = esAnioActual && r.fecha === hoyStr
+        const labelBase = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+        return {
+          label: enCurso ? `${labelBase} (en curso)` : labelBase,
+          real: r.total_bruto,
+          objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0,
+          enCurso,
+        }
       })
     }
 
     if (histTipo === 'semanas') {
-      const base = esAnioActual ? ventasFiltAnio.filter(r => r.fecha < mondayStr || r.fecha > sundayStr) : ventasFiltAnio
+      // Incluye la semana en curso como "S## (en curso)"
       const map = new Map<string, number>()
-      for (const r of base) {
+      for (const r of ventasFiltAnio) {
         const { year, week } = isoWeek(r.fecha)
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + r.total_bruto)
       }
+      const curKey = `${curYear}-${String(curWeek).padStart(2, '0')}`
       return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12)
-        .map(([key, real]) => ({ label: `S${parseInt(key.split('-')[1])}`, real, objetivo: objSemanal }))
+        .map(([key, real]) => {
+          const enCurso = esAnioActual && key === curKey
+          const wNum = parseInt(key.split('-')[1])
+          return {
+            label: enCurso ? `S${wNum} (en curso)` : `S${wNum}`,
+            real,
+            objetivo: objSemanal,
+            enCurso,
+          }
+        })
     }
 
     if (histTipo === 'anual') {
       const total = ventasFiltAnio.reduce((a, r) => a + r.total_bruto, 0)
-      return [{ label: String(histAnio), real: total, objetivo: objAnual }]
+      const enCurso = esAnioActual
+      return [{
+        label: enCurso ? `${histAnio} (en curso)` : String(histAnio),
+        real: total,
+        objetivo: objAnual,
+        enCurso,
+      }]
     }
 
+    // Meses: incluye el mes en curso como "mes año (en curso)"
     const currentMonthStr = hoy.toISOString().slice(0, 7)
-    const base = esAnioActual ? ventasFiltAnio.filter(r => !r.fecha.startsWith(currentMonthStr)) : ventasFiltAnio
     const map = new Map<string, number>()
-    for (const r of base) {
+    for (const r of ventasFiltAnio) {
       const m = r.fecha.slice(0, 7)
       map.set(m, (map.get(m) || 0) + r.total_bruto)
     }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
       const [y, mm] = key.split('-')
-      const label = new Date(parseInt(y), parseInt(mm) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-      return { label, real, objetivo: objMensual }
+      const enCurso = esAnioActual && key === currentMonthStr
+      const labelBase = new Date(parseInt(y), parseInt(mm) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+      return {
+        label: enCurso ? `${labelBase} (en curso)` : labelBase,
+        real,
+        objetivo: objMensual,
+        enCurso,
+      }
     })
-  }, [ventas, histTipo, histAnio, diasSemana, objSemanal, objMensual, objAnual, mondayStr, sundayStr, hoyStr, hoy])
+  }, [ventas, histTipo, histAnio, diasSemana, objSemanal, objMensual, objAnual, hoyStr, hoy, curYear, curWeek])
 
   if (loading) return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
@@ -714,9 +740,10 @@ export default function Objetivos() {
               const desvStr = (desv >= 0 ? '+' : '') + fmtEur(desv)
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
               const pctDesvStr = (pctDesv >= 0 ? '+' : '') + pctDesv + '%'
+              const enCurso = (h as any).enCurso === true
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none' }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{h.label}</span>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? '#1E5BCC10' : 'transparent', borderLeft: enCurso ? '3px solid #1E5BCC' : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: enCurso ? 4 : 0 }}>
+                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? '#1E5BCC' : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
                       <div style={{ height: 8, background: sc, width: `${pctCap}%` }} />
