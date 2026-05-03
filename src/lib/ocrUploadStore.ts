@@ -1,4 +1,7 @@
-import { create } from 'zustand'
+// Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
+// Sin dependencias externas, usa solo React + EventTarget
+
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
@@ -20,22 +23,16 @@ export interface OcrUploadState {
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
 }
 
-interface Store {
-  state: OcrUploadState | null
-  iniciar: (total: number, fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto') => void
-  procesar: (files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id_forzado: string | null) => Promise<void>
-  cerrar: () => void
-}
-
 const STORAGE_KEY = 'ocr_upload_state_v1'
+const emitter = new EventTarget()
 
 function loadInitial(): OcrUploadState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const s = JSON.parse(raw) as OcrUploadState
-    // Si quedó procesando de una sesión anterior interrumpida, marcamos como completado
-    if (s.procesando) {
+    // Si el navegador se cerró durante un procesamiento, marcamos como completado
+    if (s.procesando && s.enviados < s.total) {
       s.procesando = false
     }
     return s
@@ -43,6 +40,8 @@ function loadInitial(): OcrUploadState | null {
     return null
   }
 }
+
+let currentState: OcrUploadState | null = loadInitial()
 
 function persist(s: OcrUploadState | null) {
   try {
@@ -53,93 +52,119 @@ function persist(s: OcrUploadState | null) {
   }
 }
 
-export const useOcrUploadStore = create<Store>((set, get) => ({
-  state: loadInitial(),
+function setState(s: OcrUploadState | null) {
+  currentState = s
+  persist(s)
+  emitter.dispatchEvent(new CustomEvent('change'))
+}
 
-  iniciar: (total, fnName) => {
-    const s: OcrUploadState = {
-      total, enviados: 0, ok: 0, pendientes: 0, duplicados: 0, errores: 0,
-      log: [], visible: true, procesando: true, fnName,
-    }
-    persist(s)
-    set({ state: s })
-  },
-
-  procesar: async (files, fnName, titular_id_forzado) => {
-    get().iniciar(files.length, fnName)
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
-
+// Sincronizar entre pestañas del mismo navegador
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', e => {
+    if (e.key === STORAGE_KEY) {
       try {
-        const base64 = await new Promise<string>((res, rej) => {
-          const r = new FileReader()
-          r.onload = () => res((r.result as string).split(',')[1])
-          r.onerror = () => rej(new Error('Error leyendo archivo'))
-          r.readAsDataURL(file)
-        })
+        currentState = e.newValue ? JSON.parse(e.newValue) as OcrUploadState : null
+      } catch {
+        currentState = null
+      }
+      emitter.dispatchEvent(new CustomEvent('change'))
+    }
+  })
+}
 
-        const body: any = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
-        if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) body.titular_id = titular_id_forzado
+export function useOcrUpload(): {
+  state: OcrUploadState | null
+  procesar: (files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id_forzado: string | null) => Promise<void>
+  cerrar: () => void
+  ocultar: () => void
+} {
+  const [state, setSt] = useState<OcrUploadState | null>(currentState)
 
-        const { data, error } = await supabase.functions.invoke(fnName, { body })
+  useEffect(() => {
+    const handler = () => setSt(currentState)
+    emitter.addEventListener('change', handler)
+    return () => emitter.removeEventListener('change', handler)
+  }, [])
 
-        if (error) {
-          logEntry = { filename: file.name, status: 'error', detalle: `Error invoke: ${error.message || JSON.stringify(error)}` }
-        } else if (data?.error) {
-          logEntry = { filename: file.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
-        } else if (data?.status === 'duplicado') {
-          logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
-        } else if (data?.status === 'ok') {
-          if (fnName === 'ocr-procesar-extracto') {
-            logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
-          } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
-            logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
+  return {
+    state,
+    procesar: async (files, fnName, titular_id_forzado) => {
+      // Estado inicial
+      setState({
+        total: files.length, enviados: 0, ok: 0, pendientes: 0,
+        duplicados: 0, errores: 0, log: [], visible: true,
+        procesando: true, fnName,
+      })
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
+
+        try {
+          const base64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader()
+            r.onload = () => res((r.result as string).split(',')[1])
+            r.onerror = () => rej(new Error('Error leyendo archivo'))
+            r.readAsDataURL(file)
+          })
+
+          const body: any = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
+          if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) body.titular_id = titular_id_forzado
+
+          const { data, error } = await supabase.functions.invoke(fnName, { body })
+
+          if (error) {
+            logEntry = { filename: file.name, status: 'error', detalle: `Error invoke: ${error.message || JSON.stringify(error)}` }
+          } else if (data?.error) {
+            logEntry = { filename: file.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
+          } else if (data?.status === 'duplicado') {
+            logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
+          } else if (data?.status === 'ok') {
+            if (fnName === 'ocr-procesar-extracto') {
+              logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
+            } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
+              logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
+            } else {
+              const motivos: string[] = []
+              if (!data.matched) motivos.push('sin movimiento bancario')
+              if (data.sin_categoria) motivos.push('sin categoría')
+              if (data.sin_titular) motivos.push('sin titular')
+              logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
+            }
           } else {
-            const motivos: string[] = []
-            if (!data.matched) motivos.push('sin movimiento bancario')
-            if (data.sin_categoria) motivos.push('sin categoría')
-            if (data.sin_titular) motivos.push('sin titular')
-            logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
+            logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
           }
-        } else {
-          logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
+        } catch (err: any) {
+          logEntry = { filename: file.name, status: 'error', detalle: err?.message || String(err) }
         }
-      } catch (err: any) {
-        logEntry = { filename: file.name, status: 'error', detalle: err?.message || String(err) }
-      }
 
-      const cur = get().state
-      if (cur) {
-        const next: OcrUploadState = {
-          ...cur,
-          enviados: cur.enviados + 1,
-          log: [...cur.log, logEntry],
-          ok: cur.ok + (logEntry.status === 'ok' ? 1 : 0),
-          duplicados: cur.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
-          pendientes: cur.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
-          errores: cur.errores + (logEntry.status === 'error' ? 1 : 0),
+        // Actualizar estado leyendo el currentState más reciente
+        if (currentState) {
+          const next: OcrUploadState = {
+            ...currentState,
+            enviados: currentState.enviados + 1,
+            log: [...currentState.log, logEntry],
+            ok: currentState.ok + (logEntry.status === 'ok' ? 1 : 0),
+            duplicados: currentState.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
+            pendientes: currentState.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
+            errores: currentState.errores + (logEntry.status === 'error' ? 1 : 0),
+          }
+          setState(next)
         }
-        persist(next)
-        set({ state: next })
+
+        if (i < files.length - 1) {
+          await new Promise(r => setTimeout(r, 1500))
+        }
       }
 
-      if (i < files.length - 1) {
-        await new Promise(r => setTimeout(r, 1500))
+      // Marcar como terminado
+      if (currentState) {
+        setState({ ...currentState, procesando: false })
       }
-    }
-
-    const cur = get().state
-    if (cur) {
-      const final: OcrUploadState = { ...cur, procesando: false }
-      persist(final)
-      set({ state: final })
-    }
-  },
-
-  cerrar: () => {
-    persist(null)
-    set({ state: null })
-  },
-}))
+    },
+    cerrar: () => setState(null),
+    ocultar: () => {
+      if (currentState) setState({ ...currentState, visible: false })
+    },
+  }
+}
