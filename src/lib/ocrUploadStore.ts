@@ -1,5 +1,6 @@
 // Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
 // Sin dependencias externas, usa solo React + EventTarget
+// v2: ventana match facturas ±60 días (algunas facturas se emiten meses después del cargo bancario)
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -108,7 +109,7 @@ export function useOcrUpload(): {
             r.readAsDataURL(file)
           })
 
-          const body: any = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
+          const body: Record<string, unknown> = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
           if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) body.titular_id = titular_id_forzado
 
           const { data, error } = await supabase.functions.invoke(fnName, { body })
@@ -134,8 +135,9 @@ export function useOcrUpload(): {
           } else {
             logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
           }
-        } catch (err: any) {
-          logEntry = { filename: file.name, status: 'error', detalle: err?.message || String(err) }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err)
+          logEntry = { filename: file.name, status: 'error', detalle: msg }
         }
 
         // Actualizar estado leyendo el currentState más reciente
