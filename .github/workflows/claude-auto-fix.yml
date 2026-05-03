@@ -1,76 +1,12 @@
-name: Claude Auto Fix
+name: Claude Auto Fix (DESACTIVADO)
+# Workflow desactivado para no consumir API key de Anthropic.
+# Trabajo manual vía MCP desde chat Claude.ai.
+# Para reactivar: descomentar el bloque "on:" original y borrar el dummy de abajo.
 on:
-  push:
-    branches: [master]
-    paths:
-      - '.claude/jobs/**.md'
+  workflow_dispatch:
 
 jobs:
-  claude-fix:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install deps
-        run: npm ci || npm install
-
-      - name: Find job from latest commit
-        id: find_job
-        run: |
-          # El job a ejecutar es el archivo .claude/jobs/*.md modificado en el último commit
-          JOB=$(git diff --name-only HEAD~1 HEAD -- '.claude/jobs/*.md' | head -n 1)
-          if [ -z "$JOB" ]; then
-            echo "No hay job en este commit"
-            exit 78
-          fi
-          echo "Job encontrado: $JOB"
-          {
-            echo "JOB_CONTENT<<EOF"
-            cat "$JOB"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-          echo "JOB_PATH=$JOB" >> $GITHUB_OUTPUT
-
-      - name: Run Claude Code on job spec
-        uses: anthropics/claude-code-base-action@beta
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Eres el implementer del pipeline ERP. Lee la siguiente tarea y ejecutala paso a paso.
-
-            ${{ steps.find_job.outputs.JOB_CONTENT }}
-
-            Reglas:
-            - Aplica los cambios exactamente como indica la tarea.
-            - Respeta los design tokens del repo (CLAUDE.md).
-            - Al terminar, ELIMINA el archivo del job ${{ steps.find_job.outputs.JOB_PATH }} con el comando: rm "${{ steps.find_job.outputs.JOB_PATH }}"
-            - NO hagas commit ni push: el siguiente step se encarga.
-          allowed_tools: "Bash,View,Read,Write,Edit,GlobTool,GrepTool,BatchTool"
-          max_turns: "20"
-          model: "claude-sonnet-4-5"
-
-      - name: Commit and push changes
-        run: |
-          git config user.name "claude-code-bot"
-          git config user.email "claude-code@streatlab.com"
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "feat(auto): aplicado job ${{ steps.find_job.outputs.JOB_PATH }}"
-            git push origin master
-            echo "Push completado"
-          else
-            echo "No hay cambios para commitear"
-            exit 1
-          fi
+      - run: echo "Pipeline desactivado intencionadamente. No consume API."
