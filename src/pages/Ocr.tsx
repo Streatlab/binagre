@@ -5,9 +5,10 @@ import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import OcrEditModal from '@/components/ocr/OcrEditModal'
 
 type TabId = 'facturas' | 'extractos' | 'otros'
-type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
+type SortColumn = 'fecha' | 'contraparte' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
 type FiltroCard = 'conciliadas' | 'pendientes' | null
 
@@ -40,6 +41,7 @@ interface Factura {
   nif_emisor: string | null
   titular_id: string | null
   pdf_drive_url: string | null
+  pdf_drive_id: string | null
   pdf_filename: string | null
   numero_factura: string | null
   estado: string
@@ -73,7 +75,6 @@ interface ToastState {
   visible: boolean
 }
 
-// Estado simple: completa SOLO si tiene PDF + match conciliación + categoría + titular
 function esConciliada(f: Factura): boolean {
   if (!f.pdf_drive_url) return false
   if (!f.categoria_factura) return false
@@ -123,6 +124,7 @@ export default function Ocr() {
   const [toast, setToast] = useState<ToastState | null>(null)
   const [toastExpandido, setToastExpandido] = useState(false)
   const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
+  const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -152,8 +154,8 @@ export default function Ocr() {
 
     const sortMap: Record<string, string | null> = {
       fecha: 'fecha_factura',
-      concepto: 'proveedor_nombre',
       contraparte: 'proveedor_nombre',
+      nif: 'nif_emisor',
       importe: 'total',
       categoria: 'categoria_factura',
       doc: 'pdf_drive_url',
@@ -165,7 +167,7 @@ export default function Ocr() {
     let q: any = supabase
       .from('facturas')
       .select(
-        'id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_filename, numero_factura, estado, facturas_gastos(id, confirmado, conciliacion_id)',
+        'id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, facturas_gastos(id, confirmado, conciliacion_id)',
         { count: 'exact' }
       )
       .gte('fecha_factura', periodoDesdeStr)
@@ -207,6 +209,7 @@ export default function Ocr() {
         nif_emisor: m.nif_emisor ?? null,
         titular_id: m.titular_id ?? null,
         pdf_drive_url: m.pdf_drive_url ?? null,
+        pdf_drive_id: m.pdf_drive_id ?? null,
         pdf_filename: m.pdf_filename ?? null,
         numero_factura: m.numero_factura ?? null,
         estado: m.estado ?? '',
@@ -349,7 +352,7 @@ export default function Ocr() {
         m.pdf_drive_url ? 'Sí' : 'No',
       ])
       const csv = [
-        ['Fecha', 'Proveedor', 'NIF', 'Total', 'Categoría', 'Doc'].join(','),
+        ['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc'].join(','),
         ...rows.map(r => r.join(',')),
       ].join('\n')
       const blob = new Blob([csv], { type: 'text/csv' })
@@ -466,8 +469,8 @@ export default function Ocr() {
 
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha', col: 'fecha', align: 'left' },
-    { label: 'Concepto', col: 'concepto', align: 'left' },
-    { label: 'NIF/Contraparte', col: 'contraparte', align: 'left' },
+    { label: 'Contraparte', col: 'contraparte', align: 'left' },
+    { label: 'NIF', col: 'nif', align: 'left' },
     { label: 'Importe', col: 'importe', align: 'right' },
     { label: 'Categoría', col: 'categoria', align: 'left' },
     { label: 'Doc', col: 'doc', align: 'center' },
@@ -593,7 +596,7 @@ export default function Ocr() {
             type="text"
             value={busqueda}
             onChange={e => onCambiarBusqueda(e.target.value)}
-            placeholder="Buscar proveedor, NIF o número de factura…"
+            placeholder="Buscar contraparte, NIF o número de factura…"
             style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }}
           />
           {busqueda && (
@@ -680,10 +683,10 @@ export default function Ocr() {
                 <colgroup>
                   <col style={{ width: 90 }} />
                   <col />
-                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '14%' }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 200 }} />
-                  <col style={{ width: 80 }} />
+                  <col style={{ width: 60 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 100 }} />
                 </colgroup>
@@ -721,17 +724,18 @@ export default function Ocr() {
                     const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() ?? ''
                     const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                     const isEmilio = titNombre.includes('emilio')
-                    const concepto = f.proveedor_nombre || '—'
+                    const contraparte = f.proveedor_nombre || '—'
 
                     return (
                       <tr key={f.id} style={{ cursor: 'pointer' }}
+                        onClick={() => setFacturaEditando(f)}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
                         <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {fmtDate(f.fecha_factura)}
                         </td>
                         <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {concepto.length > 40 ? concepto.slice(0, 40) + '…' : concepto}
+                          {contraparte.length > 40 ? contraparte.slice(0, 40) + '…' : contraparte}
                         </td>
                         <td style={{ ...tdBase, color: f.nif_emisor ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {f.nif_emisor || 'Sin identificar'}
@@ -756,7 +760,7 @@ export default function Ocr() {
                           if (f.pdf_drive_url) window.open(f.pdf_drive_url, '_blank')
                         }}>
                           {f.pdf_drive_url ? (
-                            <span style={{ color: '#1D9E75', fontSize: 14, cursor: 'pointer' }}>📎</span>
+                            <span style={{ color: '#1D9E75', fontSize: 14, cursor: 'pointer' }} title="Abrir en Drive">📎</span>
                           ) : (
                             <span style={{ color: '#F26B1F', fontSize: 14 }}>✕</span>
                           )}
@@ -892,6 +896,23 @@ export default function Ocr() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal edición factura */}
+      {facturaEditando && (
+        <OcrEditModal
+          factura={facturaEditando}
+          categoriasPyg={categoriasPyg}
+          onClose={() => setFacturaEditando(null)}
+          onSaved={() => {
+            setFacturaEditando(null)
+            setRefreshTick(x => x + 1)
+          }}
+          onDeleted={() => {
+            setFacturaEditando(null)
+            setRefreshTick(x => x + 1)
+          }}
+        />
       )}
 
       {/* Toast progreso — persistente con cierre manual */}
