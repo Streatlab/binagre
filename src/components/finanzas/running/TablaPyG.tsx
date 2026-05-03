@@ -46,7 +46,6 @@ interface Props {
   rangos: RangoCategoria[];
 }
 
-// Trimestres con paleta contrastada
 const TRIM = [
   { label: '1T', months: [0,1,2],  bg: '#dde8f4', tot: '#b5cae3', head: '#7da3c8' },
   { label: '2T', months: [3,4,5],  bg: '#dee9d4', tot: '#b6cea3', head: '#7da569' },
@@ -58,7 +57,6 @@ const YEAR_HEAD = '#f0b8be';
 const MES_ACTUAL_BG = '#cfe6b8';
 const MES_ACTUAL_HEAD = '#92bd64';
 
-// Bandas % sobre ingresos por bloque (definidas en el Excel)
 const BANDAS_BLOQUE: Record<string, { min: number; max: number }> = {
   '2.1': { min: 25, max: 30 },
   '2.2': { min: 30, max: 35 },
@@ -66,21 +64,19 @@ const BANDAS_BLOQUE: Record<string, { min: number; max: number }> = {
   '2.4': { min: 15, max: 18 },
 };
 
-// Colores acento por bloque
 const COLOR_BLOQUE: Record<string, string> = {
-  '2.1': '#7B4F2A', // producto - marrón
-  '2.2': '#4A5980', // equipo - azul gris
-  '2.3': '#5A8A6F', // alquiler - verde apagado
-  '2.4': '#A87C3D', // controlables - mostaza
+  '2.1': '#7B4F2A',
+  '2.2': '#4A5980',
+  '2.3': '#5A8A6F',
+  '2.4': '#A87C3D',
 };
 
-// Mapeo gastos.grupo (legacy) → ID de bloque PyG nivel 1 ó 2
 function grupoLegacyToBloquePyG(grupo: string | null | undefined): string | null {
   switch (grupo) {
     case 'PRODUCTO':        return '2.1';
     case 'RRHH':            return '2.2';
     case 'ALQUILER':        return '2.3';
-    case 'MARKETING':       return '2.4';   // dentro de Controlables
+    case 'MARKETING':       return '2.4';
     case 'INTERNET_VENTAS': return '2.4';
     case 'ADMIN_GENERALES': return '2.4';
     case 'SUMINISTROS':     return '2.4';
@@ -88,7 +84,6 @@ function grupoLegacyToBloquePyG(grupo: string | null | undefined): string | null
   }
 }
 
-// Mapeo gastos.grupo → ID de subgrupo PyG nivel 2 (cuando aplica)
 function grupoLegacyToSubgrupoPyG(grupo: string | null | undefined): string | null {
   switch (grupo) {
     case 'MARKETING':       return '2.41';
@@ -99,7 +94,6 @@ function grupoLegacyToSubgrupoPyG(grupo: string | null | undefined): string | nu
   }
 }
 
-// Canales para ingresos
 const CANALES = [
   { key: 'UE',  label: 'Uber Eats',     id_neto: '1.1.1', id_bruto: '1.2.1', brutoCol: 'uber_bruto',    comision: 0.30 },
   { key: 'GL',  label: 'Glovo',         id_neto: '1.1.2', id_bruto: '1.2.2', brutoCol: 'glovo_bruto',   comision: 0.32 },
@@ -139,7 +133,7 @@ type RowKind = 'h0' | 'h1' | 'h2' | 'detail' | 'separator';
 interface Row {
   key: string;
   kind: RowKind;
-  label: string;            // "1.1.4 Venta Tienda online"
+  label: string;
   monthly: number[];
   parentKey?: string;
   expandable?: boolean;
@@ -176,7 +170,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         .order('orden', { ascending: true })
         .order('id', { ascending: true });
       if (cancel) return;
-      setCats((data ?? []) as CatPyg[]);
+      setCats((data ?? []) as CatPyG[]);
     })();
     return () => { cancel = true; };
   }, []);
@@ -184,7 +178,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
   const toggleTrim = (t: string) => setCollapsedTrim(p => { const n = new Set(p); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const toggleRow = (k: string) => setCollapsedRow(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-  // Agregaciones
   const ingresos = useMemo(() => {
     const brutoPorCanal: Record<string, number[]> = {};
     const brutoTotal = arr12();
@@ -208,17 +201,14 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     return { brutoPorCanal, brutoTotal, netoEstPorCanal, netoEstTotal };
   }, [facturacionAnio]);
 
-  // Gastos: agrego por bloque (2.1, 2.2, 2.3, 2.4) y por subgrupo (2.41 etc).
-  // No tengo IDs hoja de categorias_pyg en gastos.categoria — solo grupos legacy.
-  // Por ahora muestro los totales por bloque y subgrupo; las hojas no agregan.
   const gastosAgg = useMemo(() => {
-    const porBloque: Record<string, number[]> = {};   // 2.1, 2.2, 2.3, 2.4
-    const porSubgrupo: Record<string, number[]> = {}; // 2.41, 2.42, 2.43, 2.44 (resto va al bloque sin subdividir)
+    const porBloque: Record<string, number[]> = {};
+    const porSubgrupo: Record<string, number[]> = {};
     const totalGastos = arr12();
     for (const g of gastosAnio) {
       const m = Number(g.fecha.slice(5, 7)) - 1;
       if (m < 0 || m > 11) continue;
-      const grupo = (g as any).grupo as string | null | undefined; // legacy field
+      const grupo = (g as any).grupo as string | null | undefined;
       const bloque = grupoLegacyToBloquePyG(grupo);
       if (!bloque) continue;
       const importe = Number(g.importe || 0);
@@ -243,7 +233,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     const ebitda = arr12();
     for (let i = 0; i < 12; i++) ebitda[i] = ingNetoTotal[i] - gastosAgg.totalGastos[i];
 
-    // ════════════ // RESUMEN //  ════════════
     out.push({ key: 'sep-resumen', kind: 'separator', label: '// RESUMEN //', monthly: arr12(), isSeparator: true });
 
     out.push({
@@ -264,7 +253,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       isResumen: true,
       colorAccent: '#1D9E75',
     });
-    // 4 bloques de gasto con su banda
     for (const bk of ['2.1', '2.2', '2.3', '2.4'] as const) {
       const cat = cats.find(c => c.id === bk && c.nivel === 1);
       const banda = BANDAS_BLOQUE[bk];
@@ -299,10 +287,8 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       isResult: true,
     });
 
-    // ════════════ // INGRESOS // ════════════
     out.push({ key: 'sep-ingresos', kind: 'separator', label: '// INGRESOS //', monthly: arr12(), isSeparator: true });
 
-    // 1.1 Ingresos netos
     out.push({
       key: 'blk-1.1',
       kind: 'h1',
@@ -327,7 +313,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       });
     }
 
-    // 1.2 Facturación bruta (informativa, colapsada por defecto)
     if (ingresos.brutoTotal.some(v => v > 0)) {
       out.push({
         key: 'sub-1.2',
@@ -355,7 +340,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       }
     }
 
-    // ════════════ // GASTOS // ════════════
     out.push({ key: 'sep-gastos', kind: 'separator', label: '// GASTOS //', monthly: arr12(), isSeparator: true });
 
     for (const bk of ['2.1', '2.2', '2.3', '2.4'] as const) {
@@ -376,7 +360,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         colorAccent: COLOR_BLOQUE[bk],
       });
 
-      // Subgrupos nivel 2 (solo para 2.4 que está subdividido en 2.41/42/43/44 con datos legacy)
       if (bk === '2.4') {
         for (const subId of ['2.41', '2.42', '2.43', '2.44']) {
           const subCat = cats.find(c => c.id === subId);
@@ -393,9 +376,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
           });
         }
       }
-      // Para 2.1, 2.2, 2.3: los datos legacy aún no permiten subdividir hoja por hoja
-      // (gastos.categoria tiene PRD-MP, EQP-NOM... que están deprecated).
-      // Se subdividirán automáticamente cuando gastos.categoria se actualice a IDs categorias_pyg.
     }
 
     return out;
@@ -566,12 +546,11 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
             const isResumen = !!r.isResumen;
             const isSeparator = !!r.isSeparator;
 
-            // separador "// SECCIÓN //"
             if (isSeparator) {
               const colCount = TRIM.reduce((acc, t) => {
                 const isCol = collapsedTrim.has(t.label);
                 return acc + (isCol ? 2 : (t.months.length * 2) + 2);
-              }, 0) + 2 + 1; // +2 año, +1 etiqueta
+              }, 0) + 2 + 1;
               return (
                 <tr key={r.key}>
                   <td colSpan={colCount} style={{
