@@ -71,3 +71,5 @@ export default defineConfig([
   },
 ])
 ```
+
+<!-- trigger: 2026-05-03 -->
