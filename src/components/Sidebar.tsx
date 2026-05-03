@@ -10,6 +10,7 @@ import {
   Clock,
   Users,
   BellRing,
+  FileText,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
@@ -51,9 +52,9 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/gestion-facturas',     label: 'Gestión de Facturas', emoji: '🧾', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
       // Placeholders nuevos (Banktrack-inspired)
-      { path: '/finanzas/verifactu',               label: 'Verifactu',                emoji: '✅', perfiles: ['admin'] },
-      { path: '/finanzas/calendario-cobros-pagos', label: 'Calendario Cobros/Pagos',  emoji: '📅', perfiles: ['admin'] },
-      { path: '/finanzas/escenarios-tesoreria',    label: 'Escenarios Tesorería',     emoji: '🔮', perfiles: ['admin'] },
+      { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
+      { path: '/finanzas/ocr-whatsapp',         label: 'OCR WhatsApp/Email',  emoji: '💬', perfiles: ['admin'] },
+      { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
     ],
   },
   {
@@ -78,6 +79,15 @@ const SECTIONS: NavSection[] = [
       { path: '/stock/inventario',  label: 'Inventario',  emoji: '📦', perfiles: ['admin'] },
       { path: '/stock/compras',     label: 'Compras',     emoji: '🛒', perfiles: ['admin'] },
       { path: '/stock/proveedores', label: 'Proveedores', emoji: '🏢', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'informes', emoji: '📑', label: 'Informes', perfiles: ['admin'],
+    items: [
+      { path: '/informes',                  label: 'Panel Informes',     emoji: '📊', perfiles: ['admin'] },
+      { path: '/informes/destinatarios',    label: 'Destinatarios',      emoji: '👥', perfiles: ['admin'] },
+      { path: '/informes/historial',        label: 'Historial envíos',   emoji: '🕒', perfiles: ['admin'] },
+      { path: '/informes/configuracion',    label: 'Configuración',      emoji: '⚙️', perfiles: ['admin'] },
     ],
   },
   {
@@ -191,6 +201,7 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   equipo:        { icon: Users,        color: '#66aaff' },
   cocina:        { icon: ChefHat,      color: '#f5a623' },
   stock:         { icon: ShoppingCart, color: '#B01D23' },
+  informes:      { icon: FileText,     color: '#e8b341' },
   configuracion: { icon: Settings,     color: '#9ba8c0' },
 }
 
