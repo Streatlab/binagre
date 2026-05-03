@@ -9,6 +9,12 @@
  * Tabs: Resumen, Facturas, Exportar (Drive borrado).
  * En Facturas: el SELECTOR DE FECHAS NO FILTRA. Sólo manda el árbol Drive lateral.
  * Trimestres con paleta pastel idéntica al Running.
+ *
+ * v3 (3 may 2026):
+ *  - Drive solo muestra titular activo (Rubén o Emilio según toggle, nunca los 2)
+ *  - "Todos" muestra los 2
+ *  - Flechas expand/collapse más grandes (16px en vez de 11px)
+ *  - Letras T1-T4 más oscuras (legibilidad)
  */
 
 import {
@@ -101,11 +107,12 @@ function colorTitular(nombre: string | undefined, fallback: string): string {
   return fallback
 }
 
-const TRIM_PALETTE: Record<number, { bg: string; head: string; tot: string }> = {
-  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },
-  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },
-  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },
-  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },
+/* Paleta pastel trimestres + texto cabecera más oscuro para legibilidad */
+const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string; tot: string }> = {
+  1: { bg: '#dde8f4', head: '#7da3c8', headDark: '#3a5f80', tot: '#b5cae3' },
+  2: { bg: '#dee9d4', head: '#7da569', headDark: '#3d6027', tot: '#b6cea3' },
+  3: { bg: '#f4e8c8', head: '#c89945', headDark: '#7d5a1a', tot: '#e8cf85' },
+  4: { bg: '#e3d8eb', head: '#7e5c9b', headDark: '#4a3163', tot: '#bfa6cf' },
 }
 const ANIO_BG = '#fbe5e8'
 
@@ -277,14 +284,27 @@ export default function GestionFacturas() {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
   }, [])
 
-  const driveTree = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
+  const driveTreeFull = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
+
+  /* Drive según toggle: 'todos' muestra los 2 / titular concreto solo ese */
+  const driveTree = useMemo(() => {
+    if (titularFiltro === 'todos') return driveTreeFull
+    return driveTreeFull.filter(t => t.filtro.titular_id === titularFiltro)
+  }, [driveTreeFull, titularFiltro])
+
+  /* Reset filtro Drive si el titular ya no está visible */
+  useEffect(() => {
+    if (driveFiltro.titular_id && titularFiltro !== 'todos' && driveFiltro.titular_id !== titularFiltro) {
+      setDriveFiltro({})
+    }
+  }, [titularFiltro, driveFiltro.titular_id])
 
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
-    if (driveTree.length === 0) return
+    if (driveTreeFull.length === 0) return
     const init: Record<string, boolean> = {}
     const anioActual = new Date().getFullYear()
-    for (const t of driveTree) {
+    for (const t of driveTreeFull) {
       const titId = t.filtro.titular_id
       init[`t:${titId}`] = true
       init[`y:${titId}:${anioActual}`] = true
@@ -293,7 +313,7 @@ export default function GestionFacturas() {
       }
     }
     setExpansionMap(init)
-  }, [driveTree, expansionMap])
+  }, [driveTreeFull, expansionMap])
 
   const categoriasFlat = useMemo(() => flattenCategorias(categorias), [categorias])
   const catNombre = useMemo(() => {
@@ -692,10 +712,10 @@ function NodoArbolItem({
   } else if (node.kind === 'trim' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
     nodoBg = pal.bg
-    nodoColor = pal.head
+    nodoColor = pal.headDark            // ← MÁS OSCURO
     nodoFontFamily = FONT.heading
-    nodoFontWeight = 600
-    nodoFontSize = 12
+    nodoFontWeight = 700                 // ← MÁS BOLD
+    nodoFontSize = 13                    // ← +1px
   } else if (node.kind === 'mes' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
     nodoBg = pal.bg + '60'
@@ -705,11 +725,11 @@ function NodoArbolItem({
 
   if (esActivo) {
     nodoBg = node.kind === 'trim' && node.trimNum
-      ? TRIM_PALETTE[node.trimNum].head
+      ? TRIM_PALETTE[node.trimNum].headDark
       : titularColor
     nodoColor = '#fff'
     nodoFontWeight = 700
-    nodoBorderLeft = `3px solid ${node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].head : titularColor}`
+    nodoBorderLeft = `3px solid ${node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].headDark : titularColor}`
   }
 
   const rowStyle: CSSProperties = {
@@ -737,16 +757,21 @@ function NodoArbolItem({
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleExpand(myKey) }}
             style={{
-              width: 18, height: 26, padding: 0, border: 'none',
+              width: 24, height: 28, padding: 0, border: 'none',
               background: 'transparent', cursor: 'pointer',
-              color: COLORS.mut, fontSize: 11, flexShrink: 0,
+              color: COLORS.sec,                  // ← más oscuro que mut
+              fontSize: 18,                        // ← MÁS GRANDE (era 11)
+              fontWeight: 700,
+              flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1,
             }}
             aria-label={expandido ? 'Contraer' : 'Expandir'}
           >
             {expandido ? '▾' : '▸'}
           </button>
         ) : (
-          <span style={{ width: 18, display: 'inline-block', textAlign: 'center', color: COLORS.mut, flexShrink: 0 }}>·</span>
+          <span style={{ width: 24, display: 'inline-block', textAlign: 'center', color: COLORS.mut, flexShrink: 0 }}>·</span>
         )}
 
         <button
