@@ -1,15 +1,12 @@
 /**
- * Punto de Equilibrio — refactor v3.1 — 3 may 2026
+ * Punto de Equilibrio — refactor v4 — 3 may 2026
  *
- * Datos REALES, sin parámetros hardcoded:
- *   - Bruto + pedidos: facturacion_diario
- *   - Neto: resumenes_plataforma_marca_mensual (cuando hay) o estimación
- *   - Gastos: tabla `gastos` SIEMPRE SIN IVA (base_imponible)
- *   - 7 categorías canónicas: PRODUCTO=variable / RRHH+ALQUILER+MARKETING+INTERNET_VENTAS+SUMINISTROS+ADMIN_GENERALES=fijos
- *   - Días operativos: useCalendario
+ * 3 cards compactas estilo Panel Global (caben 3 en pantalla):
+ *   1) FACTURACIÓN — bruto + neto + 5 plataformas (Uber/Glovo/JE/Web/Directa)
+ *   2) PUNTO DE EQUILIBRIO — bruto necesario + día que se cubre + barra progreso
+ *   3) RESULTADO — beneficio del periodo + EBITDA % + objetivo
  *
- * Estilo: cards Panel Global (cardBig + lbl + kpiBig), bruto NEGRO + neto VERDE + margen %
- * Formato: SIEMPRE 2 decimales y separador de miles es-ES, sin símbolo €
+ * Después: 2 cards COSTES FIJOS / VARIABLES (filas limpias, sin "Sin IVA plan contable")
  */
 import { useState, useMemo, useEffect, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -24,7 +21,7 @@ import {
 } from '@/lib/running'
 import { useRunning } from '@/hooks/useRunning'
 import {
-  cardBig, lbl, lblXs, kpiBig, OSWALD, LEXEND, COLOR,
+  cardBig, lbl, lblXs, OSWALD, LEXEND, COLOR,
 } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtPct } from '@/lib/format'
 
@@ -35,14 +32,6 @@ const ERR    = COLOR.rojo
 
 const MESES_CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 
-const CANAL_INFO: Record<string, { id: 'uber'|'glovo'|'just_eat'|'web'|'directa'; label: string; color: string; bg: string; border: string }> = {
-  'UBER EATS':  { id: 'uber',     label: 'UBER EATS', color: COLOR.verdeOscuro, bg: `${COLOR.uber}20`,    border: COLOR.uber },
-  'GLOVO':      { id: 'glovo',    label: 'GLOVO',     color: COLOR.glovoDark,   bg: `${COLOR.glovo}30`,   border: 'rgba(200,180,0,0.30)' },
-  'JUST EAT':   { id: 'just_eat', label: 'JUST EAT',  color: COLOR.jeDark,      bg: `${COLOR.je}20`,      border: COLOR.je },
-  'WEB':        { id: 'web',      label: 'WEB',       color: COLOR.webDark,     bg: `${COLOR.webSL}10`,   border: `${COLOR.webSL}50` },
-  'DIRECTA':    { id: 'directa',  label: 'DIRECTA',   color: COLOR.directaDark, bg: `${COLOR.directa}20`, border: COLOR.directa },
-}
-
 type Tab = 'resumen' | 'simulador'
 
 interface CanalDatos {
@@ -51,6 +40,14 @@ interface CanalDatos {
   margenPct: number
   pedidos: number
 }
+
+const CANAL_INFO: Array<{ id: 'uber'|'glovo'|'just_eat'|'web'|'directa'; label: string; color: string }> = [
+  { id: 'uber',     label: 'Uber Eats', color: COLOR.uber    },
+  { id: 'glovo',    label: 'Glovo',     color: COLOR.glovo   },
+  { id: 'just_eat', label: 'Just Eat',  color: COLOR.je      },
+  { id: 'web',      label: 'Web',       color: COLOR.webSL   },
+  { id: 'directa',  label: 'Directa',   color: COLOR.directa },
+]
 
 export default function PuntoEquilibrio() {
   const { T } = useTheme()
@@ -72,27 +69,31 @@ export default function PuntoEquilibrio() {
   }), [periodoDesde, periodoHasta, periodoLabel])
   const anio = periodo.desde.getFullYear()
 
-  /* useRunning con IVA SIN forzado (gastos en base_imponible) */
   const { loading, error, gastos, facturacion } = useRunning(
     periodo, anio, null, null, 'sin',
   )
   const { diasOperativosEnRango } = useCalendario()
 
-  /* Bruto por canal real desde facturacion_diario */
   const brutoPorCanal = useMemo(() => {
     const m: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
+    const ped: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
     for (const f of facturacion) {
       m.uber     += Number(f.uber_bruto || 0)
       m.glovo    += Number(f.glovo_bruto || 0)
       m.just_eat += Number(f.je_bruto || 0)
       m.web      += Number(f.web_bruto || 0)
       m.directa  += Number(f.directa_bruto || 0)
+      ped.uber     += Number(f.uber_pedidos || 0)
+      ped.glovo    += Number(f.glovo_pedidos || 0)
+      ped.just_eat += Number(f.je_pedidos || 0)
+      ped.web      += Number(f.web_pedidos || 0)
+      ped.directa  += Number(f.directa_pedidos || 0)
     }
-    return m
+    return { bruto: m, pedidos: ped }
   }, [facturacion])
 
   const totalBruto = useMemo(
-    () => Object.values(brutoPorCanal).reduce((a, v) => a + v, 0),
+    () => Object.values(brutoPorCanal.bruto).reduce((a, v) => a + v, 0),
     [brutoPorCanal]
   )
 
@@ -142,7 +143,8 @@ export default function PuntoEquilibrio() {
     const canalIds: Array<'uber'|'glovo'|'just_eat'|'web'|'directa'> = ['uber','glovo','just_eat','web','directa']
     for (const c of canalIds) {
       const filas = resumenes.filter(r => r.plataforma === c)
-      const brutoFD = brutoPorCanal[c] ?? 0
+      const brutoFD = brutoPorCanal.bruto[c] ?? 0
+      const pedidosFD = brutoPorCanal.pedidos[c] ?? 0
       let neto = 0
       let brutoCalc = 0
       if (filas.length > 0) {
@@ -164,7 +166,7 @@ export default function PuntoEquilibrio() {
       }
       const brutoFinal = filas.length > 0 ? brutoCalc : brutoFD
       const margenPct = brutoFinal > 0 ? (neto / brutoFinal) * 100 : 0
-      out[c] = { bruto: brutoFinal, neto, margenPct, pedidos: 0 }
+      out[c] = { bruto: brutoFinal, neto, margenPct, pedidos: pedidosFD }
     }
     return out
   }, [resumenes, brutoPorCanal])
@@ -200,6 +202,9 @@ export default function PuntoEquilibrio() {
   const margenContribucion = totalBruto - totalVariables
   const margenContribPct = totalBruto > 0 ? (margenContribucion / totalBruto) * 100 : 0
   const peMensual = margenContribPct > 0 ? totalFijos / (margenContribPct / 100) : null
+
+  const beneficio = totalBruto - totalVariables - totalFijos
+  const ebitdaPct = totalBruto > 0 ? (beneficio / totalBruto) * 100 : 0
 
   const diasOperativos = useMemo(
     () => diasOperativosEnRango(periodo.desde, periodo.hasta) || 1,
@@ -303,8 +308,9 @@ export default function PuntoEquilibrio() {
           gastosPorCategoria={gastosPorCategoria}
           diasOperativos={diasOperativos}
           brutoMedioDiario={brutoMedioDiario}
-          estado={estado}
           colorEstado={colorEstado}
+          beneficio={beneficio}
+          ebitdaPct={ebitdaPct}
           periodoDesde={periodo.desde}
         />
       )}
@@ -342,15 +348,13 @@ interface TabResumenProps {
   gastosPorCategoria: Partial<Record<Categoria, number>>
   diasOperativos: number
   brutoMedioDiario: number
-  estado: 'cubre' | 'ajustado' | 'pierde'
   colorEstado: string
+  beneficio: number
+  ebitdaPct: number
   periodoDesde: Date
 }
 
 function TabResumen(p: TabResumenProps) {
-  const ticketMedioBruto = p.totalPedidos > 0 ? p.totalBruto / p.totalPedidos : 0
-  const ticketMedioNeto = p.totalPedidos > 0 ? p.totalNeto / p.totalPedidos : 0
-
   const filasFijos = GASTOS_FIJOS
     .map(cat => ({
       label: CATEGORIA_NOMBRE[cat],
@@ -372,19 +376,17 @@ function TabResumen(p: TabResumenProps) {
 
   return (
     <div style={{ marginTop: 16 }}>
+      {/* 3 cards estilo Panel Global */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 14,
         marginBottom: 14,
       }}>
-        <CardIngresos
+        <CardFacturacion
           totalBruto={p.totalBruto}
           totalNeto={p.totalNeto}
           margenNetoPct={p.margenNetoPct}
-          totalPedidos={p.totalPedidos}
-          ticketMedioBruto={ticketMedioBruto}
-          ticketMedioNeto={ticketMedioNeto}
           datosPorCanal={p.datosPorCanal}
         />
 
@@ -393,24 +395,28 @@ function TabResumen(p: TabResumenProps) {
           totalBruto={p.totalBruto}
           diaCubreInfo={p.diaCubreInfo}
           colorEstado={p.colorEstado}
-          estado={p.estado}
-          diasOperativos={p.diasOperativos}
           brutoMedioDiario={p.brutoMedioDiario}
-          margenContribPct={p.margenContribPct}
-          totalPedidos={p.totalPedidos}
-          ticketMedioBruto={ticketMedioBruto}
           periodoDesde={p.periodoDesde}
+        />
+
+        <CardResultado
+          beneficio={p.beneficio}
+          ebitdaPct={p.ebitdaPct}
+          totalBruto={p.totalBruto}
+          totalNeto={p.totalNeto}
+          totalFijos={p.totalFijos}
+          totalVariables={p.totalVariables}
         />
       </div>
 
+      {/* 2 cards costes simplificadas */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+        gridTemplateColumns: 'repeat(2, 1fr)',
         gap: 14,
       }}>
         <CardCostes
           titulo="COSTES FIJOS"
-          subtitulo="Sin IVA · plan contable"
           total={p.totalFijos}
           filas={filasFijos}
           totalBruto={p.totalBruto}
@@ -418,7 +424,6 @@ function TabResumen(p: TabResumenProps) {
 
         <CardCostes
           titulo="COSTES VARIABLES"
-          subtitulo={`Sin IVA · ${fmtPct(p.totalVariables / Math.max(1, p.totalBruto) * 100, 2)} sobre bruto · margen contrib. ${fmtPct(p.margenContribPct, 2)}`}
           total={p.totalVariables}
           filas={filasVariables}
           totalBruto={p.totalBruto}
@@ -428,60 +433,69 @@ function TabResumen(p: TabResumenProps) {
   )
 }
 
-function CardIngresos({ totalBruto, totalNeto, margenNetoPct, totalPedidos, ticketMedioBruto, ticketMedioNeto, datosPorCanal }: {
+/* ─────────────────────────────────────────────────────
+   CARD 1: FACTURACIÓN
+   ───────────────────────────────────────────────────── */
+function CardFacturacion({ totalBruto, totalNeto, margenNetoPct, datosPorCanal }: {
   totalBruto: number
   totalNeto: number
   margenNetoPct: number
-  totalPedidos: number
-  ticketMedioBruto: number
-  ticketMedioNeto: number
   datosPorCanal: Record<string, CanalDatos>
 }) {
-  const canales: Array<keyof typeof CANAL_INFO> = ['UBER EATS', 'GLOVO', 'JUST EAT', 'WEB', 'DIRECTA']
-
   return (
     <div style={cardBig}>
-      <div style={lbl}>INGRESOS DEL PERIODO</div>
+      <div style={lbl}>FACTURACIÓN</div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ ...kpiBig, color: '#111111' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: '#111111' }}>
             {fmtEur(totalBruto, { showEuro: false, decimals: 2 })}
           </div>
           <div style={lblXs}>BRUTO</div>
         </div>
         <div>
-          <div style={{ ...kpiBig, color: VERDE }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: VERDE }}>
             {fmtEur(totalNeto, { showEuro: false, decimals: 2 })}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500 }}>
-            NETO · {fmtPct(margenNetoPct, 2)}
+            NETO · {fmtPct(margenNetoPct, 1)}
           </div>
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: '#7a8090', marginTop: 10, marginBottom: 14, fontFamily: LEXEND }}>
-        {fmtEur(totalPedidos, { showEuro: false, decimals: 0 })} pedidos · ticket medio {fmtEur(ticketMedioBruto, { showEuro: false, decimals: 2 })} bruto / {fmtEur(ticketMedioNeto, { showEuro: false, decimals: 2 })} neto
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
+        {CANAL_INFO.map(canal => {
+          const datos = datosPorCanal[canal.id]
+          const bruto = datos?.bruto ?? 0
+          const neto = datos?.neto ?? 0
+          const margen = datos?.margenPct ?? 0
+          const pctMix = totalBruto > 0 ? (bruto / totalBruto) * 100 : 0
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {canales.map(canalKey => {
-          const info = CANAL_INFO[canalKey]
-          const datos = datosPorCanal[info.id]
-          if (!datos || datos.bruto <= 0) return null
-          const pctMix = totalBruto > 0 ? (datos.bruto / totalBruto) * 100 : 0
           return (
-            <FilaCanal
-              key={canalKey}
-              label={info.label}
-              bg={info.bg}
-              border={info.border}
-              colorLabel={info.color}
-              bruto={datos.bruto}
-              neto={datos.neto}
-              margenPct={datos.margenPct}
-              pctMix={pctMix}
-            />
+            <div key={canal.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 10 }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: LEXEND, fontSize: 13, color: '#3a4050' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: canal.color }} />
+                    {canal.label}
+                  </span>
+                  <span style={{ fontFamily: OSWALD, fontSize: 11, color: '#7a8090', letterSpacing: '0.5px' }}>
+                    {fmtPct(pctMix, 1)}
+                  </span>
+                </div>
+                <div style={{ height: 5, background: '#ebe8e2', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ width: `${pctMix}%`, height: '100%', background: canal.color, transition: 'width 0.4s ease' }} />
+                </div>
+              </div>
+              <div style={{ minWidth: 110, textAlign: 'right' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: '#111111' }}>
+                  {fmtEur(bruto, { showEuro: false, decimals: 0 })}
+                </div>
+                <div style={{ fontFamily: LEXEND, fontSize: 10, color: VERDE }}>
+                  {fmtEur(neto, { showEuro: false, decimals: 0 })} · {fmtPct(margen, 0)}
+                </div>
+              </div>
+            </div>
           )
         })}
       </div>
@@ -489,73 +503,17 @@ function CardIngresos({ totalBruto, totalNeto, margenNetoPct, totalPedidos, tick
   )
 }
 
-function FilaCanal({ label, bg, border, colorLabel, bruto, neto, margenPct, pctMix }: {
-  label: string
-  bg: string
-  border: string
-  colorLabel: string
-  bruto: number
-  neto: number
-  margenPct: number
-  pctMix: number
-}) {
-  return (
-    <div style={{
-      background: bg,
-      border: `0.5px solid ${border}`,
-      borderRadius: 12,
-      padding: '10px 14px',
-      display: 'grid',
-      gridTemplateColumns: '1fr auto auto auto',
-      alignItems: 'center',
-      gap: 14,
-    }}>
-      <div>
-        <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090', marginTop: 2 }}>
-          {fmtPct(pctMix, 2)} del bruto
-        </div>
-      </div>
-
-      <div style={{ textAlign: 'right', minWidth: 110 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
-          {fmtEur(bruto, { showEuro: false, decimals: 2 })}
-        </div>
-        <div style={{ fontSize: 10, color: '#3a4050', fontFamily: LEXEND }}>Bruto</div>
-      </div>
-
-      <div style={{ textAlign: 'right', minWidth: 110 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: VERDE }}>
-          {fmtEur(neto, { showEuro: false, decimals: 2 })}
-        </div>
-        <div style={{ fontSize: 10, color: VERDE, fontFamily: LEXEND }}>Neto</div>
-      </div>
-
-      <div style={{ textAlign: 'right', minWidth: 70 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, color: VERDE }}>
-          {fmtPct(margenPct, 2)}
-        </div>
-        <div style={{ fontSize: 10, color: '#7a8090', fontFamily: LEXEND }}>Margen</div>
-      </div>
-    </div>
-  )
-}
-
-function CardPE(props: {
+/* ─────────────────────────────────────────────────────
+   CARD 2: PUNTO DE EQUILIBRIO
+   ───────────────────────────────────────────────────── */
+function CardPE({ peMensual, totalBruto, diaCubreInfo, colorEstado, brutoMedioDiario, periodoDesde }: {
   peMensual: number | null
   totalBruto: number
   diaCubreInfo: { fecha: Date | null; diasNecesarios: number | null; pasaElMes: boolean }
   colorEstado: string
-  estado: 'cubre' | 'ajustado' | 'pierde'
-  diasOperativos: number
   brutoMedioDiario: number
-  margenContribPct: number
-  totalPedidos: number
-  ticketMedioBruto: number
   periodoDesde: Date
 }) {
-  const { peMensual, totalBruto, diaCubreInfo, colorEstado, diasOperativos, brutoMedioDiario, margenContribPct, ticketMedioBruto, periodoDesde } = props
-
   const pctCubierto = peMensual ? Math.min(100, (totalBruto / peMensual) * 100) : 0
   const fechaPE = diaCubreInfo.fecha
   const mesPeriodo = periodoDesde.getMonth()
@@ -579,42 +537,38 @@ function CardPE(props: {
     circuloColor = ERR
   }
 
-  const pedidosNecesarios = peMensual && ticketMedioBruto > 0 ? Math.ceil(peMensual / ticketMedioBruto) : null
-  const diasNecesarios = diaCubreInfo.diasNecesarios
+  const faltan = peMensual ? Math.max(0, peMensual - totalBruto) : 0
 
   return (
-    <div style={{
-      ...cardBig,
-      background: 'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)',
-    }}>
+    <div style={cardBig}>
       <div style={lbl}>PUNTO DE EQUILIBRIO</div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ ...kpiBig, color: '#111111' }}>
-            {peMensual != null ? fmtEur(peMensual, { showEuro: false, decimals: 2 }) : '—'}
+          <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: '#111111' }}>
+            {peMensual != null ? fmtEur(peMensual, { showEuro: false, decimals: 0 }) : '—'}
           </div>
           <div style={lblXs}>BRUTO PARA NO PERDER</div>
         </div>
-        <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: VERDE }}>
-            {fmtPct(margenContribPct, 2)}
-          </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500 }}>
-            MARGEN CONTRIBUCIÓN
-          </div>
-        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 18 }}>
+      <div style={{ fontSize: 12, color: '#7a8090', margin: '10px 0 16px', fontFamily: LEXEND }}>
+        {peMensual != null && totalBruto < peMensual
+          ? <>Faltan <strong style={{ color: colorEstado }}>{fmtEur(faltan, { showEuro: false, decimals: 0 })}</strong> de bruto</>
+          : peMensual != null
+          ? <>Cubierto · sobran {fmtEur(totalBruto - peMensual, { showEuro: false, decimals: 0 })}</>
+          : 'Datos insuficientes'}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{
-          width: 86, height: 86, borderRadius: '50%',
+          width: 76, height: 76, borderRadius: '50%',
           background: circuloColor, color: '#fff',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, lineHeight: 1 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, lineHeight: 1 }}>
             {circuloLinea1}
           </div>
           {circuloLinea2 && (
@@ -624,30 +578,12 @@ function CardPE(props: {
           )}
         </div>
 
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
-              {pedidosNecesarios != null ? fmtEur(pedidosNecesarios, { showEuro: false, decimals: 0 }) : '—'}
-            </div>
-            <div style={lblXs}>PEDIDOS NECESARIOS</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#3a4050', marginBottom: 4 }}>
+            Día estimado en que se cubre el PE
           </div>
-          <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
-              {diasNecesarios != null ? `${fmtEur(diasNecesarios, { showEuro: false, decimals: 0 })} días` : '—'}
-            </div>
-            <div style={lblXs}>DÍAS NECESARIOS</div>
-          </div>
-          <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
-              {fmtEur(brutoMedioDiario, { showEuro: false, decimals: 2 })}
-            </div>
-            <div style={lblXs}>BRUTO/DÍA REAL</div>
-          </div>
-          <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: peMensual && peMensual > 0 ? '#111111' : '#7a8090' }}>
-              {peMensual != null ? fmtEur(peMensual / diasOperativos, { showEuro: false, decimals: 2 }) : '—'}
-            </div>
-            <div style={lblXs}>BRUTO/DÍA OBJETIVO</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090' }}>
+            Ritmo actual: {fmtEur(brutoMedioDiario, { showEuro: false, decimals: 0 })} / día
           </div>
         </div>
       </div>
@@ -656,7 +592,7 @@ function CardPE(props: {
         <>
           <div style={{
             height: 8, borderRadius: 4, background: '#ebe8e2',
-            overflow: 'hidden', marginTop: 16,
+            overflow: 'hidden', marginTop: 18,
           }}>
             <div style={{
               width: `${pctCubierto}%`,
@@ -665,8 +601,9 @@ function CardPE(props: {
               transition: 'width 0.5s ease',
             }} />
           </div>
-          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#3a4050', marginTop: 6 }}>
-            <strong style={{ color: colorEstado }}>{fmtPct(pctCubierto, 2)} cubierto</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 11, color: '#7a8090', marginTop: 6 }}>
+            <span>Cubierto</span>
+            <strong style={{ color: colorEstado, fontFamily: OSWALD, fontSize: 12 }}>{fmtPct(pctCubierto, 1)}</strong>
           </div>
         </>
       )}
@@ -674,64 +611,130 @@ function CardPE(props: {
   )
 }
 
-function CardCostes({ titulo, subtitulo, total, filas, totalBruto }: {
+/* ─────────────────────────────────────────────────────
+   CARD 3: RESULTADO
+   ───────────────────────────────────────────────────── */
+function CardResultado({ beneficio, ebitdaPct, totalBruto, totalNeto, totalFijos, totalVariables }: {
+  beneficio: number
+  ebitdaPct: number
+  totalBruto: number
+  totalNeto: number
+  totalFijos: number
+  totalVariables: number
+}) {
+  const colorBen = beneficio >= 0 ? VERDE : ERR
+
+  const filas = [
+    { label: 'Bruto',           valor: totalBruto,       color: '#111111' },
+    { label: 'Neto estimado',   valor: totalNeto,        color: VERDE },
+    { label: 'Costes variables', valor: -totalVariables, color: '#3a4050' },
+    { label: 'Costes fijos',    valor: -totalFijos,      color: '#3a4050' },
+  ]
+
+  return (
+    <div style={cardBig}>
+      <div style={lbl}>RESULTADO</div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: colorBen }}>
+            {fmtEur(beneficio, { showEuro: false, decimals: 0, signed: true })}
+          </div>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: colorBen, textTransform: 'uppercase', fontWeight: 500 }}>
+            BENEFICIO · EBITDA
+          </div>
+        </div>
+        <div>
+          <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: colorBen }}>
+            {fmtPct(ebitdaPct, 1)}
+          </div>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#7a8090', textTransform: 'uppercase', fontWeight: 500 }}>
+            % s/bruto
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filas.map((f, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 13 }}>
+            <span style={{ color: '#3a4050' }}>{f.label}</span>
+            <span style={{ fontFamily: OSWALD, fontWeight: 600, color: f.color }}>
+              {fmtEur(f.valor, { showEuro: false, decimals: 0, signed: f.valor < 0 })}
+            </span>
+          </div>
+        ))}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontFamily: LEXEND, fontSize: 13, paddingTop: 8,
+          borderTop: '0.5px solid #d0c8bc',
+        }}>
+          <span style={{ color: '#3a4050', fontWeight: 600 }}>Resultado</span>
+          <span style={{ fontFamily: OSWALD, fontWeight: 600, color: colorBen }}>
+            {fmtEur(beneficio, { showEuro: false, decimals: 0, signed: true })}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────
+   CARDS COSTES (FIJOS / VARIABLES)
+   Sin "Sin IVA · plan contable", filas limpias sin separadores
+   ───────────────────────────────────────────────────── */
+function CardCostes({ titulo, total, filas, totalBruto }: {
   titulo: string
-  subtitulo: string
   total: number
   filas: Array<{ label: string; valor: number; color: string }>
   totalBruto: number
 }) {
+  const pctSobreBruto = totalBruto > 0 ? (total / totalBruto) * 100 : 0
+
   return (
     <div style={cardBig}>
       <div style={lbl}>{titulo}</div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ ...kpiBig, color: '#111111' }}>
-            {fmtEur(total, { showEuro: false, decimals: 2 })}
+          <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: '#111111' }}>
+            {fmtEur(total, { showEuro: false, decimals: 0 })}
           </div>
-          <div style={lblXs}>TOTAL · SIN IVA</div>
+          <div style={lblXs}>TOTAL</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: '#7a8090' }}>
-            {totalBruto > 0 ? fmtPct(total / totalBruto * 100, 2) : '—'}
+          <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: '#7a8090' }}>
+            {fmtPct(pctSobreBruto, 1)}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#7a8090', textTransform: 'uppercase', fontWeight: 500 }}>
-            SOBRE BRUTO
+            S/BRUTO
           </div>
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: '#7a8090', marginTop: 10, marginBottom: 14, fontFamily: LEXEND }}>
-        {subtitulo}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filas.length === 0 && (
-          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#7a8090', fontStyle: 'italic', padding: '12px 0' }}>
-            Sin gastos en el periodo seleccionado
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#7a8090', fontStyle: 'italic', padding: '8px 0' }}>
+            Sin gastos en el periodo
           </div>
         )}
         {filas.map((f, i) => {
-          const pctSobreBruto = totalBruto > 0 ? (f.valor / totalBruto) * 100 : 0
+          const pct = totalBruto > 0 ? (f.valor / totalBruto) * 100 : 0
           return (
             <div key={i} style={{
               display: 'grid',
               gridTemplateColumns: '1fr auto auto',
               alignItems: 'center',
               gap: 12,
-              padding: '10px 0',
-              borderBottom: i < filas.length - 1 ? '0.5px solid #ebe8e2' : 'none',
             }}>
-              <span style={{ fontFamily: LEXEND, fontSize: 13, color: '#3a4050', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 4, background: f.color, display: 'inline-block' }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEXEND, fontSize: 13, color: '#3a4050' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: f.color }} />
                 {f.label}
               </span>
-              <span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, color: '#111111', minWidth: 110, textAlign: 'right' }}>
-                {fmtEur(f.valor, { showEuro: false, decimals: 2 })}
+              <span style={{ fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: '#111111', minWidth: 90, textAlign: 'right' }}>
+                {fmtEur(f.valor, { showEuro: false, decimals: 0 })}
               </span>
-              <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: '#7a8090', minWidth: 70, textAlign: 'right' }}>
-                {fmtPct(pctSobreBruto, 2)}
+              <span style={{ fontFamily: OSWALD, fontSize: 11, color: '#7a8090', minWidth: 50, textAlign: 'right' }}>
+                {fmtPct(pct, 1)}
               </span>
             </div>
           )
@@ -741,6 +744,9 @@ function CardCostes({ titulo, subtitulo, total, filas, totalBruto }: {
   )
 }
 
+/* ─────────────────────────────────────────────────────
+   SIMULADOR (sin cambios funcionales — solo mantenido)
+   ───────────────────────────────────────────────────── */
 interface Escenario {
   id: string
   titulo: string
@@ -995,13 +1001,13 @@ function CardEscenario({ escenario, calc, calcBase, onChangePreset, onChange, on
       <RowInput label="Pedidos mes" value={e.pedidosMes} decimales={0} onChange={v => onChange('pedidosMes', v)} bloqueado={e.bloqueado} />
 
       <div style={{ background: '#ebe8e2', borderRadius: 10, padding: 14, marginTop: 14 }}>
-        <RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado, { showEuro: false, decimals: 2 })} color="#111111" />
-        <RowResultado label="Punto equilibrio" valor={calc.peValor != null ? fmtEur(calc.peValor, { showEuro: false, decimals: 2 }) : '—'} color="#111111" />
+        <RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado, { showEuro: false, decimals: 0 })} color="#111111" />
+        <RowResultado label="Punto equilibrio" valor={calc.peValor != null ? fmtEur(calc.peValor, { showEuro: false, decimals: 0 }) : '—'} color="#111111" />
         <RowResultado label="Pedidos para PE" valor={calc.pedidosNecesarios != null ? fmtEur(calc.pedidosNecesarios, { showEuro: false, decimals: 0 }) : '—'} color="#111111" />
         <RowResultado label="Días para PE" valor={calc.diasNecesarios != null ? `${fmtEur(calc.diasNecesarios, { showEuro: false, decimals: 0 })} días` : '—'} color="#111111" />
         <RowResultado
           label="Beneficio esperado"
-          valor={fmtEur(calc.beneficio, { showEuro: false, decimals: 2, signed: true })}
+          valor={fmtEur(calc.beneficio, { showEuro: false, decimals: 0, signed: true })}
           color={calc.beneficio >= 0 ? VERDE : ERR}
           big
         />
@@ -1014,7 +1020,7 @@ function CardEscenario({ escenario, calc, calcBase, onChangePreset, onChange, on
               Vs base · beneficio
             </span>
             <span style={{ fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: deltaBeneficio > 0 ? VERDE : deltaBeneficio < 0 ? ERR : '#7a8090' }}>
-              {fmtEur(deltaBeneficio, { showEuro: false, decimals: 2, signed: true })}
+              {fmtEur(deltaBeneficio, { showEuro: false, decimals: 0, signed: true })}
             </span>
           </div>
         )}
