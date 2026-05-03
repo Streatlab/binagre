@@ -4,10 +4,10 @@
  * Datos 100% reales desde Supabase:
  * - public.facturas (PDF en pdf_drive_url, ya servido por Supabase Storage)
  * - public.titulares (Rubén, Emilio)
- * - public.categorias_pyg (árbol completo de categorías contables)
+ * - public.categorias_pyg (árbol completo de categorías contables, 105)
  *
  * Estructura del Drive simulado: Titular → Año → Trimestre → Mes,
- * construida dinámicamente desde las facturas existentes.
+ * SIEMPRE muestra los 2 titulares, año actual + anterior, T1-T4, 12 meses.
  *
  * Click en fila → abre el PDF (pdf_drive_url) en pestaña nueva.
  * Click en nodo del árbol → filtra la tabla por ese ámbito.
@@ -105,6 +105,13 @@ function fmtNum(n: number | null | undefined, dec = 2): string {
 const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+const MESES_POR_TRIM: Record<number, number[]> = {
+  1: [1, 2, 3],
+  2: [4, 5, 6],
+  3: [7, 8, 9],
+  4: [10, 11, 12],
+}
+
 function colorEstado(estado: string | null): { bg: string; col: string; lbl: string } {
   switch (estado) {
     case 'asociada':                  return { bg: '#e8f5ec', col: COLORS.ok,    lbl: 'CONCILIADA' }
@@ -119,72 +126,91 @@ function colorEstado(estado: string | null): { bg: string; col: string; lbl: str
   }
 }
 
+/**
+ * Construye el árbol Drive con estructura COMPLETA siempre visible:
+ *   - los 2 titulares (siempre)
+ *   - año actual + año pasado (siempre)
+ *   - T1, T2, T3, T4 (siempre)
+ *   - 12 meses (siempre)
+ *
+ * Los nodos sin facturas se renderizan con count=0 y se ven "apagados".
+ */
 function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode[] {
-  const map = new Map<string, Map<number, Map<number, Map<number, { count: number; importe: number }>>>>()
+  // 1) Indexar conteos reales: titular > año > mes
+  const counts = new Map<string, Map<number, Map<number, { count: number; importe: number }>>>()
   for (const f of facturas) {
     if (!f.fecha_factura || !f.titular_id) continue
     const d = new Date(f.fecha_factura + 'T00:00:00')
     const anio = d.getFullYear()
     const mes  = d.getMonth() + 1
-    const trim = Math.ceil(mes / 3)
-    if (!map.has(f.titular_id)) map.set(f.titular_id, new Map())
-    const tMap = map.get(f.titular_id)!
+
+    if (!counts.has(f.titular_id)) counts.set(f.titular_id, new Map())
+    const tMap = counts.get(f.titular_id)!
     if (!tMap.has(anio)) tMap.set(anio, new Map())
     const aMap = tMap.get(anio)!
-    if (!aMap.has(trim)) aMap.set(trim, new Map())
-    const qMap = aMap.get(trim)!
-    if (!qMap.has(mes)) qMap.set(mes, { count: 0, importe: 0 })
-    const node = qMap.get(mes)!
+    if (!aMap.has(mes)) aMap.set(mes, { count: 0, importe: 0 })
+    const node = aMap.get(mes)!
     node.count += 1
     node.importe += Number(f.total || 0)
   }
 
+  // 2) Determinar años a mostrar: por defecto año actual + anterior
+  //    + cualquier año adicional con facturas reales
+  const hoy = new Date()
+  const anioActual = hoy.getFullYear()
+  const aniosSet = new Set<number>([anioActual, anioActual - 1])
+  for (const tMap of counts.values()) {
+    for (const a of tMap.keys()) aniosSet.add(a)
+  }
+  const anios = Array.from(aniosSet).sort((a, b) => b - a)  // desc: más recientes arriba
+
+  // 3) Construir árbol completo
   const tree: DriveNode[] = []
   for (const t of titulares) {
-    const tMap = map.get(t.id)
+    const tMap = counts.get(t.id)
     const titNode: DriveNode = {
       label: t.nombre,
       count: 0, importe: 0, children: [],
       filtro: { titular_id: t.id },
     }
-    if (tMap) {
-      const anios = Array.from(tMap.keys()).sort((a, b) => b - a)
-      for (const anio of anios) {
-        const aMap = tMap.get(anio)!
-        const aNode: DriveNode = {
-          label: String(anio),
-          count: 0, importe: 0, children: [],
-          filtro: { titular_id: t.id, anio },
-        }
-        const trims = Array.from(aMap.keys()).sort((a, b) => a - b)
-        for (const trim of trims) {
-          const qMap = aMap.get(trim)!
-          const qNode: DriveNode = {
-            label: `T${trim}`,
-            count: 0, importe: 0, children: [],
-            filtro: { titular_id: t.id, anio, trimestre: trim },
-          }
-          const meses = Array.from(qMap.keys()).sort((a, b) => a - b)
-          for (const mes of meses) {
-            const data = qMap.get(mes)!
-            qNode.children!.push({
-              label: MESES[mes],
-              count: data.count,
-              importe: data.importe,
-              filtro: { titular_id: t.id, anio, trimestre: trim, mes },
-            })
-            qNode.count += data.count
-            qNode.importe += data.importe
-          }
-          aNode.children!.push(qNode)
-          aNode.count += qNode.count
-          aNode.importe += qNode.importe
-        }
-        titNode.children!.push(aNode)
-        titNode.count += aNode.count
-        titNode.importe += aNode.importe
+
+    for (const anio of anios) {
+      const aMap = tMap?.get(anio)
+      const aNode: DriveNode = {
+        label: String(anio),
+        count: 0, importe: 0, children: [],
+        filtro: { titular_id: t.id, anio },
       }
+
+      for (const trim of [1, 2, 3, 4]) {
+        const qNode: DriveNode = {
+          label: `T${trim}`,
+          count: 0, importe: 0, children: [],
+          filtro: { titular_id: t.id, anio, trimestre: trim },
+        }
+
+        for (const mes of MESES_POR_TRIM[trim]) {
+          const data = aMap?.get(mes) ?? { count: 0, importe: 0 }
+          qNode.children!.push({
+            label: MESES[mes],
+            count: data.count,
+            importe: data.importe,
+            filtro: { titular_id: t.id, anio, trimestre: trim, mes },
+          })
+          qNode.count += data.count
+          qNode.importe += data.importe
+        }
+
+        aNode.children!.push(qNode)
+        aNode.count += qNode.count
+        aNode.importe += qNode.importe
+      }
+
+      titNode.children!.push(aNode)
+      titNode.count += aNode.count
+      titNode.importe += aNode.importe
     }
+
     tree.push(titNode)
   }
   return tree
@@ -259,15 +285,21 @@ export default function GestionFacturas() {
 
   const driveTree = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
 
-  // expandir por defecto el primer titular y su año más reciente
+  // Inicialización árbol expandido: titulares + año actual + sus 4 trimestres expandidos
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTree.length === 0) return
     const init: Record<string, boolean> = {}
+    const anioActual = new Date().getFullYear()
     for (const t of driveTree) {
-      init[`t:${t.filtro.titular_id}`] = true
-      const yMostRecent = t.children?.[0]
-      if (yMostRecent) init[`y:${yMostRecent.filtro.titular_id}:${yMostRecent.filtro.anio}`] = true
+      const titId = t.filtro.titular_id
+      init[`t:${titId}`] = true
+      // expandir el año actual
+      init[`y:${titId}:${anioActual}`] = true
+      // expandir T1-T4 del año actual
+      for (const trim of [1, 2, 3, 4]) {
+        init[`q:${titId}:${anioActual}:${trim}`] = true
+      }
     }
     setExpansionMap(init)
   }, [driveTree, expansionMap])
@@ -339,7 +371,6 @@ export default function GestionFacturas() {
     borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap',
   }
 
-  // Estilo "isla" para agrupar bloques de filtros
   const islaStyle: CSSProperties = {
     background: COLORS.card,
     border: `0.5px solid ${COLORS.brd}`,
@@ -379,7 +410,6 @@ export default function GestionFacturas() {
         />
       </div>
 
-      {/* TABS PRINCIPALES */}
       <TabsPastilla
         tabs={TABS}
         activeId={activeTab}
@@ -393,7 +423,6 @@ export default function GestionFacturas() {
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
           }}>
-            {/* Bloque titular (toggle pills agrupado en isla, sin label) */}
             {titulares.length > 0 && (
               <div style={islaStyle}>
                 <SubTabsInverso
@@ -404,7 +433,6 @@ export default function GestionFacturas() {
               </div>
             )}
 
-            {/* Buscador */}
             <input
               type="text"
               placeholder="Buscar proveedor, NIF, importe…"
@@ -418,7 +446,6 @@ export default function GestionFacturas() {
               }}
             />
 
-            {/* Bloque categorías (dropdown agrupado en isla) */}
             <div style={{ ...islaStyle, padding: 0, overflow: 'hidden' }}>
               <select
                 value={categoriaId}
@@ -438,7 +465,6 @@ export default function GestionFacturas() {
               </select>
             </div>
 
-            {/* Exportar */}
             <button
               onClick={() => setActiveTab('exportar')}
               style={{
@@ -452,7 +478,6 @@ export default function GestionFacturas() {
             </button>
           </div>
 
-          {/* LAYOUT: Drive izquierda + tabla derecha */}
           <div style={{
             display: 'grid', gridTemplateColumns: '260px 1fr', gap: 14,
           }}>
@@ -503,14 +528,6 @@ export default function GestionFacturas() {
                   }
                 />
               ))}
-
-              {!loading && driveTree.every(t => t.count === 0) && (
-                <div style={{
-                  color: COLORS.mut, fontSize: 12, fontStyle: 'italic', marginTop: 8,
-                }}>
-                  Aún no hay facturas. Sube facturas desde el módulo OCR.
-                </div>
-              )}
             </div>
 
             {/* Tabla */}
@@ -669,12 +686,21 @@ function NodoArbolItem({
   const tieneHijos = !!(node.children && node.children.length > 0)
   const myKey = nodeKey(node.filtro)
   const expandido = expansionMap[myKey] ?? false
+  const sinFacturas = node.count === 0
 
   const esActivo =
     filtroActivo.titular_id === node.filtro.titular_id &&
     filtroActivo.anio === node.filtro.anio &&
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
+
+  // Color según estado:
+  //   - activo: rojo SL con fondo claro
+  //   - sin facturas: gris muted
+  //   - normal: principal
+  const rowColor = esActivo
+    ? COLORS.redSL
+    : (sinFacturas ? COLORS.mut : COLORS.pri)
 
   const rowStyle: CSSProperties = {
     width: '100%', display: 'flex', alignItems: 'center',
@@ -683,16 +709,16 @@ function NodoArbolItem({
     border: 'none',
     borderLeft: esActivo ? `3px solid ${COLORS.redSL}` : '3px solid transparent',
     borderRadius: esActivo ? '0 4px 4px 0' : 0,
-    cursor: node.count > 0 ? 'pointer' : 'default',
+    cursor: 'pointer',
     fontFamily: FONT.body, fontSize: 13, textAlign: 'left',
-    color: esActivo ? COLORS.redSL : (node.count === 0 ? COLORS.mut : COLORS.pri),
+    color: rowColor,
     fontWeight: esActivo ? 500 : 400,
+    opacity: sinFacturas && !esActivo ? 0.55 : 1,
   }
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        {/* chevron expansión (botón aparte) */}
         {tieneHijos ? (
           <button
             type="button"
@@ -710,11 +736,9 @@ function NodoArbolItem({
           <span style={{ width: 20, display: 'inline-block', textAlign: 'center', color: COLORS.mut }}>·</span>
         )}
 
-        {/* botón principal: selecciona el filtro */}
         <button
           type="button"
-          onClick={() => node.count > 0 && onSelect(node.filtro)}
-          disabled={node.count === 0}
+          onClick={() => onSelect(node.filtro)}
           style={rowStyle}
         >
           <span style={{ flex: 1 }}>{node.label}</span>
