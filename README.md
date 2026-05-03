@@ -72,4 +72,4 @@ export default defineConfig([
 ])
 ```
 
-<!-- deploy: ocr modal v1 / drive oauth perpetuo -->
+<!-- deploy v2: ocr toast persistente + nif normalizado + categorias auto -->
