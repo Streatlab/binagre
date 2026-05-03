@@ -5,8 +5,6 @@
  *   1) FACTURACIÓN — bruto + neto + 5 plataformas (Uber/Glovo/JE/Web/Directa)
  *   2) PUNTO DE EQUILIBRIO — bruto necesario + día que se cubre + barra progreso
  *   3) RESULTADO — beneficio del periodo + EBITDA % + objetivo
- *
- * Después: 2 cards COSTES FIJOS / VARIABLES (filas limpias, sin "Sin IVA plan contable")
  */
 import { useState, useMemo, useEffect, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -77,8 +75,9 @@ export default function PuntoEquilibrio() {
   const brutoPorCanal = useMemo(() => {
     const m: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
     const ped: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
-    for (const fr of facturacion) {
-      const f = fr as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const fr of facturacion as any[]) {
+      const f = fr as Record<string, number | null | undefined>
       m.uber     += Number(f.uber_bruto || 0)
       m.glovo    += Number(f.glovo_bruto || 0)
       m.just_eat += Number(f.je_bruto || 0)
@@ -99,6 +98,7 @@ export default function PuntoEquilibrio() {
   )
 
   const totalPedidos = useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     () => facturacion.reduce((a, f) => a + Number((f as any).total_pedidos || 0), 0),
     [facturacion]
   )
@@ -133,6 +133,7 @@ export default function PuntoEquilibrio() {
         .select('plataforma, mes, año, bruto, comisiones, fees, cargos_promocion, neto_real_cobrado')
         .or(conditions)
       if (cancel) return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setResumenes((data ?? []) as any)
     })()
     return () => { cancel = true }
@@ -377,7 +378,6 @@ function TabResumen(p: TabResumenProps) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* 3 cards estilo Panel Global */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
@@ -410,7 +410,6 @@ function TabResumen(p: TabResumenProps) {
         />
       </div>
 
-      {/* 2 cards costes simplificadas */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
@@ -434,9 +433,6 @@ function TabResumen(p: TabResumenProps) {
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   CARD 1: FACTURACIÓN
-   ───────────────────────────────────────────────────── */
 function CardFacturacion({ totalBruto, totalNeto, margenNetoPct, datosPorCanal }: {
   totalBruto: number
   totalNeto: number
@@ -504,9 +500,6 @@ function CardFacturacion({ totalBruto, totalNeto, margenNetoPct, datosPorCanal }
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   CARD 2: PUNTO DE EQUILIBRIO
-   ───────────────────────────────────────────────────── */
 function CardPE({ peMensual, totalBruto, diaCubreInfo, colorEstado, brutoMedioDiario, periodoDesde }: {
   peMensual: number | null
   totalBruto: number
@@ -612,9 +605,6 @@ function CardPE({ peMensual, totalBruto, diaCubreInfo, colorEstado, brutoMedioDi
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   CARD 3: RESULTADO
-   ───────────────────────────────────────────────────── */
 function CardResultado({ beneficio, ebitdaPct, totalBruto, totalNeto, totalFijos, totalVariables }: {
   beneficio: number
   ebitdaPct: number
@@ -679,10 +669,6 @@ function CardResultado({ beneficio, ebitdaPct, totalBruto, totalNeto, totalFijos
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   CARDS COSTES (FIJOS / VARIABLES)
-   Sin "Sin IVA · plan contable", filas limpias sin separadores
-   ───────────────────────────────────────────────────── */
 function CardCostes({ titulo, total, filas, totalBruto }: {
   titulo: string
   total: number
@@ -745,9 +731,6 @@ function CardCostes({ titulo, total, filas, totalBruto }: {
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   SIMULADOR (sin cambios funcionales — solo mantenido)
-   ───────────────────────────────────────────────────── */
 interface Escenario {
   id: string
   titulo: string
