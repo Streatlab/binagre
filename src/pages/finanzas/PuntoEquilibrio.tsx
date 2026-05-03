@@ -1,5 +1,5 @@
 /**
- * Punto de Equilibrio — refactor v4 — 3 may 2026
+ * Punto de Equilibrio — refactor v4.1 — 3 may 2026
  *
  * 3 cards compactas estilo Panel Global (caben 3 en pantalla):
  *   1) FACTURACIÓN — bruto + neto + 5 plataformas (Uber/Glovo/JE/Web/Directa)
@@ -77,7 +77,8 @@ export default function PuntoEquilibrio() {
   const brutoPorCanal = useMemo(() => {
     const m: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
     const ped: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
-    for (const f of facturacion) {
+    for (const fr of facturacion) {
+      const f = fr as any
       m.uber     += Number(f.uber_bruto || 0)
       m.glovo    += Number(f.glovo_bruto || 0)
       m.just_eat += Number(f.je_bruto || 0)
@@ -98,7 +99,7 @@ export default function PuntoEquilibrio() {
   )
 
   const totalPedidos = useMemo(
-    () => facturacion.reduce((a, f) => a + Number(f.total_pedidos || 0), 0),
+    () => facturacion.reduce((a, f) => a + Number((f as any).total_pedidos || 0), 0),
     [facturacion]
   )
 
