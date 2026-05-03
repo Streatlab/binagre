@@ -1,16 +1,13 @@
 /**
- * Running Financiero — refactor 3 may 2026 v3
+ * Running Financiero — refactor 3 may 2026 v4
  *
- * Cambio CLAVE (Rubén pidió "calca esto" señalando Panel Global > Resumen):
- * - Tab Resumen ahora monta TabResumen del Panel Global directamente.
- *   Misma estructura: 3 cards top (Facturación / Pedidos·TM / Resultado),
- *   3 columnas medias (Facturación canal / Grupos gasto / Días pico),
- *   3 cards inferiores (Saldo / Ratio / PE), 3 cards finales (Provisiones / Top ventas).
- * - TabResumen lee internamente: ingresos_mensuales, gastos, presupuestos, pe_parametros,
- *   provisiones, objetivos. NO inventa nada.
- * - El header del Running se mantiene (título + selector fecha + tabs).
- * - El tab "PyG detallado" sigue mostrando TablaPyG.
- * - El tab "Comparativas" se conserva.
+ * Tab Resumen:
+ *  - TabResumen del Panel Global (3 cards top + 3 cols medias + 3 cards bottom + provisiones/top ventas)
+ *  - DEBAJO: CarruselMarcas (datos por marca con cards calcadas Panel Global)
+ *
+ * El header del Running se mantiene (titulo + selector fecha + tabs).
+ * Tab "PyG detallado" → TablaPyG con plan contable real.
+ * Tab "Comparativas" → 3 smart cards.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTheme, FONT } from '@/styles/tokens';
@@ -25,6 +22,7 @@ import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupu
 import RitmoMesCard from '@/components/finanzas/running/RitmoMesCard';
 import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMensualCard';
 import TabResumen from '@/components/panel/resumen/TabResumen';
+import CarruselMarcas from '@/components/finanzas/running/CarruselMarcas';
 import type { RowFacturacion } from '@/components/panel/resumen/types';
 import type { PeriodoRango } from '@/lib/running';
 
@@ -77,7 +75,6 @@ export default function Running() {
     periodo, anio, null, null, modoIVA,
   );
 
-  // Para TablaPyG necesitamos también la facturación de TODO el año
   const [facturacionAnio, setFacturacionAnio] = useState<any[]>([]);
   useEffect(() => {
     let cancel = false;
@@ -94,8 +91,6 @@ export default function Running() {
     return () => { cancel = true; };
   }, [anio]);
 
-  // ── DATA para TabResumen: rowsPeriodo + rowsAll desde facturacion_diario ──
-  // TabResumen necesita las columnas: fecha, total_bruto, total_pedidos, y por canal *_bruto / *_pedidos
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([]);
   useEffect(() => {
     let cancel = false;
@@ -129,7 +124,7 @@ export default function Running() {
 
   return (
     <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
-      {/* HEADER — copia LITERAL Panel Global */}
+      {/* HEADER */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -171,7 +166,7 @@ export default function Running() {
         </div>
       </div>
 
-      {/* TABS — copia LITERAL Conciliación */}
+      {/* TABS */}
       <TabsPastilla
         tabs={[
           { id: 'resumen', label: 'Resumen' },
@@ -182,15 +177,21 @@ export default function Running() {
         onChange={(id) => setTab(id as RunTab)}
       />
 
-      {/* TAB RESUMEN — calca Panel Global > Resumen */}
+      {/* TAB RESUMEN */}
       {tab === 'resumen' && (
-        <TabResumen
-          rowsPeriodo={rowsPeriodo}
-          rowsAll={rowsAll}
-          fechaDesde={periodoDesde}
-          fechaHasta={periodoHasta}
-          canalesFiltro={[]}
-        />
+        <>
+          <TabResumen
+            rowsPeriodo={rowsPeriodo}
+            rowsAll={rowsAll}
+            fechaDesde={periodoDesde}
+            fechaHasta={periodoHasta}
+            canalesFiltro={[]}
+          />
+          <CarruselMarcas
+            periodoDesde={periodoDesde}
+            periodoHasta={periodoHasta}
+          />
+        </>
       )}
 
       {/* TAB PYG DETALLADO */}
