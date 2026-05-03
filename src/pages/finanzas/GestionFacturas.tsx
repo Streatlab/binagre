@@ -76,7 +76,6 @@ interface DriveNode {
   importe: number
   children?: DriveNode[]
   filtro: DriveFiltro
-  // metadata para color trimestre
   kind: 'titular' | 'anio' | 'trim' | 'mes'
   trimNum?: number
 }
@@ -87,7 +86,6 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'exportar', label: 'Exportar' },
 ]
 
-// Paleta titulares unificada con módulo Conciliación
 const TITULAR_COLOR: Record<string, string> = {
   'rubén': '#F26B1F',
   'ruben': '#F26B1F',
@@ -103,15 +101,13 @@ function colorTitular(nombre: string | undefined, fallback: string): string {
   return fallback
 }
 
-// Paleta trimestres EXACTA del Running financiero (TablaPyG.tsx)
 const TRIM_PALETTE: Record<number, { bg: string; head: string; tot: string }> = {
-  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },  // azul pastel
-  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },  // verde pastel
-  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },  // ocre pastel
-  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },  // lila pastel
+  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },
+  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },
+  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },
+  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },
 }
 const ANIO_BG = '#fbe5e8'
-const ANIO_HEAD = '#f0b8be'
 
 /* ── Helpers ───────────────────────────────────────── */
 function fmtFechaCorta(iso: string | null): string {
@@ -159,7 +155,6 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
     const d = new Date(f.fecha_factura + 'T00:00:00')
     const anio = d.getFullYear()
     const mes  = d.getMonth() + 1
-
     if (!counts.has(f.titular_id)) counts.set(f.titular_id, new Map())
     const tMap = counts.get(f.titular_id)!
     if (!tMap.has(anio)) tMap.set(anio, new Map())
@@ -169,7 +164,6 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
     node.count += 1
     node.importe += Number(f.total || 0)
   }
-
   const hoy = new Date()
   const anioActual = hoy.getFullYear()
   const aniosSet = new Set<number>([anioActual, anioActual - 1])
@@ -177,59 +171,42 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
     for (const a of tMap.keys()) aniosSet.add(a)
   }
   const anios = Array.from(aniosSet).sort((a, b) => b - a)
-
   const tree: DriveNode[] = []
   for (const t of titulares) {
     const tMap = counts.get(t.id)
     const titNode: DriveNode = {
-      label: t.nombre,
-      count: 0, importe: 0, children: [],
-      filtro: { titular_id: t.id },
-      kind: 'titular',
+      label: t.nombre, count: 0, importe: 0, children: [],
+      filtro: { titular_id: t.id }, kind: 'titular',
     }
-
     for (const anio of anios) {
       const aMap = tMap?.get(anio)
       const aNode: DriveNode = {
-        label: String(anio),
-        count: 0, importe: 0, children: [],
-        filtro: { titular_id: t.id, anio },
-        kind: 'anio',
+        label: String(anio), count: 0, importe: 0, children: [],
+        filtro: { titular_id: t.id, anio }, kind: 'anio',
       }
-
       for (const trim of [1, 2, 3, 4]) {
         const qNode: DriveNode = {
-          label: `T${trim}`,
-          count: 0, importe: 0, children: [],
-          filtro: { titular_id: t.id, anio, trimestre: trim },
-          kind: 'trim',
-          trimNum: trim,
+          label: `T${trim}`, count: 0, importe: 0, children: [],
+          filtro: { titular_id: t.id, anio, trimestre: trim }, kind: 'trim', trimNum: trim,
         }
-
         for (const mes of MESES_POR_TRIM[trim]) {
           const data = aMap?.get(mes) ?? { count: 0, importe: 0 }
           qNode.children!.push({
-            label: MESES[mes],
-            count: data.count,
-            importe: data.importe,
+            label: MESES[mes], count: data.count, importe: data.importe,
             filtro: { titular_id: t.id, anio, trimestre: trim, mes },
-            kind: 'mes',
-            trimNum: trim,
+            kind: 'mes', trimNum: trim,
           })
           qNode.count += data.count
           qNode.importe += data.importe
         }
-
         aNode.children!.push(qNode)
         aNode.count += qNode.count
         aNode.importe += qNode.importe
       }
-
       titNode.children!.push(aNode)
       titNode.count += aNode.count
       titNode.importe += aNode.importe
     }
-
     tree.push(titNode)
   }
   return tree
@@ -256,18 +233,15 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{ id: string; label: str
   return out
 }
 
-/* ══════════════════════════════════════════════════════
-   COMPONENTE PRINCIPAL
-   ══════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════ */
 export default function GestionFacturas() {
   const [activeTab, setActiveTab]   = useState<TabId>('facturas')
   const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  // Selector fecha — sólo aplica en Resumen y Exportar (NO en Facturas)
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
-  const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
-  const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
+  const [, setFechaDesde] = useState<Date | null>(null)
+  const [, setFechaHasta] = useState<Date | null>(null)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
 
@@ -328,7 +302,7 @@ export default function GestionFacturas() {
     return m
   }, [categorias])
 
-  // FILTRADO: sólo Drive + titular toggle + categoría + búsqueda. SIN fecha del header.
+  // Filtrado: SOLO Drive + titular + categoría + búsqueda. Sin fecha.
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
       if (titularFiltro !== 'todos' && f.titular_id !== titularFiltro) return false
@@ -383,13 +357,11 @@ export default function GestionFacturas() {
     gap: 4,
   }
 
-  // Selector de fechas SOLO se muestra en Resumen / Exportar
   const showSelectorFecha = activeTab === 'resumen' || activeTab === 'exportar'
 
   return (
     <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
 
-      {/* HEADER */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         marginBottom: 18, flexWrap: 'wrap', gap: 12,
@@ -427,7 +399,6 @@ export default function GestionFacturas() {
 
       {activeTab === 'facturas' && (
         <>
-          {/* FILA ÚNICA */}
           <div style={{
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
@@ -478,7 +449,6 @@ export default function GestionFacturas() {
           <div style={{
             display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14,
           }}>
-            {/* Drive */}
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body,
@@ -533,7 +503,6 @@ export default function GestionFacturas() {
               })}
             </div>
 
-            {/* Tabla */}
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, overflow: 'hidden',
@@ -571,8 +540,8 @@ export default function GestionFacturas() {
                       const tdDocBase: CSSProperties = {
                         padding: 0,
                         borderBottom: isLast ? 'none' : `0.5px solid ${COLORS.brd}`,
-                        verticalAlign: 'middle' as const,
-                        textAlign: 'center' as const,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
                       }
                       return (
                         <tr
@@ -606,7 +575,6 @@ export default function GestionFacturas() {
                               </span>
                             ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
-                          {/* CELDA DOC: clip limpio, sin fondo verde */}
                           {f.pdf_drive_url ? (
                             <td
                               style={tdDocBase}
@@ -669,9 +637,7 @@ export default function GestionFacturas() {
   )
 }
 
-/* ══════════════════════════════════════════════════════
-   ÁRBOL DRIVE — paleta pastel Running, alta visibilidad
-   ══════════════════════════════════════════════════════ */
+/* ── Árbol Drive con paleta pastel + tipos string explícitos ─ */
 interface NodoArbolItemProps {
   node: DriveNode
   level: number
@@ -703,7 +669,7 @@ function NodoArbolItem({
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
 
-  // Estilo según tipo de nodo
+  // Tipos explícitos como string — evita inferencia literal
   let nodoBg: string = 'transparent'
   let nodoColor: string = COLORS.pri
   let nodoFontFamily: string = FONT.body
@@ -732,7 +698,7 @@ function NodoArbolItem({
     nodoFontSize = 12
   } else if (node.kind === 'mes' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
-    nodoBg = pal.bg + '60'  // mes con bg trimestre más claro
+    nodoBg = pal.bg + '60'
     nodoColor = COLORS.pri
     nodoFontSize = 13
   }
@@ -760,7 +726,7 @@ function NodoArbolItem({
     opacity: sinFacturas && !esActivo ? 0.5 : 1,
     marginBottom: node.kind === 'titular' ? 4 : 1,
     letterSpacing: node.kind === 'titular' ? '1px' : 'normal',
-    textTransform: node.kind === 'titular' ? 'uppercase' as const : 'none' as const,
+    textTransform: node.kind === 'titular' ? 'uppercase' : 'none',
   }
 
   return (
