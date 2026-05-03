@@ -2,7 +2,7 @@
  * CardVentas — Ronda 8
  * R8-01: objetivos editables usan handler saveObjetivoVenta del padre (upsert por tipo en tabla objetivos)
  *        en lugar de EditableInline genérico que apunta a campos inexistentes
- *        Si se borra el valor → restaurar valor base por defecto desde tabla
+ *        Si se borra el valor → DELETE override → vuelve al valor base del módulo Objetivos
  */
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
@@ -71,7 +71,6 @@ export default function CardVentas({
           <span>Faltan</span>
           <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false, decimals: 2 })}</span>
           <span>de</span>
-          {/* R8-01: usa onSaveObjetivo del padre (upsert por tipo, no EditableInline genérico) */}
           <ObjetivoEditable
             tipo={tipo}
             valor={objetivo}
@@ -122,7 +121,10 @@ export default function CardVentas({
   )
 }
 
-// R8-01: editable inline con borrar→restaurar último valor válido
+// Editable inline:
+//  - Editar y guardar (Enter o blur) → upsert override en BD
+//  - Borrar (input vacío) → DELETE override → vuelve al valor base del módulo Objetivos
+//  - Escape → cancela sin guardar
 function ObjetivoEditable({
   tipo, valor, onSave, onRefetch, toast,
 }: {
@@ -134,39 +136,62 @@ function ObjetivoEditable({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(valor ?? ''))
+  const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const lastValid = useRef<number>(valor)
 
   useEffect(() => {
-    if (valor != null && !isNaN(valor)) lastValid.current = valor
     setDraft(String(valor ?? ''))
   }, [valor])
 
   useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus()
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
   }, [editing])
 
   const guardar = useCallback(async () => {
+    if (saving) return
     const trimmed = draft.trim()
+
+    // Vacío → borra override y restaura valor del módulo Objetivos
     if (trimmed === '') {
-      // Borrado → restaurar último valor válido (no se persiste)
-      setDraft(String(lastValid.current))
-      setEditing(false)
-      toast?.('Valor anterior restaurado', 'warning')
+      setSaving(true)
+      try {
+        await onSave(tipo, null)
+        toast?.('Restaurado al valor de Objetivos', 'success')
+        onRefetch?.()
+      } finally {
+        setSaving(false)
+        setEditing(false)
+      }
       return
     }
+
+    // Acepta coma o punto, parsea
     const num = parseFloat(trimmed.replace(',', '.'))
-    if (isNaN(num) || num <= 0) {
-      setDraft(String(lastValid.current))
+    if (isNaN(num) || num < 0) {
+      setDraft(String(valor ?? ''))
       setEditing(false)
       return
     }
-    lastValid.current = num
-    await onSave(tipo, num)
-    setEditing(false)
-    onRefetch?.()
-    toast?.('Objetivo actualizado', 'success')
-  }, [draft, onSave, onRefetch, tipo, toast])
+
+    // Si el valor no cambia, no hace nada
+    if (num === valor) {
+      setEditing(false)
+      return
+    }
+
+    setSaving(true)
+    try {
+      await onSave(tipo, num)
+      toast?.('Objetivo actualizado', 'success')
+      onRefetch?.()
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }, [draft, onSave, onRefetch, tipo, toast, valor, saving])
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') guardar()
@@ -186,8 +211,10 @@ function ObjetivoEditable({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={guardar}
         onKeyDown={onKey}
+        disabled={saving}
+        placeholder="vacío = restaurar"
         style={{
-          width: 80, padding: '0 4px', border: '1px solid #FF4757',
+          width: 100, padding: '0 4px', border: `1px solid ${COLOR.verde}`,
           borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
           color: '#3a4050', background: '#fff',
         }}
@@ -204,7 +231,7 @@ function ObjetivoEditable({
         color: '#3a4050',
         padding: '0 2px',
       }}
-      title="Click para editar — vacío restaura el anterior"
+      title="Click para editar · vacío + Enter restaura el valor de Objetivos"
     >
       {fmtEur(valor, { showEuro: false, decimals: 2 })}
     </span>
