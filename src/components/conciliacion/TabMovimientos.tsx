@@ -709,7 +709,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     const facturaUrl = (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url ?? null
                     const tieneDoc = m.doc_estado === 'tiene' || (m.factura_id && facturaUrl)
 
-                    // Padding 0 en celda doc + el clip ocupa toda la celda → cualquier click en esa celda abre PDF
                     const tdDocBase: React.CSSProperties = {
                       padding: 0,
                       borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2',
@@ -754,7 +753,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                             <div style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               width: '100%', height: '100%', minHeight: 38,
-                              background: '#1D9E7515',
                               fontSize: 22, lineHeight: 1, color: '#0F6E56',
                               cursor: 'pointer', userSelect: 'none',
                             }}>
@@ -766,7 +764,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                             <div style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               width: '100%', height: '100%', minHeight: 38,
-                              background: '#1D9E7515',
                               fontSize: 22, lineHeight: 1, color: '#0F6E56',
                             }}>📎</div>
                           </td>
