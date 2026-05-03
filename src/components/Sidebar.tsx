@@ -48,6 +48,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
+      { path: '/finanzas/listado-facturas',     label: 'Listado de Facturas', emoji: '🧾', perfiles: ['admin'] },
       { path: '/ocr', label: 'OCR', emoji: '📥', perfiles: ['admin'] },
     ],
   },
