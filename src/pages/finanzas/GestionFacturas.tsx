@@ -76,7 +76,6 @@ interface DriveNode {
   importe: number
   children?: DriveNode[]
   filtro: DriveFiltro
-  // metadata para color trimestre
   kind: 'titular' | 'anio' | 'trim' | 'mes'
   trimNum?: number
 }
@@ -87,7 +86,6 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'exportar', label: 'Exportar' },
 ]
 
-// Paleta titulares unificada con módulo Conciliación
 const TITULAR_COLOR: Record<string, string> = {
   'rubén': '#F26B1F',
   'ruben': '#F26B1F',
@@ -103,15 +101,13 @@ function colorTitular(nombre: string | undefined, fallback: string): string {
   return fallback
 }
 
-// Paleta trimestres EXACTA del Running financiero (TablaPyG.tsx)
 const TRIM_PALETTE: Record<number, { bg: string; head: string; tot: string }> = {
-  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },  // azul pastel
-  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },  // verde pastel
-  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },  // ocre pastel
-  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },  // lila pastel
+  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },
+  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },
+  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },
+  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },
 }
 const ANIO_BG = '#fbe5e8'
-const ANIO_HEAD = '#f0b8be'
 
 /* ── Helpers ───────────────────────────────────────── */
 function fmtFechaCorta(iso: string | null): string {
@@ -264,10 +260,9 @@ export default function GestionFacturas() {
   const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  // Selector fecha — sólo aplica en Resumen y Exportar (NO en Facturas)
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
-  const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
-  const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
+  const [, setFechaDesde] = useState<Date | null>(null)
+  const [, setFechaHasta] = useState<Date | null>(null)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
 
@@ -328,7 +323,6 @@ export default function GestionFacturas() {
     return m
   }, [categorias])
 
-  // FILTRADO: sólo Drive + titular toggle + categoría + búsqueda. SIN fecha del header.
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
       if (titularFiltro !== 'todos' && f.titular_id !== titularFiltro) return false
@@ -383,13 +377,11 @@ export default function GestionFacturas() {
     gap: 4,
   }
 
-  // Selector de fechas SOLO se muestra en Resumen / Exportar
   const showSelectorFecha = activeTab === 'resumen' || activeTab === 'exportar'
 
   return (
     <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
 
-      {/* HEADER */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         marginBottom: 18, flexWrap: 'wrap', gap: 12,
@@ -427,7 +419,6 @@ export default function GestionFacturas() {
 
       {activeTab === 'facturas' && (
         <>
-          {/* FILA ÚNICA */}
           <div style={{
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
@@ -478,7 +469,6 @@ export default function GestionFacturas() {
           <div style={{
             display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14,
           }}>
-            {/* Drive */}
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body,
@@ -533,7 +523,6 @@ export default function GestionFacturas() {
               })}
             </div>
 
-            {/* Tabla */}
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, overflow: 'hidden',
@@ -606,7 +595,6 @@ export default function GestionFacturas() {
                               </span>
                             ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
-                          {/* CELDA DOC: clip limpio, sin fondo verde */}
                           {f.pdf_drive_url ? (
                             <td
                               style={tdDocBase}
@@ -670,7 +658,7 @@ export default function GestionFacturas() {
 }
 
 /* ══════════════════════════════════════════════════════
-   ÁRBOL DRIVE — paleta pastel Running, alta visibilidad
+   ÁRBOL DRIVE
    ══════════════════════════════════════════════════════ */
 interface NodoArbolItemProps {
   node: DriveNode
@@ -703,13 +691,12 @@ function NodoArbolItem({
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
 
-  // Estilo según tipo de nodo
-  let nodoBg = 'transparent'
-  let nodoColor = COLORS.pri
-  let nodoFontFamily = FONT.body
-  let nodoFontSize = 13
+  let nodoBg: string = 'transparent'
+  let nodoColor: string = COLORS.pri
+  let nodoFontFamily: string = FONT.body
+  let nodoFontSize: number = 13
   let nodoFontWeight: number = 400
-  let nodoBorderLeft = '3px solid transparent'
+  let nodoBorderLeft: string = '3px solid transparent'
 
   if (node.kind === 'titular') {
     nodoColor = titularColor
@@ -732,7 +719,7 @@ function NodoArbolItem({
     nodoFontSize = 12
   } else if (node.kind === 'mes' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
-    nodoBg = pal.bg + '60'  // mes con bg trimestre más claro
+    nodoBg = pal.bg + '60'
     nodoColor = COLORS.pri
     nodoFontSize = 13
   }
@@ -754,13 +741,15 @@ function NodoArbolItem({
     borderLeft: nodoBorderLeft,
     borderRadius: node.kind === 'mes' ? '0 4px 4px 0' : '0 6px 6px 0',
     cursor: 'pointer',
-    fontFamily: nodoFontFamily, fontSize: nodoFontSize, textAlign: 'left',
+    fontFamily: nodoFontFamily,
+    fontSize: nodoFontSize,
+    textAlign: 'left',
     color: nodoColor,
     fontWeight: nodoFontWeight,
     opacity: sinFacturas && !esActivo ? 0.5 : 1,
     marginBottom: node.kind === 'titular' ? 4 : 1,
     letterSpacing: node.kind === 'titular' ? '1px' : 'normal',
-    textTransform: node.kind === 'titular' ? 'uppercase' as const : 'none' as const,
+    textTransform: node.kind === 'titular' ? 'uppercase' : 'none',
   }
 
   return (
