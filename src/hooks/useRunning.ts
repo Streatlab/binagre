@@ -27,6 +27,11 @@ export interface FacturacionDiariaRaw {
   web_bruto: number;
   directa_bruto: number;
   total_pedidos: number;
+  uber_pedidos: number;
+  glovo_pedidos: number;
+  je_pedidos: number;
+  web_pedidos: number;
+  directa_pedidos: number;
 }
 
 export interface RangoCategoria {
@@ -82,11 +87,13 @@ export function useRunning(
           gaQ = gaQ.eq('marca', marcaNombre);
         }
 
+        const facturacionCols = 'fecha,marca_id,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_pedidos,uber_pedidos,glovo_pedidos,je_pedidos,web_pedidos,directa_pedidos';
+
         let fQ = supabase.from('facturacion_diario')
-          .select('fecha,marca_id,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_pedidos')
+          .select(facturacionCols)
           .gte('fecha', fechaISO(periodo.desde)).lte('fecha', fechaISO(periodo.hasta));
         let faQ = supabase.from('facturacion_diario')
-          .select('fecha,marca_id,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_pedidos')
+          .select(facturacionCols)
           .gte('fecha', fechaISO(desdeAnt)).lte('fecha', fechaISO(hastaAnt));
         if (marcaId) {
           fQ = fQ.eq('marca_id', marcaId);
