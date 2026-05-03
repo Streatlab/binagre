@@ -1,5 +1,13 @@
 /**
- * CarruselMarcas — refactor 3 may 2026 v2.1 (fix TS)
+ * CarruselMarcas — refactor 3 may 2026 v3
+ *
+ * Reglas (Rubén):
+ * - Card Streat Lab grande: pedidos #1E5BCC, TM bruto #F26B1F naranja, TM neto verde, separados por "/"
+ * - Quita las 2 líneas separadoras (la de pedidos y la de TM)
+ * - 5 canales con barras: Uber, Glovo, Just Eat, Web (#8B5CF6), Directa (#06B6D4)
+ * - Todas las marcas activas aparecen, con o sin datos. Las marcas se renderizan en cards medianas
+ *   (mitad de altura) en filas de a 2 (grid 2 columnas).
+ * - Sin símbolo €.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -39,14 +47,21 @@ interface Props {
 
 const VERDE = '#1D9E75';
 const ROJO  = '#A32D2D';
+const AZUL_PEDIDOS = '#1E5BCC';
+const NARANJA_BRUTO = '#F26B1F';
 
 const CANALES = [
   { id: 'ue',  label: 'Uber Eats',     color: '#06C167', col: 'uber_bruto'    as const, marcaCol: 'ue_bruto'  as const },
   { id: 'gl',  label: 'Glovo',         color: '#e8f442', col: 'glovo_bruto'   as const, marcaCol: 'gl_bruto'  as const },
   { id: 'je',  label: 'Just Eat',      color: '#f5a623', col: 'je_bruto'      as const, marcaCol: 'je_bruto'  as const },
-  { id: 'web', label: 'Tienda online', color: '#B01D23', col: 'web_bruto'     as const, marcaCol: 'web_bruto' as const },
-  { id: 'dir', label: 'Venta directa', color: '#66aaff', col: 'directa_bruto' as const, marcaCol: 'dir_bruto' as const },
+  { id: 'web', label: 'Tienda online', color: '#8B5CF6', col: 'web_bruto'     as const, marcaCol: 'web_bruto' as const },
+  { id: 'dir', label: 'Venta directa', color: '#06B6D4', col: 'directa_bruto' as const, marcaCol: 'dir_bruto' as const },
 ];
+
+// Margen estimado plataforma → neto = bruto * (1 - comision)
+const COMISION_EST: Record<string, number> = {
+  ue: 0.30, gl: 0.32, je: 0.28, web: 0.05, dir: 0.0,
+};
 
 function isoDate(d: Date): string {
   const y = d.getFullYear();
@@ -62,6 +77,10 @@ function fmtNum(v: number, decimals = 2): string {
   const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return decimals > 0 ? `${intFmt},${dec}` : intFmt;
 }
+function fmtInt(v: number): string {
+  if (!v || isNaN(v)) return '0';
+  return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
 
 interface CanalDistRow {
   id: string;
@@ -69,7 +88,6 @@ interface CanalDistRow {
   color: string;
   importe: number;
   pct: number;
-  deltaPct: number | null;
 }
 
 interface MarcaCardData {
@@ -78,7 +96,9 @@ interface MarcaCardData {
   bruto: number;
   brutoAnt: number;
   pedidos: number;
+  netoEst: number;
   canales: CanalDistRow[];
+  hayDatos: boolean;
 }
 
 export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
@@ -87,6 +107,7 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
   const [totalBruto, setTotalBruto] = useState(0);
   const [totalBrutoAnt, setTotalBrutoAnt] = useState(0);
   const [totalPedidos, setTotalPedidos] = useState(0);
+  const [totalNetoEst, setTotalNetoEst] = useState(0);
   const [canalesTotal, setCanalesTotal] = useState<CanalDistRow[]>([]);
   const [marcas, setMarcas] = useState<MarcaCardData[]>([]);
 
@@ -126,39 +147,38 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
 
       let tBruto = 0;
       let tPed = 0;
+      let tNeto = 0;
       const canSum: Record<string, number> = {};
       for (const f of (facData ?? []) as FacturacionRow[]) {
         tBruto += Number(f.total_bruto || 0);
         tPed   += Number(f.total_pedidos || 0);
         for (const c of CANALES) {
-          canSum[c.id] = (canSum[c.id] || 0) + Number((f as any)[c.col] || 0);
+          const v = Number((f as any)[c.col] || 0);
+          canSum[c.id] = (canSum[c.id] || 0) + v;
+          tNeto += v * (1 - (COMISION_EST[c.id] ?? 0));
         }
       }
       let tBrutoAnt = 0;
-      const canSumAnt: Record<string, number> = {};
       for (const f of (facAntData ?? []) as FacturacionRow[]) {
         tBrutoAnt += Number(f.total_bruto || 0);
-        for (const c of CANALES) {
-          canSumAnt[c.id] = (canSumAnt[c.id] || 0) + Number((f as any)[c.col] || 0);
-        }
       }
       const canTotal: CanalDistRow[] = CANALES.map(c => {
         const importe = canSum[c.id] || 0;
-        const importeAnt = canSumAnt[c.id] || 0;
         const pct = tBruto > 0 ? Math.round((importe / tBruto) * 100) : 0;
-        const deltaPct = importeAnt > 0 ? ((importe - importeAnt) / importeAnt) * 100 : null;
-        return { id: c.id, label: c.label, color: c.color, importe, pct, deltaPct };
-      }).filter(r => r.importe > 0);
+        return { id: c.id, label: c.label, color: c.color, importe, pct };
+      });
 
-      const porMarca: Record<string, { bruto: number; pedidos: number; canales: Record<string, number> }> = {};
+      const porMarca: Record<string, { bruto: number; pedidos: number; canales: Record<string, number>; netoEst: number }> = {};
       for (const r of (facMarcaData ?? []) as FacturacionMarcaRow[]) {
         if (!r.marca_id) continue;
         const id = r.marca_id;
-        porMarca[id] = porMarca[id] || { bruto: 0, pedidos: 0, canales: {} };
+        porMarca[id] = porMarca[id] || { bruto: 0, pedidos: 0, canales: {}, netoEst: 0 };
         porMarca[id].bruto   += Number(r.total_bruto || 0);
         porMarca[id].pedidos += Number(r.total_pedidos || 0);
         for (const c of CANALES) {
-          porMarca[id].canales[c.id] = (porMarca[id].canales[c.id] || 0) + Number((r as any)[c.marcaCol] || 0);
+          const v = Number((r as any)[c.marcaCol] || 0);
+          porMarca[id].canales[c.id] = (porMarca[id].canales[c.id] || 0) + v;
+          porMarca[id].netoEst += v * (1 - (COMISION_EST[c.id] ?? 0));
         }
       }
       const porMarcaAnt: Record<string, number> = {};
@@ -167,31 +187,37 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
         porMarcaAnt[r.marca_id] = (porMarcaAnt[r.marca_id] || 0) + Number(r.total_bruto || 0);
       }
 
-      const marcaCards: MarcaCardData[] = marcasInfo
-        .map(m => {
-          const data = porMarca[m.id];
-          if (!data || data.bruto <= 0) return null;
-          const brutoAnt = porMarcaAnt[m.id] || 0;
-          const canales: CanalDistRow[] = CANALES.map(c => {
-            const importe = data.canales[c.id] || 0;
-            const pct = data.bruto > 0 ? Math.round((importe / data.bruto) * 100) : 0;
-            return { id: c.id, label: c.label, color: c.color, importe, pct, deltaPct: null };
-          }).filter(r => r.importe > 0);
-          return {
-            id: m.id,
-            nombre: m.nombre,
-            bruto: data.bruto,
-            brutoAnt,
-            pedidos: data.pedidos,
-            canales,
-          };
-        })
-        .filter((x): x is MarcaCardData => x !== null)
-        .sort((a, b) => b.bruto - a.bruto);
+      // TODAS las marcas activas, con datos o sin datos
+      const marcaCards: MarcaCardData[] = marcasInfo.map(m => {
+        const data = porMarca[m.id];
+        const brutoAnt = porMarcaAnt[m.id] || 0;
+        const canales: CanalDistRow[] = CANALES.map(c => {
+          const importe = data?.canales[c.id] || 0;
+          const pct = data && data.bruto > 0 ? Math.round((importe / data.bruto) * 100) : 0;
+          return { id: c.id, label: c.label, color: c.color, importe, pct };
+        });
+        return {
+          id: m.id,
+          nombre: m.nombre,
+          bruto: data?.bruto || 0,
+          brutoAnt,
+          pedidos: data?.pedidos || 0,
+          netoEst: data?.netoEst || 0,
+          canales,
+          hayDatos: !!(data && data.bruto > 0),
+        };
+      })
+      .sort((a, b) => {
+        // Con datos primero, dentro de cada grupo por bruto desc o por nombre
+        if (a.hayDatos !== b.hayDatos) return a.hayDatos ? -1 : 1;
+        if (a.hayDatos) return b.bruto - a.bruto;
+        return a.nombre.localeCompare(b.nombre);
+      });
 
       setTotalBruto(tBruto);
       setTotalBrutoAnt(tBrutoAnt);
       setTotalPedidos(tPed);
+      setTotalNetoEst(tNeto);
       setCanalesTotal(canTotal);
       setMarcas(marcaCards);
       setLoading(false);
@@ -199,22 +225,9 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     return () => { cancel = true; };
   }, [periodoDesde.getTime(), periodoHasta.getTime()]);
 
-  const ticketMedio = totalPedidos > 0 ? totalBruto / totalPedidos : 0;
+  const tmBruto = totalPedidos > 0 ? totalBruto / totalPedidos : 0;
+  const tmNeto  = totalPedidos > 0 ? totalNetoEst / totalPedidos : 0;
   const deltaTotal = totalBrutoAnt > 0 ? ((totalBruto - totalBrutoAnt) / totalBrutoAnt) * 100 : null;
-
-  const cardBase: CSSProperties = {
-    backgroundColor: T.card,
-    borderRadius: 14,
-    padding: '22px 24px',
-    border: `1px solid ${T.brd}`,
-    minWidth: 320,
-    maxWidth: 320,
-    flex: '0 0 320px',
-    scrollSnapAlign: 'start',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-  };
 
   const labelCard: CSSProperties = {
     fontFamily: FONT.heading,
@@ -231,39 +244,61 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     marginBottom: 4,
   };
 
-  const divider: CSSProperties = { height: 1, backgroundColor: T.brd, margin: '16px 0' };
+  // === Card Streat Lab grande (full height) ===
+  const cardSL: CSSProperties = {
+    backgroundColor: T.card,
+    borderRadius: 14,
+    padding: '22px 24px',
+    border: `1px solid ${T.brd}`,
+    minWidth: 360,
+    maxWidth: 360,
+    flex: '0 0 360px',
+    scrollSnapAlign: 'start',
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  // === Cards de marca medianas (mitad de altura, en grid 1x2 dentro de columna) ===
+  const COL_MARCA_W = 320;
+  const colMarca: CSSProperties = {
+    minWidth: COL_MARCA_W,
+    maxWidth: COL_MARCA_W,
+    flex: `0 0 ${COL_MARCA_W}px`,
+    scrollSnapAlign: 'start',
+    display: 'grid',
+    gridTemplateRows: '1fr 1fr',
+    gap: 12,
+  };
+  const cardMarca: CSSProperties = {
+    backgroundColor: T.card,
+    borderRadius: 14,
+    padding: '14px 16px',
+    border: `1px solid ${T.brd}`,
+    display: 'flex',
+    flexDirection: 'column',
+  };
 
   function FilaCanal({ row }: { row: CanalDistRow }) {
-    let deltaSym = '=';
-    let deltaCol = T.mut;
-    if (row.deltaPct !== null) {
-      if (row.deltaPct > 0) deltaSym = '▲';
-      else if (row.deltaPct < 0) deltaSym = '▼';
-      if (row.deltaPct !== 0) deltaCol = row.deltaPct > 0 ? VERDE : ROJO;
-    }
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
             <span style={{
-              fontFamily: FONT.body, fontSize: 13, color: T.pri,
+              fontFamily: FONT.body, fontSize: 12, color: T.pri,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{row.label}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '76px 44px 32px', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 500, textAlign: 'right' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.pri, fontWeight: 500 }}>
               {fmtNum(row.importe)}
             </span>
-            <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, color: deltaCol, textAlign: 'right' }}>
-              {row.deltaPct === null ? '—' : `${deltaSym} ${Math.abs(Math.round(row.deltaPct))}%`}
-            </span>
-            <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, color: T.mut, textAlign: 'right' }}>
+            <span style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, minWidth: 30, textAlign: 'right' }}>
               {row.pct}%
             </span>
           </div>
         </div>
-        <div style={{ height: 3, backgroundColor: T.bg, borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+        <div style={{ height: 4, backgroundColor: T.bg, borderRadius: 2, overflow: 'hidden' }}>
           <div style={{ width: `${row.pct}%`, height: '100%', backgroundColor: row.color }} />
         </div>
       </div>
@@ -271,9 +306,7 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
   }
 
   function scrollBy(delta: number) {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: delta, behavior: 'smooth' });
-    }
+    if (scrollRef.current) scrollRef.current.scrollBy({ left: delta, behavior: 'smooth' });
   }
 
   if (loading) {
@@ -299,6 +332,62 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     flexShrink: 0,
     boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
   };
+
+  // Agrupar marcas en columnas de 2
+  const columnas: MarcaCardData[][] = [];
+  for (let i = 0; i < marcas.length; i += 2) {
+    columnas.push(marcas.slice(i, i + 2));
+  }
+
+  function CardMarca({ m }: { m: MarcaCardData }) {
+    const tmBrutoM = m.pedidos > 0 ? m.bruto / m.pedidos : 0;
+    const tmNetoM  = m.pedidos > 0 ? m.netoEst / m.pedidos : 0;
+    const deltaM = m.brutoAnt > 0 ? ((m.bruto - m.brutoAnt) / m.brutoAnt) * 100 : null;
+    return (
+      <div style={cardMarca}>
+        <div style={{
+          ...labelCard,
+          marginBottom: 4,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          opacity: m.hayDatos ? 1 : 0.5,
+        }}>{m.nombre}</div>
+        {m.hayDatos ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: AZUL_PEDIDOS, lineHeight: 1 }}>{fmtInt(m.pedidos)}</div>
+              </div>
+              <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
+                <span style={{ color: NARANJA_BRUTO, fontWeight: 600 }}>{fmtNum(tmBrutoM)}</span>
+                {' / '}
+                <span style={{ color: VERDE, fontWeight: 600 }}>{fmtNum(tmNetoM)}</span>
+              </div>
+            </div>
+            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 2 }}>
+              pedidos · TM bruto / TM neto
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, color: T.pri }}>{fmtNum(m.bruto)}</span>
+              {deltaM !== null && (
+                <span style={{ fontFamily: FONT.body, fontSize: 11, color: deltaM >= 0 ? VERDE : ROJO }}>
+                  {deltaM >= 0 ? '▲' : '▼'} {Math.abs(Math.round(deltaM))}%
+                </span>
+              )}
+            </div>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {m.canales.filter(c => c.importe > 0).map(c => <FilaCanal key={c.id} row={c} />)}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 11, fontStyle: 'italic' }}>
+            Sin datos en el periodo
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -326,8 +415,8 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
           }}
           className="rf-marcas-scroll"
         >
-          {/* Card Streat Lab — datos REALES */}
-          <div style={cardBase}>
+          {/* Card Streat Lab grande */}
+          <div style={cardSL}>
             <div style={labelCard}>STREAT LAB · TOTAL</div>
             <div style={numGigante}>{fmtNum(totalBruto)}</div>
             {deltaTotal !== null && (
@@ -339,65 +428,36 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
                 {deltaTotal >= 0 ? '▲' : '▼'} {Math.abs(Math.round(deltaTotal))}% vs período anterior
               </div>
             )}
-            <div style={divider} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>Pedidos</span>
-              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{totalPedidos}</span>
+
+            {/* Pedidos · TM bruto / TM neto en línea, sin separadores horizontales */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: AZUL_PEDIDOS, lineHeight: 1 }}>{fmtInt(totalPedidos)}</div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: AZUL_PEDIDOS, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>PEDIDOS</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: NARANJA_BRUTO, lineHeight: 1 }}>{fmtNum(tmBruto)}</div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: NARANJA_BRUTO, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>TM BRUTO</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: VERDE, lineHeight: 1 }}>{fmtNum(tmNeto)}</div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>TM NETO</div>
+              </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${T.brd}` }}>
-              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>Ticket medio</span>
-              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{fmtNum(ticketMedio)}</span>
-            </div>
-            <div style={{ marginTop: 10 }}>
-              {canalesTotal.length === 0 ? (
-                <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, padding: '8px 0' }}>
-                  Sin datos en el periodo.
-                </div>
-              ) : (
-                canalesTotal.map(c => <FilaCanal key={c.id} row={c} />)
-              )}
+
+            {/* Distribución 5 canales con barras */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {canalesTotal.map(c => <FilaCanal key={c.id} row={c} />)}
             </div>
           </div>
 
-          {marcas.map(m => {
-            const deltaM = m.brutoAnt > 0 ? ((m.bruto - m.brutoAnt) / m.brutoAnt) * 100 : null;
-            const tmM = m.pedidos > 0 ? m.bruto / m.pedidos : 0;
-            return (
-              <div key={m.id} style={cardBase}>
-                <div style={{ ...labelCard, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.nombre}</div>
-                <div style={numGigante}>{fmtNum(m.bruto)}</div>
-                {deltaM !== null && (
-                  <div style={{
-                    fontFamily: FONT.body, fontSize: 12,
-                    color: deltaM >= 0 ? VERDE : ROJO,
-                    marginTop: 4, fontWeight: 500,
-                  }}>
-                    {deltaM >= 0 ? '▲' : '▼'} {Math.abs(Math.round(deltaM))}% vs período anterior
-                  </div>
-                )}
-                <div style={divider} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>Pedidos</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{m.pedidos}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${T.brd}` }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>Ticket medio</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{fmtNum(tmM)}</span>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  {m.canales.map(c => <FilaCanal key={c.id} row={c} />)}
-                </div>
-              </div>
-            );
-          })}
-
-          {marcas.length === 0 && (
-            <div style={{ ...cardBase, alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: 'center' }}>
-                Aún no hay desglose de pedidos por marca en el periodo seleccionado.
-              </div>
+          {/* Columnas de 2 marcas cada una */}
+          {columnas.map((col, idx) => (
+            <div key={`col-${idx}`} style={colMarca}>
+              {col.map(m => <CardMarca key={m.id} m={m} />)}
+              {col.length === 1 && <div />}
             </div>
-          )}
+          ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <button style={arrowBtn} onClick={() => scrollBy(340)} aria-label="Siguiente">
