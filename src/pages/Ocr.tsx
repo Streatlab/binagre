@@ -56,12 +56,20 @@ interface Agregados {
   sinConciliarCount: number
 }
 
+interface ArchivoLog {
+  filename: string
+  status: 'ok' | 'duplicado' | 'pendiente' | 'error'
+  detalle: string
+}
+
 interface ToastState {
   total: number
   enviados: number
   ok: number
   pendientes: number
   duplicados: number
+  errores: number
+  log: ArchivoLog[]
   visible: boolean
 }
 
@@ -111,6 +119,7 @@ export default function Ocr() {
   const [exportando, setExportando] = useState(false)
 
   const [toast, setToast] = useState<ToastState | null>(null)
+  const [toastExpandido, setToastExpandido] = useState(false)
   const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
 
   useEffect(() => {
@@ -356,17 +365,29 @@ export default function Ocr() {
   }
 
   const procesarLote = useCallback(async (files: File[], titular_id_forzado: string | null) => {
-    setToast({ total: files.length, enviados: 0, ok: 0, pendientes: 0, duplicados: 0, visible: true })
+    setToast({
+      total: files.length,
+      enviados: 0,
+      ok: 0,
+      pendientes: 0,
+      duplicados: 0,
+      errores: 0,
+      log: [],
+      visible: true
+    })
+    setToastExpandido(false)
 
     const fnName = tab === 'extractos' ? 'ocr-procesar-extracto' : 'ocr-procesar-factura'
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
+      let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
+
       try {
         const base64 = await new Promise<string>((res, rej) => {
           const r = new FileReader()
           r.onload = () => res((r.result as string).split(',')[1])
-          r.onerror = () => rej(new Error('FileReader error'))
+          r.onerror = () => rej(new Error('Error leyendo archivo'))
           r.readAsDataURL(file)
         })
 
@@ -375,29 +396,44 @@ export default function Ocr() {
 
         const { data, error } = await supabase.functions.invoke(fnName, { body })
 
-        setToast(t => {
-          if (!t) return t
-          const next = { ...t, enviados: t.enviados + 1 }
-          if (error) {
-            next.pendientes++
-          } else if (data?.status === 'duplicado') {
-            next.duplicados++
-          } else if (data?.status === 'ok') {
-            if (tab === 'extractos') next.ok++
-            else if (data?.matched) next.ok++
-            else next.pendientes++
+        if (error) {
+          logEntry = { filename: file.name, status: 'error', detalle: `Error invoke: ${error.message || JSON.stringify(error)}` }
+        } else if (data?.error) {
+          logEntry = { filename: file.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
+        } else if (data?.status === 'duplicado') {
+          logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
+        } else if (data?.status === 'ok') {
+          if (tab === 'extractos') {
+            logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
+          } else if (data?.matched) {
+            logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada con movimiento bancario' }
           } else {
-            next.pendientes++
+            const motivos: string[] = []
+            if (data.sin_categoria) motivos.push('sin categoría')
+            if (data.sin_titular) motivos.push('sin titular')
+            if (motivos.length === 0) motivos.push('sin movimiento bancario coincidente')
+            logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida: ${motivos.join(', ')}` }
           }
-          return next
-        })
-      } catch {
-        setToast(t => t ? { ...t, enviados: t.enviados + 1, pendientes: t.pendientes + 1 } : t)
+        } else {
+          logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
+        }
+      } catch (err: any) {
+        logEntry = { filename: file.name, status: 'error', detalle: err?.message || String(err) }
       }
+
+      setToast(t => {
+        if (!t) return t
+        const next = { ...t, enviados: t.enviados + 1, log: [...t.log, logEntry] }
+        if (logEntry.status === 'ok') next.ok++
+        else if (logEntry.status === 'duplicado') next.duplicados++
+        else if (logEntry.status === 'pendiente') next.pendientes++
+        else next.errores++
+        return next
+      })
     }
 
     setRefreshTick(x => x + 1)
-    setTimeout(() => setToast(null), 7000)
+    // Toast NO se cierra automáticamente: se queda hasta que Rubén lo cierre con la X
   }, [tab])
 
   const handleSubir = useCallback(() => {
@@ -891,21 +927,98 @@ export default function Ocr() {
         </div>
       )}
 
-      {/* Toast progreso */}
+      {/* Toast progreso — persistente con cierre manual */}
       {toast && toast.visible && (
-        <div style={{ position: 'fixed', bottom: 20, right: 20, background: '#1e2233', color: '#fff', padding: '14px 18px', borderRadius: 12, minWidth: 280, fontFamily: 'Lexend, sans-serif', fontSize: 13, zIndex: 99, boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, color: '#e8f442' }}>
-            {toast.enviados < toast.total ? 'Procesando…' : 'Completado'}
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20,
+          background: '#1e2233', color: '#fff',
+          padding: '14px 18px', borderRadius: 12,
+          minWidth: 320, maxWidth: 420,
+          fontFamily: 'Lexend, sans-serif', fontSize: 13,
+          zIndex: 99,
+          boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442' }}>
+              {toast.enviados < toast.total ? 'Procesando…' : 'Completado'}
+            </span>
+            <button
+              onClick={() => setToast(null)}
+              style={{
+                background: 'rgba(255,255,255,0.1)', border: 'none',
+                color: '#fff', cursor: 'pointer',
+                width: 24, height: 24, borderRadius: '50%',
+                fontSize: 14, lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              aria-label="Cerrar"
+              title="Cerrar"
+            >
+              ×
+            </button>
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
             <div>Procesados: <b>{toast.enviados}/{toast.total}</b></div>
-            <div style={{ color: '#1D9E75' }}>Conciliados: <b>{toast.ok}</b></div>
+            <div style={{ color: '#1D9E75' }}>OK: <b>{toast.ok}</b></div>
             <div style={{ color: '#F26B1F' }}>Pendientes: <b>{toast.pendientes}</b></div>
             <div style={{ color: '#7a8090' }}>Duplicados: <b>{toast.duplicados}</b></div>
+            {toast.errores > 0 && (
+              <div style={{ color: '#E24B4A', gridColumn: '1 / -1' }}>Errores: <b>{toast.errores}</b></div>
+            )}
           </div>
+
           <div style={{ marginTop: 10, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ width: `${(toast.enviados / toast.total) * 100}%`, height: '100%', background: '#1D9E75', transition: 'width 0.3s' }} />
           </div>
+
+          {toast.log.length > 0 && (
+            <>
+              <button
+                onClick={() => setToastExpandido(x => !x)}
+                style={{
+                  marginTop: 10, width: '100%',
+                  padding: '6px 10px', borderRadius: 6,
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none', color: '#fff',
+                  cursor: 'pointer',
+                  fontFamily: 'Lexend, sans-serif', fontSize: 11,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                <span>{toastExpandido ? 'Ocultar detalle' : 'Ver detalle'}</span>
+                <span>{toastExpandido ? '▲' : '▼'}</span>
+              </button>
+
+              {toastExpandido && (
+                <div style={{
+                  marginTop: 8, maxHeight: 240, overflowY: 'auto',
+                  background: 'rgba(0,0,0,0.2)', borderRadius: 6,
+                  padding: 8, fontSize: 11,
+                }}>
+                  {toast.log.map((entry, idx) => {
+                    const colors: Record<string, string> = {
+                      ok: '#1D9E75',
+                      duplicado: '#7a8090',
+                      pendiente: '#F26B1F',
+                      error: '#E24B4A',
+                    }
+                    return (
+                      <div key={idx} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: idx < toast.log.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.filename}</span>
+                          <span style={{ color: colors[entry.status], textTransform: 'uppercase', fontSize: 9, letterSpacing: '1px', flexShrink: 0 }}>{entry.status}</span>
+                        </div>
+                        {entry.detalle && (
+                          <div style={{ fontSize: 10, color: '#a0a8b8', marginTop: 2, paddingLeft: 12 }}>{entry.detalle}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
