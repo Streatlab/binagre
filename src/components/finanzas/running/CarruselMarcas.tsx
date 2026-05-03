@@ -1,13 +1,16 @@
 /**
- * CarruselMarcas — refactor 3 may 2026 v4
+ * CarruselMarcas — refactor 3 may 2026 v5
  *
- * Cambios respecto v3 (Rubén):
- * - Colores canales corregidos a Panel Global: Web=#B01D23, Directa=#66aaff
- * - Primera card de marca (la de mayor facturación) RENDERIZA con todos los datos visibles
- *   aunque estén a 0 — para ver cómo va a quedar la card final con datos reales
- * - Marcas ordenadas mayor→menor por bruto, distribuidas en columnas serpentín:
- *   col1 arriba=1ª, abajo=2ª; col2 arriba=3ª, abajo=4ª; …
- * - Sin etiqueta inferior "pedidos · TM bruto / TM neto" (Rubén pidió quitar leyendas)
+ * Cambios respecto v4 (Rubén):
+ * - Card SL: ya no hay "PEDIDOS · TM BRUTO · TM NETO" abajo; ahora la
+ *   estructura es Bruto (negro grande) y Neto estimado (verde grande) ARRIBA
+ *   debajo del label. Pedidos / TM bruto / TM neto van debajo, sin etiquetas
+ *   de colores fluo.
+ * - Cards de marca: misma estructura (Bruto negro arriba, Neto verde debajo,
+ *   pedidos/TM en una línea).
+ * - Quitar la línea horizontal que separaba pedidos/TM y los canales.
+ * - Separador de miles + 2 decimales en TODAS las cifras.
+ * - Colores canales = Panel Global tokens.ts: Web=#B01D23, Directa=#66aaff.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -46,10 +49,7 @@ interface Props {
 
 const VERDE = '#1D9E75';
 const ROJO  = '#A32D2D';
-const AZUL_PEDIDOS = '#1E5BCC';
-const NARANJA_BRUTO = '#F26B1F';
 
-// Colores canales = Panel Global tokens.ts COLORS
 const CANALES = [
   { id: 'ue',  label: 'Uber Eats',     color: '#06C167', col: 'uber_bruto'    as const, marcaCol: 'ue_bruto'  as const },
   { id: 'gl',  label: 'Glovo',         color: '#e8f442', col: 'glovo_bruto'   as const, marcaCol: 'gl_bruto'  as const },
@@ -58,7 +58,9 @@ const CANALES = [
   { id: 'dir', label: 'Venta directa', color: '#66aaff', col: 'directa_bruto' as const, marcaCol: 'dir_bruto' as const },
 ];
 
-// Margen estimado por canal — neto = bruto * (1 - comision). Igual que Panel Global ColFacturacionCanal cuando no hay neto_real_cobrado.
+// ⚠️ Margen estimado canal (canon Panel Global ColFacturacionCanal).
+//    Cuando resumenes_plataforma_marca_mensual tenga neto_real_cobrado, leer de ahí
+//    automáticamente sin pedirlo.
 const COMISION_EST: Record<string, number> = {
   ue: 0.30, gl: 0.32, je: 0.28, web: 0.05, dir: 0.0,
 };
@@ -70,16 +72,14 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function fmtNum(v: number, decimals = 2): string {
+// Separador miles + 2 decimales (estilo es-ES) sin símbolo €
+function fmtNum(v: number): string {
   if (isNaN(v)) return '0,00';
-  const fixed = v.toFixed(decimals);
-  const [int, dec] = fixed.split('.');
-  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return decimals > 0 ? `${intFmt},${dec}` : intFmt;
+  return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function fmtInt(v: number): string {
   if (isNaN(v)) return '0';
-  return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return Math.round(v).toLocaleString('es-ES');
 }
 
 interface CanalDistRow {
@@ -117,7 +117,6 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     let cancel = false;
     (async () => {
       setLoading(true);
-
       const desdeStr = isoDate(periodoDesde);
       const hastaStr = isoDate(periodoHasta);
 
@@ -204,7 +203,6 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
           hayDatos: !!(data && data.bruto > 0),
         };
       })
-      // Mayor → menor por bruto (con datos primero, sin datos al final por nombre)
       .sort((a, b) => {
         if (a.hayDatos !== b.hayDatos) return a.hayDatos ? -1 : 1;
         if (a.hayDatos) return b.bruto - a.bruto;
@@ -273,11 +271,11 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     flexDirection: 'column',
   };
 
-  function FilaCanal({ row, alwaysShow = false }: { row: CanalDistRow; alwaysShow?: boolean }) {
+  function FilaCanal({ row, alwaysShow = false, compact = false }: { row: CanalDistRow; alwaysShow?: boolean; compact?: boolean }) {
     if (!alwaysShow && row.importe === 0) return null;
     return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0' }}>
+      <div style={{ padding: compact ? '3px 0' : '5px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
             <span style={{
@@ -329,8 +327,6 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
   };
 
-  // Distribución serpentín por columnas: 1ª pareja [0,1], 2ª pareja [2,3], etc.
-  // Mayor en col1-arriba, segunda col1-abajo, tercera col2-arriba…
   const columnas: MarcaCardData[][] = [];
   for (let i = 0; i < marcas.length; i += 2) {
     columnas.push(marcas.slice(i, i + 2));
@@ -353,26 +349,27 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
         }}>{m.nombre}</div>
         {visible ? (
           <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: AZUL_PEDIDOS, lineHeight: 1 }}>{fmtInt(m.pedidos)}</div>
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>
-                <span style={{ color: NARANJA_BRUTO, fontWeight: 600 }}>{fmtNum(tmBrutoM)}</span>
-                {' / '}
-                <span style={{ color: VERDE, fontWeight: 600 }}>{fmtNum(tmNetoM)}</span>
-              </div>
+            {/* Bruto NEGRO arriba */}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: T.pri, lineHeight: 1.05 }}>
+              {fmtNum(m.bruto)}
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, color: T.pri }}>{fmtNum(m.bruto)}</span>
-              {deltaM !== null && (
-                <span style={{ fontFamily: FONT.body, fontSize: 11, color: deltaM >= 0 ? VERDE : ROJO }}>
-                  {deltaM >= 0 ? '▲' : '▼'} {Math.abs(Math.round(deltaM))}%
-                </span>
-              )}
+            {/* Neto VERDE debajo */}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, color: VERDE, marginTop: 1 }}>
+              {fmtNum(m.netoEst)}
             </div>
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {m.canales.map(c => <FilaCanal key={c.id} row={c} alwaysShow={demoVisible && !m.hayDatos} />)}
+            {/* delta */}
+            {deltaM !== null && (
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: deltaM >= 0 ? VERDE : ROJO, marginTop: 2 }}>
+                {deltaM >= 0 ? '▲' : '▼'} {Math.abs(Math.round(deltaM))}% vs ant.
+              </span>
+            )}
+            {/* pedidos · TM bruto / TM neto en una línea sin colores fluo */}
+            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 8 }}>
+              {fmtInt(m.pedidos)} pedidos · TM {fmtNum(tmBrutoM)} / <span style={{ color: VERDE }}>{fmtNum(tmNetoM)}</span>
+            </div>
+            {/* Canales pegados, sin línea separadora */}
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column' }}>
+              {m.canales.map(c => <FilaCanal key={c.id} row={c} alwaysShow={demoVisible && !m.hayDatos} compact />)}
             </div>
           </>
         ) : (
@@ -384,8 +381,6 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
     );
   }
 
-  // La 1ª marca (mayor facturación) siempre se muestra completa (demoVisible=true)
-  // aunque tenga 0, para que se vea cómo va a quedar la card final.
   const primeraId = marcas[0]?.id;
 
   return (
@@ -417,7 +412,12 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
           {/* Card Streat Lab grande */}
           <div style={cardSL}>
             <div style={labelCard}>STREAT LAB · TOTAL</div>
+            {/* Bruto NEGRO grande arriba */}
             <div style={numGigante}>{fmtNum(totalBruto)}</div>
+            {/* Neto VERDE grande justo debajo */}
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, color: VERDE, marginTop: 2 }}>
+              {fmtNum(totalNetoEst)}
+            </div>
             {deltaTotal !== null && (
               <div style={{
                 fontFamily: FONT.body, fontSize: 12,
@@ -428,22 +428,13 @@ export default function CarruselMarcas({ periodoDesde, periodoHasta }: Props) {
               </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: AZUL_PEDIDOS, lineHeight: 1 }}>{fmtInt(totalPedidos)}</div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: AZUL_PEDIDOS, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>PEDIDOS</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: NARANJA_BRUTO, lineHeight: 1 }}>{fmtNum(tmBruto)}</div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: NARANJA_BRUTO, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>TM BRUTO</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 30, fontWeight: 600, color: VERDE, lineHeight: 1 }}>{fmtNum(tmNeto)}</div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500, marginTop: 2 }}>TM NETO</div>
-              </div>
+            {/* pedidos · TM bruto / TM neto en línea horizontal sin recuadros fluo */}
+            <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 12 }}>
+              {fmtInt(totalPedidos)} pedidos · TM {fmtNum(tmBruto)} / <span style={{ color: VERDE }}>{fmtNum(tmNeto)}</span>
             </div>
 
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* Canales sin separador */}
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column' }}>
               {canalesTotal.map(c => <FilaCanal key={c.id} row={c} alwaysShow={true} />)}
             </div>
           </div>
