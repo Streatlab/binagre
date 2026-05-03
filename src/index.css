@@ -190,11 +190,28 @@ button, input, select, textarea {
   --rf-ch-directa: #66aaff;
   --rf-ch-directa-bg: #e8f1fc;
 
-  --rf-q1-bg: #f0f7ff;
-  --rf-q2-bg: #f0fff4;
-  --rf-q3-bg: #fffdf0;
-  --rf-q4-bg: #fff5f0;
-  --rf-year-bg: rgba(232,244,66,0.18);
+  /* Trimestres pastel coherentes con #f5f3ef (mockup validado) */
+  --rf-q1-bg: #eef3f8;
+  --rf-q1-tot: #dbe6f0;
+  --rf-q1-head: #cfdce8;
+  --rf-q2-bg: #eef3e8;
+  --rf-q2-tot: #dbe6cf;
+  --rf-q2-head: #cfdcc0;
+  --rf-q3-bg: #f6efe2;
+  --rf-q3-tot: #ecdfc4;
+  --rf-q3-head: #e2cfa6;
+  --rf-q4-bg: #f0eef6;
+  --rf-q4-tot: #e0dcec;
+  --rf-q4-head: #d2cce0;
+  --rf-year-bg: #f9e9eb;
+  --rf-year-head: #f5dde0;
+  --rf-mes-actual: #dfead4;
+  --rf-mes-actual-head: #a8c890;
+
+  /* Semáforo banda objetivo */
+  --rf-banda-ok: #0F6E56;
+  --rf-banda-warn: #854F0B;
+  --rf-banda-err: #B01D23;
 }
 
 [data-theme="dark"] {
@@ -221,11 +238,45 @@ button, input, select, textarea {
   --rf-ch-directa-bg: rgba(102,170,255,0.12);
 
   --rf-q1-bg: rgba(102,170,255,0.08);
+  --rf-q1-tot: rgba(102,170,255,0.16);
+  --rf-q1-head: rgba(102,170,255,0.24);
   --rf-q2-bg: rgba(74,222,128,0.08);
+  --rf-q2-tot: rgba(74,222,128,0.16);
+  --rf-q2-head: rgba(74,222,128,0.24);
   --rf-q3-bg: rgba(232,197,71,0.08);
-  --rf-q4-bg: rgba(232,82,76,0.08);
-  --rf-year-bg: rgba(232,244,66,0.10);
+  --rf-q3-tot: rgba(232,197,71,0.16);
+  --rf-q3-head: rgba(232,197,71,0.24);
+  --rf-q4-bg: rgba(206,203,246,0.08);
+  --rf-q4-tot: rgba(206,203,246,0.16);
+  --rf-q4-head: rgba(206,203,246,0.24);
+  --rf-year-bg: rgba(232,82,76,0.10);
+  --rf-year-head: rgba(232,82,76,0.18);
+  --rf-mes-actual: rgba(74,222,128,0.20);
+  --rf-mes-actual-head: rgba(74,222,128,0.40);
+
+  --rf-banda-ok: #4ade80;
+  --rf-banda-warn: #fbbf24;
+  --rf-banda-err: #e8524c;
 }
 
 .rf-font-header { font-family: 'Oswald', sans-serif; }
 .rf-font-body { font-family: 'Lexend', sans-serif; }
+
+/* Carrusel horizontal de marcas */
+.rf-marcas-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  padding: 4px 0 12px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.rf-marcas-scroll::-webkit-scrollbar { height: 6px; }
+.rf-marcas-scroll::-webkit-scrollbar-track { background: var(--rf-bg-panel); border-radius: 3px; }
+.rf-marcas-scroll::-webkit-scrollbar-thumb { background: var(--rf-border); border-radius: 3px; }
+.rf-marcas-scroll::-webkit-scrollbar-thumb:hover { background: var(--rf-text-muted); }
+.rf-marca-card {
+  flex: 0 0 240px;
+  scroll-snap-align: start;
+}
