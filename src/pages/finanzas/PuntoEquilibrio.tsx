@@ -1,18 +1,19 @@
 /**
- * Punto de Equilibrio — refactor 3 may 2026
+ * Punto de Equilibrio — refactor v3 — 3 may 2026
  *
- * Cero mentiras. Cero parámetros hardcoded en pe_parametros.
- * Datos REALES:
- *   - Ingresos: tabla `ingresos_mensuales` (neto por canal/mes)
- *   - Gastos: tabla `gastos` (clasificados en 7 categorías canónicas)
+ * Datos REALES, sin parámetros hardcoded:
+ *   - Bruto + pedidos: facturacion_diario
+ *   - Neto: resumenes_plataforma_marca_mensual (cuando hay) o estimación
+ *   - Gastos: tabla `gastos` SIEMPRE SIN IVA (base_imponible)
+ *   - 7 categorías canónicas: PRODUCTO=variable / RRHH+ALQUILER+MARKETING+INTERNET_VENTAS+SUMINISTROS+ADMIN_GENERALES=fijos
  *   - Días operativos: useCalendario
  *
- * Estructura visual: Header SelectorFechaUniversal + TabsPastilla copia literal Conciliación.
- * Cards grandes Panel Global con barra apilada + desglose.
+ * Estilo: cards Panel Global (cardBig + lbl + kpiBig), bruto NEGRO + neto VERDE + margen %
+ * Formato: SIEMPRE 2 decimales y separador de miles es-ES, sin símbolo €
  */
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, type CSSProperties } from 'react'
+import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, fmtFechaCorta } from '@/styles/tokens'
-import { useIVA } from '@/contexts/IVAContext'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -22,37 +23,37 @@ import {
   type Categoria, type PeriodoRango,
 } from '@/lib/running'
 import { useRunning } from '@/hooks/useRunning'
+import {
+  cardBig, lbl, lblXs, kpiBig, OSWALD, LEXEND, COLOR,
+} from '@/components/panel/resumen/tokens'
+import { fmtEur, fmtPct } from '@/lib/format'
 
-const ROJO = '#B01D23'
-const VERDE = '#10B981'
-const AMBAR = '#F4C542'
+const ROJO   = COLOR.rojoSL
+const VERDE  = COLOR.verde
+const AMBAR  = COLOR.ambar
+const ERR    = COLOR.rojo
 
-/* Formato sin símbolo €, separadores es-ES */
-function fmtNum(n: number, decimales = 0): string {
-  if (!isFinite(n) || isNaN(n)) return '—'
-  return n.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
-}
+const MESES_CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 
-function fmtPct(n: number): string {
-  if (!isFinite(n) || isNaN(n)) return '—'
-  return n.toFixed(1) + '%'
-}
-
-const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-
-const CANAL_INFO: Record<string, { label: string; color: string }> = {
-  'UBER EATS':  { label: 'Uber Eats',     color: '#06C167' },
-  'GLOVO':      { label: 'Glovo',         color: '#e8f442' },
-  'JUST EAT':   { label: 'Just Eat',      color: '#f5a623' },
-  'WEB':        { label: 'Tienda online', color: '#B01D23' },
-  'DIRECTA':    { label: 'Directa',       color: '#66aaff' },
+const CANAL_INFO: Record<string, { id: 'uber'|'glovo'|'just_eat'|'web'|'directa'; label: string; color: string; bg: string; border: string }> = {
+  'UBER EATS':  { id: 'uber',     label: 'UBER EATS', color: COLOR.verdeOscuro, bg: `${COLOR.uber}20`,    border: COLOR.uber },
+  'GLOVO':      { id: 'glovo',    label: 'GLOVO',     color: COLOR.glovoDark,   bg: `${COLOR.glovo}30`,   border: 'rgba(200,180,0,0.30)' },
+  'JUST EAT':   { id: 'just_eat', label: 'JUST EAT',  color: COLOR.jeDark,      bg: `${COLOR.je}20`,      border: COLOR.je },
+  'WEB':        { id: 'web',      label: 'WEB',       color: COLOR.webDark,     bg: `${COLOR.webSL}10`,   border: `${COLOR.webSL}50` },
+  'DIRECTA':    { id: 'directa',  label: 'DIRECTA',   color: COLOR.directaDark, bg: `${COLOR.directa}20`, border: COLOR.directa },
 }
 
 type Tab = 'resumen' | 'simulador'
 
+interface CanalDatos {
+  bruto: number
+  neto: number
+  margenPct: number
+  pedidos: number
+}
+
 export default function PuntoEquilibrio() {
   const { T } = useTheme()
-  const { modo: modoIVA } = useIVA()
   const [tab, setTab] = useState<Tab>('resumen')
 
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
@@ -71,39 +72,109 @@ export default function PuntoEquilibrio() {
   }), [periodoDesde, periodoHasta, periodoLabel])
   const anio = periodo.desde.getFullYear()
 
-  const { loading, error, gastos, ingresosMes, facturacion } = useRunning(
-    periodo, anio, null, null, modoIVA,
+  /* useRunning con IVA SIN forzado (gastos en base_imponible) */
+  const { loading, error, gastos, facturacion } = useRunning(
+    periodo, anio, null, null, 'sin',
   )
   const { diasOperativosEnRango } = useCalendario()
 
-  const meses = useMemo(() => {
-    const set = new Set<number>()
-    const cur = new Date(periodo.desde)
-    while (cur <= periodo.hasta) {
-      if (cur.getFullYear() === anio) set.add(cur.getMonth() + 1)
-      cur.setDate(cur.getDate() + 1)
-    }
-    return Array.from(set)
-  }, [periodo, anio])
-
-  const ingresosPorCanal = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const r of ingresosMes) {
-      if (r.tipo !== 'neto' || !meses.includes(r.mes)) continue
-      m.set(r.canal, (m.get(r.canal) ?? 0) + Number(r.importe || 0))
+  /* Bruto por canal real desde facturacion_diario */
+  const brutoPorCanal = useMemo(() => {
+    const m: Record<string, number> = { uber: 0, glovo: 0, just_eat: 0, web: 0, directa: 0 }
+    for (const f of facturacion) {
+      m.uber     += Number(f.uber_bruto || 0)
+      m.glovo    += Number(f.glovo_bruto || 0)
+      m.just_eat += Number(f.je_bruto || 0)
+      m.web      += Number(f.web_bruto || 0)
+      m.directa  += Number(f.directa_bruto || 0)
     }
     return m
-  }, [ingresosMes, meses])
+  }, [facturacion])
 
-  const totalIngresos = useMemo(
-    () => Array.from(ingresosPorCanal.values()).reduce((a, v) => a + v, 0),
-    [ingresosPorCanal]
+  const totalBruto = useMemo(
+    () => Object.values(brutoPorCanal).reduce((a, v) => a + v, 0),
+    [brutoPorCanal]
   )
 
   const totalPedidos = useMemo(
     () => facturacion.reduce((a, f) => a + Number(f.total_pedidos || 0), 0),
     [facturacion]
   )
+
+  const meses = useMemo(() => {
+    const set = new Set<string>()
+    const cur = new Date(periodo.desde)
+    while (cur <= periodo.hasta) {
+      set.add(`${cur.getFullYear()}-${cur.getMonth() + 1}`)
+      cur.setDate(cur.getDate() + 1)
+    }
+    return Array.from(set).map(s => {
+      const [y, m] = s.split('-').map(Number)
+      return { anio: y, mes: m }
+    })
+  }, [periodo])
+
+  const [resumenes, setResumenes] = useState<Array<{
+    plataforma: string; mes: number; año: number;
+    bruto: number | null; comisiones: number | null;
+    fees: number | null; cargos_promocion: number | null;
+    neto_real_cobrado: number | null;
+  }>>([])
+
+  useEffect(() => {
+    if (meses.length === 0) return
+    let cancel = false
+    ;(async () => {
+      const conditions = meses.map(m => `and(mes.eq.${m.mes},año.eq.${m.anio})`).join(',')
+      const { data } = await supabase
+        .from('resumenes_plataforma_marca_mensual')
+        .select('plataforma, mes, año, bruto, comisiones, fees, cargos_promocion, neto_real_cobrado')
+        .or(conditions)
+      if (cancel) return
+      setResumenes((data ?? []) as any)
+    })()
+    return () => { cancel = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meses.map(m => `${m.anio}-${m.mes}`).join('|')])
+
+  const datosPorCanal = useMemo<Record<string, CanalDatos>>(() => {
+    const out: Record<string, CanalDatos> = {}
+    const canalIds: Array<'uber'|'glovo'|'just_eat'|'web'|'directa'> = ['uber','glovo','just_eat','web','directa']
+    for (const c of canalIds) {
+      const filas = resumenes.filter(r => r.plataforma === c)
+      const brutoFD = brutoPorCanal[c] ?? 0
+      let neto = 0
+      let brutoCalc = 0
+      if (filas.length > 0) {
+        const tieneRealCobrado = filas.some(f => f.neto_real_cobrado != null)
+        brutoCalc = filas.reduce((s, f) => s + (f.bruto ?? 0), 0)
+        if (tieneRealCobrado) {
+          neto = filas.reduce((s, f) => s + (f.neto_real_cobrado ?? 0), 0)
+        } else {
+          const com = filas.reduce((s, f) => s + (f.comisiones ?? 0), 0)
+          const fee = filas.reduce((s, f) => s + (f.fees ?? 0), 0)
+          const car = filas.reduce((s, f) => s + (f.cargos_promocion ?? 0), 0)
+          const ivaCom = (com + fee + car) * 0.21
+          neto = brutoCalc - com - fee - car - ivaCom
+        }
+      } else {
+        if (c === 'directa') neto = brutoFD
+        else if (c === 'web') neto = brutoFD * 0.95
+        else neto = brutoFD * 0.70
+      }
+      const brutoFinal = filas.length > 0 ? brutoCalc : brutoFD
+      const margenPct = brutoFinal > 0 ? (neto / brutoFinal) * 100 : 0
+      out[c] = { bruto: brutoFinal, neto, margenPct, pedidos: 0 }
+    }
+    return out
+  }, [resumenes, brutoPorCanal])
+
+  const totalNeto = useMemo(
+    () => Object.values(datosPorCanal).reduce((a, c) => a + c.neto, 0),
+    [datosPorCanal]
+  )
+
+  const margenNetoPct = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
 
   const gastosPorCategoria = useMemo(() => {
     const m: Partial<Record<Categoria, number>> = {}
@@ -118,28 +189,31 @@ export default function PuntoEquilibrio() {
     [gastosPorCategoria]
   )
 
-  const totalVariables = useMemo(
+  const totalVariablesGasto = useMemo(
     () => GASTOS_VARIABLES.reduce((a, c) => a + (gastosPorCategoria[c] ?? 0), 0),
     [gastosPorCategoria]
   )
 
-  const margenContribucion = totalIngresos - totalVariables
-  const margenPct = totalIngresos > 0 ? (margenContribucion / totalIngresos) * 100 : 0
-  const peMensual = margenPct > 0 ? totalFijos / (margenPct / 100) : null
+  const totalComisiones = totalBruto - totalNeto
+  const totalVariables = totalVariablesGasto + totalComisiones
+
+  const margenContribucion = totalBruto - totalVariables
+  const margenContribPct = totalBruto > 0 ? (margenContribucion / totalBruto) * 100 : 0
+  const peMensual = margenContribPct > 0 ? totalFijos / (margenContribPct / 100) : null
 
   const diasOperativos = useMemo(
     () => diasOperativosEnRango(periodo.desde, periodo.hasta) || 1,
     [diasOperativosEnRango, periodo.desde, periodo.hasta]
   )
 
-  const ingresoMedioDiario = totalIngresos / diasOperativos
+  const brutoMedioDiario = totalBruto / diasOperativos
 
-  const diaCubrePE = useMemo(() => {
-    if (!peMensual || ingresoMedioDiario <= 0) return null
-    const diasNecesarios = Math.ceil(peMensual / ingresoMedioDiario)
-    if (diasNecesarios > diasOperativos * 1.5) return null
-    const inicioMes = new Date(periodo.desde)
-    inicioMes.setDate(1)
+  const diaCubreInfo = useMemo(() => {
+    if (!peMensual || brutoMedioDiario <= 0) {
+      return { fecha: null as Date | null, diasNecesarios: null as number | null, pasaElMes: false }
+    }
+    const diasNecesarios = Math.ceil(peMensual / brutoMedioDiario)
+    const inicioMes = new Date(periodo.desde.getFullYear(), periodo.desde.getMonth(), 1)
     const cur = new Date(inicioMes)
     let contados = 0
     let safety = 0
@@ -149,24 +223,25 @@ export default function PuntoEquilibrio() {
       cur.setDate(cur.getDate() + 1)
       safety++
     }
-    return cur
-  }, [peMensual, ingresoMedioDiario, diasOperativos, periodo.desde, diasOperativosEnRango])
+    const finMes = new Date(periodo.desde.getFullYear(), periodo.desde.getMonth() + 1, 0)
+    return { fecha: cur, diasNecesarios, pasaElMes: cur > finMes }
+  }, [peMensual, brutoMedioDiario, periodo.desde, diasOperativosEnRango])
 
   const estado: 'cubre' | 'ajustado' | 'pierde' =
     peMensual == null ? 'pierde'
-      : totalIngresos >= peMensual * 1.05 ? 'cubre'
-      : totalIngresos >= peMensual ? 'ajustado'
+      : totalBruto >= peMensual * 1.05 ? 'cubre'
+      : totalBruto >= peMensual ? 'ajustado'
       : 'pierde'
 
-  const colorEstado = estado === 'cubre' ? VERDE : estado === 'ajustado' ? AMBAR : ROJO
+  const colorEstado = estado === 'cubre' ? VERDE : estado === 'ajustado' ? AMBAR : ERR
 
   return (
     <div style={{ background: '#f5f3ef', padding: '24px 28px', minHeight: '100vh' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{
-            color: '#B01D23',
-            fontFamily: 'Oswald, sans-serif',
+            color: ROJO,
+            fontFamily: OSWALD,
             fontSize: 22,
             fontWeight: 600,
             letterSpacing: '3px',
@@ -175,7 +250,7 @@ export default function PuntoEquilibrio() {
           }}>
             PUNTO DE EQUILIBRIO
           </h2>
-          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
+          <span style={{ fontFamily: LEXEND, fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
             {fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}
           </span>
         </div>
@@ -202,7 +277,7 @@ export default function PuntoEquilibrio() {
       />
 
       {error && (
-        <div style={{ background: '#FCEBEB', border: '1px solid #B01D23', color: '#A32D2D', padding: 16, borderRadius: 8, fontFamily: FONT.body, fontSize: 13, marginTop: 16 }}>
+        <div style={{ background: '#FCEBEB', border: `1px solid ${ROJO}`, color: '#A32D2D', padding: 16, borderRadius: 8, fontFamily: FONT.body, fontSize: 13, marginTop: 16 }}>
           Error: {error}
         </div>
       )}
@@ -213,355 +288,366 @@ export default function PuntoEquilibrio() {
 
       {!loading && !error && tab === 'resumen' && (
         <TabResumen
-          totalIngresos={totalIngresos}
+          totalBruto={totalBruto}
+          totalNeto={totalNeto}
           totalPedidos={totalPedidos}
           totalFijos={totalFijos}
+          totalVariablesGasto={totalVariablesGasto}
+          totalComisiones={totalComisiones}
           totalVariables={totalVariables}
-          margenContribucion={margenContribucion}
-          margenPct={margenPct}
+          margenContribPct={margenContribPct}
+          margenNetoPct={margenNetoPct}
           peMensual={peMensual}
-          diaCubrePE={diaCubrePE}
-          ingresosPorCanal={ingresosPorCanal}
+          diaCubreInfo={diaCubreInfo}
+          datosPorCanal={datosPorCanal}
           gastosPorCategoria={gastosPorCategoria}
           diasOperativos={diasOperativos}
-          ingresoMedioDiario={ingresoMedioDiario}
+          brutoMedioDiario={brutoMedioDiario}
           estado={estado}
           colorEstado={colorEstado}
-          periodoLabel={periodoLabel}
+          periodoDesde={periodo.desde}
         />
       )}
 
       {!loading && !error && tab === 'simulador' && (
         <TabSimulador
-          totalIngresos={totalIngresos}
+          totalBruto={totalBruto}
           totalFijos={totalFijos}
           totalVariables={totalVariables}
-          margenPct={margenPct}
+          margenContribPct={margenContribPct}
           peMensual={peMensual}
           diasOperativos={diasOperativos}
           totalPedidos={totalPedidos}
-          ingresosPorCanal={ingresosPorCanal}
+          datosPorCanal={datosPorCanal}
+          brutoMedioDiario={brutoMedioDiario}
         />
       )}
     </div>
   )
 }
 
-/* TAB RESUMEN */
-
 interface TabResumenProps {
-  totalIngresos: number
+  totalBruto: number
+  totalNeto: number
   totalPedidos: number
   totalFijos: number
+  totalVariablesGasto: number
+  totalComisiones: number
   totalVariables: number
-  margenContribucion: number
-  margenPct: number
+  margenContribPct: number
+  margenNetoPct: number
   peMensual: number | null
-  diaCubrePE: Date | null
-  ingresosPorCanal: Map<string, number>
+  diaCubreInfo: { fecha: Date | null; diasNecesarios: number | null; pasaElMes: boolean }
+  datosPorCanal: Record<string, CanalDatos>
   gastosPorCategoria: Partial<Record<Categoria, number>>
   diasOperativos: number
-  ingresoMedioDiario: number
+  brutoMedioDiario: number
   estado: 'cubre' | 'ajustado' | 'pierde'
   colorEstado: string
-  periodoLabel: string
+  periodoDesde: Date
 }
 
 function TabResumen(p: TabResumenProps) {
-  const { T } = useTheme()
+  const ticketMedioBruto = p.totalPedidos > 0 ? p.totalBruto / p.totalPedidos : 0
+  const ticketMedioNeto = p.totalPedidos > 0 ? p.totalNeto / p.totalPedidos : 0
 
-  const segIngresos = Array.from(p.ingresosPorCanal.entries())
-    .map(([canal, importe]) => ({
-      label: CANAL_INFO[canal]?.label ?? canal,
-      valor: importe,
-      color: CANAL_INFO[canal]?.color ?? '#7a8090',
-    }))
-    .filter(s => s.valor > 0)
-    .sort((a, b) => b.valor - a.valor)
-
-  const segFijos = GASTOS_FIJOS
+  const filasFijos = GASTOS_FIJOS
     .map(cat => ({
       label: CATEGORIA_NOMBRE[cat],
       valor: p.gastosPorCategoria[cat] ?? 0,
       color: CATEGORIA_COLOR[cat],
     }))
-    .filter(s => s.valor > 0)
+    .filter(f => f.valor > 0)
     .sort((a, b) => b.valor - a.valor)
 
-  const segVariables = GASTOS_VARIABLES
-    .map(cat => ({
+  const filasVariables = [
+    ...GASTOS_VARIABLES.map(cat => ({
       label: CATEGORIA_NOMBRE[cat],
       valor: p.gastosPorCategoria[cat] ?? 0,
       color: CATEGORIA_COLOR[cat],
-    }))
-    .filter(s => s.valor > 0)
-
-  const pctCubierto = p.peMensual ? Math.min(100, (p.totalIngresos / p.peMensual) * 100) : 0
-  const ticketMedio = p.totalPedidos > 0 ? p.totalIngresos / p.totalPedidos : 0
+    })),
+    { label: 'Comisiones plataformas', valor: p.totalComisiones, color: '#F26B1F' },
+  ].filter(f => f.valor > 0)
+  .sort((a, b) => b.valor - a.valor)
 
   return (
-    <>
+    <div style={{ marginTop: 16 }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
         gap: 14,
-        marginBottom: 18,
-        marginTop: 16,
+        marginBottom: 14,
       }}>
-        <CardGrande
-          label="Ingresos del periodo"
-          valor={fmtNum(p.totalIngresos)}
-          deltaText={p.totalPedidos > 0 ? `${fmtNum(p.totalPedidos)} pedidos · medio ${fmtNum(ticketMedio, 2)}` : 'Sin pedidos en el periodo'}
-          deltaColor={T.mut}
-          segmentos={segIngresos}
-        />
-
-        <CardGrande
-          label="Costes fijos"
-          valor={fmtNum(p.totalFijos)}
-          deltaText="Categorías canónicas plan contable"
-          deltaColor={T.mut}
-          segmentos={segFijos}
-        />
-
-        <CardGrande
-          label="Costes variables"
-          valor={fmtNum(p.totalVariables)}
-          deltaText={p.totalIngresos > 0 ? `${fmtPct(p.totalVariables / p.totalIngresos * 100)} sobre ingresos · margen ${fmtPct(p.margenPct)}` : 'Sin ingresos en el periodo'}
-          deltaColor={T.mut}
-          segmentos={segVariables}
+        <CardIngresos
+          totalBruto={p.totalBruto}
+          totalNeto={p.totalNeto}
+          margenNetoPct={p.margenNetoPct}
+          totalPedidos={p.totalPedidos}
+          ticketMedioBruto={ticketMedioBruto}
+          ticketMedioNeto={ticketMedioNeto}
+          datosPorCanal={p.datosPorCanal}
         />
 
         <CardPE
           peMensual={p.peMensual}
-          totalIngresos={p.totalIngresos}
-          pctCubierto={pctCubierto}
-          diaCubrePE={p.diaCubrePE}
+          totalBruto={p.totalBruto}
+          diaCubreInfo={p.diaCubreInfo}
           colorEstado={p.colorEstado}
           estado={p.estado}
           diasOperativos={p.diasOperativos}
+          brutoMedioDiario={p.brutoMedioDiario}
+          margenContribPct={p.margenContribPct}
+          totalPedidos={p.totalPedidos}
+          ticketMedioBruto={ticketMedioBruto}
+          periodoDesde={p.periodoDesde}
         />
       </div>
 
       <div style={{
-        background: '#fff',
-        border: `0.5px solid ${T.brd}`,
-        borderRadius: 16,
-        padding: '20px 24px',
-        marginBottom: 18,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+        gap: 14,
       }}>
-        <div style={{
-          fontFamily: FONT.heading,
-          fontSize: 12,
-          fontWeight: 500,
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          color: T.mut,
-          marginBottom: 12,
-        }}>
-          Estado del periodo
-        </div>
-        <div style={{
-          padding: '14px 18px',
-          borderRadius: 10,
-          background: `${p.colorEstado}15`,
-          border: `1px solid ${p.colorEstado}40`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-        }}>
-          <div style={{ width: 14, height: 14, borderRadius: '50%', background: p.colorEstado, flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
-              {p.estado === 'cubre' ? 'Cubres punto de equilibrio'
-                : p.estado === 'ajustado' ? 'Ajustado — al límite'
-                : 'No cubres punto de equilibrio'}
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 4, lineHeight: 1.4 }}>
-              {p.peMensual == null
-                ? 'Sin margen suficiente para calcular el PE.'
-                : p.estado === 'cubre'
-                  ? `Vas ${fmtNum(p.totalIngresos - p.peMensual)} por encima del PE (${fmtNum(p.peMensual)}). Excedente que tira al beneficio.`
-                  : p.estado === 'ajustado'
-                    ? `Vas ${fmtNum(p.totalIngresos - p.peMensual)} sobre el PE (${fmtNum(p.peMensual)}). Margen muy fino.`
-                    : `Te faltan ${fmtNum(p.peMensual - p.totalIngresos)} para alcanzar el PE (${fmtNum(p.peMensual)}).`}
-            </div>
-          </div>
-        </div>
+        <CardCostes
+          titulo="COSTES FIJOS"
+          subtitulo="Sin IVA · plan contable"
+          total={p.totalFijos}
+          filas={filasFijos}
+          totalBruto={p.totalBruto}
+        />
+
+        <CardCostes
+          titulo="COSTES VARIABLES"
+          subtitulo={`Sin IVA · ${fmtPct(p.totalVariables / Math.max(1, p.totalBruto) * 100, 2)} sobre bruto · margen contrib. ${fmtPct(p.margenContribPct, 2)}`}
+          total={p.totalVariables}
+          filas={filasVariables}
+          totalBruto={p.totalBruto}
+        />
       </div>
-    </>
-  )
-}
-
-interface SegItem { label: string; valor: number; color: string }
-
-function CardGrande({ label, valor, deltaText, deltaColor, segmentos }: {
-  label: string
-  valor: string
-  deltaText?: string
-  deltaColor?: string
-  segmentos: SegItem[]
-}) {
-  const { T } = useTheme()
-  const total = segmentos.reduce((a, s) => a + Math.max(0, s.valor), 0)
-
-  return (
-    <div style={{
-      background: '#fff',
-      border: `0.5px solid ${T.brd}`,
-      borderRadius: 16,
-      padding: '24px 28px',
-    }}>
-      <div style={{
-        fontFamily: FONT.heading,
-        fontSize: 12,
-        fontWeight: 500,
-        letterSpacing: '2px',
-        textTransform: 'uppercase',
-        color: T.mut,
-        marginBottom: 8,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontFamily: FONT.heading,
-        fontSize: 38,
-        fontWeight: 600,
-        color: T.pri,
-        lineHeight: 1.05,
-      }}>
-        {valor}
-      </div>
-      {deltaText && (
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: deltaColor ?? T.mut, marginTop: 4 }}>
-          {deltaText}
-        </div>
-      )}
-
-      {segmentos.length > 0 && total > 0 && (
-        <>
-          <div style={{
-            height: 8, borderRadius: 4,
-            background: T.brd, overflow: 'hidden',
-            display: 'flex', marginTop: 12,
-          }}>
-            {segmentos.map((s, i) => (
-              <div key={i} style={{
-                width: `${(s.valor / total) * 100}%`,
-                background: s.color,
-                height: '100%',
-              }} title={`${s.label}: ${fmtNum(s.valor)}`} />
-            ))}
-          </div>
-
-          <div style={{ marginTop: 14 }}>
-            {segmentos.map((s, i) => (
-              <div key={i} style={{
-                display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', padding: '8px 0',
-                borderBottom: i < segmentos.length - 1 ? `0.5px solid #ebe8e2` : 'none',
-                fontSize: 12,
-              }}>
-                <span style={{ color: T.sec, fontFamily: FONT.body, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    width: 8, height: 8, borderRadius: 4,
-                    background: s.color, display: 'inline-block',
-                  }} />
-                  {s.label}
-                </span>
-                <span style={{
-                  fontFamily: FONT.heading, fontSize: 13, fontWeight: 500,
-                  color: T.pri,
-                }}>
-                  {fmtNum(s.valor)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {segmentos.length === 0 && (
-        <div style={{ marginTop: 16, fontFamily: FONT.body, fontSize: 12, color: T.mut, fontStyle: 'italic' }}>
-          Sin movimientos en el periodo seleccionado
-        </div>
-      )}
     </div>
   )
 }
 
-function CardPE({ peMensual, totalIngresos, pctCubierto, diaCubrePE, colorEstado, estado, diasOperativos }: {
+function CardIngresos({ totalBruto, totalNeto, margenNetoPct, totalPedidos, ticketMedioBruto, ticketMedioNeto, datosPorCanal }: {
+  totalBruto: number
+  totalNeto: number
+  margenNetoPct: number
+  totalPedidos: number
+  ticketMedioBruto: number
+  ticketMedioNeto: number
+  datosPorCanal: Record<string, CanalDatos>
+}) {
+  const canales: Array<keyof typeof CANAL_INFO> = ['UBER EATS', 'GLOVO', 'JUST EAT', 'WEB', 'DIRECTA']
+
+  return (
+    <div style={cardBig}>
+      <div style={lbl}>INGRESOS DEL PERIODO</div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ ...kpiBig, color: '#111111' }}>
+            {fmtEur(totalBruto, { showEuro: false, decimals: 2 })}
+          </div>
+          <div style={lblXs}>BRUTO</div>
+        </div>
+        <div>
+          <div style={{ ...kpiBig, color: VERDE }}>
+            {fmtEur(totalNeto, { showEuro: false, decimals: 2 })}
+          </div>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500 }}>
+            NETO · {fmtPct(margenNetoPct, 2)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, color: '#7a8090', marginTop: 10, marginBottom: 14, fontFamily: LEXEND }}>
+        {fmtEur(totalPedidos, { showEuro: false, decimals: 0 })} pedidos · ticket medio {fmtEur(ticketMedioBruto, { showEuro: false, decimals: 2 })} bruto / {fmtEur(ticketMedioNeto, { showEuro: false, decimals: 2 })} neto
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {canales.map(canalKey => {
+          const info = CANAL_INFO[canalKey]
+          const datos = datosPorCanal[info.id]
+          if (!datos || datos.bruto <= 0) return null
+          const pctMix = totalBruto > 0 ? (datos.bruto / totalBruto) * 100 : 0
+          return (
+            <FilaCanal
+              key={canalKey}
+              label={info.label}
+              bg={info.bg}
+              border={info.border}
+              colorLabel={info.color}
+              bruto={datos.bruto}
+              neto={datos.neto}
+              margenPct={datos.margenPct}
+              pctMix={pctMix}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function FilaCanal({ label, bg, border, colorLabel, bruto, neto, margenPct, pctMix }: {
+  label: string
+  bg: string
+  border: string
+  colorLabel: string
+  bruto: number
+  neto: number
+  margenPct: number
+  pctMix: number
+}) {
+  return (
+    <div style={{
+      background: bg,
+      border: `0.5px solid ${border}`,
+      borderRadius: 12,
+      padding: '10px 14px',
+      display: 'grid',
+      gridTemplateColumns: '1fr auto auto auto',
+      alignItems: 'center',
+      gap: 14,
+    }}>
+      <div>
+        <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
+        <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090', marginTop: 2 }}>
+          {fmtPct(pctMix, 2)} del bruto
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'right', minWidth: 110 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
+          {fmtEur(bruto, { showEuro: false, decimals: 2 })}
+        </div>
+        <div style={{ fontSize: 10, color: '#3a4050', fontFamily: LEXEND }}>Bruto</div>
+      </div>
+
+      <div style={{ textAlign: 'right', minWidth: 110 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: VERDE }}>
+          {fmtEur(neto, { showEuro: false, decimals: 2 })}
+        </div>
+        <div style={{ fontSize: 10, color: VERDE, fontFamily: LEXEND }}>Neto</div>
+      </div>
+
+      <div style={{ textAlign: 'right', minWidth: 70 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, color: VERDE }}>
+          {fmtPct(margenPct, 2)}
+        </div>
+        <div style={{ fontSize: 10, color: '#7a8090', fontFamily: LEXEND }}>Margen</div>
+      </div>
+    </div>
+  )
+}
+
+function CardPE(props: {
   peMensual: number | null
-  totalIngresos: number
-  pctCubierto: number
-  diaCubrePE: Date | null
+  totalBruto: number
+  diaCubreInfo: { fecha: Date | null; diasNecesarios: number | null; pasaElMes: boolean }
   colorEstado: string
   estado: 'cubre' | 'ajustado' | 'pierde'
   diasOperativos: number
+  brutoMedioDiario: number
+  margenContribPct: number
+  totalPedidos: number
+  ticketMedioBruto: number
+  periodoDesde: Date
 }) {
-  const { T } = useTheme()
+  const { peMensual, totalBruto, diaCubreInfo, colorEstado, diasOperativos, brutoMedioDiario, margenContribPct, ticketMedioBruto, periodoDesde } = props
 
-  const diaTexto = diaCubrePE ? `${diaCubrePE.getDate()}` : '—'
-  const mesTexto = diaCubrePE ? MESES_ES[diaCubrePE.getMonth()].slice(0, 3).toUpperCase() : ''
+  const pctCubierto = peMensual ? Math.min(100, (totalBruto / peMensual) * 100) : 0
+  const fechaPE = diaCubreInfo.fecha
+  const mesPeriodo = periodoDesde.getMonth()
+  const anioPeriodo = periodoDesde.getFullYear()
+
+  let circuloLinea1 = '—'
+  let circuloLinea2 = ''
+  let circuloColor = colorEstado
+
+  if (fechaPE && peMensual) {
+    if (!diaCubreInfo.pasaElMes) {
+      circuloLinea1 = String(fechaPE.getDate())
+      circuloLinea2 = MESES_CORTO[fechaPE.getMonth()]
+    } else {
+      const mesesDelta = (fechaPE.getFullYear() - anioPeriodo) * 12 + (fechaPE.getMonth() - mesPeriodo)
+      circuloLinea1 = `+${mesesDelta}M`
+      circuloLinea2 = MESES_CORTO[fechaPE.getMonth()]
+      circuloColor = ERR
+    }
+  } else {
+    circuloColor = ERR
+  }
+
+  const pedidosNecesarios = peMensual && ticketMedioBruto > 0 ? Math.ceil(peMensual / ticketMedioBruto) : null
+  const diasNecesarios = diaCubreInfo.diasNecesarios
 
   return (
     <div style={{
+      ...cardBig,
       background: 'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)',
-      border: `0.5px solid ${T.brd}`,
-      borderRadius: 16,
-      padding: '24px 28px',
     }}>
-      <div style={{
-        fontFamily: FONT.heading,
-        fontSize: 12,
-        fontWeight: 500,
-        letterSpacing: '2px',
-        textTransform: 'uppercase',
-        color: T.mut,
-        marginBottom: 8,
-      }}>
-        Punto de equilibrio
-      </div>
-      <div style={{
-        fontFamily: FONT.heading,
-        fontSize: 38,
-        fontWeight: 600,
-        color: T.pri,
-        lineHeight: 1.05,
-      }}>
-        {peMensual != null ? fmtNum(peMensual) : '—'}
-      </div>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 4 }}>
-        Ingresos para no perder
+      <div style={lbl}>PUNTO DE EQUILIBRIO</div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ ...kpiBig, color: '#111111' }}>
+            {peMensual != null ? fmtEur(peMensual, { showEuro: false, decimals: 2 }) : '—'}
+          </div>
+          <div style={lblXs}>BRUTO PARA NO PERDER</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: VERDE }}>
+            {fmtPct(margenContribPct, 2)}
+          </div>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: VERDE, textTransform: 'uppercase', fontWeight: 500 }}>
+            MARGEN CONTRIBUCIÓN
+          </div>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 18 }}>
         <div style={{
-          width: 78, height: 78, borderRadius: '50%',
-          background: colorEstado, color: '#fff',
+          width: 86, height: 86, borderRadius: '50%',
+          background: circuloColor, color: '#fff',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, lineHeight: 1 }}>
-            {diaTexto}
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, lineHeight: 1 }}>
+            {circuloLinea1}
           </div>
-          {mesTexto && (
-            <div style={{ fontFamily: FONT.heading, fontSize: 9, fontWeight: 500, letterSpacing: 1, marginTop: 3 }}>
-              {mesTexto}
+          {circuloLinea2 && (
+            <div style={{ fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: 1, marginTop: 4 }}>
+              {circuloLinea2}
             </div>
           )}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, color: T.mut, textTransform: 'uppercase' }}>
-            Día en que se cubre
+
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
+              {pedidosNecesarios != null ? fmtEur(pedidosNecesarios, { showEuro: false, decimals: 0 }) : '—'}
+            </div>
+            <div style={lblXs}>PEDIDOS NECESARIOS</div>
           </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4, lineHeight: 1.4 }}>
-            {diaCubrePE == null
-              ? 'Al ritmo actual no se cubre dentro de los días operativos.'
-              : estado === 'cubre'
-                ? `Cubierto al ritmo medio del periodo.`
-                : `Estimación al ritmo medio (${diasOperativos} días operativos).`}
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
+              {diasNecesarios != null ? `${fmtEur(diasNecesarios, { showEuro: false, decimals: 0 })} días` : '—'}
+            </div>
+            <div style={lblXs}>DÍAS NECESARIOS</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: '#111111' }}>
+              {fmtEur(brutoMedioDiario, { showEuro: false, decimals: 2 })}
+            </div>
+            <div style={lblXs}>BRUTO/DÍA REAL</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: peMensual && peMensual > 0 ? '#111111' : '#7a8090' }}>
+              {peMensual != null ? fmtEur(peMensual / diasOperativos, { showEuro: false, decimals: 2 }) : '—'}
+            </div>
+            <div style={lblXs}>BRUTO/DÍA OBJETIVO</div>
           </div>
         </div>
       </div>
@@ -569,8 +655,8 @@ function CardPE({ peMensual, totalIngresos, pctCubierto, diaCubrePE, colorEstado
       {peMensual != null && (
         <>
           <div style={{
-            height: 8, borderRadius: 4, background: T.brd,
-            overflow: 'hidden', marginTop: 14,
+            height: 8, borderRadius: 4, background: '#ebe8e2',
+            overflow: 'hidden', marginTop: 16,
           }}>
             <div style={{
               width: `${pctCubierto}%`,
@@ -579,8 +665,10 @@ function CardPE({ peMensual, totalIngresos, pctCubierto, diaCubrePE, colorEstado
               transition: 'width 0.5s ease',
             }} />
           </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 6 }}>
-            Cubierto {fmtPct(pctCubierto)} {totalIngresos < peMensual ? `· faltan ${fmtNum(peMensual - totalIngresos)}` : `· excedente ${fmtNum(totalIngresos - peMensual)}`}
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#3a4050', marginTop: 6 }}>
+            <strong style={{ color: colorEstado }}>{fmtPct(pctCubierto, 2)} cubierto</strong> · {totalBruto < peMensual
+              ? `faltan ${fmtEur(peMensual - totalBruto, { showEuro: false, decimals: 2 })}`
+              : `excedente ${fmtEur(totalBruto - peMensual, { showEuro: false, decimals: 2 })}`}
           </div>
         </>
       )}
@@ -588,232 +676,367 @@ function CardPE({ peMensual, totalIngresos, pctCubierto, diaCubrePE, colorEstado
   )
 }
 
-/* TAB SIMULADOR */
-
-interface Escenario {
-  id: string
+function CardCostes({ titulo, subtitulo, total, filas, totalBruto }: {
   titulo: string
-  pill: 'base' | 'mejora' | 'empeora' | 'mixto'
-  pillLabel: string
-  ticketMedio: number
-  margenPct: number
-  fijos: number
-  mixWebPct: number
-  bloqueado?: boolean
-}
-
-function TabSimulador(p: {
-  totalIngresos: number
-  totalFijos: number
-  totalVariables: number
-  margenPct: number
-  peMensual: number | null
-  diasOperativos: number
-  totalPedidos: number
-  ingresosPorCanal: Map<string, number>
+  subtitulo: string
+  total: number
+  filas: Array<{ label: string; valor: number; color: string }>
+  totalBruto: number
 }) {
-  const { T } = useTheme()
-
-  const ticketMedioBase = p.totalPedidos > 0 ? p.totalIngresos / p.totalPedidos : 0
-  const mixWebBase = p.totalIngresos > 0
-    ? ((p.ingresosPorCanal.get('WEB') ?? 0) + (p.ingresosPorCanal.get('DIRECTA') ?? 0)) / p.totalIngresos * 100
-    : 0
-
-  const baseEscenario: Escenario = {
-    id: 'base',
-    titulo: 'Datos reales del periodo',
-    pill: 'base',
-    pillLabel: 'Base',
-    ticketMedio: ticketMedioBase,
-    margenPct: p.margenPct,
-    fijos: p.totalFijos,
-    mixWebPct: mixWebBase,
-    bloqueado: true,
-  }
-
-  const [escenarios, setEscenarios] = useState<Escenario[]>([
-    baseEscenario,
-    {
-      id: 'mejora-ticket',
-      titulo: 'Subir ticket medio +1',
-      pill: 'mejora',
-      pillLabel: 'Mejora',
-      ticketMedio: ticketMedioBase + 1,
-      margenPct: p.margenPct,
-      fijos: p.totalFijos,
-      mixWebPct: mixWebBase,
-    },
-    {
-      id: 'mejora-web',
-      titulo: '+10pp tienda online',
-      pill: 'mejora',
-      pillLabel: 'Mejora',
-      ticketMedio: ticketMedioBase,
-      margenPct: p.margenPct + 3,
-      fijos: p.totalFijos,
-      mixWebPct: mixWebBase + 10,
-    },
-    {
-      id: 'empeora-fijos',
-      titulo: '+ persona en plantilla',
-      pill: 'empeora',
-      pillLabel: 'Empeora',
-      ticketMedio: ticketMedioBase,
-      margenPct: p.margenPct,
-      fijos: p.totalFijos + 1800,
-      mixWebPct: mixWebBase,
-    },
-  ])
-
-  useEffect(() => {
-    setEscenarios(prev => {
-      if (prev.length === 0) return prev
-      const updated = [...prev]
-      updated[0] = baseEscenario
-      return updated
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.totalIngresos, p.totalFijos, p.margenPct, p.totalPedidos])
-
-  function actualizarEscenario(id: string, campo: keyof Escenario, valor: number) {
-    setEscenarios(prev => prev.map(e => e.id === id ? { ...e, [campo]: valor } : e))
-  }
-
-  function calcularPE(e: Escenario): number | null {
-    return e.margenPct > 0 ? e.fijos / (e.margenPct / 100) : null
-  }
-
-  function calcularDiasNecesarios(e: Escenario): number | null {
-    const peValor = calcularPE(e)
-    if (!peValor) return null
-    const ingresoMedioDiario = p.diasOperativos > 0 ? p.totalIngresos / p.diasOperativos : 0
-    if (ingresoMedioDiario <= 0) return null
-    return Math.ceil(peValor / ingresoMedioDiario)
-  }
-
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{
-        fontFamily: FONT.body, fontSize: 12, color: T.sec,
-        marginBottom: 14, lineHeight: 1.5,
-      }}>
-        Edita cualquier campo en cualquier escenario · todos se recalculan en vivo. La base usa datos reales del periodo seleccionado.
+    <div style={cardBig}>
+      <div style={lbl}>{titulo}</div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ ...kpiBig, color: '#111111' }}>
+            {fmtEur(total, { showEuro: false, decimals: 2 })}
+          </div>
+          <div style={lblXs}>TOTAL · SIN IVA</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: '#7a8090' }}>
+            {totalBruto > 0 ? fmtPct(total / totalBruto * 100, 2) : '—'}
+          </div>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#7a8090', textTransform: 'uppercase', fontWeight: 500 }}>
+            SOBRE BRUTO
+          </div>
+        </div>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: 14,
-      }}>
-        {escenarios.map(e => (
-          <CardEscenario
-            key={e.id}
-            escenario={e}
-            peValor={calcularPE(e)}
-            diasNecesarios={calcularDiasNecesarios(e)}
-            peBase={p.peMensual}
-            onChange={(campo, valor) => actualizarEscenario(e.id, campo, valor)}
-          />
-        ))}
+      <div style={{ fontSize: 12, color: '#7a8090', marginTop: 10, marginBottom: 14, fontFamily: LEXEND }}>
+        {subtitulo}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {filas.length === 0 && (
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#7a8090', fontStyle: 'italic', padding: '12px 0' }}>
+            Sin gastos en el periodo seleccionado
+          </div>
+        )}
+        {filas.map((f, i) => {
+          const pctSobreBruto = totalBruto > 0 ? (f.valor / totalBruto) * 100 : 0
+          return (
+            <div key={i} style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto auto',
+              alignItems: 'center',
+              gap: 12,
+              padding: '10px 0',
+              borderBottom: i < filas.length - 1 ? '0.5px solid #ebe8e2' : 'none',
+            }}>
+              <span style={{ fontFamily: LEXEND, fontSize: 13, color: '#3a4050', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: f.color, display: 'inline-block' }} />
+                {f.label}
+              </span>
+              <span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, color: '#111111', minWidth: 110, textAlign: 'right' }}>
+                {fmtEur(f.valor, { showEuro: false, decimals: 2 })}
+              </span>
+              <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: '#7a8090', minWidth: 70, textAlign: 'right' }}>
+                {fmtPct(pctSobreBruto, 2)}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function CardEscenario({ escenario, peValor, diasNecesarios, peBase, onChange }: {
-  escenario: Escenario
-  peValor: number | null
-  diasNecesarios: number | null
-  peBase: number | null
-  onChange: (campo: keyof Escenario, valor: number) => void
-}) {
-  const { T } = useTheme()
-  const e = escenario
+interface Escenario {
+  id: string
+  titulo: string
+  preset: PresetKey
+  ticketMedio: number
+  margenPct: number
+  fijos: number
+  pedidosMes: number
+  bloqueado?: boolean
+}
 
-  const PILL_BG: Record<Escenario['pill'], string> = {
-    base: '#3a4050', mejora: '#1D9E75', empeora: '#E24B4A', mixto: '#f5a623',
+type PresetKey =
+  | 'base' | 'subir-ticket' | 'bajar-ticket' | 'mas-pedidos' | 'menos-pedidos'
+  | 'add-cocinero' | 'gastar-mas' | 'gastar-menos' | 'subir-margen' | 'bajar-margen' | 'custom'
+
+const PRESETS: Array<{ key: PresetKey; label: string; tipo: 'mejora' | 'empeora' | 'mixto' | 'base' }> = [
+  { key: 'base',           label: '— Datos reales (base)',          tipo: 'base' },
+  { key: 'subir-ticket',   label: '↑ Subir ticket medio (+1,00)',   tipo: 'mejora' },
+  { key: 'bajar-ticket',   label: '↓ Bajar ticket medio (−1,00)',   tipo: 'empeora' },
+  { key: 'mas-pedidos',    label: '↑ +20% pedidos',                 tipo: 'mejora' },
+  { key: 'menos-pedidos',  label: '↓ −20% pedidos',                 tipo: 'empeora' },
+  { key: 'add-cocinero',   label: '+ Añadir cocinero (+1.800 fijo)', tipo: 'empeora' },
+  { key: 'gastar-mas',     label: '↑ Gastar más (+10% fijos)',      tipo: 'empeora' },
+  { key: 'gastar-menos',   label: '↓ Gastar menos (−10% fijos)',    tipo: 'mejora' },
+  { key: 'subir-margen',   label: '↑ Subir margen +3pp',            tipo: 'mejora' },
+  { key: 'bajar-margen',   label: '↓ Bajar margen −3pp',            tipo: 'empeora' },
+  { key: 'custom',         label: '✎ Personalizado',                tipo: 'mixto' },
+]
+
+function aplicarPreset(preset: PresetKey, base: { ticketMedio: number; margenPct: number; fijos: number; pedidos: number }): Omit<Escenario, 'id' | 'titulo' | 'preset'> {
+  switch (preset) {
+    case 'subir-ticket':   return { ticketMedio: base.ticketMedio + 1, margenPct: base.margenPct, fijos: base.fijos, pedidosMes: base.pedidos }
+    case 'bajar-ticket':   return { ticketMedio: Math.max(0, base.ticketMedio - 1), margenPct: base.margenPct, fijos: base.fijos, pedidosMes: base.pedidos }
+    case 'mas-pedidos':    return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos, pedidosMes: Math.round(base.pedidos * 1.2) }
+    case 'menos-pedidos':  return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos, pedidosMes: Math.round(base.pedidos * 0.8) }
+    case 'add-cocinero':   return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos + 1800, pedidosMes: base.pedidos }
+    case 'gastar-mas':     return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos * 1.10, pedidosMes: base.pedidos }
+    case 'gastar-menos':   return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos * 0.90, pedidosMes: base.pedidos }
+    case 'subir-margen':   return { ticketMedio: base.ticketMedio, margenPct: base.margenPct + 3, fijos: base.fijos, pedidosMes: base.pedidos }
+    case 'bajar-margen':   return { ticketMedio: base.ticketMedio, margenPct: Math.max(0.1, base.margenPct - 3), fijos: base.fijos, pedidosMes: base.pedidos }
+    default:               return { ticketMedio: base.ticketMedio, margenPct: base.margenPct, fijos: base.fijos, pedidosMes: base.pedidos }
+  }
+}
+
+function TabSimulador(p: {
+  totalBruto: number
+  totalFijos: number
+  totalVariables: number
+  margenContribPct: number
+  peMensual: number | null
+  diasOperativos: number
+  totalPedidos: number
+  datosPorCanal: Record<string, CanalDatos>
+  brutoMedioDiario: number
+}) {
+  const ticketMedioBase = p.totalPedidos > 0 ? p.totalBruto / p.totalPedidos : 0
+  const baseValores = { ticketMedio: ticketMedioBase, margenPct: p.margenContribPct, fijos: p.totalFijos, pedidos: p.totalPedidos }
+
+  const baseEscenario: Escenario = {
+    id: 'base',
+    titulo: 'Datos reales del periodo',
+    preset: 'base',
+    ticketMedio: ticketMedioBase,
+    margenPct: p.margenContribPct,
+    fijos: p.totalFijos,
+    pedidosMes: p.totalPedidos,
+    bloqueado: true,
   }
 
-  const deltaPE = peValor != null && peBase != null ? peValor - peBase : null
+  const [escenarios, setEscenarios] = useState<Escenario[]>(() => [
+    baseEscenario,
+    { id: 'esc-1', titulo: 'Subir ticket medio', preset: 'subir-ticket', ...aplicarPreset('subir-ticket', baseValores) },
+    { id: 'esc-2', titulo: 'Añadir cocinero',    preset: 'add-cocinero', ...aplicarPreset('add-cocinero', baseValores) },
+    { id: 'esc-3', titulo: '+20% pedidos',       preset: 'mas-pedidos',  ...aplicarPreset('mas-pedidos', baseValores) },
+  ])
+
+  useEffect(() => {
+    setEscenarios(prev => {
+      if (prev.length === 0) return prev
+      const updated = prev.map(e => {
+        if (e.id === 'base') return baseEscenario
+        if (e.preset === 'custom') return e
+        return { ...e, ...aplicarPreset(e.preset, baseValores) }
+      })
+      return updated
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.totalBruto, p.totalFijos, p.margenContribPct, p.totalPedidos])
+
+  function cambiarPreset(id: string, preset: PresetKey) {
+    setEscenarios(prev => prev.map(e => {
+      if (e.id !== id) return e
+      const valores = aplicarPreset(preset, baseValores)
+      const titulo = PRESETS.find(p => p.key === preset)?.label.replace(/^[↑↓+✎—]\s*/, '').replace(/\s*\(.*\)$/, '') ?? 'Personalizado'
+      return { ...e, preset, titulo, ...valores }
+    }))
+  }
+
+  function actualizarEscenario(id: string, campo: keyof Escenario, valor: number) {
+    setEscenarios(prev => prev.map(e => e.id === id ? { ...e, [campo]: valor, preset: 'custom' as PresetKey } : e))
+  }
+
+  function añadirEscenario() {
+    setEscenarios(prev => {
+      if (prev.length >= 6) return prev
+      const id = `esc-${Date.now()}`
+      return [...prev, { id, titulo: 'Personalizado', preset: 'custom', ticketMedio: ticketMedioBase, margenPct: p.margenContribPct, fijos: p.totalFijos, pedidosMes: p.totalPedidos }]
+    })
+  }
+
+  function eliminarEscenario(id: string) {
+    if (id === 'base') return
+    setEscenarios(prev => prev.filter(e => e.id !== id))
+  }
+
+  function calcularEscenario(e: Escenario) {
+    const brutoEsperado = e.ticketMedio * e.pedidosMes
+    const peValor = e.margenPct > 0 ? e.fijos / (e.margenPct / 100) : null
+    const diasNecesarios = peValor && p.brutoMedioDiario > 0 ? Math.ceil(peValor / p.brutoMedioDiario) : null
+    const pedidosNecesarios = peValor && e.ticketMedio > 0 ? Math.ceil(peValor / e.ticketMedio) : null
+    const beneficio = peValor != null ? brutoEsperado - peValor : 0
+    return { peValor, diasNecesarios, pedidosNecesarios, brutoEsperado, beneficio }
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: 14,
+      }}>
+        {escenarios.map(e => {
+          const calc = calcularEscenario(e)
+          const calcBase = calcularEscenario(baseEscenario)
+          return (
+            <CardEscenario
+              key={e.id}
+              escenario={e}
+              calc={calc}
+              calcBase={calcBase}
+              onChangePreset={(preset) => cambiarPreset(e.id, preset)}
+              onChange={(campo, valor) => actualizarEscenario(e.id, campo, valor)}
+              onDelete={() => eliminarEscenario(e.id)}
+            />
+          )
+        })}
+
+        {escenarios.length < 6 && (
+          <button
+            onClick={añadirEscenario}
+            style={{
+              ...cardBig,
+              border: '1.5px dashed #d0c8bc',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              minHeight: 200,
+              background: 'transparent',
+              fontFamily: OSWALD,
+              color: '#7a8090',
+              fontSize: 14,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span style={{ fontSize: 32, fontWeight: 300 }}>+</span>
+            Añadir escenario
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CardEscenario({ escenario, calc, calcBase, onChangePreset, onChange, onDelete }: {
+  escenario: Escenario
+  calc: { peValor: number | null; diasNecesarios: number | null; pedidosNecesarios: number | null; brutoEsperado: number; beneficio: number }
+  calcBase: { peValor: number | null; diasNecesarios: number | null; pedidosNecesarios: number | null; brutoEsperado: number; beneficio: number }
+  onChangePreset: (preset: PresetKey) => void
+  onChange: (campo: keyof Escenario, valor: number) => void
+  onDelete: () => void
+}) {
+  const e = escenario
+
+  const tipo = PRESETS.find(p => p.key === e.preset)?.tipo ?? 'mixto'
+  const PILL_BG: Record<string, string> = {
+    base: '#3a4050', mejora: VERDE, empeora: ERR, mixto: AMBAR,
+  }
+  const PILL_LABEL: Record<string, string> = {
+    base: 'Base', mejora: 'Mejora', empeora: 'Empeora', mixto: 'Custom',
+  }
+
+  const deltaPE = calc.peValor != null && calcBase.peValor != null ? calc.peValor - calcBase.peValor : null
+  const deltaBeneficio = calc.beneficio - calcBase.beneficio
 
   return (
     <div style={{
-      background: '#fff',
-      border: e.bloqueado ? `1.5px solid #3a4050` : `0.5px solid ${T.brd}`,
-      borderRadius: 14,
-      padding: 18,
+      ...cardBig,
+      borderWidth: e.bloqueado ? '1.5px' : '0.5px',
+      borderColor: e.bloqueado ? '#3a4050' : '#d0c8bc',
+      borderStyle: 'solid',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{
-          fontFamily: FONT.heading, fontSize: 13, fontWeight: 600,
-          letterSpacing: '1px', textTransform: 'uppercase', color: T.pri,
-        }}>
-          {e.titulo}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1 }}>
+          {e.bloqueado ? (
+            <div style={{
+              fontFamily: OSWALD, fontSize: 13, fontWeight: 600,
+              letterSpacing: '1px', textTransform: 'uppercase', color: '#111111',
+            }}>
+              {e.titulo}
+            </div>
+          ) : (
+            <select
+              value={e.preset}
+              onChange={(ev) => onChangePreset(ev.target.value as PresetKey)}
+              style={{
+                fontFamily: OSWALD, fontSize: 13, fontWeight: 600,
+                letterSpacing: '1px', textTransform: 'uppercase', color: '#111111',
+                background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 6,
+                padding: '4px 8px', cursor: 'pointer', width: '100%',
+              }}
+            >
+              {PRESETS.filter(p => p.key !== 'base').map(p => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          )}
         </div>
-        <span style={{
-          fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
-          letterSpacing: '1px', padding: '3px 8px', borderRadius: 4,
-          textTransform: 'uppercase', background: PILL_BG[e.pill], color: '#fff',
-        }}>
-          {e.pillLabel}
-        </span>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <span style={{
+            fontFamily: OSWALD, fontSize: 10, fontWeight: 500,
+            letterSpacing: '1px', padding: '3px 8px', borderRadius: 4,
+            textTransform: 'uppercase', background: PILL_BG[tipo], color: '#fff',
+          }}>
+            {PILL_LABEL[tipo]}
+          </span>
+          {!e.bloqueado && (
+            <button onClick={onDelete} style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: '#7a8090', fontSize: 18, lineHeight: 1, padding: '0 4px',
+            }} title="Eliminar escenario">×</button>
+          )}
+        </div>
       </div>
 
-      <RowInput label="Ticket medio" value={e.ticketMedio} decimales={2}
-        onChange={v => onChange('ticketMedio', v)} bloqueado={e.bloqueado} />
-      <RowInput label="Margen contribución (%)" value={e.margenPct} decimales={1}
-        onChange={v => onChange('margenPct', v)} bloqueado={e.bloqueado} />
-      <RowInput label="Costes fijos" value={e.fijos} decimales={0}
-        onChange={v => onChange('fijos', v)} bloqueado={e.bloqueado} />
-      <RowInput label="% tienda online" value={e.mixWebPct} decimales={0}
-        onChange={v => onChange('mixWebPct', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Ticket medio" value={e.ticketMedio} decimales={2} onChange={v => onChange('ticketMedio', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Margen contribución (%)" value={e.margenPct} decimales={2} onChange={v => onChange('margenPct', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Costes fijos" value={e.fijos} decimales={2} onChange={v => onChange('fijos', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Pedidos mes" value={e.pedidosMes} decimales={0} onChange={v => onChange('pedidosMes', v)} bloqueado={e.bloqueado} />
 
-      <div style={{
-        background: '#ebe8e2', borderRadius: 8, padding: 12, marginTop: 12,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <span style={{
-            fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
-            letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
-          }}>
-            Punto de equilibrio
-          </span>
-          <span style={{
-            fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: T.pri,
-          }}>
-            {peValor != null ? fmtNum(peValor) : '—'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <span style={{
-            fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
-            letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
-          }}>
-            Días para cubrirlo
-          </span>
-          <span style={{
-            fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri,
-          }}>
-            {diasNecesarios != null ? `${diasNecesarios} días` : '—'}
-          </span>
-        </div>
+      <div style={{ background: '#ebe8e2', borderRadius: 10, padding: 14, marginTop: 14 }}>
+        <RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado, { showEuro: false, decimals: 2 })} color="#111111" />
+        <RowResultado label="Punto equilibrio" valor={calc.peValor != null ? fmtEur(calc.peValor, { showEuro: false, decimals: 2 }) : '—'} color="#111111" />
+        <RowResultado label="Pedidos para PE" valor={calc.pedidosNecesarios != null ? fmtEur(calc.pedidosNecesarios, { showEuro: false, decimals: 0 }) : '—'} color="#111111" />
+        <RowResultado label="Días para PE" valor={calc.diasNecesarios != null ? `${fmtEur(calc.diasNecesarios, { showEuro: false, decimals: 0 })} días` : '—'} color="#111111" />
+        <RowResultado
+          label="Beneficio esperado"
+          valor={fmtEur(calc.beneficio, { showEuro: false, decimals: 2, signed: true })}
+          color={calc.beneficio >= 0 ? VERDE : ERR}
+          big
+        />
         {!e.bloqueado && deltaPE != null && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{
-              fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
-              letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
-            }}>
-              Vs base
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+            marginTop: 10, paddingTop: 8, borderTop: '0.5px solid #d0c8bc',
+          }}>
+            <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: '#7a8090' }}>
+              Vs base · beneficio
             </span>
-            <span style={{
-              fontSize: 13, fontWeight: 500,
-              color: deltaPE < 0 ? VERDE : deltaPE > 0 ? '#E24B4A' : T.mut,
-            }}>
-              {deltaPE < 0 ? '−' : deltaPE > 0 ? '+' : ''}{fmtNum(Math.abs(deltaPE))}
+            <span style={{ fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: deltaBeneficio > 0 ? VERDE : deltaBeneficio < 0 ? ERR : '#7a8090' }}>
+              {fmtEur(deltaBeneficio, { showEuro: false, decimals: 2, signed: true })}
             </span>
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function RowResultado({ label, valor, color, big }: { label: string; valor: string; color: string; big?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      marginBottom: 5,
+    }}>
+      <span style={{ fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', color: '#7a8090' }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: OSWALD, fontSize: big ? 22 : 15, fontWeight: 600, color }}>
+        {valor}
+      </span>
     </div>
   )
 }
@@ -825,13 +1048,20 @@ function RowInput({ label, value, decimales, onChange, bloqueado }: {
   onChange: (v: number) => void
   bloqueado?: boolean
 }) {
-  const { T } = useTheme()
+  const styleInput: CSSProperties = {
+    width: '100%', padding: '6px 10px',
+    border: '0.5px solid #d0c8bc',
+    borderRadius: 6, fontSize: 13,
+    fontFamily: OSWALD, fontWeight: 500,
+    background: bloqueado ? '#ebe8e2' : '#fff',
+    color: bloqueado ? '#7a8090' : '#111111',
+    textAlign: 'right',
+    outline: 'none',
+    cursor: bloqueado ? 'not-allowed' : 'text',
+  }
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '1fr 90px',
-      gap: 10, alignItems: 'center', padding: '7px 0',
-    }}>
-      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{label}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10, alignItems: 'center', padding: '5px 0' }}>
+      <span style={{ fontFamily: LEXEND, fontSize: 12, color: '#3a4050' }}>{label}</span>
       <input
         type="number"
         step={decimales > 0 ? 0.01 : 1}
@@ -841,17 +1071,7 @@ function RowInput({ label, value, decimales, onChange, bloqueado }: {
           const n = parseFloat(ev.target.value)
           if (!isNaN(n)) onChange(n)
         }}
-        style={{
-          width: '100%', padding: '6px 10px',
-          border: `0.5px solid ${T.brd}`,
-          borderRadius: 6, fontSize: 13,
-          fontFamily: FONT.heading, fontWeight: 500,
-          background: bloqueado ? '#ebe8e2' : '#fff',
-          color: bloqueado ? T.mut : T.pri,
-          textAlign: 'right',
-          outline: 'none',
-          cursor: bloqueado ? 'not-allowed' : 'text',
-        }}
+        style={styleInput}
       />
     </div>
   )
