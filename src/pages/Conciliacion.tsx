@@ -28,6 +28,20 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 const STOP_WORDS = new Set(['liquidacion','pedido','nomina','del','de','la','el','por','para','con','sin','abril','marzo','febrero','enero','semana'])
 
+const TAB_STORAGE_KEY = 'conciliacion:tab'
+
+function loadTab(): Tab {
+  try {
+    const raw = sessionStorage.getItem(TAB_STORAGE_KEY)
+    if (raw === 'movimientos' || raw === 'resumen') return raw
+  } catch { /* swallow */ }
+  return 'resumen'
+}
+
+function saveTab(t: Tab) {
+  try { sessionStorage.setItem(TAB_STORAGE_KEY, t) } catch { /* swallow */ }
+}
+
 function extraerPatron(concepto: string): string {
   const w = concepto.toLowerCase().split(/\s+/).find(x => x.length > 3 && !STOP_WORDS.has(x))
   return w ?? concepto.slice(0, 10).toLowerCase()
@@ -84,11 +98,14 @@ type FiltroRapido = 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 's
 export default function Conciliacion() {
   const { T, isDark } = useTheme()
 
-  const [tab, setTab]           = useState<Tab>('resumen')
+  const [tab, setTab]           = useState<Tab>(loadTab())
   const [periodo, setPeriodo]   = useState<PeriodoKey>('mes')
   const [customDesde, setCustomDesde] = useState<string>('')
   const [customHasta, setCustomHasta] = useState<string>('')
   const aniosDisponibles = useAniosDisponibles()
+
+  // Persistir tab activa entre navegaciones
+  useEffect(() => { saveTab(tab) }, [tab])
 
   // Periodo para TabMovimientos via SelectorFechaUniversal
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
