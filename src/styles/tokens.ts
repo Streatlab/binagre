@@ -169,11 +169,17 @@ export const progressFillStyle = (pct: number, color: string): CSSProperties => 
 })
 
 /* ═══════════════════════════════════════════════════════════
-   SEMAFORO (verde / ámbar / rojo)
+   SEMAFORO — Reglas oficiales (Rubén, 03/05/2026)
+   ───────────────────────────────────────────────────────────
+   - 0%       → rojo  (#B01D23)
+   - 0.01-50% → ámbar (#e8f442)
+   - >50%     → verde (#1D9E75)  · 50.01% ya supera la mitad
    ═══════════════════════════════════════════════════════════ */
 
 export function semaforoColor(pct: number): string {
-  return pct >= 80 ? '#1D9E75' : pct >= 50 ? '#f5a623' : '#E24B4A'
+  if (pct <= 0) return '#B01D23'   // rojo
+  if (pct > 50) return '#1D9E75'   // verde
+  return '#e8f442'                 // ámbar
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -333,8 +339,6 @@ export const canalHeaderStyle = (canalId: string, isDark: boolean): CSSPropertie
 
 export const fmtFechaCorta = (dateStr: string): string => {
   if (!dateStr) return ''
-  // Si la fecha ya viene en formato ISO YYYY-MM-DD, devolver dd/mm/yy directamente sin Date()
-  // para evitar problemas de timezone
   if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
     const [y, m, d] = dateStr.slice(0, 10).split('-')
     return `${d}/${m}/${y.slice(2)}`
