@@ -1,5 +1,5 @@
 /**
- * Punto de Equilibrio — refactor v3 — 3 may 2026
+ * Punto de Equilibrio — refactor v3.1 — 3 may 2026
  *
  * Datos REALES, sin parámetros hardcoded:
  *   - Bruto + pedidos: facturacion_diario
@@ -666,9 +666,7 @@ function CardPE(props: {
             }} />
           </div>
           <div style={{ fontFamily: LEXEND, fontSize: 12, color: '#3a4050', marginTop: 6 }}>
-            <strong style={{ color: colorEstado }}>{fmtPct(pctCubierto, 2)} cubierto</strong> · {totalBruto < peMensual
-              ? `faltan ${fmtEur(peMensual - totalBruto, { showEuro: false, decimals: 2 })}`
-              : `excedente ${fmtEur(totalBruto - peMensual, { showEuro: false, decimals: 2 })}`}
+            <strong style={{ color: colorEstado }}>{fmtPct(pctCubierto, 2)} cubierto</strong>
           </div>
         </>
       )}
