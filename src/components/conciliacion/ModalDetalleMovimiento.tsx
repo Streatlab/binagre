@@ -30,6 +30,7 @@ interface FacturaCandidata {
   pdf_drive_url: string | null
   pdf_filename: string | null
   importe_restante: number
+  diff_dias: number
 }
 
 interface Props {
@@ -38,6 +39,12 @@ interface Props {
   titulares: Titular[]
   onClose: () => void
   onSaved: (m: Movimiento) => void
+}
+
+function diffDias(d1: string, d2: string): number {
+  const a = new Date(d1).getTime()
+  const b = new Date(d2).getTime()
+  return Math.round(Math.abs(a - b) / 86400000)
 }
 
 export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
@@ -114,17 +121,30 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     const timer = setTimeout(async () => {
       setCargandoCandidatas(true)
       try {
+        // Match ±30 días desde fecha del movimiento + titular + importe (±5% si sin búsqueda)
+        const fechaMov = new Date(movimiento.fecha)
+        const desde = new Date(fechaMov.getTime() - 30 * 86400000).toISOString().slice(0, 10)
+        const hasta = new Date(fechaMov.getTime() + 30 * 86400000).toISOString().slice(0, 10)
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
           .from('facturas')
-          .select('id, numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url, pdf_filename')
+          .select('id, numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url, pdf_filename, titular_id')
+          .gte('fecha_factura', desde)
+          .lte('fecha_factura', hasta)
           .order('fecha_factura', { ascending: false })
-          .limit(20)
+          .limit(30)
+
+        // Filtro por titular del mov si tiene
+        if (movimiento.titular_id) {
+          q = q.or(`titular_id.eq.${movimiento.titular_id},titular_id.is.null`)
+        }
 
         if (busquedaFactura.trim()) {
           const safe = busquedaFactura.trim().replace(/[%_,()]/g, ' ')
           q = q.or(`numero_factura.ilike.%${safe}%,proveedor_nombre.ilike.%${safe}%`)
         } else {
+          // Sin búsqueda: filtra por importe ±5%
           const min = importeAbs * 0.95
           const max = importeAbs * 1.05
           q = q.gte('total', min).lte('total', max)
@@ -156,8 +176,10 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             pdf_drive_url: f.pdf_drive_url,
             pdf_filename: f.pdf_filename,
             importe_restante: +(Number(f.total ?? 0) - (asociadoPorFactura[f.id] ?? 0)).toFixed(2),
+            diff_dias: diffDias(f.fecha_factura, movimiento.fecha),
           }))
           .filter(f => !facturasAsociadas.some(a => a.factura_id === f.id))
+          .sort((a, b) => a.diff_dias - b.diff_dias)
 
         setCandidatas(mapped)
       } finally {
@@ -392,7 +414,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           {mostrarBuscador && (
             <div style={{ background: '#fafaf7', borderRadius: 8, padding: 12, border: '0.5px solid #d0c8bc' }}>
               <input type="text" value={busquedaFactura} onChange={e => setBusquedaFactura(e.target.value)}
-                placeholder="Buscar factura por nº o proveedor (vacío = sugerencias por importe)"
+                placeholder="Buscar factura por nº o proveedor (vacío = match ±30 días + importe ±5%)"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 12, marginBottom: 10, boxSizing: 'border-box', outline: 'none' }} />
 
               {cargandoCandidatas && (
@@ -401,7 +423,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
               {!cargandoCandidatas && candidatas.length === 0 && (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#7a8090' }}>
-                  Sin candidatas. Las facturas se suben desde el módulo Importador.
+                  Sin candidatas en ±30 días. Las facturas se suben desde el módulo Importador.
                 </div>
               )}
 
@@ -414,7 +436,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
                           {c.numero_factura} · {c.proveedor_nombre}
                         </div>
                         <div style={{ color: '#7a8090', fontSize: 11 }}>
-                          {fmtDate(c.fecha_factura)} · Total {fmtEur(c.total)} · Restante {fmtEur(c.importe_restante)}
+                          {fmtDate(c.fecha_factura)} · {c.diff_dias}d · Total {fmtEur(c.total)} · Restante {fmtEur(c.importe_restante)}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
