@@ -72,4 +72,4 @@ export default defineConfig([
 ])
 ```
 
-<!-- trigger: 2026-05-03 -->
+<!-- deploy: ocr modal v1 / drive oauth perpetuo -->
