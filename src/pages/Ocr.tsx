@@ -9,7 +9,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 type TabId = 'facturas' | 'extractos' | 'otros'
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
-type FiltroCard = 'conciliadas' | 'falta_drive' | 'sin_conciliar' | null
+type FiltroCard = 'conciliadas' | 'pendientes' | null
 
 const PAGE_SIZES = [50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
@@ -52,8 +52,8 @@ interface Agregados {
   conciliadasCount: number
   conciliadasPct: number
   conciliadasImporte: number
-  faltaDriveCount: number
-  sinConciliarCount: number
+  pendientesCount: number
+  pendientesImporte: number
 }
 
 interface ArchivoLog {
@@ -73,11 +73,13 @@ interface ToastState {
   visible: boolean
 }
 
-function calcularEstado(f: Factura): 'conciliado' | 'pendiente' | 'falta_drive' {
-  if (!f.pdf_drive_url) return 'falta_drive'
+// Estado simple: completa SOLO si tiene PDF + match conciliación + categoría + titular
+function esConciliada(f: Factura): boolean {
+  if (!f.pdf_drive_url) return false
+  if (!f.categoria_factura) return false
+  if (!f.titular_id) return false
   const tieneAsoc = Array.isArray(f.facturas_gastos) && f.facturas_gastos.some(fg => fg.confirmado)
-  if (tieneAsoc) return 'conciliado'
-  return 'pendiente'
+  return tieneAsoc
 }
 
 export default function Ocr() {
@@ -173,8 +175,6 @@ export default function Ocr() {
     else if (tab === 'extractos') q = q.eq('tipo', 'otro').eq('categoria_factura', 'extracto_bancario')
     else if (tab === 'otros') q = q.eq('tipo', 'otro').neq('categoria_factura', 'extracto_bancario')
 
-    if (filtroCard === 'falta_drive') q = q.is('pdf_drive_url', null)
-
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
 
     if (busquedaDebounced) {
@@ -215,9 +215,9 @@ export default function Ocr() {
 
       let filtradas: Factura[] = mapped
       if (filtroCard === 'conciliadas') {
-        filtradas = mapped.filter((f: Factura) => calcularEstado(f) === 'conciliado')
-      } else if (filtroCard === 'sin_conciliar') {
-        filtradas = mapped.filter((f: Factura) => calcularEstado(f) === 'pendiente')
+        filtradas = mapped.filter((f: Factura) => esConciliada(f))
+      } else if (filtroCard === 'pendientes') {
+        filtradas = mapped.filter((f: Factura) => !esConciliada(f))
       }
 
       setFilas(filtradas)
@@ -230,7 +230,7 @@ export default function Ocr() {
     try {
       const { data, error } = await supabase
         .from('facturas')
-        .select('id, total, pdf_drive_url, facturas_gastos(confirmado)')
+        .select('id, total, pdf_drive_url, categoria_factura, titular_id, facturas_gastos(confirmado)')
         .gte('fecha_factura', periodoDesdeStr)
         .lte('fecha_factura', periodoHastaStr)
 
@@ -240,8 +240,8 @@ export default function Ocr() {
       let totalImporte = 0
       let conciliadasCount = 0
       let conciliadasImporte = 0
-      let faltaDriveCount = 0
-      let sinConciliarCount = 0
+      let pendientesCount = 0
+      let pendientesImporte = 0
 
       for (const r of data ?? []) {
         totalCount += 1
@@ -249,14 +249,14 @@ export default function Ocr() {
         totalImporte += imp
 
         const tieneAsoc = Array.isArray(r.facturas_gastos) && r.facturas_gastos.some((fg: any) => fg.confirmado)
+        const completa = !!r.pdf_drive_url && !!r.categoria_factura && !!r.titular_id && tieneAsoc
 
-        if (!r.pdf_drive_url) {
-          faltaDriveCount += 1
-        } else if (tieneAsoc) {
+        if (completa) {
           conciliadasCount += 1
           conciliadasImporte += imp
         } else {
-          sinConciliarCount += 1
+          pendientesCount += 1
+          pendientesImporte += imp
         }
       }
 
@@ -268,8 +268,8 @@ export default function Ocr() {
         conciliadasCount,
         conciliadasPct,
         conciliadasImporte,
-        faltaDriveCount,
-        sinConciliarCount,
+        pendientesCount,
+        pendientesImporte,
       })
     } catch {
       setAgregados(null)
@@ -316,8 +316,8 @@ export default function Ocr() {
     let out = filas
     if (sortColumn === 'estado') {
       out = [...out].sort((a, b) => {
-        const ea = calcularEstado(a)
-        const eb = calcularEstado(b)
+        const ea = esConciliada(a) ? 'conciliada' : 'pendiente'
+        const eb = esConciliada(b) ? 'conciliada' : 'pendiente'
         return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
       })
     }
@@ -405,14 +405,14 @@ export default function Ocr() {
         } else if (data?.status === 'ok') {
           if (tab === 'extractos') {
             logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
-          } else if (data?.matched) {
-            logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada con movimiento bancario' }
+          } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
+            logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
           } else {
             const motivos: string[] = []
+            if (!data.matched) motivos.push('sin movimiento bancario')
             if (data.sin_categoria) motivos.push('sin categoría')
             if (data.sin_titular) motivos.push('sin titular')
-            if (motivos.length === 0) motivos.push('sin movimiento bancario coincidente')
-            logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida: ${motivos.join(', ')}` }
+            logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
           }
         } else {
           logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
@@ -433,7 +433,6 @@ export default function Ocr() {
     }
 
     setRefreshTick(x => x + 1)
-    // Toast NO se cierra automáticamente: se queda hasta que Rubén lo cierre con la X
   }, [tab])
 
   const handleSubir = useCallback(() => {
@@ -549,43 +548,15 @@ export default function Ocr() {
           </div>
         </div>
 
-        <div style={{ ...cardStyle('falta_drive', filtroCard === 'falta_drive' || filtroCard === 'sin_conciliar'), padding: '14px 16px', cursor: 'default' }}>
-          <div onClick={() => onCambiarFiltroCard(null)} style={{ cursor: 'pointer', marginBottom: 8 }}>
-            <div style={{ marginBottom: 4 }}>
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
-            </div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
-              {agregados !== null ? (agregados.faltaDriveCount + agregados.sinConciliarCount) : '—'}
-            </div>
+        <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
           </div>
-
-          <div style={{ display: 'flex', gap: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
-            <button
-              onClick={() => onCambiarFiltroCard('falta_drive')}
-              style={{
-                flex: 1, padding: '5px 6px', borderRadius: 5,
-                border: filtroCard === 'falta_drive' ? '1px solid #E24B4A' : '0.5px solid #d0c8bc',
-                background: filtroCard === 'falta_drive' ? '#E24B4A10' : '#fff',
-                cursor: 'pointer', textAlign: 'center',
-              }}>
-              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Falta Drive</div>
-              <div style={{ color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
-                {agregados !== null ? agregados.faltaDriveCount : '—'}
-              </div>
-            </button>
-            <button
-              onClick={() => onCambiarFiltroCard('sin_conciliar')}
-              style={{
-                flex: 1, padding: '5px 6px', borderRadius: 5,
-                border: filtroCard === 'sin_conciliar' ? '1px solid #F26B1F' : '0.5px solid #d0c8bc',
-                background: filtroCard === 'sin_conciliar' ? '#F26B1F10' : '#fff',
-                cursor: 'pointer', textAlign: 'center',
-              }}>
-              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin conciliar</div>
-              <div style={{ color: '#F26B1F', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
-                {agregados !== null ? agregados.sinConciliarCount : '—'}
-              </div>
-            </button>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>
+            {agregados !== null ? agregados.pendientesCount : '—'}
+          </div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>
+            {agregados !== null ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}
           </div>
         </div>
 
@@ -746,7 +717,7 @@ export default function Ocr() {
                     const isLast = idx === filasVisibles.length - 1
                     const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
                     const catInfo = getBadgeCategoria(f)
-                    const estado = calcularEstado(f)
+                    const conciliada = esConciliada(f)
                     const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() ?? ''
                     const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                     const isEmilio = titNombre.includes('emilio')
@@ -791,13 +762,9 @@ export default function Ocr() {
                           )}
                         </td>
                         <td style={tdBase}>
-                          {estado === 'conciliado' ? (
+                          {conciliada ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
-                              Conciliado
-                            </span>
-                          ) : estado === 'falta_drive' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
-                              Falta Drive
+                              Conciliada
                             </span>
                           ) : (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>
@@ -960,7 +927,7 @@ export default function Ocr() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
             <div>Procesados: <b>{toast.enviados}/{toast.total}</b></div>
-            <div style={{ color: '#1D9E75' }}>OK: <b>{toast.ok}</b></div>
+            <div style={{ color: '#1D9E75' }}>Conciliadas: <b>{toast.ok}</b></div>
             <div style={{ color: '#F26B1F' }}>Pendientes: <b>{toast.pendientes}</b></div>
             <div style={{ color: '#7a8090' }}>Duplicados: <b>{toast.duplicados}</b></div>
             {toast.errores > 0 && (
@@ -1002,12 +969,18 @@ export default function Ocr() {
                       pendiente: '#F26B1F',
                       error: '#E24B4A',
                     }
+                    const labels: Record<string, string> = {
+                      ok: 'Conciliada',
+                      duplicado: 'Duplicado',
+                      pendiente: 'Pendiente',
+                      error: 'Error',
+                    }
                     return (
                       <div key={idx} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: idx < toast.log.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.filename}</span>
-                          <span style={{ color: colors[entry.status], textTransform: 'uppercase', fontSize: 9, letterSpacing: '1px', flexShrink: 0 }}>{entry.status}</span>
+                          <span style={{ color: colors[entry.status], textTransform: 'uppercase', fontSize: 9, letterSpacing: '1px', flexShrink: 0 }}>{labels[entry.status]}</span>
                         </div>
                         {entry.detalle && (
                           <div style={{ fontSize: 10, color: '#a0a8b8', marginTop: 2, paddingLeft: 12 }}>{entry.detalle}</div>
