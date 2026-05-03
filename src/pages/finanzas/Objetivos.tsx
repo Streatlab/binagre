@@ -168,14 +168,16 @@ export default function Objetivos() {
     if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
   }, [activeTab, presAnio, loadPresupuestos])
 
+  // Guardar objetivo: SIEMPRE redondea a entero. Sin decimales basura.
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
+    const valEntero = Math.round(val)
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
-      await supabase.from('objetivos').update({ importe: val }).eq('id', existing.id)
-      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: val } : o))
+      await supabase.from('objetivos').update({ importe: valEntero }).eq('id', existing.id)
+      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: valEntero } : o))
     } else {
-      const { data } = await supabase.from('objetivos').insert({ tipo, importe: val }).select()
-      if (data && data[0]) setObjetivos(prev => [...prev, { tipo, importe: val, id: data[0].id }])
+      const { data } = await supabase.from('objetivos').insert({ tipo, importe: valEntero }).select()
+      if (data && data[0]) setObjetivos(prev => [...prev, { tipo, importe: valEntero, id: data[0].id }])
     }
     setEditingId(null)
   }
@@ -190,13 +192,14 @@ export default function Objetivos() {
   }
 
   const saveDiaSemana = async (dia: number, val: number) => {
+    const valEntero = Math.round(val)
     const existing = diasSemana.find(d => d.dia === dia)
     if (existing) {
-      await supabase.from('objetivos_dia_semana').update({ importe: val }).eq('id', existing.id)
-      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: val } : o))
+      await supabase.from('objetivos_dia_semana').update({ importe: valEntero }).eq('id', existing.id)
+      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: valEntero } : o))
     } else {
-      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: val }).select()
-      if (data && data[0]) setDiasSemana(prev => [...prev, { dia, importe: val, id: data[0].id }])
+      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: valEntero }).select()
+      if (data && data[0]) setDiasSemana(prev => [...prev, { dia, importe: valEntero, id: data[0].id }])
     }
     setEditingId(null)
   }
@@ -264,7 +267,7 @@ export default function Objetivos() {
   const currentYear = hoyStr.slice(0, 4)
   const ventasAno = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentYear])
 
-  // Semanal base = suma de los 7 objetivos diarios
+  // Semanal base = suma de los 7 objetivos diarios (es entera por construcción)
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
 
   // Mensual base = (suma semanal / 7) × días naturales del mes — REDONDEADO A ENTERO
@@ -283,14 +286,15 @@ export default function Objetivos() {
     return Math.round((sumaSemana / 7) * dAno)
   }, [sumaSemana, hoy])
 
+  // Override viene de BD; lo redondeamos a entero por si fue guardado con decimales antiguos
   const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
-  const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? objSemanalOverride : sumaSemana
+  const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? Math.round(objSemanalOverride) : sumaSemana
 
   const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
-  const objMensual = (objMensualOverride !== undefined && objMensualOverride > 0) ? objMensualOverride : sumaMes
+  const objMensual = (objMensualOverride !== undefined && objMensualOverride > 0) ? Math.round(objMensualOverride) : sumaMes
 
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
-  const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? objAnualOverride : sumaAno
+  const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? Math.round(objAnualOverride) : sumaAno
 
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
@@ -419,7 +423,7 @@ export default function Objetivos() {
     }
     return (
       <span
-        onClick={() => { setEditingId(id); setEditValue(String(currentVal)) }}
+        onClick={() => { setEditingId(id); setEditValue(String(Math.round(currentVal))) }}
         style={editableNumberStyle(color)}
         title="Click para editar · vacío o 0 restaura el valor calculado"
       >
@@ -641,7 +645,7 @@ export default function Objetivos() {
                           />
                         ) : (
                           <span
-                            onClick={() => { setEditingId(editId); setEditValue(String(importe)) }}
+                            onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
                             style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: T.pri, cursor: 'pointer' }}
                           >
                             {fmtEur(importe)}
