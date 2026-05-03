@@ -15,6 +15,9 @@ const PAGE_SIZES = [50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
 const DEFAULT_PAGE_SIZE: PageSize = 100
 
+const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
 function parsePageSize(raw: string | null): PageSize {
   const n = Number(raw)
   return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
@@ -51,6 +54,15 @@ interface Agregados {
   conciliadasImporte: number
   faltaDriveCount: number
   sinConciliarCount: number
+}
+
+interface ToastState {
+  total: number
+  enviados: number
+  ok: number
+  pendientes: number
+  duplicados: number
+  visible: boolean
 }
 
 function calcularEstado(f: Factura): 'conciliado' | 'pendiente' | 'falta_drive' {
@@ -91,12 +103,15 @@ export default function Ocr() {
   const fetchIdRef = useRef(0)
 
   const [agregados, setAgregados] = useState<Agregados | null>(null)
-  const [refreshTick] = useState(0)
+  const [refreshTick, setRefreshTick] = useState(0)
 
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
 
   const [exportando, setExportando] = useState(false)
+
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -340,18 +355,69 @@ export default function Ocr() {
     }
   }
 
-  const handleSubir = () => {
+  const procesarLote = useCallback(async (files: File[], titular_id_forzado: string | null) => {
+    setToast({ total: files.length, enviados: 0, ok: 0, pendientes: 0, duplicados: 0, visible: true })
+
+    const fnName = tab === 'extractos' ? 'ocr-procesar-extracto' : 'ocr-procesar-factura'
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        const base64 = await new Promise<string>((res, rej) => {
+          const r = new FileReader()
+          r.onload = () => res((r.result as string).split(',')[1])
+          r.onerror = () => rej(new Error('FileReader error'))
+          r.readAsDataURL(file)
+        })
+
+        const body: any = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
+        if (tab === 'extractos' && titular_id_forzado) body.titular_id = titular_id_forzado
+
+        const { data, error } = await supabase.functions.invoke(fnName, { body })
+
+        setToast(t => {
+          if (!t) return t
+          const next = { ...t, enviados: t.enviados + 1 }
+          if (error) {
+            next.pendientes++
+          } else if (data?.status === 'duplicado') {
+            next.duplicados++
+          } else if (data?.status === 'ok') {
+            if (tab === 'extractos') next.ok++
+            else if (data?.matched) next.ok++
+            else next.pendientes++
+          } else {
+            next.pendientes++
+          }
+          return next
+        })
+      } catch {
+        setToast(t => t ? { ...t, enviados: t.enviados + 1, pendientes: t.pendientes + 1 } : t)
+      }
+    }
+
+    setRefreshTick(x => x + 1)
+    setTimeout(() => setToast(null), 7000)
+  }, [tab])
+
+  const handleSubir = useCallback(() => {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
-    input.accept = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls,.doc,.docx'
+    input.accept = '.pdf,.png,.jpg,.jpeg,.webp'
     input.onchange = async (e: any) => {
       const files = Array.from(e.target.files || []) as File[]
       if (files.length === 0) return
-      console.log('Subir archivos:', files)
+
+      if (tab === 'extractos') {
+        setModalTitular({ archivos: files, visible: true })
+        return
+      }
+
+      procesarLote(files, null)
     }
     input.click()
-  }
+  }, [tab, procesarLote])
 
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
     background: '#fff',
@@ -509,7 +575,7 @@ export default function Ocr() {
             {tituloBotonSubir}
           </div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
-            PDF · Imagen · CSV · DOC
+            PDF · Imagen
           </div>
         </div>
       </div>
@@ -592,7 +658,7 @@ export default function Ocr() {
       {!cargando && total === 0 && !errorCarga ? (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay facturas</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo, o sube tus primeras facturas</div>
         </div>
       ) : (
         <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
@@ -787,6 +853,59 @@ export default function Ocr() {
               </div>
             )
           })()}
+        </div>
+      )}
+
+      {/* Modal selector titular para extractos */}
+      {modalTitular.visible && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 340, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 8 }}>Extracto bancario</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 18 }}>¿De quién es este extracto?</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => {
+                  const archivos = modalTitular.archivos
+                  setModalTitular({ archivos: [], visible: false })
+                  procesarLote(archivos, RUBEN_ID)
+                }}
+                style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Rubén
+              </button>
+              <button
+                onClick={() => {
+                  const archivos = modalTitular.archivos
+                  setModalTitular({ archivos: [], visible: false })
+                  procesarLote(archivos, EMILIO_ID)
+                }}
+                style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Emilio
+              </button>
+            </div>
+            <button
+              onClick={() => setModalTitular({ archivos: [], visible: false })}
+              style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast progreso */}
+      {toast && toast.visible && (
+        <div style={{ position: 'fixed', bottom: 20, right: 20, background: '#1e2233', color: '#fff', padding: '14px 18px', borderRadius: 12, minWidth: 280, fontFamily: 'Lexend, sans-serif', fontSize: 13, zIndex: 99, boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, color: '#e8f442' }}>
+            {toast.enviados < toast.total ? 'Procesando…' : 'Completado'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
+            <div>Procesados: <b>{toast.enviados}/{toast.total}</b></div>
+            <div style={{ color: '#1D9E75' }}>Conciliados: <b>{toast.ok}</b></div>
+            <div style={{ color: '#F26B1F' }}>Pendientes: <b>{toast.pendientes}</b></div>
+            <div style={{ color: '#7a8090' }}>Duplicados: <b>{toast.duplicados}</b></div>
+          </div>
+          <div style={{ marginTop: 10, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: `${(toast.enviados / toast.total) * 100}%`, height: '100%', background: '#1D9E75', transition: 'width 0.3s' }} />
+          </div>
         </div>
       )}
     </div>
