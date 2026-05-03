@@ -87,6 +87,22 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'exportar', label: 'Exportar' },
 ]
 
+// Paleta titulares unificada con módulo Conciliación
+const TITULAR_COLOR: Record<string, string> = {
+  'rubén': '#F26B1F',
+  'ruben': '#F26B1F',
+  'emilio': '#1E5BCC',
+}
+
+function colorTitular(nombre: string | undefined, fallback: string): string {
+  if (!nombre) return fallback
+  const k = nombre.toLowerCase().trim()
+  for (const key of Object.keys(TITULAR_COLOR)) {
+    if (k.includes(key)) return TITULAR_COLOR[key]
+  }
+  return fallback
+}
+
 /* ── Helpers ───────────────────────────────────────── */
 function fmtFechaCorta(iso: string | null): string {
   if (!iso) return '—'
@@ -126,17 +142,7 @@ function colorEstado(estado: string | null): { bg: string; col: string; lbl: str
   }
 }
 
-/**
- * Construye el árbol Drive con estructura COMPLETA siempre visible:
- *   - los 2 titulares (siempre)
- *   - año actual + año pasado (siempre)
- *   - T1, T2, T3, T4 (siempre)
- *   - 12 meses (siempre)
- *
- * Los nodos sin facturas se renderizan con count=0 y se ven "apagados".
- */
 function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode[] {
-  // 1) Indexar conteos reales: titular > año > mes
   const counts = new Map<string, Map<number, Map<number, { count: number; importe: number }>>>()
   for (const f of facturas) {
     if (!f.fecha_factura || !f.titular_id) continue
@@ -154,17 +160,14 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
     node.importe += Number(f.total || 0)
   }
 
-  // 2) Determinar años a mostrar: por defecto año actual + anterior
-  //    + cualquier año adicional con facturas reales
   const hoy = new Date()
   const anioActual = hoy.getFullYear()
   const aniosSet = new Set<number>([anioActual, anioActual - 1])
   for (const tMap of counts.values()) {
     for (const a of tMap.keys()) aniosSet.add(a)
   }
-  const anios = Array.from(aniosSet).sort((a, b) => b - a)  // desc: más recientes arriba
+  const anios = Array.from(aniosSet).sort((a, b) => b - a)
 
-  // 3) Construir árbol completo
   const tree: DriveNode[] = []
   for (const t of titulares) {
     const tMap = counts.get(t.id)
@@ -245,7 +248,10 @@ export default function GestionFacturas() {
   const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
+  // Filtro fecha OPT-IN: por defecto NO se aplica → se muestran TODAS las facturas
+  // (la factura más antigua puede ser de hace meses; queremos histórico completo)
+  const [filtrarPorFecha, setFiltrarPorFecha] = useState(false)
+  const [periodoLabel, setPeriodoLabel] = useState('Todo el histórico')
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
@@ -281,11 +287,16 @@ export default function GestionFacturas() {
 
   const handleFecha = useCallback((desde: Date, hasta: Date, label: string) => {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
+    setFiltrarPorFecha(true)
+  }, [])
+
+  const limpiarFecha = useCallback(() => {
+    setFiltrarPorFecha(false)
+    setPeriodoLabel('Todo el histórico')
   }, [])
 
   const driveTree = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
 
-  // Inicialización árbol expandido: titulares + año actual + sus 4 trimestres expandidos
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTree.length === 0) return
@@ -294,9 +305,7 @@ export default function GestionFacturas() {
     for (const t of driveTree) {
       const titId = t.filtro.titular_id
       init[`t:${titId}`] = true
-      // expandir el año actual
       init[`y:${titId}:${anioActual}`] = true
-      // expandir T1-T4 del año actual
       for (const trim of [1, 2, 3, 4]) {
         init[`q:${titId}:${anioActual}:${trim}`] = true
       }
@@ -324,7 +333,8 @@ export default function GestionFacturas() {
         }
         if (driveFiltro.mes && d.getMonth() + 1 !== driveFiltro.mes) return false
       }
-      if (fechaDesde && fechaHasta && f.fecha_factura) {
+      // El filtro por fecha SOLO se aplica si el usuario lo activa explícitamente
+      if (filtrarPorFecha && fechaDesde && fechaHasta && f.fecha_factura) {
         const d = new Date(f.fecha_factura + 'T00:00:00')
         if (d < fechaDesde || d > fechaHasta) return false
       }
@@ -341,7 +351,7 @@ export default function GestionFacturas() {
       }
       return true
     })
-  }, [facturas, titularFiltro, driveFiltro, fechaDesde, fechaHasta, categoriaId, busqueda])
+  }, [facturas, titularFiltro, driveFiltro, filtrarPorFecha, fechaDesde, fechaHasta, categoriaId, busqueda])
 
   const totalImporte = facturasFiltradas.reduce((s, f) => s + Number(f.total || 0), 0)
 
@@ -403,11 +413,26 @@ export default function GestionFacturas() {
             {periodoLabel}
           </span>
         </div>
-        <SelectorFechaUniversal
-          nombreModulo="gestion_facturas"
-          defaultOpcion="mes_en_curso"
-          onChange={handleFecha}
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <SelectorFechaUniversal
+            nombreModulo="gestion_facturas"
+            defaultOpcion="mes_en_curso"
+            onChange={handleFecha}
+          />
+          {filtrarPorFecha && (
+            <button
+              type="button"
+              onClick={limpiarFecha}
+              style={{
+                fontSize: 11, padding: '4px 10px', border: `0.5px solid ${COLORS.brd}`,
+                background: COLORS.card, borderRadius: 6, color: COLORS.sec,
+                cursor: 'pointer', fontFamily: FONT.body,
+              }}
+            >
+              Ver todo
+            </button>
+          )}
+        </div>
       </div>
 
       <TabsPastilla
@@ -578,6 +603,7 @@ export default function GestionFacturas() {
                     )}
                     {!loading && facturasFiltradas.map(f => {
                       const tit = titulares.find(t => t.id === f.titular_id)
+                      const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
                       const catLbl = f.categoria_factura
                         ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
@@ -602,8 +628,17 @@ export default function GestionFacturas() {
                             }}>{catLbl}</span>
                           </td>
                           <td style={{ ...tdStyle, fontSize: 12 }}>
-                            {tit ? <span style={{ color: tit.color || COLORS.pri }}>● {tit.nombre}</span>
-                                 : <span style={{ color: COLORS.mut }}>—</span>}
+                            {tit ? (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                padding: '3px 10px', borderRadius: 6,
+                                fontFamily: FONT.body, fontSize: 12, fontWeight: 500,
+                                background: `${titColor}15`, color: titColor,
+                              }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: titColor }} />
+                                {tit.nombre}
+                              </span>
+                            ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
                           <td style={{ ...tdStyle, fontSize: 12 }}>
                             {f.pdf_drive_url ? (
@@ -694,10 +729,6 @@ function NodoArbolItem({
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
 
-  // Color según estado:
-  //   - activo: rojo SL con fondo claro
-  //   - sin facturas: gris muted
-  //   - normal: principal
   const rowColor = esActivo
     ? COLORS.redSL
     : (sinFacturas ? COLORS.mut : COLORS.pri)
