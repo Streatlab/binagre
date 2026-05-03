@@ -37,6 +37,10 @@ const LABELS: Record<string, string> = {
   'resenas': 'Panel Reseñas',
   // Integraciones
   'pos': 'POS Ventas',
+  // Finanzas (nuevos placeholders)
+  'verifactu': 'Verifactu / Facturación legal',
+  'ocr-whatsapp': 'OCR Facturas (WhatsApp/Email)',
+  'escenarios-tesoreria': 'Escenarios de Tesorería',
 }
 
 const SECTION_LABELS: Record<string, string> = {
@@ -45,6 +49,7 @@ const SECTION_LABELS: Record<string, string> = {
   'equipo': 'Equipo',
   'clientes': 'Clientes',
   'integraciones': 'Integraciones',
+  'finanzas': 'Finanzas',
 }
 
 export default function Placeholder() {
