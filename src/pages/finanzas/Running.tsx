@@ -17,6 +17,7 @@ import KpiCardConSparkline from '@/components/finanzas/running/KpiCardConSparkli
 import IngresosCardDonut from '@/components/finanzas/running/IngresosCardDonut';
 import GastosCard from '@/components/finanzas/running/GastosCard';
 import TablaPyG from '@/components/finanzas/running/TablaPyG';
+import CarruselMarcas from '@/components/finanzas/running/CarruselMarcas';
 import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import SelectorPeriodoDropdown, { type PeriodoKey } from '@/components/finanzas/running/SelectorPeriodoDropdown';
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles';
@@ -542,6 +543,9 @@ export default function Running() {
           chart={undefined}
         />
       </div>
+
+      {/* CARRUSEL DE MARCAS — UI lista, datos pendientes de marca_id en facturacion_diario */}
+      <CarruselMarcas periodoLabel={periodo.label} />
 
       {/* INGRESOS + GASTOS */}
       <div
