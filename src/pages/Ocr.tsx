@@ -19,13 +19,6 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// Sleep entre facturas para evitar rate limit Anthropic API (50 RPM tier 1)
-const SLEEP_BETWEEN_FILES_MS = 1500
-
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 function parsePageSize(raw: string | null): PageSize {
   const n = Number(raw)
   return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
@@ -441,9 +434,9 @@ export default function Ocr() {
         return next
       })
 
-      // Sleep entre facturas (excepto la última) para evitar rate limit Anthropic API
+      // Pausa 1500ms entre facturas para evitar rate limit Anthropic API
       if (i < files.length - 1) {
-        await sleep(SLEEP_BETWEEN_FILES_MS)
+        await new Promise(r => setTimeout(r, 1500))
       }
     }
 
