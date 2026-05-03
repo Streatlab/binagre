@@ -2,15 +2,13 @@
  * GestionFacturas — Listado de facturas tipo Drive.
  *
  * Datos 100% reales desde Supabase:
- * - public.facturas (PDF en pdf_drive_url, ya servido por Supabase Storage)
+ * - public.facturas (PDF en pdf_drive_url)
  * - public.titulares (Rubén, Emilio)
- * - public.categorias_pyg (árbol completo de categorías contables, 105)
+ * - public.categorias_pyg (árbol completo)
  *
- * Estructura del Drive simulado: Titular → Año → Trimestre → Mes,
- * SIEMPRE muestra los 2 titulares, año actual + anterior, T1-T4, 12 meses.
- *
- * Click en fila → abre el PDF (pdf_drive_url) en pestaña nueva.
- * Click en nodo del árbol → filtra la tabla por ese ámbito.
+ * Tabs: Resumen, Facturas, Exportar (Drive borrado).
+ * En Facturas: el SELECTOR DE FECHAS NO FILTRA. Sólo manda el árbol Drive lateral.
+ * Trimestres con paleta pastel idéntica al Running.
  */
 
 import {
@@ -31,7 +29,7 @@ import SubTabsInverso from '@/components/ui/SubTabsInverso'
 import { supabase } from '@/lib/supabase'
 
 /* ── Tipos ─────────────────────────────────────────── */
-type TabId = 'resumen' | 'facturas' | 'drive' | 'exportar'
+type TabId = 'resumen' | 'facturas' | 'exportar'
 type TitularFiltro = 'todos' | string
 
 interface Titular {
@@ -78,12 +76,14 @@ interface DriveNode {
   importe: number
   children?: DriveNode[]
   filtro: DriveFiltro
+  // metadata para color trimestre
+  kind: 'titular' | 'anio' | 'trim' | 'mes'
+  trimNum?: number
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',  label: 'Resumen' },
   { id: 'facturas', label: 'Facturas' },
-  { id: 'drive',    label: 'Drive' },
   { id: 'exportar', label: 'Exportar' },
 ]
 
@@ -102,6 +102,16 @@ function colorTitular(nombre: string | undefined, fallback: string): string {
   }
   return fallback
 }
+
+// Paleta trimestres EXACTA del Running financiero (TablaPyG.tsx)
+const TRIM_PALETTE: Record<number, { bg: string; head: string; tot: string }> = {
+  1: { bg: '#dde8f4', head: '#7da3c8', tot: '#b5cae3' },  // azul pastel
+  2: { bg: '#dee9d4', head: '#7da569', tot: '#b6cea3' },  // verde pastel
+  3: { bg: '#f4e8c8', head: '#c89945', tot: '#e8cf85' },  // ocre pastel
+  4: { bg: '#e3d8eb', head: '#7e5c9b', tot: '#bfa6cf' },  // lila pastel
+}
+const ANIO_BG = '#fbe5e8'
+const ANIO_HEAD = '#f0b8be'
 
 /* ── Helpers ───────────────────────────────────────── */
 function fmtFechaCorta(iso: string | null): string {
@@ -175,6 +185,7 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
       label: t.nombre,
       count: 0, importe: 0, children: [],
       filtro: { titular_id: t.id },
+      kind: 'titular',
     }
 
     for (const anio of anios) {
@@ -183,6 +194,7 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
         label: String(anio),
         count: 0, importe: 0, children: [],
         filtro: { titular_id: t.id, anio },
+        kind: 'anio',
       }
 
       for (const trim of [1, 2, 3, 4]) {
@@ -190,6 +202,8 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
           label: `T${trim}`,
           count: 0, importe: 0, children: [],
           filtro: { titular_id: t.id, anio, trimestre: trim },
+          kind: 'trim',
+          trimNum: trim,
         }
 
         for (const mes of MESES_POR_TRIM[trim]) {
@@ -199,6 +213,8 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
             count: data.count,
             importe: data.importe,
             filtro: { titular_id: t.id, anio, trimestre: trim, mes },
+            kind: 'mes',
+            trimNum: trim,
           })
           qNode.count += data.count
           qNode.importe += data.importe
@@ -248,9 +264,8 @@ export default function GestionFacturas() {
   const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  // Filtro fecha OPT-IN: por defecto NO se aplica → se muestran TODAS las facturas
-  const [filtrarPorFecha, setFiltrarPorFecha] = useState(false)
-  const [periodoLabel, setPeriodoLabel] = useState('Todo el histórico')
+  // Selector fecha — sólo aplica en Resumen y Exportar (NO en Facturas)
+  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
@@ -286,12 +301,6 @@ export default function GestionFacturas() {
 
   const handleFecha = useCallback((desde: Date, hasta: Date, label: string) => {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
-    setFiltrarPorFecha(true)
-  }, [])
-
-  const limpiarFecha = useCallback(() => {
-    setFiltrarPorFecha(false)
-    setPeriodoLabel('Todo el histórico')
   }, [])
 
   const driveTree = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
@@ -319,6 +328,7 @@ export default function GestionFacturas() {
     return m
   }, [categorias])
 
+  // FILTRADO: sólo Drive + titular toggle + categoría + búsqueda. SIN fecha del header.
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
       if (titularFiltro !== 'todos' && f.titular_id !== titularFiltro) return false
@@ -331,10 +341,6 @@ export default function GestionFacturas() {
           if (trim !== driveFiltro.trimestre) return false
         }
         if (driveFiltro.mes && d.getMonth() + 1 !== driveFiltro.mes) return false
-      }
-      if (filtrarPorFecha && fechaDesde && fechaHasta && f.fecha_factura) {
-        const d = new Date(f.fecha_factura + 'T00:00:00')
-        if (d < fechaDesde || d > fechaHasta) return false
       }
       if (categoriaId !== 'todas') {
         if (!f.categoria_factura) return false
@@ -349,19 +355,7 @@ export default function GestionFacturas() {
       }
       return true
     })
-  }, [facturas, titularFiltro, driveFiltro, filtrarPorFecha, fechaDesde, fechaHasta, categoriaId, busqueda])
-
-  const totalImporte = facturasFiltradas.reduce((s, f) => s + Number(f.total || 0), 0)
-
-  const breadcrumbDrive = useMemo(() => {
-    if (!driveFiltro.titular_id) return null
-    const t = titulares.find(x => x.id === driveFiltro.titular_id)
-    const parts: string[] = [t?.nombre || '?']
-    if (driveFiltro.anio) parts.push(String(driveFiltro.anio))
-    if (driveFiltro.trimestre) parts.push(`T${driveFiltro.trimestre}`)
-    if (driveFiltro.mes) parts.push(MESES[driveFiltro.mes])
-    return parts.join(' › ')
-  }, [driveFiltro, titulares])
+  }, [facturas, titularFiltro, driveFiltro, categoriaId, busqueda])
 
   const titularesTabs = useMemo(() => [
     { id: 'todos', label: 'Todos' },
@@ -389,6 +383,9 @@ export default function GestionFacturas() {
     gap: 4,
   }
 
+  // Selector de fechas SOLO se muestra en Resumen / Exportar
+  const showSelectorFecha = activeTab === 'resumen' || activeTab === 'exportar'
+
   return (
     <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
 
@@ -404,33 +401,22 @@ export default function GestionFacturas() {
           }}>
             GESTIÓN DE FACTURAS
           </h2>
-          <span style={{
-            fontFamily: FONT.body, fontSize: 13, color: COLORS.mut,
-            display: 'block', marginTop: 4,
-          }}>
-            {periodoLabel}
-          </span>
+          {showSelectorFecha && (
+            <span style={{
+              fontFamily: FONT.body, fontSize: 13, color: COLORS.mut,
+              display: 'block', marginTop: 4,
+            }}>
+              {periodoLabel}
+            </span>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {showSelectorFecha && (
           <SelectorFechaUniversal
             nombreModulo="gestion_facturas"
             defaultOpcion="mes_en_curso"
             onChange={handleFecha}
           />
-          {filtrarPorFecha && (
-            <button
-              type="button"
-              onClick={limpiarFecha}
-              style={{
-                fontSize: 11, padding: '4px 10px', border: `0.5px solid ${COLORS.brd}`,
-                background: COLORS.card, borderRadius: 6, color: COLORS.sec,
-                cursor: 'pointer', fontFamily: FONT.body,
-              }}
-            >
-              Ver todo
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       <TabsPastilla
@@ -487,39 +473,28 @@ export default function GestionFacturas() {
                 ))}
               </select>
             </div>
-
-            <button
-              onClick={() => setActiveTab('exportar')}
-              style={{
-                height: 36, padding: '0 16px', borderRadius: 8, border: 'none',
-                background: COLORS.redSL, color: '#fff', fontSize: 13,
-                fontFamily: FONT.body, fontWeight: 500, cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-              }}
-            >
-              Exportar →
-            </button>
           </div>
 
           <div style={{
-            display: 'grid', gridTemplateColumns: '260px 1fr', gap: 14,
+            display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14,
           }}>
             {/* Drive */}
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-              borderRadius: 14, padding: 16, fontSize: 13, fontFamily: FONT.body,
+              borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body,
               alignSelf: 'start',
             }}>
               <div style={{
                 display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', marginBottom: 12,
+                alignItems: 'center', marginBottom: 10,
+                paddingBottom: 8, borderBottom: `0.5px solid ${COLORS.brd}`,
               }}>
                 <span style={{
-                  fontFamily: FONT.heading, fontSize: 11,
+                  fontFamily: FONT.heading, fontSize: 12,
                   letterSpacing: '1.5px', textTransform: 'uppercase',
-                  color: COLORS.mut, fontWeight: 500,
+                  color: COLORS.pri, fontWeight: 600,
                 }}>
-                  Drive
+                  📁 Drive
                 </span>
                 {(driveFiltro.titular_id || driveFiltro.anio) && (
                   <button
@@ -538,19 +513,24 @@ export default function GestionFacturas() {
 
               {loading && <div style={{ color: COLORS.mut, fontSize: 12 }}>Cargando…</div>}
 
-              {!loading && driveTree.map(tNode => (
-                <NodoArbolItem
-                  key={tNode.label}
-                  node={tNode}
-                  level={0}
-                  filtroActivo={driveFiltro}
-                  expansionMap={expansionMap}
-                  onSelect={(filtro) => setDriveFiltro(filtro)}
-                  onToggleExpand={(key) =>
-                    setExpansionMap(m => ({ ...m, [key]: !m[key] }))
-                  }
-                />
-              ))}
+              {!loading && driveTree.map(tNode => {
+                const tit = titulares.find(x => x.id === tNode.filtro.titular_id)
+                const titColor = colorTitular(tit?.nombre, COLORS.pri)
+                return (
+                  <NodoArbolItem
+                    key={tNode.label}
+                    node={tNode}
+                    level={0}
+                    filtroActivo={driveFiltro}
+                    expansionMap={expansionMap}
+                    titularColor={titColor}
+                    onSelect={(filtro) => setDriveFiltro(filtro)}
+                    onToggleExpand={(key) =>
+                      setExpansionMap(m => ({ ...m, [key]: !m[key] }))
+                    }
+                  />
+                )
+              })}
             </div>
 
             {/* Tabla */}
@@ -558,25 +538,6 @@ export default function GestionFacturas() {
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, overflow: 'hidden',
             }}>
-              <div style={{
-                padding: '14px 18px', borderBottom: `0.5px solid ${COLORS.group}`,
-              }}>
-                <div style={{
-                  fontFamily: FONT.heading, fontSize: 10,
-                  letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase',
-                }}>
-                  {breadcrumbDrive || (titularFiltro === 'todos'
-                    ? 'Todos los titulares'
-                    : titulares.find(t => t.id === titularFiltro)?.nombre || '—')}
-                </div>
-                <div style={{
-                  fontFamily: FONT.body, fontSize: 14, fontWeight: 500,
-                  color: COLORS.pri, marginTop: 2,
-                }}>
-                  {facturasFiltradas.length} facturas · {fmtNum(totalImporte, 2)}
-                </div>
-              </div>
-
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -645,7 +606,7 @@ export default function GestionFacturas() {
                               </span>
                             ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
-                          {/* CELDA DOC ESTILO CONCILIACIÓN: clip grande, fondo verde, ocupa toda la celda */}
+                          {/* CELDA DOC: clip limpio, sin fondo verde */}
                           {f.pdf_drive_url ? (
                             <td
                               style={tdDocBase}
@@ -655,8 +616,7 @@ export default function GestionFacturas() {
                               <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 width: '100%', height: '100%', minHeight: 38,
-                                background: '#1D9E7515',
-                                fontSize: 22, lineHeight: 1, color: '#0F6E56',
+                                fontSize: 22, lineHeight: 1, color: COLORS.pri,
                                 cursor: 'pointer', userSelect: 'none',
                               }}>
                                 📎
@@ -691,14 +651,6 @@ export default function GestionFacturas() {
                   </tbody>
                 </table>
               </div>
-
-              <div style={{
-                padding: '12px 18px', borderTop: `0.5px solid ${COLORS.group}`,
-                display: 'flex', justifyContent: 'space-between',
-                fontSize: 11, fontFamily: FONT.body, color: COLORS.mut,
-              }}>
-                <span>{facturasFiltradas.length} de {facturas.length} facturas totales</span>
-              </div>
             </div>
           </div>
         </>
@@ -718,13 +670,14 @@ export default function GestionFacturas() {
 }
 
 /* ══════════════════════════════════════════════════════
-   ÁRBOL DRIVE — clicable de verdad (botones nativos)
+   ÁRBOL DRIVE — paleta pastel Running, alta visibilidad
    ══════════════════════════════════════════════════════ */
 interface NodoArbolItemProps {
   node: DriveNode
   level: number
   filtroActivo: DriveFiltro
   expansionMap: Record<string, boolean>
+  titularColor: string
   onSelect: (filtro: DriveFiltro) => void
   onToggleExpand: (key: string) => void
 }
@@ -737,7 +690,7 @@ function nodeKey(filtro: DriveFiltro): string {
 }
 
 function NodoArbolItem({
-  node, level, filtroActivo, expansionMap, onSelect, onToggleExpand,
+  node, level, filtroActivo, expansionMap, titularColor, onSelect, onToggleExpand,
 }: NodoArbolItemProps) {
   const tieneHijos = !!(node.children && node.children.length > 0)
   const myKey = nodeKey(node.filtro)
@@ -750,42 +703,84 @@ function NodoArbolItem({
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
 
-  const rowColor = esActivo
-    ? COLORS.redSL
-    : (sinFacturas ? COLORS.mut : COLORS.pri)
+  // Estilo según tipo de nodo
+  let nodoBg = 'transparent'
+  let nodoColor = COLORS.pri
+  let nodoFontFamily = FONT.body
+  let nodoFontSize = 13
+  let nodoFontWeight: number = 400
+  let nodoBorderLeft = '3px solid transparent'
+
+  if (node.kind === 'titular') {
+    nodoColor = titularColor
+    nodoFontFamily = FONT.heading
+    nodoFontSize = 14
+    nodoFontWeight = 600
+    nodoBorderLeft = `3px solid ${titularColor}`
+  } else if (node.kind === 'anio') {
+    nodoBg = ANIO_BG
+    nodoColor = '#7a1218'
+    nodoFontFamily = FONT.heading
+    nodoFontSize = 13
+    nodoFontWeight = 600
+  } else if (node.kind === 'trim' && node.trimNum) {
+    const pal = TRIM_PALETTE[node.trimNum]
+    nodoBg = pal.bg
+    nodoColor = pal.head
+    nodoFontFamily = FONT.heading
+    nodoFontWeight = 600
+    nodoFontSize = 12
+  } else if (node.kind === 'mes' && node.trimNum) {
+    const pal = TRIM_PALETTE[node.trimNum]
+    nodoBg = pal.bg + '60'  // mes con bg trimestre más claro
+    nodoColor = COLORS.pri
+    nodoFontSize = 13
+  }
+
+  if (esActivo) {
+    nodoBg = node.kind === 'trim' && node.trimNum
+      ? TRIM_PALETTE[node.trimNum].head
+      : titularColor
+    nodoColor = '#fff'
+    nodoFontWeight = 700
+    nodoBorderLeft = `3px solid ${node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].head : titularColor}`
+  }
 
   const rowStyle: CSSProperties = {
     width: '100%', display: 'flex', alignItems: 'center',
-    padding: '5px 6px', paddingLeft: 4 + level * 12,
-    background: esActivo ? '#FF475715' : 'transparent',
+    padding: '6px 8px', paddingLeft: 6 + level * 12,
+    background: nodoBg,
     border: 'none',
-    borderLeft: esActivo ? `3px solid ${COLORS.redSL}` : '3px solid transparent',
-    borderRadius: esActivo ? '0 4px 4px 0' : 0,
+    borderLeft: nodoBorderLeft,
+    borderRadius: node.kind === 'mes' ? '0 4px 4px 0' : '0 6px 6px 0',
     cursor: 'pointer',
-    fontFamily: FONT.body, fontSize: 13, textAlign: 'left',
-    color: rowColor,
-    fontWeight: esActivo ? 500 : 400,
-    opacity: sinFacturas && !esActivo ? 0.55 : 1,
+    fontFamily: nodoFontFamily, fontSize: nodoFontSize, textAlign: 'left',
+    color: nodoColor,
+    fontWeight: nodoFontWeight,
+    opacity: sinFacturas && !esActivo ? 0.5 : 1,
+    marginBottom: node.kind === 'titular' ? 4 : 1,
+    letterSpacing: node.kind === 'titular' ? '1px' : 'normal',
+    textTransform: node.kind === 'titular' ? 'uppercase' as const : 'none' as const,
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 1 }}>
         {tieneHijos ? (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleExpand(myKey) }}
             style={{
-              width: 20, height: 26, padding: 0, border: 'none',
+              width: 18, height: 26, padding: 0, border: 'none',
               background: 'transparent', cursor: 'pointer',
-              color: COLORS.mut, fontSize: 11,
+              color: COLORS.mut, fontSize: 11, flexShrink: 0,
             }}
             aria-label={expandido ? 'Contraer' : 'Expandir'}
           >
             {expandido ? '▾' : '▸'}
           </button>
         ) : (
-          <span style={{ width: 20, display: 'inline-block', textAlign: 'center', color: COLORS.mut }}>·</span>
+          <span style={{ width: 18, display: 'inline-block', textAlign: 'center', color: COLORS.mut, flexShrink: 0 }}>·</span>
         )}
 
         <button
@@ -794,7 +789,13 @@ function NodoArbolItem({
           style={rowStyle}
         >
           <span style={{ flex: 1 }}>{node.label}</span>
-          <span style={{ color: COLORS.mut, fontSize: 11, marginLeft: 8 }}>
+          <span style={{
+            color: esActivo ? '#fff' : COLORS.mut,
+            fontSize: 11,
+            marginLeft: 8,
+            fontWeight: 500,
+            opacity: esActivo ? 0.9 : 1,
+          }}>
             {node.count > 0 ? node.count : '—'}
           </span>
         </button>
@@ -809,6 +810,7 @@ function NodoArbolItem({
               level={level + 1}
               filtroActivo={filtroActivo}
               expansionMap={expansionMap}
+              titularColor={titularColor}
               onSelect={onSelect}
               onToggleExpand={onToggleExpand}
             />
