@@ -686,7 +686,7 @@ export default function Ocr() {
                   <col style={{ width: '14%' }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 200 }} />
-                  <col style={{ width: 60 }} />
+                  <col style={{ width: 80 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 100 }} />
                 </colgroup>
@@ -719,6 +719,7 @@ export default function Ocr() {
                   ) : filasVisibles.map((f, idx) => {
                     const isLast = idx === filasVisibles.length - 1
                     const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
+                    const tdDocBase: React.CSSProperties = { padding: 0, borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', textAlign: 'center' }
                     const catInfo = getBadgeCategoria(f)
                     const conciliada = esConciliada(f)
                     const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() ?? ''
@@ -755,16 +756,31 @@ export default function Ocr() {
                             </span>
                           )}
                         </td>
-                        <td style={{ ...tdBase, textAlign: 'center' }} onClick={(e) => {
-                          e.stopPropagation()
-                          if (f.pdf_drive_url) window.open(f.pdf_drive_url, '_blank')
-                        }}>
-                          {f.pdf_drive_url ? (
-                            <span style={{ color: '#1D9E75', fontSize: 14, cursor: 'pointer' }} title="Abrir en Drive">📎</span>
-                          ) : (
-                            <span style={{ color: '#F26B1F', fontSize: 14 }}>✕</span>
-                          )}
-                        </td>
+                        {f.pdf_drive_url ? (
+                          <td
+                            style={tdDocBase}
+                            onClick={e => { e.stopPropagation(); window.open(f.pdf_drive_url!, '_blank', 'noopener,noreferrer') }}
+                            title="Ver factura"
+                          >
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', minHeight: 38,
+                              background: '#1D9E7515',
+                              fontSize: 22, lineHeight: 1, color: '#0F6E56',
+                              cursor: 'pointer', userSelect: 'none',
+                            }}>
+                              📎
+                            </div>
+                          </td>
+                        ) : (
+                          <td style={tdDocBase} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', minHeight: 38,
+                              fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600,
+                            }}>✕</div>
+                          </td>
+                        )}
                         <td style={tdBase}>
                           {conciliada ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
@@ -863,7 +879,6 @@ export default function Ocr() {
         </div>
       )}
 
-      {/* Modal selector titular para extractos */}
       {modalTitular.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 340, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
@@ -898,7 +913,6 @@ export default function Ocr() {
         </div>
       )}
 
-      {/* Modal edición factura */}
       {facturaEditando && (
         <OcrEditModal
           factura={facturaEditando}
@@ -915,7 +929,6 @@ export default function Ocr() {
         />
       )}
 
-      {/* Toast progreso — persistente con cierre manual */}
       {toast && toast.visible && (
         <div style={{
           position: 'fixed', bottom: 20, right: 20,
