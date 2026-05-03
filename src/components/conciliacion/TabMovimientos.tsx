@@ -10,11 +10,43 @@ const PAGE_SIZES = [50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
 const DEFAULT_PAGE_SIZE: PageSize = 100
 
-function parsePageSize(raw: string | null): PageSize {
+const STORAGE_KEY = 'conciliacion:filtros'
+
+interface FiltrosPersistidos {
+  page?: number
+  size?: PageSize
+  filtroCard?: FiltroCard
+  filtroTitular?: 'todos' | 'ruben' | 'emilio'
+  ocultarConciliados?: boolean
+  busqueda?: string
+  catFiltro?: string
+  sortColumn?: SortColumn
+  sortDir?: SortDir
+}
+
+function loadFiltros(): FiltrosPersistidos {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as FiltrosPersistidos
+  } catch {
+    return {}
+  }
+}
+
+function saveFiltros(f: FiltrosPersistidos) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f))
+  } catch {
+    // swallow
+  }
+}
+
+function parsePageSize(raw: string | null | undefined): PageSize {
   const n = Number(raw)
   return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
 }
-function parsePage(raw: string | null): number {
+function parsePage(raw: string | null | undefined): number {
   const n = Number(raw)
   return Number.isInteger(n) && n >= 1 ? n : 1
 }
@@ -62,8 +94,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const navigate = useNavigate()
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const page     = parsePage(searchParams.get('page'))
-  const pageSize = parsePageSize(searchParams.get('size'))
+  const persistidos = useRef<FiltrosPersistidos>(loadFiltros()).current
+
+  const page     = parsePage(searchParams.get('page') ?? String(persistidos.page ?? 1))
+  const pageSize = parsePageSize(searchParams.get('size') ?? String(persistidos.size ?? DEFAULT_PAGE_SIZE))
 
   const updateUrl = useCallback((next: { page?: number; size?: PageSize }) => {
     const params = new URLSearchParams(searchParams)
@@ -72,14 +106,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     setSearchParams(params, { replace: true })
   }, [searchParams, setSearchParams])
 
-  const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
-  const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>('todos')
-  const [ocultarConciliados, setOcultarConciliados] = useState<boolean>(true)
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
-  const [catFiltro, setCatFiltro] = useState('todas')
-  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [filtroCard, setFiltroCard] = useState<FiltroCard>(persistidos.filtroCard ?? null)
+  const [filtroTitular, setFiltroTitular] = useState<'todos' | 'ruben' | 'emilio'>(persistidos.filtroTitular ?? 'todos')
+  const [ocultarConciliados, setOcultarConciliados] = useState<boolean>(persistidos.ocultarConciliados ?? true)
+  const [busqueda, setBusqueda] = useState(persistidos.busqueda ?? '')
+  const [busquedaDebounced, setBusquedaDebounced] = useState(persistidos.busqueda ?? '')
+  const [catFiltro, setCatFiltro] = useState(persistidos.catFiltro ?? 'todas')
+  const [sortColumn, setSortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
+  const [sortDir, setSortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
 
   const [filas, setFilas]           = useState<Movimiento[]>([])
   const [total, setTotal]           = useState<number>(0)
@@ -95,6 +129,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [titulares, setTitulares]         = useState<Titular[]>([])
 
   const [exportando, setExportando] = useState(false)
+
+  // Persistir filtros cada vez que cambian
+  useEffect(() => {
+    saveFiltros({
+      page, size: pageSize, filtroCard, filtroTitular, ocultarConciliados,
+      busqueda, catFiltro, sortColumn, sortDir,
+    })
+  }, [page, pageSize, filtroCard, filtroTitular, ocultarConciliados, busqueda, catFiltro, sortColumn, sortDir])
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -122,8 +164,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
   const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
 
-  // Solo refresca por realtime (cuando alguien modifica BBDD), no por polling automático
-  // Esto evita aggregates inconsistentes y "flicker" de cifras cada 30s
   useEffect(() => {
     let debounce: ReturnType<typeof setTimeout> | null = null
     const trigger = () => {
@@ -175,7 +215,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
     if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
 
-    // Ocultar conciliados (chequeado por defecto): solo mostrar pendientes
     if (ocultarConciliados && !filtroCard) {
       q = q.or('categoria.is.null,doc_estado.eq.falta')
     }
@@ -265,7 +304,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       let pendSinCatCount = 0, pendSinCatNeto = 0
       let pendSinDocCount = 0, pendSinDocNeto = 0
 
-      // Dedup por id (defensa contra duplicados en paginación)
       const seen = new Set<string>()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -669,6 +707,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                     const isEmilio = titNombre.includes('emilio')
 
+                    const facturaUrl = (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url ?? null
+                    const tieneDoc = m.doc_estado === 'tiene' || (m.factura_id && facturaUrl)
+
                     return (
                       <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
@@ -697,13 +738,38 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                             </span>
                           )}
                         </td>
-                        <td style={{ ...tdBase, textAlign: 'center' }}>
-                          {m.doc_estado === 'tiene' || (m.factura_id && (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url) ? (
-                            <span style={{ color: '#1D9E75', fontSize: 14 }}>📎</span>
+                        <td style={{ ...tdBase, padding: '0 4px', textAlign: 'center' }}>
+                          {tieneDoc && facturaUrl ? (
+                            <a
+                              href={facturaUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              title="Ver factura"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: 36, height: 26, borderRadius: 6,
+                                background: '#1D9E7515', border: '0.5px solid #1D9E7540',
+                                color: '#0F6E56', textDecoration: 'none', fontSize: 16, lineHeight: 1,
+                              }}>
+                              📎
+                            </a>
+                          ) : tieneDoc ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 36, height: 26, borderRadius: 6,
+                              background: '#1D9E7515', border: '0.5px solid #1D9E7540',
+                              color: '#0F6E56', fontSize: 16, lineHeight: 1,
+                            }}>📎</span>
                           ) : m.doc_estado === 'no_requiere' ? (
                             <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
                           ) : (
-                            <span style={{ color: '#F26B1F', fontSize: 14 }}>✕</span>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 36, height: 26, borderRadius: 6,
+                              background: '#F26B1F10', border: '0.5px dashed #F26B1F40',
+                              color: '#F26B1F', fontSize: 14, fontWeight: 600, lineHeight: 1,
+                            }}>✕</span>
                           )}
                         </td>
                         <td style={tdBase}>
