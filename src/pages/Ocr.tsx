@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import OcrEditModal from '@/components/ocr/OcrEditModal'
+import { useOcrUpload } from '@/lib/ocrUploadStore'
 
 type TabId = 'facturas' | 'extractos' | 'otros'
 type SortColumn = 'fecha' | 'contraparte' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
@@ -58,23 +59,6 @@ interface Agregados {
   pendientesImporte: number
 }
 
-interface ArchivoLog {
-  filename: string
-  status: 'ok' | 'duplicado' | 'pendiente' | 'error'
-  detalle: string
-}
-
-interface ToastState {
-  total: number
-  enviados: number
-  ok: number
-  pendientes: number
-  duplicados: number
-  errores: number
-  log: ArchivoLog[]
-  visible: boolean
-}
-
 function esConciliada(f: Factura): boolean {
   if (!f.pdf_drive_url) return false
   if (!f.categoria_factura) return false
@@ -121,10 +105,17 @@ export default function Ocr() {
 
   const [exportando, setExportando] = useState(false)
 
-  const [toast, setToast] = useState<ToastState | null>(null)
-  const [toastExpandido, setToastExpandido] = useState(false)
   const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
   const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
+
+  const ocrUpload = useOcrUpload()
+
+  // Refrescar lista cuando termine de procesar el lote
+  useEffect(() => {
+    if (ocrUpload.state && !ocrUpload.state.procesando && ocrUpload.state.enviados > 0) {
+      setRefreshTick(x => x + 1)
+    }
+  }, [ocrUpload.state?.procesando])
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -367,82 +358,6 @@ export default function Ocr() {
     }
   }
 
-  const procesarLote = useCallback(async (files: File[], titular_id_forzado: string | null) => {
-    setToast({
-      total: files.length,
-      enviados: 0,
-      ok: 0,
-      pendientes: 0,
-      duplicados: 0,
-      errores: 0,
-      log: [],
-      visible: true
-    })
-    setToastExpandido(false)
-
-    const fnName = tab === 'extractos' ? 'ocr-procesar-extracto' : 'ocr-procesar-factura'
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
-
-      try {
-        const base64 = await new Promise<string>((res, rej) => {
-          const r = new FileReader()
-          r.onload = () => res((r.result as string).split(',')[1])
-          r.onerror = () => rej(new Error('Error leyendo archivo'))
-          r.readAsDataURL(file)
-        })
-
-        const body: any = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
-        if (tab === 'extractos' && titular_id_forzado) body.titular_id = titular_id_forzado
-
-        const { data, error } = await supabase.functions.invoke(fnName, { body })
-
-        if (error) {
-          logEntry = { filename: file.name, status: 'error', detalle: `Error invoke: ${error.message || JSON.stringify(error)}` }
-        } else if (data?.error) {
-          logEntry = { filename: file.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
-        } else if (data?.status === 'duplicado') {
-          logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
-        } else if (data?.status === 'ok') {
-          if (tab === 'extractos') {
-            logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
-          } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
-            logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
-          } else {
-            const motivos: string[] = []
-            if (!data.matched) motivos.push('sin movimiento bancario')
-            if (data.sin_categoria) motivos.push('sin categoría')
-            if (data.sin_titular) motivos.push('sin titular')
-            logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
-          }
-        } else {
-          logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
-        }
-      } catch (err: any) {
-        logEntry = { filename: file.name, status: 'error', detalle: err?.message || String(err) }
-      }
-
-      setToast(t => {
-        if (!t) return t
-        const next = { ...t, enviados: t.enviados + 1, log: [...t.log, logEntry] }
-        if (logEntry.status === 'ok') next.ok++
-        else if (logEntry.status === 'duplicado') next.duplicados++
-        else if (logEntry.status === 'pendiente') next.pendientes++
-        else next.errores++
-        return next
-      })
-
-      // Pausa 1500ms entre facturas para evitar rate limit Anthropic API
-      if (i < files.length - 1) {
-        await new Promise(r => setTimeout(r, 1500))
-      }
-    }
-
-    setRefreshTick(x => x + 1)
-  }, [tab])
-
   const handleSubir = useCallback(() => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -457,10 +372,10 @@ export default function Ocr() {
         return
       }
 
-      procesarLote(files, null)
+      ocrUpload.procesar(files, 'ocr-procesar-factura', null)
     }
     input.click()
-  }, [tab, procesarLote])
+  }, [tab, ocrUpload])
 
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
     background: '#fff',
@@ -893,7 +808,7 @@ export default function Ocr() {
                 onClick={() => {
                   const archivos = modalTitular.archivos
                   setModalTitular({ archivos: [], visible: false })
-                  procesarLote(archivos, RUBEN_ID)
+                  ocrUpload.procesar(archivos, 'ocr-procesar-extracto', RUBEN_ID)
                 }}
                 style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Rubén
@@ -902,7 +817,7 @@ export default function Ocr() {
                 onClick={() => {
                   const archivos = modalTitular.archivos
                   setModalTitular({ archivos: [], visible: false })
-                  procesarLote(archivos, EMILIO_ID)
+                  ocrUpload.procesar(archivos, 'ocr-procesar-extracto', EMILIO_ID)
                 }}
                 style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Emilio
@@ -931,106 +846,6 @@ export default function Ocr() {
             setRefreshTick(x => x + 1)
           }}
         />
-      )}
-
-      {toast && toast.visible && (
-        <div style={{
-          position: 'fixed', bottom: 20, right: 20,
-          background: '#1e2233', color: '#fff',
-          padding: '14px 18px', borderRadius: 12,
-          minWidth: 320, maxWidth: 420,
-          fontFamily: 'Lexend, sans-serif', fontSize: 13,
-          zIndex: 99,
-          boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442' }}>
-              {toast.enviados < toast.total ? 'Procesando…' : 'Completado'}
-            </span>
-            <button
-              onClick={() => setToast(null)}
-              style={{
-                background: 'rgba(255,255,255,0.1)', border: 'none',
-                color: '#fff', cursor: 'pointer',
-                width: 24, height: 24, borderRadius: '50%',
-                fontSize: 14, lineHeight: 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              aria-label="Cerrar"
-              title="Cerrar"
-            >
-              ×
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
-            <div>Procesados: <b>{toast.enviados}/{toast.total}</b></div>
-            <div style={{ color: '#1D9E75' }}>Conciliadas: <b>{toast.ok}</b></div>
-            <div style={{ color: '#F26B1F' }}>Pendientes: <b>{toast.pendientes}</b></div>
-            <div style={{ color: '#7a8090' }}>Duplicados: <b>{toast.duplicados}</b></div>
-            {toast.errores > 0 && (
-              <div style={{ color: '#E24B4A', gridColumn: '1 / -1' }}>Errores: <b>{toast.errores}</b></div>
-            )}
-          </div>
-
-          <div style={{ marginTop: 10, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${(toast.enviados / toast.total) * 100}%`, height: '100%', background: '#1D9E75', transition: 'width 0.3s' }} />
-          </div>
-
-          {toast.log.length > 0 && (
-            <>
-              <button
-                onClick={() => setToastExpandido(x => !x)}
-                style={{
-                  marginTop: 10, width: '100%',
-                  padding: '6px 10px', borderRadius: 6,
-                  background: 'rgba(255,255,255,0.08)',
-                  border: 'none', color: '#fff',
-                  cursor: 'pointer',
-                  fontFamily: 'Lexend, sans-serif', fontSize: 11,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                <span>{toastExpandido ? 'Ocultar detalle' : 'Ver detalle'}</span>
-                <span>{toastExpandido ? '▲' : '▼'}</span>
-              </button>
-
-              {toastExpandido && (
-                <div style={{
-                  marginTop: 8, maxHeight: 240, overflowY: 'auto',
-                  background: 'rgba(0,0,0,0.2)', borderRadius: 6,
-                  padding: 8, fontSize: 11,
-                }}>
-                  {toast.log.map((entry, idx) => {
-                    const colors: Record<string, string> = {
-                      ok: '#1D9E75',
-                      duplicado: '#7a8090',
-                      pendiente: '#F26B1F',
-                      error: '#E24B4A',
-                    }
-                    const labels: Record<string, string> = {
-                      ok: 'Conciliada',
-                      duplicado: 'Duplicado',
-                      pendiente: 'Pendiente',
-                      error: 'Error',
-                    }
-                    return (
-                      <div key={idx} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: idx < toast.log.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
-                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.filename}</span>
-                          <span style={{ color: colors[entry.status], textTransform: 'uppercase', fontSize: 9, letterSpacing: '1px', flexShrink: 0 }}>{labels[entry.status]}</span>
-                        </div>
-                        {entry.detalle && (
-                          <div style={{ fontSize: 10, color: '#a0a8b8', marginTop: 2, paddingLeft: 12 }}>{entry.detalle}</div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </div>
       )}
     </div>
   )
