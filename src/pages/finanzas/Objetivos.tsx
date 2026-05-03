@@ -42,22 +42,15 @@ const FESTIVOS_2026 = [
   '2026-10-12', '2026-11-01', '2026-11-09', '2026-12-08', '2026-12-25',
 ]
 
-// ─── Presupuestos: categorías agrupadas ────────────────────────────────────────
 const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: string; nombre: string }[] }[] = [
-  {
-    grupo: 'PRODUCTO',
-    label: 'Producto (COGS)',
-    codigos: [
+  { grupo: 'PRODUCTO', label: 'Producto (COGS)', codigos: [
       { codigo: 'PRD-MP',  nombre: 'Materia prima' },
       { codigo: 'PRD-BEB', nombre: 'Bebidas' },
       { codigo: 'PRD-PCK', nombre: 'Packaging' },
       { codigo: 'PRD-MER', nombre: 'Mermas y roturas' },
     ],
   },
-  {
-    grupo: 'EQUIPO',
-    label: 'Equipo (Labor)',
-    codigos: [
+  { grupo: 'EQUIPO', label: 'Equipo (Labor)', codigos: [
       { codigo: 'EQP-NOM', nombre: 'Sueldos empleados nómina' },
       { codigo: 'EQP-SS',  nombre: 'Seguridad Social' },
       { codigo: 'EQP-RUB', nombre: 'Sueldo socio Rubén' },
@@ -66,10 +59,7 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
       { codigo: 'EQP-FOR', nombre: 'Formación e incentivos' },
     ],
   },
-  {
-    grupo: 'LOCAL',
-    label: 'Local (Occupancy)',
-    codigos: [
+  { grupo: 'LOCAL', label: 'Local (Occupancy)', codigos: [
       { codigo: 'LOC-ALQ', nombre: 'Alquiler local' },
       { codigo: 'LOC-SUM', nombre: 'Suministros' },
       { codigo: 'LOC-LIM', nombre: 'Limpieza' },
@@ -79,10 +69,7 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
       { codigo: 'LOC-IRP', nombre: 'IRPF retención alquiler' },
     ],
   },
-  {
-    grupo: 'CONTROLABLES',
-    label: 'Controlables (OPEX)',
-    codigos: [
+  { grupo: 'CONTROLABLES', label: 'Controlables (OPEX)', codigos: [
       { codigo: 'CTR-MKT', nombre: 'Marketing y publicidad' },
       { codigo: 'CTR-SW',  nombre: 'Software y suscripciones' },
       { codigo: 'CTR-SEG', nombre: 'Seguros' },
@@ -98,15 +85,11 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function Objetivos() {
   const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
 
-  // Tab state
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
-
-  // Week navigation (offset from current ISO week)
   const hoy = useMemo(() => new Date(), [])
   const [weekOffset, setWeekOffset] = useState(0)
 
@@ -139,7 +122,6 @@ export default function Objetivos() {
   const esFestivo = (dia: number) => FESTIVOS_2026.includes(fechaDia(dia).toISOString().split('T')[0])
   const esHoy = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
-  // Data states
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
   const [diasSemana, setDiasSemana] = useState<ObjetivoDia[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -150,7 +132,6 @@ export default function Objetivos() {
   const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Presupuestos state
   const [presAnio, setPresAnio] = useState(hoy.getFullYear())
   const [presData, setPresData] = useState<ObjetivoPresupuesto[]>([])
   const [presLoading, setPresLoading] = useState(false)
@@ -187,7 +168,6 @@ export default function Objetivos() {
     if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
   }, [activeTab, presAnio, loadPresupuestos])
 
-  // ─── Save objetivo general (override) ─────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
@@ -200,7 +180,6 @@ export default function Objetivos() {
     setEditingId(null)
   }
 
-  // Borra el override → vuelve al cálculo base
   const deleteObjetivoGeneral = async (tipo: string) => {
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
@@ -222,7 +201,6 @@ export default function Objetivos() {
     setEditingId(null)
   }
 
-  // ─── Save presupuesto cell ────────────────────────────────────────────────
   const savePresupuesto = async (codigo: string, mes: number, val: number) => {
     setPresSaving(true)
     const existing = presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)
@@ -254,7 +232,6 @@ export default function Objetivos() {
     setPresSaving(false)
   }
 
-  // ─── Calculations ─────────────────────────────────────────────────────────
   const hoyStr = hoy.toISOString().slice(0, 10)
   const diaSemanaHoy = hoy.getDay() === 0 ? 7 : hoy.getDay()
   const objHoy = diasSemana.find(d => d.dia === diaSemanaHoy)?.importe || 0
@@ -266,7 +243,6 @@ export default function Objetivos() {
 
   const ventasSemana = useMemo(() => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0), [ventas, weekStart, weekEnd])
 
-  // Banner avisos calendario
   const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(monday), [diasCerradosSemana, monday])
   const diasOperativosSemana = useMemo(() => diasOperativosEnRango(monday, sunday), [diasOperativosEnRango, monday, sunday])
 
@@ -288,29 +264,25 @@ export default function Objetivos() {
   const currentYear = hoyStr.slice(0, 4)
   const ventasAno = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentYear])
 
-  // ─── BASES (suma días + media diaria × días naturales) ─────────────────────
-  // Semanal base = suma exacta de los 7 objetivos diarios
+  // Semanal base = suma de los 7 objetivos diarios
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
 
-  // Mensual base = (suma semanal / 7) × días naturales del mes actual
+  // Mensual base = (suma semanal / 7) × días naturales del mes — REDONDEADO A ENTERO
   const sumaMes = useMemo(() => {
     const ano = hoy.getFullYear()
     const mes = hoy.getMonth()
     const diasEnMes = new Date(ano, mes + 1, 0).getDate()
-    const mediaDia = sumaSemana / 7
-    return mediaDia * diasEnMes
+    return Math.round((sumaSemana / 7) * diasEnMes)
   }, [sumaSemana, hoy])
 
-  // Anual base = (suma semanal / 7) × días naturales del año actual
+  // Anual base = (suma semanal / 7) × días naturales del año — REDONDEADO A ENTERO
   const sumaAno = useMemo(() => {
     const ano = hoy.getFullYear()
     const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
     const dAno = esBis ? 366 : 365
-    const mediaDia = sumaSemana / 7
-    return mediaDia * dAno
+    return Math.round((sumaSemana / 7) * dAno)
   }, [sumaSemana, hoy])
 
-  // Override: si existe valor explícito Y > 0 → se aplica; si es 0 o no existe → base
   const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
   const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? objSemanalOverride : sumaSemana
 
@@ -320,7 +292,6 @@ export default function Objetivos() {
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
   const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? objAnualOverride : sumaAno
 
-  // ─── Histórico ────────────────────────────────────────────────────────────
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
     const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
@@ -402,7 +373,6 @@ export default function Objetivos() {
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
   )
 
-  // ─── Render helpers ───────────────────────────────────────────────────────
   const pctHoy = objHoy > 0 ? Math.round((ventasHoy / objHoy) * 100) : 0
   const pctSem = objSemanal > 0 ? Math.round((ventasSemana / objSemanal) * 100) : 0
   const pctMes = objMensual > 0 ? Math.round((ventasMes / objMensual) * 100) : 0
@@ -421,17 +391,11 @@ export default function Objetivos() {
     paddingBottom: 1,
   })
 
-  // Editable inline:
-  //  - Vacío → resetea (DELETE override → vuelve al cálculo base)
-  //  - 0 → resetea (DELETE override → vuelve al cálculo base)
-  //  - Número > 0 → guarda override
   const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
     const commit = () => {
       const trimmed = editValue.trim()
-      // vacío → reset
       if (trimmed === '' && onReset) { onReset(); return }
       const v = parseFloat(trimmed.replace(',', '.'))
-      // 0 o negativo → reset (no permitimos guardar 0)
       if (!isNaN(v) && v <= 0 && onReset) { onReset(); return }
       if (!isNaN(v) && v > 0) onSave(v)
       else setEditingId(null)
@@ -503,7 +467,6 @@ export default function Objetivos() {
     color: T.mut, margin: '24px 0 10px',
   }
 
-  // ─── Presupuestos helpers ─────────────────────────────────────────────────
   const getPresVal = (codigo: string, mes: number) =>
     presData.find(p => p.categoria_codigo === codigo && p.mes === mes)?.importe ?? 0
 
@@ -522,7 +485,6 @@ export default function Objetivos() {
     else setPresEditing(null)
   }
 
-  // ─── Tabs UI ──────────────────────────────────────────────────────────────
   const tabs = [
     { key: 'objetivos', label: 'Objetivos de venta' },
     { key: 'presupuestos', label: 'Presupuesto de gastos' },
@@ -531,7 +493,6 @@ export default function Objetivos() {
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -548,7 +509,6 @@ export default function Objetivos() {
         </div>
       </div>
 
-      {/* TABS */}
       <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
           <button
@@ -561,10 +521,8 @@ export default function Objetivos() {
         ))}
       </div>
 
-      {/* ═══ TAB: OBJETIVOS ═══ */}
       {activeTab === 'objetivos' && (
         <>
-          {/* BANNER aviso días cerrados semana */}
           {nDiasCerradosSemana > 0 && (() => {
             const objAjustado = objMensual > 0 && diasOperativosSemana > 0
               ? objMensual / (diasOperativosEnRango(
@@ -579,10 +537,8 @@ export default function Objetivos() {
             )
           })()}
 
-          {/* DOS CARDS PRINCIPALES */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            {/* IZQUIERDA: Hero HOY + 3 periodos */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 Ventas · Hoy {hoy.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).toUpperCase()}
@@ -598,7 +554,6 @@ export default function Objetivos() {
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
             </div>
 
-            {/* DERECHA: Semana vertical L-D */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>Objetivo por día</span>
@@ -701,7 +656,6 @@ export default function Objetivos() {
 
           </div>
 
-          {/* HISTÓRICO */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -761,7 +715,6 @@ export default function Objetivos() {
         </>
       )}
 
-      {/* ═══ TAB: PRESUPUESTOS ═══ */}
       {activeTab === 'presupuestos' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
