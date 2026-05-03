@@ -108,7 +108,7 @@ interface PresupuestoRow {
 }
 
 const GRUPO_DEFAULT_PCT: Record<GrupoGasto, number> = {
-  producto: 28,     // food cost banda 25-30%
+  producto: 28,
   equipo: 32,
   local: 7,
   controlables: 15,
@@ -121,7 +121,7 @@ export default function TabResumen({
 
   /* ── state datos BD ──────────────────────────── */
   const [objetivos, setObjetivos] = useState<ObjetivosVentas>({
-    diario: 700, semanal: 5000, mensual: 20000, anual: 240000,
+    diario: 0, semanal: 0, mensual: 0, anual: 0,
   })
   const [objetivoRatio, setObjetivoRatio] = useState<number>(2.5)
   const [presupuestosGrupo, setPresupuestosGrupo] = useState<Record<GrupoGasto, number>>({
@@ -132,7 +132,6 @@ export default function TabResumen({
   const [provisiones, setProvisiones] = useState<Provision[]>([])
   const [gastos, setGastos] = useState<GastoRow[]>([])
   const [presupuestosBD, setPresupuestosBD] = useState<PresupuestoRow[]>([])
-  // tareas eliminadas (CardPendientesSubir removido de fila 4 — bloque M)
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
 
@@ -154,10 +153,14 @@ export default function TabResumen({
   }, [])
 
   /* ── fetch objetivos ventas ─────────────────── */
-  // Lee desde misma fuente que módulo Objetivos:
-  //  - 'objetivos' (tipo=semanal/mensual/anual) actúa como override editable
-  //  - 'objetivos_dia_semana' calcula el valor base si no hay override
-  // Si el usuario borra el override en CardVentas, se restaura el valor base.
+  // Lee misma fuente que módulo Objetivos:
+  //  - 'objetivos' (tipo=semanal/mensual/anual): override editable (solo si > 0)
+  //  - 'objetivos_dia_semana': base hardcodeada
+  // Bases:
+  //  - semanal = suma exacta de los 7 objetivos diarios
+  //  - mensual = (sumaSemana / 7) × días naturales del mes
+  //  - anual   = (sumaSemana / 7) × días naturales del año
+  // Si override es 0 o no existe, se aplica la base.
   const loadObjetivos = useCallback(async () => {
     const [resObj, resDias] = await Promise.all([
       supabase.from('objetivos').select('tipo,importe').in('tipo', ['diario', 'semanal', 'mensual', 'anual', 'ratio_ingresos_gastos']),
@@ -183,29 +186,24 @@ export default function TabResumen({
     const ano = hoyD.getFullYear()
     const mesIdx = hoyD.getMonth()
     const diasEnMes = new Date(ano, mesIdx + 1, 0).getDate()
-    let sumaMes = 0
-    for (let dd = 1; dd <= diasEnMes; dd++) {
-      const f = new Date(ano, mesIdx, dd)
-      const ds = f.getDay() === 0 ? 7 : f.getDay()
-      sumaMes += findDia(ds)
-    }
     const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
     const dAno = esBis ? 366 : 365
-    let sumaAno = 0
-    const ini = new Date(ano, 0, 1)
-    for (let i = 0; i < dAno; i++) {
-      const f = new Date(ini)
-      f.setDate(ini.getDate() + i)
-      const ds = f.getDay() === 0 ? 7 : f.getDay()
-      sumaAno += findDia(ds)
-    }
     const diaActual = hoyD.getDay() === 0 ? 7 : hoyD.getDay()
 
+    // Bases (mismo cálculo que módulo Objetivos)
+    const mediaDia = sumaSemana / 7
+    const sumaMes = mediaDia * diasEnMes
+    const sumaAno = mediaDia * dAno
+
+    // Override solo si existe Y > 0 (0 o ausente → usa la base)
+    const useOverride = (k: 'diario' | 'semanal' | 'mensual' | 'anual') =>
+      overrides[k] !== undefined && (overrides[k] as number) > 0
+
     const obj: ObjetivosVentas = {
-      diario: overrides.diario ?? findDia(diaActual) ?? 0,
-      semanal: overrides.semanal ?? sumaSemana,
-      mensual: overrides.mensual ?? sumaMes,
-      anual: overrides.anual ?? sumaAno,
+      diario:  useOverride('diario')  ? (overrides.diario  as number) : findDia(diaActual),
+      semanal: useOverride('semanal') ? (overrides.semanal as number) : sumaSemana,
+      mensual: useOverride('mensual') ? (overrides.mensual as number) : sumaMes,
+      anual:   useOverride('anual')   ? (overrides.anual   as number) : sumaAno,
     }
     setObjetivos(obj)
     setObjetivoRatio(ratio)
@@ -291,8 +289,6 @@ export default function TabResumen({
       })
   }, [])
 
-  // fetch tareas eliminado (CardPendientesSubir removido — bloque M)
-
   /* ── derivar canalStats del periodo ─────────── */
   const canalStats: CanalStat[] = useMemo(() => {
     const filt = canalesFiltro.length > 0
@@ -361,7 +357,7 @@ export default function TabResumen({
   const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' })
   const ano = new Date().getFullYear()
 
-  /* ── netos reales del periodo (factura banca) ─ */
+  /* ── netos reales del periodo ─ */
   const netosReales = useMemo(() => {
     const fIni = fechaDesde.getFullYear() * 100 + (fechaDesde.getMonth() + 1)
     const fFin = fechaHasta.getFullYear() * 100 + (fechaHasta.getMonth() + 1)
@@ -389,7 +385,6 @@ export default function TabResumen({
   const { ebitda, ebitdaPct, primeCostPct } = useMemo(() => {
     const cogs = peParams ? netoEstimado * (peParams.food_cost_pct / 100) : netoEstimado * 0.28
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos) : 0
-    // Prorrateo de sueldos al periodo
     const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
     const labor = (sueldosMes / 30) * dias
     const pc = netoEstimado > 0 ? ((cogs + labor) / netoEstimado) * 100 : 0
@@ -398,7 +393,6 @@ export default function TabResumen({
     return { ebitda: eb, ebitdaPct: ebPct, primeCostPct: pc }
   }, [netoEstimado, totalGastosPeriodo, peParams, fechaDesde, fechaHasta])
 
-  /* ── delta pp ebitda ────────────────────────── */
   const ebitdaDeltaPp = useMemo(() => {
     if (!variacionVentas) return null
     return variacionVentas / 10
@@ -419,8 +413,6 @@ export default function TabResumen({
     const local = (sumPorGrupo['ALQUILER'] || 0) + (sumPorGrupo['SUMINISTROS'] || 0)
     const controlables = (sumPorGrupo['ADMIN_GENERALES'] || 0) + (sumPorGrupo['MARKETING'] || 0) + (sumPorGrupo['INTERNET_VENTAS'] || 0)
 
-    // Presupuestos: prefer presupuestosGrupo (objetivos.tipo=presupuesto_grupo).
-    // Fallback: agregación de presupuestos_mensuales por categoría → grupo
     function presFromBD(prefijos: string[]): number {
       return presupuestosBD
         .filter(p => prefijos.some(pr => p.categoria.startsWith(pr)))
@@ -458,12 +450,11 @@ export default function TabResumen({
     return validos.reduce((a, d) => a + d.valor, 0) / validos.length
   }, [diasPico])
 
-  /* ── saldo + proyección (datos demo si BD vacía) ─ */
+  /* ── saldo + proyección ─ */
   const saldoData = useMemo(() => {
     if (gastos.length === 0 && rowsAll.length === 0) {
       return { saldoHoy: 0, cobros7d: 0, pagos7d: 0, cobros30d: 0, pagos30d: 0 }
     }
-    // Cobros estimados: facturación neta proyectada de últimos 7/30 días (rolling)
     const hoy = new Date()
     const hace7 = new Date(hoy); hace7.setDate(hoy.getDate() - 7)
     const hace30 = new Date(hoy); hace30.setDate(hoy.getDate() - 30)
@@ -487,12 +478,10 @@ export default function TabResumen({
     const cobros7d = netoRows(desde7, hasta)
     const cobros30d = netoRows(desde30, hasta)
 
-    // Pagos estimados: gastos fijos pe_parametros prorrateados + gastos reales últimos N días
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos + peParams.alquiler_local + peParams.gestoria + peParams.luz + peParams.agua + peParams.telefono + peParams.hosting_software + peParams.otros_fijos) : 3500
     const pagos7d  = (sueldosMes / 30) * 7  + gastos.filter(g => g.fecha >= desde7  && g.fecha <= hasta).reduce((a, g) => a + (Number(g.importe) || 0), 0) * 0.3
     const pagos30d = sueldosMes + gastos.filter(g => g.fecha >= desde30 && g.fecha <= hasta).reduce((a, g) => a + (Number(g.importe) || 0), 0) * 0.5
 
-    // Saldo hoy aproximado: cobros30d - pagos30d (estimación conservadora)
     const saldoHoy = Math.max(0, cobros30d - pagos30d) + (peParams?.caja_minima_verde ?? 0)
     return { saldoHoy, cobros7d, pagos7d, cobros30d, pagos30d }
   }, [rowsAll, gastos, peParams])
@@ -516,12 +505,9 @@ export default function TabResumen({
         realFacDia: 0, realPedDia: 0,
       }
     }
-    // Margen contribución: usando food_cost_pct + comisiones promedio
     const peNeto = gastosFijosMes
-    // Factor bruto→neto promedio (asumiendo mix actual canal)
     const bruto2neto = ventasMes > 0 && netoEstimado > 0 ? (netoEstimado / ventasMes) : 0.7
     const peBruto = bruto2neto > 0 ? peNeto / bruto2neto : peNeto
-    // FIX 33: pctProgreso real sin truncar — CardPE trunca solo para la barra visual
     const pctProgreso = peBruto > 0 ? Math.round((ventasMes / peBruto) * 100) : 0
 
     const hoy = new Date()
@@ -563,7 +549,6 @@ export default function TabResumen({
     const iva  = provisiones.filter(p => p.tipo.startsWith('IVA') && p.periodo.startsWith(mesActual)).reduce((a, p) => a + (Number(p.importe) || 0), 0)
     const irpf = provisiones.filter(p => p.tipo.startsWith('IRPF') && p.periodo.startsWith(mesActual)).reduce((a, p) => a + (Number(p.importe) || 0), 0)
 
-    // Próximos pagos 30d desde provisiones + gastos fijos
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
     const en30 = new Date(hoy); en30.setDate(hoy.getDate() + 30)
     const items: PagoProximoItem[] = []
@@ -574,7 +559,6 @@ export default function TabResumen({
       }
     }
     if (peParams) {
-      // estimados gastos fijos del mes que vencen
       if (peParams.alquiler_local) items.push({ concepto: 'Alquiler local', fecha: 'mensual', importe: peParams.alquiler_local })
       if (peParams.gestoria)       items.push({ concepto: 'Gestoría',        fecha: 'mensual', importe: peParams.gestoria })
       if (peParams.luz)            items.push({ concepto: 'Luz',             fecha: 'mensual', importe: peParams.luz })
@@ -584,7 +568,7 @@ export default function TabResumen({
     return { totalAGuardar: iva + irpf, provIVA: iva, provIRPF: irpf, proximosPagos: items }
   }, [provisiones, peParams])
 
-  /* ── top ventas: intenta tabla pedidos ─────────────── */
+  /* ── top ventas ─ */
   const topItems: TopVentaItem[] = useMemo(() => [], [])
 
   useEffect(() => {
@@ -604,7 +588,6 @@ export default function TabResumen({
   useEffect(() => {
     if (dataInicializadaRef.current) return
     dataInicializadaRef.current = true
-    // Si no hay datos en facturacion ni gastos, marcamos demo
     if (rowsAll.length === 0 && gastos.length === 0) {
       setDatosDemo(true)
     }
@@ -612,16 +595,18 @@ export default function TabResumen({
 
   /* ── handlers persist objetivos ─────────────── */
   // Override editable en CardVentas:
-  //  - valor → upsert en 'objetivos' (tipo=semanal/mensual/anual) y refresca el state
-  //  - null  → BORRA el override; recarga base desde objetivos_dia_semana
+  //  - valor → upsert override
+  //  - null  → DELETE override → vuelve a la base calculada
   async function saveObjetivoVenta(tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) {
     if (valor == null) {
       await supabase.from('objetivos').delete().eq('tipo', tipo)
       await loadObjetivos()
       return
     }
+    // Update optimista del state
     setObjetivos(p => ({ ...p, [tipo]: valor }))
     await supabase.from('objetivos').upsert({ tipo, importe: valor }, { onConflict: 'tipo' })
+    await loadObjetivos()
   }
 
   async function saveObjetivoRatio(valor: number | null) {
@@ -671,7 +656,6 @@ export default function TabResumen({
         </div>
       )}
 
-      {/* TOASTS */}
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {toasts.map(t => (
           <div key={t.id} style={{
@@ -682,7 +666,6 @@ export default function TabResumen({
         ))}
       </div>
 
-      {/* FILA 1: Cards grandes */}
       <div style={{
         ...row3,
         marginBottom: 14,
@@ -733,7 +716,6 @@ export default function TabResumen({
         />
       </div>
 
-      {/* FILA 2: 3 columnas */}
       <div style={{
         ...row3,
         marginBottom: 14,
@@ -755,7 +737,6 @@ export default function TabResumen({
         />
       </div>
 
-      {/* FILA 3: 3 cards medianas */}
       <div style={{
         ...row3,
         marginBottom: 14,
@@ -774,7 +755,6 @@ export default function TabResumen({
         <CardPE {...peCalc} />
       </div>
 
-      {/* FILA 4: 3 columnas iguales — FIX 28: 1fr 1fr 1fr (col3 vacía) */}
       <div style={{
         ...row3,
         gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
