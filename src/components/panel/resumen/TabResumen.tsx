@@ -154,23 +154,64 @@ export default function TabResumen({
   }, [])
 
   /* ── fetch objetivos ventas ─────────────────── */
-  useEffect(() => {
-    supabase.from('objetivos').select('tipo,importe').in('tipo', ['diario', 'semanal', 'mensual', 'anual', 'ratio_ingresos_gastos']).then(({ data }) => {
-      if (!data) return
-      const obj: ObjetivosVentas = { diario: 700, semanal: 5000, mensual: 20000, anual: 240000 }
-      let ratio = 2.5
-      for (const r of data as { tipo: string; importe: number }[]) {
-        if (r.tipo === 'diario' || r.tipo === 'semanal' || r.tipo === 'mensual' || r.tipo === 'anual') {
-          obj[r.tipo] = Number(r.importe)
-        }
-        if (r.tipo === 'ratio_ingresos_gastos') {
-          ratio = Number(r.importe) || 2.5
-        }
+  // Lee desde misma fuente que módulo Objetivos:
+  //  - 'objetivos' (tipo=semanal/mensual/anual) actúa como override editable
+  //  - 'objetivos_dia_semana' calcula el valor base si no hay override
+  // Si el usuario borra el override en CardVentas, se restaura el valor base.
+  const loadObjetivos = useCallback(async () => {
+    const [resObj, resDias] = await Promise.all([
+      supabase.from('objetivos').select('tipo,importe').in('tipo', ['diario', 'semanal', 'mensual', 'anual', 'ratio_ingresos_gastos']),
+      supabase.from('objetivos_dia_semana').select('dia,importe'),
+    ])
+
+    const overrides: Partial<Record<'diario' | 'semanal' | 'mensual' | 'anual', number>> = {}
+    let ratio = 2.5
+    for (const r of (resObj.data ?? []) as { tipo: string; importe: number }[]) {
+      if (r.tipo === 'diario' || r.tipo === 'semanal' || r.tipo === 'mensual' || r.tipo === 'anual') {
+        overrides[r.tipo] = Number(r.importe)
       }
-      setObjetivos(obj)
-      setObjetivoRatio(ratio)
-    })
+      if (r.tipo === 'ratio_ingresos_gastos') {
+        ratio = Number(r.importe) || 2.5
+      }
+    }
+
+    const dias = (resDias.data ?? []) as { dia: number; importe: number }[]
+    const findDia = (d: number) => Number(dias.find(x => x.dia === d)?.importe || 0)
+    const sumaSemana = dias.reduce((a, d) => a + Number(d.importe || 0), 0)
+
+    const hoyD = new Date()
+    const ano = hoyD.getFullYear()
+    const mesIdx = hoyD.getMonth()
+    const diasEnMes = new Date(ano, mesIdx + 1, 0).getDate()
+    let sumaMes = 0
+    for (let dd = 1; dd <= diasEnMes; dd++) {
+      const f = new Date(ano, mesIdx, dd)
+      const ds = f.getDay() === 0 ? 7 : f.getDay()
+      sumaMes += findDia(ds)
+    }
+    const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
+    const dAno = esBis ? 366 : 365
+    let sumaAno = 0
+    const ini = new Date(ano, 0, 1)
+    for (let i = 0; i < dAno; i++) {
+      const f = new Date(ini)
+      f.setDate(ini.getDate() + i)
+      const ds = f.getDay() === 0 ? 7 : f.getDay()
+      sumaAno += findDia(ds)
+    }
+    const diaActual = hoyD.getDay() === 0 ? 7 : hoyD.getDay()
+
+    const obj: ObjetivosVentas = {
+      diario: overrides.diario ?? findDia(diaActual) ?? 0,
+      semanal: overrides.semanal ?? sumaSemana,
+      mensual: overrides.mensual ?? sumaMes,
+      anual: overrides.anual ?? sumaAno,
+    }
+    setObjetivos(obj)
+    setObjetivoRatio(ratio)
   }, [])
+
+  useEffect(() => { loadObjetivos() }, [loadObjetivos])
 
   /* ── fetch pe_parametros ────────────────────── */
   useEffect(() => {
@@ -570,10 +611,13 @@ export default function TabResumen({
   }, [rowsAll.length, gastos.length])
 
   /* ── handlers persist objetivos ─────────────── */
+  // Override editable en CardVentas:
+  //  - valor → upsert en 'objetivos' (tipo=semanal/mensual/anual) y refresca el state
+  //  - null  → BORRA el override; recarga base desde objetivos_dia_semana
   async function saveObjetivoVenta(tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) {
     if (valor == null) {
-      const { data } = await supabase.from('objetivos').select('importe').eq('tipo', tipo).maybeSingle()
-      if (data) setObjetivos(p => ({ ...p, [tipo]: Number((data as { importe: number }).importe) }))
+      await supabase.from('objetivos').delete().eq('tipo', tipo)
+      await loadObjetivos()
       return
     }
     setObjetivos(p => ({ ...p, [tipo]: valor }))
@@ -656,6 +700,7 @@ export default function TabResumen({
           ano={ano}
           objetivos={objetivos}
           onSaveObjetivo={saveObjetivoVenta}
+          refetchObjetivos={loadObjetivos}
           toast={showToast}
         />
         <CardPedidosTM
