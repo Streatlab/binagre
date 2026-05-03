@@ -1,34 +1,41 @@
 /**
- * TablaPyG — refactor 3 may 2026 v4
+ * TablaPyG — refactor 3 may 2026 v5 (FUENTE DE VERDAD: categorias_pyg + Excel Rubén)
  *
- * Cambios respecto v3 (Rubén):
- * - Paleta trimestres más contrastada (no la pastel apagada). Verde, azul, ámbar, púrpura más vivos.
- * - Separador de miles + 2 decimales en todas las cifras (toLocaleString es-ES).
- * - Fila RESUMEN al inicio con DESGLOSE POR GRUPO (Producto, Equipo, Local, Controlables) + Bruto + Neto + EBITDA, NO un único total plano.
- * - Grupos Producto / Equipo / Local / Controlables = DESPLEGABLES de verdad. Al click se abre/cierra.
- *   Al expandir aparecen las subcategorías con código + nombre tal cual están en categorias_maestras
- *   (ej: "PRD-MP · Materia prima", "EQP-NOM · Sueldos empleados nómina").
- * - Etiquetas de grupo TAL CUAL las muestra Configuración → Bancos y cuentas → Categorías:
- *     PRODUCTO → Producto (COGS), EQUIPO → Equipo (Labor), LOCAL → Local (Occupancy), CONTROLABLES → Controlables (OPEX).
- * - Eliminado Total gastos + EBITDA del FINAL (solo viven en la fila RESUMEN de arriba).
- * - "Facturación neta · estimada" coherente con módulo Facturación.
- * - Neto = bruto * (1 - comisión) por canal mientras no haya facturas reales.
- *   ⚠️ AUTOMÁTICO: si en el futuro resumenes_plataforma_marca_mensual se rellena con neto_real_cobrado,
- *   este componente debe leer de ahí sin que Rubén pida nada.
+ * Cambios respecto v4 (Rubén):
+ * - Categorías y nombres EXACTOS de categorias_pyg (Configuración → Bancos y cuentas → Categorías)
+ *   con código tipo 1.1.4, 2.11.1, etc. NO PRD-MP / EQP-NOM que están obsoletos.
+ * - Estructura del Excel "Balance 2026":
+ *     // RESUMEN //  ← bloque superior con los KPI agregados y % s/Ingresos
+ *     // INGRESOS // ← desplegable con 1.1 Netos y 1.2 Bruto
+ *     // GASTOS //   ← desplegable con bloques 2.1, 2.2, 2.3, 2.4 (cada uno desplegable a subgrupos 2.11, 2.12 ...)
+ * - Bandas % sobre ingresos (del Excel):
+ *     2.1 Producto      25-30%
+ *     2.2 Equipo (RRHH) 30-35%
+ *     2.3 Alquiler      5-8%
+ *     2.4 Controlables  15-18%
+ * - Mapeo gastos.grupo (legacy) → bloque PyG:
+ *     PRODUCTO        → 2.1 Producto
+ *     RRHH            → 2.2 Equipo
+ *     ALQUILER        → 2.3 Alquiler
+ *     MARKETING       → 2.41 Marketing  (dentro de 2.4)
+ *     INTERNET_VENTAS → 2.42 Internet y ventas (dentro de 2.4)
+ *     ADMIN_GENERALES → 2.43 Administración y generales (dentro de 2.4)
+ *     SUMINISTROS     → 2.44 Suministros (dentro de 2.4)
+ * - Sin códigos PRD-MP, EQP-NOM, etc. en pantalla. Eliminados.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MESES_CORTO } from '@/lib/running';
 import type { GastoRaw, IngresoMensualRaw, FacturacionDiariaRaw, RangoCategoria } from '@/hooks/useRunning';
 
-interface CategoriaMaestra {
-  codigo: string;
+interface CatPyG {
+  id: string;
+  nivel: number;
+  parent_id: string | null;
   nombre: string;
-  grupo: string;
-  orden_grupo: number;
-  orden_sub: number;
-  banda_min_pct: number | null;
-  banda_max_pct: number | null;
+  bloque: string | null;
+  computa_pyg: boolean;
+  orden: number | null;
 }
 
 interface Props {
@@ -39,38 +46,71 @@ interface Props {
   rangos: RangoCategoria[];
 }
 
-// Paleta trimestres CONTRASTADA (no la pastel apagada anterior).
+// Trimestres con paleta contrastada
 const TRIM = [
-  { label: 'T1', months: [0,1,2],  bg: '#dde8f4', tot: '#b5cae3', head: '#7da3c8' },
-  { label: 'T2', months: [3,4,5],  bg: '#dee9d4', tot: '#b6cea3', head: '#7da569' },
-  { label: 'T3', months: [6,7,8],  bg: '#f4e8c8', tot: '#e8cf85', head: '#c89945' },
-  { label: 'T4', months: [9,10,11],bg: '#e3d8eb', tot: '#bfa6cf', head: '#7e5c9b' },
+  { label: '1T', months: [0,1,2],  bg: '#dde8f4', tot: '#b5cae3', head: '#7da3c8' },
+  { label: '2T', months: [3,4,5],  bg: '#dee9d4', tot: '#b6cea3', head: '#7da569' },
+  { label: '3T', months: [6,7,8],  bg: '#f4e8c8', tot: '#e8cf85', head: '#c89945' },
+  { label: '4T', months: [9,10,11],bg: '#e3d8eb', tot: '#bfa6cf', head: '#7e5c9b' },
 ];
-const YEAR_BG   = '#fbe5e8';
+const YEAR_BG = '#fbe5e8';
 const YEAR_HEAD = '#f0b8be';
-const MES_ACTUAL_BG   = '#cfe6b8';
+const MES_ACTUAL_BG = '#cfe6b8';
 const MES_ACTUAL_HEAD = '#92bd64';
 
-const CANALES = [
-  { key: 'UE',  label: 'Uber Eats',     brutoCol: 'uber_bruto',    comision: 0.30 },
-  { key: 'GL',  label: 'Glovo',         brutoCol: 'glovo_bruto',   comision: 0.32 },
-  { key: 'JE',  label: 'Just Eat',      brutoCol: 'je_bruto',      comision: 0.28 },
-  { key: 'WEB', label: 'Tienda online', brutoCol: 'web_bruto',     comision: 0.05 },
-  { key: 'DIR', label: 'Venta directa', brutoCol: 'directa_bruto', comision: 0.0  },
-] as const;
+// Bandas % sobre ingresos por bloque (definidas en el Excel)
+const BANDAS_BLOQUE: Record<string, { min: number; max: number }> = {
+  '2.1': { min: 25, max: 30 },
+  '2.2': { min: 30, max: 35 },
+  '2.3': { min: 5,  max: 8  },
+  '2.4': { min: 15, max: 18 },
+};
 
-// Etiquetas EXACTAS de Configuración → Categorías
-const GRUPOS_GASTO = [
-  { key: 'PRODUCTO',     label: 'Producto (COGS)',     color: '#7B4F2A' },
-  { key: 'EQUIPO',       label: 'Equipo (Labor)',      color: '#4A5980' },
-  { key: 'LOCAL',        label: 'Local (Occupancy)',   color: '#5A8A6F' },
-  { key: 'CONTROLABLES', label: 'Controlables (OPEX)', color: '#A87C3D' },
+// Colores acento por bloque
+const COLOR_BLOQUE: Record<string, string> = {
+  '2.1': '#7B4F2A', // producto - marrón
+  '2.2': '#4A5980', // equipo - azul gris
+  '2.3': '#5A8A6F', // alquiler - verde apagado
+  '2.4': '#A87C3D', // controlables - mostaza
+};
+
+// Mapeo gastos.grupo (legacy) → ID de bloque PyG nivel 1 ó 2
+function grupoLegacyToBloquePyG(grupo: string | null | undefined): string | null {
+  switch (grupo) {
+    case 'PRODUCTO':        return '2.1';
+    case 'RRHH':            return '2.2';
+    case 'ALQUILER':        return '2.3';
+    case 'MARKETING':       return '2.4';   // dentro de Controlables
+    case 'INTERNET_VENTAS': return '2.4';
+    case 'ADMIN_GENERALES': return '2.4';
+    case 'SUMINISTROS':     return '2.4';
+    default: return null;
+  }
+}
+
+// Mapeo gastos.grupo → ID de subgrupo PyG nivel 2 (cuando aplica)
+function grupoLegacyToSubgrupoPyG(grupo: string | null | undefined): string | null {
+  switch (grupo) {
+    case 'MARKETING':       return '2.41';
+    case 'INTERNET_VENTAS': return '2.42';
+    case 'ADMIN_GENERALES': return '2.43';
+    case 'SUMINISTROS':     return '2.44';
+    default: return null;
+  }
+}
+
+// Canales para ingresos
+const CANALES = [
+  { key: 'UE',  label: 'Uber Eats',     id_neto: '1.1.1', id_bruto: '1.2.1', brutoCol: 'uber_bruto',    comision: 0.30 },
+  { key: 'GL',  label: 'Glovo',         id_neto: '1.1.2', id_bruto: '1.2.2', brutoCol: 'glovo_bruto',   comision: 0.32 },
+  { key: 'JE',  label: 'Just Eat',      id_neto: '1.1.3', id_bruto: '1.2.3', brutoCol: 'je_bruto',      comision: 0.28 },
+  { key: 'WEB', label: 'Tienda online', id_neto: '1.1.4', id_bruto: '1.2.4', brutoCol: 'web_bruto',     comision: 0.05 },
+  { key: 'DIR', label: 'Venta directa', id_neto: '1.1.5', id_bruto: '1.2.5', brutoCol: 'directa_bruto', comision: 0.0  },
 ] as const;
 
 const arr12 = (): number[] => [0,0,0,0,0,0,0,0,0,0,0,0];
 const sumMonths = (arr: number[], months: number[]) => months.reduce((a, m) => a + (arr[m] || 0), 0);
 
-// Separador miles + 2 decimales (es-ES)
 function valFmt(v: number): string {
   if (!v || isNaN(v)) return '—';
   const abs = Math.abs(v).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -95,11 +135,11 @@ function bandaSemaforo(pctReal: number, min: number, max: number): { color: stri
   return { color: pp <= 1 ? '#f5a623' : '#A32D2D', arrow: `▴${pp}` };
 }
 
-type RowKind = 'h0'|'h1'|'detail'|'total';
+type RowKind = 'h0' | 'h1' | 'h2' | 'detail' | 'separator';
 interface Row {
   key: string;
   kind: RowKind;
-  label: string;
+  label: string;            // "1.1.4 Venta Tienda online"
   monthly: number[];
   parentKey?: string;
   expandable?: boolean;
@@ -109,19 +149,17 @@ interface Row {
   italic?: boolean;
   isResult?: boolean;
   colorAccent?: string;
-  bgRow?: string;
   isResumen?: boolean;
-  bandaPct?: number | null;
+  isSeparator?: boolean;
 }
 
 export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAnio = [] }: Props) {
   void ingresosAnio;
   const [collapsedTrim, setCollapsedTrim] = useState<Set<string>>(new Set());
-  // Por defecto los grupos h1 (PRODUCTO/EQUIPO/LOCAL/CONTROLABLES) arrancan COLAPSADOS
   const [collapsedRow, setCollapsedRow] = useState<Set<string>>(() =>
-    new Set(['g-PRODUCTO', 'g-EQUIPO', 'g-LOCAL', 'g-CONTROLABLES', 'fact-bruta'])
+    new Set(['blk-1', 'blk-2.1', 'blk-2.2', 'blk-2.3', 'blk-2.4', 'sub-1.2'])
   );
-  const [catsMaestras, setCatsMaestras] = useState<CategoriaMaestra[]>([]);
+  const [cats, setCats] = useState<CatPyG[]>([]);
 
   const mesActualIdx = useMemo(() => {
     const hoy = new Date();
@@ -131,14 +169,14 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
   useEffect(() => {
     let cancel = false;
     (async () => {
-      const { data: cats } = await supabase
-        .from('categorias_maestras')
-        .select('*')
+      const { data } = await supabase
+        .from('categorias_pyg')
+        .select('id,nivel,parent_id,nombre,bloque,computa_pyg,orden')
         .eq('activa', true)
-        .order('orden_grupo')
-        .order('orden_sub');
+        .order('orden', { ascending: true })
+        .order('id', { ascending: true });
       if (cancel) return;
-      setCatsMaestras((cats ?? []) as CategoriaMaestra[]);
+      setCats((data ?? []) as CatPyg[]);
     })();
     return () => { cancel = true; };
   }, []);
@@ -146,6 +184,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
   const toggleTrim = (t: string) => setCollapsedTrim(p => { const n = new Set(p); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const toggleRow = (k: string) => setCollapsedRow(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
+  // Agregaciones
   const ingresos = useMemo(() => {
     const brutoPorCanal: Record<string, number[]> = {};
     const brutoTotal = arr12();
@@ -169,118 +208,131 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     return { brutoPorCanal, brutoTotal, netoEstPorCanal, netoEstTotal };
   }, [facturacionAnio]);
 
-  const gastosPorCodigo = useMemo(() => {
-    const m: Record<string, number[]> = {};
+  // Gastos: agrego por bloque (2.1, 2.2, 2.3, 2.4) y por subgrupo (2.41 etc).
+  // No tengo IDs hoja de categorias_pyg en gastos.categoria — solo grupos legacy.
+  // Por ahora muestro los totales por bloque y subgrupo; las hojas no agregan.
+  const gastosAgg = useMemo(() => {
+    const porBloque: Record<string, number[]> = {};   // 2.1, 2.2, 2.3, 2.4
+    const porSubgrupo: Record<string, number[]> = {}; // 2.41, 2.42, 2.43, 2.44 (resto va al bloque sin subdividir)
+    const totalGastos = arr12();
     for (const g of gastosAnio) {
-      const cod = (g.categoria as unknown as string) ?? '';
-      if (!cod) continue;
-      const idx = Number(g.fecha.slice(5, 7)) - 1;
-      if (idx < 0 || idx > 11) continue;
-      m[cod] = m[cod] || arr12();
-      m[cod][idx] += Number(g.importe || 0);
+      const m = Number(g.fecha.slice(5, 7)) - 1;
+      if (m < 0 || m > 11) continue;
+      const grupo = (g as any).grupo as string | null | undefined; // legacy field
+      const bloque = grupoLegacyToBloquePyG(grupo);
+      if (!bloque) continue;
+      const importe = Number(g.importe || 0);
+      porBloque[bloque] = porBloque[bloque] || arr12();
+      porBloque[bloque][m] += importe;
+      totalGastos[m] += importe;
+      const sub = grupoLegacyToSubgrupoPyG(grupo);
+      if (sub) {
+        porSubgrupo[sub] = porSubgrupo[sub] || arr12();
+        porSubgrupo[sub][m] += importe;
+      }
     }
-    return m;
+    return { porBloque, porSubgrupo, totalGastos };
   }, [gastosAnio]);
 
   const ingNetoTotal = ingresos.netoEstTotal;
 
   const rows: Row[] = useMemo(() => {
-    if (catsMaestras.length === 0) return [];
+    if (cats.length === 0) return [];
     const out: Row[] = [];
 
-    // Pre-calcular grupo mensual para resumen
-    const grupoMensualMap: Record<string, number[]> = {};
-    const totalGastos = arr12();
-    for (const grp of GRUPOS_GASTO) {
-      const subs = catsMaestras.filter(c => c.grupo === grp.key);
-      const grupoMensual = arr12();
-      for (const s of subs) {
-        const vals = gastosPorCodigo[s.codigo];
-        if (!vals) continue;
-        for (let i = 0; i < 12; i++) grupoMensual[i] += vals[i];
-      }
-      grupoMensualMap[grp.key] = grupoMensual;
-      for (let i = 0; i < 12; i++) totalGastos[i] += grupoMensual[i];
-    }
     const ebitda = arr12();
-    for (let i = 0; i < 12; i++) ebitda[i] = ingNetoTotal[i] - totalGastos[i];
+    for (let i = 0; i < 12; i++) ebitda[i] = ingNetoTotal[i] - gastosAgg.totalGastos[i];
 
-    // ════ RESUMEN ARRIBA (estilo Excel Rubén): Bruto, Neto, GASTOS POR GRUPO desglosados, EBITDA ════
+    // ════════════ // RESUMEN //  ════════════
+    out.push({ key: 'sep-resumen', kind: 'separator', label: '// RESUMEN //', monthly: arr12(), isSeparator: true });
+
     out.push({
-      key: 'res-bruto',
+      key: 'res-1.02',
       kind: 'h0',
-      label: 'Facturación bruta',
+      label: '1.02 Facturación bruta por ventas',
       monthly: ingresos.brutoTotal,
       pctMode: null,
       isResumen: true,
       italic: true,
     });
     out.push({
-      key: 'res-neto',
+      key: 'res-1.01',
       kind: 'h0',
-      label: 'Facturación neta · estimada',
+      label: '1.01 Ingresos netos por ventas',
       monthly: ingNetoTotal,
       pctMode: null,
       isResumen: true,
       colorAccent: '#1D9E75',
     });
-    // Una fila por grupo (Producto/Equipo/Local/Controlables) con su % sobre ingresos netos
-    for (const grp of GRUPOS_GASTO) {
-      const subConBanda = catsMaestras.find(c => c.grupo === grp.key && c.banda_min_pct != null);
-      const banda = subConBanda
-        ? { min: Number(subConBanda.banda_min_pct), max: Number(subConBanda.banda_max_pct) }
-        : null;
+    // 4 bloques de gasto con su banda
+    for (const bk of ['2.1', '2.2', '2.3', '2.4'] as const) {
+      const cat = cats.find(c => c.id === bk && c.nivel === 1);
+      const banda = BANDAS_BLOQUE[bk];
+      const label = `${bk} ${cat?.nombre ?? ''}`.trim();
+      const labelBanda = banda ? `${label} (${banda.min}%-${banda.max}%)` : label;
       out.push({
-        key: `res-${grp.key}`,
+        key: `res-${bk}`,
         kind: 'h0',
-        label: grp.label,
-        monthly: grupoMensualMap[grp.key],
-        pctMode: banda ? 'banda' : 'ingresos',
+        label: labelBanda,
+        monthly: gastosAgg.porBloque[bk] ?? arr12(),
+        pctMode: 'banda',
         banda,
         isResumen: true,
-        colorAccent: grp.color,
+        colorAccent: COLOR_BLOQUE[bk],
       });
     }
     out.push({
+      key: 'res-totalgastos',
+      kind: 'h0',
+      label: 'Total gastos',
+      monthly: gastosAgg.totalGastos,
+      pctMode: 'ingresos',
+      isResumen: true,
+    });
+    out.push({
       key: 'res-ebitda',
       kind: 'h0',
-      label: 'EBITDA',
+      label: 'Resultado',
       monthly: ebitda,
       pctMode: 'ingresos',
       isResumen: true,
       isResult: true,
     });
 
-    // ════ INGRESOS netos por canal — desplegable ════
+    // ════════════ // INGRESOS // ════════════
+    out.push({ key: 'sep-ingresos', kind: 'separator', label: '// INGRESOS //', monthly: arr12(), isSeparator: true });
+
+    // 1.1 Ingresos netos
     out.push({
-      key: 'ingresos-netos',
+      key: 'blk-1.1',
       kind: 'h1',
-      label: 'Facturación neta · estimada',
+      label: '1.1 Ingresos netos por ventas',
       monthly: ingNetoTotal,
       expandable: true,
-      pctMode: 'ingresos',
+      pctMode: null,
       colorAccent: '#1D9E75',
     });
     for (const c of CANALES) {
       const vals = ingresos.netoEstPorCanal[c.key] ?? arr12();
       if (!vals.some(v => v > 0)) continue;
+      const cat = cats.find(x => x.id === c.id_neto);
       out.push({
-        key: `in-${c.key}`,
+        key: `n-${c.key}`,
         kind: 'detail',
-        label: c.label,
-        parentKey: 'ingresos-netos',
+        label: `${c.id_neto} ${cat?.nombre ?? c.label}`,
+        parentKey: 'blk-1.1',
         monthly: vals,
         pctMode: 'parent',
-        parentForPct: 'ingresos-netos',
+        parentForPct: 'blk-1.1',
       });
     }
 
-    // ════ Facturación bruta — desplegable, informativa ════
+    // 1.2 Facturación bruta (informativa, colapsada por defecto)
     if (ingresos.brutoTotal.some(v => v > 0)) {
       out.push({
-        key: 'fact-bruta',
+        key: 'sub-1.2',
         kind: 'h1',
-        label: 'Facturación bruta · informativa',
+        label: '1.2 Facturación bruta por ventas',
         monthly: ingresos.brutoTotal,
         expandable: true,
         pctMode: null,
@@ -289,60 +341,65 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       for (const c of CANALES) {
         const vals = ingresos.brutoPorCanal[c.key] ?? arr12();
         if (!vals.some(v => v > 0)) continue;
+        const cat = cats.find(x => x.id === c.id_bruto);
         out.push({
-          key: `fb-${c.key}`,
+          key: `b-${c.key}`,
           kind: 'detail',
-          label: c.label,
-          parentKey: 'fact-bruta',
+          label: `${c.id_bruto} ${cat?.nombre ?? c.label}`,
+          parentKey: 'sub-1.2',
           monthly: vals,
           pctMode: 'parent',
-          parentForPct: 'fact-bruta',
+          parentForPct: 'sub-1.2',
           italic: true,
         });
       }
     }
 
-    // ════ GASTOS por grupo — DESPLEGABLES (el grupo siempre se muestra; flecha SIEMPRE) ════
-    for (const grp of GRUPOS_GASTO) {
-      const subs = catsMaestras.filter(c => c.grupo === grp.key);
-      if (subs.length === 0) continue;
-      const subConBanda = subs.find(s => s.banda_min_pct != null && s.banda_max_pct != null);
-      const banda = subConBanda
-        ? { min: Number(subConBanda.banda_min_pct), max: Number(subConBanda.banda_max_pct) }
-        : null;
+    // ════════════ // GASTOS // ════════════
+    out.push({ key: 'sep-gastos', kind: 'separator', label: '// GASTOS //', monthly: arr12(), isSeparator: true });
+
+    for (const bk of ['2.1', '2.2', '2.3', '2.4'] as const) {
+      const cat = cats.find(c => c.id === bk && c.nivel === 1);
+      const banda = BANDAS_BLOQUE[bk];
+      const label = `${bk} ${cat?.nombre ?? ''}`.trim();
+      const labelBanda = banda ? `${label} (${banda.min}%-${banda.max}%)` : label;
+      const monthly = gastosAgg.porBloque[bk] ?? arr12();
 
       out.push({
-        key: `g-${grp.key}`,
+        key: `blk-${bk}`,
         kind: 'h1',
-        label: grp.label,
-        monthly: grupoMensualMap[grp.key],
+        label: labelBanda,
+        monthly,
         expandable: true,
-        pctMode: banda ? 'banda' : 'ingresos',
+        pctMode: 'banda',
         banda,
-        colorAccent: grp.color,
+        colorAccent: COLOR_BLOQUE[bk],
       });
-      // Mostrar TODAS las subcategorías del grupo, no solo las que tienen datos.
-      // Así Rubén ve la lista completa con sus códigos y nombres exactos.
-      for (const s of subs) {
-        const vals = gastosPorCodigo[s.codigo] ?? arr12();
-        const subBanda = (s.banda_min_pct != null && s.banda_max_pct != null)
-          ? { min: Number(s.banda_min_pct), max: Number(s.banda_max_pct) }
-          : null;
-        out.push({
-          key: `s-${s.codigo}`,
-          kind: 'detail',
-          label: `${s.codigo} · ${s.nombre}`,
-          parentKey: `g-${grp.key}`,
-          monthly: vals,
-          pctMode: subBanda ? 'banda' : 'parent',
-          parentForPct: `g-${grp.key}`,
-          banda: subBanda,
-        });
+
+      // Subgrupos nivel 2 (solo para 2.4 que está subdividido en 2.41/42/43/44 con datos legacy)
+      if (bk === '2.4') {
+        for (const subId of ['2.41', '2.42', '2.43', '2.44']) {
+          const subCat = cats.find(c => c.id === subId);
+          const subVals = gastosAgg.porSubgrupo[subId] ?? arr12();
+          if (!subVals.some(v => v > 0)) continue;
+          out.push({
+            key: `sub-${subId}`,
+            kind: 'detail',
+            label: `${subId} ${subCat?.nombre ?? ''}`.trim(),
+            parentKey: `blk-${bk}`,
+            monthly: subVals,
+            pctMode: 'parent',
+            parentForPct: `blk-${bk}`,
+          });
+        }
       }
+      // Para 2.1, 2.2, 2.3: los datos legacy aún no permiten subdividir hoja por hoja
+      // (gastos.categoria tiene PRD-MP, EQP-NOM... que están deprecated).
+      // Se subdividirán automáticamente cuando gastos.categoria se actualice a IDs categorias_pyg.
     }
 
     return out;
-  }, [catsMaestras, ingresos, gastosPorCodigo, ingNetoTotal]);
+  }, [cats, ingresos, gastosAgg, ingNetoTotal]);
 
   const rowMap = useMemo(() => {
     const m: Record<string, Row> = {};
@@ -370,7 +427,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     textTransform: 'uppercase',
   };
 
-  if (catsMaestras.length === 0) {
+  if (cats.length === 0) {
     return (
       <div style={{ padding: 24, textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
         Cargando plan contable…
@@ -405,7 +462,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         <thead>
           <tr style={{ position: 'sticky', top: 0, zIndex: 6, background: '#ffffff' }}>
             <th style={{
-              ...thBase, textAlign: 'left', paddingLeft: 18, minWidth: 240,
+              ...thBase, textAlign: 'left', paddingLeft: 18, minWidth: 280,
               position: 'sticky', left: 0, background: '#ffffff', zIndex: 7,
               borderRight: '1px solid #ebe8e2',
             }} rowSpan={2} />
@@ -505,20 +562,44 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
             const isH0 = r.kind === 'h0';
             const isH1 = r.kind === 'h1';
             const isDetail = r.kind === 'detail';
-            const isTotal = r.kind === 'total';
             const isResult = !!r.isResult;
             const isResumen = !!r.isResumen;
+            const isSeparator = !!r.isSeparator;
+
+            // separador "// SECCIÓN //"
+            if (isSeparator) {
+              const colCount = TRIM.reduce((acc, t) => {
+                const isCol = collapsedTrim.has(t.label);
+                return acc + (isCol ? 2 : (t.months.length * 2) + 2);
+              }, 0) + 2 + 1; // +2 año, +1 etiqueta
+              return (
+                <tr key={r.key}>
+                  <td colSpan={colCount} style={{
+                    padding: '14px 18px 6px',
+                    fontFamily: 'Oswald, sans-serif',
+                    fontSize: 10,
+                    letterSpacing: '0.2em',
+                    color: '#7a8090',
+                    background: '#faf8f4',
+                    fontWeight: 600,
+                    borderTop: '2px solid #ebe8e2',
+                    textTransform: 'uppercase',
+                  }}>
+                    {r.label}
+                  </td>
+                </tr>
+              );
+            }
 
             const indent = isDetail ? 36 : 18;
             const labelStyle: React.CSSProperties = {
-              padding: isTotal ? '12px 6px 12px 18px'
-                     : isDetail ? '8px 6px 8px ' + indent + 'px'
-                     :            (isH0 ? '8px 6px 8px 18px' : '10px 6px 10px 18px'),
-              fontFamily: (isH1 || isTotal || isH0) ? 'Oswald, sans-serif' : 'Lexend, sans-serif',
-              fontWeight: isTotal ? 700 : (isH0 || isH1) ? 600 : 400,
-              fontSize: isTotal ? 12 : isH0 ? 11 : isH1 ? 12 : 11,
-              letterSpacing: (isH1 || isTotal || isH0) ? '0.06em' : 0,
-              textTransform: isH0 ? ('uppercase' as const) : ('none' as const),
+              padding: isDetail ? '8px 6px 8px ' + indent + 'px'
+                                : (isH0 ? '8px 6px 8px 18px' : '10px 6px 10px 18px'),
+              fontFamily: (isH1 || isH0) ? 'Oswald, sans-serif' : 'Lexend, sans-serif',
+              fontWeight: (isH0 || isH1) ? 600 : 400,
+              fontSize: isH0 ? 11 : isH1 ? 12 : 11,
+              letterSpacing: (isH1 || isH0) ? '0.06em' : 0,
+              textTransform: 'none' as const,
               color: isResult
                 ? '#B01D23'
                 : r.italic
@@ -531,11 +612,11 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
               textAlign: 'left',
               cursor: isExpandable ? 'pointer' : undefined,
               userSelect: isExpandable ? 'none' : undefined,
-              background: isResumen ? '#faf8f4' : (isTotal ? '#faf8f4' : '#ffffff'),
+              background: isResumen ? '#faf8f4' : '#ffffff',
               position: 'sticky',
               left: 0,
               zIndex: 1,
-              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
+              borderTop: (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
               borderRight: '1px solid #ebe8e2',
               fontStyle: r.italic ? 'italic' : 'normal',
               whiteSpace: 'nowrap',
@@ -558,10 +639,10 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
             }
 
             const valStyle = (v: number, bg: string, isPctCell = false): React.CSSProperties => ({
-              padding: isTotal ? '12px 6px' : isDetail ? '8px 6px' : isH0 ? '8px 6px' : '10px 6px',
+              padding: isDetail ? '8px 6px' : isH0 ? '8px 6px' : '10px 6px',
               fontFamily: 'Lexend, sans-serif',
-              fontSize: isPctCell ? 10 : (isTotal ? 12 : isH0 ? 11 : 11.5),
-              fontWeight: isTotal ? 700 : (isH0 || isH1) ? 600 : 400,
+              fontSize: isPctCell ? 10 : (isH0 ? 11 : 11.5),
+              fontWeight: (isH0 || isH1) ? 600 : 400,
               color: isResult
                 ? (v >= 0 ? '#1D9E75' : '#B01D23')
                 : r.colorAccent
@@ -569,27 +650,27 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                   : (isDetail ? '#3a4050' : '#111111'),
               textAlign: 'right',
               background: isResumen ? '#faf8f4' : bg,
-              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
+              borderTop: (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
               fontStyle: r.italic ? 'italic' : 'normal',
               whiteSpace: 'nowrap',
             });
 
             const yearStyle: React.CSSProperties = {
               ...valStyle(yearVal, YEAR_BG),
-              fontSize: isTotal ? 13 : 12,
+              fontSize: 12,
               fontWeight: 700,
               color: isResult ? (yearVal >= 0 ? '#1D9E75' : '#B01D23') : (r.colorAccent || '#111111'),
               background: YEAR_BG,
             };
             const yearPctStyle: React.CSSProperties = {
-              padding: isTotal ? '12px 4px' : isDetail ? '8px 4px' : isH0 ? '8px 4px' : '10px 4px',
+              padding: isDetail ? '8px 4px' : isH0 ? '8px 4px' : '10px 4px',
               fontFamily: 'Lexend, sans-serif',
               fontSize: 10,
               fontWeight: 500,
               color: yearPct.color || '#B01D23',
               textAlign: 'right',
               background: YEAR_BG,
-              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
+              borderTop: (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
             };
 
             return (
