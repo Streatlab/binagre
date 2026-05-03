@@ -1,16 +1,20 @@
 /**
- * TablaPyG — refactor 3 may 2026 v3
+ * TablaPyG — refactor 3 may 2026 v4
  *
- * Cambios respecto v2 (Rubén):
- * - VUELVE paleta pastel trimestres (var(--rf-q1-bg)…) en headers Y celdas. Year column rosa pastel.
- * - Fila "RESUMEN" arriba con: Bruto · Neto estimado · Total gastos · EBITDA (estilo del Excel).
- * - Grupos Producto/Equipo/Local/Controlables son DESPLEGABLES (igual que canales).
- *   Si no tienen subs con datos, NO sale flecha.
- * - Ingresos netos = bruto − comisiones plataforma estimadas (UE 30%, GL 32%, JE 28%, Web 5%, Directa 0%)
- *   mientras no haya facturas reales. Etiqueta "estimado".
- *   ⚠️ AUTOMÁTICO: si en el futuro se rellena resumenes_plataforma_marca_mensual con netos reales,
- *   este componente debe leer de ahí (TODO en CTR-OTR del backlog).
- * - Etiqueta "Facturación neta" (alineada con módulo Facturación) en lugar de "Ingresos netos por venta".
+ * Cambios respecto v3 (Rubén):
+ * - Paleta trimestres más contrastada (no la pastel apagada). Verde, azul, ámbar, púrpura más vivos.
+ * - Separador de miles + 2 decimales en todas las cifras (toLocaleString es-ES).
+ * - Fila RESUMEN al inicio con DESGLOSE POR GRUPO (Producto, Equipo, Local, Controlables) + Bruto + Neto + EBITDA, NO un único total plano.
+ * - Grupos Producto / Equipo / Local / Controlables = DESPLEGABLES de verdad. Al click se abre/cierra.
+ *   Al expandir aparecen las subcategorías con código + nombre tal cual están en categorias_maestras
+ *   (ej: "PRD-MP · Materia prima", "EQP-NOM · Sueldos empleados nómina").
+ * - Etiquetas de grupo TAL CUAL las muestra Configuración → Bancos y cuentas → Categorías:
+ *     PRODUCTO → Producto (COGS), EQUIPO → Equipo (Labor), LOCAL → Local (Occupancy), CONTROLABLES → Controlables (OPEX).
+ * - Eliminado Total gastos + EBITDA del FINAL (solo viven en la fila RESUMEN de arriba).
+ * - "Facturación neta · estimada" coherente con módulo Facturación.
+ * - Neto = bruto * (1 - comisión) por canal mientras no haya facturas reales.
+ *   ⚠️ AUTOMÁTICO: si en el futuro resumenes_plataforma_marca_mensual se rellena con neto_real_cobrado,
+ *   este componente debe leer de ahí sin que Rubén pida nada.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -35,39 +39,42 @@ interface Props {
   rangos: RangoCategoria[];
 }
 
-// ── Trimestres con paleta pastel del CSS ──
+// Paleta trimestres CONTRASTADA (no la pastel apagada anterior).
 const TRIM = [
-  { label: 'T1', months: [0,1,2],  bg: 'var(--rf-q1-bg)', tot: 'var(--rf-q1-tot)', head: 'var(--rf-q1-head)' },
-  { label: 'T2', months: [3,4,5],  bg: 'var(--rf-q2-bg)', tot: 'var(--rf-q2-tot)', head: 'var(--rf-q2-head)' },
-  { label: 'T3', months: [6,7,8],  bg: 'var(--rf-q3-bg)', tot: 'var(--rf-q3-tot)', head: 'var(--rf-q3-head)' },
-  { label: 'T4', months: [9,10,11],bg: 'var(--rf-q4-bg)', tot: 'var(--rf-q4-tot)', head: 'var(--rf-q4-head)' },
+  { label: 'T1', months: [0,1,2],  bg: '#dde8f4', tot: '#b5cae3', head: '#7da3c8' },
+  { label: 'T2', months: [3,4,5],  bg: '#dee9d4', tot: '#b6cea3', head: '#7da569' },
+  { label: 'T3', months: [6,7,8],  bg: '#f4e8c8', tot: '#e8cf85', head: '#c89945' },
+  { label: 'T4', months: [9,10,11],bg: '#e3d8eb', tot: '#bfa6cf', head: '#7e5c9b' },
 ];
+const YEAR_BG   = '#fbe5e8';
+const YEAR_HEAD = '#f0b8be';
+const MES_ACTUAL_BG   = '#cfe6b8';
+const MES_ACTUAL_HEAD = '#92bd64';
 
-// ── Canales con su % comisión estimada (igual que Panel Global ColFacturacionCanal) ──
 const CANALES = [
-  { key: 'UE',  label: 'Uber Eats',     canalIM: 'UBER EATS', brutoCol: 'uber_bruto',    comision: 0.30, color: '#06C167' },
-  { key: 'GL',  label: 'Glovo',         canalIM: 'GLOVO',     brutoCol: 'glovo_bruto',   comision: 0.32, color: '#e8f442' },
-  { key: 'JE',  label: 'Just Eat',      canalIM: 'JUST EAT',  brutoCol: 'je_bruto',      comision: 0.28, color: '#f5a623' },
-  { key: 'WEB', label: 'Tienda online', canalIM: 'WEB',       brutoCol: 'web_bruto',     comision: 0.05, color: '#B01D23' },
-  { key: 'DIR', label: 'Venta directa', canalIM: 'DIRECTA',   brutoCol: 'directa_bruto', comision: 0.0,  color: '#66aaff' },
+  { key: 'UE',  label: 'Uber Eats',     brutoCol: 'uber_bruto',    comision: 0.30 },
+  { key: 'GL',  label: 'Glovo',         brutoCol: 'glovo_bruto',   comision: 0.32 },
+  { key: 'JE',  label: 'Just Eat',      brutoCol: 'je_bruto',      comision: 0.28 },
+  { key: 'WEB', label: 'Tienda online', brutoCol: 'web_bruto',     comision: 0.05 },
+  { key: 'DIR', label: 'Venta directa', brutoCol: 'directa_bruto', comision: 0.0  },
 ] as const;
 
+// Etiquetas EXACTAS de Configuración → Categorías
 const GRUPOS_GASTO = [
-  { key: 'PRODUCTO',     label: 'Producto',     color: '#7B4F2A' },
-  { key: 'EQUIPO',       label: 'Equipo',       color: '#4A5980' },
-  { key: 'LOCAL',        label: 'Local',        color: '#5A8A6F' },
-  { key: 'CONTROLABLES', label: 'Controlables', color: '#A87C3D' },
+  { key: 'PRODUCTO',     label: 'Producto (COGS)',     color: '#7B4F2A' },
+  { key: 'EQUIPO',       label: 'Equipo (Labor)',      color: '#4A5980' },
+  { key: 'LOCAL',        label: 'Local (Occupancy)',   color: '#5A8A6F' },
+  { key: 'CONTROLABLES', label: 'Controlables (OPEX)', color: '#A87C3D' },
 ] as const;
 
 const arr12 = (): number[] => [0,0,0,0,0,0,0,0,0,0,0,0];
 const sumMonths = (arr: number[], months: number[]) => months.reduce((a, m) => a + (arr[m] || 0), 0);
 
+// Separador miles + 2 decimales (es-ES)
 function valFmt(v: number): string {
   if (!v || isNaN(v)) return '—';
-  const [int, dec] = Math.abs(v).toFixed(2).split('.');
-  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const out = `${intFmt},${dec}`;
-  return v < 0 ? `−${out}` : out;
+  const abs = Math.abs(v).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v < 0 ? `−${abs}` : abs;
 }
 
 function pctFmt(num: number, denom: number): string {
@@ -78,17 +85,17 @@ function pctFmt(num: number, denom: number): string {
 }
 
 function bandaSemaforo(pctReal: number, min: number, max: number): { color: string; arrow: string } {
-  if (pctReal === 0) return { color: 'var(--rf-text-muted)', arrow: '' };
-  if (pctReal >= min && pctReal <= max) return { color: 'var(--rf-banda-ok)', arrow: '●' };
+  if (pctReal === 0) return { color: '#9da4b3', arrow: '' };
+  if (pctReal >= min && pctReal <= max) return { color: '#1D9E75', arrow: '●' };
   if (pctReal < min) {
     const pp = Math.round(min - pctReal);
-    return { color: pp <= 1 ? 'var(--rf-banda-warn)' : 'var(--rf-banda-err)', arrow: `▾${pp}` };
+    return { color: pp <= 1 ? '#f5a623' : '#A32D2D', arrow: `▾${pp}` };
   }
   const pp = Math.round(pctReal - max);
-  return { color: pp <= 1 ? 'var(--rf-banda-warn)' : 'var(--rf-banda-err)', arrow: `▴${pp}` };
+  return { color: pp <= 1 ? '#f5a623' : '#A32D2D', arrow: `▴${pp}` };
 }
 
-type RowKind = 'h0'|'h1'|'detail'|'subdetail'|'total';
+type RowKind = 'h0'|'h1'|'detail'|'total';
 interface Row {
   key: string;
   kind: RowKind;
@@ -100,16 +107,20 @@ interface Row {
   parentForPct?: string;
   banda?: { min: number; max: number } | null;
   italic?: boolean;
-  isInfoOnly?: boolean;
   isResult?: boolean;
   colorAccent?: string;
+  bgRow?: string;
   isResumen?: boolean;
-  isSubMarca?: boolean;
+  bandaPct?: number | null;
 }
 
 export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAnio = [] }: Props) {
+  void ingresosAnio;
   const [collapsedTrim, setCollapsedTrim] = useState<Set<string>>(new Set());
-  const [collapsedRow, setCollapsedRow] = useState<Set<string>>(new Set());
+  // Por defecto los grupos h1 (PRODUCTO/EQUIPO/LOCAL/CONTROLABLES) arrancan COLAPSADOS
+  const [collapsedRow, setCollapsedRow] = useState<Set<string>>(() =>
+    new Set(['g-PRODUCTO', 'g-EQUIPO', 'g-LOCAL', 'g-CONTROLABLES', 'fact-bruta'])
+  );
   const [catsMaestras, setCatsMaestras] = useState<CategoriaMaestra[]>([]);
 
   const mesActualIdx = useMemo(() => {
@@ -135,13 +146,11 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
   const toggleTrim = (t: string) => setCollapsedTrim(p => { const n = new Set(p); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const toggleRow = (k: string) => setCollapsedRow(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-  // ── Bruto por canal y mensual ──
   const ingresos = useMemo(() => {
     const brutoPorCanal: Record<string, number[]> = {};
     const brutoTotal = arr12();
     const netoEstPorCanal: Record<string, number[]> = {};
     const netoEstTotal = arr12();
-
     for (const f of facturacionAnio) {
       const m = Number(f.fecha.slice(5, 7)) - 1;
       if (m < 0 || m > 11) continue;
@@ -151,7 +160,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         brutoPorCanal[c.key] = brutoPorCanal[c.key] || arr12();
         brutoPorCanal[c.key][m] += v;
         brutoTotal[m] += v;
-
         const neto = v * (1 - c.comision);
         netoEstPorCanal[c.key] = netoEstPorCanal[c.key] || arr12();
         netoEstPorCanal[c.key][m] += neto;
@@ -180,10 +188,9 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     if (catsMaestras.length === 0) return [];
     const out: Row[] = [];
 
-    // ════ RESUMEN ════
-    // Calculamos antes para poder ponerlo arriba
-    const totalGastosMensual = arr12();
+    // Pre-calcular grupo mensual para resumen
     const grupoMensualMap: Record<string, number[]> = {};
+    const totalGastos = arr12();
     for (const grp of GRUPOS_GASTO) {
       const subs = catsMaestras.filter(c => c.grupo === grp.key);
       const grupoMensual = arr12();
@@ -193,11 +200,12 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         for (let i = 0; i < 12; i++) grupoMensual[i] += vals[i];
       }
       grupoMensualMap[grp.key] = grupoMensual;
-      for (let i = 0; i < 12; i++) totalGastosMensual[i] += grupoMensual[i];
+      for (let i = 0; i < 12; i++) totalGastos[i] += grupoMensual[i];
     }
     const ebitda = arr12();
-    for (let i = 0; i < 12; i++) ebitda[i] = ingNetoTotal[i] - totalGastosMensual[i];
+    for (let i = 0; i < 12; i++) ebitda[i] = ingNetoTotal[i] - totalGastos[i];
 
+    // ════ RESUMEN ARRIBA (estilo Excel Rubén): Bruto, Neto, GASTOS POR GRUPO desglosados, EBITDA ════
     out.push({
       key: 'res-bruto',
       kind: 'h0',
@@ -214,17 +222,25 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       monthly: ingNetoTotal,
       pctMode: null,
       isResumen: true,
-      colorAccent: 'var(--rf-green)',
+      colorAccent: '#1D9E75',
     });
-    out.push({
-      key: 'res-gastos',
-      kind: 'h0',
-      label: 'Total gastos',
-      monthly: totalGastosMensual,
-      pctMode: 'ingresos',
-      isResumen: true,
-      colorAccent: '#E89A3C',
-    });
+    // Una fila por grupo (Producto/Equipo/Local/Controlables) con su % sobre ingresos netos
+    for (const grp of GRUPOS_GASTO) {
+      const subConBanda = catsMaestras.find(c => c.grupo === grp.key && c.banda_min_pct != null);
+      const banda = subConBanda
+        ? { min: Number(subConBanda.banda_min_pct), max: Number(subConBanda.banda_max_pct) }
+        : null;
+      out.push({
+        key: `res-${grp.key}`,
+        kind: 'h0',
+        label: grp.label,
+        monthly: grupoMensualMap[grp.key],
+        pctMode: banda ? 'banda' : 'ingresos',
+        banda,
+        isResumen: true,
+        colorAccent: grp.color,
+      });
+    }
     out.push({
       key: 'res-ebitda',
       kind: 'h0',
@@ -235,7 +251,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       isResult: true,
     });
 
-    // ════ INGRESOS netos por canal (desplegable) ════
+    // ════ INGRESOS netos por canal — desplegable ════
     out.push({
       key: 'ingresos-netos',
       kind: 'h1',
@@ -243,7 +259,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       monthly: ingNetoTotal,
       expandable: true,
       pctMode: 'ingresos',
-      colorAccent: 'var(--rf-green)',
+      colorAccent: '#1D9E75',
     });
     for (const c of CANALES) {
       const vals = ingresos.netoEstPorCanal[c.key] ?? arr12();
@@ -259,7 +275,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
       });
     }
 
-    // ════ Facturación bruta (desplegable, informativa) ════
+    // ════ Facturación bruta — desplegable, informativa ════
     if (ingresos.brutoTotal.some(v => v > 0)) {
       out.push({
         key: 'fact-bruta',
@@ -268,7 +284,6 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
         monthly: ingresos.brutoTotal,
         expandable: true,
         pctMode: null,
-        isInfoOnly: true,
         italic: true,
       });
       for (const c of CANALES) {
@@ -283,64 +298,48 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
           pctMode: 'parent',
           parentForPct: 'fact-bruta',
           italic: true,
-          isInfoOnly: true,
         });
       }
     }
 
-    // ════ GASTOS por grupo (desplegables) ════
+    // ════ GASTOS por grupo — DESPLEGABLES (el grupo siempre se muestra; flecha SIEMPRE) ════
     for (const grp of GRUPOS_GASTO) {
       const subs = catsMaestras.filter(c => c.grupo === grp.key);
       if (subs.length === 0) continue;
-      const grupoMensual = grupoMensualMap[grp.key];
-
       const subConBanda = subs.find(s => s.banda_min_pct != null && s.banda_max_pct != null);
       const banda = subConBanda
         ? { min: Number(subConBanda.banda_min_pct), max: Number(subConBanda.banda_max_pct) }
         : null;
 
-      const subsConDatos = subs.filter(s => gastosPorCodigo[s.codigo] && gastosPorCodigo[s.codigo].some(v => v > 0));
-      const expandable = subsConDatos.length > 0;
-
       out.push({
         key: `g-${grp.key}`,
         kind: 'h1',
         label: grp.label,
-        monthly: grupoMensual,
-        expandable,
+        monthly: grupoMensualMap[grp.key],
+        expandable: true,
         pctMode: banda ? 'banda' : 'ingresos',
         banda,
         colorAccent: grp.color,
       });
-      for (const s of subsConDatos) {
+      // Mostrar TODAS las subcategorías del grupo, no solo las que tienen datos.
+      // Así Rubén ve la lista completa con sus códigos y nombres exactos.
+      for (const s of subs) {
+        const vals = gastosPorCodigo[s.codigo] ?? arr12();
+        const subBanda = (s.banda_min_pct != null && s.banda_max_pct != null)
+          ? { min: Number(s.banda_min_pct), max: Number(s.banda_max_pct) }
+          : null;
         out.push({
           key: `s-${s.codigo}`,
           kind: 'detail',
-          label: s.nombre,
+          label: `${s.codigo} · ${s.nombre}`,
           parentKey: `g-${grp.key}`,
-          monthly: gastosPorCodigo[s.codigo],
-          pctMode: 'parent',
+          monthly: vals,
+          pctMode: subBanda ? 'banda' : 'parent',
           parentForPct: `g-${grp.key}`,
+          banda: subBanda,
         });
       }
     }
-
-    // ════ TOTAL GASTOS + EBITDA (también al final, doble vista) ════
-    out.push({
-      key: 'total-gastos',
-      kind: 'total',
-      label: 'Total gastos',
-      monthly: totalGastosMensual,
-      pctMode: 'ingresos',
-    });
-    out.push({
-      key: 'ebitda',
-      kind: 'total',
-      label: 'EBITDA',
-      monthly: ebitda,
-      pctMode: 'ingresos',
-      isResult: true,
-    });
 
     return out;
   }, [catsMaestras, ingresos, gastosPorCodigo, ingNetoTotal]);
@@ -364,16 +363,16 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
     fontSize: 10,
     letterSpacing: '0.1em',
     fontWeight: 500,
-    color: 'var(--rf-text-label)',
+    color: '#7a8090',
     padding: '8px 6px',
     textAlign: 'right',
-    borderBottom: '1px solid var(--rf-border)',
+    borderBottom: '1px solid #ebe8e2',
     textTransform: 'uppercase',
   };
 
   if (catsMaestras.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--rf-text-muted)', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
+      <div style={{ padding: 24, textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
         Cargando plan contable…
       </div>
     );
@@ -381,11 +380,11 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
 
   function calcPct(r: Row, valor: number, denomMes: number, parentValMes: number): { txt: string; color?: string } {
     if (!r.pctMode || !valor) return { txt: '' };
-    if (r.pctMode === 'ingresos') return { txt: pctFmt(valor, denomMes), color: 'var(--rf-text-muted)' };
-    if (r.pctMode === 'parent')   return { txt: pctFmt(valor, parentValMes), color: 'var(--rf-text-muted)' };
+    if (r.pctMode === 'ingresos') return { txt: pctFmt(valor, denomMes), color: '#7a8090' };
+    if (r.pctMode === 'parent')   return { txt: pctFmt(valor, parentValMes), color: '#7a8090' };
     if (r.pctMode === 'banda' && r.banda) {
       const denom = denomMes;
-      if (denom <= 0) return { txt: '', color: 'var(--rf-text-muted)' };
+      if (denom <= 0) return { txt: '', color: '#7a8090' };
       const pct = (Math.abs(valor) / Math.abs(denom)) * 100;
       const sem = bandaSemaforo(pct, r.banda.min, r.banda.max);
       return { txt: `${Math.round(pct)}% ${sem.arrow}`, color: sem.color };
@@ -395,20 +394,20 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
 
   return (
     <div style={{
-      background: 'var(--rf-bg-card)',
+      background: '#ffffff',
       borderRadius: 12,
-      border: '1px solid var(--rf-border)',
+      border: '1px solid #ebe8e2',
       overflowX: 'auto',
       maxHeight: '74vh',
       overflowY: 'auto',
     }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
         <thead>
-          <tr style={{ position: 'sticky', top: 0, zIndex: 6, background: 'var(--rf-bg-card)' }}>
+          <tr style={{ position: 'sticky', top: 0, zIndex: 6, background: '#ffffff' }}>
             <th style={{
-              ...thBase, textAlign: 'left', paddingLeft: 18, minWidth: 230,
-              position: 'sticky', left: 0, background: 'var(--rf-bg-card)', zIndex: 7,
-              borderRight: '1px solid var(--rf-border)',
+              ...thBase, textAlign: 'left', paddingLeft: 18, minWidth: 240,
+              position: 'sticky', left: 0, background: '#ffffff', zIndex: 7,
+              borderRight: '1px solid #ebe8e2',
             }} rowSpan={2} />
             {TRIM.map(t => {
               const isCol = collapsedTrim.has(t.label);
@@ -423,12 +422,12 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                     ...thBase,
                     background: t.head,
                     cursor: 'pointer',
-                    color: 'var(--rf-text)',
-                    fontWeight: 600,
+                    color: '#ffffff',
+                    fontWeight: 700,
                     textAlign: 'center',
-                    borderLeft: '1px solid var(--rf-border)',
+                    borderLeft: '1px solid #ebe8e2',
                     fontSize: 11,
-                    letterSpacing: '0.15em',
+                    letterSpacing: '0.18em',
                   }}
                 >
                   {isCol ? '▶ ' : '▼ '}{t.label}{isMesActualEnTrim ? ' · actual' : ''}
@@ -440,13 +439,13 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
               rowSpan={2}
               style={{
                 ...thBase,
-                background: 'var(--rf-year-head)',
-                color: 'var(--rf-red)',
-                fontWeight: 700,
+                background: YEAR_HEAD,
+                color: '#7a1218',
+                fontWeight: 800,
                 textAlign: 'center',
-                borderLeft: '1px solid var(--rf-border)',
+                borderLeft: '1px solid #ebe8e2',
                 fontSize: 12,
-                letterSpacing: '0.15em',
+                letterSpacing: '0.18em',
                 padding: '8px 6px',
                 width: 110,
                 minWidth: 110,
@@ -455,7 +454,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
               {anio}
             </th>
           </tr>
-          <tr style={{ position: 'sticky', top: 30, zIndex: 6, background: 'var(--rf-bg-card)' }}>
+          <tr style={{ position: 'sticky', top: 30, zIndex: 6, background: '#ffffff' }}>
             {TRIM.map(t => {
               const isCol = collapsedTrim.has(t.label);
               return (
@@ -466,7 +465,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                       <React.Fragment key={`m-${m}`}>
                         <th style={{
                           ...thBase,
-                          background: isMesActual ? 'var(--rf-mes-actual-head)' : t.bg,
+                          background: isMesActual ? MES_ACTUAL_HEAD : t.bg,
                           color: isMesActual ? '#1f3009' : undefined,
                           fontWeight: isMesActual ? 700 : 500,
                           width: 64,
@@ -475,12 +474,12 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                         }}>
                           {MESES_CORTO[m]}
                           {isMesActual && (
-                            <span style={{ position: 'absolute', top: 2, right: 4, color: 'var(--rf-red)', fontSize: 8 }}>●</span>
+                            <span style={{ position: 'absolute', top: 2, right: 4, color: '#7a1218', fontSize: 8 }}>●</span>
                           )}
                         </th>
                         <th style={{
                           ...thBase,
-                          background: isMesActual ? 'var(--rf-mes-actual-head)' : t.bg,
+                          background: isMesActual ? MES_ACTUAL_HEAD : t.bg,
                           fontSize: 9,
                           opacity: 0.75,
                           width: 32,
@@ -521,23 +520,23 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
               letterSpacing: (isH1 || isTotal || isH0) ? '0.06em' : 0,
               textTransform: isH0 ? ('uppercase' as const) : ('none' as const),
               color: isResult
-                ? 'var(--rf-red)'
+                ? '#B01D23'
                 : r.italic
-                  ? 'var(--rf-text-muted)'
+                  ? '#7a8090'
                   : (isH0 || isH1)
-                    ? 'var(--rf-text)'
+                    ? (r.colorAccent ?? '#111111')
                     : isDetail
-                      ? 'var(--rf-text-2)'
-                      : 'var(--rf-text)',
+                      ? '#3a4050'
+                      : '#111111',
               textAlign: 'left',
               cursor: isExpandable ? 'pointer' : undefined,
               userSelect: isExpandable ? 'none' : undefined,
-              background: isResumen ? 'var(--rf-bg-panel)' : (isTotal ? 'var(--rf-bg-panel)' : 'var(--rf-bg-card)'),
+              background: isResumen ? '#faf8f4' : (isTotal ? '#faf8f4' : '#ffffff'),
               position: 'sticky',
               left: 0,
               zIndex: 1,
-              borderTop: isTotal ? '2px solid var(--rf-border)' : (isH1 || isH0) ? '1px solid var(--rf-border)' : 'none',
-              borderRight: '1px solid var(--rf-border)',
+              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
+              borderRight: '1px solid #ebe8e2',
               fontStyle: r.italic ? 'italic' : 'normal',
               whiteSpace: 'nowrap',
             };
@@ -550,8 +549,8 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
             const parentYear = parentRow ? parentRow.monthly.reduce((a, b) => a + b, 0) : 0;
 
             let yearPct: { txt: string; color?: string } = { txt: '' };
-            if (r.pctMode === 'ingresos')      yearPct = { txt: pctFmt(yearVal, ingNetoYear), color: 'var(--rf-red)' };
-            else if (r.pctMode === 'parent')   yearPct = { txt: pctFmt(yearVal, parentYear), color: 'var(--rf-red)' };
+            if (r.pctMode === 'ingresos')      yearPct = { txt: pctFmt(yearVal, ingNetoYear), color: '#B01D23' };
+            else if (r.pctMode === 'parent')   yearPct = { txt: pctFmt(yearVal, parentYear), color: '#B01D23' };
             else if (r.pctMode === 'banda' && r.banda) {
               const pct = ingNetoYear > 0 ? (Math.abs(yearVal) / Math.abs(ingNetoYear)) * 100 : 0;
               const sem = bandaSemaforo(pct, r.banda.min, r.banda.max);
@@ -564,40 +563,40 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
               fontSize: isPctCell ? 10 : (isTotal ? 12 : isH0 ? 11 : 11.5),
               fontWeight: isTotal ? 700 : (isH0 || isH1) ? 600 : 400,
               color: isResult
-                ? (v >= 0 ? 'var(--rf-green)' : 'var(--rf-red)')
+                ? (v >= 0 ? '#1D9E75' : '#B01D23')
                 : r.colorAccent
                   ? r.colorAccent
-                  : (isDetail ? 'var(--rf-text-2)' : 'var(--rf-text)'),
+                  : (isDetail ? '#3a4050' : '#111111'),
               textAlign: 'right',
-              background: isResumen ? 'var(--rf-bg-panel)' : bg,
-              borderTop: isTotal ? '2px solid var(--rf-border)' : (isH1 || isH0) ? '1px solid var(--rf-border)' : 'none',
+              background: isResumen ? '#faf8f4' : bg,
+              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
               fontStyle: r.italic ? 'italic' : 'normal',
               whiteSpace: 'nowrap',
             });
 
             const yearStyle: React.CSSProperties = {
-              ...valStyle(yearVal, 'var(--rf-year-bg)'),
+              ...valStyle(yearVal, YEAR_BG),
               fontSize: isTotal ? 13 : 12,
               fontWeight: 700,
-              color: isResult ? (yearVal >= 0 ? 'var(--rf-green)' : 'var(--rf-red)') : (r.colorAccent || 'var(--rf-text)'),
-              background: 'var(--rf-year-bg)',
+              color: isResult ? (yearVal >= 0 ? '#1D9E75' : '#B01D23') : (r.colorAccent || '#111111'),
+              background: YEAR_BG,
             };
             const yearPctStyle: React.CSSProperties = {
               padding: isTotal ? '12px 4px' : isDetail ? '8px 4px' : isH0 ? '8px 4px' : '10px 4px',
               fontFamily: 'Lexend, sans-serif',
               fontSize: 10,
               fontWeight: 500,
-              color: yearPct.color || 'var(--rf-red)',
+              color: yearPct.color || '#B01D23',
               textAlign: 'right',
-              background: 'var(--rf-year-bg)',
-              borderTop: isTotal ? '2px solid var(--rf-border)' : (isH1 || isH0) ? '1px solid var(--rf-border)' : 'none',
+              background: YEAR_BG,
+              borderTop: isTotal ? '2px solid #ebe8e2' : (isH1 || isH0) ? '1px solid #ebe8e2' : 'none',
             };
 
             return (
               <tr key={r.key} onClick={onLabelClick}>
                 <td style={labelStyle}>
                   {isExpandable && (
-                    <span style={{ display: 'inline-block', width: 10, marginRight: 6, fontSize: 9, color: 'var(--rf-text-muted)' }}>
+                    <span style={{ display: 'inline-block', width: 10, marginRight: 6, fontSize: 9, color: '#7a8090' }}>
                       {isCollapsed ? '▶' : '▼'}
                     </span>
                   )}
@@ -610,7 +609,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                       {!isCol && t.months.map(m => {
                         const v = r.monthly[m];
                         const isMesActual = m === mesActualIdx;
-                        const cellBg = isMesActual ? 'var(--rf-mes-actual)' : t.bg;
+                        const cellBg = isMesActual ? MES_ACTUAL_BG : t.bg;
                         const denomMes = ingNetoTotal[m] || 0;
                         const parentValMes = parentRow ? parentRow.monthly[m] : 0;
                         const pctCell = calcPct(r, v, denomMes, parentValMes);
@@ -619,7 +618,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                             <td style={valStyle(v, cellBg)}>
                               {isResult ? (v > 0 ? `+${valFmt(v)}` : valFmt(v)) : valFmt(v)}
                             </td>
-                            <td style={{ ...valStyle(0, cellBg, true), color: pctCell.color || 'var(--rf-text-muted)', fontWeight: 500 }}>{pctCell.txt}</td>
+                            <td style={{ ...valStyle(0, cellBg, true), color: pctCell.color || '#7a8090', fontWeight: 500 }}>{pctCell.txt}</td>
                           </React.Fragment>
                         );
                       })}
@@ -633,7 +632,7 @@ export default function TablaPyG({ anio, gastosAnio, ingresosAnio, facturacionAn
                             <td style={{ ...valStyle(trimVal, t.tot), fontWeight: 700, fontSize: 12 }}>
                               {isResult ? (trimVal > 0 ? `+${valFmt(trimVal)}` : valFmt(trimVal)) : valFmt(trimVal)}
                             </td>
-                            <td style={{ ...valStyle(0, t.tot, true), color: pctTrim.color || 'var(--rf-text-muted)', fontWeight: 500 }}>{pctTrim.txt}</td>
+                            <td style={{ ...valStyle(0, t.tot, true), color: pctTrim.color || '#7a8090', fontWeight: 500 }}>{pctTrim.txt}</td>
                           </>
                         );
                       })()}
