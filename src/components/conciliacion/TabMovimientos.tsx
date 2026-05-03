@@ -130,7 +130,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   const [exportando, setExportando] = useState(false)
 
-  // Persistir filtros cada vez que cambian
   useEffect(() => {
     saveFiltros({
       page, size: pageSize, filtroCard, filtroTitular, ocultarConciliados,
@@ -710,6 +709,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     const facturaUrl = (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url ?? null
                     const tieneDoc = m.doc_estado === 'tiene' || (m.factura_id && facturaUrl)
 
+                    // Padding 0 en celda doc + el clip ocupa toda la celda → cualquier click en esa celda abre PDF
+                    const tdDocBase: React.CSSProperties = {
+                      padding: 0,
+                      borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2',
+                      verticalAlign: 'middle',
+                      textAlign: 'center',
+                    }
+
                     return (
                       <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
@@ -738,40 +745,44 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                             </span>
                           )}
                         </td>
-                        <td style={{ ...tdBase, padding: '0 4px', textAlign: 'center' }}>
-                          {tieneDoc && facturaUrl ? (
-                            <a
-                              href={facturaUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              title="Ver factura"
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                width: 36, height: 26, borderRadius: 6,
-                                background: '#1D9E7515', border: '0.5px solid #1D9E7540',
-                                color: '#0F6E56', textDecoration: 'none', fontSize: 16, lineHeight: 1,
-                              }}>
+                        {tieneDoc && facturaUrl ? (
+                          <td
+                            style={tdDocBase}
+                            onClick={e => { e.stopPropagation(); window.open(facturaUrl, '_blank', 'noopener,noreferrer') }}
+                            title="Ver factura"
+                          >
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', minHeight: 38,
+                              background: '#1D9E7515',
+                              fontSize: 22, lineHeight: 1, color: '#0F6E56',
+                              cursor: 'pointer', userSelect: 'none',
+                            }}>
                               📎
-                            </a>
-                          ) : tieneDoc ? (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 36, height: 26, borderRadius: 6,
-                              background: '#1D9E7515', border: '0.5px solid #1D9E7540',
-                              color: '#0F6E56', fontSize: 16, lineHeight: 1,
-                            }}>📎</span>
-                          ) : m.doc_estado === 'no_requiere' ? (
+                            </div>
+                          </td>
+                        ) : tieneDoc ? (
+                          <td style={tdDocBase} onClick={e => e.stopPropagation()} title="Sin URL del PDF">
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', minHeight: 38,
+                              background: '#1D9E7515',
+                              fontSize: 22, lineHeight: 1, color: '#0F6E56',
+                            }}>📎</div>
+                          </td>
+                        ) : m.doc_estado === 'no_requiere' ? (
+                          <td style={{ ...tdDocBase, padding: '8px 16px' }}>
                             <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
-                          ) : (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 36, height: 26, borderRadius: 6,
-                              background: '#F26B1F10', border: '0.5px dashed #F26B1F40',
-                              color: '#F26B1F', fontSize: 14, fontWeight: 600, lineHeight: 1,
-                            }}>✕</span>
-                          )}
-                        </td>
+                          </td>
+                        ) : (
+                          <td style={tdDocBase}>
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', minHeight: 38,
+                              fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600,
+                            }}>✕</div>
+                          </td>
+                        )}
                         <td style={tdBase}>
                           {estado === 'conciliado' ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
