@@ -1,1285 +1,858 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react'
-// SelectorFechaUniversal placeholder import — integración futura
-// import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  LineChart, Line, ReferenceLine, Cell,
-} from 'recharts'
-import { fmtEur } from '@/utils/format'
-import {
-  useTheme, FONT, pageTitleStyle, cardStyle, kpiLabelStyle, kpiValueStyle,
-  tabActiveStyle, tabInactiveStyle, CANALES,
-} from '@/styles/tokens'
-import { foodCostPonderado, type FoodCostPonderadoResult } from '@/lib/pe/foodCostPonderado'
-import type { TokenSet } from '@/styles/tokens'
+/**
+ * Punto de Equilibrio — refactor 3 may 2026
+ *
+ * Cero mentiras. Cero parámetros hardcoded en pe_parametros.
+ * Datos REALES:
+ *   - Ingresos: tabla `ingresos_mensuales` (neto por canal/mes)
+ *   - Gastos: tabla `gastos` (clasificados en 7 categorías canónicas)
+ *   - Días operativos: useCalendario
+ *
+ * Estructura visual: Header SelectorFechaUniversal + TabsPastilla copia literal Conciliación.
+ * Cards grandes Panel Global con barra apilada + desglose.
+ */
+import { useState, useMemo, useEffect } from 'react'
+import { useTheme, FONT, fmtFechaCorta } from '@/styles/tokens'
 import { useIVA } from '@/contexts/IVAContext'
-import { KpiCard } from '@/components/KpiCard'
-import { CATEGORIAS_ORDEN, CATEGORIA_COLOR, CATEGORIA_NOMBRE } from '@/lib/running'
-import { obtenerAccionesRecomendadas, type AccionRecomendada } from '@/lib/motorAcciones'
+import { useCalendario } from '@/contexts/CalendarioContext'
+import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import TabsPastilla from '@/components/ui/TabsPastilla'
+import {
+  CATEGORIA_NOMBRE, CATEGORIA_COLOR,
+  GASTOS_FIJOS, GASTOS_VARIABLES,
+  type Categoria, type PeriodoRango,
+} from '@/lib/running'
+import { useRunning } from '@/hooks/useRunning'
 
-const CUBRE   = '#1D9E75'
-const AJUSTADO = '#f5a623'
-const PIERDE  = '#E24B4A'
-const ROJO    = '#B01D23'
+const ROJO = '#B01D23'
+const VERDE = '#10B981'
+const AMBAR = '#F4C542'
 
-/* ═══════════════════════════════════════════════════════════
-   TIPOS
-   ═══════════════════════════════════════════════════════════ */
-
-interface PorDia {
-  dow: number
-  dia: string
-  bruto_medio: number
-  estado: 'cubre' | 'ajustado' | 'pierde'
-  delta: number
-  n_dias: number
+/* Formato sin símbolo €, separadores es-ES */
+function fmtNum(n: number, decimales = 0): string {
+  if (!isFinite(n) || isNaN(n)) return '—'
+  return n.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
 }
 
-interface AcumuladoDia {
-  fecha: string
-  dia: number
-  acumulado: number
+function fmtPct(n: number): string {
+  if (!isFinite(n) || isNaN(n)) return '—'
+  return n.toFixed(1) + '%'
 }
 
-interface DashboardData {
-  fecha: string
-  dia_actual: number
-  dias_mes: number
-  dias_operativos_mes: number
-  modo_iva: 'con' | 'sin'
-  iva_pct: number
-  tasa_fiscal_pct: number
-  parametros: Record<string, any>
-  fijos_mes: number
-  comision_pct: number
-  variable_pct: number
-  margen_pct: number
-  pe_mensual: number | null
-  pe_diario: number | null
-  pe_semanal: number | null
-  fijo_diario: number
-  bruto_mes: number
-  pedidos_mes: number
-  bruto_diario_real: number
-  proyeccion_mes: number
-  dia_cubre_fijos: number | null
-  bruto_para_objetivo: number | null
-  objetivo_neto: number
-  por_dia_semana: PorDia[]
-  mix: { uber: number; glovo: number; je: number; web: number; directa: number; total: number; pedidos: number }
-  presupuestos: { comida: { target_semana: number; gastado: number }; packaging: { target_semana: number; gastado: number } }
-  acumulado_vs_pe: AcumuladoDia[]
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+const CANAL_INFO: Record<string, { label: string; color: string }> = {
+  'UBER EATS':  { label: 'Uber Eats',     color: '#06C167' },
+  'GLOVO':      { label: 'Glovo',         color: '#e8f442' },
+  'JUST EAT':   { label: 'Just Eat',      color: '#f5a623' },
+  'WEB':        { label: 'Tienda online', color: '#B01D23' },
+  'DIRECTA':    { label: 'Directa',       color: '#66aaff' },
 }
 
-interface SimResult {
-  fijos_mes: number
-  variable_pct: number
-  margen_pct: number
-  pe_mensual: number
-  pe_diario: number
-  pe_semanal: number
-  bruto_para_objetivo: number
-  objetivo_neto: number
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ESTILOS BASE
-   ═══════════════════════════════════════════════════════════ */
-
-const inputStyle = (T: TokenSet): CSSProperties => ({
-  padding: '8px 12px',
-  backgroundColor: T.inp,
-  color: T.pri,
-  border: `0.5px solid ${T.brd}`,
-  borderRadius: 6,
-  fontFamily: FONT.body,
-  fontSize: 13,
-  boxSizing: 'border-box',
-  outline: 'none',
-})
-
-const btnPrimario: CSSProperties = {
-  padding: '12px 18px',
-  minHeight: 44,
-  backgroundColor: ROJO,
-  color: '#fff',
-  border: 'none',
-  borderRadius: 8,
-  fontFamily: FONT.heading,
-  fontSize: 12,
-  fontWeight: 500,
-  cursor: 'pointer',
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PÁGINA
-   ═══════════════════════════════════════════════════════════ */
-
-type Tab = 'dashboard' | 'simulador' | 'dow' | 'escenarios' | 'tesoreria'
+type Tab = 'resumen' | 'simulador'
 
 export default function PuntoEquilibrio() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
   const { modo: modoIVA } = useIVA()
-  const [tab, setTab] = useState<Tab>('dashboard')
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [tab, setTab] = useState<Tab>('resumen')
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    fetch(`/api/pe/dashboard?iva=${modoIVA}`)
-      .then(async r => {
-        const text = await r.text()
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText} — ${text.slice(0, 300)}`)
-        try {
-          return JSON.parse(text) as DashboardData
-        } catch {
-          throw new Error(`Respuesta no JSON (${r.status}). Probable endpoint no desplegado.`)
-        }
-      })
-      .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
-      .catch(e => { if (!cancelled) { setError(e.message || String(e)); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [refreshKey, modoIVA])
+  const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
+    const h = new Date(); h.setDate(1); h.setHours(0,0,0,0); return h
+  })
+  const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
+    const h = new Date(); h.setHours(23,59,59,999); return h
+  })
+  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
 
-  return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
-        <h1 style={pageTitleStyle(T)}>PUNTO DE EQUILIBRIO</h1>
-        <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
-          Simulador de decisiones · datos en vivo
-        </span>
-      </div>
+  const periodo: PeriodoRango = useMemo(() => ({
+    desde: periodoDesde,
+    hasta: periodoHasta,
+    key: 'pe',
+    label: periodoLabel,
+  }), [periodoDesde, periodoHasta, periodoLabel])
+  const anio = periodo.desde.getFullYear()
 
-      <Tabs T={T} isDark={isDark} tab={tab} setTab={setTab} />
-
-      {loading && (
-        <div style={{ padding: 40, color: T.mut, fontFamily: FONT.body }}>Cargando...</div>
-      )}
-
-      {!loading && error && (
-        <div style={{
-          padding: 20,
-          borderRadius: 10,
-          background: `${ROJO}22`,
-          borderLeft: `3px solid ${ROJO}`,
-          fontFamily: FONT.body,
-          fontSize: 13,
-          color: T.pri,
-          lineHeight: 1.6,
-        }}>
-          <strong>Error cargando dashboard PE:</strong>
-          <div style={{ marginTop: 6, color: T.sec, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>
-          <div style={{ marginTop: 10, color: T.mut, fontSize: 12 }}>
-            Comprueba que el endpoint <code>/api/pe/dashboard</code> está desplegado y que Supabase
-            tiene la tabla <code>pe_parametros</code> con un registro global (<code>marca_id IS NULL</code>).
-          </div>
-        </div>
-      )}
-
-      {!loading && !error && data && tab === 'dashboard' && <TabDashboard T={T} data={data} />}
-      {!loading && !error && data && tab === 'simulador' && <TabSimulador T={T} data={data} />}
-      {!loading && !error && data && tab === 'dow' && <TabDow T={T} data={data} />}
-      {!loading && !error && tab === 'escenarios' && <TabEscenarios T={T} data={data} />}
-      {!loading && !error && tab === 'tesoreria' && <TabTesoreria T={T} />}
-    </div>
+  const { loading, error, gastos, ingresosMes, facturacion } = useRunning(
+    periodo, anio, null, null, modoIVA,
   )
-}
+  const { diasOperativosEnRango } = useCalendario()
 
-/* ═══════════════════════════════════════════════════════════
-   TABS NAV
-   ═══════════════════════════════════════════════════════════ */
+  const meses = useMemo(() => {
+    const set = new Set<number>()
+    const cur = new Date(periodo.desde)
+    while (cur <= periodo.hasta) {
+      if (cur.getFullYear() === anio) set.add(cur.getMonth() + 1)
+      cur.setDate(cur.getDate() + 1)
+    }
+    return Array.from(set)
+  }, [periodo, anio])
 
-function Tabs({ T, isDark, tab, setTab }: { T: TokenSet; isDark: boolean; tab: Tab; setTab: (t: Tab) => void }) {
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'dashboard', label: 'Resumen' },
-    { id: 'simulador', label: 'Simulador' },
-    { id: 'dow', label: 'Día semana' },
-    { id: 'escenarios', label: 'Escenarios' },
-    { id: 'tesoreria', label: 'Tesorería futura' },
-  ]
-  return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-      {tabs.map(t => {
-        const active = tab === t.id
-        return (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={active ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
-            {t.label}
-          </button>
-        )
-      })}
-    </div>
+  const ingresosPorCanal = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of ingresosMes) {
+      if (r.tipo !== 'neto' || !meses.includes(r.mes)) continue
+      m.set(r.canal, (m.get(r.canal) ?? 0) + Number(r.importe || 0))
+    }
+    return m
+  }, [ingresosMes, meses])
+
+  const totalIngresos = useMemo(
+    () => Array.from(ingresosPorCanal.values()).reduce((a, v) => a + v, 0),
+    [ingresosPorCanal]
   )
-}
 
-/* ═══════════════════════════════════════════════════════════
-   TAB DASHBOARD
-   ═══════════════════════════════════════════════════════════ */
+  const totalPedidos = useMemo(
+    () => facturacion.reduce((a, f) => a + Number(f.total_pedidos || 0), 0),
+    [facturacion]
+  )
 
-function TabDashboard({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const estadoGlobal: 'cubre' | 'ajustado' | 'pierde' =
-    data.pe_mensual && data.proyeccion_mes >= data.pe_mensual * 1.1 ? 'cubre'
-      : data.pe_mensual && data.proyeccion_mes >= data.pe_mensual ? 'ajustado'
+  const gastosPorCategoria = useMemo(() => {
+    const m: Partial<Record<Categoria, number>> = {}
+    for (const g of gastos) {
+      m[g.categoria] = (m[g.categoria] ?? 0) + Number(g.importe || 0)
+    }
+    return m
+  }, [gastos])
+
+  const totalFijos = useMemo(
+    () => GASTOS_FIJOS.reduce((a, c) => a + (gastosPorCategoria[c] ?? 0), 0),
+    [gastosPorCategoria]
+  )
+
+  const totalVariables = useMemo(
+    () => GASTOS_VARIABLES.reduce((a, c) => a + (gastosPorCategoria[c] ?? 0), 0),
+    [gastosPorCategoria]
+  )
+
+  const margenContribucion = totalIngresos - totalVariables
+  const margenPct = totalIngresos > 0 ? (margenContribucion / totalIngresos) * 100 : 0
+  const peMensual = margenPct > 0 ? totalFijos / (margenPct / 100) : null
+
+  const diasOperativos = useMemo(
+    () => diasOperativosEnRango(periodo.desde, periodo.hasta) || 1,
+    [diasOperativosEnRango, periodo.desde, periodo.hasta]
+  )
+
+  const ingresoMedioDiario = totalIngresos / diasOperativos
+
+  const diaCubrePE = useMemo(() => {
+    if (!peMensual || ingresoMedioDiario <= 0) return null
+    const diasNecesarios = Math.ceil(peMensual / ingresoMedioDiario)
+    if (diasNecesarios > diasOperativos * 1.5) return null
+    const inicioMes = new Date(periodo.desde)
+    inicioMes.setDate(1)
+    const cur = new Date(inicioMes)
+    let contados = 0
+    let safety = 0
+    while (contados < diasNecesarios && safety < 365) {
+      if (diasOperativosEnRango(cur, cur) === 1) contados++
+      if (contados >= diasNecesarios) break
+      cur.setDate(cur.getDate() + 1)
+      safety++
+    }
+    return cur
+  }, [peMensual, ingresoMedioDiario, diasOperativos, periodo.desde, diasOperativosEnRango])
+
+  const estado: 'cubre' | 'ajustado' | 'pierde' =
+    peMensual == null ? 'pierde'
+      : totalIngresos >= peMensual * 1.05 ? 'cubre'
+      : totalIngresos >= peMensual ? 'ajustado'
       : 'pierde'
 
-  const estadoColor = estadoGlobal === 'cubre' ? CUBRE : estadoGlobal === 'ajustado' ? AJUSTADO : PIERDE
-  const gap = data.pe_mensual ? data.proyeccion_mes - data.pe_mensual : 0
-  const gapTrend: 'up' | 'down' | 'neutral' = gap > 0 ? 'up' : gap < 0 ? 'down' : 'neutral'
-
-  const diaCubreValor = data.dia_cubre_fijos != null ? `Día ${data.dia_cubre_fijos}` : '—'
-  const yaCubierto = data.dia_cubre_fijos != null && data.dia_actual >= data.dia_cubre_fijos
-
-  // T-F4-07 — Food cost ponderado real
-  const [fcPonderado, setFcPonderado] = useState<FoodCostPonderadoResult | null>(null)
-  useEffect(() => {
-    foodCostPonderado().then(r => setFcPonderado(r))
-  }, [])
+  const colorEstado = estado === 'cubre' ? VERDE : estado === 'ajustado' ? AMBAR : ROJO
 
   return (
-    <>
-      {/* KPIs arriba */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" style={{ gap: 14, marginBottom: 16 }}>
-        <KpiCard
-          label="¿Cuándo cubro gastos?"
-          value={diaCubreValor}
-          accent={yaCubierto ? 'success' : 'warning'}
-          subtitle={data.dia_cubre_fijos == null
-            ? 'Sin datos suficientes.'
-            : yaCubierto
-              ? `Ya cubres fijos (hoy día ${data.dia_actual}).`
-              : `Faltan ${data.dia_cubre_fijos - data.dia_actual} días.`}
-        />
-        <KpiCard
-          label="Cubrir gastos"
-          value={data.pe_mensual != null ? fmtEur(data.pe_mensual) : '—'}
-          subtitle={data.pe_diario != null ? `${fmtEur(data.pe_diario)}/día` : ''}
-        />
-        <KpiCard
-          label={`Ganar ${fmtEur(data.objetivo_neto)} limpio`}
-          value={data.bruto_para_objetivo != null ? fmtEur(data.bruto_para_objetivo) : '—'}
-          accent="danger"
-          subtitle={data.bruto_para_objetivo != null
-            ? `${fmtEur(Math.round(data.bruto_para_objetivo / (data.dias_operativos_mes || data.dias_mes)))}/día op.`
-            : ''}
-          highlighted
-        />
-        <KpiCard
-          label="Días operativos mes"
-          value={String(data.dias_operativos_mes ?? data.dias_mes)}
-          subtitle={`de ${data.dias_mes} días naturales`}
-        />
-        <KpiCard
-          label="Estado mes"
-          value={estadoGlobal === 'cubre' ? 'Vas bien' : estadoGlobal === 'ajustado' ? 'Ajustado' : 'Pierdes'}
-          accent={estadoGlobal === 'cubre' ? 'success' : estadoGlobal === 'ajustado' ? 'warning' : 'danger'}
-          delta={{
-            value: `${gap >= 0 ? '+' : ''}${fmtEur(gap)} vs PE`,
-            trend: gapTrend,
-          }}
-          subtitle={`Bruto mes ${fmtEur(data.bruto_mes)} · Proy ${fmtEur(data.proyeccion_mes)}`}
-        />
+    <div style={{ background: '#f5f3ef', padding: '24px 28px', minHeight: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{
+            color: '#B01D23',
+            fontFamily: 'Oswald, sans-serif',
+            fontSize: 22,
+            fontWeight: 600,
+            letterSpacing: '3px',
+            margin: 0,
+            textTransform: 'uppercase',
+          }}>
+            PUNTO DE EQUILIBRIO
+          </h2>
+          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
+            {fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SelectorFechaUniversal
+            nombreModulo="punto_equilibrio"
+            defaultOpcion="mes_en_curso"
+            onChange={(desde, hasta, label) => {
+              setPeriodoDesde(desde)
+              setPeriodoHasta(hasta)
+              setPeriodoLabel(label)
+            }}
+          />
+        </div>
       </div>
 
-      {/* Gráficos */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(380px,1fr))', gap: 14, marginBottom: 16 }}>
-        <AcumuladoVsPeChart T={T} data={data} color={estadoColor} />
-        <MixCanalesChart T={T} data={data} />
-      </div>
+      <TabsPastilla
+        tabs={[
+          { id: 'resumen', label: 'Resumen' },
+          { id: 'simulador', label: 'Simulador' },
+        ]}
+        activeId={tab}
+        onChange={(id) => setTab(id as Tab)}
+      />
 
-      <CardCosteNegocio T={T} data={data} />
-      <div style={{ height: 16 }} />
-
-      {/* T-F4-07 — Food cost ponderado real */}
-      {fcPonderado && (
-        <div style={{
-          ...cardStyle(T),
-          marginBottom: 16,
-          borderLeft: `3px solid ${fcPonderado.modo === 'estimado' ? AJUSTADO : CUBRE}`,
-        }}>
-          <div style={kpiLabelStyle(T)}>Food cost ponderado real</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, color: fcPonderado.food_cost_pct > 32 ? PIERDE : CUBRE }}>
-              {fcPonderado.food_cost_pct}%
-            </span>
-            {fcPonderado.badge && (
-              <span style={{
-                fontFamily: FONT.body, fontSize: 11, color: '#111111',
-                background: '#e8f442', borderRadius: 4, padding: '2px 8px',
-              }}>
-                {fcPonderado.badge}
-              </span>
-            )}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 6 }}>
-            Basado en {fcPonderado.n_platos} plato{fcPonderado.n_platos !== 1 ? 's' : ''} ·
-            modo: {fcPonderado.modo === 'real' ? 'peso real (pedidos)' : fcPonderado.modo === 'uniforme' ? 'distribución uniforme' : 'estimado (28%)'}
-          </div>
+      {error && (
+        <div style={{ background: '#FCEBEB', border: '1px solid #B01D23', color: '#A32D2D', padding: 16, borderRadius: 8, fontFamily: FONT.body, fontSize: 13, marginTop: 16 }}>
+          Error: {error}
         </div>
       )}
 
-      <CardAcciones T={T} data={data} />
-      <div style={{ height: 12 }} />
-      <CardAccionesPlataforma T={T} />
+      {loading && !error && (
+        <div style={{ padding: 40, color: T.mut, fontFamily: FONT.body }}>Cargando datos reales...</div>
+      )}
+
+      {!loading && !error && tab === 'resumen' && (
+        <TabResumen
+          totalIngresos={totalIngresos}
+          totalPedidos={totalPedidos}
+          totalFijos={totalFijos}
+          totalVariables={totalVariables}
+          margenContribucion={margenContribucion}
+          margenPct={margenPct}
+          peMensual={peMensual}
+          diaCubrePE={diaCubrePE}
+          ingresosPorCanal={ingresosPorCanal}
+          gastosPorCategoria={gastosPorCategoria}
+          diasOperativos={diasOperativos}
+          ingresoMedioDiario={ingresoMedioDiario}
+          estado={estado}
+          colorEstado={colorEstado}
+          periodoLabel={periodoLabel}
+        />
+      )}
+
+      {!loading && !error && tab === 'simulador' && (
+        <TabSimulador
+          totalIngresos={totalIngresos}
+          totalFijos={totalFijos}
+          totalVariables={totalVariables}
+          margenPct={margenPct}
+          peMensual={peMensual}
+          diasOperativos={diasOperativos}
+          totalPedidos={totalPedidos}
+          ingresosPorCanal={ingresosPorCanal}
+        />
+      )}
+    </div>
+  )
+}
+
+/* TAB RESUMEN */
+
+interface TabResumenProps {
+  totalIngresos: number
+  totalPedidos: number
+  totalFijos: number
+  totalVariables: number
+  margenContribucion: number
+  margenPct: number
+  peMensual: number | null
+  diaCubrePE: Date | null
+  ingresosPorCanal: Map<string, number>
+  gastosPorCategoria: Partial<Record<Categoria, number>>
+  diasOperativos: number
+  ingresoMedioDiario: number
+  estado: 'cubre' | 'ajustado' | 'pierde'
+  colorEstado: string
+  periodoLabel: string
+}
+
+function TabResumen(p: TabResumenProps) {
+  const { T } = useTheme()
+
+  const segIngresos = Array.from(p.ingresosPorCanal.entries())
+    .map(([canal, importe]) => ({
+      label: CANAL_INFO[canal]?.label ?? canal,
+      valor: importe,
+      color: CANAL_INFO[canal]?.color ?? '#7a8090',
+    }))
+    .filter(s => s.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+
+  const segFijos = GASTOS_FIJOS
+    .map(cat => ({
+      label: CATEGORIA_NOMBRE[cat],
+      valor: p.gastosPorCategoria[cat] ?? 0,
+      color: CATEGORIA_COLOR[cat],
+    }))
+    .filter(s => s.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+
+  const segVariables = GASTOS_VARIABLES
+    .map(cat => ({
+      label: CATEGORIA_NOMBRE[cat],
+      valor: p.gastosPorCategoria[cat] ?? 0,
+      color: CATEGORIA_COLOR[cat],
+    }))
+    .filter(s => s.valor > 0)
+
+  const pctCubierto = p.peMensual ? Math.min(100, (p.totalIngresos / p.peMensual) * 100) : 0
+  const ticketMedio = p.totalPedidos > 0 ? p.totalIngresos / p.totalPedidos : 0
+
+  return (
+    <>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 14,
+        marginBottom: 18,
+        marginTop: 16,
+      }}>
+        <CardGrande
+          label="Ingresos del periodo"
+          valor={fmtNum(p.totalIngresos)}
+          deltaText={p.totalPedidos > 0 ? `${fmtNum(p.totalPedidos)} pedidos · medio ${fmtNum(ticketMedio, 2)}` : 'Sin pedidos en el periodo'}
+          deltaColor={T.mut}
+          segmentos={segIngresos}
+        />
+
+        <CardGrande
+          label="Costes fijos"
+          valor={fmtNum(p.totalFijos)}
+          deltaText="Categorías canónicas plan contable"
+          deltaColor={T.mut}
+          segmentos={segFijos}
+        />
+
+        <CardGrande
+          label="Costes variables"
+          valor={fmtNum(p.totalVariables)}
+          deltaText={p.totalIngresos > 0 ? `${fmtPct(p.totalVariables / p.totalIngresos * 100)} sobre ingresos · margen ${fmtPct(p.margenPct)}` : 'Sin ingresos en el periodo'}
+          deltaColor={T.mut}
+          segmentos={segVariables}
+        />
+
+        <CardPE
+          peMensual={p.peMensual}
+          totalIngresos={p.totalIngresos}
+          pctCubierto={pctCubierto}
+          diaCubrePE={p.diaCubrePE}
+          colorEstado={p.colorEstado}
+          estado={p.estado}
+          diasOperativos={p.diasOperativos}
+        />
+      </div>
+
+      <div style={{
+        background: '#fff',
+        border: `0.5px solid ${T.brd}`,
+        borderRadius: 16,
+        padding: '20px 24px',
+        marginBottom: 18,
+      }}>
+        <div style={{
+          fontFamily: FONT.heading,
+          fontSize: 12,
+          fontWeight: 500,
+          letterSpacing: '2px',
+          textTransform: 'uppercase',
+          color: T.mut,
+          marginBottom: 12,
+        }}>
+          Estado del periodo
+        </div>
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: 10,
+          background: `${p.colorEstado}15`,
+          border: `1px solid ${p.colorEstado}40`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+        }}>
+          <div style={{ width: 14, height: 14, borderRadius: '50%', background: p.colorEstado, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri }}>
+              {p.estado === 'cubre' ? 'Cubres punto de equilibrio'
+                : p.estado === 'ajustado' ? 'Ajustado — al límite'
+                : 'No cubres punto de equilibrio'}
+            </div>
+            <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 4, lineHeight: 1.4 }}>
+              {p.peMensual == null
+                ? 'Sin margen suficiente para calcular el PE.'
+                : p.estado === 'cubre'
+                  ? `Vas ${fmtNum(p.totalIngresos - p.peMensual)} por encima del PE (${fmtNum(p.peMensual)}). Excedente que tira al beneficio.`
+                  : p.estado === 'ajustado'
+                    ? `Vas ${fmtNum(p.totalIngresos - p.peMensual)} sobre el PE (${fmtNum(p.peMensual)}). Margen muy fino.`
+                    : `Te faltan ${fmtNum(p.peMensual - p.totalIngresos)} para alcanzar el PE (${fmtNum(p.peMensual)}).`}
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   )
 }
 
-function AcumuladoVsPeChart({ T, data, color }: { T: TokenSet; data: DashboardData; color: string }) {
-  const serie = useMemo(() => {
-    const out: { dia: number; acumulado: number; pe: number | null }[] = []
-    const peTotal = data.pe_mensual ?? 0
-    for (let d = 1; d <= data.dias_mes; d++) {
-      const point = data.acumulado_vs_pe.find(p => p.dia === d)
-      const peDia = peTotal > 0 ? (peTotal / data.dias_mes) * d : 0
-      out.push({
-        dia: d,
-        acumulado: point ? point.acumulado : (d <= data.dia_actual ? 0 : NaN),
-        pe: peDia,
-      })
-    }
-    return out
-  }, [data])
+interface SegItem { label: string; valor: number; color: string }
+
+function CardGrande({ label, valor, deltaText, deltaColor, segmentos }: {
+  label: string
+  valor: string
+  deltaText?: string
+  deltaColor?: string
+  segmentos: SegItem[]
+}) {
+  const { T } = useTheme()
+  const total = segmentos.reduce((a, s) => a + Math.max(0, s.valor), 0)
 
   return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>Ingresos acumulados vs PE</div>
-      <div style={{ height: 240, marginTop: 12 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={serie} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.brd} />
-            <XAxis dataKey="dia" stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} />
-            <YAxis stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-            <Tooltip
-              contentStyle={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
-              labelStyle={{ color: T.pri }}
-              formatter={(v) => fmtEur(Math.round(Number(v) || 0))}
-              labelFormatter={(l) => `Día ${l}`}
-            />
-            <Line type="monotone" dataKey="acumulado" name="Acumulado" stroke={color} strokeWidth={2.5} dot={false} connectNulls={false} />
-            <Line type="monotone" dataKey="pe" name="PE lineal" stroke={ROJO} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+    <div style={{
+      background: '#fff',
+      border: `0.5px solid ${T.brd}`,
+      borderRadius: 16,
+      padding: '24px 28px',
+    }}>
+      <div style={{
+        fontFamily: FONT.heading,
+        fontSize: 12,
+        fontWeight: 500,
+        letterSpacing: '2px',
+        textTransform: 'uppercase',
+        color: T.mut,
+        marginBottom: 8,
+      }}>
+        {label}
       </div>
-    </div>
-  )
-}
-
-function MixCanalesChart({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const serie = useMemo(() => {
-    return CANALES.map(c => {
-      let valor = 0
-      if (c.id === 'uber') valor = data.mix.uber
-      else if (c.id === 'glovo') valor = data.mix.glovo
-      else if (c.id === 'je') valor = data.mix.je
-      else if (c.id === 'web') valor = data.mix.web
-      else if (c.id === 'dir') valor = data.mix.directa
-      return { canal: c.label, valor: Math.round(valor), color: c.color }
-    })
-  }, [data])
-
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>Mix de canales · bruto mes</div>
-      <div style={{ height: 240, marginTop: 12 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={serie} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.brd} />
-            <XAxis dataKey="canal" stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} />
-            <YAxis stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-            <Tooltip
-              contentStyle={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
-              labelStyle={{ color: T.pri }}
-              formatter={(v) => fmtEur(Math.round(Number(v) || 0))}
-            />
-            <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-              {serie.map((s, i) => <Cell key={i} fill={s.color} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div style={{
+        fontFamily: FONT.heading,
+        fontSize: 38,
+        fontWeight: 600,
+        color: T.pri,
+        lineHeight: 1.05,
+      }}>
+        {valor}
       </div>
-    </div>
-  )
-}
+      {deltaText && (
+        <div style={{ fontFamily: FONT.body, fontSize: 12, color: deltaColor ?? T.mut, marginTop: 4 }}>
+          {deltaText}
+        </div>
+      )}
 
-function CardCosteNegocio({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const diasOp = data.dias_operativos_mes || data.dias_mes
-  const brutoObjDia = data.bruto_para_objetivo != null ? Math.round(data.bruto_para_objetivo / diasOp) : 0
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>Coste de mantener Streat Lab</div>
-      <table style={{ width: '100%', marginTop: 14, fontFamily: FONT.body, borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ color: T.mut, fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
-            <th style={{ textAlign: 'left', padding: '6px 0' }}></th>
-            <th style={{ textAlign: 'right' }}>Día</th>
-            <th style={{ textAlign: 'right' }}>Semana</th>
-            <th style={{ textAlign: 'right' }}>Mes</th>
-            <th style={{ textAlign: 'right' }}>Año</th>
-          </tr>
-        </thead>
-        <tbody style={{ color: T.pri, fontSize: 14 }}>
-          <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-            <td style={{ padding: '10px 0', color: T.sec }}>Coste fijo</td>
-            <td style={{ textAlign: 'right' }}>{fmtEur(data.fijo_diario)}</td>
-            <td style={{ textAlign: 'right' }}>{fmtEur(data.fijo_diario * 7)}</td>
-            <td style={{ textAlign: 'right' }}>{fmtEur(data.fijos_mes)}</td>
-            <td style={{ textAlign: 'right' }}>{fmtEur(data.fijos_mes * 12)}</td>
-          </tr>
-          <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-            <td style={{ padding: '10px 0', color: T.sec }}>Bruto para cubrir</td>
-            <td style={{ textAlign: 'right', color: AJUSTADO }}>{fmtEur(data.pe_diario)}</td>
-            <td style={{ textAlign: 'right', color: AJUSTADO }}>{fmtEur(data.pe_semanal)}</td>
-            <td style={{ textAlign: 'right', color: AJUSTADO }}>{fmtEur(data.pe_mensual)}</td>
-            <td style={{ textAlign: 'right', color: AJUSTADO }}>{fmtEur((data.pe_mensual ?? 0) * 12)}</td>
-          </tr>
-          <tr style={{ borderTop: `0.5px solid ${T.brd}` }}>
-            <td style={{ padding: '10px 0', color: T.sec }}>Para ganar {fmtEur(data.objetivo_neto)}/mes limpio</td>
-            <td style={{ textAlign: 'right', color: ROJO, fontWeight: 600 }}>{fmtEur(brutoObjDia)}</td>
-            <td style={{ textAlign: 'right', color: ROJO, fontWeight: 600 }}>{fmtEur(brutoObjDia * 7)}</td>
-            <td style={{ textAlign: 'right', color: ROJO, fontWeight: 600 }}>{fmtEur(data.bruto_para_objetivo)}</td>
-            <td style={{ textAlign: 'right', color: ROJO, fontWeight: 600 }}>{fmtEur((data.bruto_para_objetivo ?? 0) * 12)}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div style={{ marginTop: 14, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-        Margen bruto {data.margen_pct}% · Comisión ponderada {data.comision_pct}% · Food {data.parametros.food_cost_pct}% + Packaging {data.parametros.packaging_pct}% ·
-        IVA {data.modo_iva === 'sin' ? `excluido (${data.iva_pct}%)` : 'incluido'} · Carga fiscal {data.tasa_fiscal_pct}%
-      </div>
-    </div>
-  )
-}
-
-function CardAcciones({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const acciones = calcularAcciones(data)
-  if (acciones.length === 0) return null
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>Acciones recomendadas</div>
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {acciones.map((a, i) => (
-          <div key={i} style={{
-            padding: 12,
-            borderRadius: 8,
-            backgroundColor: `${a.color}15`,
-            borderLeft: `3px solid ${a.color}`,
+      {segmentos.length > 0 && total > 0 && (
+        <>
+          <div style={{
+            height: 8, borderRadius: 4,
+            background: T.brd, overflow: 'hidden',
+            display: 'flex', marginTop: 12,
           }}>
-            <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600 }}>
-              {a.titulo}
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4 }}>
-              → {a.sugerencia}
-            </div>
+            {segmentos.map((s, i) => (
+              <div key={i} style={{
+                width: `${(s.valor / total) * 100}%`,
+                background: s.color,
+                height: '100%',
+              }} title={`${s.label}: ${fmtNum(s.valor)}`} />
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
-function calcularAcciones(data: DashboardData): { color: string; titulo: string; sugerencia: string }[] {
-  const out: { color: string; titulo: string; sugerencia: string }[] = []
-
-  const diasPerder = data.por_dia_semana.filter(d => d.estado === 'pierde' && d.n_dias >= 2)
-  if (diasPerder.length > 0) {
-    out.push({
-      color: PIERDE,
-      titulo: `${diasPerder.map(d => d.dia).join(' y ')}: pierdes dinero`,
-      sugerencia: 'Menú ejecutivo, promo captación esos días, o reducir personal',
-    })
-  }
-
-  const directas = data.mix.web + data.mix.directa
-  const pctDirecta = data.mix.total > 0 ? (directas / data.mix.total) * 100 : 0
-  if (pctDirecta < 5 && data.mix.total > 0) {
-    const extra = Math.round(data.mix.total * 0.01 * 0.30)
-    out.push({
-      color: AJUSTADO,
-      titulo: `Canal directo solo ${pctDirecta.toFixed(1)}% del bruto`,
-      sugerencia: `Cada 1% recuperado = +${fmtEur(extra)}/mes limpio (0% comisión)`,
-    })
-  }
-
-  if (data.pe_mensual && data.proyeccion_mes > data.pe_mensual * 1.3) {
-    const margen = data.proyeccion_mes - data.pe_mensual
-    out.push({
-      color: CUBRE,
-      titulo: `Margen mensual proyectado ${fmtEur(margen)}`,
-      sugerencia: 'Capacidad para absorber contratación o inversión',
-    })
-  }
-
-  if (data.pe_mensual && data.proyeccion_mes < data.pe_mensual) {
-    const falta = data.pe_mensual - data.proyeccion_mes
-    out.push({
-      color: PIERDE,
-      titulo: `Proyección mensual por debajo de PE`,
-      sugerencia: `Faltan ${fmtEur(falta)} para cubrir. Revisa canal directo y mix de pedidos.`,
-    })
-  }
-
-  return out
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CARD ACCIONES PLATAFORMA (motor T-F2-12)
-   ═══════════════════════════════════════════════════════════ */
-
-function CardAccionesPlataforma({ T }: { T: TokenSet }) {
-  const [acciones, setAcciones] = useState<AccionRecomendada[]>([])
-  const [cargando, setCargando] = useState(true)
-
-  useEffect(() => {
-    obtenerAccionesRecomendadas()
-      .then(setAcciones)
-      .catch(() => setAcciones([]))
-      .finally(() => setCargando(false))
-  }, [])
-
-  if (cargando) return null
-  if (acciones.length === 0) return (
-    <div style={{ ...cardStyle(T), marginTop: 0 }}>
-      <div style={kpiLabelStyle(T)}>Acciones plataformas</div>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 10 }}>
-        Sin acciones activas · motor requiere ≥4 semanas de datos en ventas_plataforma
-      </div>
-    </div>
-  )
-
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>Acciones plataformas — motor automático</div>
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {acciones.map((a, i) => (
-          <div key={i} style={{
-            padding: 12,
-            borderRadius: 8,
-            backgroundColor: `${a.color}15`,
-            borderLeft: `3px solid ${a.color}`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: 4,
-                backgroundColor: `${a.color}25`,
-                color: a.color,
-                fontFamily: FONT.heading,
-                fontSize: 10,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
+          <div style={{ marginTop: 14 }}>
+            {segmentos.map((s, i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', padding: '8px 0',
+                borderBottom: i < segmentos.length - 1 ? `0.5px solid #ebe8e2` : 'none',
+                fontSize: 12,
               }}>
-                {a.prioridad}
-              </span>
-              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600 }}>
-                {a.titulo}
-              </span>
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
-              → {a.sugerencia}
-            </div>
-            {(a.margen_pct !== undefined || a.pedidos !== undefined) && (
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 4 }}>
-                {a.margen_pct !== undefined && `Margen: ${a.margen_pct.toFixed(1)}%`}
-                {a.margen_pct !== undefined && a.pedidos !== undefined && ' · '}
-                {a.pedidos !== undefined && `${a.pedidos} pedidos/sem`}
+                <span style={{ color: T.sec, fontFamily: FONT.body, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: 4,
+                    background: s.color, display: 'inline-block',
+                  }} />
+                  {s.label}
+                </span>
+                <span style={{
+                  fontFamily: FONT.heading, fontSize: 13, fontWeight: 500,
+                  color: T.pri,
+                }}>
+                  {fmtNum(s.valor)}
+                </span>
               </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+        </>
+      )}
 
-/* ═══════════════════════════════════════════════════════════
-   TAB PRESUPUESTOS
-   ═══════════════════════════════════════════════════════════ */
-
-function TabPresupuestos({ T, data }: { T: TokenSet; data: DashboardData }) {
-  return (
-    <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 16 }}>
-        <BarraPresupuesto
-          T={T}
-          titulo={`${CATEGORIA_NOMBRE['PRODUCTO']} · Comida (PRD-ALI)`}
-          target={data.presupuestos.comida.target_semana}
-          gastado={data.presupuestos.comida.gastado}
-        />
-        <BarraPresupuesto
-          T={T}
-          titulo={`${CATEGORIA_NOMBRE['PRODUCTO']} · Packaging (PRD-PKG)`}
-          target={data.presupuestos.packaging.target_semana}
-          gastado={data.presupuestos.packaging.gastado}
-        />
-      </div>
-      <SimuladorGastar T={T} />
-    </>
-  )
-}
-
-function BarraPresupuesto({ T, titulo, target, gastado }: { T: TokenSet; titulo: string; target: number; gastado: number }) {
-  const pct = target > 0 ? (gastado / target) * 100 : 0
-  const color = pct < 80 ? CUBRE : pct < 100 ? AJUSTADO : PIERDE
-  const disponible = Math.max(0, target - gastado)
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>{titulo}</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10 }}>
-        <span style={{ ...kpiValueStyle(T), fontSize: '1.8rem' }}>
-          {fmtEur(gastado)}
-        </span>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.mut }}>
-          de {fmtEur(target)}
-        </span>
-      </div>
-      <div style={{ height: 8, backgroundColor: T.brd, borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
-        <div style={{
-          width: `${Math.min(pct, 100)}%`,
-          height: '100%',
-          backgroundColor: color,
-          transition: 'width 0.3s',
-        }} />
-      </div>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color, marginTop: 8, fontWeight: 500 }}>
-        {disponible > 0 ? `Te quedan ${fmtEur(disponible)}` : `Te has pasado ${fmtEur(-disponible)}`}
-      </div>
-    </div>
-  )
-}
-
-function SimuladorGastar({ T }: { T: TokenSet }) {
-  const [importe, setImporte] = useState<number>(0)
-  const [categoria, setCategoria] = useState('PRD-ALI')
-  const [resultado, setResultado] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function evaluar() {
-    if (importe <= 0) return
-    setLoading(true)
-    try {
-      const r = await fetch('/api/pe/puedo-gastar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ importe, categoria }),
-      })
-      setResultado(await r.json())
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const estadoColor = resultado?.estado === 'verde' ? CUBRE
-    : resultado?.estado === 'ambar' ? AJUSTADO : PIERDE
-
-  return (
-    <div style={cardStyle(T)}>
-      <div style={kpiLabelStyle(T)}>¿Puedo gastar ahora?</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginTop: 14 }}>
-        <input
-          type="number"
-          placeholder="Importe €"
-          value={importe || ''}
-          onChange={(e) => setImporte(parseFloat(e.target.value) || 0)}
-          style={inputStyle(T)}
-        />
-        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle(T)}>
-          <option value="PRD-ALI">Comida (PRD-ALI)</option>
-          <option value="PRD-PKG">Packaging (PRD-PKG)</option>
-          {CATEGORIAS_ORDEN.filter(c => c !== 'PRODUCTO').map(c => (
-            <option key={c} value={c}>{CATEGORIA_NOMBRE[c]}</option>
-          ))}
-        </select>
-        <button onClick={evaluar} disabled={loading || importe <= 0} style={{ ...btnPrimario, opacity: loading || importe <= 0 ? 0.6 : 1 }}>
-          {loading ? 'Evaluando...' : 'Evaluar'}
-        </button>
-      </div>
-
-      {resultado && (
-        <div style={{
-          marginTop: 14,
-          padding: 14,
-          borderRadius: 8,
-          backgroundColor: `${estadoColor}22`,
-          borderLeft: `3px solid ${estadoColor}`,
-        }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 16, color: T.pri, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>
-            {resultado.estado === 'verde' ? 'Sí' : resultado.estado === 'ambar' ? 'Cuidado' : 'No'}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4 }}>
-            {resultado.recomendacion}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8 }}>
-            Caja actual: {fmtEur(resultado.caja_actual)} · Caja después: {fmtEur(resultado.caja_despues)} · Gastado categoría mes: {fmtEur(resultado.gastado_con_esto)}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginTop: 4 }}>
-            Umbrales: verde &gt; {fmtEur(resultado.umbral_verde)} · ámbar &gt; {fmtEur(resultado.umbral_ambar)}
-          </div>
+      {segmentos.length === 0 && (
+        <div style={{ marginTop: 16, fontFamily: FONT.body, fontSize: 12, color: T.mut, fontStyle: 'italic' }}>
+          Sin movimientos en el periodo seleccionado
         </div>
       )}
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════
-   TAB SIMULADOR
-   ═══════════════════════════════════════════════════════════ */
+function CardPE({ peMensual, totalIngresos, pctCubierto, diaCubrePE, colorEstado, estado, diasOperativos }: {
+  peMensual: number | null
+  totalIngresos: number
+  pctCubierto: number
+  diaCubrePE: Date | null
+  colorEstado: string
+  estado: 'cubre' | 'ajustado' | 'pierde'
+  diasOperativos: number
+}) {
+  const { T } = useTheme()
 
-function TabSimulador({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const { modo: modoIVA } = useIVA()
-  const [p, setP] = useState<Record<string, any>>(() => ({ ...data.parametros }))
-  const [resultado, setResultado] = useState<SimResult | null>(null)
-
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      const r = await fetch('/api/pe/simular', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...p, modo_iva: modoIVA }),
-      })
-      setResultado(await r.json())
-    }, 250)
-    return () => clearTimeout(t)
-  }, [p, modoIVA])
-
-  const set = (k: string, v: number) => setP(prev => ({ ...prev, [k]: v }))
+  const diaTexto = diaCubrePE ? `${diaCubrePE.getDate()}` : '—'
+  const mesTexto = diaCubrePE ? MESES_ES[diaCubrePE.getMonth()].slice(0, 3).toUpperCase() : ''
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
-      <div style={cardStyle(T)}>
-        <div style={kpiLabelStyle(T)}>Ajusta parámetros</div>
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Slider T={T} label="Sueldos empleados" value={Number(p.sueldos_empleados || 0)} min={0} max={10000} step={100} onChange={v => set('sueldos_empleados', v)} fmt={fmtEur} />
-          <Slider T={T} label="Think Paladar" value={Number(p.think_paladar || 0)} min={0} max={3500} step={50} onChange={v => set('think_paladar', v)} fmt={fmtEur} />
-          <Slider T={T} label="Alquiler local" value={Number(p.alquiler_local || 0)} min={0} max={2500} step={50} onChange={v => set('alquiler_local', v)} fmt={fmtEur} />
-          <Slider T={T} label="Sueldo Rubén" value={Number(p.sueldo_ruben || 0)} min={0} max={4000} step={50} onChange={v => set('sueldo_ruben', v)} fmt={fmtEur} />
-          <Slider T={T} label="Sueldo Emilio" value={Number(p.sueldo_emilio || 0)} min={0} max={4000} step={50} onChange={v => set('sueldo_emilio', v)} fmt={fmtEur} />
-          <Slider T={T} label="Food cost" value={Number(p.food_cost_pct || 0)} min={15} max={45} step={0.5} onChange={v => set('food_cost_pct', v)} fmt={v => `${v}%`} />
-          <Slider T={T} label="Packaging" value={Number(p.packaging_pct || 0)} min={0} max={5} step={0.1} onChange={v => set('packaging_pct', v)} fmt={v => `${v}%`} />
-          <Slider T={T} label="Objetivo neto/mes" value={Number(p.objetivo_beneficio_mensual || 0)} min={0} max={15000} step={100} onChange={v => set('objetivo_beneficio_mensual', v)} fmt={fmtEur} />
+    <div style={{
+      background: 'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)',
+      border: `0.5px solid ${T.brd}`,
+      borderRadius: 16,
+      padding: '24px 28px',
+    }}>
+      <div style={{
+        fontFamily: FONT.heading,
+        fontSize: 12,
+        fontWeight: 500,
+        letterSpacing: '2px',
+        textTransform: 'uppercase',
+        color: T.mut,
+        marginBottom: 8,
+      }}>
+        Punto de equilibrio
+      </div>
+      <div style={{
+        fontFamily: FONT.heading,
+        fontSize: 38,
+        fontWeight: 600,
+        color: T.pri,
+        lineHeight: 1.05,
+      }}>
+        {peMensual != null ? fmtNum(peMensual) : '—'}
+      </div>
+      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 4 }}>
+        Ingresos para no perder
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16 }}>
+        <div style={{
+          width: 78, height: 78, borderRadius: '50%',
+          background: colorEstado, color: '#fff',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, lineHeight: 1 }}>
+            {diaTexto}
+          </div>
+          {mesTexto && (
+            <div style={{ fontFamily: FONT.heading, fontSize: 9, fontWeight: 500, letterSpacing: 1, marginTop: 3 }}>
+              {mesTexto}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, color: T.mut, textTransform: 'uppercase' }}>
+            Día en que se cubre
+          </div>
+          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4, lineHeight: 1.4 }}>
+            {diaCubrePE == null
+              ? 'Al ritmo actual no se cubre dentro de los días operativos.'
+              : estado === 'cubre'
+                ? `Cubierto al ritmo medio del periodo.`
+                : `Estimación al ritmo medio (${diasOperativos} días operativos).`}
+          </div>
         </div>
       </div>
 
-      <div style={cardStyle(T)}>
-        <div style={kpiLabelStyle(T)}>Impacto</div>
-        {resultado && (
-          <>
-            <div style={{ ...kpiValueStyle(T), color: ROJO, marginTop: 8 }}>
-              {fmtEur(resultado.pe_mensual)}
-            </div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 2 }}>
-              PE simulado ({fmtEur(resultado.pe_diario)}/día · {fmtEur(resultado.pe_semanal)}/semana)
-            </div>
-
-            <div style={{ height: 1, backgroundColor: T.brd, margin: '18px 0' }} />
-
-            <Comparar T={T} label="PE mensual actual" a={data.pe_mensual ?? 0} b={resultado.pe_mensual} />
-            <Comparar T={T} label="Fijos mes" a={data.fijos_mes} b={resultado.fijos_mes} />
-            <Comparar T={T} label="Margen %" a={data.margen_pct} b={resultado.margen_pct} pct />
-            <Comparar T={T} label={`Bruto para ganar ${fmtEur(resultado.objetivo_neto)}`} a={data.bruto_para_objetivo ?? 0} b={resultado.bruto_para_objetivo} />
-
+      {peMensual != null && (
+        <>
+          <div style={{
+            height: 8, borderRadius: 4, background: T.brd,
+            overflow: 'hidden', marginTop: 14,
+          }}>
             <div style={{
-              marginTop: 16,
-              padding: 12,
-              borderRadius: 8,
-              backgroundColor: T.group,
-              fontFamily: FONT.body,
-              fontSize: 12,
-              color: T.pri,
-              lineHeight: 1.5,
+              width: `${pctCubierto}%`,
+              height: '100%',
+              background: colorEstado,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 6 }}>
+            Cubierto {fmtPct(pctCubierto)} {totalIngresos < peMensual ? `· faltan ${fmtNum(peMensual - totalIngresos)}` : `· excedente ${fmtNum(totalIngresos - peMensual)}`}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* TAB SIMULADOR */
+
+interface Escenario {
+  id: string
+  titulo: string
+  pill: 'base' | 'mejora' | 'empeora' | 'mixto'
+  pillLabel: string
+  ticketMedio: number
+  margenPct: number
+  fijos: number
+  mixWebPct: number
+  bloqueado?: boolean
+}
+
+function TabSimulador(p: {
+  totalIngresos: number
+  totalFijos: number
+  totalVariables: number
+  margenPct: number
+  peMensual: number | null
+  diasOperativos: number
+  totalPedidos: number
+  ingresosPorCanal: Map<string, number>
+}) {
+  const { T } = useTheme()
+
+  const ticketMedioBase = p.totalPedidos > 0 ? p.totalIngresos / p.totalPedidos : 0
+  const mixWebBase = p.totalIngresos > 0
+    ? ((p.ingresosPorCanal.get('WEB') ?? 0) + (p.ingresosPorCanal.get('DIRECTA') ?? 0)) / p.totalIngresos * 100
+    : 0
+
+  const baseEscenario: Escenario = {
+    id: 'base',
+    titulo: 'Datos reales del periodo',
+    pill: 'base',
+    pillLabel: 'Base',
+    ticketMedio: ticketMedioBase,
+    margenPct: p.margenPct,
+    fijos: p.totalFijos,
+    mixWebPct: mixWebBase,
+    bloqueado: true,
+  }
+
+  const [escenarios, setEscenarios] = useState<Escenario[]>([
+    baseEscenario,
+    {
+      id: 'mejora-ticket',
+      titulo: 'Subir ticket medio +1',
+      pill: 'mejora',
+      pillLabel: 'Mejora',
+      ticketMedio: ticketMedioBase + 1,
+      margenPct: p.margenPct,
+      fijos: p.totalFijos,
+      mixWebPct: mixWebBase,
+    },
+    {
+      id: 'mejora-web',
+      titulo: '+10pp tienda online',
+      pill: 'mejora',
+      pillLabel: 'Mejora',
+      ticketMedio: ticketMedioBase,
+      margenPct: p.margenPct + 3,
+      fijos: p.totalFijos,
+      mixWebPct: mixWebBase + 10,
+    },
+    {
+      id: 'empeora-fijos',
+      titulo: '+ persona en plantilla',
+      pill: 'empeora',
+      pillLabel: 'Empeora',
+      ticketMedio: ticketMedioBase,
+      margenPct: p.margenPct,
+      fijos: p.totalFijos + 1800,
+      mixWebPct: mixWebBase,
+    },
+  ])
+
+  useEffect(() => {
+    setEscenarios(prev => {
+      if (prev.length === 0) return prev
+      const updated = [...prev]
+      updated[0] = baseEscenario
+      return updated
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.totalIngresos, p.totalFijos, p.margenPct, p.totalPedidos])
+
+  function actualizarEscenario(id: string, campo: keyof Escenario, valor: number) {
+    setEscenarios(prev => prev.map(e => e.id === id ? { ...e, [campo]: valor } : e))
+  }
+
+  function calcularPE(e: Escenario): number | null {
+    return e.margenPct > 0 ? e.fijos / (e.margenPct / 100) : null
+  }
+
+  function calcularDiasNecesarios(e: Escenario): number | null {
+    const peValor = calcularPE(e)
+    if (!peValor) return null
+    const ingresoMedioDiario = p.diasOperativos > 0 ? p.totalIngresos / p.diasOperativos : 0
+    if (ingresoMedioDiario <= 0) return null
+    return Math.ceil(peValor / ingresoMedioDiario)
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{
+        fontFamily: FONT.body, fontSize: 12, color: T.sec,
+        marginBottom: 14, lineHeight: 1.5,
+      }}>
+        Edita cualquier campo en cualquier escenario · todos se recalculan en vivo. La base usa datos reales del periodo seleccionado.
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 14,
+      }}>
+        {escenarios.map(e => (
+          <CardEscenario
+            key={e.id}
+            escenario={e}
+            peValor={calcularPE(e)}
+            diasNecesarios={calcularDiasNecesarios(e)}
+            peBase={p.peMensual}
+            onChange={(campo, valor) => actualizarEscenario(e.id, campo, valor)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CardEscenario({ escenario, peValor, diasNecesarios, peBase, onChange }: {
+  escenario: Escenario
+  peValor: number | null
+  diasNecesarios: number | null
+  peBase: number | null
+  onChange: (campo: keyof Escenario, valor: number) => void
+}) {
+  const { T } = useTheme()
+  const e = escenario
+
+  const PILL_BG: Record<Escenario['pill'], string> = {
+    base: '#3a4050', mejora: '#1D9E75', empeora: '#E24B4A', mixto: '#f5a623',
+  }
+
+  const deltaPE = peValor != null && peBase != null ? peValor - peBase : null
+
+  return (
+    <div style={{
+      background: '#fff',
+      border: e.bloqueado ? `1.5px solid #3a4050` : `0.5px solid ${T.brd}`,
+      borderRadius: 14,
+      padding: 18,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{
+          fontFamily: FONT.heading, fontSize: 13, fontWeight: 600,
+          letterSpacing: '1px', textTransform: 'uppercase', color: T.pri,
+        }}>
+          {e.titulo}
+        </div>
+        <span style={{
+          fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+          letterSpacing: '1px', padding: '3px 8px', borderRadius: 4,
+          textTransform: 'uppercase', background: PILL_BG[e.pill], color: '#fff',
+        }}>
+          {e.pillLabel}
+        </span>
+      </div>
+
+      <RowInput label="Ticket medio" value={e.ticketMedio} decimales={2}
+        onChange={v => onChange('ticketMedio', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Margen contribución (%)" value={e.margenPct} decimales={1}
+        onChange={v => onChange('margenPct', v)} bloqueado={e.bloqueado} />
+      <RowInput label="Costes fijos" value={e.fijos} decimales={0}
+        onChange={v => onChange('fijos', v)} bloqueado={e.bloqueado} />
+      <RowInput label="% tienda online" value={e.mixWebPct} decimales={0}
+        onChange={v => onChange('mixWebPct', v)} bloqueado={e.bloqueado} />
+
+      <div style={{
+        background: '#ebe8e2', borderRadius: 8, padding: 12, marginTop: 12,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <span style={{
+            fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+            letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
+          }}>
+            Punto de equilibrio
+          </span>
+          <span style={{
+            fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: T.pri,
+          }}>
+            {peValor != null ? fmtNum(peValor) : '—'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <span style={{
+            fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+            letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
+          }}>
+            Días para cubrirlo
+          </span>
+          <span style={{
+            fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: T.pri,
+          }}>
+            {diasNecesarios != null ? `${diasNecesarios} días` : '—'}
+          </span>
+        </div>
+        {!e.bloqueado && deltaPE != null && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{
+              fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+              letterSpacing: '1px', textTransform: 'uppercase', color: T.mut,
             }}>
-              {data.pe_mensual && resultado.pe_mensual > data.pe_mensual
-                ? `Necesitas facturar ${fmtEur(resultado.pe_mensual - data.pe_mensual)} más/mes para mantener posición.`
-                : data.pe_mensual
-                  ? `Ahorras ${fmtEur(data.pe_mensual - resultado.pe_mensual)} de objetivo mensual.`
-                  : '—'}
-            </div>
-          </>
+              Vs base
+            </span>
+            <span style={{
+              fontSize: 13, fontWeight: 500,
+              color: deltaPE < 0 ? VERDE : deltaPE > 0 ? '#E24B4A' : T.mut,
+            }}>
+              {deltaPE < 0 ? '−' : deltaPE > 0 ? '+' : ''}{fmtNum(Math.abs(deltaPE))}
+            </span>
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-function Slider({ T, label, value, min = 0, max, step, onChange, fmt }: { T: TokenSet; label: string; value: number; min?: number; max: number; step: number; onChange: (v: number) => void; fmt: (v: number) => string }) {
+function RowInput({ label, value, decimales, onChange, bloqueado }: {
+  label: string
+  value: number
+  decimales: number
+  onChange: (v: number) => void
+  bloqueado?: boolean
+}) {
+  const { T } = useTheme()
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-        <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{label}</span>
-        <span style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, fontWeight: 600 }}>{fmt(value)}</span>
-      </div>
+    <div style={{
+      display: 'grid', gridTemplateColumns: '1fr 90px',
+      gap: 10, alignItems: 'center', padding: '7px 0',
+    }}>
+      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{label}</span>
       <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: T.accent }}
+        type="number"
+        step={decimales > 0 ? 0.01 : 1}
+        value={Number.isFinite(value) ? value.toFixed(decimales) : ''}
+        disabled={bloqueado}
+        onChange={(ev) => {
+          const n = parseFloat(ev.target.value)
+          if (!isNaN(n)) onChange(n)
+        }}
+        style={{
+          width: '100%', padding: '6px 10px',
+          border: `0.5px solid ${T.brd}`,
+          borderRadius: 6, fontSize: 13,
+          fontFamily: FONT.heading, fontWeight: 500,
+          background: bloqueado ? '#ebe8e2' : '#fff',
+          color: bloqueado ? T.mut : T.pri,
+          textAlign: 'right',
+          outline: 'none',
+          cursor: bloqueado ? 'not-allowed' : 'text',
+        }}
       />
     </div>
   )
 }
-
-function Comparar({ T, label, a, b, pct }: { T: TokenSet; label: string; a: number; b: number; pct?: boolean }) {
-  const delta = b - a
-  const signo = delta >= 0 ? '+' : ''
-  const deltaColor = delta === 0 ? T.mut : delta > 0 ? PIERDE : CUBRE
-  const isMargenPct = label.toLowerCase().includes('margen')
-  const color = isMargenPct ? (delta === 0 ? T.mut : delta > 0 ? CUBRE : PIERDE) : deltaColor
-  const fmt = pct ? (v: number) => `${v.toFixed(1)}%` : fmtEur
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'baseline', padding: '6px 0', borderBottom: `0.5px solid ${T.brd}` }}>
-      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>{label}</span>
-      <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>{fmt(a)} → {fmt(b)}</span>
-      <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color, minWidth: 80, textAlign: 'right' }}>
-        {signo}{fmt(delta)}
-      </span>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAB DÍA SEMANA
-   ═══════════════════════════════════════════════════════════ */
-
-function TabDow({ T, data }: { T: TokenSet; data: DashboardData }) {
-  const peDiario = data.pe_diario ?? 0
-  const serieDow = data.por_dia_semana.map(d => ({
-    dia: d.dia.slice(0, 3),
-    bruto: d.bruto_medio,
-    color: d.estado === 'cubre' ? CUBRE : d.estado === 'ajustado' ? AJUSTADO : PIERDE,
-  }))
-
-  return (
-    <>
-      <div style={{ ...cardStyle(T), marginBottom: 16 }}>
-        <div style={kpiLabelStyle(T)}>Umbral diario</div>
-        <div style={{ display: 'flex', gap: 24, marginTop: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 24, color: AJUSTADO, fontWeight: 600 }}>{fmtEur(peDiario)}</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>Bruto/día para cubrir fijos</div>
-          </div>
-          <div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 24, color: T.pri, fontWeight: 600 }}>{fmtEur(data.bruto_diario_real)}</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>Bruto medio/día este mes</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ ...cardStyle(T), marginBottom: 16 }}>
-        <div style={kpiLabelStyle(T)}>Bruto medio por día semana (90d)</div>
-        <div style={{ height: 260, marginTop: 12 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={serieDow} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.brd} />
-              <XAxis dataKey="dia" stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} />
-              <YAxis stroke={T.mut} tick={{ fontSize: 11, fontFamily: FONT.body, fill: T.mut }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip
-                contentStyle={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
-                formatter={(v) => fmtEur(Math.round(Number(v) || 0))}
-              />
-              <ReferenceLine y={peDiario} stroke={ROJO} strokeDasharray="4 4" label={{ value: `PE ${fmtEur(peDiario)}`, position: 'right', fill: ROJO, fontSize: 11, fontFamily: FONT.body }} />
-              <Bar dataKey="bruto" radius={[4, 4, 0, 0]}>
-                {serieDow.map((s, i) => <Cell key={i} fill={s.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-        {data.por_dia_semana.map(d => {
-          const color = d.estado === 'cubre' ? CUBRE : d.estado === 'ajustado' ? AJUSTADO : PIERDE
-          const label = d.estado === 'cubre' ? 'Cubre' : d.estado === 'ajustado' ? 'Ajustado' : 'Pierde'
-          return (
-            <div key={d.dow} style={{
-              ...cardStyle(T),
-              borderLeft: `3px solid ${color}`,
-            }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 12, color: T.sec, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 500 }}>
-                {d.dia}
-              </div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 22, color: T.pri, fontWeight: 600, marginTop: 6 }}>
-                {fmtEur(d.bruto_medio)}
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color, marginTop: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {label} · {d.delta >= 0 ? '+' : ''}{fmtEur(d.delta)}
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, marginTop: 4 }}>
-                {d.n_dias} días · 90d
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAB CONFIGURACIÓN
-   ═══════════════════════════════════════════════════════════ */
-
-interface CampoDef {
-  key: string
-  label: string
-  tipo: 'eur' | 'pct'
-}
-
-const SECCIONES: { titulo: string; campos: CampoDef[] }[] = [
-  {
-    titulo: 'Fijos estructurales', campos: [
-      { key: 'alquiler_local', label: 'Alquiler local', tipo: 'eur' },
-      { key: 'irpf_alquiler', label: 'IRPF alquiler', tipo: 'eur' },
-      { key: 'sueldo_ruben', label: 'Sueldo Rubén', tipo: 'eur' },
-      { key: 'sueldo_emilio', label: 'Sueldo Emilio', tipo: 'eur' },
-      { key: 'ss_autonomos', label: 'SS autónomos', tipo: 'eur' },
-    ],
-  },
-  {
-    titulo: 'Empleados', campos: [
-      { key: 'sueldos_empleados', label: 'Sueldos empleados', tipo: 'eur' },
-      { key: 'ss_empresa', label: 'SS empresa', tipo: 'eur' },
-    ],
-  },
-  {
-    titulo: 'Suministros', campos: [
-      { key: 'luz', label: 'Luz', tipo: 'eur' },
-      { key: 'agua', label: 'Agua', tipo: 'eur' },
-      { key: 'gas', label: 'Gas', tipo: 'eur' },
-      { key: 'telefono', label: 'Teléfono', tipo: 'eur' },
-      { key: 'internet', label: 'Internet', tipo: 'eur' },
-    ],
-  },
-  {
-    titulo: 'Servicios', campos: [
-      { key: 'gestoria', label: 'Gestoría', tipo: 'eur' },
-      { key: 'hosting_software', label: 'Hosting / Software', tipo: 'eur' },
-      { key: 'seguros', label: 'Seguros', tipo: 'eur' },
-      { key: 'licencias', label: 'Licencias', tipo: 'eur' },
-    ],
-  },
-  {
-    titulo: 'Contratos externos', campos: [
-      { key: 'think_paladar', label: 'Think Paladar', tipo: 'eur' },
-      { key: 'otros_fijos', label: 'Otros fijos', tipo: 'eur' },
-    ],
-  },
-  {
-    titulo: 'Variables (% sobre bruto)', campos: [
-      { key: 'food_cost_pct', label: 'Food cost', tipo: 'pct' },
-      { key: 'packaging_pct', label: 'Packaging', tipo: 'pct' },
-      { key: 'comision_uber_pct', label: 'Comisión Uber', tipo: 'pct' },
-      { key: 'comision_glovo_pct', label: 'Comisión Glovo', tipo: 'pct' },
-      { key: 'comision_je_pct', label: 'Comisión JustEat', tipo: 'pct' },
-      { key: 'comision_web_pct', label: 'Comisión Web', tipo: 'pct' },
-      { key: 'comision_directa_pct', label: 'Comisión Directa', tipo: 'pct' },
-    ],
-  },
-  {
-    titulo: 'Fiscal y umbrales', campos: [
-      { key: 'objetivo_beneficio_mensual', label: 'Beneficio neto mensual', tipo: 'eur' },
-      { key: 'tasa_fiscal_pct', label: 'Tasa fiscal (IRPF+SS+IS)', tipo: 'pct' },
-      { key: 'iva_pct', label: 'IVA ventas', tipo: 'pct' },
-      { key: 'caja_minima_verde', label: 'Umbral caja verde', tipo: 'eur' },
-      { key: 'caja_minima_ambar', label: 'Umbral caja ámbar', tipo: 'eur' },
-    ],
-  },
-]
-
-const CAMPOS_FIJOS = ['alquiler_local', 'irpf_alquiler', 'sueldo_ruben', 'sueldo_emilio', 'sueldos_empleados',
-  'ss_empresa', 'ss_autonomos', 'gestoria', 'luz', 'agua', 'gas', 'telefono', 'internet',
-  'hosting_software', 'seguros', 'licencias', 'think_paladar', 'otros_fijos']
-
-function TabConfig({ T, data, onSaved }: { T: TokenSet; data: DashboardData; onSaved: () => void }) {
-  const [valores, setValores] = useState<Record<string, number>>(() => {
-    const out: Record<string, number> = {}
-    SECCIONES.forEach(s => s.campos.forEach(c => {
-      out[c.key] = Number(data.parametros[c.key] ?? 0)
-    }))
-    return out
-  })
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState<string>('')
-
-  const totalFijos = useMemo(
-    () => CAMPOS_FIJOS.reduce((a, k) => a + (valores[k] || 0), 0),
-    [valores]
-  )
-
-  async function guardar() {
-    setSaving(true)
-    setMsg('')
-    try {
-      const { supabase } = await import('@/lib/supabase')
-      const { error } = await supabase
-        .from('pe_parametros')
-        .update(valores)
-        .eq('id', data.parametros.id)
-      if (error) { setMsg(`Error: ${error.message}`); return }
-      setMsg('Guardado')
-      onSaved()
-    } finally {
-      setSaving(false)
-      setTimeout(() => setMsg(''), 2500)
-    }
-  }
-
-  return (
-    <>
-      <div style={{ ...cardStyle(T), marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={kpiLabelStyle(T)}>Total fijos mes</div>
-          <div style={{ ...kpiValueStyle(T), fontSize: '1.8rem', marginTop: 4 }}>
-            {fmtEur(totalFijos)}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {msg && <span style={{ fontFamily: FONT.body, fontSize: 13, color: msg.startsWith('Error') ? PIERDE : CUBRE }}>{msg}</span>}
-          <button onClick={guardar} disabled={saving} style={{ ...btnPrimario, opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
-        {SECCIONES.map(sec => (
-          <div key={sec.titulo} style={cardStyle(T)}>
-            <div style={kpiLabelStyle(T)}>{sec.titulo}</div>
-            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {sec.campos.map(c => (
-                <div key={c.key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px', gap: 10, alignItems: 'center' }}>
-                  <label style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>{c.label}</label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="number"
-                      value={valores[c.key] ?? 0}
-                      step={c.tipo === 'pct' ? 0.1 : 1}
-                      onChange={e => setValores(prev => ({ ...prev, [c.key]: parseFloat(e.target.value) || 0 }))}
-                      style={{
-                        ...inputStyle(T),
-                        width: '100%',
-                        textAlign: 'right',
-                        paddingRight: 28,
-                      }}
-                    />
-                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: FONT.body, fontSize: 12, color: T.mut, pointerEvents: 'none' }}>
-                      {c.tipo === 'pct' ? '%' : '€'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 14, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-        Categorías coherentes con Running Financiero: {CATEGORIAS_ORDEN.map(c => CATEGORIA_NOMBRE[c]).join(' · ')}. Colores en <code>src/lib/running</code>. Fórmula `bruto_para_objetivo` usa carga fiscal parametrizada. IVA aplicado según toggle.
-      </div>
-    </>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAB ESCENARIOS
-   ═══════════════════════════════════════════════════════════ */
-
-interface Escenario { id: string; nombre: string; descripcion: string; delta_pct: number; tipo: 'precio' | 'food_cost' | 'canal_directo' | 'otro' }
-
-function TabEscenarios({ T, data }: { T: TokenSet; data: DashboardData | null }) {
-  const [escenarios, setEscenarios] = useState<Escenario[]>([
-    { id: '1', nombre: 'Subir precio 5%', descripcion: 'Incremento uniforme en todos los canales', delta_pct: 5, tipo: 'precio' },
-    { id: '2', nombre: 'Reducir food cost 2%', descripcion: 'Optimización compras / recetas', delta_pct: -2, tipo: 'food_cost' },
-    { id: '3', nombre: 'Recuperar 5% canal directo', descripcion: 'Comisión 0% vs 30% plataformas', delta_pct: 5, tipo: 'canal_directo' },
-    { id: '4', nombre: 'Reducir packaging 1%', descripcion: 'Cambio proveedor packaging', delta_pct: -1, tipo: 'otro' },
-  ])
-
-  const brutoMes = data?.bruto_mes ?? 30000
-  const peActual = data?.pe_mensual ?? 20000
-  const margenActual = data?.margen_pct ?? 30
-
-  const calcularImpacto = (esc: Escenario): { ingresoExtra: number; nuevoPE: number } => {
-    if (esc.tipo === 'precio') {
-      const ingresoExtra = brutoMes * (esc.delta_pct / 100)
-      return { ingresoExtra, nuevoPE: peActual }
-    }
-    if (esc.tipo === 'food_cost') {
-      const ahorro = brutoMes * (Math.abs(esc.delta_pct) / 100)
-      return { ingresoExtra: ahorro, nuevoPE: peActual - ahorro }
-    }
-    if (esc.tipo === 'canal_directo') {
-      // 5% de bruto a comisión 0% en vez de 30% → ahorro del 30% sobre ese 5%
-      const extra = brutoMes * (esc.delta_pct / 100) * 0.30
-      return { ingresoExtra: extra, nuevoPE: peActual }
-    }
-    const extra = brutoMes * (Math.abs(esc.delta_pct) / 100)
-    return { ingresoExtra: extra, nuevoPE: peActual - extra }
-  }
-
-  return (
-    <div>
-      <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 20 }}>
-        Simulación de escenarios comparables. Pulsa sobre un escenario para comparar su impacto vs situación actual.
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        {escenarios.map(esc => {
-          const { ingresoExtra, nuevoPE } = calcularImpacto(esc)
-          const mejora = ((brutoMes + ingresoExtra - nuevoPE) - (brutoMes - peActual))
-          const mejoraColor = mejora > 0 ? CUBRE : PIERDE
-          return (
-            <div key={esc.id} style={{
-              background: T.card,
-              border: `1px solid ${T.brd}`,
-              borderRadius: 12,
-              padding: '18px 20px',
-              borderLeft: `3px solid ${mejoraColor}`,
-            }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', color: T.pri, textTransform: 'uppercase', marginBottom: 6 }}>{esc.nombre}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 12 }}>{esc.descripcion}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Impacto mensual</span>
-                <span style={{ fontFamily: FONT.heading, fontSize: 16, color: mejoraColor, fontWeight: 600 }}>
-                  {mejora >= 0 ? '+' : ''}{fmtEur(mejora)}
-                </span>
-              </div>
-              <div style={{ height: 3, background: T.brd, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ height: 3, width: `${Math.min(100, Math.abs(mejora / (peActual || 1)) * 100)}%`, background: mejoraColor }} />
-              </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 6 }}>
-                Nuevo margen bruto: {margenActual > 0 ? (margenActual + (esc.delta_pct * (esc.tipo === 'food_cost' || esc.tipo === 'otro' ? -1 : 0))).toFixed(1) : '—'}%
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div style={{ marginTop: 20, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Los escenarios usan datos reales del mes actual. Los cálculos son aproximados.
-        Próximamente: escenarios guardables y comparables vs histórico.
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAB TESORERÍA FUTURA
-   ═══════════════════════════════════════════════════════════ */
-
-function TabTesoreria({ T }: { T: TokenSet }) {
-  const hoy = new Date()
-  const anio = hoy.getFullYear()
-  const mesActual = hoy.getMonth() + 1
-  const anioStr = String(anio)
-
-  // Provisiones fiscales estimadas
-  const provisionesIVA: { mes: number; label: string; fecha: string; importe: number }[] = [
-    { mes: 4, label: '1T IVA (ene-mar)', fecha: `${anioStr}-04-20`, importe: 0 },
-    { mes: 7, label: '2T IVA (abr-jun)', fecha: `${anioStr}-07-20`, importe: 0 },
-    { mes: 10, label: '3T IVA (jul-sep)', fecha: `${anioStr}-10-20`, importe: 0 },
-    { mes: 2, label: '4T IVA (oct-dic)', fecha: `${anio + 1}-02-20`, importe: 0 },
-  ]
-
-  const pagosRecurrentes = [
-    { label: 'Alquiler local', dia: 1, importe: 2400, tipo: 'fijo' },
-    { label: 'SS autónomos', dia: 5, importe: 700, tipo: 'fijo' },
-    { label: 'Think Paladar', dia: 5, importe: 1200, tipo: 'fijo' },
-    { label: 'Gestoría', dia: 10, importe: 250, tipo: 'fijo' },
-    { label: 'Seguros', dia: 15, importe: 180, tipo: 'fijo' },
-  ]
-
-  const proximos90d = pagosRecurrentes.map(p => {
-    const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), p.dia)
-    if (fecha < hoy) fecha.setMonth(fecha.getMonth() + 1)
-    const limite = new Date(hoy); limite.setDate(limite.getDate() + 90)
-    const occurrences: { fecha: Date; label: string; importe: number }[] = []
-    const cur = new Date(fecha)
-    while (cur <= limite) {
-      occurrences.push({ fecha: new Date(cur), label: p.label, importe: p.importe })
-      cur.setMonth(cur.getMonth() + 1)
-    }
-    return occurrences
-  }).flat().sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
-
-  return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-        {/* Provisiones IVA/IRPF */}
-        <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: '18px 20px' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 14 }}>
-            Provisiones IVA trimestral
-          </div>
-          {provisionesIVA.map(p => {
-            const fecha = new Date(p.fecha)
-            const yaPasado = fecha < hoy
-            const esteAnio = fecha.getFullYear() === anio
-            const enRango = p.mes > mesActual || !esteAnio
-            return (
-              <div key={p.fecha} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 0',
-                borderBottom: `0.5px solid ${T.brd}`,
-                opacity: yaPasado ? 0.4 : 1,
-              }}>
-                <div>
-                  <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.label}</div>
-                  <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-                    Vence: {fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </div>
-                <span style={{ fontFamily: FONT.heading, fontSize: 13, color: enRango ? AJUSTADO : T.mut, fontWeight: 600 }}>
-                  {p.importe > 0 ? fmtEur(p.importe) : 'Sin datos'}
-                </span>
-              </div>
-            )
-          })}
-          <div style={{ marginTop: 12, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-            Importes calculados automáticamente próximamente. Requiere integración Facturación.
-          </div>
-        </div>
-
-        {/* Pagos fijos próximos 90 días */}
-        <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: '18px 20px', maxHeight: 400, overflowY: 'auto' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 14 }}>
-            Pagos críticos · próximos 90d
-          </div>
-          {proximos90d.slice(0, 15).map((p, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '7px 0',
-              borderBottom: `0.5px solid ${T.brd}`,
-            }}>
-              <div>
-                <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.pri }}>{p.label}</div>
-                <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-                  {p.fecha.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </div>
-              </div>
-              <span style={{ fontFamily: FONT.heading, fontSize: 13, color: ROJO, fontWeight: 600 }}>
-                -{fmtEur(p.importe)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Tesorería futura: próximamente integración con Conciliación para proyección real 7d/30d/90d.
-      </div>
-    </div>
-  )
-}
-
-// Color helpers re-exportados para mantener referencia (no eliminar aunque parezcan sin usar)
-void CATEGORIA_COLOR
