@@ -1,9 +1,9 @@
 /**
  * CardVentas — Panel Global
- * Objetivos editables inline:
- *  - Vacío o 0 → DELETE override → vuelve al valor calculado del módulo Objetivos
- *  - Número > 0 → upsert override en BD
- *  - Escape → cancela sin guardar
+ * Editable inline:
+ *  - Vacío o 0/negativo → DELETE override → restaura valor calculado
+ *  - Número > 0 → upsert override (siempre guarda, sin checks de igualdad)
+ *  - Sin toasts (no piden ruido visual)
  */
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
@@ -27,14 +27,14 @@ interface Props {
   objetivos: ObjetivosVentas
   onSaveObjetivo: (tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) => Promise<void>
   refetchObjetivos?: () => void
-  toast: ToastFn
+  toast?: ToastFn
 }
 
 export default function CardVentas({
   bruto, netoEstimado, variacionPct,
   ventasSemana, ventasMes, ventasAno,
   nSemana, lunesSemana, mes, ano,
-  objetivos, onSaveObjetivo, refetchObjetivos, toast,
+  objetivos, onSaveObjetivo, refetchObjetivos,
 }: Props) {
   const pctNeto = bruto > 0 ? Math.round((netoEstimado / bruto) * 100) : 0
 
@@ -70,14 +70,13 @@ export default function CardVentas({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: COLOR.textMut, marginBottom: 6, fontFamily: LEXEND, flexWrap: 'wrap' }}>
           <span>Faltan</span>
-          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false, decimals: 2 })}</span>
+          <span style={{ color: sem, fontWeight: 500 }}>{fmtEur(faltan, { showEuro: false, decimals: 0 })}</span>
           <span>de</span>
           <ObjetivoEditable
             tipo={tipo}
             valor={objetivo}
             onSave={onSaveObjetivo}
             onRefetch={refetchObjetivos}
-            toast={toast}
           />
         </div>
         <BarraCumplimiento pct={pct} altura={8} />
@@ -122,24 +121,27 @@ export default function CardVentas({
   )
 }
 
-// Editable inline con reset por vacío o 0
+// Editable inline SIN toasts. Siempre guarda si es número > 0.
+// Vacío o 0 → DELETE override → restaura.
 function ObjetivoEditable({
-  tipo, valor, onSave, onRefetch, toast,
+  tipo, valor, onSave, onRefetch,
 }: {
   tipo: 'semanal' | 'mensual' | 'anual'
   valor: number
   onSave: (tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) => Promise<void>
   onRefetch?: () => void
-  toast: ToastFn
 }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(String(valor ?? ''))
+  const [draft, setDraft] = useState(String(Math.round(valor ?? 0)))
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Cuando cambia el valor desde el padre y NO estoy editando, sincronizo el draft
   useEffect(() => {
-    setDraft(String(valor ?? ''))
-  }, [valor])
+    if (!editing) {
+      setDraft(String(Math.round(valor ?? 0)))
+    }
+  }, [valor, editing])
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -152,12 +154,11 @@ function ObjetivoEditable({
     if (saving) return
     const trimmed = draft.trim()
 
-    // Vacío → DELETE override → vuelve al valor calculado del módulo Objetivos
+    // Vacío → DELETE override → restaura
     if (trimmed === '') {
       setSaving(true)
       try {
         await onSave(tipo, null)
-        toast?.('Restaurado al valor de Objetivos', 'success')
         onRefetch?.()
       } finally {
         setSaving(false)
@@ -166,22 +167,20 @@ function ObjetivoEditable({
       return
     }
 
-    // Acepta coma o punto, parsea
     const num = parseFloat(trimmed.replace(',', '.'))
 
-    // No es número válido → cancela
+    // No es número válido → cancela sin guardar
     if (isNaN(num)) {
-      setDraft(String(valor ?? ''))
+      setDraft(String(Math.round(valor ?? 0)))
       setEditing(false)
       return
     }
 
-    // 0 o negativo → tratar como vacío: DELETE override → restaura
+    // 0 o negativo → DELETE override → restaura
     if (num <= 0) {
       setSaving(true)
       try {
         await onSave(tipo, null)
-        toast?.('Restaurado al valor de Objetivos', 'success')
         onRefetch?.()
       } finally {
         setSaving(false)
@@ -190,27 +189,21 @@ function ObjetivoEditable({
       return
     }
 
-    // Si el valor no cambia, no hace nada
-    if (num === valor) {
-      setEditing(false)
-      return
-    }
-
+    // Número > 0 → SIEMPRE guarda (sin check num === valor que bloqueaba escribir el mismo número o uno cercano)
     setSaving(true)
     try {
       await onSave(tipo, num)
-      toast?.('Objetivo actualizado', 'success')
       onRefetch?.()
     } finally {
       setSaving(false)
       setEditing(false)
     }
-  }, [draft, onSave, onRefetch, tipo, toast, valor, saving])
+  }, [draft, onSave, onRefetch, tipo, valor, saving])
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') guardar()
     if (e.key === 'Escape') {
-      setDraft(String(valor ?? ''))
+      setDraft(String(Math.round(valor ?? 0)))
       setEditing(false)
     }
   }
@@ -245,9 +238,9 @@ function ObjetivoEditable({
         color: '#3a4050',
         padding: '0 2px',
       }}
-      title="Click para editar · vacío o 0 restaura el valor calculado de Objetivos"
+      title="Click para editar · vacío o 0 restaura el valor calculado"
     >
-      {fmtEur(valor, { showEuro: false, decimals: 2 })}
+      {fmtEur(valor, { showEuro: false, decimals: 0 })}
     </span>
   )
 }
