@@ -269,6 +269,7 @@ export const COLOR = {
   textSec:     COLORS.sec,
   textMut:     COLORS.mut,
   borde:       COLORS.brd,
+  brd:         COLORS.brd,
   bordeClaro:  COLORS.group,
   bgPagina:    COLORS.bg,
   cardBg:      COLORS.card,
