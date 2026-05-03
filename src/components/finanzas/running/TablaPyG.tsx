@@ -46,6 +46,7 @@ interface Props {
   rangos: RangoCategoria[];
 }
 
+// Trimestres con paleta contrastada
 const TRIM = [
   { label: '1T', months: [0,1,2],  bg: '#dde8f4', tot: '#b5cae3', head: '#7da3c8' },
   { label: '2T', months: [3,4,5],  bg: '#dee9d4', tot: '#b6cea3', head: '#7da569' },
@@ -57,6 +58,7 @@ const YEAR_HEAD = '#f0b8be';
 const MES_ACTUAL_BG = '#cfe6b8';
 const MES_ACTUAL_HEAD = '#92bd64';
 
+// Bandas % sobre ingresos por bloque (definidas en el Excel)
 const BANDAS_BLOQUE: Record<string, { min: number; max: number }> = {
   '2.1': { min: 25, max: 30 },
   '2.2': { min: 30, max: 35 },
@@ -64,19 +66,21 @@ const BANDAS_BLOQUE: Record<string, { min: number; max: number }> = {
   '2.4': { min: 15, max: 18 },
 };
 
+// Colores acento por bloque
 const COLOR_BLOQUE: Record<string, string> = {
-  '2.1': '#7B4F2A',
-  '2.2': '#4A5980',
-  '2.3': '#5A8A6F',
-  '2.4': '#A87C3D',
+  '2.1': '#7B4F2A', // producto - marrón
+  '2.2': '#4A5980', // equipo - azul gris
+  '2.3': '#5A8A6F', // alquiler - verde apagado
+  '2.4': '#A87C3D', // controlables - mostaza
 };
 
+// Mapeo gastos.grupo (legacy) → ID de bloque PyG nivel 1 ó 2
 function grupoLegacyToBloquePyG(grupo: string | null | undefined): string | null {
   switch (grupo) {
     case 'PRODUCTO':        return '2.1';
     case 'RRHH':            return '2.2';
     case 'ALQUILER':        return '2.3';
-    case 'MARKETING':       return '2.4';
+    case 'MARKETING':       return '2.4';   // dentro de Controlables
     case 'INTERNET_VENTAS': return '2.4';
     case 'ADMIN_GENERALES': return '2.4';
     case 'SUMINISTROS':     return '2.4';
@@ -84,6 +88,7 @@ function grupoLegacyToBloquePyG(grupo: string | null | undefined): string | null
   }
 }
 
+// Mapeo gastos.grupo → ID de subgrupo PyG nivel 2 (cuando aplica)
 function grupoLegacyToSubgrupoPyG(grupo: string | null | undefined): string | null {
   switch (grupo) {
     case 'MARKETING':       return '2.41';
@@ -94,6 +99,7 @@ function grupoLegacyToSubgrupoPyG(grupo: string | null | undefined): string | nu
   }
 }
 
+// Canales para ingresos
 const CANALES = [
   { key: 'UE',  label: 'Uber Eats',     id_neto: '1.1.1', id_bruto: '1.2.1', brutoCol: 'uber_bruto',    comision: 0.30 },
   { key: 'GL',  label: 'Glovo',         id_neto: '1.1.2', id_bruto: '1.2.2', brutoCol: 'glovo_bruto',   comision: 0.32 },
