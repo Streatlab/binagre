@@ -51,6 +51,7 @@ import Running from '@/pages/finanzas/Running'
 import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
+import ListadoFacturas from '@/pages/finanzas/ListadoFacturas'
 
 // Panel Global
 import PanelGlobal from '@/pages/PanelGlobal'
@@ -194,6 +195,7 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
+        <Route path="finanzas/listado-facturas" element={<ProtectedRoute solo={['admin']}><ListadoFacturas /></ProtectedRoute>} />
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         {/* Panel Global */}
