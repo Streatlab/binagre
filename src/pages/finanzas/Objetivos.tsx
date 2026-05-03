@@ -34,8 +34,6 @@ function isoWeek(dateStr: string): { year: number; week: number } {
   return getISOWeek(d)
 }
 
-const fmtShort = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 
 const FESTIVOS_2026 = [
@@ -156,7 +154,7 @@ export default function Objetivos() {
   const [presAnio, setPresAnio] = useState(hoy.getFullYear())
   const [presData, setPresData] = useState<ObjetivoPresupuesto[]>([])
   const [presLoading, setPresLoading] = useState(false)
-  const [presEditing, setPresEditing] = useState<string | null>(null) // key = `${codigo}-${mes}`
+  const [presEditing, setPresEditing] = useState<string | null>(null)
   const [presEditVal, setPresEditVal] = useState('')
   const [presSaving, setPresSaving] = useState(false)
 
@@ -189,7 +187,7 @@ export default function Objetivos() {
     if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
   }, [activeTab, presAnio, loadPresupuestos])
 
-  // ─── Save objetivo general ────────────────────────────────────────────────
+  // ─── Save objetivo general (override) ─────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
@@ -202,6 +200,7 @@ export default function Objetivos() {
     setEditingId(null)
   }
 
+  // Borra el override → vuelve al cálculo base
   const deleteObjetivoGeneral = async (tipo: string) => {
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
@@ -289,41 +288,37 @@ export default function Objetivos() {
   const currentYear = hoyStr.slice(0, 4)
   const ventasAno = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentYear])
 
-  const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + d.importe, 0), [diasSemana])
-  const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
-  const objSemanal = objSemanalOverride !== undefined ? objSemanalOverride : sumaSemana
+  // ─── BASES (suma días + media diaria × días naturales) ─────────────────────
+  // Semanal base = suma exacta de los 7 objetivos diarios
+  const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
 
+  // Mensual base = (suma semanal / 7) × días naturales del mes actual
   const sumaMes = useMemo(() => {
     const ano = hoy.getFullYear()
     const mes = hoy.getMonth()
     const diasEnMes = new Date(ano, mes + 1, 0).getDate()
-    let total = 0
-    for (let d = 1; d <= diasEnMes; d++) {
-      const fecha = new Date(ano, mes, d)
-      const ds = fecha.getDay() === 0 ? 7 : fecha.getDay()
-      total += diasSemana.find(x => x.dia === ds)?.importe || 0
-    }
-    return total
-  }, [diasSemana, hoy])
-  const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
-  const objMensual = objMensualOverride !== undefined ? objMensualOverride : sumaMes
+    const mediaDia = sumaSemana / 7
+    return mediaDia * diasEnMes
+  }, [sumaSemana, hoy])
 
+  // Anual base = (suma semanal / 7) × días naturales del año actual
   const sumaAno = useMemo(() => {
     const ano = hoy.getFullYear()
     const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
     const dAno = esBis ? 366 : 365
-    let total = 0
-    const ini = new Date(ano, 0, 1)
-    for (let i = 0; i < dAno; i++) {
-      const f = new Date(ini)
-      f.setDate(ini.getDate() + i)
-      const ds = f.getDay() === 0 ? 7 : f.getDay()
-      total += diasSemana.find(x => x.dia === ds)?.importe || 0
-    }
-    return total
-  }, [diasSemana, hoy])
+    const mediaDia = sumaSemana / 7
+    return mediaDia * dAno
+  }, [sumaSemana, hoy])
+
+  // Override: si existe valor explícito Y > 0 → se aplica; si es 0 o no existe → base
+  const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
+  const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? objSemanalOverride : sumaSemana
+
+  const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
+  const objMensual = (objMensualOverride !== undefined && objMensualOverride > 0) ? objMensualOverride : sumaMes
+
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
-  const objAnual = objAnualOverride !== undefined ? objAnualOverride : sumaAno
+  const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? objAnualOverride : sumaAno
 
   // ─── Histórico ────────────────────────────────────────────────────────────
   const aniosDisponibles = useMemo(() => {
@@ -338,7 +333,6 @@ export default function Objetivos() {
     const ventasFiltAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
 
     if (histTipo === 'dias') {
-      // Incluye HOY como "en curso"
       return [...ventasFiltAnio].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
         const d = new Date(r.fecha + 'T12:00:00')
         const ds = d.getDay() === 0 ? 7 : d.getDay()
@@ -354,7 +348,6 @@ export default function Objetivos() {
     }
 
     if (histTipo === 'semanas') {
-      // Incluye la semana en curso como "S## (en curso)"
       const map = new Map<string, number>()
       for (const r of ventasFiltAnio) {
         const { year, week } = isoWeek(r.fecha)
@@ -386,7 +379,6 @@ export default function Objetivos() {
       }]
     }
 
-    // Meses: incluye el mes en curso como "mes año (en curso)"
     const currentMonthStr = hoy.toISOString().slice(0, 7)
     const map = new Map<string, number>()
     for (const r of ventasFiltAnio) {
@@ -429,12 +421,19 @@ export default function Objetivos() {
     paddingBottom: 1,
   })
 
+  // Editable inline:
+  //  - Vacío → resetea (DELETE override → vuelve al cálculo base)
+  //  - 0 → resetea (DELETE override → vuelve al cálculo base)
+  //  - Número > 0 → guarda override
   const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
     const commit = () => {
       const trimmed = editValue.trim()
+      // vacío → reset
       if (trimmed === '' && onReset) { onReset(); return }
       const v = parseFloat(trimmed.replace(',', '.'))
-      if (!isNaN(v)) onSave(v)
+      // 0 o negativo → reset (no permitimos guardar 0)
+      if (!isNaN(v) && v <= 0 && onReset) { onReset(); return }
+      if (!isNaN(v) && v > 0) onSave(v)
       else setEditingId(null)
     }
     if (editingId === id) {
@@ -449,8 +448,8 @@ export default function Objetivos() {
             if (e.key === 'Escape') setEditingId(null)
           }}
           autoFocus
-          placeholder="vacío = reset"
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
+          placeholder="vacío o 0 = restaurar"
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 130, textAlign: 'right' }}
         />
       )
     }
@@ -458,6 +457,7 @@ export default function Objetivos() {
       <span
         onClick={() => { setEditingId(id); setEditValue(String(currentVal)) }}
         style={editableNumberStyle(color)}
+        title="Click para editar · vacío o 0 restaura el valor calculado"
       >
         {fmtEur(currentVal)}
       </span>
@@ -627,7 +627,6 @@ export default function Objetivos() {
                   if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
                   else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
 
-                  // HOY: borde azul Emilio (#1E5BCC), fondo #ffffff — spec 10.2
                   if (hoyFlag) {
                     rowBorderLeft = '3px solid #1E5BCC'
                     rowBg = '#ffffff15'
@@ -636,7 +635,7 @@ export default function Objetivos() {
                   const fecha = fechaDia(dia)
                   const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
-                  void esCerradoCalendario // used below
+                  void esCerradoCalendario
 
                   return (
                     <div key={dia} style={{
@@ -765,7 +764,6 @@ export default function Objetivos() {
       {/* ═══ TAB: PRESUPUESTOS ═══ */}
       {activeTab === 'presupuestos' && (
         <div>
-          {/* Toolbar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <select
               value={presAnio}
@@ -790,7 +788,6 @@ export default function Objetivos() {
             <div style={{ color: T.mut, fontFamily: FONT.body, padding: '24px 0' }}>Cargando presupuesto…</div>
           ) : (
             PRESUPUESTO_GRUPOS.map(grupo => {
-              // Totals per group per month
               const totalGrupoMes = (mes: number) => grupo.codigos.reduce((a, c) => a + getPresVal(c.codigo, mes), 0)
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
 
@@ -804,7 +801,7 @@ export default function Objetivos() {
                       <thead>
                         <tr style={{ background: '#0a0a0a' }}>
                           <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: '#0a0a0a', zIndex: 1, minWidth: 160 }}>Categoría</th>
-                          {MESES.map((m, i) => (
+                          {MESES.map((m) => (
                             <th key={m} style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>
                           ))}
                           <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 10px', textAlign: 'right', minWidth: 90 }}>Total</th>
@@ -853,7 +850,6 @@ export default function Objetivos() {
                             </td>
                           </tr>
                         ))}
-                        {/* Subtotal row per group */}
                         <tr style={{ borderTop: `2px solid ${T.brd}`, background: '#0d0d0d' }}>
                           <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: '#e8f442', padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: '#0d0d0d', zIndex: 1 }}>
                             Total {grupo.label.split(' ')[0]}
@@ -875,7 +871,6 @@ export default function Objetivos() {
             })
           )}
 
-          {/* Grand total row */}
           {!presLoading && (
             <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'auto', marginTop: 4 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
