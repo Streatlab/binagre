@@ -1,10 +1,7 @@
-# React + TypeScript + Vite
+# Streatlab Binagre ERP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ERP web del proyecto Binagre / Streat Lab.
 
-Currently, two official plugins are available:
+Stack: Next.js + Vite + Supabase + Vercel.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-<!-- deploy v5: carrusel marcas v6 reusa atomos Panel Global -->
+Última actualización: 3 may 2026
