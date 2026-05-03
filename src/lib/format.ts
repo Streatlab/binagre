@@ -54,8 +54,12 @@ export function fmtSemana(numSemana: number, lunes: Date): string {
   return `S${numSemana}_${dd}_${mm}_${yy}`;
 }
 
-export function colorSemaforo(pct: number, objetivo = 50): string {
-  if (pct >= objetivo)           return '#1D9E75';
-  if (pct >= objetivo * 0.5)     return '#e8f442';
-  return '#B01D23';
+// Reglas del semáforo según Rubén:
+//  - 0%       → rojo
+//  - 0.01-50% → ámbar
+//  - >50%     → verde (50.01% ya pasa la mitad)
+export function colorSemaforo(pct: number): string {
+  if (pct <= 0) return '#B01D23';   // rojo
+  if (pct > 50) return '#1D9E75';   // verde
+  return '#e8f442';                 // ámbar
 }
