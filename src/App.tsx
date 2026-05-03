@@ -125,6 +125,12 @@ import PanelResenas from '@/pages/clientes/PanelResenas'
 // Integraciones
 import PosVentas from '@/pages/integraciones/PosVentas'
 
+// Informes (módulo nuevo mayo 2026)
+import InformesPanel from '@/pages/informes/InformesPanel'
+import Destinatarios from '@/pages/informes/Destinatarios'
+import Historial from '@/pages/informes/Historial'
+import ConfiguracionInformes from '@/pages/informes/ConfiguracionInformes'
+
 function ProtectedRoute({ children, solo }: { children: React.ReactNode; solo?: string[] }) {
   const { usuario } = useAuth()
   if (!usuario) return <Navigate to="/login" replace />
@@ -209,6 +215,12 @@ function AppRoutes() {
 
         {/* Tareas pendientes FASE 8 */}
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
+
+        {/* Informes (módulo nuevo) */}
+        <Route path="informes" element={<ProtectedRoute solo={['admin']}><InformesPanel /></ProtectedRoute>} />
+        <Route path="informes/destinatarios" element={<ProtectedRoute solo={['admin']}><Destinatarios /></ProtectedRoute>} />
+        <Route path="informes/historial" element={<ProtectedRoute solo={['admin']}><Historial /></ProtectedRoute>} />
+        <Route path="informes/configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionInformes /></ProtectedRoute>} />
 
         {/* Analytics */}
         <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
