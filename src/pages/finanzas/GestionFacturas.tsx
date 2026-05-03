@@ -246,7 +246,7 @@ export default function GestionFacturas() {
   const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  const [periodoLabel, setPeriodoLabel] = useState('Todo el periodo')
+  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
 
@@ -432,7 +432,7 @@ export default function GestionFacturas() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <SelectorFechaUniversal
             nombreModulo="gestion_facturas"
-            defaultOpcion="todo"
+            defaultOpcion="mes_en_curso"
             onChange={handleFecha}
           />
         </div>
