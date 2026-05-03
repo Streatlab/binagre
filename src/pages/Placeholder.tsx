@@ -37,9 +37,9 @@ const LABELS: Record<string, string> = {
   'resenas': 'Panel Reseñas',
   // Integraciones
   'pos': 'POS Ventas',
-  // Finanzas (nuevos placeholders)
+  // Finanzas (nuevos placeholders Banktrack-inspired)
   'verifactu': 'Verifactu / Facturación legal',
-  'ocr-whatsapp': 'OCR Facturas (WhatsApp/Email)',
+  'calendario-cobros-pagos': 'Calendario Cobros/Pagos',
   'escenarios-tesoreria': 'Escenarios de Tesorería',
 }
 
