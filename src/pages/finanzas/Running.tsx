@@ -1,12 +1,16 @@
 /**
- * Running Financiero — refactor 3 may 2026
- * - Header copia literal Conciliación: SelectorFechaUniversal + TabsPastilla
- * - Tab Resumen: KPIs originales + CarruselMarcas (cards estilo Conciliación) + Ingresos/Gastos
- * - Tab PyG detallado: TablaPyG nueva con plan contable real
+ * Running Financiero — refactor 3 may 2026 v2
+ *
+ * Reglas (Rubén):
+ * - Header literal Panel Global: título Oswald rojo + subtítulo "Mes en curso · 1 abr 2026 — 30 abr 2026"
+ *   selector fecha = SelectorFechaUniversal (mismo componente que Panel Global)
+ * - Tabs estilo Conciliación (TabsPastilla, mismo componente)
+ * - Tab Resumen: KPIs + CarruselMarcas (estilo Conciliación) + Ingresos/Gastos
+ * - Tab PyG detallado: TablaPyG nueva (plan contable real, T1-T4, sin invenciones)
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ResponsiveContainer, BarChart, Bar, Cell, Tooltip, ReferenceLine, AreaChart, Area } from 'recharts';
-import { useTheme, FONT, fmtFechaCorta } from '@/styles/tokens';
+import { useTheme, FONT } from '@/styles/tokens';
 import { fmtEur } from '@/utils/format';
 import { supabase } from '@/lib/supabase';
 import { useRunning } from '@/hooks/useRunning';
@@ -50,6 +54,16 @@ function calcularEstadoRatio(pct: number): { label: string; color: string } {
   return              { label: 'Saludable',    color: VERDE };
 }
 
+function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
+  const fmtDate = (d: Date) => {
+    const dia = d.getDate();
+    const mes = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const anio = d.getFullYear();
+    return `${dia} ${mes} ${anio}`;
+  };
+  return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`;
+}
+
 type RunTab = 'resumen' | 'pyg' | 'comparativas';
 
 // Casts permisivos para componentes en transición de signatura
@@ -61,7 +75,6 @@ export default function Running() {
   const { T } = useTheme();
   const [tab, setTab] = useState<RunTab>('resumen');
 
-  // Selector fecha universal — gestión propia
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
     const h = new Date(); h.setDate(1); h.setHours(0,0,0,0); return h;
   });
@@ -70,7 +83,6 @@ export default function Running() {
   });
   const [periodoLabelSFU, setPeriodoLabelSFU] = useState('Mes en curso');
 
-  // Periodo legacy adaptado para useRunning (que requiere PeriodoRango)
   const periodo: PeriodoRango = useMemo(() => ({
     desde: periodoDesde,
     hasta: periodoHasta,
@@ -88,7 +100,7 @@ export default function Running() {
     periodo, anio, null, null, modoIVA,
   );
 
-  // Para TablaPyG necesitamos también la facturación de TODO el año (no solo del periodo)
+  // Para TablaPyG necesitamos también la facturación de TODO el año
   const [facturacionAnio, setFacturacionAnio] = useState<any[]>([]);
   useEffect(() => {
     let cancel = false;
@@ -116,7 +128,6 @@ export default function Running() {
     return Array.from(set);
   }, [periodo, anio]);
 
-  // Ingresos netos del periodo
   const totalNeto = useMemo(() => {
     return ingresosMes.filter(r => r.tipo === 'neto' && mesesDelPeriodo.includes(r.mes)).reduce((a, r) => a + r.importe, 0);
   }, [ingresosMes, mesesDelPeriodo]);
@@ -319,6 +330,8 @@ export default function Running() {
     </div>
   );
 
+  const subtitulo = buildSubtitulo(periodoLabelSFU, periodoDesde, periodoHasta);
+
   if (error) {
     return (
       <div style={{ padding: 24 }}>
@@ -331,25 +344,36 @@ export default function Running() {
 
   return (
     <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
-      {/* HEADER — copia literal Conciliación */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+      {/* HEADER — copia LITERAL Panel Global */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        marginBottom: 18,
+        flexWrap: 'wrap',
+        gap: 12,
+      }}>
         <div>
-          <h2 style={{
-            color: '#B01D23',
+          <div style={{
             fontFamily: 'Oswald, sans-serif',
             fontSize: 22,
             fontWeight: 600,
-            letterSpacing: '3px',
-            margin: 0,
+            color: '#B01D23',
+            letterSpacing: 3,
             textTransform: 'uppercase',
           }}>
             RUNNING FINANCIERO
-          </h2>
-          <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
-            {fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}
-          </span>
+          </div>
+          <div style={{
+            fontFamily: 'Lexend, sans-serif',
+            fontSize: 13,
+            color: '#7a8090',
+            marginTop: 2,
+          }}>
+            {subtitulo}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <SelectorFechaUniversal
             nombreModulo="running"
             defaultOpcion="mes_en_curso"
@@ -362,7 +386,7 @@ export default function Running() {
         </div>
       </div>
 
-      {/* TABS PASTILLA — copia literal */}
+      {/* TABS — copia LITERAL Conciliación */}
       <TabsPastilla
         tabs={[
           { id: 'resumen', label: 'Resumen' },
@@ -393,10 +417,10 @@ export default function Running() {
               />
             )}
             <KpiCardConSparkline
-              label="Ingresos netos"
+              label="Ingresos netos · estimado"
               value={fmtEur(totalNeto)}
               delta={{ value: dPct(totalNeto, totalNetoAnt), sign: sgn(dPct(totalNeto, totalNetoAnt)), favorable: 'up' }}
-              legend={!hayBruto ? 'Importa plataformas para ver bruto' : undefined}
+              legend={!hayBruto ? 'Importa plataformas para ver bruto' : 'Estimado hasta conciliar facturas'}
               chart={<SparkArea data={sparkNeto} color={VERDE} />}
             />
             <KpiCardConSparkline
@@ -480,9 +504,6 @@ export default function Running() {
       {/* TAB PYG DETALLADO */}
       {tab === 'pyg' && (
         <div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, color: '#B01D23', fontWeight: 500, letterSpacing: 1.3, textTransform: 'uppercase', marginBottom: 12 }}>
-            PyG detallado · {anio}
-          </div>
           <TablaPyGAny
             anio={anio}
             gastosAnio={gastos}
