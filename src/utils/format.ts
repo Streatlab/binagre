@@ -7,6 +7,16 @@ export const fmtEur = (v?: number | string | null): string => {
   return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €'
 }
 
+/** Número formateado en es-ES SIN símbolo de euro, sin decimales por defecto */
+export const fmtNumES = (v?: number | string | null, decimales = 0): string => {
+  const n = (v != null && v !== '') ? Number(v) : null
+  if (n == null || isNaN(n)) return '—'
+  const fixed = n.toFixed(decimales)
+  const [int, dec] = fixed.split('.')
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return decimales > 0 && dec !== undefined ? intFmt + ',' + dec : intFmt
+}
+
 export const fmtNum = (v?: number | string | null, d = 4): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
