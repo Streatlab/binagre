@@ -4,4 +4,4 @@ ERP web del proyecto Binagre / Streat Lab.
 
 Stack: Next.js + Vite + Supabase + Vercel.
 
-Última actualización: 3 may 2026 · trigger 19:55
+Última actualización: 3 may 2026 · trigger v8 gestor-doc
