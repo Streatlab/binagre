@@ -1,6 +1,7 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v7: fix TS tipos explícitos NodoArbolItem
+ * v8: wrap groupStyle, banner encima del wrap, sin col Titular,
+ *     ambos checks con checkbox, sin contador "X de Y", ZIP contadores reales
  */
 
 import {
@@ -16,11 +17,12 @@ import {
   FONT,
   DROPDOWN_BTN,
 } from '@/components/panel/resumen/tokens'
+import { useTheme, groupStyle } from '@/styles/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
-type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
+type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
 type SortDir = 'asc' | 'desc'
 
 interface Titular { id: string; nombre: string; color: string; carpeta_drive: string | null }
@@ -57,14 +59,6 @@ const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
   4:{bg:'#e3d8eb',headDark:'#4a3163'},
 }
 const ANIO_BG = '#fbe5e8'
-
-function colorTitular(nombre: string|undefined, fallback: string): string {
-  if (!nombre) return fallback
-  const k = nombre.toLowerCase()
-  if (k.includes('rubén') || k.includes('ruben')) return COLOR_RUBEN
-  if (k.includes('emilio')) return COLOR_EMILIO
-  return fallback
-}
 
 function fmtFechaCorta(iso: string|null): string {
   if (!iso) return '—'
@@ -162,6 +156,7 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{id:string;label:string}
 }
 
 export default function GestionFacturas() {
+  const { T } = useTheme()
   const [activeTab, setActiveTab] = useState<TabId>('facturas')
   const [titularKey, setTitularKey] = useState<'ruben'|'emilio'>('ruben')
   const [busqueda, setBusqueda] = useState('')
@@ -277,14 +272,13 @@ export default function GestionFacturas() {
         case 'nif':       va=(a.nif_emisor||'').toLowerCase();vb=(b.nif_emisor||'').toLowerCase();break
         case 'importe':   va=Number(a.total||0);vb=Number(b.total||0);break
         case 'categoria': va=a.categoria_factura||'';vb=b.categoria_factura||'';break
-        case 'titular':{const ta=titulares.find(t=>t.id===a.titular_id)?.nombre||'';const tb=titulares.find(t=>t.id===b.titular_id)?.nombre||'';va=ta.toLowerCase();vb=tb.toLowerCase();break}
         case 'doc':    va=a.pdf_drive_url?1:0;vb=b.pdf_drive_url?1:0;break
         case 'estado': va=a.estado||'';vb=b.estado||'';break
       }
       return va<vb?-dv:va>vb?dv:0
     })
     return arr
-  },[facturasFiltradas,sortColumn,sortDir,titulares])
+  },[facturasFiltradas,sortColumn,sortDir])
 
   const facturasMes = useMemo(()=>{
     if(!desdeStr||!hastaStr) return [] as FacturaRow[]
@@ -315,15 +309,15 @@ export default function GestionFacturas() {
     return(
       <div ref={ref} style={{position:'relative'}}>
         <button onClick={()=>setOpen(o=>!o)}
-          style={{padding:'6px 10px',borderRadius:8,border:'0.5px solid #d0c8bc',background:'#fff',fontSize:13,fontFamily:FONT.body,color:'#111',cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+          style={{padding:'6px 10px',borderRadius:8,border:`0.5px solid ${T.brd}`,background:T.card,fontSize:13,fontFamily:FONT.body,color:T.pri,cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
           <span>{labelActual}</span>
           <span style={{fontSize:10}}>▾</span>
         </button>
         {open&&(
-          <div style={{position:'absolute',top:'100%',right:0,background:'#fff',border:'0.5px solid #d0c8bc',borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
+          <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
             {mesesDisp.map(m=>(
               <button key={m.valor} onClick={()=>{setMesSeleccionado(m.valor);setOpen(false)}}
-                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?'#FF4757':'#7a8090',fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
+                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?'#FF4757':T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
                 {m.label}
               </button>
             ))}
@@ -331,12 +325,13 @@ export default function GestionFacturas() {
         )}
       </div>
     )
-  },[mesesDisp,mesSeleccionado])
+  },[mesesDisp,mesSeleccionado,T])
 
+  /* Headers SIN titular */
   const HEADERS: {label:string;col:SortColumn;align:'left'|'right'|'center'}[] = [
     {label:'Fecha',col:'fecha',align:'left'},{label:'Proveedor',col:'proveedor',align:'left'},
     {label:'NIF',col:'nif',align:'left'},{label:'Importe',col:'importe',align:'right'},
-    {label:'Categoría',col:'categoria',align:'left'},{label:'Titular',col:'titular',align:'left'},
+    {label:'Categoría',col:'categoria',align:'left'},
     {label:'Doc',col:'doc',align:'center'},{label:'Estado',col:'estado',align:'left'},
   ]
 
@@ -344,10 +339,11 @@ export default function GestionFacturas() {
   const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:8,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
 
   return(
-    <div style={{background:COLORS.bg,padding:'24px 28px',minHeight:'100%'}}>
+    <div style={{fontFamily:FONT.body,position:'relative'}}>
 
+      {/* BANNER — fuera del wrap, misma posición que Dashboard */}
       {bannerVisible&&(
-        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:'#111111',position:'relative'}}>
+        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:'#111111'}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
@@ -362,132 +358,127 @@ export default function GestionFacturas() {
         </div>
       )}
 
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
-        <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>
-          GESTOR DOCUMENTAL
-        </h2>
-        <MesDropdown/>
-      </div>
+      {/* WRAP GRIS — igual que Dashboard groupStyle */}
+      <div style={groupStyle(T)}>
 
-      <TabsPastilla tabs={TABS} activeId={activeTab} onChange={(id)=>setActiveTab(id as TabId)}/>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
+          <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>
+            GESTOR DOCUMENTAL
+          </h2>
+          <MesDropdown/>
+        </div>
 
-      {activeTab==='facturas'&&(
-        <>
-          <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14,flexWrap:'wrap'}}>
-            <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
-            <input type="text" placeholder="Buscar proveedor, NIF, importe…" value={busqueda} onChange={e=>setBusqueda(e.target.value)}
-              style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:8,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
-            <div style={{...islaStyle,padding:0,overflow:'hidden'}}>
-              <select value={categoriaId} onChange={e=>setCategoria(e.target.value)}
-                style={{...DROPDOWN_BTN,border:'none',background:'transparent',minWidth:280,height:36,paddingRight:28,cursor:'pointer'}}>
-                <option value="todas">Todas las categorías</option>
-                {categoriasFlat.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </div>
-          </div>
+        <TabsPastilla tabs={TABS} activeId={activeTab} onChange={(id)=>setActiveTab(id as TabId)}/>
 
-          <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
-            <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,paddingBottom:8,borderBottom:`0.5px solid ${COLORS.brd}`}}>
-                <span style={{fontFamily:FONT.heading,fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.pri,fontWeight:600}}>📁 Drive</span>
-                {driveFiltro.anio&&(
-                  <button type="button" onClick={()=>setDriveFiltro({})}
-                    style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:4,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
-                    limpiar
-                  </button>
-                )}
+        {activeTab==='facturas'&&(
+          <>
+            <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14,flexWrap:'wrap'}}>
+              <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
+              <input type="text" placeholder="Buscar proveedor, NIF, importe…" value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+                style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:8,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
+              <div style={{...islaStyle,padding:0,overflow:'hidden'}}>
+                <select value={categoriaId} onChange={e=>setCategoria(e.target.value)}
+                  style={{...DROPDOWN_BTN,border:'none',background:'transparent',minWidth:280,height:36,paddingRight:28,cursor:'pointer'}}>
+                  <option value="todas">Todas las categorías</option>
+                  {categoriasFlat.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
               </div>
-              {loading&&<div style={{color:COLORS.mut,fontSize:12}}>Cargando…</div>}
-              {!loading&&driveTree.map(tNode=>(
-                <NodoArbolItem key={tNode.label} node={tNode} level={0} filtroActivo={driveFiltro} expansionMap={expansionMap}
-                  titularColor={titularKey==='ruben'?COLOR_RUBEN:COLOR_EMILIO}
-                  onSelect={setDriveFiltro} onToggleExpand={key=>setExpansionMap(m=>({...m,[key]:!m[key]}))}/>
-              ))}
             </div>
 
-            <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,overflow:'hidden'}}>
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
-                  <thead>
-                    <tr>
-                      {HEADERS.map(h=>{
-                        const isActive=sortColumn===h.col
+            <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
+              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,paddingBottom:8,borderBottom:`0.5px solid ${COLORS.brd}`}}>
+                  <span style={{fontFamily:FONT.heading,fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.pri,fontWeight:600}}>📁 Drive</span>
+                  {driveFiltro.anio&&(
+                    <button type="button" onClick={()=>setDriveFiltro({})}
+                      style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:4,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
+                      limpiar
+                    </button>
+                  )}
+                </div>
+                {loading&&<div style={{color:COLORS.mut,fontSize:12}}>Cargando…</div>}
+                {!loading&&driveTree.map(tNode=>(
+                  <NodoArbolItem key={tNode.label} node={tNode} level={0} filtroActivo={driveFiltro} expansionMap={expansionMap}
+                    titularColor={titularKey==='ruben'?COLOR_RUBEN:COLOR_EMILIO}
+                    onSelect={setDriveFiltro} onToggleExpand={key=>setExpansionMap(m=>({...m,[key]:!m[key]}))}/>
+                ))}
+              </div>
+
+              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,overflow:'hidden'}}>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
+                    <thead>
+                      <tr>
+                        {HEADERS.map(h=>{
+                          const isActive=sortColumn===h.col
+                          return(
+                            <th key={h.col} onClick={()=>handleSort(h.col)}
+                              style={{fontFamily:FONT.heading,fontSize:10,fontWeight:500,letterSpacing:'2px',color:isActive?COLORS.redSL:COLORS.mut,textTransform:'uppercase',textAlign:h.align,padding:'10px 12px',background:COLORS.group,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>
+                              {h.label}{isActive?(sortDir==='asc'?' ↑':' ↓'):''}
+                            </th>
+                          )
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading&&<tr><td colSpan={7} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Cargando…</td></tr>}
+                      {!loading&&facturasOrdenadas.map((f,idx)=>{
+                        const est=colorEstado(f.estado)
+                        const catLbl=f.categoria_factura?`${f.categoria_factura} ${catNombre.get(f.categoria_factura)||''}`.trim():'—'
+                        const isLast=idx===facturasOrdenadas.length-1
+                        const tdDoc: CSSProperties = {padding:0,borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}`,verticalAlign:'middle',textAlign:'center'}
                         return(
-                          <th key={h.col} onClick={()=>handleSort(h.col)}
-                            style={{fontFamily:FONT.heading,fontSize:10,fontWeight:500,letterSpacing:'2px',color:isActive?COLORS.redSL:COLORS.mut,textTransform:'uppercase',textAlign:h.align,padding:'10px 12px',background:COLORS.group,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>
-                            {h.label}{isActive?(sortDir==='asc'?' ↑':' ↓'):''}
-                          </th>
+                          <tr key={f.id} onClick={()=>f.pdf_drive_url&&window.open(f.pdf_drive_url,'_blank','noopener')}
+                            style={{cursor:f.pdf_drive_url?'pointer':'default'}}
+                            onMouseEnter={e=>(e.currentTarget.style.background=COLORS.bg)}
+                            onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                            <td style={tdStyle}>{fmtFechaCorta(f.fecha_factura)}</td>
+                            <td style={tdStyle}>{f.proveedor_nombre||'—'}</td>
+                            <td style={{...tdStyle,color:COLORS.mut,fontSize:12}}>{f.nif_emisor||'—'}</td>
+                            <td style={{...tdStyle,textAlign:'right',fontWeight:500}}>{fmtNum(f.total,2)}</td>
+                            <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:4,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
+                            {f.pdf_drive_url?(
+                              <td style={tdDoc} onClick={e=>{e.stopPropagation();window.open(f.pdf_drive_url!,'_blank','noopener,noreferrer')}} title="Ver factura">
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:22,lineHeight:1,color:COLORS.pri,cursor:'pointer',userSelect:'none'}}>📎</div>
+                              </td>
+                            ):(
+                              <td style={tdDoc}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:'#F26B1F',fontWeight:600}}>✕</div>
+                              </td>
+                            )}
+                            <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
+                          </tr>
                         )
                       })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading&&<tr><td colSpan={8} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Cargando…</td></tr>}
-                    {!loading&&facturasOrdenadas.map((f,idx)=>{
-                      const tit=titulares.find(t=>t.id===f.titular_id)
-                      const titColor=colorTitular(tit?.nombre,tit?.color||COLORS.pri)
-                      const est=colorEstado(f.estado)
-                      const catLbl=f.categoria_factura?`${f.categoria_factura} ${catNombre.get(f.categoria_factura)||''}`.trim():'—'
-                      const isLast=idx===facturasOrdenadas.length-1
-                      const tdDoc: CSSProperties = {padding:0,borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}`,verticalAlign:'middle',textAlign:'center'}
-                      return(
-                        <tr key={f.id} onClick={()=>f.pdf_drive_url&&window.open(f.pdf_drive_url,'_blank','noopener')}
-                          style={{cursor:f.pdf_drive_url?'pointer':'default'}}
-                          onMouseEnter={e=>(e.currentTarget.style.background=COLORS.bg)}
-                          onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                          <td style={tdStyle}>{fmtFechaCorta(f.fecha_factura)}</td>
-                          <td style={tdStyle}>{f.proveedor_nombre||'—'}</td>
-                          <td style={{...tdStyle,color:COLORS.mut,fontSize:12}}>{f.nif_emisor||'—'}</td>
-                          <td style={{...tdStyle,textAlign:'right',fontWeight:500}}>{fmtNum(f.total,2)}</td>
-                          <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:4,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
-                          <td style={{...tdStyle,fontSize:12}}>
-                            {tit?(
-                              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:6,fontFamily:FONT.body,fontSize:12,fontWeight:500,background:`${titColor}15`,color:titColor}}>
-                                <span style={{width:6,height:6,borderRadius:'50%',background:titColor}}/>
-                                {tit.nombre}
-                              </span>
-                            ):<span style={{color:COLORS.mut}}>—</span>}
-                          </td>
-                          {f.pdf_drive_url?(
-                            <td style={tdDoc} onClick={e=>{e.stopPropagation();window.open(f.pdf_drive_url!,'_blank','noopener,noreferrer')}} title="Ver factura">
-                              <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:22,lineHeight:1,color:COLORS.pri,cursor:'pointer',userSelect:'none'}}>📎</div>
-                            </td>
-                          ):(
-                            <td style={tdDoc}>
-                              <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:'#F26B1F',fontWeight:600}}>✕</div>
-                            </td>
-                          )}
-                          <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
-                        </tr>
-                      )
-                    })}
-                    {!loading&&facturasOrdenadas.length===0&&(
-                      <tr><td colSpan={8} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Sin facturas para los filtros seleccionados</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                      {!loading&&facturasOrdenadas.length===0&&(
+                        <tr><td colSpan={7} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Sin facturas para los filtros seleccionados</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      {activeTab==='ventas'&&(
-        <>
-          <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
-            <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
-          </div>
-          <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
-            Subida de resúmenes de ventas (Uber Eats CSV, Glovo, Just Eat) · Próximamente
-          </div>
-        </>
-      )}
+        {activeTab==='ventas'&&(
+          <>
+            <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
+              <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
+            </div>
+            <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
+              Subida de resúmenes de ventas (Uber Eats CSV, Glovo, Just Eat) · Próximamente
+            </div>
+          </>
+        )}
 
-      {activeTab==='exportar'&&(
-        <TabExportar titularKey={titularKey} setTitularKey={setTitularKey}
-          mesLabel={mesLabel} plazoLabel={plazoLabel}
-          facturasMes={facturasMes} mesSeleccionado={mesSeleccionado}/>
-      )}
+        {activeTab==='exportar'&&(
+          <TabExportar titularKey={titularKey} setTitularKey={setTitularKey}
+            mesLabel={mesLabel} plazoLabel={plazoLabel}
+            facturasMes={facturasMes} mesSeleccionado={mesSeleccionado}/>
+        )}
+
+      </div>{/* fin groupStyle wrap */}
     </div>
   )
 }
@@ -515,27 +506,27 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
   titularKey:'ruben'|'emilio'; setTitularKey:(k:'ruben'|'emilio')=>void
   mesLabel:string; plazoLabel:string; facturasMes:FacturaRow[]; mesSeleccionado:string
 }){
+  /* Ambos checks manuales con checkbox */
   const [facturasConfirmadas,setFacturasConfirmadas]=useState(false)
-  const [ventasUberSubidas,setVentasUberSubidas]=useState(false)
+  const [ventasConfirmadas,setVentasConfirmadas]=useState(false)
+
+  /* Contador real ventas Uber en Supabase para el mes */
+  const [numResumenesUber,setNumResumenesUber]=useState(0)
   const [checkingUber,setCheckingUber]=useState(true)
+
   const numFacturas=facturasMes.length
+  const todoOk=facturasConfirmadas&&ventasConfirmadas
 
   useEffect(()=>{
     if(!mesSeleccionado) return
     setCheckingUber(true)
+    setVentasConfirmadas(false)
     supabase.from('ventas_resumenes')
       .select('id',{count:'exact',head:true})
       .eq('mes',mesSeleccionado)
       .eq('plataforma','uber')
-      .then(({count})=>{ setVentasUberSubidas((count??0)>0); setCheckingUber(false) })
+      .then(({count})=>{ setNumResumenesUber(count??0); setCheckingUber(false) })
   },[mesSeleccionado,titularKey])
-
-  const checks=[
-    {ok:facturasConfirmadas,label:'Todas las facturas del mes importadas',manual:true,detail:`${numFacturas} facturas`},
-    {ok:ventasUberSubidas,label:'Ventas Uber Eats subidas',manual:false,detail:checkingUber?'Comprobando…':ventasUberSubidas?'Subido':'Pendiente'},
-  ]
-  const todoOk=checks.every(c=>c.ok)
-  const checksOk=checks.filter(c=>c.ok).length
 
   return(
     <>
@@ -543,35 +534,56 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
         <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
+
+        {/* Checklist — ambos con checkbox */}
         <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-            <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:0}}>Antes de exportar</p>
-            <span style={{fontSize:12,color:todoOk?'#3B6D11':'#BA7517',fontWeight:500}}>{checksOk} de {checks.length} listos</span>
-          </div>
+          <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>
+            Antes de exportar
+          </p>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {checks.map((c,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:c.ok?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
-                {c.manual?(
-                  <input type="checkbox" checked={c.ok} onChange={e=>setFacturasConfirmadas(e.target.checked)}
-                    style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
-                ):(
-                  <span style={{display:'flex',width:22,height:22,borderRadius:'50%',background:c.ok?'#639922':'#A32D2D',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>
-                    {c.ok?'✓':'✕'}
-                  </span>
-                )}
-                <span style={{flex:1,fontSize:13,color:c.ok?'#173404':'#501313',fontWeight:500}}>{c.label}</span>
-                <span style={{fontSize:12,color:c.ok?'#3B6D11':'#A32D2D'}}>{c.detail}</span>
-              </div>
-            ))}
+
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+              <input type="checkbox" checked={facturasConfirmadas} onChange={e=>setFacturasConfirmadas(e.target.checked)}
+                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:facturasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                Todas las facturas del mes importadas
+              </span>
+              <span style={{fontSize:12,color:facturasConfirmadas?'#3B6D11':'#A32D2D'}}>
+                {numFacturas} facturas
+              </span>
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+              <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
+                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:ventasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                Ventas Uber Eats subidas
+              </span>
+              <span style={{fontSize:12,color:ventasConfirmadas?'#3B6D11':'#A32D2D'}}>
+                {checkingUber?'Comprobando…':`${numResumenesUber} resúmenes`}
+              </span>
+            </div>
+
           </div>
         </div>
+
+        {/* El ZIP contendrá — contadores reales */}
         <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>El ZIP contendrá</p>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,fontFamily:FONT.body}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:16}}>📁</span><span><strong style={{fontWeight:500}}>Facturas</strong> · {numFacturas} Docs</span></div>
-            <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:16}}>📁</span><span><strong style={{fontWeight:500}}>Ventas</strong> · {ventasUberSubidas?'1 Resumen':'0 Resúmenes'} Uber</span></div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:16}}>📁</span>
+              <span><strong style={{fontWeight:500}}>Facturas</strong> · {numFacturas} Docs</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:16}}>📁</span>
+              <span>
+                <strong style={{fontWeight:500}}>Ventas</strong> · {checkingUber?'…':`${numResumenesUber} Resumen${numResumenesUber===1?'':'es'}`} Uber
+              </span>
+            </div>
           </div>
         </div>
+
         <button disabled={!todoOk}
           style={{width:'100%',padding:'14px 20px',background:todoOk?'#111':'#d0c8bc',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk?'pointer':'not-allowed'}}>
           Generar paquete ZIP · {mesLabel}
@@ -596,7 +608,6 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
   const myKey=nodeKey(node.filtro); const expandido=expansionMap[myKey]??false
   const esActivo=filtroActivo.titular_id===node.filtro.titular_id&&filtroActivo.anio===node.filtro.anio&&filtroActivo.trimestre===node.filtro.trimestre&&filtroActivo.mes===node.filtro.mes
 
-  /* Tipos explícitos — evita inferencia literal TS */
   let nodoBg: string = 'transparent'
   let nodoColor: string = COLORS.pri
   let nodoFf: string = FONT.body
