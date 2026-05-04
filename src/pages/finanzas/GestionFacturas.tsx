@@ -1,16 +1,10 @@
 /**
- * GestionFacturas — Listado de facturas tipo Drive.
- *
- * Datos 100% reales desde Supabase:
- * - public.facturas (PDF en pdf_drive_url)
- * - public.titulares (Rubén, Emilio)
- * - public.categorias_pyg (árbol completo)
- *
- * Tabs: Resumen, Facturas, Exportar.
- *
- * v5 (3 may 2026):
- *  - Drive colapsado por defecto excepto trimestre en curso
- *  - Headers ordenables AZ/ZA copiando patrón OCR (sortColumn + sortDir + handleSort + flecha ↑↓ activa)
+ * GestorDocumental — antes GestionFacturas.
+ * Listado de facturas tipo Drive con:
+ * - Toggle Rubén / Emilio (sin "Todos")
+ * - Drive solo titular activo
+ * - Headers ordenables AZ/ZA estilo OCR
+ * - Colores titular de Conciliación: Rubén #F26B1F, Emilio #1E5BCC
  */
 
 import {
@@ -27,12 +21,10 @@ import {
 } from '@/components/panel/resumen/tokens'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import SubTabsInverso from '@/components/ui/SubTabsInverso'
 import { supabase } from '@/lib/supabase'
 
 /* ── Tipos ─────────────────────────────────────────── */
 type TabId = 'resumen' | 'facturas' | 'exportar'
-type TitularFiltro = 'todos' | string
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
 type SortDir = 'asc' | 'desc'
 
@@ -90,18 +82,15 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'exportar', label: 'Exportar' },
 ]
 
-const TITULAR_COLOR: Record<string, string> = {
-  'rubén': '#F26B1F',
-  'ruben': '#F26B1F',
-  'emilio': '#1E5BCC',
-}
+/* Hex EXACTOS de Conciliación */
+const COLOR_RUBEN  = '#F26B1F'
+const COLOR_EMILIO = '#1E5BCC'
 
 function colorTitular(nombre: string | undefined, fallback: string): string {
   if (!nombre) return fallback
   const k = nombre.toLowerCase().trim()
-  for (const key of Object.keys(TITULAR_COLOR)) {
-    if (k.includes(key)) return TITULAR_COLOR[key]
-  }
+  if (k.includes('rubén') || k.includes('ruben')) return COLOR_RUBEN
+  if (k.includes('emilio')) return COLOR_EMILIO
   return fallback
 }
 
@@ -244,7 +233,8 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{ id: string; label: str
 /* ══════════════════════════════════════════════════════ */
 export default function GestionFacturas() {
   const [activeTab, setActiveTab]   = useState<TabId>('facturas')
-  const [titularFiltro, setTitular] = useState<TitularFiltro>('todos')
+  /* Toggle Rubén / Emilio — sin Todos. Default Rubén. */
+  const [titularKey, setTitularKey] = useState<'ruben' | 'emilio'>('ruben')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
@@ -253,7 +243,6 @@ export default function GestionFacturas() {
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
 
-  /* Sort estado — patrón OCR */
   const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -289,20 +278,29 @@ export default function GestionFacturas() {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
   }, [])
 
+  /* Lookup titular activo según toggle */
+  const titularActivo = useMemo(() => {
+    return titulares.find(t => {
+      const n = t.nombre.toLowerCase()
+      if (titularKey === 'ruben') return n.includes('rubén') || n.includes('ruben')
+      return n.includes('emilio')
+    }) ?? null
+  }, [titulares, titularKey])
+
   const driveTreeFull = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
 
+  /* Drive: SOLO titular activo */
   const driveTree = useMemo(() => {
-    if (titularFiltro === 'todos') return driveTreeFull
-    return driveTreeFull.filter(t => t.filtro.titular_id === titularFiltro)
-  }, [driveTreeFull, titularFiltro])
+    if (!titularActivo) return []
+    return driveTreeFull.filter(t => t.filtro.titular_id === titularActivo.id)
+  }, [driveTreeFull, titularActivo])
 
+  /* Reset filtro Drive al cambiar de titular */
   useEffect(() => {
-    if (driveFiltro.titular_id && titularFiltro !== 'todos' && driveFiltro.titular_id !== titularFiltro) {
-      setDriveFiltro({})
-    }
-  }, [titularFiltro, driveFiltro.titular_id])
+    setDriveFiltro({})
+  }, [titularKey])
 
-  /* Estado inicial expansión: SOLO titular + año actual + T en curso. Resto colapsado. */
+  /* Estado inicial expansión: titular + año actual + T en curso */
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTreeFull.length === 0) return
@@ -326,16 +324,15 @@ export default function GestionFacturas() {
     return m
   }, [categorias])
 
-  /* Handler sort — patrón OCR literal */
   function handleSort(col: SortColumn) {
     if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortColumn(col); setSortDir('asc') }
   }
 
-  /* Filtrado */
+  /* Filtrado: SOLO titular activo + Drive + categoría + búsqueda */
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
-      if (titularFiltro !== 'todos' && f.titular_id !== titularFiltro) return false
+      if (titularActivo && f.titular_id !== titularActivo.id) return false
       if (driveFiltro.titular_id && f.titular_id !== driveFiltro.titular_id) return false
       if (driveFiltro.anio && f.fecha_factura) {
         const d = new Date(f.fecha_factura + 'T00:00:00')
@@ -359,17 +356,14 @@ export default function GestionFacturas() {
       }
       return true
     })
-  }, [facturas, titularFiltro, driveFiltro, categoriaId, busqueda])
+  }, [facturas, titularActivo, driveFiltro, categoriaId, busqueda])
 
-  /* Sort — aplicado tras filtrado, según sortColumn + sortDir */
   const facturasOrdenadas = useMemo(() => {
     const arr = [...facturasFiltradas]
     const dirMul = sortDir === 'asc' ? 1 : -1
-
     arr.sort((a, b) => {
       let va: string | number = ''
       let vb: string | number = ''
-
       switch (sortColumn) {
         case 'fecha':
           va = a.fecha_factura ?? ''
@@ -407,21 +401,13 @@ export default function GestionFacturas() {
           vb = b.estado || ''
           break
       }
-
       if (va < vb) return -1 * dirMul
       if (va > vb) return  1 * dirMul
       return 0
     })
-
     return arr
   }, [facturasFiltradas, sortColumn, sortDir, titulares])
 
-  const titularesTabs = useMemo(() => [
-    { id: 'todos', label: 'Todos' },
-    ...titulares.map(t => ({ id: t.id, label: t.nombre })),
-  ], [titulares])
-
-  /* Header igual al OCR — clicable, color rojo cuando activo, flecha ↑↓ */
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha',      col: 'fecha',     align: 'left' },
     { label: 'Proveedor',  col: 'proveedor', align: 'left' },
@@ -462,7 +448,7 @@ export default function GestionFacturas() {
             color: COLORS.redSL, fontFamily: FONT.heading, fontSize: 22,
             fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase',
           }}>
-            GESTIÓN DE FACTURAS
+            GESTOR DOCUMENTAL
           </h2>
           {showSelectorFecha && (
             <span style={{
@@ -475,7 +461,7 @@ export default function GestionFacturas() {
         </div>
         {showSelectorFecha && (
           <SelectorFechaUniversal
-            nombreModulo="gestion_facturas"
+            nombreModulo="gestor_documental"
             defaultOpcion="mes_en_curso"
             onChange={handleFecha}
           />
@@ -494,15 +480,35 @@ export default function GestionFacturas() {
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
           }}>
-            {titulares.length > 0 && (
-              <div style={islaStyle}>
-                <SubTabsInverso
-                  tabs={titularesTabs}
-                  activeId={titularFiltro}
-                  onChange={(id) => setTitular(id as TitularFiltro)}
-                />
-              </div>
-            )}
+            {/* Toggle SOLO Rubén/Emilio — colores Conciliación */}
+            <div style={{ display: 'flex', gap: 5 }}>
+              {(['ruben', 'emilio'] as const).map(t => {
+                const isActive = titularKey === t
+                const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
+                const clr = isActive ? '#fff' : '#3a4050'
+                const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTitularKey(t)}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      border: bd,
+                      background: bg,
+                      fontFamily: FONT.body,
+                      fontSize: 13,
+                      color: clr,
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      minWidth: 90,
+                    }}
+                  >
+                    {t === 'ruben' ? 'Rubén' : 'Emilio'}
+                  </button>
+                )
+              })}
+            </div>
 
             <input
               type="text"
@@ -557,7 +563,7 @@ export default function GestionFacturas() {
                 }}>
                   📁 Drive
                 </span>
-                {(driveFiltro.titular_id || driveFiltro.anio) && (
+                {(driveFiltro.anio) && (
                   <button
                     type="button"
                     onClick={() => setDriveFiltro({})}
@@ -575,8 +581,7 @@ export default function GestionFacturas() {
               {loading && <div style={{ color: COLORS.mut, fontSize: 12 }}>Cargando…</div>}
 
               {!loading && driveTree.map(tNode => {
-                const tit = titulares.find(x => x.id === tNode.filtro.titular_id)
-                const titColor = colorTitular(tit?.nombre, COLORS.pri)
+                const titColor = titularKey === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO
                 return (
                   <NodoArbolItem
                     key={tNode.label}
