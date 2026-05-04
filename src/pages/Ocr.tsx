@@ -36,21 +36,40 @@ function parsePage(raw: string | null): number {
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
-interface FgItem { id: string; confirmado: boolean; conciliacion_id: string }
+
+// conciliacion_refs: movimientos de conciliacion que apuntan a esta factura
+interface ConciliacionRef { id: string; doc_estado: string }
+
 interface Factura {
   id: string; fecha_factura: string; proveedor_nombre: string; total: number; tipo: string
   categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null
   pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null
-  numero_factura: string | null; estado: string; facturas_gastos: FgItem[]
+  numero_factura: string | null; estado: string
+  // Movimientos bancarios asociados (fuente de verdad para conciliación)
+  conciliacion_refs: ConciliacionRef[]
 }
+
 interface Agregados {
   totalCount: number; totalImporte: number; conciliadasCount: number; conciliadasPct: number
   conciliadasImporte: number; pendientesCount: number; pendientesImporte: number
 }
 
+// REGLAS DE CONCILIACIÓN (fuente de verdad: conciliacion.factura_id)
+// - Conciliada: tiene PDF en Drive + al menos 1 mov en conciliacion con factura_id = esta factura
+// - No requiere doc: algún mov tiene doc_estado = 'no_requiere' (comisiones, internos)
+// - Pendiente: tiene movs asociados pero falta PDF, o no tiene movs aún
+type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
+
+function getEstadoDoc(f: Factura): EstadoDoc {
+  const tieneMovAsociado = f.conciliacion_refs.length > 0
+  const noRequiere = f.conciliacion_refs.some(r => r.doc_estado === 'no_requiere')
+  if (noRequiere) return 'no_requiere'
+  if (tieneMovAsociado && f.pdf_drive_url) return 'conciliada'
+  return 'pendiente'
+}
+
 function esConciliada(f: Factura): boolean {
-  if (!f.pdf_drive_url || !f.categoria_factura || !f.titular_id) return false
-  return Array.isArray(f.facturas_gastos) && f.facturas_gastos.some(fg => fg.confirmado)
+  return getEstadoDoc(f) === 'conciliada'
 }
 
 interface BtnSubirProps {
@@ -99,6 +118,38 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
         {sublabel}
       </div>
     </div>
+  )
+}
+
+// Badge columna DOC:
+// 📎 = conciliada con PDF
+// —  = no requiere doc
+// ✕  = requiere doc pero falta
+function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick?: () => void }) {
+  if (estado === 'conciliada') {
+    return (
+      <div
+        onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: '#0F6E56', cursor: 'pointer', userSelect: 'none' }}
+        title="Factura conciliada · Ver documento"
+      >📎</div>
+    )
+  }
+  if (estado === 'no_requiere') {
+    return (
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }}
+        title="No requiere documento"
+      >—</div>
+    )
+  }
+  // pendiente
+  return (
+    <div
+      onClick={e => { e.stopPropagation(); onClick?.() }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+      title="Falta documento · Haz clic para editar"
+    >✕</div>
   )
 }
 
@@ -173,8 +224,13 @@ export default function Ocr() {
       importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: null,
     }
     const sortField = sortMap[sortColumn] ?? 'fecha_factura'
+
+    // FUENTE DE VERDAD: conciliacion(factura_id) — traemos los movs asociados a cada factura
     let q: any = supabase.from('facturas')
-      .select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, facturas_gastos(id, confirmado, conciliacion_id)', { count: 'exact' })
+      .select(
+        'id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, conciliacion_refs:conciliacion(id, doc_estado)',
+        { count: 'exact' }
+      )
       .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
     else q = q.eq('tipo', 'otro')
@@ -185,6 +241,7 @@ export default function Ocr() {
     }
     if (sortField) q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
     else q = q.order('fecha_factura', { ascending: false }).range(from, to)
+
     const { data, error, count } = await q
     if (myFetchId !== fetchIdRef.current) return
     if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) }
@@ -194,7 +251,8 @@ export default function Ocr() {
         total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null,
         nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null,
         pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null,
-        numero_factura: m.numero_factura ?? null, estado: m.estado ?? '', facturas_gastos: m.facturas_gastos ?? [],
+        numero_factura: m.numero_factura ?? null, estado: m.estado ?? '',
+        conciliacion_refs: (m.conciliacion_refs ?? []).map((r: any) => ({ id: r.id, doc_estado: r.doc_estado ?? '' })),
       }))
       let filtradas = mapped
       if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada)
@@ -207,7 +265,7 @@ export default function Ocr() {
   const cargarAgregados = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('facturas')
-        .select('id, total, pdf_drive_url, categoria_factura, titular_id, tipo, facturas_gastos(confirmado)')
+        .select('id, total, pdf_drive_url, categoria_factura, titular_id, tipo, conciliacion_refs:conciliacion(id, doc_estado)')
         .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
       if (error) throw error
       let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0
@@ -216,9 +274,10 @@ export default function Ocr() {
         totalCount++
         const imp = Number(r.total) || 0
         totalImporte += imp
-        const tieneAsoc = Array.isArray(r.facturas_gastos) && r.facturas_gastos.some((fg: any) => fg.confirmado)
-        const completa = !!r.pdf_drive_url && !!r.categoria_factura && !!r.titular_id && tieneAsoc
-        if (completa) { conciliadasCount++; conciliadasImporte += imp }
+        const refs: ConciliacionRef[] = (r.conciliacion_refs ?? []).map((x: any) => ({ id: x.id, doc_estado: x.doc_estado ?? '' }))
+        const noRequiere = refs.some(x => x.doc_estado === 'no_requiere')
+        const conciliada = !noRequiere && refs.length > 0 && !!r.pdf_drive_url
+        if (conciliada || noRequiere) { conciliadasCount++; conciliadasImporte += imp }
         else { pendientesCount++; pendientesImporte += imp }
       }
       const conciliadasPct = totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0
@@ -313,7 +372,6 @@ export default function Ocr() {
               onArchivos={(files) => setModalTitular({ archivos: files, visible: true })}
             />
           </div>
-
           <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
             <ExtractosTabla refreshTick={refreshTick} titulares={titulares} />
           </div>
@@ -384,7 +442,7 @@ export default function Ocr() {
               {cargando ? <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div> : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-                    <colgroup><col style={{ width: 90 }} /><col /><col style={{ width: '14%' }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 80 }} /><col style={{ width: 130 }} /><col style={{ width: 100 }} /></colgroup>
+                    <colgroup><col style={{ width: 90 }} /><col /><col style={{ width: '14%' }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 60 }} /><col style={{ width: 130 }} /><col style={{ width: 100 }} /></colgroup>
                     <thead>
                       <tr>
                         {HEADERS.map(h => {
@@ -401,7 +459,8 @@ export default function Ocr() {
                         const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
                         const tdDocBase: React.CSSProperties = { padding: 0, borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', textAlign: 'center' }
                         const catInfo = getBadgeCategoria(f)
-                        const conciliada = esConciliada(f)
+                        const estadoDoc = getEstadoDoc(f)
+                        const conciliada = estadoDoc === 'conciliada'
                         const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() ?? ''
                         const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                         const isEmilio = titNombre.includes('emilio')
@@ -416,14 +475,19 @@ export default function Ocr() {
                               {catInfo ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>{catInfo.nombre}</span>
                               : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>sin categoría</span>}
                             </td>
-                            {f.pdf_drive_url
-                              ? <td style={tdDocBase} onClick={e => { e.stopPropagation(); window.open(f.pdf_drive_url!, '_blank', 'noopener,noreferrer') }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: '#0F6E56', cursor: 'pointer', userSelect: 'none' }}>📎</div></td>
-                              : <td style={tdDocBase} onClick={e => e.stopPropagation()}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600 }}>✕</div></td>
-                            }
+                            <td style={tdDocBase}>
+                              <DocBadge
+                                estado={estadoDoc}
+                                url={f.pdf_drive_url}
+                                onClick={() => setFacturaEditando(f)}
+                              />
+                            </td>
                             <td style={tdBase}>
                               {conciliada
                                 ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span>
-                                : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>Pendiente</span>
+                                : estadoDoc === 'no_requiere'
+                                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#9ba8c015', color: '#9ba8c0' }}>Sin doc</span>
+                                  : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>Pendiente</span>
                               }
                             </td>
                             <td style={tdBase}>
