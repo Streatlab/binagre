@@ -1,5 +1,5 @@
 // Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
-// v4: Excel (.xlsx/.xls) se convierte a CSV en el cliente via SheetJS antes de enviar
+// v5: Excel con SheetJS — fechas forzadas a string DD/MM/YYYY, no números de serie
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -93,23 +93,49 @@ function leerTexto(file: File): Promise<string> {
   })
 }
 
-// Convertir Excel a CSV usando SheetJS (cargado dinámicamente desde CDN)
+async function cargarSheetJS(): Promise<any> {
+  if ((window as any).XLSX) return (window as any).XLSX
+  await new Promise<void>((res, rej) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    s.onload = () => res()
+    s.onerror = () => rej(new Error('No se pudo cargar SheetJS'))
+    document.head.appendChild(s)
+  })
+  return (window as any).XLSX
+}
+
+// Convertir Excel a CSV con fechas legibles
 async function excelACSV(file: File): Promise<string> {
-  // Cargar SheetJS desde CDN si no está cargado
-  if (!(window as any).XLSX) {
-    await new Promise<void>((res, rej) => {
-      const s = document.createElement('script')
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-      s.onload = () => res()
-      s.onerror = () => rej(new Error('No se pudo cargar SheetJS'))
-      document.head.appendChild(s)
-    })
-  }
-  const XLSX = (window as any).XLSX
+  const XLSX = await cargarSheetJS()
   const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array' })
-  // Usar la primera hoja
+  // cellDates: true → SheetJS devuelve Date() en lugar de números de serie
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
+
+  // Recorrer todas las celdas y convertir fechas a DD/MM/YYYY
+  const ref = ws['!ref']
+  if (ref) {
+    const range = XLSX.utils.decode_range(ref)
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C })
+        const cell = ws[addr]
+        if (!cell) continue
+        // Si la celda es fecha (tipo 'd' con cellDates:true, o tipo 'n' con formato fecha)
+        if (cell.t === 'd' && cell.v instanceof Date) {
+          const d = cell.v as Date
+          const dd = String(d.getDate()).padStart(2, '0')
+          const mm = String(d.getMonth() + 1).padStart(2, '0')
+          const yyyy = d.getFullYear()
+          cell.t = 's'
+          cell.v = `${dd}/${mm}/${yyyy}`
+          cell.w = cell.v
+        }
+      }
+    }
+  }
+
   const csv: string = XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
   return csv
 }
@@ -159,7 +185,7 @@ export function useOcrUpload(): {
           let body: Record<string, unknown>
 
           if (esExcel(file)) {
-            // Excel → convertir a CSV en cliente, enviar como texto
+            // Excel → CSV con fechas legibles (cellDates:true + conversión manual)
             const csvTexto = await excelACSV(file)
             body = {
               fileTexto: csvTexto,
@@ -167,11 +193,9 @@ export function useOcrUpload(): {
               mimeType: 'text/csv',
             }
           } else if (esTextoPlano(file)) {
-            // CSV/TXT → texto plano directo
             const textoCSV = await leerTexto(file)
             body = { fileTexto: textoCSV, filename: file.name, mimeType }
           } else {
-            // PDF/imagen → base64
             const base64 = await leerBase64(file)
             body = { fileBase64: base64, filename: file.name, mimeType }
           }
