@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import OcrEditModal from '@/components/ocr/OcrEditModal'
+import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 
 type TabId = 'facturas' | 'extractos' | 'otros'
@@ -337,7 +338,6 @@ export default function Ocr() {
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 4 }}>Formatos aceptados</div>
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', lineHeight: 1.7 }}>CSV · Excel (.xlsx)<br />PDF · Imagen</div>
             </div>
-            {/* Botón rojo con drag & drop */}
             <BtnSubir
               label="Subir extractos"
               sublabel="CSV · Excel · PDF · Imagen"
@@ -346,8 +346,9 @@ export default function Ocr() {
             />
           </div>
 
+          {/* Tabla sin filtro de fechas — muestra todos */}
           <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
-            <ExtractosTabla periodoDesdeStr={periodoDesdeStr} periodoHastaStr={periodoHastaStr} refreshTick={refreshTick} titulares={titulares} />
+            <ExtractosTabla refreshTick={refreshTick} titulares={titulares} />
           </div>
         </div>
       )}
@@ -371,7 +372,6 @@ export default function Ocr() {
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div>
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div>
             </div>
-            {/* Botón rojo con drag & drop */}
             <BtnSubir
               label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'}
               sublabel="PDF · Imagen"
@@ -482,7 +482,7 @@ export default function Ocr() {
                         <button style={isFirst ? btnDis : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: page - 1 })}>‹ Anterior</button>
                         <span style={{ ...btnBase, cursor: 'default' }}>{`Página ${page} de ${totalPages}`}</span>
                         <button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: page + 1 })}>Siguiente ›</button>
-                        <button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: totalPages })}>Última</button>
+<button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: totalPages })}>Última</button>
                       </div>
                     )}
                   </div>
@@ -515,60 +515,5 @@ export default function Ocr() {
           onDeleted={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} />
       )}
     </div>
-  )
-}
-
-// ─── Tabla extractos subidos ──────────────────────────────────────────────────
-function ExtractosTabla({ periodoDesdeStr, periodoHastaStr, refreshTick, titulares }: {
-  periodoDesdeStr: string; periodoHastaStr: string; refreshTick: number; titulares: { id: string; nombre: string }[]
-}) {
-  const [extractos, setExtractos] = useState<any[]>([])
-  const [cargando, setCargando] = useState(true)
-
-  useEffect(() => {
-    setCargando(true)
-    supabase.from('facturas').select('id, fecha_factura, pdf_filename, pdf_drive_url, titular_id, created_at')
-      .eq('tipo', 'otro').eq('categoria_factura', 'extracto_bancario')
-      .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
-      .order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => { setExtractos(data ?? []); setCargando(false) })
-  }, [periodoDesdeStr, periodoHastaStr, refreshTick])
-
-  if (cargando) return <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div>
-  if (extractos.length === 0) return <div style={{ padding: '32px 28px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>No hay extractos subidos en este periodo</div>
-
-  return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-      <thead>
-        <tr>
-          {['Fecha subida', 'Archivo', 'Titular', 'Drive'].map(h => (
-            <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', textAlign: 'left', padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc' }}>{h}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {extractos.map((e, idx) => {
-          const isLast = idx === extractos.length - 1
-          const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle' }
-          const titNombre = titulares.find(t => t.id === e.titular_id)?.nombre?.toLowerCase() ?? ''
-          const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
-          const isEmilio = titNombre.includes('emilio')
-          return (
-            <tr key={e.id}>
-              <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{e.created_at ? fmtDate(e.created_at.slice(0, 10)) : '—'}</td>
-              <td style={{ ...tdBase, color: '#111', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.pdf_filename || '—'}</td>
-              <td style={tdBase}>
-                {isRuben ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />Rubén</span>
-                : isEmilio ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />Emilio</span>
-                : <span style={{ color: '#7a8090', fontSize: 12 }}>—</span>}
-              </td>
-              <td style={{ ...tdBase, textAlign: 'center' }}>
-                {e.pdf_drive_url ? <a href={e.pdf_drive_url} target="_blank" rel="noreferrer" style={{ fontSize: 20 }}>📎</a> : <span style={{ color: '#d0c8bc' }}>—</span>}
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
   )
 }
