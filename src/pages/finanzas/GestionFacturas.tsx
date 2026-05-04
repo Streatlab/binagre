@@ -1,11 +1,6 @@
 /**
  * GestorDocumental — antes GestionFacturas.
- * Listado de facturas tipo Drive con:
- * - Toggle Rubén / Emilio (sin "Todos")
- * - Drive solo titular activo
- * - Headers ordenables AZ/ZA estilo OCR
- * - Colores titular de Conciliación: Rubén #F26B1F, Emilio #1E5BCC
- * - Columna Titular oculta (toggle ya filtra)
+ * Tabs: Facturas / Ventas / Exportar
  */
 
 import {
@@ -25,8 +20,8 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 
 /* ── Tipos ─────────────────────────────────────────── */
-type TabId = 'resumen' | 'facturas' | 'exportar'
-type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
+type TabId = 'facturas' | 'ventas' | 'exportar'
+type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
 type SortDir = 'asc' | 'desc'
 
 interface Titular {
@@ -78,14 +73,21 @@ interface DriveNode {
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 'resumen',  label: 'Resumen' },
   { id: 'facturas', label: 'Facturas' },
+  { id: 'ventas',   label: 'Ventas' },
   { id: 'exportar', label: 'Exportar' },
 ]
 
-/* Hex EXACTOS de Conciliación */
 const COLOR_RUBEN  = '#F26B1F'
 const COLOR_EMILIO = '#1E5BCC'
+
+function colorTitular(nombre: string | undefined, fallback: string): string {
+  if (!nombre) return fallback
+  const k = nombre.toLowerCase().trim()
+  if (k.includes('rubén') || k.includes('ruben')) return COLOR_RUBEN
+  if (k.includes('emilio')) return COLOR_EMILIO
+  return fallback
+}
 
 const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string; tot: string }> = {
   1: { bg: '#dde8f4', head: '#7da3c8', headDark: '#3a5f80', tot: '#b5cae3' },
@@ -110,7 +112,7 @@ function fmtNum(n: number | null | undefined, dec = 2): string {
   })
 }
 
-const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+const MESES_NOMBRE = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 const MESES_POR_TRIM: Record<number, number[]> = {
@@ -182,7 +184,7 @@ function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode
         for (const mes of MESES_POR_TRIM[trim]) {
           const data = aMap?.get(mes) ?? { count: 0, importe: 0 }
           qNode.children!.push({
-            label: MESES[mes], count: data.count, importe: data.importe,
+            label: MESES_NOMBRE[mes], count: data.count, importe: data.importe,
             filtro: { titular_id: t.id, anio, trimestre: trim, mes },
             kind: 'mes', trimNum: trim,
           })
@@ -230,8 +232,8 @@ export default function GestionFacturas() {
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
-  const [, setFechaDesde] = useState<Date | null>(null)
-  const [, setFechaHasta] = useState<Date | null>(null)
+  const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
+  const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
 
@@ -352,41 +354,25 @@ export default function GestionFacturas() {
       let va: string | number = ''
       let vb: string | number = ''
       switch (sortColumn) {
-        case 'fecha':
-          va = a.fecha_factura ?? ''
-          vb = b.fecha_factura ?? ''
-          break
-        case 'proveedor':
-          va = (a.proveedor_nombre || '').toLowerCase()
-          vb = (b.proveedor_nombre || '').toLowerCase()
-          break
-        case 'nif':
-          va = (a.nif_emisor || '').toLowerCase()
-          vb = (b.nif_emisor || '').toLowerCase()
-          break
-        case 'importe':
-          va = Number(a.total || 0)
-          vb = Number(b.total || 0)
-          break
-        case 'categoria':
-          va = a.categoria_factura || ''
-          vb = b.categoria_factura || ''
-          break
-        case 'doc':
-          va = a.pdf_drive_url ? 1 : 0
-          vb = b.pdf_drive_url ? 1 : 0
-          break
-        case 'estado':
-          va = a.estado || ''
-          vb = b.estado || ''
-          break
+        case 'fecha':     va = a.fecha_factura ?? ''; vb = b.fecha_factura ?? ''; break
+        case 'proveedor': va = (a.proveedor_nombre || '').toLowerCase(); vb = (b.proveedor_nombre || '').toLowerCase(); break
+        case 'nif':       va = (a.nif_emisor || '').toLowerCase(); vb = (b.nif_emisor || '').toLowerCase(); break
+        case 'importe':   va = Number(a.total || 0); vb = Number(b.total || 0); break
+        case 'categoria': va = a.categoria_factura || ''; vb = b.categoria_factura || ''; break
+        case 'titular': {
+          const ta = titulares.find(t => t.id === a.titular_id)?.nombre || ''
+          const tb = titulares.find(t => t.id === b.titular_id)?.nombre || ''
+          va = ta.toLowerCase(); vb = tb.toLowerCase(); break
+        }
+        case 'doc':    va = a.pdf_drive_url ? 1 : 0; vb = b.pdf_drive_url ? 1 : 0; break
+        case 'estado': va = a.estado || ''; vb = b.estado || ''; break
       }
       if (va < vb) return -1 * dirMul
       if (va > vb) return  1 * dirMul
       return 0
     })
     return arr
-  }, [facturasFiltradas, sortColumn, sortDir])
+  }, [facturasFiltradas, sortColumn, sortDir, titulares])
 
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha',      col: 'fecha',     align: 'left' },
@@ -394,6 +380,7 @@ export default function GestionFacturas() {
     { label: 'NIF',        col: 'nif',       align: 'left' },
     { label: 'Importe',    col: 'importe',   align: 'right' },
     { label: 'Categoría',  col: 'categoria', align: 'left' },
+    { label: 'Titular',    col: 'titular',   align: 'left' },
     { label: 'Doc',        col: 'doc',       align: 'center' },
     { label: 'Estado',     col: 'estado',    align: 'left' },
   ]
@@ -413,8 +400,6 @@ export default function GestionFacturas() {
     gap: 4,
   }
 
-  const showSelectorFecha = activeTab === 'resumen' || activeTab === 'exportar'
-
   return (
     <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
 
@@ -429,22 +414,19 @@ export default function GestionFacturas() {
           }}>
             GESTOR DOCUMENTAL
           </h2>
-          {showSelectorFecha && (
-            <span style={{
-              fontFamily: FONT.body, fontSize: 13, color: COLORS.mut,
-              display: 'block', marginTop: 4,
-            }}>
-              {periodoLabel}
-            </span>
-          )}
+          <span style={{
+            fontFamily: FONT.body, fontSize: 13, color: COLORS.mut,
+            display: 'block', marginTop: 4,
+          }}>
+            {periodoLabel}
+          </span>
         </div>
-        {showSelectorFecha && (
-          <SelectorFechaUniversal
-            nombreModulo="gestor_documental"
-            defaultOpcion="mes_en_curso"
-            onChange={handleFecha}
-          />
-        )}
+        <SelectorFechaUniversal
+          nombreModulo="gestor_documental"
+          defaultOpcion="mes_en_curso"
+          opcionesPermitidas={['mes_en_curso', 'mes_anterior', 'mes_personalizado']}
+          onChange={handleFecha}
+        />
       </div>
 
       <TabsPastilla
@@ -470,16 +452,9 @@ export default function GestionFacturas() {
                     key={t}
                     onClick={() => setTitularKey(t)}
                     style={{
-                      padding: '8px 18px',
-                      borderRadius: 8,
-                      border: bd,
-                      background: bg,
-                      fontFamily: FONT.body,
-                      fontSize: 13,
-                      color: clr,
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      minWidth: 90,
+                      padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
+                      fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
+                      fontWeight: 500, minWidth: 90,
                     }}
                   >
                     {t === 'ruben' ? 'Rubén' : 'Emilio'}
@@ -506,11 +481,8 @@ export default function GestionFacturas() {
                 value={categoriaId}
                 onChange={(e) => setCategoria(e.target.value)}
                 style={{
-                  ...DROPDOWN_BTN,
-                  border: 'none',
-                  background: 'transparent',
-                  minWidth: 280, height: 36, paddingRight: 28,
-                  cursor: 'pointer',
+                  ...DROPDOWN_BTN, border: 'none', background: 'transparent',
+                  minWidth: 280, height: 36, paddingRight: 28, cursor: 'pointer',
                 }}
               >
                 <option value="todas">Todas las categorías</option>
@@ -521,9 +493,7 @@ export default function GestionFacturas() {
             </div>
           </div>
 
-          <div style={{
-            display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14,
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14 }}>
             <div style={{
               background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
               borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body,
@@ -592,19 +562,13 @@ export default function GestionFacturas() {
                             key={h.col}
                             onClick={() => handleSort(h.col)}
                             style={{
-                              fontFamily: FONT.heading,
-                              fontSize: 10,
-                              fontWeight: 500,
+                              fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
                               letterSpacing: '2px',
                               color: isActive ? COLORS.redSL : COLORS.mut,
-                              textTransform: 'uppercase',
-                              textAlign: h.align,
-                              padding: '10px 12px',
-                              background: COLORS.group,
+                              textTransform: 'uppercase', textAlign: h.align,
+                              padding: '10px 12px', background: COLORS.group,
                               borderBottom: `0.5px solid ${COLORS.brd}`,
-                              whiteSpace: 'nowrap',
-                              cursor: 'pointer',
-                              userSelect: 'none',
+                              whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
                             }}
                           >
                             {h.label}{isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
@@ -616,12 +580,14 @@ export default function GestionFacturas() {
                   <tbody>
                     {loading && (
                       <tr>
-                        <td colSpan={7} style={{
+                        <td colSpan={8} style={{
                           ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
                         }}>Cargando…</td>
                       </tr>
                     )}
                     {!loading && facturasOrdenadas.map((f, idx) => {
+                      const tit = titulares.find(t => t.id === f.titular_id)
+                      const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
                       const catLbl = f.categoria_factura
                         ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
@@ -651,6 +617,19 @@ export default function GestionFacturas() {
                               borderRadius: 4, border: `0.5px solid ${COLORS.brd}`,
                               fontFamily: FONT.body, color: COLORS.sec,
                             }}>{catLbl}</span>
+                          </td>
+                          <td style={{ ...tdStyle, fontSize: 12 }}>
+                            {tit ? (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                padding: '3px 10px', borderRadius: 6,
+                                fontFamily: FONT.body, fontSize: 12, fontWeight: 500,
+                                background: `${titColor}15`, color: titColor,
+                              }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: titColor }} />
+                                {tit.nombre}
+                              </span>
+                            ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
                           {f.pdf_drive_url ? (
                             <td
@@ -688,7 +667,7 @@ export default function GestionFacturas() {
                     })}
                     {!loading && facturasOrdenadas.length === 0 && (
                       <tr>
-                        <td colSpan={7} style={{
+                        <td colSpan={8} style={{
                           ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
                         }}>Sin facturas para los filtros seleccionados</td>
                       </tr>
@@ -701,16 +680,251 @@ export default function GestionFacturas() {
         </>
       )}
 
-      {activeTab !== 'facturas' && (
-        <div style={{
-          marginTop: 24, padding: 60, textAlign: 'center',
-          background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-          borderRadius: 14, color: COLORS.mut, fontFamily: FONT.body, fontSize: 14,
-        }}>
-          {TABS.find(t => t.id === activeTab)?.label} · Próximamente
-        </div>
+      {activeTab === 'ventas' && (
+        <TabVentas titularKey={titularKey} setTitularKey={setTitularKey} />
+      )}
+
+      {activeTab === 'exportar' && (
+        <TabExportar
+          titularKey={titularKey}
+          setTitularKey={setTitularKey}
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
+          facturasOrdenadas={facturasOrdenadas}
+        />
       )}
     </div>
+  )
+}
+
+/* ── Tab Ventas (placeholder) ───────────────────── */
+function TabVentas({
+  titularKey, setTitularKey,
+}: {
+  titularKey: 'ruben' | 'emilio'
+  setTitularKey: (k: 'ruben' | 'emilio') => void
+}) {
+  return (
+    <>
+      <div style={{
+        display: 'flex', gap: 10, alignItems: 'center',
+        marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {(['ruben', 'emilio'] as const).map(t => {
+            const isActive = titularKey === t
+            const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
+            const clr = isActive ? '#fff' : '#3a4050'
+            const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
+            return (
+              <button
+                key={t}
+                onClick={() => setTitularKey(t)}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
+                  fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
+                  fontWeight: 500, minWidth: 90,
+                }}
+              >
+                {t === 'ruben' ? 'Rubén' : 'Emilio'}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div style={{
+        marginTop: 24, padding: 60, textAlign: 'center',
+        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
+        borderRadius: 14, color: COLORS.mut, fontFamily: FONT.body, fontSize: 14,
+      }}>
+        Subida de resúmenes de ventas (Uber Eats CSV) · Próximamente
+      </div>
+    </>
+  )
+}
+
+/* ── Tab Exportar ───────────────────────────────── */
+function TabExportar({
+  titularKey, setTitularKey, fechaDesde, fechaHasta, facturasOrdenadas,
+}: {
+  titularKey: 'ruben' | 'emilio'
+  setTitularKey: (k: 'ruben' | 'emilio') => void
+  fechaDesde: Date | null
+  fechaHasta: Date | null
+  facturasOrdenadas: FacturaRow[]
+}) {
+  const mesLabel = fechaDesde
+    ? `${MESES_NOMBRE[fechaDesde.getMonth() + 1]} ${fechaDesde.getFullYear()}`
+    : 'Mes'
+
+  // Plazo gestoría: 5 del mes siguiente al período seleccionado
+  const plazoDate = fechaHasta
+    ? new Date(fechaHasta.getFullYear(), fechaHasta.getMonth() + 1, 5)
+    : null
+  const hoy = new Date()
+  const diasRestantes = plazoDate
+    ? Math.max(0, Math.ceil((plazoDate.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0
+  const plazoLabel = plazoDate
+    ? `${plazoDate.getDate()} de ${MESES_NOMBRE[plazoDate.getMonth() + 1].toLowerCase()}`
+    : '—'
+
+  const numFacturas = facturasOrdenadas.length
+
+  // TODO: leer ventas Uber subidas desde supabase (placeholder)
+  const ventasUberSubido = false
+  const numResumenesUber = ventasUberSubido ? 1 : 0
+
+  // TODO: detectar si todas las facturas del mes están importadas (placeholder true)
+  const facturasMesCompletas = numFacturas > 0
+
+  const checks = [
+    {
+      ok: facturasMesCompletas,
+      label: 'Todas las facturas del mes importadas',
+      detail: `${numFacturas} facturas`,
+    },
+    {
+      ok: ventasUberSubido,
+      label: 'Ventas Uber Eats subidas',
+      detail: ventasUberSubido ? 'Subido' : 'Pendiente',
+      action: ventasUberSubido ? null : 'Ir a tab Ventas →',
+    },
+  ]
+
+  const checksOk = checks.filter(c => c.ok).length
+  const totalChecks = checks.length
+  const todoOk = checksOk === totalChecks
+
+  return (
+    <>
+      <div style={{
+        display: 'flex', gap: 10, alignItems: 'center',
+        marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {(['ruben', 'emilio'] as const).map(t => {
+            const isActive = titularKey === t
+            const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
+            const clr = isActive ? '#fff' : '#3a4050'
+            const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
+            return (
+              <button
+                key={t}
+                onClick={() => setTitularKey(t)}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
+                  fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
+                  fontWeight: 500, minWidth: 90,
+                }}
+              >
+                {t === 'ruben' ? 'Rubén' : 'Emilio'}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Banner amarillo plazo gestoría */}
+      <div style={{
+        background: '#e8f442', color: '#111111',
+        padding: '6px 14px', fontSize: 12, fontFamily: FONT.body,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, borderRadius: 8, marginBottom: 14,
+      }}>
+        <span>
+          <strong style={{ fontWeight: 500 }}>Plazo gestoría {mesLabel}:</strong> hasta el {plazoLabel} · Quedan {diasRestantes} día{diasRestantes === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      {/* Checklist */}
+      <div style={{
+        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
+        borderRadius: 14, padding: '20px 22px', marginBottom: 14,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <p style={{
+            fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
+            color: COLORS.mut, textTransform: 'uppercase', margin: 0,
+          }}>
+            Antes de exportar
+          </p>
+          <span style={{
+            fontSize: 12, color: todoOk ? '#3B6D11' : '#BA7517', fontWeight: 500,
+          }}>
+            {checksOk} de {totalChecks} listos
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {checks.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 12px',
+                background: c.ok ? '#EAF3DE' : '#FCEBEB',
+                borderRadius: 8,
+              }}
+            >
+              <span style={{
+                display: 'flex', width: 22, height: 22, borderRadius: '50%',
+                background: c.ok ? '#639922' : '#A32D2D',
+                color: '#fff', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, flexShrink: 0,
+              }}>
+                {c.ok ? '✓' : '✕'}
+              </span>
+              <span style={{
+                flex: 1, fontSize: 13,
+                color: c.ok ? '#173404' : '#501313', fontWeight: 500,
+              }}>
+                {c.label}
+              </span>
+              <span style={{ fontSize: 12, color: c.ok ? '#3B6D11' : '#A32D2D' }}>
+                {c.detail}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* El ZIP contendrá */}
+      <div style={{
+        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
+        borderRadius: 14, padding: '20px 22px', marginBottom: 14,
+      }}>
+        <p style={{
+          fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
+          color: COLORS.mut, textTransform: 'uppercase', margin: '0 0 14px',
+        }}>
+          El ZIP contendrá
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, fontFamily: FONT.body }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>📁</span>
+            <span><strong style={{ fontWeight: 500 }}>Facturas</strong> · {numFacturas} Docs</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>📁</span>
+            <span><strong style={{ fontWeight: 500 }}>Ventas</strong> · {numResumenesUber} Resumen{numResumenesUber === 1 ? '' : 'es'} Uber</span>
+          </div>
+        </div>
+      </div>
+
+      <button
+        disabled={!todoOk}
+        style={{
+          width: '100%', padding: '14px 20px',
+          background: todoOk ? '#111' : '#d0c8bc',
+          color: '#fff', border: 'none', borderRadius: 8,
+          fontSize: 14, fontWeight: 500, fontFamily: FONT.body,
+          cursor: todoOk ? 'pointer' : 'not-allowed',
+        }}
+      >
+        Generar paquete ZIP · {mesLabel}
+      </button>
+    </>
   )
 }
 
@@ -815,9 +1029,7 @@ function NodoArbolItem({
             style={{
               width: 24, height: 28, padding: 0, border: 'none',
               background: 'transparent', cursor: 'pointer',
-              color: COLORS.sec,
-              fontSize: 18,
-              fontWeight: 700,
+              color: COLORS.sec, fontSize: 18, fontWeight: 700,
               flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               lineHeight: 1,
@@ -838,9 +1050,7 @@ function NodoArbolItem({
           <span style={{ flex: 1 }}>{node.label}</span>
           <span style={{
             color: esActivo ? '#fff' : COLORS.mut,
-            fontSize: 11,
-            marginLeft: 8,
-            fontWeight: 500,
+            fontSize: 11, marginLeft: 8, fontWeight: 500,
             opacity: esActivo ? 0.9 : 1,
           }}>
             {node.count > 0 ? node.count : '—'}
