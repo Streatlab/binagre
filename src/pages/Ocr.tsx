@@ -56,7 +56,6 @@ function esConciliada(f: Factura): boolean {
   return Array.isArray(f.facturas_gastos) && f.facturas_gastos.some(fg => fg.confirmado)
 }
 
-// ─── Botón rojo drag & drop ──────────────────────────────────────────────────
 interface BtnSubirProps {
   label: string
   sublabel: string
@@ -66,7 +65,6 @@ interface BtnSubirProps {
 function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
-
   const handleFiles = (files: FileList | null) => {
     if (!files) return
     const arr = Array.from(files).filter(f => {
@@ -75,7 +73,6 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
     })
     if (arr.length > 0) onArchivos(arr)
   }
-
   return (
     <div
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOver(true) }}
@@ -84,17 +81,10 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
       onClick={() => inputRef.current?.click()}
       style={{
         background: over ? '#8f1519' : '#B01D23',
-        borderRadius: 14,
-        padding: '18px 20px',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
+        borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
         border: over ? '2px dashed rgba(255,255,255,0.6)' : '2px solid transparent',
-        transition: 'background 0.15s, border 0.15s',
-        userSelect: 'none',
+        transition: 'background 0.15s, border 0.15s', userSelect: 'none',
       }}
     >
       <input ref={inputRef} type="file" multiple accept={accept} style={{ display: 'none' }}
@@ -191,7 +181,7 @@ export default function Ocr() {
       .select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, facturas_gastos(id, confirmado, conciliacion_id)', { count: 'exact' })
       .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
-    else q = q.eq('tipo', 'otro').neq('categoria_factura', 'extracto_bancario')
+    else q = q.eq('tipo', 'otro')
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
     if (busquedaDebounced) {
       const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
@@ -220,19 +210,14 @@ export default function Ocr() {
 
   const cargarAgregados = useCallback(async () => {
     try {
+      // Facturas (sin extractos, ahora viven en tabla aparte)
       const { data, error } = await supabase.from('facturas')
         .select('id, total, pdf_drive_url, categoria_factura, titular_id, tipo, facturas_gastos(confirmado)')
         .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
       if (error) throw error
       let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0
-      let pendientesCount = 0, pendientesImporte = 0, totalExtractos = 0, rubenCount = 0, emilioCount = 0
+      let pendientesCount = 0, pendientesImporte = 0
       for (const r of data ?? []) {
-        if (r.tipo === 'otro' && r.categoria_factura === 'extracto_bancario') {
-          totalExtractos++
-          if (r.titular_id === RUBEN_ID) rubenCount++
-          else if (r.titular_id === EMILIO_ID) emilioCount++
-          continue
-        }
         totalCount++
         const imp = Number(r.total) || 0
         totalImporte += imp
@@ -241,9 +226,17 @@ export default function Ocr() {
         if (completa) { conciliadasCount++; conciliadasImporte += imp }
         else { pendientesCount++; pendientesImporte += imp }
       }
-      const { count: movCount } = await supabase.from('conciliacion').select('id', { count: 'exact', head: true })
       const conciliadasPct = totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0
       setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct, conciliadasImporte, pendientesCount, pendientesImporte })
+
+      // Extractos: tabla dedicada extractos_bancarios
+      const { data: extData, count: extCount } = await supabase
+        .from('extractos_bancarios')
+        .select('titular_id', { count: 'exact' })
+      const totalExtractos = extCount ?? 0
+      const rubenCount = (extData ?? []).filter((e: any) => e.titular_id === RUBEN_ID).length
+      const emilioCount = (extData ?? []).filter((e: any) => e.titular_id === EMILIO_ID).length
+      const { count: movCount } = await supabase.from('conciliacion').select('id', { count: 'exact', head: true })
       setAgregadosExtractos({ totalExtractos, totalMovimientos: movCount ?? 0, rubenCount, emilioCount })
     } catch { setAgregados(null) }
   }, [periodoDesdeStr, periodoHastaStr, refreshTick])
@@ -320,7 +313,6 @@ export default function Ocr() {
 
       <TabsPastilla tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />
 
-      {/* ─── TAB EXTRACTOS ─── */}
       {tab === 'extractos' && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
@@ -346,14 +338,12 @@ export default function Ocr() {
             />
           </div>
 
-          {/* Tabla sin filtro de fechas — muestra todos */}
           <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
             <ExtractosTabla refreshTick={refreshTick} titulares={titulares} />
           </div>
         </div>
       )}
 
-      {/* ─── TAB FACTURAS / OTROS ─── */}
       {tab !== 'extractos' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14, marginTop: 14 }}>
@@ -482,7 +472,7 @@ export default function Ocr() {
                         <button style={isFirst ? btnDis : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: page - 1 })}>‹ Anterior</button>
                         <span style={{ ...btnBase, cursor: 'default' }}>{`Página ${page} de ${totalPages}`}</span>
                         <button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: page + 1 })}>Siguiente ›</button>
-<button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: totalPages })}>Última</button>
+                        <button style={isLast2 ? btnDis : btnBase} disabled={isLast2} onClick={() => !isLast2 && updateUrl({ page: totalPages })}>Última</button>
                       </div>
                     )}
                   </div>
@@ -493,7 +483,6 @@ export default function Ocr() {
         </>
       )}
 
-      {/* Modal titular extracto */}
       {modalTitular.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 340, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
