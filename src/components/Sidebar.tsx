@@ -49,7 +49,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/gestion-facturas',     label: 'Gestión de Facturas', emoji: '🧾', perfiles: ['admin'] },
+      { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
       // Placeholders nuevos (Banktrack-inspired)
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
