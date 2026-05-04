@@ -910,7 +910,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           categoriasPyg={categoriasPyg}
           titulares={titulares}
           onClose={() => setModalMov(null)}
-          onSaved={() => setModalMov(null)}
+          onSaved={() => {
+            setModalMov(null)
+            setRefreshTick(t => t + 1)
+          }}
         />
       )}
     </div>
