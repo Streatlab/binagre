@@ -59,7 +59,6 @@ function diffDias(d1: string, d2: string): number {
   return Math.round(Math.abs(a - b) / 86400000)
 }
 
-// Extrae la primera palabra significativa del concepto (>3 chars y no stopword)
 function extraerPatron(concepto: string): string {
   const palabras = concepto
     .toLowerCase()
@@ -69,12 +68,18 @@ function extraerPatron(concepto: string): string {
   return palabras[0] ?? concepto.slice(0, 10).toLowerCase()
 }
 
+// Initcap simple para nombres de proveedor (Sueldo, Dentista, etc)
+function initcap(s: string): string {
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim()
+}
+
 export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
   const [selectedBloque, setSelectedBloque] = useState('')
   const [selectedSubgrupo, setSelectedSubgrupo] = useState('')
   const [selectedDetalle, setSelectedDetalle] = useState('')
   const [titularId, setTitularId] = useState('')
   const [noRequiere, setNoRequiere] = useState(false)
+  const [contraparte, setContraparte] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [facturasAsociadas, setFacturasAsociadas] = useState<FacturaAsociada[]>([])
@@ -134,6 +139,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
     setTitularId(movimiento.titular_id ?? '')
     setNoRequiere(movimiento.doc_estado === 'no_requiere')
+    setContraparte(movimiento.contraparte ?? '')
     cargarAsociadas(movimiento.id)
   }, [movimiento, categoriasPyg, cargarAsociadas])
 
@@ -143,8 +149,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     const timer = setTimeout(async () => {
       setCargandoCandidatas(true)
       try {
-        // Match ±60 días desde fecha del movimiento + titular + importe (±5% si sin búsqueda)
-        // Algunas facturas se emiten meses después del cargo bancario
         const fechaMov = new Date(movimiento.fecha)
         const desde = new Date(fechaMov.getTime() - MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
         const hasta = new Date(fechaMov.getTime() + MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
@@ -158,7 +162,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           .order('fecha_factura', { ascending: false })
           .limit(30)
 
-        // Filtro por titular del mov si tiene
         if (movimiento.titular_id) {
           q = q.or(`titular_id.eq.${movimiento.titular_id},titular_id.is.null`)
         }
@@ -167,7 +170,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           const safe = busquedaFactura.trim().replace(/[%_,()]/g, ' ')
           q = q.or(`numero_factura.ilike.%${safe}%,proveedor_nombre.ilike.%${safe}%`)
         } else {
-          // Sin búsqueda: filtra por importe ±5%
           const min = importeAbs * 0.95
           const max = importeAbs * 1.05
           q = q.gte('total', min).lte('total', max)
@@ -268,14 +270,19 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
   async function handleGuardar() {
     setSaving(true)
     try {
+      // PRIORIDAD: 1) facturas asociadas → tiene  2) checkbox → no_requiere  3) categoría → falta  4) sin cat → falta
       let docEstado: 'tiene' | 'falta' | 'no_requiere' = 'falta'
       if (facturasAsociadas.length > 0 && Math.abs(restante) < 0.01) docEstado = 'tiene'
       else if (noRequiere) docEstado = 'no_requiere'
       else if (movimiento!.doc_estado === 'tiene' && facturasAsociadas.length > 0) docEstado = 'tiene'
 
+      // Contraparte: si el usuario rellenó algo, usarlo. Si no, derivar del concepto cuando hay categoría
+      const contraparteFinal = contraparte.trim() || (selectedDetalle ? initcap(extraerPatron(movimiento!.concepto)) : '')
+
       const updates: Record<string, unknown> = {
         titular_id: titularId || null,
         doc_estado: docEstado,
+        proveedor: contraparteFinal || null,
       }
       if (selectedDetalle) updates.categoria = selectedDetalle
 
@@ -288,10 +295,11 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       if (selectedDetalle && selectedDetalle !== categoriaAnterior) {
         const patron = extraerPatron(movimiento!.concepto)
 
-        // Guardar regla
+        // Guardar regla con proveedor
         await supabase.from('reglas_conciliacion').upsert({
           patron,
           categoria_codigo: selectedDetalle,
+          set_proveedor: contraparteFinal || null,
           asigna_como: movimiento!.importe >= 0 ? 'ingreso' : 'gasto',
           activa: true,
           prioridad: 10,
@@ -299,7 +307,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         }, { onConflict: 'patron' })
 
         // APLICAR a movs similares sin categoría del MISMO titular
-        // Match: concepto ILIKE %patron% Y misma signo de importe
         if (patron && patron.length >= 4 && movimiento!.titular_id) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let qSim: any = supabase
@@ -317,9 +324,17 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           const idsSimilares = (similares ?? []).map((r: { id: string }) => r.id)
 
           if (idsSimilares.length > 0) {
+            // Update bulk: categoria + proveedor + doc_estado (mismo que el actual)
+            const bulkUpdate: Record<string, unknown> = {
+              categoria: selectedDetalle,
+              proveedor: contraparteFinal || null,
+            }
+            // Si el actual marcó no_requiere, propagar
+            if (docEstado === 'no_requiere') bulkUpdate.doc_estado = 'no_requiere'
+
             const { error: errBulk } = await supabase
               .from('conciliacion')
-              .update({ categoria: selectedDetalle })
+              .update(bulkUpdate)
               .in('id', idsSimilares)
 
             if (!errBulk) aplicadosSimilares = idsSimilares.length
@@ -337,6 +352,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         ...movimiento!,
         categoria_id: selectedDetalle || movimiento!.categoria_id,
         titular_id: (updates.titular_id as string | null),
+        contraparte: contraparteFinal,
         doc_estado: docEstado,
       })
     } catch (err: unknown) {
@@ -401,6 +417,13 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
               {detalles.map(d => <option key={d.id} value={d.id}>{d.id} · {d.nombre}</option>)}
             </select>
           </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte / Proveedor</label>
+          <input type="text" value={contraparte} onChange={e => setContraparte(e.target.value)}
+            placeholder="Auto-rellenar al guardar (puedes editarlo)"
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
         </div>
 
         <div style={{ marginBottom: 18 }}>
