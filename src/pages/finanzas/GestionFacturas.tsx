@@ -1,7 +1,6 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v8: wrap groupStyle, banner encima del wrap, sin col Titular,
- *     ambos checks con checkbox, sin contador "X de Y", ZIP contadores reales
+ * v9: botón ZIP real — llama a Edge Function generar-zip-gestoria
  */
 
 import {
@@ -59,6 +58,8 @@ const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
   4:{bg:'#e3d8eb',headDark:'#4a3163'},
 }
 const ANIO_BG = '#fbe5e8'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
 function fmtFechaCorta(iso: string|null): string {
   if (!iso) return '—'
@@ -327,7 +328,6 @@ export default function GestionFacturas() {
     )
   },[mesesDisp,mesSeleccionado,T])
 
-  /* Headers SIN titular */
   const HEADERS: {label:string;col:SortColumn;align:'left'|'right'|'center'}[] = [
     {label:'Fecha',col:'fecha',align:'left'},{label:'Proveedor',col:'proveedor',align:'left'},
     {label:'NIF',col:'nif',align:'left'},{label:'Importe',col:'importe',align:'right'},
@@ -341,7 +341,6 @@ export default function GestionFacturas() {
   return(
     <div style={{fontFamily:FONT.body,position:'relative'}}>
 
-      {/* BANNER — fuera del wrap, misma posición que Dashboard */}
       {bannerVisible&&(
         <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:'#111111'}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
@@ -358,7 +357,6 @@ export default function GestionFacturas() {
         </div>
       )}
 
-      {/* WRAP GRIS — igual que Dashboard groupStyle */}
       <div style={groupStyle(T)}>
 
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
@@ -473,12 +471,19 @@ export default function GestionFacturas() {
         )}
 
         {activeTab==='exportar'&&(
-          <TabExportar titularKey={titularKey} setTitularKey={setTitularKey}
-            mesLabel={mesLabel} plazoLabel={plazoLabel}
-            facturasMes={facturasMes} mesSeleccionado={mesSeleccionado}/>
+          <TabExportar
+            titularKey={titularKey}
+            setTitularKey={setTitularKey}
+            titularId={titularActivo?.id ?? null}
+            mesLabel={mesLabel}
+            plazoLabel={plazoLabel}
+            facturasMes={facturasMes}
+            mesSeleccionado={mesSeleccionado}
+            supabaseUrl={SUPABASE_URL}
+          />
         )}
 
-      </div>{/* fin groupStyle wrap */}
+      </div>
     </div>
   )
 }
@@ -502,17 +507,18 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
   )
 }
 
-function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,mesSeleccionado}:{
+function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,facturasMes,mesSeleccionado,supabaseUrl}:{
   titularKey:'ruben'|'emilio'; setTitularKey:(k:'ruben'|'emilio')=>void
+  titularId: string|null
   mesLabel:string; plazoLabel:string; facturasMes:FacturaRow[]; mesSeleccionado:string
+  supabaseUrl: string
 }){
-  /* Ambos checks manuales con checkbox */
   const [facturasConfirmadas,setFacturasConfirmadas]=useState(false)
   const [ventasConfirmadas,setVentasConfirmadas]=useState(false)
-
-  /* Contador real ventas Uber en Supabase para el mes */
   const [numResumenesUber,setNumResumenesUber]=useState(0)
   const [checkingUber,setCheckingUber]=useState(true)
+  const [generando,setGenerando]=useState(false)
+  const [errorZip,setErrorZip]=useState<string|null>(null)
 
   const numFacturas=facturasMes.length
   const todoOk=facturasConfirmadas&&ventasConfirmadas
@@ -528,6 +534,38 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
       .then(({count})=>{ setNumResumenesUber(count??0); setCheckingUber(false) })
   },[mesSeleccionado,titularKey])
 
+  async function handleGenerarZip() {
+    if(!todoOk||!titularId||generando) return
+    setGenerando(true)
+    setErrorZip(null)
+    try {
+      const resp = await fetch(
+        `${supabaseUrl}/functions/v1/generar-zip-gestoria`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mes: mesSeleccionado, titular_id: titularId }),
+        }
+      )
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({error:'Error desconocido'}))
+        setErrorZip(err.error || 'Error al generar el ZIP')
+        return
+      }
+      const blob = await resp.blob()
+      const titNombre = titularKey === 'ruben' ? 'RUBEN' : 'EMILIO'
+      const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = zipName; a.click()
+      URL.revokeObjectURL(url)
+    } catch(e) {
+      setErrorZip('Error de red al generar el ZIP')
+    } finally {
+      setGenerando(false)
+    }
+  }
+
   return(
     <>
       <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
@@ -535,13 +573,11 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-        {/* Checklist — ambos con checkbox */}
         <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>
             Antes de exportar
           </p>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-
             <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
               <input type="checkbox" checked={facturasConfirmadas} onChange={e=>setFacturasConfirmadas(e.target.checked)}
                 style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
@@ -552,7 +588,6 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
                 {numFacturas} facturas
               </span>
             </div>
-
             <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
               <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
                 style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
@@ -563,11 +598,9 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
                 {checkingUber?'Comprobando…':`${numResumenesUber} resúmenes`}
               </span>
             </div>
-
           </div>
         </div>
 
-        {/* El ZIP contendrá — contadores reales */}
         <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>El ZIP contendrá</p>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,fontFamily:FONT.body}}>
@@ -577,16 +610,22 @@ function TabExportar({titularKey,setTitularKey,mesLabel,plazoLabel,facturasMes,m
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <span style={{fontSize:16}}>📁</span>
-              <span>
-                <strong style={{fontWeight:500}}>Ventas</strong> · {checkingUber?'…':`${numResumenesUber} Resumen${numResumenesUber===1?'':'es'}`} Uber
-              </span>
+              <span><strong style={{fontWeight:500}}>Ventas</strong> · {checkingUber?'…':`${numResumenesUber} Resumen${numResumenesUber===1?'':'es'}`} Uber</span>
             </div>
           </div>
         </div>
 
-        <button disabled={!todoOk}
-          style={{width:'100%',padding:'14px 20px',background:todoOk?'#111':'#d0c8bc',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk?'pointer':'not-allowed'}}>
-          Generar paquete ZIP · {mesLabel}
+        {errorZip&&(
+          <div style={{background:'#fce8e8',border:'1px solid #f5c2c7',borderRadius:8,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body}}>
+            ⚠️ {errorZip}
+          </div>
+        )}
+
+        <button
+          disabled={!todoOk||generando}
+          onClick={handleGenerarZip}
+          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?'#111':'#d0c8bc',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
+          {generando?'Generando ZIP…':`Generar paquete ZIP · ${mesLabel}`}
         </button>
       </div>
     </>
