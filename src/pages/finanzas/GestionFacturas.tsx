@@ -1,5 +1,10 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
+ *
+ * Selector mes: dropdown custom con meses desde primera factura hasta hoy.
+ * Banner gestoría: idéntico a BannerPendientes (mismos estilos exactos).
+ * Check "facturas importadas": confirmación manual con botón.
+ * Check "ventas Uber": automático cuando se suban en tab Ventas.
  */
 
 import {
@@ -7,6 +12,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   type CSSProperties,
 } from 'react'
 import {
@@ -14,7 +20,8 @@ import {
   FONT,
   DROPDOWN_BTN,
 } from '@/components/panel/resumen/tokens'
-import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import { ChevronDown } from 'lucide-react'
+import { X } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 
@@ -70,6 +77,9 @@ interface DriveNode {
   trimNum?: number
 }
 
+/* Mes seleccionado: { anio, mes } */
+interface MesSel { anio: number; mes: number }
+
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'facturas', label: 'Facturas' },
   { id: 'ventas',   label: 'Ventas' },
@@ -95,6 +105,17 @@ const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string;
 }
 const ANIO_BG = '#fbe5e8'
 
+const MESES_NOMBRE = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+const MESES_POR_TRIM: Record<number, number[]> = {
+  1: [1, 2, 3], 2: [4, 5, 6], 3: [7, 8, 9], 4: [10, 11, 12],
+}
+
+function trimestreEnCurso(mesActual: number): number {
+  return Math.ceil(mesActual / 3)
+}
+
 function fmtFechaCorta(iso: string | null): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
@@ -109,32 +130,112 @@ function fmtNum(n: number | null | undefined, dec = 2): string {
   })
 }
 
-const MESES_NOMBRE = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-
-const MESES_POR_TRIM: Record<number, number[]> = {
-  1: [1, 2, 3],
-  2: [4, 5, 6],
-  3: [7, 8, 9],
-  4: [10, 11, 12],
-}
-
-function trimestreEnCurso(mesActual: number): number {
-  return Math.ceil(mesActual / 3)
-}
-
 function colorEstado(estado: string | null): { bg: string; col: string; lbl: string } {
   switch (estado) {
-    case 'asociada':                  return { bg: '#e8f5ec', col: COLORS.ok,    lbl: 'CONCILIADA' }
-    case 'pendiente_revision':        return { bg: '#fcf0dc', col: COLORS.warn,  lbl: 'PEND. REV.' }
-    case 'pendiente_titular_manual':  return { bg: '#fcf0dc', col: COLORS.warn,  lbl: 'FALTA TITULAR' }
-    case 'sin_match':                 return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'SIN MATCH' }
-    case 'historica':                 return { bg: '#eef0f4', col: COLORS.mut,   lbl: 'HISTÓRICA' }
-    case 'duplicada':                 return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'DUPLICADA' }
-    case 'error':                     return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'ERROR' }
-    case 'procesando':                return { bg: '#eef0f4', col: COLORS.mut,   lbl: 'PROCESANDO' }
-    default:                          return { bg: '#eef0f4', col: COLORS.mut,   lbl: (estado || '—').toUpperCase() }
+    case 'asociada':                 return { bg: '#e8f5ec', col: COLORS.ok,    lbl: 'CONCILIADA' }
+    case 'pendiente_revision':       return { bg: '#fcf0dc', col: COLORS.warn,  lbl: 'PEND. REV.' }
+    case 'pendiente_titular_manual': return { bg: '#fcf0dc', col: COLORS.warn,  lbl: 'FALTA TITULAR' }
+    case 'sin_match':                return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'SIN MATCH' }
+    case 'historica':                return { bg: '#eef0f4', col: COLORS.mut,   lbl: 'HISTÓRICA' }
+    case 'duplicada':                return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'DUPLICADA' }
+    case 'error':                    return { bg: '#fce8e8', col: COLORS.redSL, lbl: 'ERROR' }
+    case 'procesando':               return { bg: '#eef0f4', col: COLORS.mut,   lbl: 'PROCESANDO' }
+    default:                         return { bg: '#eef0f4', col: COLORS.mut,   lbl: (estado || '—').toUpperCase() }
   }
+}
+
+/* Genera lista de meses desde primeraFecha hasta hoy, desc */
+function generarMeses(primeraFecha: string): MesSel[] {
+  const hoy = new Date()
+  const [ay, am] = primeraFecha.split('-').map(Number)
+  const result: MesSel[] = []
+  let anio = hoy.getFullYear()
+  let mes = hoy.getMonth() + 1
+  while (anio > ay || (anio === ay && mes >= am)) {
+    result.push({ anio, mes })
+    mes--
+    if (mes === 0) { mes = 12; anio-- }
+  }
+  return result
+}
+
+function mesLabel(m: MesSel): string {
+  return `${MESES_NOMBRE[m.mes]} ${m.anio}`
+}
+
+function mesDesde(m: MesSel): string {
+  return `${m.anio}-${String(m.mes).padStart(2, '0')}-01`
+}
+
+function mesHasta(m: MesSel): string {
+  const ultimo = new Date(m.anio, m.mes, 0).getDate()
+  return `${m.anio}-${String(m.mes).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`
+}
+
+/* Selector de mes custom igual al estilo dropdown del sistema */
+function SelectorMes({
+  meses, seleccionado, onChange,
+}: {
+  meses: MesSel[]
+  seleccionado: MesSel
+  onChange: (m: MesSel) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          padding: '6px 10px', borderRadius: 8,
+          border: '0.5px solid #d0c8bc', background: '#ffffff',
+          fontSize: 13, fontFamily: 'Lexend, sans-serif', color: '#111111',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span>{mesLabel(seleccionado)}</span>
+        <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, background: '#fff',
+          border: '0.5px solid #d0c8bc', borderRadius: 8, width: 200,
+          fontSize: 13, color: '#3a4050',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.06)', zIndex: 50,
+          maxHeight: 280, overflowY: 'auto',
+        }}>
+          {meses.map((m, i) => {
+            const isActive = m.anio === seleccionado.anio && m.mes === seleccionado.mes
+            return (
+              <button
+                key={i}
+                onClick={() => { onChange(m); setOpen(false) }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '8px 12px', background: isActive ? '#FF475715' : 'transparent',
+                  color: isActive ? '#FF4757' : '#7a8090', border: 'none',
+                  fontSize: 13, fontFamily: 'Lexend, sans-serif',
+                  cursor: 'pointer', fontWeight: isActive ? 500 : 400,
+                }}
+              >
+                {mesLabel(m)}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function buildDriveTree(facturas: FacturaRow[], titulares: Titular[]): DriveNode[] {
@@ -222,34 +323,45 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{ id: string; label: str
   return out
 }
 
+/* Mes anterior a hoy */
+function mesAnterior(): MesSel {
+  const hoy = new Date()
+  let m = hoy.getMonth() // getMonth() = mes actual - 1 → mes anterior
+  let a = hoy.getFullYear()
+  if (m === 0) { m = 12; a-- }
+  return { anio: a, mes: m }
+}
+
+/* ══════════════════════════════════════════════════════ */
 export default function GestionFacturas() {
   const [activeTab, setActiveTab]   = useState<TabId>('facturas')
   const [titularKey, setTitularKey] = useState<'ruben' | 'emilio'>('ruben')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
-  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
-  const [fechaDesde, setFechaDesde] = useState<Date | null>(null)
-  const [fechaHasta, setFechaHasta] = useState<Date | null>(null)
+  const [mesSel, setMesSel]         = useState<MesSel>(mesAnterior)
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
+  const [bannerVisible, setBannerVisible] = useState(true)
 
   const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [sortDir, setSortDir]       = useState<SortDir>('desc')
 
   const [titulares, setTitulares]   = useState<Titular[]>([])
   const [categorias, setCategorias] = useState<CategoriaPyg[]>([])
   const [facturas, setFacturas]     = useState<FacturaRow[]>([])
   const [loading, setLoading]       = useState(true)
+  const [primeraFecha, setPrimeraFecha] = useState('2026-01-01')
 
   useEffect(() => {
     let cancel = false
     async function load() {
-      const [tRes, cRes, fRes] = await Promise.all([
+      const [tRes, cRes, fRes, minRes] = await Promise.all([
         supabase.from('titulares').select('id, nombre, color, carpeta_drive').order('orden'),
         supabase.from('categorias_pyg').select('id, nivel, parent_id, nombre, bloque, orden').eq('activa', true).order('orden'),
         supabase.from('facturas')
           .select('id, fecha_factura, proveedor_nombre, total, estado, titular_id, pdf_drive_url, pdf_filename, pdf_original_name, categoria_factura, nif_emisor, tipo')
           .order('fecha_factura', { ascending: false, nullsFirst: false }),
+        supabase.from('facturas').select('fecha_factura').order('fecha_factura', { ascending: true }).limit(1),
       ])
       if (cancel) return
       setTitulares((tRes.data ?? []) as Titular[])
@@ -258,15 +370,22 @@ export default function GestionFacturas() {
         ...f,
         total: f.total === null ? null : Number(f.total),
       })))
+      if (minRes.data?.[0]?.fecha_factura) {
+        setPrimeraFecha(minRes.data[0].fecha_factura)
+      }
       setLoading(false)
     }
     load()
     return () => { cancel = true }
   }, [])
 
-  const handleFecha = useCallback((desde: Date, hasta: Date, label: string) => {
-    setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
-  }, [])
+  const meses = useMemo(() => generarMeses(primeraFecha), [primeraFecha])
+
+  // Plazo gestoría = día 5 del mes siguiente al seleccionado
+  const plazoDate = new Date(mesSel.anio, mesSel.mes, 5) // mes es 1-based, new Date(y,m,d) usa 0-based para mes siguiente
+  const hoy = new Date()
+  const diasPlazo = Math.max(0, Math.ceil((plazoDate.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)))
+  const plazoStr = `5 de ${MESES_NOMBRE[mesSel.mes === 12 ? 1 : mesSel.mes + 1].toLowerCase()}`
 
   const titularActivo = useMemo(() => {
     return titulares.find(t => {
@@ -283,17 +402,14 @@ export default function GestionFacturas() {
     return driveTreeFull.filter(t => t.filtro.titular_id === titularActivo.id)
   }, [driveTreeFull, titularActivo])
 
-  useEffect(() => {
-    setDriveFiltro({})
-  }, [titularKey])
+  useEffect(() => { setDriveFiltro({}) }, [titularKey])
 
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTreeFull.length === 0) return
     const init: Record<string, boolean> = {}
-    const hoy = new Date()
-    const anioActual = hoy.getFullYear()
-    const trimActual = trimestreEnCurso(hoy.getMonth() + 1)
+    const anioActual = new Date().getFullYear()
+    const trimActual = trimestreEnCurso(new Date().getMonth() + 1)
     for (const t of driveTreeFull) {
       const titId = t.filtro.titular_id
       init[`t:${titId}`] = true
@@ -370,17 +486,16 @@ export default function GestionFacturas() {
     return arr
   }, [facturasFiltradas, sortColumn, sortDir, titulares])
 
-  // Facturas del mes seleccionado por SelectorFecha (solo titular activo, para tab Exportar)
+  // Facturas del mes seleccionado para Exportar
   const facturasMesExportar = useMemo(() => {
-    if (!fechaDesde || !fechaHasta) return [] as FacturaRow[]
-    const desdeStr = fechaDesde.toISOString().slice(0, 10)
-    const hastaStr = fechaHasta.toISOString().slice(0, 10)
+    const desde = mesDesde(mesSel)
+    const hasta  = mesHasta(mesSel)
     return facturas.filter(f => {
       if (titularActivo && f.titular_id !== titularActivo.id) return false
       if (!f.fecha_factura) return false
-      return f.fecha_factura >= desdeStr && f.fecha_factura <= hastaStr
+      return f.fecha_factura >= desde && f.fecha_factura <= hasta
     })
-  }, [facturas, titularActivo, fechaDesde, fechaHasta])
+  }, [facturas, titularActivo, mesSel])
 
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha',      col: 'fecha',     align: 'left' },
@@ -399,18 +514,48 @@ export default function GestionFacturas() {
   }
 
   const islaStyle: CSSProperties = {
-    background: COLORS.card,
-    border: `0.5px solid ${COLORS.brd}`,
-    borderRadius: 8,
-    padding: '4px 6px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
+    background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
+    borderRadius: 8, padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4,
   }
 
   return (
     <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
 
+      {/* Banner gestoría — idéntico a BannerPendientes */}
+      {bannerVisible && (
+        <div style={{
+          background: '#e8f442', color: '#111111',
+          padding: '6px 14px', fontSize: 12, fontFamily: 'Lexend, sans-serif',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 10, borderRadius: 8, marginBottom: 12,
+        }}>
+          <span>
+            Plazo gestoría <strong style={{ fontWeight: 500 }}>{mesLabel(mesSel)}</strong>: hasta el {plazoStr}
+            {diasPlazo > 0 ? ` · Quedan ${diasPlazo} día${diasPlazo === 1 ? '' : 's'}` : ' · ¡Hoy es el plazo!'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => setActiveTab('exportar')}
+              style={{
+                padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif',
+                background: '#111111', color: '#e8f442',
+                border: 'none', borderRadius: 5, cursor: 'pointer',
+                fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase',
+              }}
+            >
+              GENERAR ZIP
+            </button>
+            <button
+              onClick={() => setBannerVisible(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#111111', padding: 2, display: 'flex', alignItems: 'center' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         marginBottom: 18, flexWrap: 'wrap', gap: 12,
@@ -422,18 +567,11 @@ export default function GestionFacturas() {
           }}>
             GESTOR DOCUMENTAL
           </h2>
-          <span style={{
-            fontFamily: FONT.body, fontSize: 13, color: COLORS.mut,
-            display: 'block', marginTop: 4,
-          }}>
-            {periodoLabel}
+          <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, display: 'block', marginTop: 4 }}>
+            {mesLabel(mesSel)}
           </span>
         </div>
-        <SelectorFechaUniversal
-          nombreModulo="gestor_documental"
-          defaultOpcion="mes_en_curso"
-          onChange={handleFecha}
-        />
+        <SelectorMes meses={meses} seleccionado={mesSel} onChange={setMesSel} />
       </div>
 
       <TabsPastilla
@@ -444,32 +582,8 @@ export default function GestionFacturas() {
 
       {activeTab === 'facturas' && (
         <>
-          <div style={{
-            display: 'flex', gap: 10, alignItems: 'center',
-            marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
-          }}>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {(['ruben', 'emilio'] as const).map(t => {
-                const isActive = titularKey === t
-                const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
-                const clr = isActive ? '#fff' : '#3a4050'
-                const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTitularKey(t)}
-                    style={{
-                      padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
-                      fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
-                      fontWeight: 500, minWidth: 90,
-                    }}
-                  >
-                    {t === 'ruben' ? 'Rubén' : 'Emilio'}
-                  </button>
-                )
-              })}
-            </div>
-
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, marginBottom: 14, flexWrap: 'wrap' }}>
+            <ToggleTitular titularKey={titularKey} onChange={setTitularKey} />
             <input
               type="text"
               placeholder="Buscar proveedor, NIF, importe…"
@@ -482,15 +596,11 @@ export default function GestionFacturas() {
                 color: COLORS.pri, outline: 'none',
               }}
             />
-
             <div style={{ ...islaStyle, padding: 0, overflow: 'hidden' }}>
               <select
                 value={categoriaId}
                 onChange={(e) => setCategoria(e.target.value)}
-                style={{
-                  ...DROPDOWN_BTN, border: 'none', background: 'transparent',
-                  minWidth: 280, height: 36, paddingRight: 28, cursor: 'pointer',
-                }}
+                style={{ ...DROPDOWN_BTN, border: 'none', background: 'transparent', minWidth: 280, height: 36, paddingRight: 28, cursor: 'pointer' }}
               >
                 <option value="todas">Todas las categorías</option>
                 {categoriasFlat.map(c => (
@@ -501,63 +611,35 @@ export default function GestionFacturas() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 14 }}>
-            <div style={{
-              background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-              borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body,
-              alignSelf: 'start',
-            }}>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', marginBottom: 10,
-                paddingBottom: 8, borderBottom: `0.5px solid ${COLORS.brd}`,
-              }}>
-                <span style={{
-                  fontFamily: FONT.heading, fontSize: 12,
-                  letterSpacing: '1.5px', textTransform: 'uppercase',
-                  color: COLORS.pri, fontWeight: 600,
-                }}>
+            {/* Drive */}
+            <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 14, padding: 14, fontSize: 13, fontFamily: FONT.body, alignSelf: 'start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: `0.5px solid ${COLORS.brd}` }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.pri, fontWeight: 600 }}>
                   📁 Drive
                 </span>
-                {(driveFiltro.anio) && (
-                  <button
-                    type="button"
-                    onClick={() => setDriveFiltro({})}
-                    style={{
-                      fontSize: 10, padding: '3px 9px', border: 'none',
-                      background: COLORS.group, borderRadius: 4,
-                      color: COLORS.sec, cursor: 'pointer', fontFamily: FONT.body,
-                    }}
-                  >
+                {driveFiltro.anio && (
+                  <button type="button" onClick={() => setDriveFiltro({})} style={{ fontSize: 10, padding: '3px 9px', border: 'none', background: COLORS.group, borderRadius: 4, color: COLORS.sec, cursor: 'pointer', fontFamily: FONT.body }}>
                     limpiar
                   </button>
                 )}
               </div>
-
               {loading && <div style={{ color: COLORS.mut, fontSize: 12 }}>Cargando…</div>}
-
-              {!loading && driveTree.map(tNode => {
-                const titColor = titularKey === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO
-                return (
-                  <NodoArbolItem
-                    key={tNode.label}
-                    node={tNode}
-                    level={0}
-                    filtroActivo={driveFiltro}
-                    expansionMap={expansionMap}
-                    titularColor={titColor}
-                    onSelect={(filtro) => setDriveFiltro(filtro)}
-                    onToggleExpand={(key) =>
-                      setExpansionMap(m => ({ ...m, [key]: !m[key] }))
-                    }
-                  />
-                )
-              })}
+              {!loading && driveTree.map(tNode => (
+                <NodoArbolItem
+                  key={tNode.label}
+                  node={tNode}
+                  level={0}
+                  filtroActivo={driveFiltro}
+                  expansionMap={expansionMap}
+                  titularColor={titularKey === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO}
+                  onSelect={setDriveFiltro}
+                  onToggleExpand={(key) => setExpansionMap(m => ({ ...m, [key]: !m[key] }))}
+                />
+              ))}
             </div>
 
-            <div style={{
-              background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-              borderRadius: 14, overflow: 'hidden',
-            }}>
+            {/* Tabla */}
+            <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead>
@@ -565,19 +647,14 @@ export default function GestionFacturas() {
                       {HEADERS.map(h => {
                         const isActive = sortColumn === h.col
                         return (
-                          <th
-                            key={h.col}
-                            onClick={() => handleSort(h.col)}
-                            style={{
-                              fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
-                              letterSpacing: '2px',
-                              color: isActive ? COLORS.redSL : COLORS.mut,
-                              textTransform: 'uppercase', textAlign: h.align,
-                              padding: '10px 12px', background: COLORS.group,
-                              borderBottom: `0.5px solid ${COLORS.brd}`,
-                              whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
-                            }}
-                          >
+                          <th key={h.col} onClick={() => handleSort(h.col)} style={{
+                            fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+                            letterSpacing: '2px', color: isActive ? COLORS.redSL : COLORS.mut,
+                            textTransform: 'uppercase', textAlign: h.align,
+                            padding: '10px 12px', background: COLORS.group,
+                            borderBottom: `0.5px solid ${COLORS.brd}`,
+                            whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+                          }}>
                             {h.label}{isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
                           </th>
                         )
@@ -586,29 +663,17 @@ export default function GestionFacturas() {
                   </thead>
                   <tbody>
                     {loading && (
-                      <tr>
-                        <td colSpan={8} style={{
-                          ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
-                        }}>Cargando…</td>
-                      </tr>
+                      <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px' }}>Cargando…</td></tr>
                     )}
                     {!loading && facturasOrdenadas.map((f, idx) => {
                       const tit = titulares.find(t => t.id === f.titular_id)
                       const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
-                      const catLbl = f.categoria_factura
-                        ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
-                        : '—'
+                      const catLbl = f.categoria_factura ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim() : '—'
                       const isLast = idx === facturasOrdenadas.length - 1
-                      const tdDocBase: CSSProperties = {
-                        padding: 0,
-                        borderBottom: isLast ? 'none' : `0.5px solid ${COLORS.brd}`,
-                        verticalAlign: 'middle',
-                        textAlign: 'center',
-                      }
+                      const tdDoc: CSSProperties = { padding: 0, borderBottom: isLast ? 'none' : `0.5px solid ${COLORS.brd}`, verticalAlign: 'middle', textAlign: 'center' }
                       return (
-                        <tr
-                          key={f.id}
+                        <tr key={f.id}
                           onClick={() => f.pdf_drive_url && window.open(f.pdf_drive_url, '_blank', 'noopener')}
                           style={{ cursor: f.pdf_drive_url ? 'pointer' : 'default' }}
                           onMouseEnter={(e) => (e.currentTarget.style.background = COLORS.bg)}
@@ -619,65 +684,37 @@ export default function GestionFacturas() {
                           <td style={{ ...tdStyle, color: COLORS.mut, fontSize: 12 }}>{f.nif_emisor || '—'}</td>
                           <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>{fmtNum(f.total, 2)}</td>
                           <td style={tdStyle}>
-                            <span style={{
-                              background: COLORS.bg, fontSize: 11, padding: '3px 9px',
-                              borderRadius: 4, border: `0.5px solid ${COLORS.brd}`,
-                              fontFamily: FONT.body, color: COLORS.sec,
-                            }}>{catLbl}</span>
+                            <span style={{ background: COLORS.bg, fontSize: 11, padding: '3px 9px', borderRadius: 4, border: `0.5px solid ${COLORS.brd}`, fontFamily: FONT.body, color: COLORS.sec }}>
+                              {catLbl}
+                            </span>
                           </td>
                           <td style={{ ...tdStyle, fontSize: 12 }}>
                             {tit ? (
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 5,
-                                padding: '3px 10px', borderRadius: 6,
-                                fontFamily: FONT.body, fontSize: 12, fontWeight: 500,
-                                background: `${titColor}15`, color: titColor,
-                              }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 12, fontWeight: 500, background: `${titColor}15`, color: titColor }}>
                                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: titColor }} />
                                 {tit.nombre}
                               </span>
                             ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
                           {f.pdf_drive_url ? (
-                            <td
-                              style={tdDocBase}
-                              onClick={(e) => { e.stopPropagation(); window.open(f.pdf_drive_url!, '_blank', 'noopener,noreferrer') }}
-                              title="Ver factura"
-                            >
-                              <div style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: '100%', height: '100%', minHeight: 38,
-                                fontSize: 22, lineHeight: 1, color: COLORS.pri,
-                                cursor: 'pointer', userSelect: 'none',
-                              }}>
-                                📎
-                              </div>
+                            <td style={tdDoc} onClick={(e) => { e.stopPropagation(); window.open(f.pdf_drive_url!, '_blank', 'noopener,noreferrer') }} title="Ver factura">
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: COLORS.pri, cursor: 'pointer', userSelect: 'none' }}>📎</div>
                             </td>
                           ) : (
-                            <td style={tdDocBase}>
-                              <div style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: '100%', height: '100%', minHeight: 38,
-                                fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600,
-                              }}>✕</div>
+                            <td style={tdDoc}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600 }}>✕</div>
                             </td>
                           )}
                           <td style={tdStyle}>
-                            <span style={{
-                              background: est.bg, color: est.col, fontFamily: FONT.heading,
-                              fontSize: 9, letterSpacing: '0.5px', padding: '2px 8px',
-                              borderRadius: 9, fontWeight: 500,
-                            }}>{est.lbl}</span>
+                            <span style={{ background: est.bg, color: est.col, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 9, fontWeight: 500 }}>
+                              {est.lbl}
+                            </span>
                           </td>
                         </tr>
                       )
                     })}
                     {!loading && facturasOrdenadas.length === 0 && (
-                      <tr>
-                        <td colSpan={8} style={{
-                          ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
-                        }}>Sin facturas para los filtros seleccionados</td>
-                      </tr>
+                      <tr><td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px' }}>Sin facturas para los filtros seleccionados</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -695,205 +732,133 @@ export default function GestionFacturas() {
         <TabExportar
           titularKey={titularKey}
           setTitularKey={setTitularKey}
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
+          mesSel={mesSel}
           facturasMes={facturasMesExportar}
+          plazoStr={plazoStr}
+          diasPlazo={diasPlazo}
         />
       )}
     </div>
   )
 }
 
-function TabVentas({
-  titularKey, setTitularKey,
-}: {
-  titularKey: 'ruben' | 'emilio'
-  setTitularKey: (k: 'ruben' | 'emilio') => void
-}) {
+/* ── Toggle Rubén/Emilio reutilizable ─── */
+function ToggleTitular({ titularKey, onChange }: { titularKey: 'ruben' | 'emilio'; onChange: (k: 'ruben' | 'emilio') => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 5 }}>
+      {(['ruben', 'emilio'] as const).map(t => {
+        const isActive = titularKey === t
+        return (
+          <button
+            key={t}
+            onClick={() => onChange(t)}
+            style={{
+              padding: '8px 18px', borderRadius: 8,
+              border: isActive ? 'none' : `0.5px solid ${COLORS.brd}`,
+              background: isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff',
+              fontFamily: FONT.body, fontSize: 13,
+              color: isActive ? '#fff' : '#3a4050',
+              cursor: 'pointer', fontWeight: 500, minWidth: 90,
+            }}
+          >
+            {t === 'ruben' ? 'Rubén' : 'Emilio'}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── Tab Ventas ─── */
+function TabVentas({ titularKey, setTitularKey }: { titularKey: 'ruben' | 'emilio'; setTitularKey: (k: 'ruben' | 'emilio') => void }) {
   return (
     <>
-      <div style={{
-        display: 'flex', gap: 10, alignItems: 'center',
-        marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
-      }}>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {(['ruben', 'emilio'] as const).map(t => {
-            const isActive = titularKey === t
-            const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
-            const clr = isActive ? '#fff' : '#3a4050'
-            const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
-            return (
-              <button
-                key={t}
-                onClick={() => setTitularKey(t)}
-                style={{
-                  padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
-                  fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
-                  fontWeight: 500, minWidth: 90,
-                }}
-              >
-                {t === 'ruben' ? 'Rubén' : 'Emilio'}
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, marginBottom: 14 }}>
+        <ToggleTitular titularKey={titularKey} onChange={setTitularKey} />
       </div>
-      <div style={{
-        marginTop: 24, padding: 60, textAlign: 'center',
-        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-        borderRadius: 14, color: COLORS.mut, fontFamily: FONT.body, fontSize: 14,
-      }}>
+      <div style={{ marginTop: 24, padding: 60, textAlign: 'center', background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 14, color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
         Subida de resúmenes de ventas (Uber Eats CSV) · Próximamente
       </div>
     </>
   )
 }
 
+/* ── Tab Exportar ─── */
 function TabExportar({
-  titularKey, setTitularKey, fechaDesde, fechaHasta, facturasMes,
+  titularKey, setTitularKey, mesSel, facturasMes, plazoStr, diasPlazo,
 }: {
   titularKey: 'ruben' | 'emilio'
   setTitularKey: (k: 'ruben' | 'emilio') => void
-  fechaDesde: Date | null
-  fechaHasta: Date | null
+  mesSel: MesSel
   facturasMes: FacturaRow[]
+  plazoStr: string
+  diasPlazo: number
 }) {
-  const mesLabel = fechaDesde
-    ? `${MESES_NOMBRE[fechaDesde.getMonth() + 1]} ${fechaDesde.getFullYear()}`
-    : 'Mes'
-
-  const plazoDate = fechaHasta
-    ? new Date(fechaHasta.getFullYear(), fechaHasta.getMonth() + 1, 5)
-    : null
-  const hoy = new Date()
-  const diasRestantes = plazoDate
-    ? Math.max(0, Math.ceil((plazoDate.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)))
-    : 0
-  const plazoLabel = plazoDate
-    ? `${plazoDate.getDate()} de ${MESES_NOMBRE[plazoDate.getMonth() + 1].toLowerCase()}`
-    : '—'
-
-  const numFacturas = facturasMes.length
+  const [facturasConfirmadas, setFacturasConfirmadas] = useState(false)
   const ventasUberSubido = false
+  const numFacturas = facturasMes.length
   const numResumenesUber = ventasUberSubido ? 1 : 0
-  const facturasMesCompletas = numFacturas > 0
+  const todoOk = facturasConfirmadas && ventasUberSubido
 
-  const checks = [
-    {
-      ok: facturasMesCompletas,
-      label: 'Todas las facturas del mes importadas',
-      detail: `${numFacturas} facturas`,
-    },
-    {
-      ok: ventasUberSubido,
-      label: 'Ventas Uber Eats subidas',
-      detail: ventasUberSubido ? 'Subido' : 'Pendiente',
-    },
-  ]
-
-  const checksOk = checks.filter(c => c.ok).length
-  const totalChecks = checks.length
-  const todoOk = checksOk === totalChecks
+  // Reset confirmación cuando cambia mes o titular
+  useEffect(() => { setFacturasConfirmadas(false) }, [mesSel.anio, mesSel.mes, titularKey])
 
   return (
     <>
-      <div style={{
-        display: 'flex', gap: 10, alignItems: 'center',
-        marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
-      }}>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {(['ruben', 'emilio'] as const).map(t => {
-            const isActive = titularKey === t
-            const bg  = isActive ? (t === 'ruben' ? COLOR_RUBEN : COLOR_EMILIO) : '#fff'
-            const clr = isActive ? '#fff' : '#3a4050'
-            const bd  = isActive ? 'none' : `0.5px solid ${COLORS.brd}`
-            return (
-              <button
-                key={t}
-                onClick={() => setTitularKey(t)}
-                style={{
-                  padding: '8px 18px', borderRadius: 8, border: bd, background: bg,
-                  fontFamily: FONT.body, fontSize: 13, color: clr, cursor: 'pointer',
-                  fontWeight: 500, minWidth: 90,
-                }}
-              >
-                {t === 'ruben' ? 'Rubén' : 'Emilio'}
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, marginBottom: 14 }}>
+        <ToggleTitular titularKey={titularKey} onChange={setTitularKey} />
       </div>
 
-      <div style={{
-        background: '#e8f442', color: '#111111',
-        padding: '6px 14px', fontSize: 12, fontFamily: FONT.body,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 10, borderRadius: 8, marginBottom: 14,
-      }}>
-        <span>
-          <strong style={{ fontWeight: 500 }}>Plazo gestoría {mesLabel}:</strong> hasta el {plazoLabel} · Quedan {diasRestantes} día{diasRestantes === 1 ? '' : 's'}
-        </span>
-      </div>
-
-      <div style={{
-        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-        borderRadius: 14, padding: '20px 22px', marginBottom: 14,
-      }}>
+      {/* Checklist */}
+      <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 14, padding: '20px 22px', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <p style={{
-            fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
-            color: COLORS.mut, textTransform: 'uppercase', margin: 0,
-          }}>
+          <p style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', margin: 0 }}>
             Antes de exportar
           </p>
-          <span style={{
-            fontSize: 12, color: todoOk ? '#3B6D11' : '#BA7517', fontWeight: 500,
-          }}>
-            {checksOk} de {totalChecks} listos
+          <span style={{ fontSize: 12, color: todoOk ? '#3B6D11' : '#BA7517', fontWeight: 500 }}>
+            {[facturasConfirmadas, ventasUberSubido].filter(Boolean).length} de 2 listos
           </span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {checks.map((c, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px',
-                background: c.ok ? '#EAF3DE' : '#FCEBEB',
-                borderRadius: 8,
-              }}
-            >
-              <span style={{
-                display: 'flex', width: 22, height: 22, borderRadius: '50%',
-                background: c.ok ? '#639922' : '#A32D2D',
-                color: '#fff', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, flexShrink: 0,
-              }}>
-                {c.ok ? '✓' : '✕'}
-              </span>
-              <span style={{
-                flex: 1, fontSize: 13,
-                color: c.ok ? '#173404' : '#501313', fontWeight: 500,
-              }}>
-                {c.label}
-              </span>
-              <span style={{ fontSize: 12, color: c.ok ? '#3B6D11' : '#A32D2D' }}>
-                {c.detail}
-              </span>
-            </div>
-          ))}
+          {/* Check 1: manual */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: facturasConfirmadas ? '#EAF3DE' : '#FCEBEB', borderRadius: 8 }}>
+            <span style={{ display: 'flex', width: 22, height: 22, borderRadius: '50%', background: facturasConfirmadas ? '#639922' : '#A32D2D', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+              {facturasConfirmadas ? '✓' : '✕'}
+            </span>
+            <span style={{ flex: 1, fontSize: 13, color: facturasConfirmadas ? '#173404' : '#501313', fontWeight: 500 }}>
+              Todas las facturas del mes importadas
+            </span>
+            {facturasConfirmadas ? (
+              <span style={{ fontSize: 12, color: '#3B6D11' }}>{numFacturas} facturas</span>
+            ) : (
+              <button
+                onClick={() => setFacturasConfirmadas(true)}
+                style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#A32D2D', color: '#fff', fontSize: 12, fontFamily: FONT.body, cursor: 'pointer', fontWeight: 500 }}
+              >
+                Confirmar
+              </button>
+            )}
+          </div>
+
+          {/* Check 2: automático ventas Uber */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: ventasUberSubido ? '#EAF3DE' : '#FCEBEB', borderRadius: 8 }}>
+            <span style={{ display: 'flex', width: 22, height: 22, borderRadius: '50%', background: ventasUberSubido ? '#639922' : '#A32D2D', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
+              {ventasUberSubido ? '✓' : '✕'}
+            </span>
+            <span style={{ flex: 1, fontSize: 13, color: ventasUberSubido ? '#173404' : '#501313', fontWeight: 500 }}>
+              Ventas Uber Eats subidas
+            </span>
+            <span style={{ fontSize: 12, color: ventasUberSubido ? '#3B6D11' : '#A32D2D' }}>
+              {ventasUberSubido ? 'Subido' : 'Pendiente'}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div style={{
-        background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-        borderRadius: 14, padding: '20px 22px', marginBottom: 14,
-      }}>
-        <p style={{
-          fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
-          color: COLORS.mut, textTransform: 'uppercase', margin: '0 0 14px',
-        }}>
+      {/* ZIP contendrá */}
+      <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 14, padding: '20px 22px', marginBottom: 14 }}>
+        <p style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', margin: '0 0 14px' }}>
           El ZIP contendrá
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, fontFamily: FONT.body }}>
@@ -910,28 +875,19 @@ function TabExportar({
 
       <button
         disabled={!todoOk}
-        style={{
-          width: '100%', padding: '14px 20px',
-          background: todoOk ? '#111' : '#d0c8bc',
-          color: '#fff', border: 'none', borderRadius: 8,
-          fontSize: 14, fontWeight: 500, fontFamily: FONT.body,
-          cursor: todoOk ? 'pointer' : 'not-allowed',
-        }}
+        style={{ width: '100%', padding: '14px 20px', background: todoOk ? '#111' : '#d0c8bc', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, fontFamily: FONT.body, cursor: todoOk ? 'pointer' : 'not-allowed' }}
       >
-        Generar paquete ZIP · {mesLabel}
+        Generar paquete ZIP · {mesLabel(mesSel)}
       </button>
     </>
   )
 }
 
+/* ── Árbol Drive ─── */
 interface NodoArbolItemProps {
-  node: DriveNode
-  level: number
-  filtroActivo: DriveFiltro
-  expansionMap: Record<string, boolean>
-  titularColor: string
-  onSelect: (filtro: DriveFiltro) => void
-  onToggleExpand: (key: string) => void
+  node: DriveNode; level: number; filtroActivo: DriveFiltro
+  expansionMap: Record<string, boolean>; titularColor: string
+  onSelect: (f: DriveFiltro) => void; onToggleExpand: (k: string) => void
 }
 
 function nodeKey(filtro: DriveFiltro): string {
@@ -941,73 +897,34 @@ function nodeKey(filtro: DriveFiltro): string {
   return `t:${filtro.titular_id}`
 }
 
-function NodoArbolItem({
-  node, level, filtroActivo, expansionMap, titularColor, onSelect, onToggleExpand,
-}: NodoArbolItemProps) {
+function NodoArbolItem({ node, level, filtroActivo, expansionMap, titularColor, onSelect, onToggleExpand }: NodoArbolItemProps) {
   const tieneHijos = !!(node.children && node.children.length > 0)
   const myKey = nodeKey(node.filtro)
   const expandido = expansionMap[myKey] ?? false
   const sinFacturas = node.count === 0
+  const esActivo = filtroActivo.titular_id === node.filtro.titular_id && filtroActivo.anio === node.filtro.anio && filtroActivo.trimestre === node.filtro.trimestre && filtroActivo.mes === node.filtro.mes
 
-  const esActivo =
-    filtroActivo.titular_id === node.filtro.titular_id &&
-    filtroActivo.anio === node.filtro.anio &&
-    filtroActivo.trimestre === node.filtro.trimestre &&
-    filtroActivo.mes === node.filtro.mes
+  let nodoBg = 'transparent', nodoColor = COLORS.pri, nodoFF = FONT.body
+  let nodoFS = 13, nodoFW = 400, nodoBL = '3px solid transparent'
 
-  let nodoBg: string = 'transparent'
-  let nodoColor: string = COLORS.pri
-  let nodoFontFamily: string = FONT.body
-  let nodoFontSize: number = 13
-  let nodoFontWeight: number = 400
-  let nodoBorderLeft: string = '3px solid transparent'
-
-  if (node.kind === 'titular') {
-    nodoColor = titularColor
-    nodoFontFamily = FONT.heading
-    nodoFontSize = 14
-    nodoFontWeight = 600
-    nodoBorderLeft = `3px solid ${titularColor}`
-  } else if (node.kind === 'anio') {
-    nodoBg = ANIO_BG
-    nodoColor = '#7a1218'
-    nodoFontFamily = FONT.heading
-    nodoFontSize = 13
-    nodoFontWeight = 600
-  } else if (node.kind === 'trim' && node.trimNum) {
-    const pal = TRIM_PALETTE[node.trimNum]
-    nodoBg = pal.bg
-    nodoColor = pal.headDark
-    nodoFontFamily = FONT.heading
-    nodoFontWeight = 700
-    nodoFontSize = 13
-  } else if (node.kind === 'mes' && node.trimNum) {
-    const pal = TRIM_PALETTE[node.trimNum]
-    nodoBg = pal.bg + '60'
-    nodoColor = COLORS.pri
-    nodoFontSize = 13
-  }
+  if (node.kind === 'titular') { nodoColor = titularColor; nodoFF = FONT.heading; nodoFS = 14; nodoFW = 600; nodoBL = `3px solid ${titularColor}` }
+  else if (node.kind === 'anio') { nodoBg = ANIO_BG; nodoColor = '#7a1218'; nodoFF = FONT.heading; nodoFS = 13; nodoFW = 600 }
+  else if (node.kind === 'trim' && node.trimNum) { const p = TRIM_PALETTE[node.trimNum]; nodoBg = p.bg; nodoColor = p.headDark; nodoFF = FONT.heading; nodoFW = 700; nodoFS = 13 }
+  else if (node.kind === 'mes' && node.trimNum) { const p = TRIM_PALETTE[node.trimNum]; nodoBg = p.bg + '60'; nodoColor = COLORS.pri; nodoFS = 13 }
 
   if (esActivo) {
-    nodoBg = node.kind === 'trim' && node.trimNum
-      ? TRIM_PALETTE[node.trimNum].headDark
-      : titularColor
-    nodoColor = '#fff'
-    nodoFontWeight = 700
-    nodoBorderLeft = `3px solid ${node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].headDark : titularColor}`
+    nodoBg = node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].headDark : titularColor
+    nodoColor = '#fff'; nodoFW = 700
+    nodoBL = `3px solid ${node.kind === 'trim' && node.trimNum ? TRIM_PALETTE[node.trimNum].headDark : titularColor}`
   }
 
   const rowStyle: CSSProperties = {
     width: '100%', display: 'flex', alignItems: 'center',
     padding: '6px 8px', paddingLeft: 6 + level * 12,
-    background: nodoBg,
-    border: 'none',
-    borderLeft: nodoBorderLeft,
+    background: nodoBg, border: 'none', borderLeft: nodoBL,
     borderRadius: node.kind === 'mes' ? '0 4px 4px 0' : '0 6px 6px 0',
-    cursor: 'pointer',
-    fontFamily: nodoFontFamily, fontSize: nodoFontSize, textAlign: 'left',
-    color: nodoColor,
-    fontWeight: nodoFontWeight,
+    cursor: 'pointer', fontFamily: nodoFF, fontSize: nodoFS,
+    textAlign: 'left', color: nodoColor, fontWeight: nodoFW,
     opacity: sinFacturas && !esActivo ? 0.5 : 1,
     marginBottom: node.kind === 'titular' ? 4 : 1,
     letterSpacing: node.kind === 'titular' ? '1px' : 'normal',
@@ -1018,54 +935,26 @@ function NodoArbolItem({
     <div>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 1 }}>
         {tieneHijos ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleExpand(myKey) }}
-            style={{
-              width: 24, height: 28, padding: 0, border: 'none',
-              background: 'transparent', cursor: 'pointer',
-              color: COLORS.sec, fontSize: 18, fontWeight: 700,
-              flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1,
-            }}
-            aria-label={expandido ? 'Contraer' : 'Expandir'}
-          >
+          <button type="button" onClick={(e) => { e.stopPropagation(); onToggleExpand(myKey) }}
+            style={{ width: 24, height: 28, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', color: COLORS.sec, fontSize: 18, fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
             {expandido ? '▾' : '▸'}
           </button>
         ) : (
           <span style={{ width: 24, display: 'inline-block', textAlign: 'center', color: COLORS.mut, flexShrink: 0 }}>·</span>
         )}
-
-        <button
-          type="button"
-          onClick={() => onSelect(node.filtro)}
-          style={rowStyle}
-        >
+        <button type="button" onClick={() => onSelect(node.filtro)} style={rowStyle}>
           <span style={{ flex: 1 }}>{node.label}</span>
-          <span style={{
-            color: esActivo ? '#fff' : COLORS.mut,
-            fontSize: 11, marginLeft: 8, fontWeight: 500,
-            opacity: esActivo ? 0.9 : 1,
-          }}>
+          <span style={{ color: esActivo ? '#fff' : COLORS.mut, fontSize: 11, marginLeft: 8, fontWeight: 500, opacity: esActivo ? 0.9 : 1 }}>
             {node.count > 0 ? node.count : '—'}
           </span>
         </button>
       </div>
-
       {expandido && tieneHijos && (
         <div>
           {node.children!.map((child, idx) => (
-            <NodoArbolItem
-              key={`${child.label}-${idx}`}
-              node={child}
-              level={level + 1}
-              filtroActivo={filtroActivo}
-              expansionMap={expansionMap}
-              titularColor={titularColor}
-              onSelect={onSelect}
-              onToggleExpand={onToggleExpand}
-            />
+            <NodoArbolItem key={`${child.label}-${idx}`} node={child} level={level + 1}
+              filtroActivo={filtroActivo} expansionMap={expansionMap} titularColor={titularColor}
+              onSelect={onSelect} onToggleExpand={onToggleExpand} />
           ))}
         </div>
       )}
