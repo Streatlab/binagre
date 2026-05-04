@@ -1,6 +1,6 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v9: botón ZIP real — llama a Edge Function generar-zip-gestoria
+ * v9: botón ZIP real — llama a Edge Function generar-zip-gestoria con OAuth Drive
  */
 
 import {
@@ -58,7 +58,6 @@ const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
   4:{bg:'#e3d8eb',headDark:'#4a3163'},
 }
 const ANIO_BG = '#fbe5e8'
-
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
 function fmtFechaCorta(iso: string|null): string {
@@ -358,7 +357,6 @@ export default function GestionFacturas() {
       )}
 
       <div style={groupStyle(T)}>
-
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
           <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>
             GESTOR DOCUMENTAL
@@ -479,10 +477,8 @@ export default function GestionFacturas() {
             plazoLabel={plazoLabel}
             facturasMes={facturasMes}
             mesSeleccionado={mesSeleccionado}
-            supabaseUrl={SUPABASE_URL}
           />
         )}
-
       </div>
     </div>
   )
@@ -507,11 +503,10 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
   )
 }
 
-function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,facturasMes,mesSeleccionado,supabaseUrl}:{
+function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,facturasMes,mesSeleccionado}:{
   titularKey:'ruben'|'emilio'; setTitularKey:(k:'ruben'|'emilio')=>void
   titularId: string|null
   mesLabel:string; plazoLabel:string; facturasMes:FacturaRow[]; mesSeleccionado:string
-  supabaseUrl: string
 }){
   const [facturasConfirmadas,setFacturasConfirmadas]=useState(false)
   const [ventasConfirmadas,setVentasConfirmadas]=useState(false)
@@ -540,7 +535,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
     setErrorZip(null)
     try {
       const resp = await fetch(
-        `${supabaseUrl}/functions/v1/generar-zip-gestoria`,
+        `${SUPABASE_URL}/functions/v1/generar-zip-gestoria`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -553,13 +548,13 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
         return
       }
       const blob = await resp.blob()
-      const titNombre = titularKey === 'ruben' ? 'RUBEN' : 'EMILIO'
+      const titNombre = titularKey==='ruben'?'RUBEN':'EMILIO'
       const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = zipName; a.click()
+      a.href=url; a.download=zipName; a.click()
       URL.revokeObjectURL(url)
-    } catch(e) {
+    } catch(_) {
       setErrorZip('Error de red al generar el ZIP')
     } finally {
       setGenerando(false)
@@ -584,9 +579,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
               <span style={{flex:1,fontSize:13,color:facturasConfirmadas?'#173404':'#501313',fontWeight:500}}>
                 Todas las facturas del mes importadas
               </span>
-              <span style={{fontSize:12,color:facturasConfirmadas?'#3B6D11':'#A32D2D'}}>
-                {numFacturas} facturas
-              </span>
+              <span style={{fontSize:12,color:facturasConfirmadas?'#3B6D11':'#A32D2D'}}>{numFacturas} facturas</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
               <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
