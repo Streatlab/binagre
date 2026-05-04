@@ -18,7 +18,6 @@ interface FacturaAsociada {
   factura_fecha: string
   factura_total: number
   factura_pdf_url: string | null
-  factura_pdf_filename: string | null
 }
 
 interface FacturaCandidata {
@@ -28,7 +27,6 @@ interface FacturaCandidata {
   fecha_factura: string
   total: number
   pdf_drive_url: string | null
-  pdf_filename: string | null
   importe_restante: number
   diff_dias: number
 }
@@ -43,34 +41,10 @@ interface Props {
 
 const MATCH_DAYS_WINDOW = 60
 
-const STOP_WORDS = new Set([
-  'liquidacion','liq','op','pedido','nomina','del','de','la','el','los','las',
-  'por','para','con','sin','que','una','uno','este','esta','esto','muy',
-  'enero','febrero','marzo','abril','mayo','junio','julio','agosto',
-  'septiembre','octubre','noviembre','diciembre',
-  'lunes','martes','miercoles','jueves','viernes','sabado','domingo',
-  'semana','mes','año','transferencia','recibida','realizada','abono',
-  'cargo','adeudo','traspaso','cuenta','euros','euro','recibo','factura',
-])
-
 function diffDias(d1: string, d2: string): number {
   const a = new Date(d1).getTime()
   const b = new Date(d2).getTime()
   return Math.round(Math.abs(a - b) / 86400000)
-}
-
-function extraerPatron(concepto: string): string {
-  const palabras = concepto
-    .toLowerCase()
-    .replace(/[^\wáéíóúñ\s]/gi, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
-  return palabras[0] ?? concepto.slice(0, 10).toLowerCase()
-}
-
-// Initcap simple para nombres de proveedor (Sueldo, Dentista, etc)
-function initcap(s: string): string {
-  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim()
 }
 
 export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
@@ -96,7 +70,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
   const cargarAsociadas = useCallback(async (movId: string) => {
     const { data } = await supabase
       .from('facturas_gastos')
-      .select('id, factura_id, importe_asociado, confirmado, facturas(numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url, pdf_filename)')
+      .select('id, factura_id, importe_asociado, confirmado, facturas(numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url)')
       .eq('conciliacion_id', movId)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,7 +84,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       factura_fecha: r.facturas?.fecha_factura ?? '',
       factura_total: Number(r.facturas?.total ?? 0),
       factura_pdf_url: r.facturas?.pdf_drive_url ?? null,
-      factura_pdf_filename: r.facturas?.pdf_filename ?? null,
     }))
     setFacturasAsociadas(mapped)
   }, [])
@@ -135,6 +108,10 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           }
         }
       }
+    } else {
+      setSelectedBloque('')
+      setSelectedSubgrupo('')
+      setSelectedDetalle('')
     }
 
     setTitularId(movimiento.titular_id ?? '')
@@ -156,7 +133,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
           .from('facturas')
-          .select('id, numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url, pdf_filename, titular_id')
+          .select('id, numero_factura, proveedor_nombre, fecha_factura, total, pdf_drive_url, titular_id')
           .gte('fecha_factura', desde)
           .lte('fecha_factura', hasta)
           .order('fecha_factura', { ascending: false })
@@ -199,7 +176,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             fecha_factura: f.fecha_factura ?? '',
             total: Number(f.total ?? 0),
             pdf_drive_url: f.pdf_drive_url,
-            pdf_filename: f.pdf_filename,
             importe_restante: +(Number(f.total ?? 0) - (asociadoPorFactura[f.id] ?? 0)).toFixed(2),
             diff_dias: diffDias(f.fecha_factura, movimiento.fecha),
           }))
@@ -235,7 +211,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       return
     }
     if (importe > restante + 0.01) {
-      toast.error(`Importe supera el restante del movimiento (${fmtEur(restante)})`)
+      toast.error(`Importe supera el restante (${fmtEur(restante)})`)
       return
     }
     try {
@@ -267,96 +243,73 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     }
   }
 
+  /**
+   * GUARDAR — Mínimo y robusto.
+   * Solo actualiza el mov en cuestión. NO toca otros movs ni regla automática.
+   * Si BBDD acepta el UPDATE, refresca el mov directamente desde BBDD para evitar caché.
+   */
   async function handleGuardar() {
+    if (!movimiento) return
     setSaving(true)
     try {
-      // PRIORIDAD: 1) facturas asociadas → tiene  2) checkbox → no_requiere  3) categoría → falta  4) sin cat → falta
       let docEstado: 'tiene' | 'falta' | 'no_requiere' = 'falta'
       if (facturasAsociadas.length > 0 && Math.abs(restante) < 0.01) docEstado = 'tiene'
       else if (noRequiere) docEstado = 'no_requiere'
-      else if (movimiento!.doc_estado === 'tiene' && facturasAsociadas.length > 0) docEstado = 'tiene'
-
-      // Contraparte: si el usuario rellenó algo, usarlo. Si no, derivar del concepto cuando hay categoría
-      const contraparteFinal = contraparte.trim() || (selectedDetalle ? initcap(extraerPatron(movimiento!.concepto)) : '')
+      else if (movimiento.doc_estado === 'tiene' && facturasAsociadas.length > 0) docEstado = 'tiene'
 
       const updates: Record<string, unknown> = {
         titular_id: titularId || null,
         doc_estado: docEstado,
-        proveedor: contraparteFinal || null,
       }
       if (selectedDetalle) updates.categoria = selectedDetalle
+      if (contraparte.trim()) updates.proveedor = contraparte.trim()
+      else if (movimiento.contraparte && contraparte.trim() === '') updates.proveedor = null
 
-      const { error } = await supabase.from('conciliacion').update(updates).eq('id', movimiento!.id)
+      const { error } = await supabase
+        .from('conciliacion')
+        .update(updates)
+        .eq('id', movimiento.id)
+
       if (error) throw error
 
-      const categoriaAnterior = movimiento!.categoria_id
-      let aplicadosSimilares = 0
+      // Releer el mov directamente desde BBDD para garantizar estado fresco (no caché)
+      const { data: refreshed } = await supabase
+        .from('conciliacion')
+        .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
+        .eq('id', movimiento.id)
+        .single()
 
-      if (selectedDetalle && selectedDetalle !== categoriaAnterior) {
-        const patron = extraerPatron(movimiento!.concepto)
+      toast.success('Guardado')
 
-        // Guardar regla con proveedor
-        await supabase.from('reglas_conciliacion').upsert({
-          patron,
-          categoria_codigo: selectedDetalle,
-          set_proveedor: contraparteFinal || null,
-          asigna_como: movimiento!.importe >= 0 ? 'ingreso' : 'gasto',
-          activa: true,
-          prioridad: 10,
-          creada_por_usuario: true,
-        }, { onConflict: 'patron' })
-
-        // APLICAR a movs similares sin categoría del MISMO titular
-        if (patron && patron.length >= 4 && movimiento!.titular_id) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let qSim: any = supabase
-            .from('conciliacion')
-            .select('id')
-            .is('categoria', null)
-            .eq('titular_id', movimiento!.titular_id)
-            .ilike('concepto', `%${patron}%`)
-            .neq('id', movimiento!.id)
-
-          if (movimiento!.importe >= 0) qSim = qSim.gte('importe', 0)
-          else qSim = qSim.lt('importe', 0)
-
-          const { data: similares } = await qSim
-          const idsSimilares = (similares ?? []).map((r: { id: string }) => r.id)
-
-          if (idsSimilares.length > 0) {
-            // Update bulk: categoria + proveedor + doc_estado (mismo que el actual)
-            const bulkUpdate: Record<string, unknown> = {
-              categoria: selectedDetalle,
-              proveedor: contraparteFinal || null,
-            }
-            // Si el actual marcó no_requiere, propagar
-            if (docEstado === 'no_requiere') bulkUpdate.doc_estado = 'no_requiere'
-
-            const { error: errBulk } = await supabase
-              .from('conciliacion')
-              .update(bulkUpdate)
-              .in('id', idsSimilares)
-
-            if (!errBulk) aplicadosSimilares = idsSimilares.length
-          }
-        }
-      }
-
-      if (aplicadosSimilares > 0) {
-        toast.success(`Guardado · ${aplicadosSimilares} similares auto-categorizados`)
+      if (refreshed) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = refreshed as any
+        onSaved({
+          id: r.id,
+          fecha: r.fecha,
+          concepto: r.concepto,
+          importe: Number(r.importe),
+          categoria_id: r.categoria ?? null,
+          contraparte: r.proveedor ?? '',
+          gasto_id: r.gasto_id ?? null,
+          factura_id: r.factura_id ?? null,
+          factura_data: r.factura_data ?? null,
+          titular_id: r.titular_id ?? null,
+          doc_estado: r.doc_estado ?? 'falta',
+        })
       } else {
-        toast.success('Guardado')
+        onSaved({
+          ...movimiento,
+          categoria_id: selectedDetalle || movimiento.categoria_id,
+          titular_id: (updates.titular_id as string | null),
+          contraparte: contraparte.trim() || movimiento.contraparte,
+          doc_estado: docEstado,
+        })
       }
-
-      onSaved({
-        ...movimiento!,
-        categoria_id: selectedDetalle || movimiento!.categoria_id,
-        titular_id: (updates.titular_id as string | null),
-        contraparte: contraparteFinal,
-        doc_estado: docEstado,
-      })
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      toast.error(msg)
+      console.error('Error guardando movimiento:', err)
     } finally {
       setSaving(false)
     }
@@ -420,9 +373,9 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         </div>
 
         <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte / Proveedor</label>
+          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte</label>
           <input type="text" value={contraparte} onChange={e => setContraparte(e.target.value)}
-            placeholder="Auto-rellenar al guardar (puedes editarlo)"
+            placeholder="Nombre comercial del proveedor"
             style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
         </div>
 
@@ -452,7 +405,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>
               Facturas asociadas ({facturasAsociadas.length})
             </label>
-            <button onClick={() => setMostrarBuscador(v => !v)} 
+            <button onClick={() => setMostrarBuscador(v => !v)}
               style={{ padding: '5px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', cursor: 'pointer' }}>
               {mostrarBuscador ? 'Cerrar' : '+ Asociar'}
             </button>
@@ -505,7 +458,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
               {!cargandoCandidatas && candidatas.length === 0 && (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#7a8090' }}>
-                  Sin candidatas en ±60 días. Las facturas se suben desde el módulo OCR.
+                  Sin candidatas en ±60 días.
                 </div>
               )}
 
