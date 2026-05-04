@@ -9,7 +9,7 @@ import OcrEditModal from '@/components/ocr/OcrEditModal'
 import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 
-type TabId = 'facturas' | 'extractos' | 'otros'
+type TabId = 'facturas' | 'extractos' | 'ventas' | 'otros'
 type SortColumn = 'fecha' | 'contraparte' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
 type FiltroCard = 'conciliadas' | 'pendientes' | null
@@ -46,9 +46,6 @@ interface Factura {
 interface Agregados {
   totalCount: number; totalImporte: number; conciliadasCount: number; conciliadasPct: number
   conciliadasImporte: number; pendientesCount: number; pendientesImporte: number
-}
-interface AgregadosExtractos {
-  totalExtractos: number; totalMovimientos: number; rubenCount: number; emilioCount: number
 }
 
 function esConciliada(f: Factura): boolean {
@@ -134,7 +131,6 @@ export default function Ocr() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const fetchIdRef = useRef(0)
   const [agregados, setAgregados] = useState<Agregados | null>(null)
-  const [agregadosExtractos, setAgregadosExtractos] = useState<AgregadosExtractos | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
@@ -167,7 +163,7 @@ export default function Ocr() {
   const periodoHastaStr = fechaHasta.toISOString().slice(0, 10)
 
   const cargarPagina = useCallback(async () => {
-    if (tab === 'extractos') { setCargando(false); return }
+    if (tab === 'extractos' || tab === 'ventas') { setCargando(false); return }
     const myFetchId = ++fetchIdRef.current
     setCargando(true); setErrorCarga(null)
     const from = (page - 1) * pageSize
@@ -210,7 +206,6 @@ export default function Ocr() {
 
   const cargarAgregados = useCallback(async () => {
     try {
-      // Facturas (sin extractos, ahora viven en tabla aparte)
       const { data, error } = await supabase.from('facturas')
         .select('id, total, pdf_drive_url, categoria_factura, titular_id, tipo, facturas_gastos(confirmado)')
         .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
@@ -228,16 +223,6 @@ export default function Ocr() {
       }
       const conciliadasPct = totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0
       setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct, conciliadasImporte, pendientesCount, pendientesImporte })
-
-      // Extractos: tabla dedicada extractos_bancarios
-      const { data: extData, count: extCount } = await supabase
-        .from('extractos_bancarios')
-        .select('titular_id', { count: 'exact' })
-      const totalExtractos = extCount ?? 0
-      const rubenCount = (extData ?? []).filter((e: any) => e.titular_id === RUBEN_ID).length
-      const emilioCount = (extData ?? []).filter((e: any) => e.titular_id === EMILIO_ID).length
-      const { count: movCount } = await supabase.from('conciliacion').select('id', { count: 'exact', head: true })
-      setAgregadosExtractos({ totalExtractos, totalMovimientos: movCount ?? 0, rubenCount, emilioCount })
     } catch { setAgregados(null) }
   }, [periodoDesdeStr, periodoHastaStr, refreshTick])
 
@@ -299,7 +284,12 @@ export default function Ocr() {
   ]
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const TABS = [{ id: 'facturas', label: 'Facturas' }, { id: 'extractos', label: 'Extractos bancarios' }, { id: 'otros', label: 'Otros documentos' }]
+  const TABS = [
+    { id: 'facturas', label: 'Facturas' },
+    { id: 'extractos', label: 'Extractos bancarios' },
+    { id: 'ventas', label: 'Ventas' },
+    { id: 'otros', label: 'Otros documentos' },
+  ]
 
   return (
     <div style={{ background: '#f5f3ef', padding: '24px 28px', minHeight: '100%' }}>
@@ -316,20 +306,6 @@ export default function Ocr() {
       {tab === 'extractos' && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
-            <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Extractos subidos</div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#111' }}>{agregadosExtractos?.totalExtractos ?? '—'}</div>
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>Rubén {agregadosExtractos?.rubenCount ?? 0} · Emilio {agregadosExtractos?.emilioCount ?? 0}</div>
-            </div>
-            <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Movimientos en BD</div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#1D9E75' }}>{agregadosExtractos?.totalMovimientos?.toLocaleString('es-ES') ?? '—'}</div>
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>Total acumulado Conciliación</div>
-            </div>
-            <div style={{ background: '#f5f3ef', border: '0.5px dashed #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 4 }}>Formatos aceptados</div>
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', lineHeight: 1.7 }}>CSV · Excel (.xlsx)<br />PDF · Imagen</div>
-            </div>
             <BtnSubir
               label="Subir extractos"
               sublabel="CSV · Excel · PDF · Imagen"
@@ -344,7 +320,14 @@ export default function Ocr() {
         </div>
       )}
 
-      {tab !== 'extractos' && (
+      {tab === 'ventas' && (
+        <div style={{ marginTop: 14, background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Ventas</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Próximamente: subida de informes de ventas (Uber Eats, Glovo, Just Eat, Rushour)</div>
+        </div>
+      )}
+
+      {(tab === 'facturas' || tab === 'otros') && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14, marginTop: 14 }}>
             <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}>
