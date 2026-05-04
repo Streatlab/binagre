@@ -1,6 +1,5 @@
 // Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
-// Sin dependencias externas, usa solo React + EventTarget
-// v3: CSV/texto se envían como texto plano (no base64) para evitar corrupción en atob()
+// v4: Excel (.xlsx/.xls) se convierte a CSV en el cliente via SheetJS antes de enviar
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -32,13 +31,9 @@ function loadInitial(): OcrUploadState | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const s = JSON.parse(raw) as OcrUploadState
-    if (s.procesando && s.enviados < s.total) {
-      s.procesando = false
-    }
+    if (s.procesando && s.enviados < s.total) s.procesando = false
     return s
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 let currentState: OcrUploadState | null = loadInitial()
@@ -47,9 +42,7 @@ function persist(s: OcrUploadState | null) {
   try {
     if (s) localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
     else localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // swallow
-  }
+  } catch {}
 }
 
 function setState(s: OcrUploadState | null) {
@@ -61,23 +54,27 @@ function setState(s: OcrUploadState | null) {
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', e => {
     if (e.key === STORAGE_KEY) {
-      try {
-        currentState = e.newValue ? JSON.parse(e.newValue) as OcrUploadState : null
-      } catch {
-        currentState = null
-      }
+      try { currentState = e.newValue ? JSON.parse(e.newValue) as OcrUploadState : null }
+      catch { currentState = null }
       emitter.dispatchEvent(new CustomEvent('change'))
     }
   })
 }
 
-// Detectar si el archivo es texto plano (CSV, TXT)
+function getExt(file: File) {
+  return file.name.split('.').pop()?.toLowerCase() ?? ''
+}
+
 function esTextoPlano(file: File): boolean {
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const ext = getExt(file)
   return ext === 'csv' || ext === 'txt' || file.type === 'text/csv' || file.type === 'text/plain'
 }
 
-// Leer archivo como base64 (para PDF/imagen/binario)
+function esExcel(file: File): boolean {
+  const ext = getExt(file)
+  return ext === 'xlsx' || ext === 'xls'
+}
+
 function leerBase64(file: File): Promise<string> {
   return new Promise((res, rej) => {
     const r = new FileReader()
@@ -87,15 +84,47 @@ function leerBase64(file: File): Promise<string> {
   })
 }
 
-// Leer archivo como texto (para CSV/TXT)
 function leerTexto(file: File): Promise<string> {
   return new Promise((res, rej) => {
     const r = new FileReader()
     r.onload = () => res(r.result as string)
     r.onerror = () => rej(new Error('Error leyendo texto'))
-    // Intentar UTF-8 primero
     r.readAsText(file, 'UTF-8')
   })
+}
+
+// Convertir Excel a CSV usando SheetJS (cargado dinámicamente desde CDN)
+async function excelACSV(file: File): Promise<string> {
+  // Cargar SheetJS desde CDN si no está cargado
+  if (!(window as any).XLSX) {
+    await new Promise<void>((res, rej) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+      s.onload = () => res()
+      s.onerror = () => rej(new Error('No se pudo cargar SheetJS'))
+      document.head.appendChild(s)
+    })
+  }
+  const XLSX = (window as any).XLSX
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  // Usar la primera hoja
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const csv: string = XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
+  return csv
+}
+
+function getMimeType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') return file.type
+  const ext = getExt(file)
+  const map: Record<string, string> = {
+    csv: 'text/csv', txt: 'text/csv',
+    pdf: 'application/pdf', png: 'image/png',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls: 'application/vnd.ms-excel',
+  }
+  return map[ext] ?? 'application/pdf'
 }
 
 export function useOcrUpload(): {
@@ -126,33 +155,23 @@ export function useOcrUpload(): {
         let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
 
         try {
-          const esCsv = esTextoPlano(file)
-
-          // Detectar mimeType correcto
-          let mimeType = file.type
-          if (!mimeType || mimeType === 'application/octet-stream') {
-            const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-            if (ext === 'csv' || ext === 'txt') mimeType = 'text/csv'
-            else if (ext === 'pdf') mimeType = 'application/pdf'
-            else if (ext === 'png') mimeType = 'image/png'
-            else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg'
-            else if (ext === 'webp') mimeType = 'image/webp'
-            else if (ext === 'xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            else mimeType = 'application/pdf'
-          }
-
+          const mimeType = getMimeType(file)
           let body: Record<string, unknown>
 
-          if (esCsv) {
-            // CSV: enviar como texto plano, NO base64
-            const textoCSV = await leerTexto(file)
+          if (esExcel(file)) {
+            // Excel → convertir a CSV en cliente, enviar como texto
+            const csvTexto = await excelACSV(file)
             body = {
-              fileTexto: textoCSV,   // texto plano para parseo nativo
-              filename: file.name,
-              mimeType,
+              fileTexto: csvTexto,
+              filename: file.name.replace(/\.(xlsx|xls)$/i, '.csv'),
+              mimeType: 'text/csv',
             }
+          } else if (esTextoPlano(file)) {
+            // CSV/TXT → texto plano directo
+            const textoCSV = await leerTexto(file)
+            body = { fileTexto: textoCSV, filename: file.name, mimeType }
           } else {
-            // PDF/imagen: enviar como base64
+            // PDF/imagen → base64
             const base64 = await leerBase64(file)
             body = { fileBase64: base64, filename: file.name, mimeType }
           }
@@ -190,7 +209,7 @@ export function useOcrUpload(): {
         }
 
         if (currentState) {
-          const next: OcrUploadState = {
+          setState({
             ...currentState,
             enviados: currentState.enviados + 1,
             log: [...currentState.log, logEntry],
@@ -198,22 +217,15 @@ export function useOcrUpload(): {
             duplicados: currentState.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
             pendientes: currentState.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
             errores: currentState.errores + (logEntry.status === 'error' ? 1 : 0),
-          }
-          setState(next)
+          })
         }
 
-        if (i < files.length - 1) {
-          await new Promise(r => setTimeout(r, 1500))
-        }
+        if (i < files.length - 1) await new Promise(r => setTimeout(r, 1500))
       }
 
-      if (currentState) {
-        setState({ ...currentState, procesando: false })
-      }
+      if (currentState) setState({ ...currentState, procesando: false })
     },
     cerrar: () => setState(null),
-    ocultar: () => {
-      if (currentState) setState({ ...currentState, visible: false })
-    },
+    ocultar: () => { if (currentState) setState({ ...currentState, visible: false }) },
   }
 }
