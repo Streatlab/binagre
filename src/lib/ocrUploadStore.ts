@@ -1,6 +1,6 @@
 // Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
 // Sin dependencias externas, usa solo React + EventTarget
-// v2: ventana match facturas ±60 días (algunas facturas se emiten meses después del cargo bancario)
+// v3: CSV/texto se envían como texto plano (no base64) para evitar corrupción en atob()
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -32,7 +32,6 @@ function loadInitial(): OcrUploadState | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const s = JSON.parse(raw) as OcrUploadState
-    // Si el navegador se cerró durante un procesamiento, marcamos como completado
     if (s.procesando && s.enviados < s.total) {
       s.procesando = false
     }
@@ -59,7 +58,6 @@ function setState(s: OcrUploadState | null) {
   emitter.dispatchEvent(new CustomEvent('change'))
 }
 
-// Sincronizar entre pestañas del mismo navegador
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', e => {
     if (e.key === STORAGE_KEY) {
@@ -70,6 +68,33 @@ if (typeof window !== 'undefined') {
       }
       emitter.dispatchEvent(new CustomEvent('change'))
     }
+  })
+}
+
+// Detectar si el archivo es texto plano (CSV, TXT)
+function esTextoPlano(file: File): boolean {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  return ext === 'csv' || ext === 'txt' || file.type === 'text/csv' || file.type === 'text/plain'
+}
+
+// Leer archivo como base64 (para PDF/imagen/binario)
+function leerBase64(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res((r.result as string).split(',')[1])
+    r.onerror = () => rej(new Error('Error leyendo archivo'))
+    r.readAsDataURL(file)
+  })
+}
+
+// Leer archivo como texto (para CSV/TXT)
+function leerTexto(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(r.result as string)
+    r.onerror = () => rej(new Error('Error leyendo texto'))
+    // Intentar UTF-8 primero
+    r.readAsText(file, 'UTF-8')
   })
 }
 
@@ -90,7 +115,6 @@ export function useOcrUpload(): {
   return {
     state,
     procesar: async (files, fnName, titular_id_forzado) => {
-      // Estado inicial
       setState({
         total: files.length, enviados: 0, ok: 0, pendientes: 0,
         duplicados: 0, errores: 0, log: [], visible: true,
@@ -102,15 +126,40 @@ export function useOcrUpload(): {
         let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
 
         try {
-          const base64 = await new Promise<string>((res, rej) => {
-            const r = new FileReader()
-            r.onload = () => res((r.result as string).split(',')[1])
-            r.onerror = () => rej(new Error('Error leyendo archivo'))
-            r.readAsDataURL(file)
-          })
+          const esCsv = esTextoPlano(file)
 
-          const body: Record<string, unknown> = { fileBase64: base64, filename: file.name, mimeType: file.type || 'application/pdf' }
-          if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) body.titular_id = titular_id_forzado
+          // Detectar mimeType correcto
+          let mimeType = file.type
+          if (!mimeType || mimeType === 'application/octet-stream') {
+            const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+            if (ext === 'csv' || ext === 'txt') mimeType = 'text/csv'
+            else if (ext === 'pdf') mimeType = 'application/pdf'
+            else if (ext === 'png') mimeType = 'image/png'
+            else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg'
+            else if (ext === 'webp') mimeType = 'image/webp'
+            else if (ext === 'xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else mimeType = 'application/pdf'
+          }
+
+          let body: Record<string, unknown>
+
+          if (esCsv) {
+            // CSV: enviar como texto plano, NO base64
+            const textoCSV = await leerTexto(file)
+            body = {
+              fileTexto: textoCSV,   // texto plano para parseo nativo
+              filename: file.name,
+              mimeType,
+            }
+          } else {
+            // PDF/imagen: enviar como base64
+            const base64 = await leerBase64(file)
+            body = { fileBase64: base64, filename: file.name, mimeType }
+          }
+
+          if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) {
+            body.titular_id = titular_id_forzado
+          }
 
           const { data, error } = await supabase.functions.invoke(fnName, { body })
 
@@ -122,7 +171,7 @@ export function useOcrUpload(): {
             logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
           } else if (data?.status === 'ok') {
             if (fnName === 'ocr-procesar-extracto') {
-              logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían` }
+              logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían · ${data.categorizados_auto || 0} categ. auto` }
             } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
               logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
             } else {
@@ -140,7 +189,6 @@ export function useOcrUpload(): {
           logEntry = { filename: file.name, status: 'error', detalle: msg }
         }
 
-        // Actualizar estado leyendo el currentState más reciente
         if (currentState) {
           const next: OcrUploadState = {
             ...currentState,
@@ -159,7 +207,6 @@ export function useOcrUpload(): {
         }
       }
 
-      // Marcar como terminado
       if (currentState) {
         setState({ ...currentState, procesando: false })
       }
