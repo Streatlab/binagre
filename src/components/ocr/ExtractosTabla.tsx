@@ -1,4 +1,5 @@
 // Tabla extractos bancarios - lee de tabla dedicada extractos_bancarios
+// v2: sin Drive
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
@@ -12,13 +13,13 @@ interface Extracto {
   id: string
   titular_id: string
   filename: string
-  drive_url: string | null
   fecha_subida: string
   movimientos_total: number
   movimientos_insertados: number
   movimientos_saltados: number
   fecha_min: string | null
   fecha_max: string | null
+  notas: string | null
   created_at: string
 }
 
@@ -51,7 +52,7 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
       <thead>
         <tr>
-          {['Subido', 'Archivo', 'Titular', 'Movs', 'Periodo', 'Drive'].map(h => (
+          {['Subido', 'Archivo', 'Titular', 'Movs', 'Periodo'].map(h => (
             <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', textAlign: 'left', padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc' }}>{h}</th>
           ))}
         </tr>
@@ -67,11 +68,11 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
             ? `${fmtDate(e.fecha_min)} – ${fmtDate(e.fecha_max)}`
             : '—'
           return (
-            <tr key={e.id}>
+            <tr key={e.id} title={e.notas ?? ''}>
               <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                 {fmtDate(e.fecha_subida)}
               </td>
-              <td style={{ ...tdBase, color: '#111', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <td style={{ ...tdBase, color: '#111', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {e.filename}
               </td>
               <td style={tdBase}>
@@ -88,12 +89,6 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
               </td>
               <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                 {periodo}
-              </td>
-              <td style={{ ...tdBase, textAlign: 'center' }}>
-                {e.drive_url
-                  ? <a href={e.drive_url} target="_blank" rel="noreferrer" style={{ fontSize: 20, textDecoration: 'none' }}>📎</a>
-                  : <span style={{ color: '#d0c8bc' }}>—</span>
-                }
               </td>
             </tr>
           )
