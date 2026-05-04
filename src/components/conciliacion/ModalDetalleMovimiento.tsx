@@ -43,10 +43,30 @@ interface Props {
 
 const MATCH_DAYS_WINDOW = 60
 
+const STOP_WORDS = new Set([
+  'liquidacion','liq','op','pedido','nomina','del','de','la','el','los','las',
+  'por','para','con','sin','que','una','uno','este','esta','esto','muy',
+  'enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+  'septiembre','octubre','noviembre','diciembre',
+  'lunes','martes','miercoles','jueves','viernes','sabado','domingo',
+  'semana','mes','año','transferencia','recibida','realizada','abono',
+  'cargo','adeudo','traspaso','cuenta','euros','euro','recibo','factura',
+])
+
 function diffDias(d1: string, d2: string): number {
   const a = new Date(d1).getTime()
   const b = new Date(d2).getTime()
   return Math.round(Math.abs(a - b) / 86400000)
+}
+
+// Extrae la primera palabra significativa del concepto (>3 chars y no stopword)
+function extraerPatron(concepto: string): string {
+  const palabras = concepto
+    .toLowerCase()
+    .replace(/[^\wáéíóúñ\s]/gi, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
+  return palabras[0] ?? concepto.slice(0, 10).toLowerCase()
 }
 
 export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
@@ -263,20 +283,56 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       if (error) throw error
 
       const categoriaAnterior = movimiento!.categoria_id
+      let aplicadosSimilares = 0
+
       if (selectedDetalle && selectedDetalle !== categoriaAnterior) {
-        const palabras = movimiento!.concepto.toUpperCase().split(/\s+/).filter(w => w.length > 3)
-        const keyword = palabras[0] ?? movimiento!.concepto.slice(0, 10).toUpperCase()
+        const patron = extraerPatron(movimiento!.concepto)
+
+        // Guardar regla
         await supabase.from('reglas_conciliacion').upsert({
-          patron: keyword.toLowerCase(),
+          patron,
           categoria_codigo: selectedDetalle,
           asigna_como: movimiento!.importe >= 0 ? 'ingreso' : 'gasto',
           activa: true,
           prioridad: 10,
           creada_por_usuario: true,
         }, { onConflict: 'patron' })
+
+        // APLICAR a movs similares sin categoría del MISMO titular
+        // Match: concepto ILIKE %patron% Y misma signo de importe
+        if (patron && patron.length >= 4 && movimiento!.titular_id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let qSim: any = supabase
+            .from('conciliacion')
+            .select('id')
+            .is('categoria', null)
+            .eq('titular_id', movimiento!.titular_id)
+            .ilike('concepto', `%${patron}%`)
+            .neq('id', movimiento!.id)
+
+          if (movimiento!.importe >= 0) qSim = qSim.gte('importe', 0)
+          else qSim = qSim.lt('importe', 0)
+
+          const { data: similares } = await qSim
+          const idsSimilares = (similares ?? []).map((r: { id: string }) => r.id)
+
+          if (idsSimilares.length > 0) {
+            const { error: errBulk } = await supabase
+              .from('conciliacion')
+              .update({ categoria: selectedDetalle })
+              .in('id', idsSimilares)
+
+            if (!errBulk) aplicadosSimilares = idsSimilares.length
+          }
+        }
       }
 
-      toast.success('Guardado')
+      if (aplicadosSimilares > 0) {
+        toast.success(`Guardado · ${aplicadosSimilares} similares auto-categorizados`)
+      } else {
+        toast.success('Guardado')
+      }
+
       onSaved({
         ...movimiento!,
         categoria_id: selectedDetalle || movimiento!.categoria_id,
