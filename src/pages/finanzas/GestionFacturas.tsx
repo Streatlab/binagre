@@ -1,6 +1,5 @@
 /**
- * GestorDocumental — antes GestionFacturas.
- * Tabs: Facturas / Ventas / Exportar
+ * GestorDocumental — Tabs: Facturas / Ventas / Exportar
  */
 
 import {
@@ -19,7 +18,6 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 
-/* ── Tipos ─────────────────────────────────────────── */
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
 type SortDir = 'asc' | 'desc'
@@ -97,7 +95,6 @@ const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string;
 }
 const ANIO_BG = '#fbe5e8'
 
-/* ── Helpers ───────────────────────────────────────── */
 function fmtFechaCorta(iso: string | null): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
@@ -225,7 +222,6 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{ id: string; label: str
   return out
 }
 
-/* ══════════════════════════════════════════════════════ */
 export default function GestionFacturas() {
   const [activeTab, setActiveTab]   = useState<TabId>('facturas')
   const [titularKey, setTitularKey] = useState<'ruben' | 'emilio'>('ruben')
@@ -374,6 +370,18 @@ export default function GestionFacturas() {
     return arr
   }, [facturasFiltradas, sortColumn, sortDir, titulares])
 
+  // Facturas del mes seleccionado por SelectorFecha (solo titular activo, para tab Exportar)
+  const facturasMesExportar = useMemo(() => {
+    if (!fechaDesde || !fechaHasta) return [] as FacturaRow[]
+    const desdeStr = fechaDesde.toISOString().slice(0, 10)
+    const hastaStr = fechaHasta.toISOString().slice(0, 10)
+    return facturas.filter(f => {
+      if (titularActivo && f.titular_id !== titularActivo.id) return false
+      if (!f.fecha_factura) return false
+      return f.fecha_factura >= desdeStr && f.fecha_factura <= hastaStr
+    })
+  }, [facturas, titularActivo, fechaDesde, fechaHasta])
+
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha',      col: 'fecha',     align: 'left' },
     { label: 'Proveedor',  col: 'proveedor', align: 'left' },
@@ -424,7 +432,6 @@ export default function GestionFacturas() {
         <SelectorFechaUniversal
           nombreModulo="gestor_documental"
           defaultOpcion="mes_en_curso"
-          opcionesPermitidas={['mes_en_curso', 'mes_anterior', 'mes_personalizado']}
           onChange={handleFecha}
         />
       </div>
@@ -690,14 +697,13 @@ export default function GestionFacturas() {
           setTitularKey={setTitularKey}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
-          facturasOrdenadas={facturasOrdenadas}
+          facturasMes={facturasMesExportar}
         />
       )}
     </div>
   )
 }
 
-/* ── Tab Ventas (placeholder) ───────────────────── */
 function TabVentas({
   titularKey, setTitularKey,
 }: {
@@ -743,21 +749,19 @@ function TabVentas({
   )
 }
 
-/* ── Tab Exportar ───────────────────────────────── */
 function TabExportar({
-  titularKey, setTitularKey, fechaDesde, fechaHasta, facturasOrdenadas,
+  titularKey, setTitularKey, fechaDesde, fechaHasta, facturasMes,
 }: {
   titularKey: 'ruben' | 'emilio'
   setTitularKey: (k: 'ruben' | 'emilio') => void
   fechaDesde: Date | null
   fechaHasta: Date | null
-  facturasOrdenadas: FacturaRow[]
+  facturasMes: FacturaRow[]
 }) {
   const mesLabel = fechaDesde
     ? `${MESES_NOMBRE[fechaDesde.getMonth() + 1]} ${fechaDesde.getFullYear()}`
     : 'Mes'
 
-  // Plazo gestoría: 5 del mes siguiente al período seleccionado
   const plazoDate = fechaHasta
     ? new Date(fechaHasta.getFullYear(), fechaHasta.getMonth() + 1, 5)
     : null
@@ -769,13 +773,9 @@ function TabExportar({
     ? `${plazoDate.getDate()} de ${MESES_NOMBRE[plazoDate.getMonth() + 1].toLowerCase()}`
     : '—'
 
-  const numFacturas = facturasOrdenadas.length
-
-  // TODO: leer ventas Uber subidas desde supabase (placeholder)
+  const numFacturas = facturasMes.length
   const ventasUberSubido = false
   const numResumenesUber = ventasUberSubido ? 1 : 0
-
-  // TODO: detectar si todas las facturas del mes están importadas (placeholder true)
   const facturasMesCompletas = numFacturas > 0
 
   const checks = [
@@ -788,7 +788,6 @@ function TabExportar({
       ok: ventasUberSubido,
       label: 'Ventas Uber Eats subidas',
       detail: ventasUberSubido ? 'Subido' : 'Pendiente',
-      action: ventasUberSubido ? null : 'Ir a tab Ventas →',
     },
   ]
 
@@ -825,7 +824,6 @@ function TabExportar({
         </div>
       </div>
 
-      {/* Banner amarillo plazo gestoría */}
       <div style={{
         background: '#e8f442', color: '#111111',
         padding: '6px 14px', fontSize: 12, fontFamily: FONT.body,
@@ -837,7 +835,6 @@ function TabExportar({
         </span>
       </div>
 
-      {/* Checklist */}
       <div style={{
         background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
         borderRadius: 14, padding: '20px 22px', marginBottom: 14,
@@ -889,7 +886,6 @@ function TabExportar({
         </div>
       </div>
 
-      {/* El ZIP contendrá */}
       <div style={{
         background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
         borderRadius: 14, padding: '20px 22px', marginBottom: 14,
@@ -928,7 +924,6 @@ function TabExportar({
   )
 }
 
-/* ── Árbol Drive ─────────────────────────────────── */
 interface NodoArbolItemProps {
   node: DriveNode
   level: number
