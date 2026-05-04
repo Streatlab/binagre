@@ -6,15 +6,11 @@
  * - public.titulares (Rubén, Emilio)
  * - public.categorias_pyg (árbol completo)
  *
- * Tabs: Resumen, Facturas, Exportar (Drive borrado).
- * En Facturas: el SELECTOR DE FECHAS NO FILTRA. Sólo manda el árbol Drive lateral.
- * Trimestres con paleta pastel idéntica al Running.
+ * Tabs: Resumen, Facturas, Exportar.
  *
- * v3 (3 may 2026):
- *  - Drive solo muestra titular activo (Rubén o Emilio según toggle, nunca los 2)
- *  - "Todos" muestra los 2
- *  - Flechas expand/collapse más grandes (16px en vez de 11px)
- *  - Letras T1-T4 más oscuras (legibilidad)
+ * v5 (3 may 2026):
+ *  - Drive colapsado por defecto excepto trimestre en curso
+ *  - Headers ordenables AZ/ZA copiando patrón OCR (sortColumn + sortDir + handleSort + flecha ↑↓ activa)
  */
 
 import {
@@ -37,6 +33,8 @@ import { supabase } from '@/lib/supabase'
 /* ── Tipos ─────────────────────────────────────────── */
 type TabId = 'resumen' | 'facturas' | 'exportar'
 type TitularFiltro = 'todos' | string
+type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
+type SortDir = 'asc' | 'desc'
 
 interface Titular {
   id: string
@@ -107,7 +105,6 @@ function colorTitular(nombre: string | undefined, fallback: string): string {
   return fallback
 }
 
-/* Paleta pastel trimestres + texto cabecera más oscuro para legibilidad */
 const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string; tot: string }> = {
   1: { bg: '#dde8f4', head: '#7da3c8', headDark: '#3a5f80', tot: '#b5cae3' },
   2: { bg: '#dee9d4', head: '#7da569', headDark: '#3d6027', tot: '#b6cea3' },
@@ -139,6 +136,10 @@ const MESES_POR_TRIM: Record<number, number[]> = {
   2: [4, 5, 6],
   3: [7, 8, 9],
   4: [10, 11, 12],
+}
+
+function trimestreEnCurso(mesActual: number): number {
+  return Math.ceil(mesActual / 3)
 }
 
 function colorEstado(estado: string | null): { bg: string; col: string; lbl: string } {
@@ -252,6 +253,10 @@ export default function GestionFacturas() {
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string, boolean>>({})
 
+  /* Sort estado — patrón OCR */
+  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
   const [titulares, setTitulares]   = useState<Titular[]>([])
   const [categorias, setCategorias] = useState<CategoriaPyg[]>([])
   const [facturas, setFacturas]     = useState<FacturaRow[]>([])
@@ -286,31 +291,30 @@ export default function GestionFacturas() {
 
   const driveTreeFull = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
 
-  /* Drive según toggle: 'todos' muestra los 2 / titular concreto solo ese */
   const driveTree = useMemo(() => {
     if (titularFiltro === 'todos') return driveTreeFull
     return driveTreeFull.filter(t => t.filtro.titular_id === titularFiltro)
   }, [driveTreeFull, titularFiltro])
 
-  /* Reset filtro Drive si el titular ya no está visible */
   useEffect(() => {
     if (driveFiltro.titular_id && titularFiltro !== 'todos' && driveFiltro.titular_id !== titularFiltro) {
       setDriveFiltro({})
     }
   }, [titularFiltro, driveFiltro.titular_id])
 
+  /* Estado inicial expansión: SOLO titular + año actual + T en curso. Resto colapsado. */
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTreeFull.length === 0) return
     const init: Record<string, boolean> = {}
-    const anioActual = new Date().getFullYear()
+    const hoy = new Date()
+    const anioActual = hoy.getFullYear()
+    const trimActual = trimestreEnCurso(hoy.getMonth() + 1)
     for (const t of driveTreeFull) {
       const titId = t.filtro.titular_id
       init[`t:${titId}`] = true
       init[`y:${titId}:${anioActual}`] = true
-      for (const trim of [1, 2, 3, 4]) {
-        init[`q:${titId}:${anioActual}:${trim}`] = true
-      }
+      init[`q:${titId}:${anioActual}:${trimActual}`] = true
     }
     setExpansionMap(init)
   }, [driveTreeFull, expansionMap])
@@ -322,7 +326,13 @@ export default function GestionFacturas() {
     return m
   }, [categorias])
 
-  // Filtrado: SOLO Drive + titular + categoría + búsqueda. Sin fecha.
+  /* Handler sort — patrón OCR literal */
+  function handleSort(col: SortColumn) {
+    if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortColumn(col); setSortDir('asc') }
+  }
+
+  /* Filtrado */
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
       if (titularFiltro !== 'todos' && f.titular_id !== titularFiltro) return false
@@ -351,17 +361,78 @@ export default function GestionFacturas() {
     })
   }, [facturas, titularFiltro, driveFiltro, categoriaId, busqueda])
 
+  /* Sort — aplicado tras filtrado, según sortColumn + sortDir */
+  const facturasOrdenadas = useMemo(() => {
+    const arr = [...facturasFiltradas]
+    const dirMul = sortDir === 'asc' ? 1 : -1
+
+    arr.sort((a, b) => {
+      let va: string | number = ''
+      let vb: string | number = ''
+
+      switch (sortColumn) {
+        case 'fecha':
+          va = a.fecha_factura ?? ''
+          vb = b.fecha_factura ?? ''
+          break
+        case 'proveedor':
+          va = (a.proveedor_nombre || '').toLowerCase()
+          vb = (b.proveedor_nombre || '').toLowerCase()
+          break
+        case 'nif':
+          va = (a.nif_emisor || '').toLowerCase()
+          vb = (b.nif_emisor || '').toLowerCase()
+          break
+        case 'importe':
+          va = Number(a.total || 0)
+          vb = Number(b.total || 0)
+          break
+        case 'categoria':
+          va = a.categoria_factura || ''
+          vb = b.categoria_factura || ''
+          break
+        case 'titular': {
+          const ta = titulares.find(t => t.id === a.titular_id)?.nombre || ''
+          const tb = titulares.find(t => t.id === b.titular_id)?.nombre || ''
+          va = ta.toLowerCase()
+          vb = tb.toLowerCase()
+          break
+        }
+        case 'doc':
+          va = a.pdf_drive_url ? 1 : 0
+          vb = b.pdf_drive_url ? 1 : 0
+          break
+        case 'estado':
+          va = a.estado || ''
+          vb = b.estado || ''
+          break
+      }
+
+      if (va < vb) return -1 * dirMul
+      if (va > vb) return  1 * dirMul
+      return 0
+    })
+
+    return arr
+  }, [facturasFiltradas, sortColumn, sortDir, titulares])
+
   const titularesTabs = useMemo(() => [
     { id: 'todos', label: 'Todos' },
     ...titulares.map(t => ({ id: t.id, label: t.nombre })),
   ], [titulares])
 
-  const thStyle: CSSProperties = {
-    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px',
-    textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px',
-    textAlign: 'left', background: COLORS.group,
-    borderBottom: `0.5px solid ${COLORS.brd}`, fontWeight: 400, whiteSpace: 'nowrap',
-  }
+  /* Header igual al OCR — clicable, color rojo cuando activo, flecha ↑↓ */
+  const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
+    { label: 'Fecha',      col: 'fecha',     align: 'left' },
+    { label: 'Proveedor',  col: 'proveedor', align: 'left' },
+    { label: 'NIF',        col: 'nif',       align: 'left' },
+    { label: 'Importe',    col: 'importe',   align: 'right' },
+    { label: 'Categoría',  col: 'categoria', align: 'left' },
+    { label: 'Titular',    col: 'titular',   align: 'left' },
+    { label: 'Doc',        col: 'doc',       align: 'center' },
+    { label: 'Estado',     col: 'estado',    align: 'left' },
+  ]
+
   const tdStyle: CSSProperties = {
     padding: '11px 12px', fontSize: 13, fontFamily: FONT.body, color: COLORS.pri,
     borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap',
@@ -528,17 +599,35 @@ export default function GestionFacturas() {
               borderRadius: 14, overflow: 'hidden',
             }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead>
                     <tr>
-                      <th style={thStyle}>Fecha</th>
-                      <th style={thStyle}>Proveedor</th>
-                      <th style={thStyle}>NIF</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Importe</th>
-                      <th style={thStyle}>Categoría</th>
-                      <th style={thStyle}>Titular</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Doc</th>
-                      <th style={thStyle}>Estado</th>
+                      {HEADERS.map(h => {
+                        const isActive = sortColumn === h.col
+                        return (
+                          <th
+                            key={h.col}
+                            onClick={() => handleSort(h.col)}
+                            style={{
+                              fontFamily: FONT.heading,
+                              fontSize: 10,
+                              fontWeight: 500,
+                              letterSpacing: '2px',
+                              color: isActive ? COLORS.redSL : COLORS.mut,
+                              textTransform: 'uppercase',
+                              textAlign: h.align,
+                              padding: '10px 12px',
+                              background: COLORS.group,
+                              borderBottom: `0.5px solid ${COLORS.brd}`,
+                              whiteSpace: 'nowrap',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            {h.label}{isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -549,14 +638,14 @@ export default function GestionFacturas() {
                         }}>Cargando…</td>
                       </tr>
                     )}
-                    {!loading && facturasFiltradas.map((f, idx) => {
+                    {!loading && facturasOrdenadas.map((f, idx) => {
                       const tit = titulares.find(t => t.id === f.titular_id)
                       const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
                       const catLbl = f.categoria_factura
                         ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
                         : '—'
-                      const isLast = idx === facturasFiltradas.length - 1
+                      const isLast = idx === facturasOrdenadas.length - 1
                       const tdDocBase: CSSProperties = {
                         padding: 0,
                         borderBottom: isLast ? 'none' : `0.5px solid ${COLORS.brd}`,
@@ -629,7 +718,7 @@ export default function GestionFacturas() {
                         </tr>
                       )
                     })}
-                    {!loading && facturasFiltradas.length === 0 && (
+                    {!loading && facturasOrdenadas.length === 0 && (
                       <tr>
                         <td colSpan={8} style={{
                           ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
@@ -657,7 +746,7 @@ export default function GestionFacturas() {
   )
 }
 
-/* ── Árbol Drive con paleta pastel + tipos string explícitos ─ */
+/* ── Árbol Drive ─────────────────────────────────── */
 interface NodoArbolItemProps {
   node: DriveNode
   level: number
@@ -689,7 +778,6 @@ function NodoArbolItem({
     filtroActivo.trimestre === node.filtro.trimestre &&
     filtroActivo.mes === node.filtro.mes
 
-  // Tipos explícitos como string — evita inferencia literal
   let nodoBg: string = 'transparent'
   let nodoColor: string = COLORS.pri
   let nodoFontFamily: string = FONT.body
@@ -712,10 +800,10 @@ function NodoArbolItem({
   } else if (node.kind === 'trim' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
     nodoBg = pal.bg
-    nodoColor = pal.headDark            // ← MÁS OSCURO
+    nodoColor = pal.headDark
     nodoFontFamily = FONT.heading
-    nodoFontWeight = 700                 // ← MÁS BOLD
-    nodoFontSize = 13                    // ← +1px
+    nodoFontWeight = 700
+    nodoFontSize = 13
   } else if (node.kind === 'mes' && node.trimNum) {
     const pal = TRIM_PALETTE[node.trimNum]
     nodoBg = pal.bg + '60'
@@ -759,8 +847,8 @@ function NodoArbolItem({
             style={{
               width: 24, height: 28, padding: 0, border: 'none',
               background: 'transparent', cursor: 'pointer',
-              color: COLORS.sec,                  // ← más oscuro que mut
-              fontSize: 18,                        // ← MÁS GRANDE (era 11)
+              color: COLORS.sec,
+              fontSize: 18,
               fontWeight: 700,
               flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
