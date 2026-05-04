@@ -1,4 +1,4 @@
-// ─── Tabla extractos subidos — SIN filtro por periodo, siempre todos ──────────
+// Tabla extractos bancarios - lee de tabla dedicada extractos_bancarios
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
@@ -8,19 +8,31 @@ interface Props {
   titulares: { id: string; nombre: string }[]
 }
 
+interface Extracto {
+  id: string
+  titular_id: string
+  filename: string
+  drive_url: string | null
+  fecha_subida: string
+  movimientos_total: number
+  movimientos_insertados: number
+  movimientos_saltados: number
+  fecha_min: string | null
+  fecha_max: string | null
+  created_at: string
+}
+
 export default function ExtractosTabla({ refreshTick, titulares }: Props) {
-  const [extractos, setExtractos] = useState<any[]>([])
+  const [extractos, setExtractos] = useState<Extracto[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
     setCargando(true)
-    supabase.from('facturas')
-      .select('id, fecha_factura, pdf_filename, pdf_drive_url, titular_id, created_at')
-      .eq('tipo', 'otro')
-      .eq('categoria_factura', 'extracto_bancario')
+    supabase.from('extractos_bancarios')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(100)
-      .then(({ data }) => { setExtractos(data ?? []); setCargando(false) })
+      .then(({ data }) => { setExtractos((data as Extracto[]) ?? []); setCargando(false) })
   }, [refreshTick])
 
   if (cargando) return (
@@ -39,7 +51,7 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
       <thead>
         <tr>
-          {['Fecha subida', 'Archivo', 'Titular', 'Drive'].map(h => (
+          {['Subido', 'Archivo', 'Titular', 'Movs', 'Periodo', 'Drive'].map(h => (
             <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', textAlign: 'left', padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc' }}>{h}</th>
           ))}
         </tr>
@@ -51,13 +63,16 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
           const titNombre = titulares.find(t => t.id === e.titular_id)?.nombre?.toLowerCase() ?? ''
           const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
           const isEmilio = titNombre.includes('emilio')
+          const periodo = (e.fecha_min && e.fecha_max)
+            ? `${fmtDate(e.fecha_min)} – ${fmtDate(e.fecha_max)}`
+            : '—'
           return (
             <tr key={e.id}>
               <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
-                {e.created_at ? fmtDate(e.created_at.slice(0, 10)) : '—'}
+                {fmtDate(e.fecha_subida)}
               </td>
-              <td style={{ ...tdBase, color: '#111', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {e.pdf_filename || '—'}
+              <td style={{ ...tdBase, color: '#111', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.filename}
               </td>
               <td style={tdBase}>
                 {isRuben
@@ -67,9 +82,16 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
                   : <span style={{ color: '#7a8090', fontSize: 12 }}>—</span>
                 }
               </td>
+              <td style={{ ...tdBase, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500 }}>
+                <span style={{ color: '#1D9E75' }}>{e.movimientos_insertados}</span>
+                {e.movimientos_saltados > 0 && <span style={{ color: '#7a8090', fontSize: 11, marginLeft: 6 }}>+{e.movimientos_saltados} dup</span>}
+              </td>
+              <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                {periodo}
+              </td>
               <td style={{ ...tdBase, textAlign: 'center' }}>
-                {e.pdf_drive_url
-                  ? <a href={e.pdf_drive_url} target="_blank" rel="noreferrer" style={{ fontSize: 20 }}>📎</a>
+                {e.drive_url
+                  ? <a href={e.drive_url} target="_blank" rel="noreferrer" style={{ fontSize: 20, textDecoration: 'none' }}>📎</a>
                   : <span style={{ color: '#d0c8bc' }}>—</span>
                 }
               </td>
