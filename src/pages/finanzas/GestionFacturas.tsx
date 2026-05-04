@@ -5,6 +5,7 @@
  * - Drive solo titular activo
  * - Headers ordenables AZ/ZA estilo OCR
  * - Colores titular de Conciliación: Rubén #F26B1F, Emilio #1E5BCC
+ * - Columna Titular oculta (toggle ya filtra)
  */
 
 import {
@@ -25,7 +26,7 @@ import { supabase } from '@/lib/supabase'
 
 /* ── Tipos ─────────────────────────────────────────── */
 type TabId = 'resumen' | 'facturas' | 'exportar'
-type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'titular' | 'doc' | 'estado'
+type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
 type SortDir = 'asc' | 'desc'
 
 interface Titular {
@@ -85,14 +86,6 @@ const TABS: Array<{ id: TabId; label: string }> = [
 /* Hex EXACTOS de Conciliación */
 const COLOR_RUBEN  = '#F26B1F'
 const COLOR_EMILIO = '#1E5BCC'
-
-function colorTitular(nombre: string | undefined, fallback: string): string {
-  if (!nombre) return fallback
-  const k = nombre.toLowerCase().trim()
-  if (k.includes('rubén') || k.includes('ruben')) return COLOR_RUBEN
-  if (k.includes('emilio')) return COLOR_EMILIO
-  return fallback
-}
 
 const TRIM_PALETTE: Record<number, { bg: string; head: string; headDark: string; tot: string }> = {
   1: { bg: '#dde8f4', head: '#7da3c8', headDark: '#3a5f80', tot: '#b5cae3' },
@@ -233,7 +226,6 @@ function flattenCategorias(cats: CategoriaPyg[]): Array<{ id: string; label: str
 /* ══════════════════════════════════════════════════════ */
 export default function GestionFacturas() {
   const [activeTab, setActiveTab]   = useState<TabId>('facturas')
-  /* Toggle Rubén / Emilio — sin Todos. Default Rubén. */
   const [titularKey, setTitularKey] = useState<'ruben' | 'emilio'>('ruben')
   const [busqueda, setBusqueda]     = useState('')
   const [categoriaId, setCategoria] = useState<string>('todas')
@@ -278,7 +270,6 @@ export default function GestionFacturas() {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
   }, [])
 
-  /* Lookup titular activo según toggle */
   const titularActivo = useMemo(() => {
     return titulares.find(t => {
       const n = t.nombre.toLowerCase()
@@ -289,18 +280,15 @@ export default function GestionFacturas() {
 
   const driveTreeFull = useMemo(() => buildDriveTree(facturas, titulares), [facturas, titulares])
 
-  /* Drive: SOLO titular activo */
   const driveTree = useMemo(() => {
     if (!titularActivo) return []
     return driveTreeFull.filter(t => t.filtro.titular_id === titularActivo.id)
   }, [driveTreeFull, titularActivo])
 
-  /* Reset filtro Drive al cambiar de titular */
   useEffect(() => {
     setDriveFiltro({})
   }, [titularKey])
 
-  /* Estado inicial expansión: titular + año actual + T en curso */
   useEffect(() => {
     if (Object.keys(expansionMap).length > 0) return
     if (driveTreeFull.length === 0) return
@@ -329,7 +317,6 @@ export default function GestionFacturas() {
     else { setSortColumn(col); setSortDir('asc') }
   }
 
-  /* Filtrado: SOLO titular activo + Drive + categoría + búsqueda */
   const facturasFiltradas = useMemo(() => {
     return facturas.filter(f => {
       if (titularActivo && f.titular_id !== titularActivo.id) return false
@@ -385,13 +372,6 @@ export default function GestionFacturas() {
           va = a.categoria_factura || ''
           vb = b.categoria_factura || ''
           break
-        case 'titular': {
-          const ta = titulares.find(t => t.id === a.titular_id)?.nombre || ''
-          const tb = titulares.find(t => t.id === b.titular_id)?.nombre || ''
-          va = ta.toLowerCase()
-          vb = tb.toLowerCase()
-          break
-        }
         case 'doc':
           va = a.pdf_drive_url ? 1 : 0
           vb = b.pdf_drive_url ? 1 : 0
@@ -406,7 +386,7 @@ export default function GestionFacturas() {
       return 0
     })
     return arr
-  }, [facturasFiltradas, sortColumn, sortDir, titulares])
+  }, [facturasFiltradas, sortColumn, sortDir])
 
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [
     { label: 'Fecha',      col: 'fecha',     align: 'left' },
@@ -414,7 +394,6 @@ export default function GestionFacturas() {
     { label: 'NIF',        col: 'nif',       align: 'left' },
     { label: 'Importe',    col: 'importe',   align: 'right' },
     { label: 'Categoría',  col: 'categoria', align: 'left' },
-    { label: 'Titular',    col: 'titular',   align: 'left' },
     { label: 'Doc',        col: 'doc',       align: 'center' },
     { label: 'Estado',     col: 'estado',    align: 'left' },
   ]
@@ -480,7 +459,6 @@ export default function GestionFacturas() {
             display: 'flex', gap: 10, alignItems: 'center',
             marginTop: 14, marginBottom: 14, flexWrap: 'wrap',
           }}>
-            {/* Toggle SOLO Rubén/Emilio — colores Conciliación */}
             <div style={{ display: 'flex', gap: 5 }}>
               {(['ruben', 'emilio'] as const).map(t => {
                 const isActive = titularKey === t
@@ -638,14 +616,12 @@ export default function GestionFacturas() {
                   <tbody>
                     {loading && (
                       <tr>
-                        <td colSpan={8} style={{
+                        <td colSpan={7} style={{
                           ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
                         }}>Cargando…</td>
                       </tr>
                     )}
                     {!loading && facturasOrdenadas.map((f, idx) => {
-                      const tit = titulares.find(t => t.id === f.titular_id)
-                      const titColor = colorTitular(tit?.nombre, tit?.color || COLORS.pri)
                       const est = colorEstado(f.estado)
                       const catLbl = f.categoria_factura
                         ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim()
@@ -675,19 +651,6 @@ export default function GestionFacturas() {
                               borderRadius: 4, border: `0.5px solid ${COLORS.brd}`,
                               fontFamily: FONT.body, color: COLORS.sec,
                             }}>{catLbl}</span>
-                          </td>
-                          <td style={{ ...tdStyle, fontSize: 12 }}>
-                            {tit ? (
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 5,
-                                padding: '3px 10px', borderRadius: 6,
-                                fontFamily: FONT.body, fontSize: 12, fontWeight: 500,
-                                background: `${titColor}15`, color: titColor,
-                              }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: titColor }} />
-                                {tit.nombre}
-                              </span>
-                            ) : <span style={{ color: COLORS.mut }}>—</span>}
                           </td>
                           {f.pdf_drive_url ? (
                             <td
@@ -725,7 +688,7 @@ export default function GestionFacturas() {
                     })}
                     {!loading && facturasOrdenadas.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{
+                        <td colSpan={7} style={{
                           ...tdStyle, textAlign: 'center', color: COLORS.mut, padding: '40px 12px',
                         }}>Sin facturas para los filtros seleccionados</td>
                       </tr>
