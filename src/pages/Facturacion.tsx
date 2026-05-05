@@ -10,12 +10,12 @@ import {
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
 
-// ─── Formato — useGrouping:true ES OBLIGATORIO para separador de miles ──
+// ─── Formato ──────────────────────────────────────────────────
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
-const fmtBru = fmt2   // brutos: 1.234,56
-const fmtTM  = fmt2   // ticket medio: 27,33
-const fmtKpi = fmt2   // cards grandes: 3.313,99
+const fmtBru = fmt2
+const fmtTM  = fmt2
+const fmtKpi = fmt2
 const fmtEurN = (n: number) => fmtEur(n)
 
 interface AggRow {
@@ -59,25 +59,23 @@ const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,g
 const NETO_FACTOR = 0.66
 const COLOR_TODOS = COLORS.lun
 
-// ─── Subtabs servicio — contenedor rojo, activo negro COLORS.sec ──────────
-// Mismo contenedor que TABS_PILL pero background rojo; activos en COLORS.sec
+// ─── Subtabs — fondo COLORS.accent (#FF4757, mismo que tab Diario activa) ──
+// Botones: inactivo blanco/gris, activo blanco con texto negro COLORS.pri
 const SUBTAB_CONTAINER: CSSProperties = {
   ...TABS_PILL.container,
-  background: COLORS.redSL,   // interior rojo para diferenciar
-  border: `0.5px solid ${COLORS.redSL}`,
+  background: COLORS.accent,   // #FF4757 — el mismo rojo de "Diario" activo
+  border: `0.5px solid ${COLORS.accent}`,
   marginBottom: 0, marginTop: 0,
 }
-// Activo: negro oscuro sobre fondo blanco — opuesto al rojo del contenedor
 const SUBTAB_ACTIVE: CSSProperties = {
   padding: '4px 10px', borderRadius: 5, border: 'none',
-  background: COLORS.sec, color: '#ffffff',
-  fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+  background: '#ffffff', color: COLORS.pri,           // blanco con texto negro
+  fontFamily: FONT.heading, fontSize: 10, fontWeight: 600,
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer',
 }
-// Inactivo: blanco semitransparente sobre rojo
 const SUBTAB_INACTIVE: CSSProperties = {
   padding: '4px 10px', borderRadius: 5, border: 'none',
-  background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)',
+  background: 'rgba(255,255,255,0.2)', color: '#ffffff', // blanco semitransparente
   fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer',
 }
@@ -140,7 +138,6 @@ function downloadCSV(filename: string, headers: string[], rows: (string|number)[
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url)
 }
 
-// ─── Main ─────────────────────────────────────────────────────
 export default function Facturacion() {
   const { tipoDia } = useCalendario()
   const [tab, setTab] = useState<Tab>('diario')
@@ -198,10 +195,8 @@ export default function Facturacion() {
     })
   }
 
-  // ── Wrap: background COLORS.bg igual que Panel Global (código copiado) ──
   return (
     <div style={{ background:COLORS.bg, minHeight:'100vh', padding:'24px 28px', fontFamily:FONT.body, color:COLORS.pri }}>
-      {/* HEADER — calco Panel Global */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:18, flexWrap:'wrap', gap:12 }}>
         <div>
           <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>
@@ -212,17 +207,13 @@ export default function Facturacion() {
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
       </div>
 
-      {/* TABS: TabsPastilla principal + grupo subtabs rojo (servicio + canales) */}
       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:18, flexWrap:'wrap' }}>
         <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
-        {/* Separador vertical */}
         <div style={{ width:1, height:24, background:COLORS.brd, flexShrink:0, marginLeft:2, marginRight:2 }} />
-        {/* Grupo subtabs rojo: Todos/ALM/CENAS + Canales — misma caja */}
         <div style={SUBTAB_CONTAINER}>
           {['Todos','ALM','CENAS'].map(s=>(
             <button key={s} onClick={()=>setServicioFiltro(s)} style={servicioFiltro===s ? SUBTAB_ACTIVE : SUBTAB_INACTIVE}>{s}</button>
           ))}
-          {/* Canales dentro del mismo contenedor rojo */}
           <div style={{ position:'relative' }} data-drop-canal="canales">
             <button onClick={e=>{e.stopPropagation();setDropCanalOpen(p=>!p)}}
               style={{ ...SUBTAB_INACTIVE, display:'inline-flex', alignItems:'center', gap:3 }}>
@@ -266,34 +257,35 @@ export default function Facturacion() {
 }
 
 // ─── KPI Cards ─────────────────────────────────────────────────
-// Card Facturación: 2 columnas — izq (Bruto/Neta grandes) + der (Media bruta/neta medianas)
 interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const netoLabel = `NETO EST. · ${(NETO_FACTOR*100).toFixed(0)}%`
+  // kpiBig = 38px — mismo para bruto, neto, medias bruta y neta
+  // Medias: 32px — más grandes que antes (28) pero menores que los totales (38)
+  const MEDIA_SIZE = 32
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
 
-      {/* Card 1: Facturación — 2 col internas: izq bruto/neta + der medias */}
+      {/* Card 1: Facturación — 2 columnas internas */}
       <div style={CARDS.big}>
         <div style={{ ...lblSm, marginBottom:12 }}>FACTURACIÓN</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, alignItems:'start' }}>
-          {/* Columna izquierda: Bruto grande + Neta debajo */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, alignItems:'start' }}>
+          {/* Izq: Bruto + Neto — ambos kpiBig (38px) */}
           <div>
             <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
-            <div style={{ ...lblXs, marginTop:3, marginBottom:10 }}>BRUTO</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:26, fontWeight:600, color:COLORS.ok, lineHeight:1 }}>{fmtKpi(netoEstimado)}</div>
+            <div style={{ ...lblXs, marginTop:3, marginBottom:14 }}>BRUTO</div>
+            <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
             <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
           </div>
-          {/* Columna derecha: Media bruta arriba + Media neta abajo — un poco más grandes */}
+          {/* Der: Media bruta + Media neta — ambas 32px */}
           <div>
-            <div style={{ fontFamily:FONT.heading, fontSize:28, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div>
-            <div style={{ ...lblXs, color:COLORS.mut, marginTop:3, marginBottom:10 }}>MEDIA/DÍA BRUTA</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:28, fontWeight:600, color:COLORS.ok, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div>
+            <div style={{ fontFamily:FONT.heading, fontSize:MEDIA_SIZE, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div>
+            <div style={{ ...lblXs, color:COLORS.mut, marginTop:3, marginBottom:14 }}>MEDIA/DÍA BRUTA</div>
+            <div style={{ fontFamily:FONT.heading, fontSize:MEDIA_SIZE, fontWeight:600, color:COLORS.ok, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div>
             <div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>MEDIA/DÍA NETA</div>
           </div>
         </div>
-        {/* Días — debajo */}
-        <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:4 }}>
+        <div style={{ marginTop:12, display:'flex', alignItems:'center', gap:4 }}>
           <span style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, color:COLORS.mut }}>{dias}</span>
           <span style={{ ...lblXs, color:COLORS.mut }}>DÍAS</span>
         </div>
@@ -309,7 +301,7 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
         </div>
       </div>
 
-      {/* Columna 25%: Añadir Día (70%) + Exportar (30%) */}
+      {/* Columna 25%: Añadir Día + Exportar */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
           style={{ flex:'0 0 70%', ...CARDS.big, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, userSelect:'none', padding:'20px 16px' }}
