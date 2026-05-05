@@ -11,15 +11,13 @@ import {
 } from '@/components/panel/resumen/tokens'
 
 // ─── Helpers de formato ────────────────────────────────────────
-// Enteros con separador de miles: pedidos, días
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 // Brutos: 2 decimales + separador miles (1.234,56)
 const fmtBru = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 })
-// TM y medias con 2 decimales
+// TM y medias: 2 decimales
 const fmtTM  = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 })
-// KPI grande: sin decimales, con separador miles
-const fmtKpi = (n: number) => Math.round(n).toLocaleString('es-ES')
-// CSV: con €
+// KPI grande: 2 decimales + separador miles
+const fmtKpi = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 })
 const fmtEurN = (n: number) => fmtEur(n)
 
 interface AggRow {
@@ -179,22 +177,35 @@ export default function Facturacion() {
     })
   }
 
+  const filtroBtnStyle = (active: boolean): CSSProperties => ({
+    padding:'5px 12px', borderRadius:8, fontFamily:FONT.heading, fontSize:10, fontWeight:500,
+    letterSpacing:'1.5px', textTransform:'uppercase',
+    border: active?'none':`0.5px solid ${COLORS.brd}`,
+    background: active?COLORS.redSL:COLORS.card,
+    color: active?'#fff':COLORS.mut, cursor:'pointer',
+  })
+
   return (
     <div style={{ background:COLORS.bg, padding:LAYOUT.pagePadding }}>
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:18, flexWrap:'wrap', gap:12 }}>
+      {/* HEADER: título + periodo + selector fecha */}
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:12 }}>
         <div>
           <h2 style={{ color:COLORS.redSL, fontFamily:FONT.heading, fontSize:22, fontWeight:600, letterSpacing:'3px', margin:0, textTransform:'uppercase' }}>FACTURACIÓN</h2>
           <span style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, display:'block', marginTop:4 }}>
             {fmtFechaCorta(periodoDesde.toISOString().slice(0,10))} — {fmtFechaCorta(periodoHasta.toISOString().slice(0,10))}
           </span>
         </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-          {['Todos','ALM','CENAS'].map(s=>(
-            <button key={s} onClick={()=>setServicioFiltro(s)} style={{ padding:'6px 14px', borderRadius:8, fontFamily:FONT.heading, fontSize:11, fontWeight:500, letterSpacing:'1.5px', textTransform:'uppercase', border:servicioFiltro===s?'none':`0.5px solid ${COLORS.brd}`, background:servicioFiltro===s?COLORS.redSL:COLORS.card, color:servicioFiltro===s?'#fff':COLORS.mut, cursor:'pointer' }}>{s}</button>
-          ))}
+        <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
+      </div>
+
+      {/* TABS + FILTROS EN MISMA FILA */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:LAYOUT.sectionMargin }}>
+        <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
+        <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+          {['Todos','ALM','CENAS'].map(s=>(<button key={s} onClick={()=>setServicioFiltro(s)} style={filtroBtnStyle(servicioFiltro===s)}>{s}</button>))}
           <div style={{ position:'relative' }} data-drop-canal="canales">
-            <button onClick={e=>{e.stopPropagation();setDropCanalOpen(p=>!p)}} style={{ padding:'6px 12px', borderRadius:8, fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, color:COLORS.mut, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
-              {canalesVisibles.length===5?'Canales':`${canalesVisibles.length} canales`} <span style={{ fontSize:10 }}>▾</span>
+            <button onClick={e=>{e.stopPropagation();setDropCanalOpen(p=>!p)}} style={{ padding:'5px 10px', borderRadius:8, fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, color:COLORS.mut, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
+              {canalesVisibles.length===5?'Canales':`${canalesVisibles.length} canales`} <span style={{ fontSize:9 }}>▾</span>
             </button>
             {dropCanalOpen && (
               <div style={{ position:'absolute', top:'110%', right:0, background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:10, padding:'6px 0', zIndex:20, minWidth:160, boxShadow:'0 4px 16px rgba(0,0,0,0.08)' }}>
@@ -208,12 +219,7 @@ export default function Facturacion() {
               </div>
             )}
           </div>
-          <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
         </div>
-      </div>
-
-      <div style={{ marginBottom:LAYOUT.sectionMargin }}>
-        <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
       </div>
 
       {loading ? (
@@ -238,50 +244,56 @@ export default function Facturacion() {
   )
 }
 
-// ─── KPI Cards — mismas en todos los tabs ─────────────────────
-// Neto mismo tamaño que Bruto (kpiBig=38px). TM con 2 dec. KpiCards compartido entre tabs.
-interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }
-function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: KpiCardsProps) {
+// ─── KPI Cards ─────────────────────────────────────────────────
+// Card 3 Añadir Día: más baja (no ocupa toda la altura de las cards de datos)
+interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
+function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const netoLabel = `NETO EST. · ${(NETO_FACTOR*100).toFixed(0)}%`
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:14 }}>
-      {/* Card 1: Facturación — Bruto y Neto mismo tamaño kpiBig */}
-      <div style={CARDS.big}>
-        <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
-          <div>
-            <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
-            <div style={{ ...lblXs, marginTop:3 }}>BRUTO</div>
+    <div style={{ marginBottom:14 }}>
+      {/* Fila de cards de datos */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:10 }}>
+        {/* Card 1: Facturación */}
+        <div style={CARDS.big}>
+          <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+            <div>
+              <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
+              <div style={{ ...lblXs, marginTop:3 }}>BRUTO</div>
+            </div>
+            <div>
+              <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
+              <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
+            </div>
           </div>
-          <div>
-            {/* Neto = MISMO tamaño que bruto */}
-            <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
+          <div style={{ display:'flex', gap:20, marginTop:12, flexWrap:'wrap' }}>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.sec }}>{fmtTM(mediadiaria)}</div><div style={{ ...lblXs, color:COLORS.mut }}>MEDIA/DÍA BRUTA</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.ok }}>{fmtTM(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok }}>MEDIA/DÍA NETA</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.mut }}>{dias}</div><div style={{ ...lblXs, color:COLORS.mut }}>DÍAS</div></div>
           </div>
         </div>
-        <div style={{ display:'flex', gap:20, marginTop:12, flexWrap:'wrap' }}>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.sec }}>{fmtTM(mediadiaria)}</div><div style={{ ...lblXs, color:COLORS.mut }}>MEDIA/DÍA BRUTA</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.ok }}>{fmtTM(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok }}>MEDIA/DÍA NETA</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.mut }}>{dias}</div><div style={{ ...lblXs, color:COLORS.mut }}>DÍAS</div></div>
+        {/* Card 2: Pedidos + TM */}
+        <div style={CARDS.big}>
+          <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.lun }}>{fmtInt(totals.total_pedidos)}</div><div style={{ ...lblXs, marginTop:3 }}>PEDIDOS</div></div>
+            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
+            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
+          </div>
         </div>
       </div>
-      {/* Card 2: Pedidos + TM con 2 decimales, kpiBig para los 3 */}
-      <div style={CARDS.big}>
-        <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.lun }}>{fmtInt(totals.total_pedidos)}</div><div style={{ ...lblXs, marginTop:3 }}>PEDIDOS</div></div>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
-        </div>
-      </div>
-      {/* Card 3: Añadir Día */}
-      <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
-        style={{ ...CARDS.big, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, userSelect:'none' }}
-        onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
-        onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
-        <span style={{ fontSize:28, lineHeight:1, color:'#fff' }}>↑</span>
-        <div style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
-        <div style={{ fontFamily:FONT.body, fontSize:11, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
+      {/* Fila inferior: botón Añadir Día (izq) + Exportar CSV (der) */}
+      <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+        <button onClick={onAdd}
+          style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', borderRadius:10, background:COLORS.redSL, color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', fontWeight:600 }}>
+          <span style={{ fontSize:14, lineHeight:1 }}>↑</span> AÑADIR DÍA
+        </button>
+        {onExport && (
+          <button onClick={onExport}
+            style={{ padding:'9px 18px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.mut, cursor:'pointer', fontWeight:500 }}>
+            Exportar CSV
+          </button>
+        )}
       </div>
     </div>
   )
@@ -338,11 +350,8 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
 
   return (
     <>
-      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} />
-      <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
-        <button onClick={exportar} style={{ padding:'9px 18px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.mut, cursor:'pointer', fontWeight:500 }}>Exportar CSV</button>
-        {weekFilter && <span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span>}
-      </div>
+      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
+      {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0, whiteSpace:'nowrap', minWidth:860 }}>
@@ -425,8 +434,7 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
   if(rows.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos semanales</div>
   return (
     <>
-      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} />
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:12 }}><button onClick={exportar} style={{ padding:'9px 18px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.mut, cursor:'pointer' }}>Exportar CSV</button></div>
+      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0, whiteSpace:'nowrap' }}>
@@ -471,11 +479,8 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   if(allRows.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos mensuales</div>
   return (
     <>
-      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} />
-      <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
-        {years.length>1&&(<select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>)}
-        <button onClick={exportar} style={{ padding:'9px 18px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.mut, cursor:'pointer' }}>Exportar CSV</button>
-      </div>
+      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
+      {years.length>1&&(<div style={{ marginBottom:12 }}><select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></div>)}
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0, whiteSpace:'nowrap' }}>
@@ -511,11 +516,12 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
 function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: { allData:RawDiario[]; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }) {
   const years = useMemo(()=>{ const m=new Map<number,{bruto:number;pedidos:number}>(); for(const r of allData){ const y=parseInt(r.fecha.slice(0,4)); if(!m.has(y))m.set(y,{bruto:0,pedidos:0}); const c=m.get(y)!; c.bruto+=r.total_bruto||0; c.pedidos+=r.total_pedidos||0 }; return [...m.entries()].sort((a,b)=>b[0]-a[0]).map(([anio,v])=>({anio,bruto:v.bruto,pedidos:v.pedidos,mediaMensual:v.bruto/12,mediaTicket:v.pedidos>0?v.bruto/v.pedidos:0})) },[allData])
   const maxBruto=Math.max(...years.map(y=>y.bruto),1)
+  const exportar=()=>{ downloadCSV('facturacion_anual.csv',['Año','Bruto','Media mensual','Pedidos','Ticket medio'],years.map(y=>[y.anio,y.bruto,y.mediaMensual,y.pedidos,y.mediaTicket])) }
   const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 14px', textAlign:'left', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}` }
   const tdS: CSSProperties={ padding:'12px 14px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}` }
   return (
     <div>
-      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} />
+      <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0 }}>
           <thead><tr>
