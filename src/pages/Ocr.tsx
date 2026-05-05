@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { FONT } from '@/styles/tokens'
+import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -109,7 +109,6 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
   )
 }
 
-// 📎 = conciliada con PDF | — = no requiere doc | ✕ = falta doc
 function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick?: () => void }) {
   if (estado === 'conciliada') {
     return (
@@ -132,6 +131,7 @@ function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | n
 }
 
 export default function Ocr() {
+  const { T } = useTheme()
   const [fechaDesde, setFechaDesde] = useState(new Date())
   const [fechaHasta, setFechaHasta] = useState(new Date())
   const [periodoLabel, setPeriodoLabel] = useState('')
@@ -323,7 +323,8 @@ export default function Ocr() {
   ]
 
   return (
-    <div style={{ background: '#f5f3ef', padding: '24px 28px', minHeight: '100%' }}>
+    <div style={groupStyle(T)}>
+      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: '#B01D23', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>OCR</h1>
@@ -437,7 +438,6 @@ export default function Ocr() {
                             <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_factura)}</td>
                             <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contraparte.length > 40 ? contraparte.slice(0, 40) + '…' : contraparte}</td>
                             <td style={{ ...tdBase, color: f.nif_emisor ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nif_emisor || 'Sin identificar'}</td>
-                            {/* IMPORTE sin símbolo euro */}
                             <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: f.total >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>{fmtNumES(f.total, 2)}</td>
                             <td style={{ ...tdBase, overflow: 'hidden' }}>
                               {catInfo ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>{catInfo.nombre}</span>
