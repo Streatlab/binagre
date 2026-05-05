@@ -1,6 +1,6 @@
 /**
- * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v13: muestra error completo (status, step, body) en pantalla para diagnosticar
+ * GestorDocumental — v14: usa supabase.functions.invoke (no fetch directo)
+ * El 405 venía de fetch crudo cruzando alguna proxy. invoke usa el cliente oficial.
  */
 
 import {
@@ -46,8 +46,6 @@ const TABS: Array<{ id: TabId; label: string }> = [
 
 const COLOR_RUBEN  = '#F26B1F'
 const COLOR_EMILIO = '#1E5BCC'
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 const MESES_ES = ['', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -535,50 +533,33 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
     setGenerando(true)
     setErrorZip(null)
     try {
-      // Obtener token de sesión
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData?.session?.access_token ?? SUPABASE_ANON_KEY
-
-      const url = `${SUPABASE_URL}/functions/v1/generar-zip-gestoria`
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ mes: mesSeleccionado, titular_id: titularId }),
+      const { data, error } = await supabase.functions.invoke('generar-zip-gestoria', {
+        body: { mes: mesSeleccionado, titular_id: titularId },
       })
-
-      // Si la respuesta no es OK, intenta leer body como texto y lo muestra entero
-      if (!resp.ok) {
-        const bodyText = await resp.text().catch(()=>'(no body)')
-        let msg = `HTTP ${resp.status}`
-        try {
-          const j = JSON.parse(bodyText)
-          if (j.error) msg += ` · ${j.error}`
-          if (j.step)  msg += ` (step=${j.step})`
-        } catch {
-          msg += ` · ${bodyText.slice(0,200)}`
+      if (error) {
+        const ctx: any = (error as any).context
+        let detail = error.message || 'Error'
+        if (ctx) {
+          try {
+            const txt = await ctx.text?.()
+            if (txt) {
+              try { const j = JSON.parse(txt); detail = `${j.error || detail}${j.step?` (step=${j.step})`:''}` }
+              catch { detail = txt.slice(0,200) }
+            }
+          } catch {}
         }
-        setErrorZip(msg)
+        setErrorZip(`Function error: ${detail}`)
         return
       }
-
-      // Verifica que el content-type es zip antes de descargar
-      const ct = resp.headers.get('content-type') || ''
-      if (!ct.includes('zip')) {
-        const bodyText = await resp.text().catch(()=>'(no body)')
-        setErrorZip(`Respuesta inesperada (content-type=${ct}): ${bodyText.slice(0,200)}`)
+      if (!data) {
+        setErrorZip('Respuesta vacía del servidor')
         return
       }
-
-      const buf = await resp.arrayBuffer()
-      if (buf.byteLength === 0) {
-        setErrorZip('ZIP vacío recibido del servidor')
+      const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: 'application/zip' })
+      if (blob.size === 0) {
+        setErrorZip('ZIP vacío')
         return
       }
-      const blob = new Blob([buf], { type: 'application/zip' })
       const titNombre = titularKey==='ruben'?'RUBEN':'EMILIO'
       const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
       const dl = URL.createObjectURL(blob)
@@ -587,7 +568,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
       URL.revokeObjectURL(dl)
     } catch(err) {
       const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
-      setErrorZip(`Error red/cliente: ${msg}`)
+      setErrorZip(`Error: ${msg}`)
     } finally {
       setGenerando(false)
     }
