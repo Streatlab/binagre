@@ -308,7 +308,6 @@ export default function Facturacion() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle, margin: 0 }}>FACTURACIÓN</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Servicio: izquierda */}
           <div style={{ display: 'flex', gap: 4 }}>
             {['Todos', 'ALM', 'CENAS'].map(s => (
               <button key={s} onClick={() => setServicioFiltro(s)}
@@ -320,7 +319,6 @@ export default function Facturacion() {
               </button>
             ))}
           </div>
-          {/* Canales: derecha */}
           <div style={{ position: 'relative' }} data-drop-canal="canales">
             <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
               <span>{canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
@@ -343,7 +341,6 @@ export default function Facturacion() {
               </div>
             )}
           </div>
-          {/* SelectorFechaUniversal */}
           <SelectorFechaUniversal
             nombreModulo="facturacion"
             onChange={() => { /* fecha universal: para futura integración */ }}
@@ -351,7 +348,7 @@ export default function Facturacion() {
         </div>
       </div>
 
-      {/* TABS conmutador */}
+      {/* TABS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {TABS.map(t => (
@@ -730,7 +727,6 @@ const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields }
 function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[]; existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!existing
   const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10))
-  // Modo: 'TODO' | 'ALM' | 'CENAS' | 'CENAS_ALM'
   const [servicio, setServicio] = useState(existing?.servicio ?? 'TODO')
   const [fields, setFields] = useState<FormFields>(() => {
     if (!existing) return {
@@ -760,10 +756,10 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
 
   const set = (k: keyof FormFields, v: string) => setFields(p => ({ ...p, [k]: v }))
 
-  // Fila ALM del mismo día (para modo CENAS_ALM)
+  // Fila ALM del mismo día (excluye la fila actual si estamos editando)
   const filaAlm = useMemo(() =>
-    allData.find(r => r.fecha === fecha && r.servicio === 'ALM'),
-    [allData, fecha]
+    allData.find(r => r.fecha === fecha && r.servicio === 'ALM' && r.id !== existing?.id),
+    [allData, fecha, existing?.id]
   )
 
   const handleSubmit = async (e: FormEvent) => {
@@ -771,10 +767,10 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
     setFormError(null)
     if (!fecha) { setFormError('Selecciona una fecha'); return }
 
-    // ── Modo CENAS_ALM: calcula CENAS = total - ALM ──
+    // ── Modo CENAS_ALM: borra fila actual, crea nueva CENAS = total - ALM ──
     if (servicio === 'CENAS_ALM') {
       if (!filaAlm) {
-        setFormError('No hay datos de ALM para este día. Introduce primero el almuerzo.')
+        setFormError('No hay fila ALM para este día. Introduce primero el almuerzo.')
         return
       }
       const uber_bru_total = parseFloat(fields.uber_bruto) || 0
@@ -803,7 +799,7 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
       const tot_bru = uber_bru_cena + glovo_bru_cena + je_bru_cena + web_bru_cena + directa_bru_cena
 
       if (tot_ped === 0 && tot_bru === 0) {
-        setFormError('El total introducido es igual o menor al ALM ya registrado. Revisa los datos.')
+        setFormError('El total es igual o menor al ALM registrado. Revisa los datos.')
         return
       }
 
@@ -816,7 +812,13 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
         directa_pedidos: directa_ped_cena, directa_bruto: parseFloat(directa_bru_cena.toFixed(2)),
         total_pedidos: tot_ped, total_bruto: parseFloat(tot_bru.toFixed(2)),
       }
+
       setSaving(true)
+      // Si es edición: borrar la fila actual primero, luego insertar CENAS calculada
+      if (isEdit) {
+        const { error: delErr } = await supabase.from('facturacion_diario').delete().eq('id', existing!.id)
+        if (delErr) { setSaving(false); setFormError(delErr.message); return }
+      }
       const { error } = await supabase.from('facturacion_diario').insert(payload)
       setSaving(false)
       if (error) { setFormError(error.message); return }
@@ -898,12 +900,11 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
     )
   }
 
-  // Botones servicio
-  const SERVICIOS: { key: string; label: string; tooltip?: string }[] = [
+  const SERVICIOS: { key: string; label: string }[] = [
     { key: 'TODO',      label: 'TODOS' },
     { key: 'ALM',       label: 'ALM' },
     { key: 'CENAS',     label: 'CENAS' },
-    { key: 'CENAS_ALM', label: 'CENAS/ALM', tooltip: 'Introduce el total del día y se calcula CENAS restando el ALM ya guardado' },
+    { key: 'CENAS_ALM', label: 'CENAS/ALM' },
   ]
 
   return (
@@ -915,28 +916,23 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* FECHA + SERVICIO — nueva distribución */}
+          {/* FECHA + SERVICIO */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            {/* Fecha: 43% del ancho (~20% menos que antes) */}
             <div style={{ flex: '0 0 43%' }}>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={inputStyle} />
             </div>
-            {/* Botones servicio: ocupan el resto */}
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Servicio</label>
               <div style={{ display: 'flex', gap: 4 }}>
                 {SERVICIOS.map(s => {
                   const isActive = servicio === s.key
                   const isCenasAlm = s.key === 'CENAS_ALM'
-                  const disabled = isCenasAlm && isEdit
                   return (
                     <button
                       key={s.key}
                       type="button"
-                      title={s.tooltip}
-                      disabled={disabled}
-                      onClick={() => !disabled && setServicio(s.key)}
+                      onClick={() => setServicio(s.key)}
                       style={{
                         flex: 1,
                         padding: '8px 4px',
@@ -944,14 +940,11 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
                         fontSize: 10,
                         fontWeight: 600,
                         border: isActive ? 'none' : `0.5px solid ${T.brd}`,
-                        background: isActive
-                          ? (isCenasAlm ? '#7c3aed' : '#B01D23')
-                          : 'none',
-                        color: isActive ? '#ffffff' : (disabled ? T.mut : T.sec),
-                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        background: isActive ? (isCenasAlm ? '#7c3aed' : '#B01D23') : 'none',
+                        color: isActive ? '#ffffff' : T.sec,
+                        cursor: 'pointer',
                         fontFamily: FONT.heading,
                         letterSpacing: '0.5px',
-                        opacity: disabled ? 0.4 : 1,
                         whiteSpace: 'nowrap',
                       }}
                     >
@@ -960,14 +953,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
                   )
                 })}
               </div>
-              {/* Aviso modo CENAS_ALM */}
-              {servicio === 'CENAS_ALM' && (
-                <p style={{ fontSize: 10, color: filaAlm ? '#16a34a' : '#f5a623', marginTop: 6, fontFamily: FONT.body }}>
-                  {filaAlm
-                    ? `ALM encontrado: ${fmtEur(filaAlm.total_bruto)} · ${filaAlm.total_pedidos} ped. Introduce el total del día.`
-                    : `⚠ No hay ALM registrado para ${fecha}. Guarda primero el almuerzo.`}
-                </p>
-              )}
             </div>
           </div>
 
@@ -1141,7 +1126,6 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
 
   return (
     <div>
-      {/* 4 cards grandes */}
       {years.length > 0 && (() => {
         const cur = years[0]
         const prev = years[1]
@@ -1169,7 +1153,6 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
         )
       })()}
 
-      {/* Tabla comparativa por año */}
       <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
