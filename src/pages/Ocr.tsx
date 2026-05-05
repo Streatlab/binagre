@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FONT } from '@/styles/tokens'
-import { fmtEur, fmtDate } from '@/utils/format'
+import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
@@ -36,8 +36,6 @@ function parsePage(raw: string | null): number {
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
-
-// conciliacion_refs: movimientos de conciliacion que apuntan a esta factura
 interface ConciliacionRef { id: string; doc_estado: string }
 
 interface Factura {
@@ -45,7 +43,6 @@ interface Factura {
   categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null
   pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null
   numero_factura: string | null; estado: string
-  // Movimientos bancarios asociados (fuente de verdad para conciliación)
   conciliacion_refs: ConciliacionRef[]
 }
 
@@ -54,17 +51,12 @@ interface Agregados {
   conciliadasImporte: number; pendientesCount: number; pendientesImporte: number
 }
 
-// REGLAS DE CONCILIACIÓN (fuente de verdad: conciliacion.factura_id)
-// - Conciliada: tiene PDF en Drive + al menos 1 mov en conciliacion con factura_id = esta factura
-// - No requiere doc: algún mov tiene doc_estado = 'no_requiere' (comisiones, internos)
-// - Pendiente: tiene movs asociados pero falta PDF, o no tiene movs aún
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc {
-  const tieneMovAsociado = f.conciliacion_refs.length > 0
   const noRequiere = f.conciliacion_refs.some(r => r.doc_estado === 'no_requiere')
   if (noRequiere) return 'no_requiere'
-  if (tieneMovAsociado && f.pdf_drive_url) return 'conciliada'
+  if (f.conciliacion_refs.length > 0 && f.pdf_drive_url) return 'conciliada'
   return 'pendiente'
 }
 
@@ -73,10 +65,7 @@ function esConciliada(f: Factura): boolean {
 }
 
 interface BtnSubirProps {
-  label: string
-  sublabel: string
-  accept: string
-  onArchivos: (files: File[]) => void
+  label: string; sublabel: string; accept: string; onArchivos: (files: File[]) => void
 }
 function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -96,8 +85,7 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
       onDrop={e => { e.preventDefault(); e.stopPropagation(); setOver(false); handleFiles(e.dataTransfer.files) }}
       onClick={() => inputRef.current?.click()}
       style={{
-        background: over ? '#8f1519' : '#B01D23',
-        borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
+        background: over ? '#8f1519' : '#B01D23', borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
         border: over ? '2px dashed rgba(255,255,255,0.6)' : '2px solid transparent',
         transition: 'background 0.15s, border 0.15s', userSelect: 'none',
@@ -121,35 +109,25 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
   )
 }
 
-// Badge columna DOC:
-// 📎 = conciliada con PDF
-// —  = no requiere doc
-// ✕  = requiere doc pero falta
+// 📎 = conciliada con PDF | — = no requiere doc | ✕ = falta doc
 function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick?: () => void }) {
   if (estado === 'conciliada') {
     return (
-      <div
-        onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }}
+      <div onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: '#0F6E56', cursor: 'pointer', userSelect: 'none' }}
-        title="Factura conciliada · Ver documento"
-      >📎</div>
+        title="Factura conciliada · Ver documento">📎</div>
     )
   }
   if (estado === 'no_requiere') {
     return (
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }}
-        title="No requiere documento"
-      >—</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }}
+        title="No requiere documento">—</div>
     )
   }
-  // pendiente
   return (
-    <div
-      onClick={e => { e.stopPropagation(); onClick?.() }}
+    <div onClick={e => { e.stopPropagation(); onClick?.() }}
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
-      title="Falta documento · Haz clic para editar"
-    >✕</div>
+      title="Falta documento · Haz clic para editar">✕</div>
   )
 }
 
@@ -224,13 +202,8 @@ export default function Ocr() {
       importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: null,
     }
     const sortField = sortMap[sortColumn] ?? 'fecha_factura'
-
-    // FUENTE DE VERDAD: conciliacion(factura_id) — traemos los movs asociados a cada factura
     let q: any = supabase.from('facturas')
-      .select(
-        'id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, conciliacion_refs:conciliacion(id, doc_estado)',
-        { count: 'exact' }
-      )
+      .select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, conciliacion_refs:conciliacion(id, doc_estado)', { count: 'exact' })
       .gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
     else q = q.eq('tipo', 'otro')
@@ -241,7 +214,6 @@ export default function Ocr() {
     }
     if (sortField) q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
     else q = q.order('fecha_factura', { ascending: false }).range(from, to)
-
     const { data, error, count } = await q
     if (myFetchId !== fetchIdRef.current) return
     if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) }
@@ -365,12 +337,7 @@ export default function Ocr() {
       {tab === 'extractos' && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
-            <BtnSubir
-              label="Subir extractos"
-              sublabel="CSV · Excel · PDF · Imagen"
-              accept={ACCEPT_EXTRACTOS}
-              onArchivos={(files) => setModalTitular({ archivos: files, visible: true })}
-            />
+            <BtnSubir label="Subir extractos" sublabel="CSV · Excel · PDF · Imagen" accept={ACCEPT_EXTRACTOS} onArchivos={(files) => setModalTitular({ archivos: files, visible: true })} />
           </div>
           <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
             <ExtractosTabla refreshTick={refreshTick} titulares={titulares} />
@@ -470,17 +437,14 @@ export default function Ocr() {
                             <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_factura)}</td>
                             <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contraparte.length > 40 ? contraparte.slice(0, 40) + '…' : contraparte}</td>
                             <td style={{ ...tdBase, color: f.nif_emisor ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nif_emisor || 'Sin identificar'}</td>
-                            <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: f.total >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>{fmtEur(f.total)}</td>
+                            {/* IMPORTE sin símbolo euro */}
+                            <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: f.total >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>{fmtNumES(f.total, 2)}</td>
                             <td style={{ ...tdBase, overflow: 'hidden' }}>
                               {catInfo ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>{catInfo.nombre}</span>
                               : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>sin categoría</span>}
                             </td>
                             <td style={tdDocBase}>
-                              <DocBadge
-                                estado={estadoDoc}
-                                url={f.pdf_drive_url}
-                                onClick={() => setFacturaEditando(f)}
-                              />
+                              <DocBadge estado={estadoDoc} url={f.pdf_drive_url} onClick={() => setFacturaEditando(f)} />
                             </td>
                             <td style={tdBase}>
                               {conciliada
