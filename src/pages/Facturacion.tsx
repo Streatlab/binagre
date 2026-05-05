@@ -1,4 +1,3 @@
-// v2025-05-05-trigger
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
@@ -7,10 +6,11 @@ import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import {
-  COLORS, FONT, CARDS, LAYOUT,
+  COLORS, FONT, CARDS, LAYOUT, TABS_PILL, SUBTABS,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
 
+// ─── Formato ──────────────────────────────────────────────────
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 const fmtBru = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 })
 const fmtTM  = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2 })
@@ -57,6 +57,26 @@ const MES_NOMBRE: Record<number, string> = {
 const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 const NETO_FACTOR = 0.66
 const COLOR_TODOS = COLORS.lun
+
+// ─── Subtabs Servicio — SUBTABS de tokens, 20% más pequeñas ──
+// SUBTABS.active usa #3a4050 (oscuro, no rojo) para distinguir de TABS_PILL principal
+// Escala al 80%: TABS_PILL es fontSize:13 → aquí usamos 10px
+const SUBTAB_ACTIVE: CSSProperties = {
+  ...SUBTABS.active,
+  fontSize: 10,
+  padding: '4px 10px',
+  letterSpacing: '1.2px',
+  fontFamily: FONT.heading,
+  textTransform: 'uppercase',
+}
+const SUBTAB_INACTIVE: CSSProperties = {
+  ...SUBTABS.inactive,
+  fontSize: 10,
+  padding: '4px 10px',
+  letterSpacing: '1.2px',
+  fontFamily: FONT.heading,
+  textTransform: 'uppercase',
+}
 
 function aggregate(rows: RawDiario[]): AggRow {
   const a: AggRow = { uber_pedidos:0,uber_bruto:0,glovo_pedidos:0,glovo_bruto:0,je_pedidos:0,je_bruto:0,web_pedidos:0,web_bruto:0,directa_pedidos:0,directa_bruto:0,total_pedidos:0,total_bruto:0 }
@@ -116,6 +136,7 @@ function downloadCSV(filename: string, headers: string[], rows: (string|number)[
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url)
 }
 
+// ─── Main ─────────────────────────────────────────────────────
 export default function Facturacion() {
   const { tipoDia } = useCalendario()
   const [tab, setTab] = useState<Tab>('diario')
@@ -173,46 +194,54 @@ export default function Facturacion() {
     })
   }
 
-  const filtroBtnStyle = (active: boolean): CSSProperties => ({
-    padding:'5px 12px', borderRadius:8, fontFamily:FONT.heading, fontSize:10, fontWeight:500,
-    letterSpacing:'1.5px', textTransform:'uppercase',
-    border: active?'none':`0.5px solid ${COLORS.brd}`,
-    background: active?COLORS.redSL:COLORS.card,
-    color: active?'#fff':COLORS.mut, cursor:'pointer',
-  })
-
   return (
-    <div style={{ background:COLORS.bg, padding:LAYOUT.pagePadding }}>
+    // ── Wrap COLORS.group (#ebe8e2) — calco exacto de Panel Global ──
+    <div style={{ background:COLORS.group, minHeight:'100vh', padding:LAYOUT.pagePadding, fontFamily:FONT.body }}>
+      {/* HEADER */}
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ color:COLORS.redSL, fontFamily:FONT.heading, fontSize:22, fontWeight:600, letterSpacing:'3px', margin:0, textTransform:'uppercase' }}>FACTURACIÓN</h2>
-          <span style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, display:'block', marginTop:4 }}>
+          <h2 style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:'3px', margin:0, textTransform:'uppercase' }}>FACTURACIÓN</h2>
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
             {fmtFechaCorta(periodoDesde.toISOString().slice(0,10))} — {fmtFechaCorta(periodoHasta.toISOString().slice(0,10))}
-          </span>
+          </div>
         </div>
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
       </div>
 
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:LAYOUT.sectionMargin }}>
-        <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
-        <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-          {['Todos','ALM','CENAS'].map(s=>(<button key={s} onClick={()=>setServicioFiltro(s)} style={filtroBtnStyle(servicioFiltro===s)}>{s}</button>))}
-          <div style={{ position:'relative' }} data-drop-canal="canales">
-            <button onClick={e=>{e.stopPropagation();setDropCanalOpen(p=>!p)}} style={{ padding:'5px 10px', borderRadius:8, fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, color:COLORS.mut, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
-              {canalesVisibles.length===5?'Canales':`${canalesVisibles.length} canales`} <span style={{ fontSize:9 }}>▾</span>
-            </button>
-            {dropCanalOpen && (
-              <div style={{ position:'absolute', top:'110%', right:0, background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:10, padding:'6px 0', zIndex:20, minWidth:160, boxShadow:'0 4px 16px rgba(0,0,0,0.08)' }}>
-                {ALL_COLS.map(c=>(
-                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', cursor:'pointer', fontFamily:FONT.body, fontSize:13, color:COLORS.sec }}>
-                    <input type="checkbox" checked={canalesVisibles.includes(c.id)} onChange={()=>toggleCanal(c.id)} style={{ width:13, height:13, accentColor:c.color }} />
-                    <span style={{ width:8, height:8, borderRadius:'50%', background:c.color, flexShrink:0 }} />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* TABS PRINCIPALES + SUBTABS SERVICIO en misma línea, 5px separación */}
+      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:LAYOUT.sectionMargin, flexWrap:'wrap' }}>
+        {/* TabsPastilla principal — copiado de PanelGlobal */}
+        <TabsPastilla
+          tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))}
+          activeId={tab}
+          onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }}
+        />
+        {/* Separador */}
+        <div style={{ width:1, height:24, background:COLORS.brd, flexShrink:0 }} />
+        {/* Subtabs servicio — SUBTABS token, 80% tamaño, activo #3a4050 */}
+        <div style={{ ...TABS_PILL.container, marginBottom:0, marginTop:0 }}>
+          {['Todos','ALM','CENAS'].map(s=>(
+            <button key={s} onClick={()=>setServicioFiltro(s)}
+              style={servicioFiltro===s ? SUBTAB_ACTIVE : SUBTAB_INACTIVE}>{s}</button>
+          ))}
+        </div>
+        {/* Dropdown canales — mismo tamaño subtab */}
+        <div style={{ position:'relative' }} data-drop-canal="canales">
+          <button onClick={e=>{e.stopPropagation();setDropCanalOpen(p=>!p)}}
+            style={{ ...SUBTAB_INACTIVE, display:'flex', alignItems:'center', gap:3 }}>
+            {canalesVisibles.length===5?'Canales':`${canalesVisibles.length} canales`} <span style={{ fontSize:9 }}>▾</span>
+          </button>
+          {dropCanalOpen && (
+            <div style={{ position:'absolute', top:'110%', left:0, background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:10, padding:'6px 0', zIndex:20, minWidth:160, boxShadow:'0 4px 16px rgba(0,0,0,0.08)' }}>
+              {ALL_COLS.map(c=>(
+                <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', cursor:'pointer', fontFamily:FONT.body, fontSize:13, color:COLORS.sec }}>
+                  <input type="checkbox" checked={canalesVisibles.includes(c.id)} onChange={()=>toggleCanal(c.id)} style={{ width:13, height:13, accentColor:c.color }} />
+                  <span style={{ width:8, height:8, borderRadius:'50%', background:c.color, flexShrink:0 }} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -238,49 +267,68 @@ export default function Facturacion() {
   )
 }
 
+// ─── KPI Cards: 75% info + 25% acciones ───────────────────────
+// Layout: [Card Fact | Card Pedidos·TM] [Añadir Día (70%) / Exportar (30%)]
+// La columna derecha ocupa el 25% y tiene altura fija igual a las cards
 interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const netoLabel = `NETO EST. · ${(NETO_FACTOR*100).toFixed(0)}%`
   return (
-    <div style={{ marginBottom:14 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:10 }}>
-        <div style={CARDS.big}>
-          <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
-          <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
-            <div>
-              <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
-              <div style={{ ...lblXs, marginTop:3 }}>BRUTO</div>
-            </div>
-            <div>
-              <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
-              <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
-            </div>
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
+      {/* Card 1: Facturación */}
+      <div style={CARDS.big}>
+        <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
+        <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+          <div>
+            <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
+            <div style={{ ...lblXs, marginTop:3 }}>BRUTO</div>
           </div>
-          <div style={{ display:'flex', gap:20, marginTop:12, flexWrap:'wrap' }}>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.sec }}>{fmtTM(mediadiaria)}</div><div style={{ ...lblXs, color:COLORS.mut }}>MEDIA/DÍA BRUTA</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.ok }}>{fmtTM(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok }}>MEDIA/DÍA NETA</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.mut }}>{dias}</div><div style={{ ...lblXs, color:COLORS.mut }}>DÍAS</div></div>
+          <div>
+            <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
+            <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
           </div>
         </div>
-        <div style={CARDS.big}>
-          <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
-          <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
-            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.lun }}>{fmtInt(totals.total_pedidos)}</div><div style={{ ...lblXs, marginTop:3 }}>PEDIDOS</div></div>
-            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
-            <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
-          </div>
+        <div style={{ display:'flex', gap:20, marginTop:12, flexWrap:'wrap' }}>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.sec }}>{fmtTM(mediadiaria)}</div><div style={{ ...lblXs, color:COLORS.mut }}>MEDIA/DÍA BRUTA</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.ok }}>{fmtTM(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok }}>MEDIA/DÍA NETA</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:COLORS.mut }}>{dias}</div><div style={{ ...lblXs, color:COLORS.mut }}>DÍAS</div></div>
         </div>
       </div>
-      <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-        <button onClick={onAdd} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', borderRadius:10, background:COLORS.redSL, color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', fontWeight:600 }}>
-          <span style={{ fontSize:14, lineHeight:1 }}>↑</span> AÑADIR DÍA
-        </button>
-        {onExport && (<button onClick={onExport} style={{ padding:'9px 18px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.mut, cursor:'pointer', fontWeight:500 }}>Exportar CSV</button>)}
+
+      {/* Card 2: Pedidos + TM */}
+      <div style={CARDS.big}>
+        <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
+        <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
+          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.lun }}>{fmtInt(totals.total_pedidos)}</div><div style={{ ...lblXs, marginTop:3 }}>PEDIDOS</div></div>
+          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
+          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
+        </div>
+      </div>
+
+      {/* Columna derecha 25%: Añadir Día (70%) + Exportar (30%) */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {/* Botón Añadir Día — 70% altura */}
+        <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
+          style={{ flex:'0 0 70%', ...CARDS.big, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, userSelect:'none', padding:'20px 16px' }}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
+          <span style={{ fontSize:24, lineHeight:1, color:'#fff' }}>↑</span>
+          <div style={{ fontFamily:FONT.heading, fontSize:13, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
+          <div style={{ fontFamily:FONT.body, fontSize:11, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
+        </div>
+        {/* Botón Exportar — 30% altura */}
+        {onExport && (
+          <button onClick={onExport}
+            style={{ flex:'0 0 30%', ...CARDS.big, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card, padding:'10px 16px' }}>
+            <span style={{ fontSize:14 }}>↓</span> Exportar CSV
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
+// ─── Tab Diario ────────────────────────────────────────────────
 function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta }: { allData:RawDiario[]; cols:typeof ALL_COLS; weekFilter:{year:number;week:number}|null; onEdit:(r:RawDiario)=>void; onAdd:()=>void; tipoDia:(f:string)=>TipoDia; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number }) {
   const [sortCol, setSortCol] = useState<SortCol>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -370,6 +418,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
   )
 }
 
+// ─── Tab Semanas ───────────────────────────────────────────────
 function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: { allData:RawDiario[]; cols:typeof ALL_COLS; onDrill:(y:number,w:number)=>void; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }) {
   const rows = useMemo(()=>buildSemanas(allData).slice(0,12),[allData])
   const exportar=()=>{ downloadCSV('facturacion_semanas.csv',['Semana','Periodo','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto'],rows.map(r=>[`S${r.week}`,r.periodo,r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto])) }
@@ -401,6 +450,7 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
   )
 }
 
+// ─── Tab Meses ─────────────────────────────────────────────────
 function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: { allData:RawDiario[]; cols:typeof ALL_COLS; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }) {
   const allRows = useMemo(()=>buildMeses(allData),[allData])
   const years = useMemo(()=>{const s=new Set(allRows.map(r=>r.anio));return [...s].sort((a,b)=>b-a)},[allRows])
@@ -437,6 +487,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   )
 }
 
+// ─── Tab Anual ─────────────────────────────────────────────────
 function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: { allData:RawDiario[]; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }) {
   const years = useMemo(()=>{ const m=new Map<number,{bruto:number;pedidos:number}>(); for(const r of allData){ const y=parseInt(r.fecha.slice(0,4)); if(!m.has(y))m.set(y,{bruto:0,pedidos:0}); const c=m.get(y)!; c.bruto+=r.total_bruto||0; c.pedidos+=r.total_pedidos||0 }; return [...m.entries()].sort((a,b)=>b[0]-a[0]).map(([anio,v])=>({anio,bruto:v.bruto,pedidos:v.pedidos,mediaMensual:v.bruto/12,mediaTicket:v.pedidos>0?v.bruto/v.pedidos:0})) },[allData])
   const maxBruto=Math.max(...years.map(y=>y.bruto),1)
@@ -467,6 +518,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
   )
 }
 
+// ─── Modal ─────────────────────────────────────────────────────
 interface FormFields { uber_pedidos:string;uber_bruto:string;glovo_pedidos:string;glovo_bruto:string;je_ped:string;je_bru:string;web_pedidos:string;web_bruto:string;directa_ped:string;directa_bru:string }
 const FORM_COLS: { label:string; ped:keyof FormFields; bru:keyof FormFields }[] = [{label:'Uber Eats',ped:'uber_pedidos',bru:'uber_bruto'},{label:'Glovo',ped:'glovo_pedidos',bru:'glovo_bruto'},{label:'Web',ped:'web_pedidos',bru:'web_bruto'},{label:'Venta Directa',ped:'directa_ped',bru:'directa_bru'}]
 const CANAL_COLORS_M: Record<string,{bg:string;border:string;label:string}> = {'Uber Eats':{bg:'#06C16712',border:'#06C167',label:'#06C167'},'Glovo':{bg:'#e8f44218',border:'#8a7800',label:'#8a7800'},'Web':{bg:'#B01D2312',border:'#B01D23',label:'#B01D23'},'Venta Directa':{bg:'#66aaff12',border:'#66aaff',label:'#66aaff'}}
@@ -514,16 +566,14 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
             <div style={{ flex:1 }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Servicio</label><div style={{ display:'flex', gap:4 }}>{[{key:'TODO',label:'TODOS'},{key:'ALM',label:'ALM'},{key:'CENAS',label:'CENAS'},{key:'CENAS_ALM',label:'CENAS/ALM'}].map(s=>{ const isA=servicio===s.key; const isCA=s.key==='CENAS_ALM'; return (<button key={s.key} type="button" onClick={()=>setServicio(s.key)} style={{ flex:1, padding:'8px 4px', borderRadius:8, fontSize:10, fontWeight:600, border:isA?'none':`0.5px solid ${COLORS.brd}`, background:isA?(isCA?'#7c3aed':COLORS.redSL):'#fff', color:isA?'#fff':COLORS.mut, cursor:'pointer', fontFamily:FONT.heading, letterSpacing:'0.5px', whiteSpace:'nowrap' }}>{s.label}</button>) })}</div></div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
-          </div>
+            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}\n          </div>
           <div style={{ background:'#f5a62312', border:'1px solid #f5a623', borderRadius:10, padding:14 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €</span>}</div>
             {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:'#fff', border:`0.5px solid ${COLORS.brd}` }}><span style={{ fontFamily:FONT.body, fontSize:13 }}>{item.toFixed(2)} €</span><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
             <div style={{ display:'flex', gap:8, alignItems:'center' }}><input type="number" step="0.01" min="0" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const v=parseFloat(jeInput);if(v>0){setJeItems(p=>[...p,v]);setJeInput('')}}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={()=>{const v=parseFloat(jeInput);if(v>0){setJeItems(p=>[...p,v]);setJeInput('')}}} style={{ padding:'6px 14px', borderRadius:8, background:'#f5a623', color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
-          </div>
+            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}\n          </div>
           {formError&&<p style={{ color:COLORS.err, fontSize:12, margin:0, fontFamily:FONT.body }}>{formError}</p>}
           <div style={{ display:'flex', gap:12, paddingTop:8 }}>
             {isEdit&&(<button type="button" onClick={handleDelete} style={{ flex:1, padding:'10px 16px', borderRadius:8, fontSize:13, fontWeight:600, border:`1px solid ${COLORS.redSL}`, background:'none', color:COLORS.redSL, cursor:'pointer', fontFamily:FONT.body }}>Eliminar</button>)}
