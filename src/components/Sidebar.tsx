@@ -51,7 +51,6 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
-      // Placeholders nuevos (Banktrack-inspired)
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
     ],
@@ -101,7 +100,6 @@ const SECTIONS: NavSection[] = [
   },
 ]
 
-/* Rutas placeholder, no clicables. Se muestran en desplegable "PRÓXIMAMENTE". */
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Revenue & Ticket',             emoji: '🎫' },
   { label: 'Predicción Demanda',           emoji: '🔮' },
@@ -164,7 +162,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Ranking Marcas',               emoji: '📊' },
   { label: 'Ranking Canales',              emoji: '📡' },
   { label: 'Integraciones',                emoji: '🔌' },
-  // ── Nuevos (análisis ERPs hostelería 2026) ──
   { label: 'Alérgenos',                    emoji: '🥜' },
   { label: 'Alertas Caducidad',            emoji: '⏰' },
   { label: 'Automatización Impuestos',     emoji: '🧾' },
@@ -205,6 +202,18 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE_LS_KEY = 'streatlab.sidebar.proximamente.open'
+const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
+
+function loadOpenSections(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(OPEN_SECTIONS_LS_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return arr.filter(x => typeof x === 'string').slice(-2)
+    return []
+  } catch { return [] }
+}
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
@@ -215,7 +224,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
-  const [openSections, setOpenSections] = useState<string[]>([])
+  const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
@@ -226,6 +235,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     if (typeof window === 'undefined') return
     localStorage.setItem(PROXIMAMENTE_LS_KEY, proxOpen ? '1' : '0')
   }, [proxOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try { localStorage.setItem(OPEN_SECTIONS_LS_KEY, JSON.stringify(openSections)) } catch {}
+  }, [openSections])
 
   useEffect(() => {
     supabase
@@ -297,7 +311,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
 
-          {/* PANEL GLOBAL — PRIMER ÍTEM (TOP) */}
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
             <NavLink
               to="/"
@@ -343,7 +356,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* TAREAS — SEGUNDO ÍTEM */}
           {(!collapsed && perfil === 'admin') && (
             <NavLink
               to="/tareas"
@@ -463,7 +475,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             )
           })}
 
-          {/* PRÓXIMAMENTE — sección especial, items no clicables */}
           {!collapsed && perfil === 'admin' && (
             <SidebarProximamente
               isOpen={proxOpen}
@@ -507,9 +518,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   )
 }
 
-/* ═══════════════════════════════════════════════
-   SidebarProximamente — items no clicables con tooltip "En desarrollo"
-   ═══════════════════════════════════════════════ */
 function SidebarProximamente({ isOpen, onToggle, T }: { isOpen: boolean; onToggle: () => void; T: ReturnType<typeof useTheme>['T'] }) {
   return (
     <div style={{ marginTop: 4 }}>
