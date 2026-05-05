@@ -1,6 +1,7 @@
 /**
- * GestorDocumental — v14: usa supabase.functions.invoke (no fetch directo)
- * El 405 venía de fetch crudo cruzando alguna proxy. invoke usa el cliente oficial.
+ * GestorDocumental — v15: ZIP via signed URL (descarga directa desde Storage)
+ * Fix definitivo: la edge function sube ZIP a Storage y devuelve URL firmada.
+ * Cliente recibe JSON con url+filename, dispara <a download>. Sin parsing binario.
  */
 
 import {
@@ -502,7 +503,7 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
   )
 }
 
-function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,facturasMes,mesSeleccionado}:{
+function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,mesSeleccionado}:{
   titularKey:'ruben'|'emilio'; setTitularKey:(k:'ruben'|'emilio')=>void
   titularId: string|null
   mesLabel:string; plazoLabel:string; facturasMes:FacturaRow[]; mesSeleccionado:string
@@ -548,24 +549,22 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
             }
           } catch {}
         }
-        setErrorZip(`Function error: ${detail}`)
+        setErrorZip(`Error: ${detail}`)
         return
       }
-      if (!data) {
-        setErrorZip('Respuesta vacía del servidor')
+      if (!data || typeof data !== 'object' || !('url' in (data as any))) {
+        setErrorZip('Respuesta inválida del servidor')
         return
       }
-      const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: 'application/zip' })
-      if (blob.size === 0) {
-        setErrorZip('ZIP vacío')
-        return
-      }
-      const titNombre = titularKey==='ruben'?'RUBEN':'EMILIO'
-      const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
-      const dl = URL.createObjectURL(blob)
+      const { url, filename } = data as { url: string; filename: string }
       const a = document.createElement('a')
-      a.href=dl; a.download=zipName; a.click()
-      URL.revokeObjectURL(dl)
+      a.href = url
+      a.download = filename || `gestoria_${mesSeleccionado}.zip`
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } catch(err) {
       const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
       setErrorZip(`Error: ${msg}`)
