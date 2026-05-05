@@ -455,6 +455,33 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
 
 function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; totals: AggRow; onEdit: (r: RawDiario) => void; tipoDia: (fecha: string) => TipoDia }) {
   const { T } = useTheme()
+
+  // Agrupar por fecha para saber qué días tienen múltiples filas
+  const fechaCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rows) m.set(r.fecha, (m.get(r.fecha) ?? 0) + 1)
+    return m
+  }, [rows])
+
+  // Precalcular subtotal por fecha (solo cuando hay >1 fila)
+  const subtotalPorFecha = useMemo(() => {
+    const m = new Map<string, AggRow>()
+    for (const [fecha, count] of fechaCount) {
+      if (count > 1) {
+        const filas = rows.filter(r => r.fecha === fecha)
+        m.set(fecha, aggregate(filas))
+      }
+    }
+    return m
+  }, [rows, fechaCount])
+
+  // Detectar última fila de cada fecha con múltiples registros
+  const isLastOfDate = (r: RawDiario, idx: number) => {
+    if ((fechaCount.get(r.fecha) ?? 1) <= 1) return false
+    const nextRow = rows[idx + 1]
+    return !nextRow || nextRow.fecha !== r.fecha
+  }
+
   return (
     <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>
@@ -482,31 +509,61 @@ function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; tot
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => {
+            {rows.map((r, idx) => {
               const tipo = tipoDia(r.fecha)
               const esCerrado = tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones'
+              const showSubtotal = isLastOfDate(r, idx)
+              const sub = showSubtotal ? subtotalPorFecha.get(r.fecha) : null
+
               return (
-              <tr key={r.id} onClick={() => onEdit(r)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', opacity: esCerrado ? 0.7 : 1 }}>
-                <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {fmtFechaCorta(r.fecha)}
-                    <TipoPill tipo={tipo} />
-                  </div>
-                </td>
-                <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
-                {COLS.map(c => {
-                  const p = (r[c.ped] as number) || 0
-                  const b = (r[c.bru] as number) || 0
-                  return (
-                    <Fragment key={c.label}>
-                      <td style={{ padding: '8px 10px', textAlign: 'center', color: p > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{p > 0 ? Math.round(p) : <Dash T={T} />}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{b > 0 ? fmtEur(b) : <Dash T={T} />}</td>
-                    </Fragment>
-                  )
-                })}
-                <td style={{ padding: '8px 10px', textAlign: 'center', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
-              </tr>
+                <Fragment key={r.id}>
+                  {/* Fila normal */}
+                  <tr onClick={() => onEdit(r)} style={{ borderBottom: showSubtotal ? 'none' : `0.5px solid ${T.brd}`, cursor: 'pointer', opacity: esCerrado ? 0.7 : 1 }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {fmtFechaCorta(r.fecha)}
+                        <TipoPill tipo={tipo} />
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
+                    {COLS.map(c => {
+                      const p = (r[c.ped] as number) || 0
+                      const b = (r[c.bru] as number) || 0
+                      return (
+                        <Fragment key={c.label}>
+                          <td style={{ padding: '8px 10px', textAlign: 'center', color: p > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{p > 0 ? Math.round(p) : <Dash T={T} />}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{b > 0 ? fmtEur(b) : <Dash T={T} />}</td>
+                        </Fragment>
+                      )
+                    })}
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
+                  </tr>
+
+                  {/* Fila subtotal del día — solo si hay >1 fila para esa fecha */}
+                  {showSubtotal && sub && (
+                    <tr style={{ borderBottom: `1px solid ${T.brd}`, background: T.group }}>
+                      <td style={{ padding: '6px 10px', textAlign: 'left', color: T.mut, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', position: 'sticky', left: 0, zIndex: 5, background: T.group }}>
+                        {fmtFechaCorta(r.fecha)}
+                      </td>
+                      <td style={{ padding: '6px 10px', borderRight: `0.5px solid ${T.brd}` }}>
+                        <span style={{ fontSize: 9, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut }}>DÍA</span>
+                      </td>
+                      {COLS.map(c => {
+                        const p = (sub[c.ped] as number) || 0
+                        const b = (sub[c.bru] as number) || 0
+                        return (
+                          <Fragment key={c.label}>
+                            <td style={{ padding: '6px 10px', textAlign: 'center', color: p > 0 ? T.sec : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 11, fontWeight: 600 }}>{p > 0 ? Math.round(p) : <Dash T={T} />}</td>
+                            <td style={{ padding: '6px 10px', textAlign: 'right', color: b > 0 ? T.sec : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 11, fontWeight: 600 }}>{b > 0 ? fmtEur(b) : <Dash T={T} />}</td>
+                          </Fragment>
+                        )
+                      })}
+                      <td style={{ padding: '6px 10px', textAlign: 'center', color: T.sec, fontWeight: 700, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11 }}>{fmtInt(sub.total_pedidos)}</td>
+                      <td style={{ padding: '6px 10px', textAlign: 'right', color: T.sec, fontWeight: 700, fontFamily: FONT.heading, fontSize: 12 }}>{fmtEur(sub.total_bruto)}</td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
@@ -723,7 +780,6 @@ const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields }
   { label: 'Venta Directa', ped: 'directa_ped',   bru: 'directa_bru' },
 ]
 
-// ─── MODAL AÑADIR/EDITAR DÍA ───────────────────────────────────────────────
 function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[]; existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!existing
   const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10))
@@ -756,7 +812,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
 
   const set = (k: keyof FormFields, v: string) => setFields(p => ({ ...p, [k]: v }))
 
-  // Fila ALM del mismo día (excluye la fila actual si estamos editando)
   const filaAlm = useMemo(() =>
     allData.find(r => r.fecha === fecha && r.servicio === 'ALM' && r.id !== existing?.id),
     [allData, fecha, existing?.id]
@@ -767,7 +822,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
     setFormError(null)
     if (!fecha) { setFormError('Selecciona una fecha'); return }
 
-    // ── Modo CENAS_ALM: borra fila actual, crea nueva CENAS = total - ALM ──
     if (servicio === 'CENAS_ALM') {
       if (!filaAlm) {
         setFormError('No hay fila ALM para este día. Introduce primero el almuerzo.')
@@ -814,7 +868,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
       }
 
       setSaving(true)
-      // Si es edición: borrar la fila actual primero, luego insertar CENAS calculada
       if (isEdit) {
         const { error: delErr } = await supabase.from('facturacion_diario').delete().eq('id', existing!.id)
         if (delErr) { setSaving(false); setFormError(delErr.message); return }
@@ -826,7 +879,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
       return
     }
 
-    // ── Modo normal (TODO / ALM / CENAS) ──
     const uber_ped = Math.round(parseFloat(fields.uber_pedidos) || 0)
     const uber_bru = parseFloat(fields.uber_bruto) || 0
     const glovo_ped = Math.round(parseFloat(fields.glovo_pedidos) || 0)
@@ -915,8 +967,6 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.sec, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* FECHA + SERVICIO */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 43%' }}>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
@@ -929,25 +979,14 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
                   const isActive = servicio === s.key
                   const isCenasAlm = s.key === 'CENAS_ALM'
                   return (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setServicio(s.key)}
+                    <button key={s.key} type="button" onClick={() => setServicio(s.key)}
                       style={{
-                        flex: 1,
-                        padding: '8px 4px',
-                        borderRadius: 8,
-                        fontSize: 10,
-                        fontWeight: 600,
+                        flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 10, fontWeight: 600,
                         border: isActive ? 'none' : `0.5px solid ${T.brd}`,
                         background: isActive ? (isCenasAlm ? '#7c3aed' : '#B01D23') : 'none',
                         color: isActive ? '#ffffff' : T.sec,
-                        cursor: 'pointer',
-                        fontFamily: FONT.heading,
-                        letterSpacing: '0.5px',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
+                        cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '0.5px', whiteSpace: 'nowrap',
+                      }}>
                       {s.label}
                     </button>
                   )
@@ -1086,8 +1125,6 @@ function DesvBadge({ pct }: { pct: number }) {
 function Dash({ T }: { T: any }) {
   return <span style={{ color: T.mut }}>—</span>
 }
-
-/* ─── TAB ANUAL ─── */
 
 interface AnualYear { anio: number; bruto: number; pedidos: number; mediaMensual: number; mediaTicket: number }
 
