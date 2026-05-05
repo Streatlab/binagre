@@ -20,6 +20,18 @@ import {
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
+// ─── Paleta Conciliación (calco exacto) ───────────────────────
+const C = {
+  bg:     '#f5f3ef',
+  card:   '#ffffff',
+  brd:    '#d0c8bc',
+  text:   '#111111',
+  muted:  '#7a8090',
+  hover:  '#f5f3ef60',
+  rowBrd: '#ebe8e2',
+  active: '#B01D23',
+}
+
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES')
 
 interface AggRow {
@@ -42,13 +54,15 @@ interface MesGroup extends AggRow { anio: number; mes: number; dias: number; med
 
 type Tab = 'diario' | 'semanas' | 'meses' | 'anual'
 type CanalFilter = 'Todos' | 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web'
+type SortDir = 'asc' | 'desc'
+type SortCol = 'fecha' | 'serv' | 'uber' | 'glovo' | 'je' | 'web' | 'dir' | 'total'
 
 const COLS: { id: string; label: string; ped: keyof AggRow; bru: keyof AggRow; color: string; bg: string }[] = [
-  { id: 'uber',  label: 'Uber Eats', ped: 'uber_pedidos',    bru: 'uber_bruto',    color: '#06C167', bg: '#06C16710' },
-  { id: 'glovo', label: 'Glovo',     ped: 'glovo_pedidos',   bru: 'glovo_bruto',   color: '#8a7800', bg: '#e8f44210' },
-  { id: 'je',    label: 'Just Eat',  ped: 'je_pedidos',      bru: 'je_bruto',      color: '#f5a623', bg: '#f5a62310' },
-  { id: 'web',   label: 'Web',       ped: 'web_pedidos',     bru: 'web_bruto',     color: '#B01D23', bg: '#B01D2310' },
-  { id: 'dir',   label: 'Directa',   ped: 'directa_pedidos', bru: 'directa_bruto', color: '#66aaff', bg: '#66aaff10' },
+  { id: 'uber',  label: 'Uber Eats', ped: 'uber_pedidos',    bru: 'uber_bruto',    color: '#06C167', bg: '#06C16712' },
+  { id: 'glovo', label: 'Glovo',     ped: 'glovo_pedidos',   bru: 'glovo_bruto',   color: '#8a7800', bg: '#e8f44218' },
+  { id: 'je',    label: 'Just Eat',  ped: 'je_pedidos',      bru: 'je_bruto',      color: '#f5a623', bg: '#f5a62312' },
+  { id: 'web',   label: 'Web',       ped: 'web_pedidos',     bru: 'web_bruto',     color: '#B01D23', bg: '#B01D2312' },
+  { id: 'dir',   label: 'Directa',   ped: 'directa_pedidos', bru: 'directa_bruto', color: '#66aaff', bg: '#66aaff12' },
 ]
 
 const TABS: { key: Tab; label: string }[] = [
@@ -177,13 +191,13 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
 
 function TipoPill({ tipo }: { tipo: TipoDia }) {
   if (tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones') {
-    return <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5, textTransform: 'uppercase' }}>CERRADO</span>
+    return <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 9, fontFamily: 'Oswald, sans-serif', letterSpacing: 0.5, textTransform: 'uppercase' }}>CERRADO</span>
   }
   if (tipo === 'solo_comida') {
-    return <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>
+    return <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '2px 6px', borderRadius: 4, fontSize: 9, fontFamily: 'Oswald, sans-serif', letterSpacing: 0.5 }}>ALM</span>
   }
   if (tipo === 'solo_cena') {
-    return <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CENA</span>
+    return <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 9, fontFamily: 'Oswald, sans-serif', letterSpacing: 0.5 }}>CENA</span>
   }
   return null
 }
@@ -200,7 +214,6 @@ export default function Facturacion() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
-
   const [weekFilter, setWeekFilter] = useState<{ year: number; week: number } | null>(null)
   const [editRow, setEditRow] = useState<RawDiario | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -226,15 +239,6 @@ export default function Facturacion() {
     const jan1 = new Date(y,0,1)
     return Math.ceil(((d.getTime()-jan1.getTime())/86400000+1)/7)
   })()
-  const mesNombre = hoy.toLocaleDateString('es-ES',{month:'long'}).replace(/^\w/,c=>c.toUpperCase())
-  const fmtCorto = (d: Date) => d.toLocaleDateString('es-ES',{day:'numeric',month:'short'})
-
-  const KPI_LABELS = {
-    hoy: new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' }).replace(/^\w/, c => c.toUpperCase()),
-    semana: `S${weekNum} · ${fmtCorto(monday)} – ${fmtCorto(sunday)}`,
-    mes: mesNombre,
-    anio: `${hoy.getFullYear()}`,
-  }
 
   const refresh = () => setRefreshKey(k => k + 1)
 
@@ -259,10 +263,7 @@ export default function Facturacion() {
     return () => { cancelled = true }
   }, [refreshKey])
 
-  const drillWeek = (year: number, week: number) => {
-    setWeekFilter({ year, week })
-    setTab('diario')
-  }
+  const drillWeek = (year: number, week: number) => { setWeekFilter({ year, week }); setTab('diario') }
   const clearWeekFilter = () => setWeekFilter(null)
 
   const todayStr = today()
@@ -275,58 +276,46 @@ export default function Facturacion() {
     [allData, servicioFiltro]
   )
 
-  const kpiHoy = useMemo(() => {
-    const rows = filteredData.filter(r => r.fecha === todayStr)
-    const a = aggregate(rows)
-    return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [filteredData, canal, todayStr])
+  // ─── Estilos Conciliación calco ───────────────────────────
+  const tabBtnStyle = (active: boolean): CSSProperties => ({
+    padding: '7px 18px', borderRadius: 8, fontFamily: 'Oswald, sans-serif',
+    fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase',
+    border: active ? 'none' : `0.5px solid ${C.brd}`,
+    background: active ? C.active : C.card,
+    color: active ? '#fff' : C.muted,
+    cursor: 'pointer',
+  })
 
-  const kpiSemana = useMemo(() => {
-    const rows = filteredData.filter(r => {
-      const w = isoWeek(r.fecha)
-      return w.year === currentIso.year && w.week === currentIso.week
-    })
-    const a = aggregate(rows)
-    return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [filteredData, canal, currentIso.year, currentIso.week])
-
-  const kpiMes = useMemo(() => {
-    const rows = filteredData.filter(r => r.fecha.startsWith(currentMonth))
-    const a = aggregate(rows)
-    return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [filteredData, canal, currentMonth])
-
-  const kpiAnio = useMemo(() => {
-    const rows = filteredData.filter(r => r.fecha.startsWith(currentYear))
-    const a = aggregate(rows)
-    return { pedidos: getPed(a, canal), bruto: getBru(a, canal) }
-  }, [filteredData, canal, currentYear])
+  const servicioBtn = (active: boolean): CSSProperties => ({
+    padding: '6px 14px', borderRadius: 8, fontFamily: 'Oswald, sans-serif',
+    fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase',
+    border: active ? 'none' : `0.5px solid ${C.brd}`,
+    background: active ? C.active : C.card,
+    color: active ? '#fff' : C.muted,
+    cursor: 'pointer',
+  })
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px' }}>
+    <div style={{ background: C.bg, padding: '24px 28px' }}>
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <h2 style={{ fontFamily: FONT.heading, ...LAYOUT.pageTitle, margin: 0 }}>FACTURACIÓN</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {['Todos', 'ALM', 'CENAS'].map(s => (
-              <button key={s} onClick={() => setServicioFiltro(s)}
-                style={servicioFiltro === s
-                  ? { background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
-                  : { background: 'none', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', cursor: 'pointer', fontWeight: 500 }
-                }>
-                {s}
-              </button>
-            ))}
-          </div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
+          FACTURACIÓN
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {['Todos', 'ALM', 'CENAS'].map(s => (
+            <button key={s} onClick={() => setServicioFiltro(s)} style={servicioBtn(servicioFiltro === s)}>{s}</button>
+          ))}
           <div style={{ position: 'relative' }} data-drop-canal="canales">
-            <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }} style={dropdownBtnStyle(T)}>
-              <span>{canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+            <button onClick={e => { e.stopPropagation(); setDropCanalOpen(p => !p) }}
+              style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', border: `0.5px solid ${C.brd}`, background: C.card, color: C.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span>{canalFilterSelected.length >= 5 ? 'Canales' : canalFilterSelected.length === 1 ? canalFilterSelected[0] : `${canalFilterSelected.length} canales`}</span>
+              <ChevronDown size={11} strokeWidth={2.5} />
             </button>
             {dropCanalOpen && (
-              <div style={dropdownMenuStyle(T)}>
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 10, padding: '6px 0', zIndex: 20, minWidth: 150, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
                 {['Todos', 'Uber Eats', 'Glovo', 'Just Eat', 'Web', 'Directa'].map(c => (
-                  <label key={c} style={dropdownItemStyle(T)}>
+                  <label key={c} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.text }}>
                     <input type="checkbox" checked={canalFilterSelected.includes(c)} onChange={() => {
                       if (c === 'Todos') setCanalFilterSelected(['Todos'])
                       else {
@@ -341,32 +330,34 @@ export default function Facturacion() {
               </div>
             )}
           </div>
-          <SelectorFechaUniversal
-            nombreModulo="facturacion"
-            onChange={() => { /* fecha universal: para futura integración */ }}
-          />
+          <SelectorFechaUniversal nombreModulo="facturacion" onChange={() => {}} />
         </div>
       </div>
 
       {/* TABS */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
-              style={tab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => { setTab(t.key); if (t.key !== 'diario') clearWeekFilter() }}
+            style={tabBtnStyle(tab === t.key)}>
+            {t.label}
+          </button>
+        ))}
         {weekFilter && (
           <button onClick={clearWeekFilter}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(176,29,35,0.08)', color: T.pri, fontFamily: FONT.body, fontSize: 12, fontWeight: 500, borderRadius: 8, border: `0.5px solid rgba(176,29,35,0.3)`, cursor: 'pointer' }}>
-            S{weekFilter.week} &times;
+            style={{ padding: '6px 12px', background: '#B01D2312', color: C.active, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, borderRadius: 8, border: `0.5px solid #B01D2330`, cursor: 'pointer' }}>
+            S{weekFilter.week} ×
           </button>
         )}
       </div>
 
-      {loading ? <Loader T={T} /> : error ? <ErrorBox T={T} msg={error} onRetry={refresh} /> : (
+      {loading ? (
+        <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: 48, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted }}>Cargando…</div>
+      ) : error ? (
+        <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: 32, textAlign: 'center' }}>
+          <p style={{ color: '#E24B4A', fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>{error}</p>
+          <button onClick={refresh} style={{ marginTop: 12, fontSize: 12, color: C.text, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'Lexend, sans-serif' }}>Reintentar</button>
+        </div>
+      ) : (
         <>
           {tab === 'diario' && <TabDiario allData={filteredData} canal={canal} weekFilter={weekFilter} onRefresh={refresh} onEdit={setEditRow} onAdd={() => setShowAdd(true)} tipoDia={tipoDia} />}
           {tab === 'semanas' && <TabSemanas allData={filteredData} canal={canal} onDrill={drillWeek} />}
@@ -389,9 +380,10 @@ interface DiarioProps {
 }
 
 function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: DiarioProps) {
-  const { T } = useTheme()
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [mesFilter, setMesFilter] = useState(currentMonth)
+  const [sortCol, setSortCol] = useState<SortCol>('fecha')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const rows = useMemo(() => {
     let data = allData
@@ -402,8 +394,21 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
     if (mesFilter !== 'todos') {
       data = data.filter(r => r.fecha.startsWith(mesFilter))
     }
-    return [...data].sort((a, b) => b.fecha.localeCompare(a.fecha) || a.servicio.localeCompare(b.servicio))
-  }, [allData, weekFilter, mesFilter])
+    const sorted = [...data].sort((a, b) => {
+      let va: number | string = 0, vb: number | string = 0
+      if (sortCol === 'fecha') { va = a.fecha; vb = b.fecha }
+      else if (sortCol === 'serv') { va = a.servicio; vb = b.servicio }
+      else if (sortCol === 'uber') { va = a.uber_bruto; vb = b.uber_bruto }
+      else if (sortCol === 'glovo') { va = a.glovo_bruto; vb = b.glovo_bruto }
+      else if (sortCol === 'je') { va = a.je_bruto; vb = b.je_bruto }
+      else if (sortCol === 'web') { va = a.web_bruto; vb = b.web_bruto }
+      else if (sortCol === 'dir') { va = a.directa_bruto; vb = b.directa_bruto }
+      else if (sortCol === 'total') { va = a.total_bruto; vb = b.total_bruto }
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb as string) : (vb as string).localeCompare(va)
+      return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number)
+    })
+    return sorted
+  }, [allData, weekFilter, mesFilter, sortCol, sortDir])
 
   const mesesDisponibles = useMemo(() => {
     const set = new Set(allData.map(r => r.fecha.slice(0, 7)))
@@ -412,19 +417,101 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
 
   const totals = useMemo(() => aggregate(rows), [rows])
 
+  // Subtotal por fecha (dias con >1 fila)
+  const fechaCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rows) m.set(r.fecha, (m.get(r.fecha) ?? 0) + 1)
+    return m
+  }, [rows])
+
+  const subtotalPorFecha = useMemo(() => {
+    const m = new Map<string, AggRow>()
+    for (const [fecha, count] of fechaCount) {
+      if (count > 1) {
+        const filas = allData.filter(r => r.fecha === fecha)
+        m.set(fecha, aggregate(filas))
+      }
+    }
+    return m
+  }, [allData, fechaCount])
+
+  // Agrupar por fecha para insertar fila DÍA ANTES de las filas del día
+  const rowsConSubtotal = useMemo(() => {
+    type Item = { type: 'subtotal'; fecha: string; agg: AggRow } | { type: 'row'; r: RawDiario }
+    const result: Item[] = []
+    let lastFecha = ''
+    for (const r of rows) {
+      if (r.fecha !== lastFecha) {
+        const count = fechaCount.get(r.fecha) ?? 1
+        if (count > 1) {
+          result.push({ type: 'subtotal', fecha: r.fecha, agg: subtotalPorFecha.get(r.fecha)! })
+        }
+        lastFecha = r.fecha
+      }
+      result.push({ type: 'row', r })
+    }
+    return result
+  }, [rows, fechaCount, subtotalPorFecha])
+
   const exportar = () => {
     const headers = ['Fecha', 'Servicio', 'UE Ped', 'UE Bruto', 'GL Ped', 'GL Bruto', 'JE Ped', 'JE Bruto', 'Web Ped', 'Web Bruto', 'Dir Ped', 'Dir Bruto', 'Total Ped', 'Total Bruto']
     const csvRows = rows.map(r => [r.fecha, r.servicio, r.uber_pedidos, r.uber_bruto, r.glovo_pedidos, r.glovo_bruto, r.je_pedidos, r.je_bruto, r.web_pedidos, r.web_bruto, r.directa_pedidos, r.directa_bruto, r.total_pedidos, r.total_bruto])
     downloadCSV('facturacion_diario.csv', headers, csvRows)
   }
 
-  if (allData.length === 0) return <EmptyState T={T} label="Sin datos de facturacion diaria" onAdd={onAdd} />
+  if (allData.length === 0) return (
+    <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: 48, textAlign: 'center' }}>
+      <p style={{ color: C.muted, fontSize: 13, margin: 0, fontFamily: 'Lexend, sans-serif' }}>Sin datos de facturación diaria</p>
+      <button onClick={onAdd} style={{ marginTop: 16, padding: '8px 22px', borderRadius: 10, background: '#B01D23', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' }}>+ Añadir día</button>
+    </div>
+  )
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  const arrow = (col: SortCol) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+
+  const thStyle = (col: SortCol, align: 'left' | 'right' | 'center' = 'left'): CSSProperties => ({
+    fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
+    textTransform: 'uppercase', textAlign: align,
+    color: sortCol === col ? '#B01D23' : C.muted,
+    padding: '10px 12px', background: C.bg, borderBottom: `0.5px solid ${C.brd}`,
+    whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+  })
+
+  const thColorStyle = (col: SortCol, color: string, bg: string, align: 'left' | 'right' | 'center' = 'center'): CSSProperties => ({
+    ...thStyle(col, align),
+    background: bg,
+    color: sortCol === col ? color : `${color}99`,
+  })
+
+  const tdBase: CSSProperties = {
+    padding: '9px 12px', fontSize: 13, fontFamily: 'Lexend, sans-serif',
+    color: C.text, borderBottom: `0.5px solid ${C.rowBrd}`,
+    whiteSpace: 'nowrap', verticalAlign: 'middle',
+  }
 
   return (
     <>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      {/* Filtros + KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
+        {[
+          { label: 'Facturación Bruta', valor: fmtInt(Math.round(getBru(totals, canal))) },
+          { label: 'Pedidos', valor: fmtInt(getPed(totals, canal)) },
+          { label: 'Ticket Medio', valor: getPed(totals, canal) > 0 ? fmtInt(Math.round(getBru(totals, canal) / getPed(totals, canal))) : '—' },
+          { label: 'Media Diaria', valor: (() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtInt(Math.round(getBru(totals, canal) / d)) : '—' })() },
+        ].map(k => (
+          <div key={k.label} style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: C.muted, textTransform: 'uppercase', marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: C.text }}>{k.valor}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <select value={mesFilter} onChange={e => setMesFilter(e.target.value)}
-          style={{ background: T.inp, color: T.pri, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '6px 12px', fontSize: 13, fontFamily: FONT.body, cursor: 'pointer' }}>
+          style={{ padding: '9px 14px', borderRadius: 10, border: `0.5px solid ${C.brd}`, background: C.card, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.text, cursor: 'pointer' }}>
           <option value="todos">Todos los meses</option>
           {mesesDisponibles.map(m => {
             const [y, mm] = m.split('-')
@@ -432,162 +519,129 @@ function TabDiario({ allData, canal, weekFilter, onEdit, onAdd, tipoDia }: Diari
           })}
         </select>
         <button onClick={exportar}
-          style={{ padding: '6px 14px', fontSize: 11, color: T.sec, background: 'none', border: `0.5px solid ${T.brd}`, borderRadius: 10, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 500 }}>
+          style={{ padding: '9px 18px', borderRadius: 10, border: `0.5px solid ${C.brd}`, background: C.card, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted, cursor: 'pointer', fontWeight: 500 }}>
           Exportar CSV
         </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 16, alignItems: 'stretch' }}>
-        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
-        <MiniKpi label="TM" valor={getPed(totals, canal) > 0 ? fmtEur(getBru(totals, canal) / getPed(totals, canal)) : '—'} />
-        <MiniKpi label="Facturación Diaria" valor={(() => { const d = new Set(rows.map(r => r.fecha)).size; return d > 0 ? fmtEur(getBru(totals, canal) / d) : '—' })()} />
         <button onClick={onAdd}
-          style={{ padding: '0 22px', borderRadius: 10, background: '#B01D23', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          style={{ padding: '9px 18px', borderRadius: 10, background: '#B01D23', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' }}>
           + Añadir día
         </button>
       </div>
 
-      <DiarioTable rows={rows} totals={totals} onEdit={onEdit} tipoDia={tipoDia} />
-    </>
-  )
-}
-
-function DiarioTable({ rows, totals, onEdit, tipoDia }: { rows: RawDiario[]; totals: AggRow; onEdit: (r: RawDiario) => void; tipoDia: (fecha: string) => TipoDia }) {
-  const { T } = useTheme()
-
-  // Agrupar por fecha para saber qué días tienen múltiples filas
-  const fechaCount = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const r of rows) m.set(r.fecha, (m.get(r.fecha) ?? 0) + 1)
-    return m
-  }, [rows])
-
-  // Precalcular subtotal por fecha (solo cuando hay >1 fila)
-  const subtotalPorFecha = useMemo(() => {
-    const m = new Map<string, AggRow>()
-    for (const [fecha, count] of fechaCount) {
-      if (count > 1) {
-        const filas = rows.filter(r => r.fecha === fecha)
-        m.set(fecha, aggregate(filas))
-      }
-    }
-    return m
-  }, [rows, fechaCount])
-
-  // Detectar última fila de cada fecha con múltiples registros
-  const isLastOfDate = (r: RawDiario, idx: number) => {
-    if ((fechaCount.get(r.fecha) ?? 1) <= 1) return false
-    const nextRow = rows[idx + 1]
-    return !nextRow || nextRow.fecha !== r.fecha
-  }
-
-  return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
-          <thead>
-            <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
-              <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle', position: 'sticky', left: 0, zIndex: 5 }}>Fecha</th>
-              <th rowSpan={2} style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, verticalAlign: 'middle' }}>Serv.</th>
-              {COLS.map(c => (
-                <th key={c.label} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>
-                  {c.label}
+      {/* Tabla */}
+      <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, whiteSpace: 'nowrap', minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('fecha')} style={thStyle('fecha')} rowSpan={2}>Fecha{arrow('fecha')}</th>
+                <th onClick={() => handleSort('serv')} style={thStyle('serv')} rowSpan={2}>Serv.{arrow('serv')}</th>
+                {COLS.map(c => (
+                  <th key={c.id} colSpan={2} onClick={() => handleSort(c.id as SortCol)}
+                    style={thColorStyle(c.id as SortCol, c.color, c.bg, 'center')}>
+                    {c.label}{arrow(c.id as SortCol)}
+                  </th>
+                ))}
+                <th colSpan={2} onClick={() => handleSort('total')}
+                  style={{ ...thStyle('total', 'center'), background: C.bg, color: sortCol === 'total' ? '#B01D23' : C.muted }}>
+                  Total{arrow('total')}
                 </th>
-              ))}
-              <th colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', background: T.group, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Total</th>
-            </tr>
-            <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>
-              {COLS.map(c => (
-                <Fragment key={c.label}>
-                  <th style={{ padding: '6px 8px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>Ped</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'right', background: c.bg, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>€</th>
-                </Fragment>
-              ))}
-              <th style={{ padding: '6px 8px', textAlign: 'center', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>Ped</th>
-              <th style={{ padding: '6px 8px', textAlign: 'right', background: T.group, fontWeight: 400, fontFamily: FONT.heading, color: T.mut }}>€</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, idx) => {
-              const tipo = tipoDia(r.fecha)
-              const esCerrado = tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones'
-              const showSubtotal = isLastOfDate(r, idx)
-              const sub = showSubtotal ? subtotalPorFecha.get(r.fecha) : null
-
-              return (
-                <Fragment key={r.id}>
-                  {/* Fila normal */}
-                  <tr onClick={() => onEdit(r)} style={{ borderBottom: showSubtotal ? 'none' : `0.5px solid ${T.brd}`, cursor: 'pointer', opacity: esCerrado ? 0.7 : 1 }}>
-                    <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {fmtFechaCorta(r.fecha)}
-                        <TipoPill tipo={tipo} />
-                      </div>
-                    </td>
-                    <td style={{ padding: '8px 10px', textAlign: 'left', borderRight: `0.5px solid ${T.brd}` }}><ServicioBadge s={r.servicio} /></td>
-                    {COLS.map(c => {
-                      const p = (r[c.ped] as number) || 0
-                      const b = (r[c.bru] as number) || 0
-                      return (
-                        <Fragment key={c.label}>
-                          <td style={{ padding: '8px 10px', textAlign: 'center', color: p > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{p > 0 ? Math.round(p) : <Dash T={T} />}</td>
-                          <td style={{ padding: '8px 10px', textAlign: 'right', color: b > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>{b > 0 ? fmtEur(b) : <Dash T={T} />}</td>
-                        </Fragment>
-                      )
-                    })}
-                    <td style={{ padding: '8px 10px', textAlign: 'center', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{fmtInt(r.total_pedidos)}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
-                  </tr>
-
-                  {/* Fila subtotal del día — solo si hay >1 fila para esa fecha */}
-                  {showSubtotal && sub && (
-                    <tr style={{ borderBottom: `1px solid ${T.brd}`, background: T.group }}>
-                      <td style={{ padding: '6px 10px', textAlign: 'left', color: T.mut, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', position: 'sticky', left: 0, zIndex: 5, background: T.group }}>
-                        {fmtFechaCorta(r.fecha)}
+              </tr>
+              <tr>
+                {COLS.map(c => (
+                  <Fragment key={c.id}>
+                    <th style={{ padding: '6px 10px', textAlign: 'center', background: c.bg, borderBottom: `0.5px solid ${C.brd}`, fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, fontWeight: 400 }}>Ped</th>
+                    <th style={{ padding: '6px 10px', textAlign: 'right', background: c.bg, borderBottom: `0.5px solid ${C.brd}`, fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, fontWeight: 400 }}>Bruto</th>
+                  </Fragment>
+                ))}
+                <th style={{ padding: '6px 10px', textAlign: 'center', background: C.bg, borderBottom: `0.5px solid ${C.brd}`, fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, fontWeight: 400 }}>Ped</th>
+                <th style={{ padding: '6px 10px', textAlign: 'right', background: C.bg, borderBottom: `0.5px solid ${C.brd}`, fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, fontWeight: 400 }}>Bruto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsConSubtotal.map((item, idx) => {
+                if (item.type === 'subtotal') {
+                  const sub = item.agg
+                  return (
+                    <tr key={`sub-${item.fecha}`} style={{ background: C.bg }}>
+                      <td style={{ ...tdBase, color: C.muted, fontSize: 11, borderBottom: `0.5px solid ${C.rowBrd}`, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' }}>
+                        {fmtFechaCorta(item.fecha)}
                       </td>
-                      <td style={{ padding: '6px 10px', borderRight: `0.5px solid ${T.brd}` }}>
-                        <span style={{ fontSize: 9, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut }}>DÍA</span>
+                      <td style={{ ...tdBase, borderBottom: `0.5px solid ${C.rowBrd}` }}>
+                        <span style={{ fontSize: 9, fontFamily: 'Oswald, sans-serif', letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 4, padding: '2px 6px' }}>DÍA</span>
                       </td>
                       {COLS.map(c => {
                         const p = (sub[c.ped] as number) || 0
                         const b = (sub[c.bru] as number) || 0
                         return (
-                          <Fragment key={c.label}>
-                            <td style={{ padding: '6px 10px', textAlign: 'center', color: p > 0 ? T.sec : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 11, fontWeight: 600 }}>{p > 0 ? Math.round(p) : <Dash T={T} />}</td>
-                            <td style={{ padding: '6px 10px', textAlign: 'right', color: b > 0 ? T.sec : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 11, fontWeight: 600 }}>{b > 0 ? fmtEur(b) : <Dash T={T} />}</td>
+                          <Fragment key={c.id}>
+                            <td style={{ ...tdBase, textAlign: 'center', background: c.bg, color: p > 0 ? c.color : C.muted, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600 }}>{p > 0 ? Math.round(p) : '—'}</td>
+                            <td style={{ ...tdBase, textAlign: 'right', background: c.bg, color: b > 0 ? c.color : C.muted, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600 }}>{b > 0 ? fmtEur(b) : '—'}</td>
                           </Fragment>
                         )
                       })}
-                      <td style={{ padding: '6px 10px', textAlign: 'center', color: T.sec, fontWeight: 700, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11 }}>{fmtInt(sub.total_pedidos)}</td>
-                      <td style={{ padding: '6px 10px', textAlign: 'right', color: T.sec, fontWeight: 700, fontFamily: FONT.heading, fontSize: 12 }}>{fmtEur(sub.total_bruto)}</td>
+                      <td style={{ ...tdBase, textAlign: 'center', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 700 }}>{fmtInt(sub.total_pedidos)}</td>
+                      <td style={{ ...tdBase, textAlign: 'right', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700 }}>{fmtEur(sub.total_bruto)}</td>
                     </tr>
-                  )}
-                </Fragment>
-              )
-            })}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
-              <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', position: 'sticky', left: 0, zIndex: 5, background: T.group }} colSpan={2}>Total</td>
-              {COLS.map(c => (
-                <Fragment key={c.label}>
-                  <td style={{ padding: '10px 10px', textAlign: 'center', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtInt(totals[c.ped] as number)}</td>
-                  <td style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals[c.bru] as number)}</td>
-                </Fragment>
-              ))}
-              <td style={{ padding: '10px 10px', textAlign: 'center', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtInt(totals.total_pedidos)}</td>
-              <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals.total_bruto)}</td>
-            </tr>
-          </tfoot>
-        </table>
+                  )
+                }
+
+                const { r } = item
+                const tipo = tipoDia(r.fecha)
+                const esCerrado = tipo === 'cerrado' || tipo === 'festivo' || tipo === 'vacaciones'
+                const isLast = idx === rowsConSubtotal.length - 1
+
+                return (
+                  <tr key={r.id} onClick={() => onEdit(r)}
+                    style={{ cursor: 'pointer', opacity: esCerrado ? 0.6 : 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.hover }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                    <td style={{ ...tdBase, color: C.muted, fontSize: 12, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {fmtFechaCorta(r.fecha)}
+                        <TipoPill tipo={tipo} />
+                      </div>
+                    </td>
+                    <td style={{ ...tdBase, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                      <ServicioBadge s={r.servicio} />
+                    </td>
+                    {COLS.map(c => {
+                      const p = (r[c.ped] as number) || 0
+                      const b = (r[c.bru] as number) || 0
+                      return (
+                        <Fragment key={c.id}>
+                          <td style={{ ...tdBase, textAlign: 'center', color: p > 0 ? C.text : C.muted, background: c.bg, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>{p > 0 ? Math.round(p) : '—'}</td>
+                          <td style={{ ...tdBase, textAlign: 'right', color: b > 0 ? C.text : C.muted, background: c.bg, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>{b > 0 ? fmtEur(b) : '—'}</td>
+                        </Fragment>
+                      )
+                    })}
+                    <td style={{ ...tdBase, textAlign: 'center', fontWeight: 500, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>{fmtInt(r.total_pedidos)}</td>
+                    <td style={{ ...tdBase, textAlign: 'right', fontWeight: 600, borderBottom: isLast ? 'none' : `0.5px solid ${C.rowBrd}` }}>{fmtEur(r.total_bruto)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: C.bg }}>
+                <td style={{ padding: '10px 12px', color: C.muted, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', borderTop: `0.5px solid ${C.brd}` }} colSpan={2}>Total</td>
+                {COLS.map(c => (
+                  <Fragment key={c.id}>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: c.color, background: c.bg, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtInt(totals[c.ped] as number)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: c.color, background: c.bg, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtEur(totals[c.bru] as number)}</td>
+                  </Fragment>
+                ))}
+                <td style={{ padding: '10px 12px', textAlign: 'center', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtInt(totals.total_pedidos)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtEur(totals.total_bruto)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
 function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: CanalFilter; onDrill: (y: number, w: number) => void }) {
-  const { T } = useTheme()
   const rows = useMemo(() => buildSemanas(allData).slice(0, 12), [allData])
   const totals = useMemo(() => aggregate(allData), [allData])
 
@@ -597,85 +651,81 @@ function TabSemanas({ allData, canal, onDrill }: { allData: RawDiario[]; canal: 
     downloadCSV('facturacion_semanas.csv', headers, csvRows)
   }
 
-  if (rows.length === 0) return <EmptyState T={T} label="Sin datos semanales" />
+  const thS: CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: C.muted, padding: '10px 12px', background: C.bg, borderBottom: `0.5px solid ${C.brd}`, whiteSpace: 'nowrap' }
+  const tdS: CSSProperties = { padding: '9px 12px', fontSize: 13, fontFamily: 'Lexend, sans-serif', color: C.text, borderBottom: `0.5px solid ${C.rowBrd}`, whiteSpace: 'nowrap' }
+
+  if (rows.length === 0) return <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: 48, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted }}>Sin datos semanales</div>
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-        <button onClick={exportar}
-          style={{ padding: '6px 14px', fontSize: 11, color: T.sec, background: 'none', border: `0.5px solid ${T.brd}`, borderRadius: 10, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 500 }}>
-          Exportar CSV
-        </button>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+        {[
+          { label: 'Semanas', valor: String(rows.length) },
+          { label: 'Facturación Bruta', valor: fmtInt(Math.round(getBru(totals, canal))) },
+          { label: 'Pedidos', valor: fmtInt(getPed(totals, canal)) },
+        ].map(k => (
+          <div key={k.label} style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: C.muted, textTransform: 'uppercase', marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: C.text }}>{k.valor}</div>
+          </div>
+        ))}
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        <MiniKpi label="Semanas" valor={String(rows.length)} />
-        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(totals, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtInt(getPed(totals, canal))} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button onClick={exportar} style={{ padding: '9px 18px', borderRadius: 10, border: `0.5px solid ${C.brd}`, background: C.card, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted, cursor: 'pointer' }}>Exportar CSV</button>
       </div>
-
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, whiteSpace: 'nowrap' }}>
             <thead>
-              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
-                <th style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Sem</th>
-                <th style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Periodo</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Días</th>
-                {COLS.map(c => (
-                  <th key={c.label} style={{ padding: '10px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>{c.label}</th>
-                ))}
-                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Total</th>
+              <tr>
+                <th style={thS}>Sem</th>
+                <th style={thS}>Periodo</th>
+                <th style={{ ...thS, textAlign: 'center' }}>Días</th>
+                {COLS.map(c => <th key={c.id} style={{ ...thS, background: c.bg, color: `${c.color}99`, textAlign: 'right' }}>{c.label}</th>)}
+                <th style={{ ...thS, textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => (
-                <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>S{r.week}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{r.periodo}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{r.dias}</td>
+              {rows.map((r, idx) => (
+                <tr key={`${r.year}-${r.week}`} onClick={() => onDrill(r.year, r.week)}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.hover }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                  <td style={{ ...tdS, fontFamily: 'Oswald, sans-serif', fontWeight: 600, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>S{r.week}</td>
+                  <td style={{ ...tdS, color: C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{r.periodo}</td>
+                  <td style={{ ...tdS, textAlign: 'center', color: C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{r.dias}</td>
                   {COLS.map(c => (
-                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
-                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash T={T} />}
+                    <td key={c.id} style={{ ...tdS, textAlign: 'right', background: c.bg, color: (r[c.bru] as number) > 0 ? C.text : C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : '—'}
                     </td>
                   ))}
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.pri, fontWeight: 600, fontFamily: FONT.body, fontSize: 13 }}>{fmtEur(r.total_bruto)}</td>
+                  <td style={{ ...tdS, textAlign: 'right', fontWeight: 600, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{fmtEur(r.total_bruto)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
-                <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }} colSpan={3}>Total</td>
+              <tr style={{ background: C.bg }}>
+                <td style={{ padding: '10px 12px', color: C.muted, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', borderTop: `0.5px solid ${C.brd}` }} colSpan={3}>Total</td>
                 {COLS.map(c => (
-                  <td key={c.label} style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
-                    {fmtEur(totals[c.bru] as number)}
-                  </td>
+                  <td key={c.id} style={{ padding: '10px 12px', textAlign: 'right', color: c.color, background: c.bg, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtEur(totals[c.bru] as number)}</td>
                 ))}
-                <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{fmtEur(totals.total_bruto)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtEur(totals.total_bruto)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
-      <p style={{ fontSize: 10, color: T.mut, marginTop: 8, fontFamily: FONT.body }}>Haz clic en una semana para ver el detalle diario</p>
+      <p style={{ fontSize: 10, color: C.muted, marginTop: 8, fontFamily: 'Lexend, sans-serif' }}>Haz clic en una semana para ver el detalle diario</p>
     </>
   )
 }
 
 function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter }) {
-  const { T } = useTheme()
   const allRows = useMemo(() => buildMeses(allData), [allData])
-
-  const years = useMemo(() => {
-    const s = new Set(allRows.map(r => r.anio))
-    return [...s].sort((a, b) => b - a)
-  }, [allRows])
-
+  const years = useMemo(() => { const s = new Set(allRows.map(r => r.anio)); return [...s].sort((a, b) => b - a) }, [allRows])
   const [selYear, setSelYear] = useState(new Date().getFullYear())
   useEffect(() => { if (years.length > 0 && !years.includes(selYear)) setSelYear(years[0]) }, [years, selYear])
-
   const rows = useMemo(() => allRows.filter(r => r.anio === selYear), [allRows, selYear])
-
   const yearTotal = useMemo(() => {
     const a = aggregate(allData.filter(r => r.fecha.startsWith(String(selYear))))
     const dias = new Set(allData.filter(r => r.fecha.startsWith(String(selYear))).map(r => r.fecha)).size
@@ -684,78 +734,73 @@ function TabMeses({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
 
   const exportar = () => {
     const headers = ['Mes', 'Dias', 'UE', 'Glovo', 'JE', 'Web', 'Directa', 'Total Ped', 'Total Bruto', 'Media Diaria', 'vs Anterior']
-    const csvRows = rows.map(r => {
-      const vs = r.vs_anterior !== null ? r.vs_anterior.toFixed(1) + '%' : ''
-      return [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.directa_bruto, r.total_pedidos, r.total_bruto, r.media_diaria.toFixed(2), vs]
-    })
+    const csvRows = rows.map(r => { const vs = r.vs_anterior !== null ? r.vs_anterior.toFixed(1) + '%' : ''; return [MES_NOMBRE[r.mes], r.dias, r.uber_bruto, r.glovo_bruto, r.je_bruto, r.web_bruto, r.directa_bruto, r.total_pedidos, r.total_bruto, r.media_diaria.toFixed(2), vs] })
     downloadCSV(`facturacion_meses_${selYear}.csv`, headers, csvRows)
   }
 
-  if (allRows.length === 0) return <EmptyState T={T} label="Sin datos mensuales" />
+  const thS: CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: C.muted, padding: '10px 12px', background: C.bg, borderBottom: `0.5px solid ${C.brd}`, whiteSpace: 'nowrap' }
+  const tdS: CSSProperties = { padding: '9px 12px', fontSize: 13, fontFamily: 'Lexend, sans-serif', color: C.text, borderBottom: `0.5px solid ${C.rowBrd}`, whiteSpace: 'nowrap' }
+
+  if (allRows.length === 0) return <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: 48, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted }}>Sin datos mensuales</div>
 
   return (
     <>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+        {[
+          { label: 'Facturación Bruta', valor: fmtInt(Math.round(getBru(yearTotal, canal))) },
+          { label: 'Pedidos', valor: fmtInt(getPed(yearTotal, canal)) },
+          { label: 'Media Diaria', valor: yearTotal.dias > 0 ? fmtInt(Math.round(getBru(yearTotal, canal) / yearTotal.dias)) : '—' },
+        ].map(k => (
+          <div key={k.label} style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: C.muted, textTransform: 'uppercase', marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: C.text }}>{k.valor}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
         {years.length > 1 && (
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            style={{ background: T.inp, color: T.pri, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '6px 12px', fontSize: 13, fontFamily: FONT.body, cursor: 'pointer' }}>
+            style={{ padding: '9px 14px', borderRadius: 10, border: `0.5px solid ${C.brd}`, background: C.card, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.text, cursor: 'pointer' }}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
-        <button onClick={exportar}
-          style={{ padding: '6px 14px', fontSize: 11, color: T.sec, background: 'none', border: `0.5px solid ${T.brd}`, borderRadius: 10, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 500 }}>
-          Exportar CSV
-        </button>
+        <button onClick={exportar} style={{ padding: '9px 18px', borderRadius: 10, border: `0.5px solid ${C.brd}`, background: C.card, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: C.muted, cursor: 'pointer' }}>Exportar CSV</button>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        <MiniKpi label="Facturación Bruta" valor={fmtEur(getBru(yearTotal, canal))} />
-        <MiniKpi label="Pedidos" valor={fmtInt(getPed(yearTotal, canal))} />
-        <MiniKpi label="Facturación Diaria" valor={yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'} />
-      </div>
-
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, whiteSpace: 'nowrap' }}>
             <thead>
-              <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
-                <th style={{ padding: '10px 10px', textAlign: 'left', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Mes</th>
-                <th style={{ padding: '10px 10px', textAlign: 'center', color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading }}>Días</th>
-                {COLS.map(c => (
-                  <th key={c.label} style={{ padding: '10px 10px', textAlign: 'center', background: c.bg, borderRight: `0.5px solid ${T.brd}`, color: c.color, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>{c.label}</th>
-                ))}
-                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, borderRight: `0.5px solid ${T.brd}`, fontWeight: 400, fontFamily: FONT.heading, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Media/día</th>
-                <th style={{ padding: '10px 10px', textAlign: 'right', background: T.group, fontWeight: 400, fontFamily: FONT.heading, color: T.mut, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>vs Anterior</th>
+              <tr>
+                <th style={thS}>Mes</th>
+                <th style={{ ...thS, textAlign: 'center' }}>Días</th>
+                {COLS.map(c => <th key={c.id} style={{ ...thS, background: c.bg, color: `${c.color}99`, textAlign: 'right' }}>{c.label}</th>)}
+                <th style={{ ...thS, textAlign: 'right' }}>Media/día</th>
+                <th style={{ ...thS, textAlign: 'right' }}>vs Anterior</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => (
-                <tr key={r.mes} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: T.pri, fontWeight: 500, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body }}>{MES_NOMBRE[r.mes]}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{r.dias}</td>
+              {rows.map((r, idx) => (
+                <tr key={r.mes} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.hover }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                  <td style={{ ...tdS, fontFamily: 'Oswald, sans-serif', fontWeight: 600, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{MES_NOMBRE[r.mes]}</td>
+                  <td style={{ ...tdS, textAlign: 'center', color: C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{r.dias}</td>
                   {COLS.map(c => (
-                    <td key={c.label} style={{ padding: '8px 10px', textAlign: 'right', color: (r[c.bru] as number) > 0 ? T.pri : T.mut, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.body, fontSize: 13 }}>
-                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : <Dash T={T} />}
+                    <td key={c.id} style={{ ...tdS, textAlign: 'right', background: c.bg, color: (r[c.bru] as number) > 0 ? C.text : C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                      {(r[c.bru] as number) > 0 ? fmtEur(r[c.bru] as number) : '—'}
                     </td>
                   ))}
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: T.sec, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 13 }}>{r.dias > 0 ? fmtEur(r.media_diaria) : '—'}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right' }}>{r.vs_anterior !== null ? <DesvBadge pct={r.vs_anterior} /> : <Dash T={T} />}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: C.muted, borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{r.dias > 0 ? fmtEur(r.media_diaria) : '—'}</td>
+                  <td style={{ ...tdS, textAlign: 'right', borderBottom: idx === rows.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{r.vs_anterior !== null ? <DesvBadge pct={r.vs_anterior} /> : <span style={{ color: C.muted }}>—</span>}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: `1px solid ${T.brd}`, background: T.group, fontWeight: 600 }}>
-                <td style={{ padding: '10px 10px', textAlign: 'left', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase' }}>{selYear} Total</td>
-                <td style={{ padding: '10px 10px', textAlign: 'center', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{yearTotal.dias}</td>
+              <tr style={{ background: C.bg }}>
+                <td style={{ padding: '10px 12px', color: C.muted, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', borderTop: `0.5px solid ${C.brd}` }} colSpan={2}>{selYear} Total</td>
                 {COLS.map(c => (
-                  <td key={c.label} style={{ padding: '10px 10px', textAlign: 'right', color: c.color, borderRight: `0.5px solid ${T.brd}`, background: c.bg, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
-                    {fmtEur(yearTotal[c.bru] as number)}
-                  </td>
+                  <td key={c.id} style={{ padding: '10px 12px', textAlign: 'right', color: c.color, background: c.bg, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{fmtEur(yearTotal[c.bru] as number)}</td>
                 ))}
-                <td style={{ padding: '10px 10px', textAlign: 'right', color: T.pri, borderRight: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>
-                  {yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}
-                </td>
-                <td style={{ padding: '10px 10px', textAlign: 'right' }} />
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: C.text, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, borderTop: `0.5px solid ${C.brd}` }}>{yearTotal.dias > 0 ? fmtEur(getBru(yearTotal, canal) / yearTotal.dias) : '—'}</td>
+                <td style={{ padding: '10px 12px', borderTop: `0.5px solid ${C.brd}` }} />
               </tr>
             </tfoot>
           </table>
@@ -785,11 +830,7 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
   const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10))
   const [servicio, setServicio] = useState(existing?.servicio ?? 'TODO')
   const [fields, setFields] = useState<FormFields>(() => {
-    if (!existing) return {
-      uber_pedidos: '', uber_bruto: '', glovo_pedidos: '', glovo_bruto: '',
-      je_ped: '', je_bru: '', web_pedidos: '', web_bruto: '',
-      directa_ped: '0', directa_bru: '0.00',
-    }
+    if (!existing) return { uber_pedidos: '', uber_bruto: '', glovo_pedidos: '', glovo_bruto: '', je_ped: '', je_bru: '', web_pedidos: '', web_bruto: '', directa_ped: '0', directa_bru: '0.00' }
     return {
       uber_pedidos: String(existing.uber_pedidos || ''), uber_bruto: String(existing.uber_bruto || ''),
       glovo_pedidos: String(existing.glovo_pedidos || ''), glovo_bruto: String(existing.glovo_bruto || ''),
@@ -823,84 +864,37 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
     if (!fecha) { setFormError('Selecciona una fecha'); return }
 
     if (servicio === 'CENAS_ALM') {
-      if (!filaAlm) {
-        setFormError('No hay fila ALM para este día. Introduce primero el almuerzo.')
-        return
-      }
-      const uber_bru_total = parseFloat(fields.uber_bruto) || 0
-      const glovo_bru_total = parseFloat(fields.glovo_bruto) || 0
-      const je_bru_total = parseFloat(fields.je_bru) || 0
-      const web_bru_total = parseFloat(fields.web_bruto) || 0
-      const directa_bru_total = parseFloat(fields.directa_bru) || 0
-      const uber_ped_total = Math.round(parseFloat(fields.uber_pedidos) || 0)
-      const glovo_ped_total = Math.round(parseFloat(fields.glovo_pedidos) || 0)
-      const je_ped_total = Math.round(parseFloat(fields.je_ped) || 0)
-      const web_ped_total = Math.round(parseFloat(fields.web_pedidos) || 0)
-      const directa_ped_total = Math.round(parseFloat(fields.directa_ped) || 0)
-
-      const uber_bru_cena = Math.max(0, uber_bru_total - (filaAlm.uber_bruto || 0))
-      const glovo_bru_cena = Math.max(0, glovo_bru_total - (filaAlm.glovo_bruto || 0))
-      const je_bru_cena = Math.max(0, je_bru_total - (filaAlm.je_bruto || 0))
-      const web_bru_cena = Math.max(0, web_bru_total - (filaAlm.web_bruto || 0))
-      const directa_bru_cena = Math.max(0, directa_bru_total - (filaAlm.directa_bruto || 0))
-      const uber_ped_cena = Math.max(0, uber_ped_total - (filaAlm.uber_pedidos || 0))
-      const glovo_ped_cena = Math.max(0, glovo_ped_total - (filaAlm.glovo_pedidos || 0))
-      const je_ped_cena = Math.max(0, je_ped_total - (filaAlm.je_pedidos || 0))
-      const web_ped_cena = Math.max(0, web_ped_total - (filaAlm.web_pedidos || 0))
-      const directa_ped_cena = Math.max(0, directa_ped_total - (filaAlm.directa_pedidos || 0))
-
-      const tot_ped = uber_ped_cena + glovo_ped_cena + je_ped_cena + web_ped_cena + directa_ped_cena
-      const tot_bru = uber_bru_cena + glovo_bru_cena + je_bru_cena + web_bru_cena + directa_bru_cena
-
-      if (tot_ped === 0 && tot_bru === 0) {
-        setFormError('El total es igual o menor al ALM registrado. Revisa los datos.')
-        return
-      }
-
-      const payload = {
-        fecha, servicio: 'CENAS',
-        uber_pedidos: uber_ped_cena, uber_bruto: parseFloat(uber_bru_cena.toFixed(2)),
-        glovo_pedidos: glovo_ped_cena, glovo_bruto: parseFloat(glovo_bru_cena.toFixed(2)),
-        je_pedidos: je_ped_cena, je_bruto: parseFloat(je_bru_cena.toFixed(2)),
-        web_pedidos: web_ped_cena, web_bruto: parseFloat(web_bru_cena.toFixed(2)),
-        directa_pedidos: directa_ped_cena, directa_bruto: parseFloat(directa_bru_cena.toFixed(2)),
-        total_pedidos: tot_ped, total_bruto: parseFloat(tot_bru.toFixed(2)),
-      }
-
+      if (!filaAlm) { setFormError('No hay fila ALM para este día. Introduce primero el almuerzo.'); return }
+      const ub = Math.max(0, (parseFloat(fields.uber_bruto)||0) - (filaAlm.uber_bruto||0))
+      const gb = Math.max(0, (parseFloat(fields.glovo_bruto)||0) - (filaAlm.glovo_bruto||0))
+      const jb = Math.max(0, (parseFloat(fields.je_bru)||0) - (filaAlm.je_bruto||0))
+      const wb = Math.max(0, (parseFloat(fields.web_bruto)||0) - (filaAlm.web_bruto||0))
+      const db = Math.max(0, (parseFloat(fields.directa_bru)||0) - (filaAlm.directa_bruto||0))
+      const up = Math.max(0, (Math.round(parseFloat(fields.uber_pedidos)||0)) - (filaAlm.uber_pedidos||0))
+      const gp = Math.max(0, (Math.round(parseFloat(fields.glovo_pedidos)||0)) - (filaAlm.glovo_pedidos||0))
+      const jp = Math.max(0, (Math.round(parseFloat(fields.je_ped)||0)) - (filaAlm.je_pedidos||0))
+      const wp = Math.max(0, (Math.round(parseFloat(fields.web_pedidos)||0)) - (filaAlm.web_pedidos||0))
+      const dp = Math.max(0, (Math.round(parseFloat(fields.directa_ped)||0)) - (filaAlm.directa_pedidos||0))
+      const tp = up + gp + jp + wp + dp
+      const tb = ub + gb + jb + wb + db
+      if (tp === 0 && tb === 0) { setFormError('El total es igual o menor al ALM registrado.'); return }
+      const payload = { fecha, servicio: 'CENAS', uber_pedidos: up, uber_bruto: parseFloat(ub.toFixed(2)), glovo_pedidos: gp, glovo_bruto: parseFloat(gb.toFixed(2)), je_pedidos: jp, je_bruto: parseFloat(jb.toFixed(2)), web_pedidos: wp, web_bruto: parseFloat(wb.toFixed(2)), directa_pedidos: dp, directa_bruto: parseFloat(db.toFixed(2)), total_pedidos: tp, total_bruto: parseFloat(tb.toFixed(2)) }
       setSaving(true)
-      if (isEdit) {
-        const { error: delErr } = await supabase.from('facturacion_diario').delete().eq('id', existing!.id)
-        if (delErr) { setSaving(false); setFormError(delErr.message); return }
-      }
+      if (isEdit) { const { error: de } = await supabase.from('facturacion_diario').delete().eq('id', existing!.id); if (de) { setSaving(false); setFormError(de.message); return } }
       const { error } = await supabase.from('facturacion_diario').insert(payload)
       setSaving(false)
       if (error) { setFormError(error.message); return }
-      onSaved()
-      return
+      onSaved(); return
     }
 
-    const uber_ped = Math.round(parseFloat(fields.uber_pedidos) || 0)
-    const uber_bru = parseFloat(fields.uber_bruto) || 0
-    const glovo_ped = Math.round(parseFloat(fields.glovo_pedidos) || 0)
-    const glovo_bru = parseFloat(fields.glovo_bruto) || 0
-    const je_ped = Math.round(parseFloat(fields.je_ped) || 0)
-    const je_bru = parseFloat(fields.je_bru) || 0
-    const web_ped = Math.round(parseFloat(fields.web_pedidos) || 0)
-    const web_bru = parseFloat(fields.web_bruto) || 0
-    const directa_ped = Math.round(parseFloat(fields.directa_ped) || 0)
-    const directa_bru = parseFloat(fields.directa_bru) || 0
-    const tot_ped = uber_ped + glovo_ped + je_ped + web_ped + directa_ped
-    const tot_bru = uber_bru + glovo_bru + je_bru + web_bru + directa_bru
-    if (tot_ped === 0 && tot_bru === 0) { setFormError('Introduce datos en al menos un canal'); return }
-    const payload = {
-      fecha, servicio,
-      uber_pedidos: uber_ped, uber_bruto: uber_bru,
-      glovo_pedidos: glovo_ped, glovo_bruto: glovo_bru,
-      je_pedidos: je_ped, je_bruto: je_bru,
-      web_pedidos: web_ped, web_bruto: web_bru,
-      directa_pedidos: directa_ped, directa_bruto: directa_bru,
-      total_pedidos: tot_ped, total_bruto: tot_bru,
-    }
+    const up = Math.round(parseFloat(fields.uber_pedidos)||0); const ub = parseFloat(fields.uber_bruto)||0
+    const gp = Math.round(parseFloat(fields.glovo_pedidos)||0); const gb = parseFloat(fields.glovo_bruto)||0
+    const jp = Math.round(parseFloat(fields.je_ped)||0); const jb = parseFloat(fields.je_bru)||0
+    const wp = Math.round(parseFloat(fields.web_pedidos)||0); const wb = parseFloat(fields.web_bruto)||0
+    const dp = Math.round(parseFloat(fields.directa_ped)||0); const db = parseFloat(fields.directa_bru)||0
+    const tp = up + gp + jp + wp + dp; const tb = ub + gb + jb + wb + db
+    if (tp === 0 && tb === 0) { setFormError('Introduce datos en al menos un canal'); return }
+    const payload = { fecha, servicio, uber_pedidos: up, uber_bruto: ub, glovo_pedidos: gp, glovo_bruto: gb, je_pedidos: jp, je_bruto: jb, web_pedidos: wp, web_bruto: wb, directa_pedidos: dp, directa_bruto: db, total_pedidos: tp, total_bruto: tb }
     setSaving(true)
     const { error } = isEdit
       ? await supabase.from('facturacion_diario').update(payload).eq('id', existing!.id)
@@ -918,12 +912,9 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
   }
 
   const inputStyle: CSSProperties = {
-    width: '100%',
-    background: isDark ? '#3a4058' : '#ffffff',
-    color: T.pri,
-    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
-    borderRadius: 8, padding: '8px 12px',
-    fontSize: 13, fontFamily: FONT.body, outline: 'none',
+    width: '100%', background: isDark ? '#3a4058' : '#fff', color: isDark ? '#fff' : '#111',
+    border: `1px solid ${isDark ? '#4a5270' : '#ccc'}`, borderRadius: 8, padding: '8px 12px',
+    fontSize: 13, fontFamily: 'Lexend, sans-serif', outline: 'none',
   }
 
   const CANAL_COLORS: Record<string, { bg: string; border: string; label: string }> = {
@@ -936,57 +927,47 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
   const renderCanalCard = (c: typeof FORM_COLS[number]) => {
     const cc = CANAL_COLORS[c.label]
     return (
-      <div key={c.label} style={{ background: cc?.bg ?? `${T.group}55`, border: `1px solid ${cc?.border ?? T.brd}`, borderRadius: 10, padding: 12 }}>
-        <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, color: cc?.label ?? T.sec, fontFamily: FONT.heading, letterSpacing: 1, textTransform: 'uppercase' }}>{c.label}</p>
+      <div key={c.label} style={{ background: cc?.bg ?? '#f5f5f5', border: `1px solid ${cc?.border ?? '#ccc'}`, borderRadius: 10, padding: 12 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, color: cc?.label ?? '#666', fontFamily: 'Oswald, sans-serif', letterSpacing: 1, textTransform: 'uppercase' }}>{c.label}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Pedidos</label>
-            <input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e => set(c.ped, e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 10, color: T.sec, marginBottom: 4 }}>Bruto (EUR)</label>
-            <input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e => set(c.bru, e.target.value)} style={inputStyle} />
-          </div>
+          <div><label style={{ display: 'block', fontSize: 10, color: '#7a8090', marginBottom: 4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e => set(c.ped, e.target.value)} style={inputStyle} /></div>
+          <div><label style={{ display: 'block', fontSize: 10, color: '#7a8090', marginBottom: 4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e => set(c.bru, e.target.value)} style={inputStyle} /></div>
         </div>
       </div>
     )
   }
 
-  const SERVICIOS: { key: string; label: string }[] = [
-    { key: 'TODO',      label: 'TODOS' },
-    { key: 'ALM',       label: 'ALM' },
-    { key: 'CENAS',     label: 'CENAS' },
+  const SERVICIOS = [
+    { key: 'TODO', label: 'TODOS' },
+    { key: 'ALM', label: 'ALM' },
+    { key: 'CENAS', label: 'CENAS' },
     { key: 'CENAS_ALM', label: 'CENAS/ALM' },
   ]
 
+  const cardBg = isDark ? '#1e2233' : '#fff'
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={onClose}>
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}` }}>
-          <h3 style={{ color: T.pri, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, margin: 0 }}>{isEdit ? 'EDITAR DÍA' : 'AÑADIR DÍA'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.sec, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
+      <div style={{ background: cardBg, border: `0.5px solid ${isDark ? '#3a4058' : '#d0c8bc'}`, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `0.5px solid ${isDark ? '#3a4058' : '#d0c8bc'}` }}>
+          <h3 style={{ color: isDark ? '#fff' : '#111', fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, margin: 0, letterSpacing: '2px' }}>{isEdit ? 'EDITAR DÍA' : 'AÑADIR DÍA'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#7a8090', fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 43%' }}>
-              <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
+              <label style={{ display: 'block', fontSize: 11, color: '#7a8090', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'Oswald, sans-serif' }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Servicio</label>
+              <label style={{ display: 'block', fontSize: 11, color: '#7a8090', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'Oswald, sans-serif' }}>Servicio</label>
               <div style={{ display: 'flex', gap: 4 }}>
                 {SERVICIOS.map(s => {
                   const isActive = servicio === s.key
                   const isCenasAlm = s.key === 'CENAS_ALM'
                   return (
                     <button key={s.key} type="button" onClick={() => setServicio(s.key)}
-                      style={{
-                        flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 10, fontWeight: 600,
-                        border: isActive ? 'none' : `0.5px solid ${T.brd}`,
-                        background: isActive ? (isCenasAlm ? '#7c3aed' : '#B01D23') : 'none',
-                        color: isActive ? '#ffffff' : T.sec,
-                        cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '0.5px', whiteSpace: 'nowrap',
-                      }}>
+                      style={{ flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 10, fontWeight: 600, border: isActive ? 'none' : '0.5px solid #d0c8bc', background: isActive ? (isCenasAlm ? '#7c3aed' : '#B01D23') : (isDark ? '#2a3048' : '#fff'), color: isActive ? '#fff' : '#7a8090', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                       {s.label}
                     </button>
                   )
@@ -994,66 +975,42 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
               </div>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {FORM_COLS.slice(0, 2).map(renderCanalCard)}
           </div>
-
           <div style={{ background: '#f5a62312', border: '1px solid #f5a623', borderRadius: 10, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 2, color: '#f5a623', textTransform: 'uppercase' }}>Just Eat</span>
-              {jeItems.length > 0 && (
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
-                  {jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a, b) => a + b, 0).toFixed(2)} €
-                </span>
-              )}
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 2, color: '#f5a623', textTransform: 'uppercase' }}>Just Eat</span>
+              {jeItems.length > 0 && <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>{jeItems.length} pedido{jeItems.length !== 1 ? 's' : ''} · {jeItems.reduce((a, b) => a + b, 0).toFixed(2)} €</span>}
             </div>
             {jeItems.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
                 {jeItems.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: T.card, border: `0.5px solid ${T.brd}` }}>
-                    <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{item.toFixed(2)} €</span>
-                    <button type="button" onClick={() => setJeItems(p => p.filter((_, i) => i !== idx))}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E24B4A', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: cardBg, border: '0.5px solid #d0c8bc' }}>
+                    <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>{item.toFixed(2)} €</span>
+                    <button type="button" onClick={() => setJeItems(p => p.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E24B4A', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
                   </div>
                 ))}
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="number" step="0.01" min="0" placeholder="Importe (€)"
-                value={jeInput} onChange={e => setJeInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    const v = parseFloat(jeInput)
-                    if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') }
-                  }
-                }}
+              <input type="number" step="0.01" min="0" placeholder="Importe (€)" value={jeInput} onChange={e => setJeInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = parseFloat(jeInput); if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') } } }}
                 style={{ ...inputStyle, flex: 1, width: 'auto', padding: '6px 10px' }} />
-              <button type="button"
-                onClick={() => { const v = parseFloat(jeInput); if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') } }}
-                style={{ padding: '6px 14px', borderRadius: 8, background: '#f5a623', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, flexShrink: 0 }}>+</button>
+              <button type="button" onClick={() => { const v = parseFloat(jeInput); if (v > 0) { setJeItems(p => [...p, v]); setJeInput('') } }}
+                style={{ padding: '6px 14px', borderRadius: 8, background: '#f5a623', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>+</button>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {FORM_COLS.slice(2).map(renderCanalCard)}
           </div>
-
-          {formError && <p style={{ color: '#dc2626', fontSize: 12, margin: 0 }}>{formError}</p>}
+          {formError && <p style={{ color: '#E24B4A', fontSize: 12, margin: 0, fontFamily: 'Lexend, sans-serif' }}>{formError}</p>}
           <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
             {isEdit && (
-              <button type="button" onClick={handleDelete}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `1px solid #B01D23`, background: 'none', color: '#B01D23', cursor: 'pointer', fontFamily: FONT.body }}>
-                Eliminar
-              </button>
+              <button type="button" onClick={handleDelete} style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid #B01D23', background: 'none', color: '#B01D23', cursor: 'pointer', fontFamily: 'Lexend, sans-serif' }}>Eliminar</button>
             )}
-            <button type="button" onClick={onClose}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.body }}>
-              Cancelar
-            </button>
-            <button type="submit" disabled={saving}
-              style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: '#B01D23', color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT.body, opacity: saving ? 0.6 : 1 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '0.5px solid #d0c8bc', background: 'none', color: '#7a8090', cursor: 'pointer', fontFamily: 'Lexend, sans-serif' }}>Cancelar</button>
+            <button type="submit" disabled={saving} style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', background: '#B01D23', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'Lexend, sans-serif', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
             </button>
           </div>
@@ -1063,87 +1020,38 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[
   )
 }
 
-function MiniKpi({ label, valor }: { label: string; valor: string }) {
-  const { T } = useTheme()
-  return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '10px 14px' }}>
-      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri }}>{valor}</div>
-    </div>
-  )
-}
-
-function Loader({ T }: { T: any }) {
-  return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-      <p style={{ color: T.sec, fontSize: 13, margin: 0, fontFamily: FONT.body }}>Cargando…</p>
-    </div>
-  )
-}
-
-function ErrorBox({ T, msg, onRetry }: { T: any; msg: string; onRetry: () => void }) {
-  return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 32, textAlign: 'center' }}>
-      <p style={{ color: '#dc2626', fontSize: 13, fontFamily: FONT.body }}>{msg}</p>
-      <button onClick={onRetry} style={{ marginTop: 12, fontSize: 12, color: T.pri, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', fontFamily: FONT.body }}>Reintentar</button>
-    </div>
-  )
-}
-
-function EmptyState({ T, label, onAdd }: { T: any; label: string; onAdd?: () => void }) {
-  return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-      <p style={{ color: T.sec, fontSize: 13, margin: 0, fontFamily: FONT.body }}>{label}</p>
-      {onAdd && (
-        <button onClick={onAdd}
-          style={{ marginTop: 16, padding: '8px 22px', borderRadius: 10, background: '#B01D23', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' }}>
-          + Añadir día
-        </button>
-      )}
-    </div>
-  )
-}
-
 function ServicioBadge({ s }: { s: string }) {
   const color = s === 'ALM' ? '#d97706' : s === 'CENAS' ? '#7c3aed' : '#6b7280'
-  const bg = `${color}18`
   return (
-    <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 4, background: bg, color, fontFamily: FONT.heading, letterSpacing: '0.5px' }}>{s}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: `${color}15`, color }}>
+      {s === 'TODO' ? 'TODOS' : s}
+    </span>
   )
 }
 
 function DesvBadge({ pct }: { pct: number }) {
   const pos = pct >= 0
-  const color = pos ? '#16a34a' : '#dc2626'
+  const color = pos ? '#1D9E75' : '#E24B4A'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: `${color}18`, color, fontFamily: FONT.body }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: `${color}18`, color, fontFamily: 'Lexend, sans-serif' }}>
       {pos ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
     </span>
   )
 }
 
-function Dash({ T }: { T: any }) {
-  return <span style={{ color: T.mut }}>—</span>
-}
-
 interface AnualYear { anio: number; bruto: number; pedidos: number; mediaMensual: number; mediaTicket: number }
 
 function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter }) {
-  const { T } = useTheme()
-
   const years = useMemo<AnualYear[]>(() => {
     const byYear = new Map<number, { bruto: number; pedidos: number }>()
     for (const r of allData) {
       const y = parseInt(r.fecha.slice(0, 4))
       if (!byYear.has(y)) byYear.set(y, { bruto: 0, pedidos: 0 })
       const cur = byYear.get(y)!
-      cur.bruto += getBru(r, canal)
-      cur.pedidos += getPed(r, canal)
+      cur.bruto += getBru(r, canal); cur.pedidos += getPed(r, canal)
     }
     return [...byYear.entries()].sort((a, b) => b[0] - a[0]).map(([anio, v]) => ({
-      anio,
-      bruto: v.bruto,
-      pedidos: v.pedidos,
+      anio, bruto: v.bruto, pedidos: v.pedidos,
       mediaMensual: v.bruto / 12,
       mediaTicket: v.pedidos > 0 ? v.bruto / v.pedidos : 0,
     }))
@@ -1151,36 +1059,28 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
 
   const maxBruto = Math.max(...years.map(y => y.bruto), 1)
 
-  const thS: CSSProperties = {
-    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase',
-    color: T.mut, padding: '10px 14px', textAlign: 'left', background: '#0a0a0a',
-    borderBottom: `0.5px solid ${T.brd}`,
-  }
-  const tdS: CSSProperties = {
-    padding: '12px 14px', fontSize: 13, fontFamily: FONT.body, color: T.pri,
-    borderBottom: `0.5px solid ${T.brd}`,
-  }
+  const thS: CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, padding: '10px 14px', textAlign: 'left', background: C.bg, borderBottom: `0.5px solid ${C.brd}` }
+  const tdS: CSSProperties = { padding: '12px 14px', fontSize: 13, fontFamily: 'Lexend, sans-serif', color: C.text, borderBottom: `0.5px solid ${C.rowBrd}` }
 
   return (
     <div>
       {years.length > 0 && (() => {
-        const cur = years[0]
-        const prev = years[1]
+        const cur = years[0]; const prev = years[1]
         const delta = prev ? ((cur.bruto - prev.bruto) / prev.bruto) * 100 : null
         const deltaTicket = prev && prev.mediaTicket > 0 ? ((cur.mediaTicket - prev.mediaTicket) / prev.mediaTicket) * 100 : null
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
             {[
-              { label: `Facturación ${cur.anio}`, value: fmtEur(cur.bruto), delta, positive: true, color: '#e8f442' },
-              { label: 'Media mensual', value: fmtEur(cur.mediaMensual), delta: null, positive: true, color: T.pri },
-              { label: 'Pedidos totales', value: Math.round(cur.pedidos).toLocaleString('es-ES'), delta: null, positive: true, color: T.pri },
-              { label: 'Ticket medio', value: fmtEur(cur.mediaTicket), delta: deltaTicket, positive: true, color: T.pri },
+              { label: `Facturación ${cur.anio}`, value: fmtInt(Math.round(cur.bruto)), delta, color: C.text },
+              { label: 'Media mensual', value: fmtInt(Math.round(cur.mediaMensual)), delta: null, color: C.text },
+              { label: 'Pedidos totales', value: Math.round(cur.pedidos).toLocaleString('es-ES'), delta: null, color: C.text },
+              { label: 'Ticket medio', value: fmtInt(Math.round(cur.mediaTicket)), delta: deltaTicket, color: C.text },
             ].map(kpi => (
-              <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '16px 18px' }}>
-                <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{kpi.label}</div>
-                <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: kpi.color }}>{kpi.value}</div>
+              <div key={kpi.label} style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, padding: '18px 20px' }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: C.muted, marginBottom: 8 }}>{kpi.label}</div>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: kpi.color }}>{kpi.value}</div>
                 {kpi.delta != null && (
-                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: kpi.delta >= 0 ? '#1D9E75' : '#E24B4A', marginTop: 4 }}>
+                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: kpi.delta >= 0 ? '#1D9E75' : '#E24B4A', marginTop: 4 }}>
                     {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta).toFixed(1)}% vs {cur.anio - 1}
                   </div>
                 )}
@@ -1189,14 +1089,13 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
           </div>
         )
       })()}
-
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div style={{ background: C.card, border: `0.5px solid ${C.brd}`, borderRadius: 14, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
               <th style={thS}>Año</th>
               <th style={{ ...thS, textAlign: 'right' }}>Facturación bruta</th>
-              <th style={{ ...thS }}>vs año anterior</th>
+              <th style={thS}>vs año anterior</th>
               <th style={{ ...thS, textAlign: 'right' }}>Media mensual</th>
               <th style={{ ...thS, textAlign: 'right' }}>Pedidos</th>
               <th style={{ ...thS, textAlign: 'right' }}>Ticket medio</th>
@@ -1208,24 +1107,20 @@ function TabAnual({ allData, canal }: { allData: RawDiario[]; canal: CanalFilter
               const delta = prev ? ((y.bruto - prev.bruto) / prev.bruto) * 100 : null
               const barW = `${Math.round((y.bruto / maxBruto) * 100)}%`
               return (
-                <tr key={y.anio}>
-                  <td style={{ ...tdS, fontFamily: FONT.heading, color: '#e8f442', fontWeight: 600 }}>{y.anio}</td>
-                  <td style={{ ...tdS, textAlign: 'right' }}>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, marginBottom: 4 }}>{fmtEur(y.bruto)}</div>
-                    <div style={{ height: 4, background: T.brd, borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: 4, width: barW, background: '#e8f442', borderRadius: 2 }} />
+                <tr key={y.anio} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.hover }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
+                  <td style={{ ...tdS, fontFamily: 'Oswald, sans-serif', color: '#B01D23', fontWeight: 600, borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{y.anio}</td>
+                  <td style={{ ...tdS, textAlign: 'right', borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                    <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{fmtEur(y.bruto)}</div>
+                    <div style={{ height: 4, background: C.brd, borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: 4, width: barW, background: '#B01D23', borderRadius: 2 }} />
                     </div>
                   </td>
-                  <td style={tdS}>
-                    {delta != null ? (
-                      <span style={{ fontFamily: FONT.heading, fontSize: 12, color: delta >= 0 ? '#1D9E75' : '#E24B4A', fontWeight: 600 }}>
-                        {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
-                      </span>
-                    ) : <span style={{ color: T.mut }}>—</span>}
+                  <td style={{ ...tdS, borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>
+                    {delta != null ? <DesvBadge pct={delta} /> : <span style={{ color: C.muted }}>—</span>}
                   </td>
-                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{fmtEur(y.mediaMensual)}</td>
-                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{Math.round(y.pedidos).toLocaleString('es-ES')}</td>
-                  <td style={{ ...tdS, textAlign: 'right', color: T.sec }}>{fmtEur(y.mediaTicket)}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: C.muted, borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{fmtEur(y.mediaMensual)}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: C.muted, borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{Math.round(y.pedidos).toLocaleString('es-ES')}</td>
+                  <td style={{ ...tdS, textAlign: 'right', color: C.muted, borderBottom: idx === years.length - 1 ? 'none' : `0.5px solid ${C.rowBrd}` }}>{fmtEur(y.mediaTicket)}</td>
                 </tr>
               )
             })}
