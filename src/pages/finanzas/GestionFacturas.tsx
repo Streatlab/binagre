@@ -1,7 +1,6 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v11: fix ZIP — responseType: 'arraybuffer' en supabase.functions.invoke
- *      para evitar que el cliente parsee bytes binarios como JSON
+ * v12: fix ZIP — fetch directo con token de sesión (arraybuffer nativo)
  */
 
 import {
@@ -47,6 +46,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 
 const COLOR_RUBEN  = '#F26B1F'
 const COLOR_EMILIO = '#1E5BCC'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
 const MESES_ES = ['', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -534,16 +534,28 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
     setGenerando(true)
     setErrorZip(null)
     try {
-      /* responseType: 'arraybuffer' evita que el cliente Supabase parsee el ZIP binario como JSON */
-      const { data, error } = await supabase.functions.invoke('generar-zip-gestoria', {
-        body: { mes: mesSeleccionado, titular_id: titularId },
-        responseType: 'arraybuffer',
-      })
-      if (error) {
-        setErrorZip(error.message || 'Error al generar el ZIP')
+      /* Obtener token de sesión y llamar a la Edge Function con fetch directo
+         para recibir el cuerpo como ArrayBuffer sin parseo JSON */
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token ?? ''
+      const resp = await fetch(
+        `${SUPABASE_URL}/functions/v1/generar-zip-gestoria`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ mes: mesSeleccionado, titular_id: titularId }),
+        }
+      )
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(()=>({error:'Error desconocido'}))
+        setErrorZip(errJson.error || `Error ${resp.status}`)
         return
       }
-      const blob = new Blob([data as ArrayBuffer], { type: 'application/zip' })
+      const buf = await resp.arrayBuffer()
+      const blob = new Blob([buf], { type: 'application/zip' })
       const titNombre = titularKey==='ruben'?'RUBEN':'EMILIO'
       const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
       const url = URL.createObjectURL(blob)
