@@ -1,5 +1,5 @@
 // Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
-// v5: Excel con SheetJS — fechas forzadas a string DD/MM/YYYY, no números de serie
+// v6: no mostrar toast al arrancar si la subida ya terminó
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -31,7 +31,13 @@ function loadInitial(): OcrUploadState | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const s = JSON.parse(raw) as OcrUploadState
-    if (s.procesando && s.enviados < s.total) s.procesando = false
+    // Si ya terminó (no procesando), no mostrar al arrancar
+    if (!s.procesando) return null
+    // Si estaba procesando pero nos quedamos a medias, marcar como terminado y ocultar
+    if (s.procesando && s.enviados < s.total) {
+      s.procesando = false
+      return null
+    }
     return s
   } catch { return null }
 }
@@ -105,15 +111,11 @@ async function cargarSheetJS(): Promise<any> {
   return (window as any).XLSX
 }
 
-// Convertir Excel a CSV con fechas legibles
 async function excelACSV(file: File): Promise<string> {
   const XLSX = await cargarSheetJS()
   const buf = await file.arrayBuffer()
-  // cellDates: true → SheetJS devuelve Date() en lugar de números de serie
   const wb = XLSX.read(buf, { type: 'array', cellDates: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
-
-  // Recorrer todas las celdas y convertir fechas a DD/MM/YYYY
   const ref = ws['!ref']
   if (ref) {
     const range = XLSX.utils.decode_range(ref)
@@ -122,7 +124,6 @@ async function excelACSV(file: File): Promise<string> {
         const addr = XLSX.utils.encode_cell({ r: R, c: C })
         const cell = ws[addr]
         if (!cell) continue
-        // Si la celda es fecha (tipo 'd' con cellDates:true, o tipo 'n' con formato fecha)
         if (cell.t === 'd' && cell.v instanceof Date) {
           const d = cell.v as Date
           const dd = String(d.getDate()).padStart(2, '0')
@@ -135,7 +136,6 @@ async function excelACSV(file: File): Promise<string> {
       }
     }
   }
-
   const csv: string = XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
   return csv
 }
@@ -185,7 +185,6 @@ export function useOcrUpload(): {
           let body: Record<string, unknown>
 
           if (esExcel(file)) {
-            // Excel → CSV con fechas legibles (cellDates:true + conversión manual)
             const csvTexto = await excelACSV(file)
             body = {
               fileTexto: csvTexto,
