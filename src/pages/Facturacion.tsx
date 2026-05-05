@@ -12,6 +12,13 @@ import {
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
+// CRÍTICO: NUNCA usar toISOString().slice(0,10) — convierte a UTC y rompe filtros en zona horaria positiva (Madrid)
+const toLocalDateStr = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 const fmtBru = fmt2
 const fmtTM  = fmt2
 const fmtKpi = fmt2
@@ -57,48 +64,25 @@ const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,g
 const NETO_FACTOR = 0.66
 const COLOR_TODOS = COLORS.lun
 
-// ─── Subtabs: contenedor con borde rojo pero SIN background heredado por botones
-// Los botones usan background explícito blanco — así el rojo del contenedor
-// solo aparece en los huecos (padding del container), no en los botones mismos
 const SUBTAB_CONTAINER: CSSProperties = {
   display: 'inline-flex',
   gap: 4,
   padding: '3px 4px',
   borderRadius: 10,
-  // Fondo = COLORS.accent (#FF4757) — solo visible en el padding entre botones
   background: COLORS.accent,
   border: `0.5px solid ${COLORS.accent}`,
 }
-// Activo: blanco con texto negro
 const SUBTAB_ACTIVE: CSSProperties = {
-  padding: '4px 10px',
-  borderRadius: 6,
-  border: 'none',
-  background: '#ffffff',
-  color: COLORS.pri,
-  fontFamily: FONT.heading,
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: '1.2px',
-  textTransform: 'uppercase',
-  cursor: 'pointer',
-  outline: 'none',
+  padding: '4px 10px', borderRadius: 6, border: 'none',
+  background: '#ffffff', color: COLORS.pri,
+  fontFamily: FONT.heading, fontSize: 10, fontWeight: 700,
+  letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
 }
-// Inactivo: blanco transparente (semitransparente sobre rojo) con texto blanco
-// Para que se vea distinto del activo pero sin ser rojo
 const SUBTAB_INACTIVE: CSSProperties = {
-  padding: '4px 10px',
-  borderRadius: 6,
-  border: 'none',
-  background: 'rgba(255,255,255,0.25)',
-  color: '#ffffff',
-  fontFamily: FONT.heading,
-  fontSize: 10,
-  fontWeight: 500,
-  letterSpacing: '1.2px',
-  textTransform: 'uppercase',
-  cursor: 'pointer',
-  outline: 'none',
+  padding: '4px 10px', borderRadius: 6, border: 'none',
+  background: 'rgba(255,255,255,0.25)', color: '#ffffff',
+  fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
+  letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
 }
 
 function aggregate(rows: RawDiario[]): AggRow {
@@ -196,8 +180,9 @@ export default function Facturacion() {
 
   const cols = useMemo(()=>ALL_COLS.filter(c=>canalesVisibles.includes(c.id)),[canalesVisibles])
 
+  // FIX TZ: usar fecha local, no UTC
   const filteredData = useMemo(()=>{
-    const desde=periodoDesde.toISOString().slice(0,10); const hasta=periodoHasta.toISOString().slice(0,10)
+    const desde=toLocalDateStr(periodoDesde); const hasta=toLocalDateStr(periodoHasta)
     return allData.filter(r=>r.fecha>=desde&&r.fecha<=hasta).filter(r=>servicioFiltro==='Todos'||r.servicio===servicioFiltro)
   },[allData,periodoDesde,periodoHasta,servicioFiltro])
 
@@ -222,7 +207,7 @@ export default function Facturacion() {
         <div>
           <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>
           <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
-            {fmtFechaCorta(periodoDesde.toISOString().slice(0,10))} — {fmtFechaCorta(periodoHasta.toISOString().slice(0,10))}
+            {fmtFechaCorta(toLocalDateStr(periodoDesde))} — {fmtFechaCorta(toLocalDateStr(periodoHasta))}
           </div>
         </div>
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
@@ -231,7 +216,6 @@ export default function Facturacion() {
       <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:18, flexWrap:'wrap' }}>
         <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
         <div style={{ width:1, height:24, background:COLORS.brd, flexShrink:0, marginLeft:2, marginRight:2 }} />
-        {/* Contenedor rojo — padding visible es el "borde" rojo entre botones */}
         <div style={SUBTAB_CONTAINER}>
           {['Todos','ALM','CENAS'].map(s=>(
             <button key={s} onClick={()=>setServicioFiltro(s)} style={servicioFiltro===s ? SUBTAB_ACTIVE : SUBTAB_INACTIVE}>{s}</button>
@@ -278,18 +262,13 @@ export default function Facturacion() {
   )
 }
 
-// ─── KPI Cards ─────────────────────────────────────────────────
-// Cards más compactas: padding reducido, "5 DÍAS" movido a Card Pedidos·TM
 interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const netoLabel = `NETO EST. · ${(NETO_FACTOR*100).toFixed(0)}%`
-  // Cards compactas: menos padding para ajustarse al contenido
   const cardCompacto: CSSProperties = { ...CARDS.big, padding:'16px 20px' }
   const MEDIA_SIZE = 32
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
-
-      {/* Card 1: Facturación — 2 col: izq bruto/neto + der medias */}
       <div style={cardCompacto}>
         <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
@@ -308,7 +287,6 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
         </div>
       </div>
 
-      {/* Card 2: Pedidos + TM + DÍAS (movido aquí desde card 1) */}
       <div style={cardCompacto}>
         <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
         <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
@@ -316,14 +294,12 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
           <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
           <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
         </div>
-        {/* DÍAS — movido aquí desde card Facturación */}
         <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:4 }}>
           <span style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, color:COLORS.mut }}>{dias}</span>
           <span style={{ ...lblXs, color:COLORS.mut }}>DÍAS</span>
         </div>
       </div>
 
-      {/* Columna 25%: Añadir + Exportar — también más compactos */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
           style={{ flex:'0 0 70%', ...cardCompacto, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
@@ -344,7 +320,6 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
   )
 }
 
-// ─── Tab Diario ────────────────────────────────────────────────
 function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta }: { allData:RawDiario[]; cols:typeof ALL_COLS; weekFilter:{year:number;week:number}|null; onEdit:(r:RawDiario)=>void; onAdd:()=>void; tipoDia:(f:string)=>TipoDia; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number }) {
   const [sortCol, setSortCol] = useState<SortCol>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -531,14 +506,14 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
   )
 }
 
-// ─── Modal — bug guardado: se muestra el error exacto de Supabase ──────────
 interface FormFields { uber_pedidos:string;uber_bruto:string;glovo_pedidos:string;glovo_bruto:string;je_ped:string;je_bru:string;web_pedidos:string;web_bruto:string;directa_ped:string;directa_bru:string }
 const FORM_COLS: { label:string; ped:keyof FormFields; bru:keyof FormFields }[] = [{label:'Uber Eats',ped:'uber_pedidos',bru:'uber_bruto'},{label:'Glovo',ped:'glovo_pedidos',bru:'glovo_bruto'},{label:'Web',ped:'web_pedidos',bru:'web_bruto'},{label:'Venta Directa',ped:'directa_ped',bru:'directa_bru'}]
 const CANAL_COLORS_M: Record<string,{bg:string;border:string;label:string}> = {'Uber Eats':{bg:'#06C16712',border:'#06C167',label:'#06C167'},'Glovo':{bg:'#e8f44218',border:'#8a7800',label:'#8a7800'},'Web':{bg:'#B01D2312',border:'#B01D23',label:'#B01D23'},'Venta Directa':{bg:'#66aaff12',border:'#66aaff',label:'#66aaff'}}
 
 function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]; existing?:RawDiario; onClose:()=>void; onSaved:()=>void }) {
   const isEdit=!!existing
-  const [fecha,setFecha]=useState(existing?.fecha??new Date().toISOString().slice(0,10))
+  // FIX TZ: usar fecha local en lugar de toISOString
+  const [fecha,setFecha]=useState(existing?.fecha??toLocalDateStr(new Date()))
   const [servicio,setServicio]=useState(existing?.servicio??'ALM')
   const [fields,setFields]=useState<FormFields>(()=>{ if(!existing) return {uber_pedidos:'',uber_bruto:'',glovo_pedidos:'',glovo_bruto:'',je_ped:'',je_bru:'',web_pedidos:'',web_bruto:'',directa_ped:'0',directa_bru:'0.00'}; return {uber_pedidos:String(existing.uber_pedidos||''),uber_bruto:String(existing.uber_bruto||''),glovo_pedidos:String(existing.glovo_pedidos||''),glovo_bruto:String(existing.glovo_bruto||''),je_ped:String(existing.je_pedidos||''),je_bru:String(existing.je_bruto||''),web_pedidos:String(existing.web_pedidos||''),web_bruto:String(existing.web_bruto||''),directa_ped:String(existing.directa_pedidos||0),directa_bru:String(existing.directa_bruto||0)} })
   const [saving,setSaving]=useState(false)
