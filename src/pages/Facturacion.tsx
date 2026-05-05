@@ -168,7 +168,7 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
     return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
   }
   const lines = [headers.map(esc).join(';'), ...rows.map(r => r.map(esc).join(';'))]
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url; a.download = filename; a.click()
@@ -378,8 +378,8 @@ export default function Facturacion() {
         </>
       )}
 
-      {showAdd && <DayModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); refresh() }} />}
-      {editRow && <DayModal existing={editRow} onClose={() => setEditRow(null)} onSaved={() => { setEditRow(null); refresh() }} />}
+      {showAdd && <DayModal allData={allData} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); refresh() }} />}
+      {editRow && <DayModal allData={allData} existing={editRow} onClose={() => setEditRow(null)} onSaved={() => { setEditRow(null); refresh() }} />}
     </div>
   )
 }
@@ -726,9 +726,11 @@ const FORM_COLS: { label: string; ped: keyof FormFields; bru: keyof FormFields }
   { label: 'Venta Directa', ped: 'directa_ped',   bru: 'directa_bru' },
 ]
 
-function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
+// ─── MODAL AÑADIR/EDITAR DÍA ───────────────────────────────────────────────
+function DayModal({ allData, existing, onClose, onSaved }: { allData: RawDiario[]; existing?: RawDiario; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!existing
   const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10))
+  // Modo: 'TODO' | 'ALM' | 'CENAS' | 'CENAS_ALM'
   const [servicio, setServicio] = useState(existing?.servicio ?? 'TODO')
   const [fields, setFields] = useState<FormFields>(() => {
     if (!existing) return {
@@ -758,10 +760,71 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
 
   const set = (k: keyof FormFields, v: string) => setFields(p => ({ ...p, [k]: v }))
 
+  // Fila ALM del mismo día (para modo CENAS_ALM)
+  const filaAlm = useMemo(() =>
+    allData.find(r => r.fecha === fecha && r.servicio === 'ALM'),
+    [allData, fecha]
+  )
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setFormError(null)
     if (!fecha) { setFormError('Selecciona una fecha'); return }
+
+    // ── Modo CENAS_ALM: calcula CENAS = total - ALM ──
+    if (servicio === 'CENAS_ALM') {
+      if (!filaAlm) {
+        setFormError('No hay datos de ALM para este día. Introduce primero el almuerzo.')
+        return
+      }
+      const uber_bru_total = parseFloat(fields.uber_bruto) || 0
+      const glovo_bru_total = parseFloat(fields.glovo_bruto) || 0
+      const je_bru_total = parseFloat(fields.je_bru) || 0
+      const web_bru_total = parseFloat(fields.web_bruto) || 0
+      const directa_bru_total = parseFloat(fields.directa_bru) || 0
+      const uber_ped_total = Math.round(parseFloat(fields.uber_pedidos) || 0)
+      const glovo_ped_total = Math.round(parseFloat(fields.glovo_pedidos) || 0)
+      const je_ped_total = Math.round(parseFloat(fields.je_ped) || 0)
+      const web_ped_total = Math.round(parseFloat(fields.web_pedidos) || 0)
+      const directa_ped_total = Math.round(parseFloat(fields.directa_ped) || 0)
+
+      const uber_bru_cena = Math.max(0, uber_bru_total - (filaAlm.uber_bruto || 0))
+      const glovo_bru_cena = Math.max(0, glovo_bru_total - (filaAlm.glovo_bruto || 0))
+      const je_bru_cena = Math.max(0, je_bru_total - (filaAlm.je_bruto || 0))
+      const web_bru_cena = Math.max(0, web_bru_total - (filaAlm.web_bruto || 0))
+      const directa_bru_cena = Math.max(0, directa_bru_total - (filaAlm.directa_bruto || 0))
+      const uber_ped_cena = Math.max(0, uber_ped_total - (filaAlm.uber_pedidos || 0))
+      const glovo_ped_cena = Math.max(0, glovo_ped_total - (filaAlm.glovo_pedidos || 0))
+      const je_ped_cena = Math.max(0, je_ped_total - (filaAlm.je_pedidos || 0))
+      const web_ped_cena = Math.max(0, web_ped_total - (filaAlm.web_pedidos || 0))
+      const directa_ped_cena = Math.max(0, directa_ped_total - (filaAlm.directa_pedidos || 0))
+
+      const tot_ped = uber_ped_cena + glovo_ped_cena + je_ped_cena + web_ped_cena + directa_ped_cena
+      const tot_bru = uber_bru_cena + glovo_bru_cena + je_bru_cena + web_bru_cena + directa_bru_cena
+
+      if (tot_ped === 0 && tot_bru === 0) {
+        setFormError('El total introducido es igual o menor al ALM ya registrado. Revisa los datos.')
+        return
+      }
+
+      const payload = {
+        fecha, servicio: 'CENAS',
+        uber_pedidos: uber_ped_cena, uber_bruto: parseFloat(uber_bru_cena.toFixed(2)),
+        glovo_pedidos: glovo_ped_cena, glovo_bruto: parseFloat(glovo_bru_cena.toFixed(2)),
+        je_pedidos: je_ped_cena, je_bruto: parseFloat(je_bru_cena.toFixed(2)),
+        web_pedidos: web_ped_cena, web_bruto: parseFloat(web_bru_cena.toFixed(2)),
+        directa_pedidos: directa_ped_cena, directa_bruto: parseFloat(directa_bru_cena.toFixed(2)),
+        total_pedidos: tot_ped, total_bruto: parseFloat(tot_bru.toFixed(2)),
+      }
+      setSaving(true)
+      const { error } = await supabase.from('facturacion_diario').insert(payload)
+      setSaving(false)
+      if (error) { setFormError(error.message); return }
+      onSaved()
+      return
+    }
+
+    // ── Modo normal (TODO / ALM / CENAS) ──
     const uber_ped = Math.round(parseFloat(fields.uber_pedidos) || 0)
     const uber_bru = parseFloat(fields.uber_bruto) || 0
     const glovo_ped = Math.round(parseFloat(fields.glovo_pedidos) || 0)
@@ -835,6 +898,14 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
     )
   }
 
+  // Botones servicio
+  const SERVICIOS: { key: string; label: string; tooltip?: string }[] = [
+    { key: 'TODO',      label: 'TODOS' },
+    { key: 'ALM',       label: 'ALM' },
+    { key: 'CENAS',     label: 'CENAS' },
+    { key: 'CENAS_ALM', label: 'CENAS/ALM', tooltip: 'Introduce el total del día y se calcula CENAS restando el ALM ya guardado' },
+  ]
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={onClose}>
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
@@ -843,22 +914,60 @@ function DayModal({ existing, onClose, onSaved }: { existing?: RawDiario; onClos
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.sec, fontSize: 24, cursor: 'pointer', lineHeight: 1, padding: 0 }}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
+
+          {/* FECHA + SERVICIO — nueva distribución */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            {/* Fecha: 43% del ancho (~20% menos que antes) */}
+            <div style={{ flex: '0 0 43%' }}>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Fecha</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={inputStyle} />
             </div>
-            <div>
+            {/* Botones servicio: ocupan el resto */}
+            <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: 11, color: T.sec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FONT.heading }}>Servicio</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {(['TODO', 'ALM', 'CENAS']).map(s => (
-                  <button key={s} type="button" onClick={() => setServicio(s)}
-                    style={servicio === s
-                      ? { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: 'none', background: '#B01D23', color: '#ffffff', cursor: 'pointer', fontFamily: FONT.heading }
-                      : { flex: 1, padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 600, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, cursor: 'pointer', fontFamily: FONT.heading }
-                    }>{s === 'TODO' ? 'TODOS' : s}</button>
-                ))}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {SERVICIOS.map(s => {
+                  const isActive = servicio === s.key
+                  const isCenasAlm = s.key === 'CENAS_ALM'
+                  const disabled = isCenasAlm && isEdit
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      title={s.tooltip}
+                      disabled={disabled}
+                      onClick={() => !disabled && setServicio(s.key)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 4px',
+                        borderRadius: 8,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        border: isActive ? 'none' : `0.5px solid ${T.brd}`,
+                        background: isActive
+                          ? (isCenasAlm ? '#7c3aed' : '#B01D23')
+                          : 'none',
+                        color: isActive ? '#ffffff' : (disabled ? T.mut : T.sec),
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        fontFamily: FONT.heading,
+                        letterSpacing: '0.5px',
+                        opacity: disabled ? 0.4 : 1,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                })}
               </div>
+              {/* Aviso modo CENAS_ALM */}
+              {servicio === 'CENAS_ALM' && (
+                <p style={{ fontSize: 10, color: filaAlm ? '#16a34a' : '#f5a623', marginTop: 6, fontFamily: FONT.body }}>
+                  {filaAlm
+                    ? `ALM encontrado: ${fmtEur(filaAlm.total_bruto)} · ${filaAlm.total_pedidos} ped. Introduce el total del día.`
+                    : `⚠ No hay ALM registrado para ${fecha}. Guarda primero el almuerzo.`}
+                </p>
+              )}
             </div>
           </div>
 
