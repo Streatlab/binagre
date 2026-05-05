@@ -1,6 +1,7 @@
 /**
  * GestorDocumental — Tabs: Facturas / Ventas / Exportar
- * v9: botón ZIP real — llama a Edge Function generar-zip-gestoria con OAuth Drive
+ * v10: fix ZIP — usa supabase.functions.invoke en vez de fetch directo (añade Authorization automático)
+ *      quita SUPABASE_URL import innecesario
  */
 
 import {
@@ -58,7 +59,6 @@ const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
   4:{bg:'#e3d8eb',headDark:'#4a3163'},
 }
 const ANIO_BG = '#fbe5e8'
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
 function fmtFechaCorta(iso: string|null): string {
   if (!iso) return '—'
@@ -534,20 +534,15 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,plazoLabel,fac
     setGenerando(true)
     setErrorZip(null)
     try {
-      const resp = await fetch(
-        `${SUPABASE_URL}/functions/v1/generar-zip-gestoria`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mes: mesSeleccionado, titular_id: titularId }),
-        }
-      )
-      if (!resp.ok) {
-        const err = await resp.json().catch(()=>({error:'Error desconocido'}))
-        setErrorZip(err.error || 'Error al generar el ZIP')
+      /* supabase.functions.invoke añade automáticamente el header Authorization con la sesión del usuario */
+      const { data, error } = await supabase.functions.invoke('generar-zip-gestoria', {
+        body: { mes: mesSeleccionado, titular_id: titularId },
+      })
+      if (error) {
+        setErrorZip(error.message || 'Error al generar el ZIP')
         return
       }
-      const blob = await resp.blob()
+      const blob = data instanceof Blob ? data : new Blob([JSON.stringify(data)])
       const titNombre = titularKey==='ruben'?'RUBEN':'EMILIO'
       const zipName = `gestoria_${mesSeleccionado}_${titNombre}.zip`
       const url = URL.createObjectURL(blob)
