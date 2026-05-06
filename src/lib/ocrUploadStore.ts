@@ -1,5 +1,6 @@
-// ocrUploadStore v7 — múltiples sesiones simultáneas, persiste en localStorage, sobrevive F5
+// ocrUploadStore v8 — múltiples sesiones simultáneas, persiste en localStorage, sobrevive F5
 // Cada lote tiene su propio ID. Los toasts se apilan. El proceso continúa tras F5.
+// TTL: cuando una sesión completa (procesando=false) pasa 5 minutos, se auto-oculta.
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -26,9 +27,12 @@ export interface OcrSession {
   // Archivos pendientes de procesar (serializados como nombre+tipo para reanudar)
   archivosPendientes: { name: string; type: string; base64: string }[]
   creadoEn: number
+  // Timestamp de cuando completó la sesión (procesando=false). Se usa para TTL auto-cierre.
+  completadoEn: number | null
 }
 
 const STORAGE_KEY = 'ocr_sessions_v2'
+const TTL_COMPLETADO_MS = 5 * 60 * 1000 // 5 min tras completar
 const emitter = new EventTarget()
 
 function loadSessions(): OcrSession[] {
@@ -38,7 +42,9 @@ function loadSessions(): OcrSession[] {
     const sessions: OcrSession[] = JSON.parse(raw)
     // Limpiar sesiones muy viejas (>24h) o que no estaban procesando
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
-    return sessions.filter(s => s.creadoEn > cutoff && s.visible)
+    return sessions
+      .filter(s => s.creadoEn > cutoff && s.visible)
+      .map(s => ({ ...s, completadoEn: s.completadoEn ?? null }))
   } catch { return [] }
 }
 
@@ -54,7 +60,15 @@ function emit() {
 }
 
 function updateSession(id: string, patch: Partial<OcrSession>) {
-  sessions = sessions.map(s => s.id === id ? { ...s, ...patch } : s)
+  sessions = sessions.map(s => {
+    if (s.id !== id) return s
+    const next = { ...s, ...patch }
+    // Si pasa a no procesando, marcar timestamp para TTL
+    if (s.procesando && next.procesando === false && next.completadoEn == null) {
+      next.completadoEn = Date.now()
+    }
+    return next
+  })
   emit()
 }
 
@@ -70,6 +84,20 @@ if (typeof window !== 'undefined') {
       emitter.dispatchEvent(new CustomEvent('change'))
     }
   })
+
+  // Watcher TTL: cada 30s revisa sesiones completadas y oculta las que pasen 5 min
+  setInterval(() => {
+    const ahora = Date.now()
+    let cambio = false
+    sessions = sessions.map(s => {
+      if (!s.procesando && s.completadoEn && (ahora - s.completadoEn) > TTL_COMPLETADO_MS && s.visible) {
+        cambio = true
+        return { ...s, visible: false }
+      }
+      return s
+    })
+    if (cambio) emit()
+  }, 30000)
 }
 
 // Helpers de archivo
@@ -271,6 +299,7 @@ export function useOcrUpload() {
       fnName, titular_id,
       archivosPendientes: archivosSerial,
       creadoEn: Date.now(),
+      completadoEn: null,
     }
 
     sessions = [...sessions, newSession]
