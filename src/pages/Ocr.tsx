@@ -7,6 +7,7 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import OcrEditModal from '@/components/ocr/OcrEditModal'
 import ExtractosTabla from '@/components/ocr/ExtractosTabla'
+import VentasTab from '@/components/ocr/VentasTab'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 
 type TabId = 'facturas' | 'extractos' | 'ventas' | 'otros'
@@ -135,7 +136,6 @@ export default function Ocr() {
 
   const { sessions, procesar } = useOcrUpload()
 
-  // Refresh cuando alguna sesión completa
   const prevProcessing = useRef(false)
   useEffect(() => {
     const anyProcessing = sessions.some(s => s.procesando)
@@ -277,10 +277,7 @@ export default function Ocr() {
       )}
 
       {tab === 'ventas' && (
-        <div style={{ marginTop: 14, background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Ventas</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Próximamente: subida de informes de ventas (Uber Eats, Glovo, Just Eat, Rushour)</div>
-        </div>
+        <VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
       )}
 
       {(tab === 'facturas' || tab === 'otros') && (
