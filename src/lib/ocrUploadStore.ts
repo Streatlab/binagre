@@ -1,5 +1,5 @@
-// Store global de subida OCR — persiste en localStorage y sobrevive a cambio de pestaña
-// v6: no mostrar toast al arrancar si la subida ya terminó
+// ocrUploadStore v7 — múltiples sesiones simultáneas, persiste en localStorage, sobrevive F5
+// Cada lote tiene su propio ID. Los toasts se apilan. El proceso continúa tras F5.
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +10,8 @@ export interface ArchivoLog {
   detalle: string
 }
 
-export interface OcrUploadState {
+export interface OcrSession {
+  id: string
   total: number
   enviados: number
   ok: number
@@ -21,64 +22,73 @@ export interface OcrUploadState {
   visible: boolean
   procesando: boolean
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
+  titular_id: string | null
+  // Archivos pendientes de procesar (serializados como nombre+tipo para reanudar)
+  archivosPendientes: { name: string; type: string; base64: string }[]
+  creadoEn: number
 }
 
-const STORAGE_KEY = 'ocr_upload_state_v1'
+const STORAGE_KEY = 'ocr_sessions_v2'
 const emitter = new EventTarget()
 
-function loadInitial(): OcrUploadState | null {
+function loadSessions(): OcrSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const s = JSON.parse(raw) as OcrUploadState
-    // Si ya terminó (no procesando), no mostrar al arrancar
-    if (!s.procesando) return null
-    // Si estaba procesando pero nos quedamos a medias, marcar como terminado y ocultar
-    if (s.procesando && s.enviados < s.total) {
-      s.procesando = false
-      return null
-    }
-    return s
-  } catch { return null }
+    if (!raw) return []
+    const sessions: OcrSession[] = JSON.parse(raw)
+    // Limpiar sesiones muy viejas (>24h) o que no estaban procesando
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    return sessions.filter(s => s.creadoEn > cutoff && s.visible)
+  } catch { return [] }
 }
 
-let currentState: OcrUploadState | null = loadInitial()
+let sessions: OcrSession[] = loadSessions()
 
-function persist(s: OcrUploadState | null) {
-  try {
-    if (s) localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
-    else localStorage.removeItem(STORAGE_KEY)
-  } catch {}
+function persistSessions() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)) } catch {}
 }
 
-function setState(s: OcrUploadState | null) {
-  currentState = s
-  persist(s)
+function emit() {
+  persistSessions()
   emitter.dispatchEvent(new CustomEvent('change'))
+}
+
+function updateSession(id: string, patch: Partial<OcrSession>) {
+  sessions = sessions.map(s => s.id === id ? { ...s, ...patch } : s)
+  emit()
+}
+
+function removeSession(id: string) {
+  sessions = sessions.filter(s => s.id !== id)
+  emit()
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', e => {
     if (e.key === STORAGE_KEY) {
-      try { currentState = e.newValue ? JSON.parse(e.newValue) as OcrUploadState : null }
-      catch { currentState = null }
+      try { sessions = e.newValue ? JSON.parse(e.newValue) : [] } catch { sessions = [] }
       emitter.dispatchEvent(new CustomEvent('change'))
     }
   })
 }
 
-function getExt(file: File) {
-  return file.name.split('.').pop()?.toLowerCase() ?? ''
+// Helpers de archivo
+function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
+function esTextoPlano(name: string, type: string) {
+  const ext = getExt(name)
+  return ext === 'csv' || ext === 'txt' || type === 'text/csv' || type === 'text/plain'
 }
+function esExcel(name: string) { const ext = getExt(name); return ext === 'xlsx' || ext === 'xls' }
 
-function esTextoPlano(file: File): boolean {
-  const ext = getExt(file)
-  return ext === 'csv' || ext === 'txt' || file.type === 'text/csv' || file.type === 'text/plain'
-}
-
-function esExcel(file: File): boolean {
-  const ext = getExt(file)
-  return ext === 'xlsx' || ext === 'xls'
+function getMimeType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') return file.type
+  const map: Record<string, string> = {
+    csv: 'text/csv', txt: 'text/csv', pdf: 'application/pdf', png: 'image/png',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls: 'application/vnd.ms-excel',
+  }
+  return map[getExt(file.name)] ?? 'application/pdf'
 }
 
 function leerBase64(file: File): Promise<string> {
@@ -89,7 +99,6 @@ function leerBase64(file: File): Promise<string> {
     r.readAsDataURL(file)
   })
 }
-
 function leerTexto(file: File): Promise<string> {
   return new Promise((res, rej) => {
     const r = new FileReader()
@@ -98,19 +107,16 @@ function leerTexto(file: File): Promise<string> {
     r.readAsText(file, 'UTF-8')
   })
 }
-
 async function cargarSheetJS(): Promise<any> {
   if ((window as any).XLSX) return (window as any).XLSX
   await new Promise<void>((res, rej) => {
     const s = document.createElement('script')
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-    s.onload = () => res()
-    s.onerror = () => rej(new Error('No se pudo cargar SheetJS'))
+    s.onload = () => res(); s.onerror = () => rej(new Error('No se pudo cargar SheetJS'))
     document.head.appendChild(s)
   })
   return (window as any).XLSX
 }
-
 async function excelACSV(file: File): Promise<string> {
   const XLSX = await cargarSheetJS()
   const buf = await file.arrayBuffer()
@@ -126,129 +132,154 @@ async function excelACSV(file: File): Promise<string> {
         if (!cell) continue
         if (cell.t === 'd' && cell.v instanceof Date) {
           const d = cell.v as Date
-          const dd = String(d.getDate()).padStart(2, '0')
-          const mm = String(d.getMonth() + 1).padStart(2, '0')
-          const yyyy = d.getFullYear()
           cell.t = 's'
-          cell.v = `${dd}/${mm}/${yyyy}`
+          cell.v = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
           cell.w = cell.v
         }
       }
     }
   }
-  const csv: string = XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
-  return csv
+  return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
-function getMimeType(file: File): string {
-  if (file.type && file.type !== 'application/octet-stream') return file.type
-  const ext = getExt(file)
-  const map: Record<string, string> = {
-    csv: 'text/csv', txt: 'text/csv',
-    pdf: 'application/pdf', png: 'image/png',
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    xls: 'application/vnd.ms-excel',
+// Procesar un archivo ya serializado (base64 + metadata)
+async function procesarArchivo(
+  sessionId: string,
+  item: { name: string; type: string; base64: string },
+  fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto',
+  titular_id: string | null
+): Promise<ArchivoLog> {
+  try {
+    let body: Record<string, unknown>
+    const mimeType = item.type
+
+    if (esTextoPlano(item.name, item.type)) {
+      // base64 → texto
+      const texto = atob(item.base64)
+      body = { fileTexto: texto, filename: item.name, mimeType }
+    } else {
+      body = { fileBase64: item.base64, filename: item.name, mimeType }
+    }
+
+    if (fnName === 'ocr-procesar-extracto' && titular_id) body.titular_id = titular_id
+
+    const { data, error } = await supabase.functions.invoke(fnName, { body })
+
+    if (error) return { filename: item.name, status: 'error', detalle: `Error: ${error.message || JSON.stringify(error)}` }
+    if (data?.error) return { filename: item.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
+    if (data?.status === 'duplicado') return { filename: item.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
+    if (data?.status === 'ok') {
+      if (fnName === 'ocr-procesar-extracto') {
+        return { filename: item.name, status: 'ok', detalle: `${data.insertados||0} nuevos · ${data.saltados||0} ya existían · ${data.categorizados_auto||0} categ.` }
+      }
+      if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
+        return { filename: item.name, status: 'ok', detalle: 'Conciliada' }
+      }
+      const motivos: string[] = []
+      if (!data.matched) motivos.push('sin mov. bancario')
+      if (data.sin_categoria) motivos.push('sin categoría')
+      if (data.sin_titular) motivos.push('sin titular')
+      return { filename: item.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
+    }
+    return { filename: item.name, status: 'error', detalle: 'Respuesta inesperada' }
+  } catch (err) {
+    return { filename: item.name, status: 'error', detalle: err instanceof Error ? err.message : String(err) }
   }
-  return map[ext] ?? 'application/pdf'
 }
 
-export function useOcrUpload(): {
-  state: OcrUploadState | null
-  procesar: (files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id_forzado: string | null) => Promise<void>
-  cerrar: () => void
-  ocultar: () => void
-} {
-  const [state, setSt] = useState<OcrUploadState | null>(currentState)
+// Loop de procesamiento — reanudable tras F5
+async function runSession(sessionId: string) {
+  const getSession = () => sessions.find(s => s.id === sessionId)
+
+  while (true) {
+    const s = getSession()
+    if (!s || !s.procesando) break
+    if (s.archivosPendientes.length === 0) {
+      updateSession(sessionId, { procesando: false })
+      break
+    }
+
+    const [item, ...resto] = s.archivosPendientes
+    updateSession(sessionId, { archivosPendientes: resto })
+
+    const logEntry = await procesarArchivo(sessionId, item, s.fnName!, s.titular_id)
+
+    const cur = getSession()
+    if (!cur) break
+    updateSession(sessionId, {
+      enviados: cur.enviados + 1,
+      log: [...cur.log, logEntry],
+      ok: cur.ok + (logEntry.status === 'ok' ? 1 : 0),
+      duplicados: cur.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
+      pendientes: cur.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
+      errores: cur.errores + (logEntry.status === 'error' ? 1 : 0),
+    })
+
+    // Pequeña pausa entre archivos para no saturar
+    await new Promise(r => setTimeout(r, 800))
+  }
+}
+
+// Al arrancar: reanudar sesiones que estaban en curso
+export function reanudarSesionsPendientes() {
+  for (const s of sessions) {
+    if (s.procesando && s.archivosPendientes.length > 0) {
+      runSession(s.id)
+    }
+  }
+}
+
+export function useOcrUpload() {
+  const [snap, setSnap] = useState<OcrSession[]>([...sessions])
 
   useEffect(() => {
-    const handler = () => setSt(currentState)
+    const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
+    // Reanudar sesiones pendientes al montar
+    reanudarSesionsPendientes()
     return () => emitter.removeEventListener('change', handler)
   }, [])
 
-  return {
-    state,
-    procesar: async (files, fnName, titular_id_forzado) => {
-      setState({
-        total: files.length, enviados: 0, ok: 0, pendientes: 0,
-        duplicados: 0, errores: 0, log: [], visible: true,
-        procesando: true, fnName,
-      })
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        let logEntry: ArchivoLog = { filename: file.name, status: 'error', detalle: '' }
-
-        try {
-          const mimeType = getMimeType(file)
-          let body: Record<string, unknown>
-
-          if (esExcel(file)) {
-            const csvTexto = await excelACSV(file)
-            body = {
-              fileTexto: csvTexto,
-              filename: file.name.replace(/\.(xlsx|xls)$/i, '.csv'),
-              mimeType: 'text/csv',
-            }
-          } else if (esTextoPlano(file)) {
-            const textoCSV = await leerTexto(file)
-            body = { fileTexto: textoCSV, filename: file.name, mimeType }
-          } else {
-            const base64 = await leerBase64(file)
-            body = { fileBase64: base64, filename: file.name, mimeType }
-          }
-
-          if (fnName === 'ocr-procesar-extracto' && titular_id_forzado) {
-            body.titular_id = titular_id_forzado
-          }
-
-          const { data, error } = await supabase.functions.invoke(fnName, { body })
-
-          if (error) {
-            logEntry = { filename: file.name, status: 'error', detalle: `Error invoke: ${error.message || JSON.stringify(error)}` }
-          } else if (data?.error) {
-            logEntry = { filename: file.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
-          } else if (data?.status === 'duplicado') {
-            logEntry = { filename: file.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
-          } else if (data?.status === 'ok') {
-            if (fnName === 'ocr-procesar-extracto') {
-              logEntry = { filename: file.name, status: 'ok', detalle: `${data.insertados || 0} movs nuevos · ${data.saltados || 0} ya existían · ${data.categorizados_auto || 0} categ. auto` }
-            } else if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
-              logEntry = { filename: file.name, status: 'ok', detalle: 'Conciliada' }
-            } else {
-              const motivos: string[] = []
-              if (!data.matched) motivos.push('sin movimiento bancario')
-              if (data.sin_categoria) motivos.push('sin categoría')
-              if (data.sin_titular) motivos.push('sin titular')
-              logEntry = { filename: file.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
-            }
-          } else {
-            logEntry = { filename: file.name, status: 'error', detalle: 'Respuesta inesperada' }
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err)
-          logEntry = { filename: file.name, status: 'error', detalle: msg }
-        }
-
-        if (currentState) {
-          setState({
-            ...currentState,
-            enviados: currentState.enviados + 1,
-            log: [...currentState.log, logEntry],
-            ok: currentState.ok + (logEntry.status === 'ok' ? 1 : 0),
-            duplicados: currentState.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
-            pendientes: currentState.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
-            errores: currentState.errores + (logEntry.status === 'error' ? 1 : 0),
-          })
-        }
-
-        if (i < files.length - 1) await new Promise(r => setTimeout(r, 1500))
+  async function procesar(
+    files: File[],
+    fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto',
+    titular_id: string | null
+  ) {
+    // Serializar archivos a base64 ANTES de guardar (para sobrevivir F5)
+    const archivosSerial: { name: string; type: string; base64: string }[] = []
+    for (const file of files) {
+      let base64: string
+      if (esExcel(file.name)) {
+        const csvTexto = await excelACSV(file)
+        base64 = btoa(unescape(encodeURIComponent(csvTexto)))
+        archivosSerial.push({ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', base64 })
+      } else if (esTextoPlano(file.name, file.type)) {
+        const texto = await leerTexto(file)
+        base64 = btoa(unescape(encodeURIComponent(texto)))
+        archivosSerial.push({ name: file.name, type: 'text/csv', base64 })
+      } else {
+        base64 = await leerBase64(file)
+        archivosSerial.push({ name: file.name, type: getMimeType(file), base64 })
       }
+    }
 
-      if (currentState) setState({ ...currentState, procesando: false })
-    },
-    cerrar: () => setState(null),
-    ocultar: () => { if (currentState) setState({ ...currentState, visible: false }) },
+    const newSession: OcrSession = {
+      id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      total: files.length,
+      enviados: 0, ok: 0, pendientes: 0, duplicados: 0, errores: 0,
+      log: [], visible: true, procesando: true,
+      fnName, titular_id,
+      archivosPendientes: archivosSerial,
+      creadoEn: Date.now(),
+    }
+
+    sessions = [...sessions, newSession]
+    emit()
+    runSession(newSession.id)
   }
+
+  function cerrar(id: string) { removeSession(id) }
+  function ocultar(id: string) { updateSession(id, { visible: false }) }
+
+  return { sessions: snap, procesar, cerrar, ocultar }
 }
