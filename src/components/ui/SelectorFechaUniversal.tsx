@@ -8,30 +8,10 @@ interface SelectorFechaUniversalProps {
   defaultOpcion?: Opcion
 }
 
-type Opcion =
-  | 'semana_actual'
-  | 'ultimos_7'
-  | 'mes_en_curso'
-  | 'un_mes'
-  | 'ultimos_60'
-  | 'personalizado'
-  | 'semanas_x'
+type Opcion = 'semana_actual' | 'ultimos_7' | 'mes_en_curso' | 'un_mes' | 'ultimos_60' | 'personalizado' | 'semanas_x'
 
-interface PersistedState {
-  opcion: Opcion
-  desde: string
-  hasta: string
-  semanaISO?: number
-  semanaYear?: number
-}
-
-interface SemanaItem {
-  semanaISO: number
-  year: number
-  lunes: Date
-  domingo: Date
-  label: string
-}
+interface PersistedState { opcion: Opcion; desde: string; hasta: string; semanaISO?: number; semanaYear?: number }
+interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Date; label: string }
 
 function isoWeekNumber(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -40,35 +20,50 @@ function isoWeekNumber(d: Date): number {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
   return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
-
 function isoWeekYear(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   const dayNum = date.getUTCDay() || 7
   date.setUTCDate(date.getUTCDate() + 4 - dayNum)
   return date.getUTCFullYear()
 }
-
 function getLunesDeSemana(year: number, week: number): Date {
   const simple = new Date(year, 0, 1 + (week - 1) * 7)
   const dow = simple.getDay()
   const ISOweekStart = simple
-  if (dow <= 4) {
-    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
-  } else {
-    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
-  }
+  if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
+  else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
   return ISOweekStart
 }
-
 function toDateString(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function todayStr(): string { return toDateString(new Date()) }
+
+// Parser de fechas: acepta DD/MM/AA, DD/MM/AAAA, DD-MM-AA, DDMMAA, DD.MM.AA, etc.
+// Devuelve YYYY-MM-DD o null
+function parseFechaInput(s: string): string | null {
+  if (!s) return null
+  const clean = s.trim().replace(/[^\d/.\-]/g, '')
+  let m = clean.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/)
+  if (!m) {
+    if (/^\d{6}$/.test(clean)) m = clean.match(/^(\d{2})(\d{2})(\d{2})$/) as any
+    else if (/^\d{8}$/.test(clean)) m = clean.match(/^(\d{2})(\d{2})(\d{4})$/) as any
+    else return null
+  }
+  if (!m) return null
+  const day = parseInt(m[1], 10)
+  const mon = parseInt(m[2], 10)
+  let yr = parseInt(m[3], 10)
+  if (yr < 100) yr = yr >= 70 ? 1900 + yr : 2000 + yr
+  if (day < 1 || day > 31 || mon < 1 || mon > 12) return null
+  return `${yr}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`
 }
 
-function todayStr(): string {
-  return toDateString(new Date())
+// Formato display: YYYY-MM-DD → DD/MM/AAAA
+function isoToDisplay(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return iso
+  return `${m[3]}/${m[2]}/${m[1]}`
 }
 
 function buildSemanasList(): SemanaItem[] {
@@ -78,18 +73,15 @@ function buildSemanasList(): SemanaItem[] {
   const items: SemanaItem[] = []
   for (let w = curISO; w >= 1; w--) {
     const lunes = getLunesDeSemana(curYear, w)
-    const domingo = new Date(lunes)
-    domingo.setDate(domingo.getDate() + 6)
+    const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6)
     items.push({ semanaISO: w, year: curYear, lunes, domingo, label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}` })
   }
   if (items.length < 12) {
     const prevYear = curYear - 1
-    const dec28 = new Date(prevYear, 11, 28)
-    const lastWeek = isoWeekNumber(dec28)
+    const lastWeek = isoWeekNumber(new Date(prevYear, 11, 28))
     for (let w = lastWeek; w >= 1 && items.length < 12; w--) {
       const lunes = getLunesDeSemana(prevYear, w)
-      const domingo = new Date(lunes)
-      domingo.setDate(domingo.getDate() + 6)
+      const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6)
       items.push({ semanaISO: w, year: prevYear, lunes, domingo, label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}` })
     }
   }
@@ -97,38 +89,19 @@ function buildSemanasList(): SemanaItem[] {
 }
 
 function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
   switch (opcion) {
     case 'semana_actual': {
       const dow = hoy.getDay() || 7
-      const lunes = new Date(hoy)
-      lunes.setDate(hoy.getDate() - dow + 1)
-      const domingo = new Date(lunes)
-      domingo.setDate(lunes.getDate() + 6)
+      const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow + 1)
+      const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
       return { desde: lunes, hasta: domingo }
     }
-    case 'ultimos_7': {
-      const desde = new Date(hoy)
-      desde.setDate(hoy.getDate() - 7)
-      return { desde, hasta: hoy }
-    }
-    case 'mes_en_curso': {
-      const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-      return { desde, hasta: hoy }
-    }
-    case 'un_mes': {
-      const desde = new Date(hoy)
-      desde.setDate(hoy.getDate() - 30)
-      return { desde, hasta: hoy }
-    }
-    case 'ultimos_60': {
-      const desde = new Date(hoy)
-      desde.setDate(hoy.getDate() - 60)
-      return { desde, hasta: hoy }
-    }
-    default:
-      return { desde: hoy, hasta: hoy }
+    case 'ultimos_7':   { const d = new Date(hoy); d.setDate(hoy.getDate() - 7);  return { desde: d, hasta: hoy } }
+    case 'mes_en_curso':{ return { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy } }
+    case 'un_mes':      { const d = new Date(hoy); d.setDate(hoy.getDate() - 30); return { desde: d, hasta: hoy } }
+    case 'ultimos_60':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 60); return { desde: d, hasta: hoy } }
+    default: return { desde: hoy, hasta: hoy }
   }
 }
 
@@ -148,6 +121,12 @@ const btnStyle: React.CSSProperties = {
   color: '#111111', cursor: 'pointer', display: 'flex', alignItems: 'center',
   gap: 4, whiteSpace: 'nowrap',
 }
+const inputStyle: React.CSSProperties = {
+  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
+  color: '#111111', width: 100, outline: 'none',
+}
+const inputErrorStyle: React.CSSProperties = { ...inputStyle, borderColor: '#E24B4A' }
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: '100%', right: 0, background: '#fff',
   border: '0.5px solid #d0c8bc', borderRadius: 8, width: 200, fontSize: 13,
@@ -169,10 +148,13 @@ export default function SelectorFechaUniversal({
   const [opcion, setOpcion] = useState<Opcion>(defaultOpcion)
   const [open, setOpen] = useState(false)
   const [semanaOpen, setSemanaOpen] = useState(false)
-  const [desdeStr, setDesdeStr] = useState('')
-  const [hastaStr, setHastaStr] = useState('')
+  // Inputs personalizados: lo que escribe el usuario
+  const [desdeInput, setDesdeInput] = useState('')
+  const [hastaInput, setHastaInput] = useState('')
   const [selectedLabel, setSelectedLabel] = useState(defaultLabel)
   const containerRef = useRef<HTMLDivElement>(null)
+  const desdeRef = useRef<HTMLInputElement>(null)
+  const hastaRef = useRef<HTMLInputElement>(null)
   const semanas = buildSemanasList()
 
   useEffect(() => {
@@ -186,9 +168,12 @@ export default function SelectorFechaUniversal({
           if (item) { setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label); return }
         }
         if (op === 'personalizado' && saved.desde && saved.hasta) {
-          const d = new Date(saved.desde); const h = new Date(saved.hasta)
+          const d = new Date(saved.desde + 'T00:00:00')
+          const h = new Date(saved.hasta + 'T23:59:59')
           const labelPers = `${fmtFechaCorta(saved.desde)} → ${fmtFechaCorta(saved.hasta)}`
-          setOpcion(op); setDesdeStr(saved.desde); setHastaStr(saved.hasta)
+          setOpcion(op)
+          setDesdeInput(isoToDisplay(saved.desde))
+          setHastaInput(isoToDisplay(saved.hasta))
           setSelectedLabel(labelPers); onChange(d, h, labelPers); return
         }
         if (!['personalizado', 'semanas_x'].includes(op)) {
@@ -222,10 +207,11 @@ export default function SelectorFechaUniversal({
   function selectOpcion(op: Opcion) {
     if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
-      // Al entrar en personalizado, inicializar hasta = hoy si están vacíos
-      setOpcion(op)
-      setOpen(false)
-      if (!hastaStr) setHastaStr(todayStr())
+      setOpcion(op); setOpen(false)
+      // Inicializar hasta con hoy si está vacío
+      if (!hastaInput) setHastaInput(isoToDisplay(todayStr()))
+      // Foco al input de desde
+      setTimeout(() => desdeRef.current?.focus(), 50)
       return
     }
     const label = OPCIONES.find(o => o.id === op)?.label ?? op
@@ -241,28 +227,44 @@ export default function SelectorFechaUniversal({
     onChange(item.lunes, item.domingo, item.label)
   }
 
+  // Aplicar fechas escritas
   function applyPersonalizado() {
-    if (!desdeStr || !hastaStr) return
-    const d = new Date(desdeStr + 'T00:00:00')
-    const h = new Date(hastaStr + 'T23:59:59')
-    const label = `${fmtFechaCorta(desdeStr)} → ${fmtFechaCorta(hastaStr)}`
+    const desdeIso = parseFechaInput(desdeInput)
+    const hastaIso = parseFechaInput(hastaInput) || todayStr()
+    if (!desdeIso) return
+    // Si hasta no estaba escrita o era inválida, normalizamos a hoy o desde
+    const hastaFinal = hastaIso < desdeIso ? desdeIso : hastaIso
+    setDesdeInput(isoToDisplay(desdeIso))
+    setHastaInput(isoToDisplay(hastaFinal))
+    const d = new Date(desdeIso + 'T00:00:00')
+    const h = new Date(hastaFinal + 'T23:59:59')
+    const label = `${fmtFechaCorta(desdeIso)} → ${fmtFechaCorta(hastaFinal)}`
     setSelectedLabel(label)
-    persist({ opcion: 'personalizado', desde: desdeStr, hasta: hastaStr })
+    persist({ opcion: 'personalizado', desde: desdeIso, hasta: hastaFinal })
     onChange(d, h, label)
   }
 
-  function handleDesdeChange(val: string) {
-    setDesdeStr(val)
-    // Al meter fecha inicial, poner hasta = hoy si hasta está vacío o es anterior
-    if (val) {
-      const hoy = todayStr()
-      if (!hastaStr || hastaStr < val) setHastaStr(hoy)
+  function handleDesdeBlur() {
+    // Al salir del campo desde, si hay fecha válida y hasta vacío → poner hoy
+    const desdeIso = parseFechaInput(desdeInput)
+    if (desdeIso) {
+      setDesdeInput(isoToDisplay(desdeIso))
+      if (!parseFechaInput(hastaInput)) {
+        setHastaInput(isoToDisplay(todayStr()))
+      }
     }
   }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') applyPersonalizado()
+  function handleHastaBlur() {
+    const hastaIso = parseFechaInput(hastaInput)
+    if (hastaIso) setHastaInput(isoToDisplay(hastaIso))
   }
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); applyPersonalizado() }
+  }
+
+  // Validez visual
+  const desdeOk = !desdeInput || parseFechaInput(desdeInput) !== null
+  const hastaOk = !hastaInput || parseFechaInput(hastaInput) !== null
 
   return (
     <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
@@ -293,17 +295,25 @@ export default function SelectorFechaUniversal({
       {opcion === 'personalizado' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
-            type="date" lang="es-ES" value={desdeStr}
-            onChange={e => handleDesdeChange(e.target.value)}
+            ref={desdeRef}
+            type="text"
+            placeholder="DD/MM/AA"
+            value={desdeInput}
+            onChange={e => setDesdeInput(e.target.value)}
+            onBlur={handleDesdeBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...btnStyle, cursor: 'default' }}
+            style={desdeOk ? inputStyle : inputErrorStyle}
           />
           <span style={{ fontSize: 13, color: '#777', fontFamily: 'Lexend, sans-serif' }}>→</span>
           <input
-            type="date" lang="es-ES" value={hastaStr}
-            onChange={e => setHastaStr(e.target.value)}
+            ref={hastaRef}
+            type="text"
+            placeholder="DD/MM/AA"
+            value={hastaInput}
+            onChange={e => setHastaInput(e.target.value)}
+            onBlur={handleHastaBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...btnStyle, cursor: 'default' }}
+            style={hastaOk ? inputStyle : inputErrorStyle}
           />
           <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', borderColor: '#B01D23' }} onClick={applyPersonalizado}>
             Aplicar
