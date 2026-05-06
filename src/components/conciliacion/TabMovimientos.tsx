@@ -663,10 +663,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
                 <colgroup>
                   <col style={{ width: 90 }} />
-                  <col />
-                  <col style={{ width: '16%' }} />
+                  <col style={{ width: 240 }} />
+                  <col style={{ width: 130 }} />
                   <col style={{ width: 110 }} />
-                  <col style={{ width: 200 }} />
+                  <col />
                   <col style={{ width: 80 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 100 }} />
@@ -723,16 +723,16 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {fmtDate(m.fecha)}
                         </td>
-                        <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
-                          {m.concepto.length > 28 ? m.concepto.slice(0, 28) + '…' : m.concepto}
+                        <td title={m.concepto} style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.concepto}
                         </td>
-                        <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td title={m.contraparte || ''} style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {m.contraparte || 'Sin identificar'}
                         </td>
                         <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
                           {fmtEur(m.importe)}
                         </td>
-                        <td style={{ ...tdBase, overflow: 'visible', minWidth: 240, whiteSpace: 'nowrap' }}>
+                        <td style={{ ...tdBase, overflow: 'visible', whiteSpace: 'nowrap' }}>
                           {catInfo ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
                               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
