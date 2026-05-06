@@ -1,0 +1,20 @@
+/* Conciliacion overrides — fix ancho columna Categoria sin cortar */
+
+/* Tabla movimientos: limitar concepto y ensanchar categoria */
+table tbody td:nth-child(2) {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Categoria — celda 5 — sin truncado, ancho automatico */
+table tbody td:nth-child(5) {
+  white-space: nowrap;
+  min-width: 240px;
+}
+
+/* Categoria — span interno con id+nombre */
+table tbody td:nth-child(5) span {
+  white-space: nowrap !important;
+}
