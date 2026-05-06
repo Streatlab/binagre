@@ -660,7 +660,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           )}
           {!cargando && (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
                 <thead>
                   <tr>
                     {HEADERS.map(h => {
@@ -671,7 +671,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                           style={{
                             fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
                             color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
-                            padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
+                            padding: '10px 12px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
                             whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
                           }}>
                           {h.label}{arrow}
@@ -689,7 +689,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     </tr>
                   ) : filasVisibles.map((m, idx) => {
                     const isLast = idx === filasVisibles.length - 1
-                    const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
+                    const tdBase: React.CSSProperties = { padding: '8px 12px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
                     const catInfo = getBadgeCategoria(m, categoriasPyg)
                     const estado = calcularEstado(m)
                     const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
@@ -713,10 +713,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {fmtDate(m.fecha)}
                         </td>
-                        <td title={m.concepto} style={{ ...tdBase, color: '#111', whiteSpace: 'nowrap' }}>
+                        <td title={m.concepto} style={{ ...tdBase, color: '#111', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {m.concepto}
                         </td>
-                        <td style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', whiteSpace: 'nowrap' }}>
+                        <td title={m.contraparte || ''} style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {m.contraparte || 'Sin identificar'}
                         </td>
                         <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
@@ -724,7 +724,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         </td>
                         <td style={{ ...tdBase, whiteSpace: 'nowrap' }}>
                           {catInfo ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050', whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', whiteSpace: 'nowrap' }}>
                               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
                               {catInfo.nombre}
                             </span>
@@ -772,23 +772,23 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         )}
                         <td style={tdBase}>
                           {estado === 'conciliado' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
                               Conciliado
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
                               Pendiente
                             </span>
                           )}
                         </td>
                         <td style={tdBase}>
                           {isRuben ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
                               Rubén
                             </span>
                           ) : isEmilio ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
                               Emilio
                             </span>
