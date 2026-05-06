@@ -67,54 +67,38 @@ function toDateString(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+function todayStr(): string {
+  return toDateString(new Date())
+}
+
 function buildSemanasList(): SemanaItem[] {
   const today = new Date()
   const curISO = isoWeekNumber(today)
   const curYear = isoWeekYear(today)
-
   const items: SemanaItem[] = []
-
-  // Build from current week back to week 1 of current year
   for (let w = curISO; w >= 1; w--) {
     const lunes = getLunesDeSemana(curYear, w)
     const domingo = new Date(lunes)
     domingo.setDate(domingo.getDate() + 6)
-    items.push({
-      semanaISO: w,
-      year: curYear,
-      lunes,
-      domingo,
-      label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}`,
-    })
+    items.push({ semanaISO: w, year: curYear, lunes, domingo, label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}` })
   }
-
-  // If fewer than 12, add weeks from previous year
   if (items.length < 12) {
     const prevYear = curYear - 1
-    // Find last week of previous year
     const dec28 = new Date(prevYear, 11, 28)
     const lastWeek = isoWeekNumber(dec28)
     for (let w = lastWeek; w >= 1 && items.length < 12; w--) {
       const lunes = getLunesDeSemana(prevYear, w)
       const domingo = new Date(lunes)
       domingo.setDate(domingo.getDate() + 6)
-      items.push({
-        semanaISO: w,
-        year: prevYear,
-        lunes,
-        domingo,
-        label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}`,
-      })
+      items.push({ semanaISO: w, year: prevYear, lunes, domingo, label: `Semana ${w}, ${fmtFechaCorta(toDateString(lunes))}` })
     }
   }
-
   return items
 }
 
 function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
-
   switch (opcion) {
     case 'semana_actual': {
       const dow = hoy.getDay() || 7
@@ -159,53 +143,25 @@ const OPCIONES: { id: Opcion; label: string }[] = [
 ]
 
 const btnStyle: React.CSSProperties = {
-  padding: '6px 10px',
-  borderRadius: 8,
-  border: '0.5px solid #d0c8bc',
-  background: '#ffffff',
-  fontFamily: 'Lexend, sans-serif',
-  fontSize: 13,
-  color: '#111111',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-  whiteSpace: 'nowrap',
+  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
+  color: '#111111', cursor: 'pointer', display: 'flex', alignItems: 'center',
+  gap: 4, whiteSpace: 'nowrap',
 }
-
 const menuStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '100%',
-  right: 0,
-  background: '#fff',
-  border: '0.5px solid #d0c8bc',
-  borderRadius: 8,
-  width: 200,
-  fontSize: 13,
-  color: '#3a4050',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-  zIndex: 50,
-  maxHeight: '80vh',
-  overflowY: 'auto',
+  position: 'absolute', top: '100%', right: 0, background: '#fff',
+  border: '0.5px solid #d0c8bc', borderRadius: 8, width: 200, fontSize: 13,
+  color: '#3a4050', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', zIndex: 50,
+  maxHeight: '80vh', overflowY: 'auto',
 }
-
 const itemStyle: React.CSSProperties = {
-  display: 'block',
-  padding: '8px 12px',
-  cursor: 'pointer',
-  fontSize: 13,
-  fontFamily: 'Lexend, sans-serif',
-  color: '#7a8090',
-  background: 'transparent',
-  border: 'none',
-  width: '100%',
-  textAlign: 'left',
+  display: 'block', padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+  fontFamily: 'Lexend, sans-serif', color: '#7a8090', background: 'transparent',
+  border: 'none', width: '100%', textAlign: 'left',
 }
 
 export default function SelectorFechaUniversal({
-  nombreModulo,
-  onChange,
-  defaultOpcion = 'semana_actual',
+  nombreModulo, onChange, defaultOpcion = 'semana_actual',
 }: SelectorFechaUniversalProps) {
   const storageKey = `selector_fecha_${nombreModulo}`
   const defaultLabel = OPCIONES.find(o => o.id === defaultOpcion)?.label ?? 'Semana actual'
@@ -216,71 +172,43 @@ export default function SelectorFechaUniversal({
   const [desdeStr, setDesdeStr] = useState('')
   const [hastaStr, setHastaStr] = useState('')
   const [selectedLabel, setSelectedLabel] = useState(defaultLabel)
-
   const containerRef = useRef<HTMLDivElement>(null)
   const semanas = buildSemanasList()
 
-  // Restore from sessionStorage on mount
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(storageKey)
       if (raw) {
         const saved: PersistedState = JSON.parse(raw)
         const op = saved.opcion
-
         if (op === 'semanas_x' && saved.semanaISO && saved.semanaYear) {
-          const item = semanas.find(
-            s => s.semanaISO === saved.semanaISO && s.year === saved.semanaYear
-          )
-          if (item) {
-            setOpcion(op)
-            setSelectedLabel(item.label)
-            onChange(item.lunes, item.domingo, item.label)
-            return
-          }
+          const item = semanas.find(s => s.semanaISO === saved.semanaISO && s.year === saved.semanaYear)
+          if (item) { setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label); return }
         }
-
         if (op === 'personalizado' && saved.desde && saved.hasta) {
-          const d = new Date(saved.desde)
-          const h = new Date(saved.hasta)
+          const d = new Date(saved.desde); const h = new Date(saved.hasta)
           const labelPers = `${fmtFechaCorta(saved.desde)} → ${fmtFechaCorta(saved.hasta)}`
-          setOpcion(op)
-          setDesdeStr(saved.desde)
-          setHastaStr(saved.hasta)
-          setSelectedLabel(labelPers)
-          onChange(d, h, labelPers)
-          return
+          setOpcion(op); setDesdeStr(saved.desde); setHastaStr(saved.hasta)
+          setSelectedLabel(labelPers); onChange(d, h, labelPers); return
         }
-
         if (!['personalizado', 'semanas_x'].includes(op)) {
           const label = OPCIONES.find(o => o.id === op)?.label ?? 'Semana actual'
           const rango = calcRango(op)
-          setOpcion(op)
-          setSelectedLabel(label)
-          onChange(rango.desde, rango.hasta, label)
-          return
+          setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label); return
         }
       }
-    } catch {
-      // ignore parse errors
-    }
-
-    // Default
+    } catch {}
     if (defaultOpcion === 'semanas_x' || defaultOpcion === 'personalizado') {
-      const rango = calcRango('semana_actual')
-      onChange(rango.desde, rango.hasta, 'Semana actual')
+      const rango = calcRango('semana_actual'); onChange(rango.desde, rango.hasta, 'Semana actual')
     } else {
-      const rango = calcRango(defaultOpcion)
-      onChange(rango.desde, rango.hasta, defaultLabel)
+      const rango = calcRango(defaultOpcion); onChange(rango.desde, rango.hasta, defaultLabel)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setSemanaOpen(false)
+        setOpen(false); setSemanaOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -288,46 +216,28 @@ export default function SelectorFechaUniversal({
   }, [])
 
   function persist(state: PersistedState) {
-    try {
-      sessionStorage.setItem(storageKey, JSON.stringify(state))
-    } catch {
-      // ignore
-    }
+    try { sessionStorage.setItem(storageKey, JSON.stringify(state)) } catch {}
   }
 
   function selectOpcion(op: Opcion) {
-    if (op === 'semanas_x') {
-      setOpcion(op)
-      setOpen(false)
-      setSemanaOpen(true)
-      return
-    }
+    if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
+      // Al entrar en personalizado, inicializar hasta = hoy si están vacíos
       setOpcion(op)
       setOpen(false)
+      if (!hastaStr) setHastaStr(todayStr())
       return
     }
     const label = OPCIONES.find(o => o.id === op)?.label ?? op
     const rango = calcRango(op)
-    setOpcion(op)
-    setSelectedLabel(label)
-    setOpen(false)
-    setSemanaOpen(false)
+    setOpcion(op); setSelectedLabel(label); setOpen(false); setSemanaOpen(false)
     persist({ opcion: op, desde: toDateString(rango.desde), hasta: toDateString(rango.hasta) })
     onChange(rango.desde, rango.hasta, label)
   }
 
   function selectSemana(item: SemanaItem) {
-    setOpcion('semanas_x')
-    setSelectedLabel(item.label)
-    setSemanaOpen(false)
-    persist({
-      opcion: 'semanas_x',
-      desde: toDateString(item.lunes),
-      hasta: toDateString(item.domingo),
-      semanaISO: item.semanaISO,
-      semanaYear: item.year,
-    })
+    setOpcion('semanas_x'); setSelectedLabel(item.label); setSemanaOpen(false)
+    persist({ opcion: 'semanas_x', desde: toDateString(item.lunes), hasta: toDateString(item.domingo), semanaISO: item.semanaISO, semanaYear: item.year })
     onChange(item.lunes, item.domingo, item.label)
   }
 
@@ -341,75 +251,61 @@ export default function SelectorFechaUniversal({
     onChange(d, h, label)
   }
 
+  function handleDesdeChange(val: string) {
+    setDesdeStr(val)
+    // Al meter fecha inicial, poner hasta = hoy si hasta está vacío o es anterior
+    if (val) {
+      const hoy = todayStr()
+      if (!hastaStr || hastaStr < val) setHastaStr(hoy)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') applyPersonalizado()
+  }
+
   return (
     <div ref={containerRef} style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-      {/* Main dropdown trigger */}
       <div style={{ position: 'relative' }}>
         <button style={btnStyle} onClick={() => { setOpen(o => !o); setSemanaOpen(false) }}>
           <span>{selectedLabel}</span>
           <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
         </button>
-
         {open && (
           <div style={menuStyle}>
             {OPCIONES.map(o => (
-              <button
-                key={o.id}
-                style={{
-                  ...itemStyle,
-                  background: opcion === o.id ? '#FF475715' : 'transparent',
-                  color: opcion === o.id ? '#FF4757' : '#7a8090',
-                  fontWeight: opcion === o.id ? 500 : 400,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-                onClick={() => selectOpcion(o.id)}
-              >
+              <button key={o.id} style={{ ...itemStyle, background: opcion === o.id ? '#FF475715' : 'transparent', color: opcion === o.id ? '#FF4757' : '#7a8090', fontWeight: opcion === o.id ? 500 : 400, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => selectOpcion(o.id)}>
                 <span>{o.label}</span>
                 {o.id === 'semanas_x' && <span style={{ fontSize: 10 }}>▸</span>}
               </button>
             ))}
           </div>
         )}
-
         {semanaOpen && (
           <div style={{ ...menuStyle, maxHeight: 260, overflowY: 'auto' }}>
             {semanas.map(s => (
-              <button
-                key={`${s.year}-${s.semanaISO}`}
-                style={itemStyle}
-                onClick={() => selectSemana(s)}
-              >
-                {s.label}
-              </button>
+              <button key={`${s.year}-${s.semanaISO}`} style={itemStyle} onClick={() => selectSemana(s)}>{s.label}</button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Personalizado inline inputs */}
       {opcion === 'personalizado' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
-            type="date"
-            lang="es-ES"
-            value={desdeStr}
-            onChange={e => setDesdeStr(e.target.value)}
+            type="date" lang="es-ES" value={desdeStr}
+            onChange={e => handleDesdeChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             style={{ ...btnStyle, cursor: 'default' }}
           />
           <span style={{ fontSize: 13, color: '#777', fontFamily: 'Lexend, sans-serif' }}>→</span>
           <input
-            type="date"
-            lang="es-ES"
-            value={hastaStr}
+            type="date" lang="es-ES" value={hastaStr}
             onChange={e => setHastaStr(e.target.value)}
+            onKeyDown={handleKeyDown}
             style={{ ...btnStyle, cursor: 'default' }}
           />
-          <button
-            style={{ ...btnStyle, background: '#B01D23', color: '#fff', borderColor: '#B01D23' }}
-            onClick={applyPersonalizado}
-          >
+          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', borderColor: '#B01D23' }} onClick={applyPersonalizado}>
             Aplicar
           </button>
         </div>
