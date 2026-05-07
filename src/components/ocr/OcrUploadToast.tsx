@@ -1,4 +1,4 @@
-// OcrUploadToast v5 — añade banner ACHTUNG rojo para errores críticos (créditos, API key, modelo)
+// OcrUploadToast v6 — muestra DETALLE de cada error/achtung en la lista expandida
 import { useState } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
@@ -50,7 +50,9 @@ function AchtungBanner({ session }: { session: OcrSession }) {
 function SessionToast({ session, onCerrar, onOcultar }: {
   session: OcrSession; onCerrar: () => void; onOcultar: () => void
 }) {
-  const [expandido, setExpandido] = useState(false)
+  // Auto-expandir si hay errores o achtung — para que el usuario vea el detalle sin tener que hacer clic
+  const tieneErroresOAchtung = session.errores > 0 || session.achtung > 0
+  const [expandido, setExpandido] = useState(tieneErroresOAchtung)
   const pct = session.total > 0 ? Math.round((session.enviados / session.total) * 100) : 0
   const tieneAchtung = session.achtung > 0
   return (
@@ -59,7 +61,7 @@ function SessionToast({ session, onCerrar, onOcultar }: {
       color: '#fff',
       padding: '14px 18px',
       borderRadius: 12,
-      width: 360,
+      width: 380,
       fontFamily: 'Lexend, sans-serif',
       fontSize: 13,
       boxShadow: tieneAchtung ? '0 6px 32px rgba(176, 29, 35, 0.5)' : '0 6px 24px rgba(0,0,0,0.35)',
@@ -94,14 +96,44 @@ function SessionToast({ session, onCerrar, onOcultar }: {
             <span>{expandido ? '▲' : '▼'}</span>
           </button>
           {expandido && (
-            <div style={{ marginTop: 6, maxHeight: 180, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '6px 8px' }}>
+            <div style={{ marginTop: 6, maxHeight: 220, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '6px 8px' }}>
               {[...session.log].reverse().map((entry, idx) => {
                 const colors: Record<string, string> = { ok: '#1D9E75', duplicado: '#7a8090', pendiente: '#F26B1F', error: '#E24B4A', achtung: '#FF4757' }
+                const esCritico = entry.status === 'error' || entry.status === 'achtung'
                 return (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: idx < session.log.length - 1 ? '0.5px solid rgba(255,255,255,0.06)' : 'none' }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#cdd0d8' }}>{entry.filename}</span>
-                    <span style={{ color: colors[entry.status], fontSize: 9, flexShrink: 0, textTransform: 'uppercase' }}>{entry.status}</span>
+                  <div key={idx} style={{ padding: '5px 0', borderBottom: idx < session.log.length - 1 ? '0.5px solid rgba(255,255,255,0.06)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#cdd0d8' }}>{entry.filename}</span>
+                      <span style={{ color: colors[entry.status], fontSize: 9, flexShrink: 0, textTransform: 'uppercase', fontWeight: 600 }}>{entry.status}</span>
+                    </div>
+                    {/* Mostrar el detalle del error/achtung debajo del filename — esto es lo que faltaba */}
+                    {esCritico && entry.detalle && (
+                      <div style={{
+                        marginTop: 3,
+                        marginLeft: 11,
+                        fontSize: 10,
+                        color: colors[entry.status],
+                        lineHeight: 1.35,
+                        wordBreak: 'break-word',
+                        opacity: 0.9,
+                      }}>
+                        {entry.detalle}
+                      </div>
+                    )}
+                    {/* Para pendientes/duplicados también mostrar el motivo, en gris */}
+                    {!esCritico && entry.detalle && entry.status !== 'ok' && (
+                      <div style={{
+                        marginTop: 2,
+                        marginLeft: 11,
+                        fontSize: 10,
+                        color: '#7a8090',
+                        lineHeight: 1.35,
+                        wordBreak: 'break-word',
+                      }}>
+                        {entry.detalle}
+                      </div>
+                    )}
                   </div>
                 )
               })}
