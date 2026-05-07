@@ -116,7 +116,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [sortColumn, setSortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
   const [sortDir, setSortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
 
-  // Multi-sort: criterio primario al servidor, secundario en cliente
   const { handleSort: multiHandleSort, sortIndicator, applySorts } = useMultiSort<Movimiento, SortColumn>({
     getValue: (row, col) => {
       switch (col) {
@@ -388,16 +387,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  function handleSort(col: SortColumn, e?: React.MouseEvent) {
-    const shift = e?.shiftKey ?? false
-    if (!shift) {
-      // Primario → va al servidor
-      if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-      else { setSortColumn(col); setSortDir('asc') }
-      if (page !== 1) updateUrl({ page: 1 })
-    }
-    // Siempre sincronizar el hook (indicadores + orden secundario cliente)
-    multiHandleSort(col, shift)
+  function handleSort(col: SortColumn) {
+    multiHandleSort(col)
+    if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortColumn(col); setSortDir('asc') }
+    if (page !== 1) updateUrl({ page: 1 })
   }
 
   const filasVisibles = useMemo(() => applySorts(filas), [filas, applySorts])
@@ -673,10 +667,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                 <thead>
                   <tr>
                     {HEADERS.map(h => {
-                      const isActive = sortColumn === h.col
                       const arrow = sortIndicator(h.col)
+                      const isActive = arrow !== ''
                       return (
-                        <th key={h.col} onClick={(e) => handleSort(h.col, e)}
+                        <th key={h.col} onClick={() => handleSort(h.col)}
                           style={{
                             fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
                             color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
