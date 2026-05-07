@@ -103,9 +103,9 @@ function clienteAnthropic(): Anthropic {
   return new Anthropic({ apiKey })
 }
 
-// Modelo: alias estable claude-sonnet-4-5 (snapshot 20250929)
+// claude-3-5-sonnet-20241022: modelo estable con soporte PDF/visión disponible en todas las cuentas
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
+  return process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
