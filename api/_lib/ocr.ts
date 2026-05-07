@@ -103,9 +103,8 @@ function clienteAnthropic(): Anthropic {
   return new Anthropic({ apiKey })
 }
 
-// Mismo modelo que usaba la Edge Function de Supabase cuando funcionaba
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20251022'
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
