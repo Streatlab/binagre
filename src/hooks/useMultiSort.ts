@@ -2,13 +2,12 @@
  * useMultiSort — ordenación multi-criterio tipo checks acumulativo
  *
  * Comportamiento:
- * - 1er click en col nueva   → activa como criterio N (se añade al final)
- * - 2º click en misma col    → invierte dirección (↓ desc)
- * - 3er click en misma col   → DESACTIVA y las demás se reordenan
+ * - 1er click en col nueva   → se añade al FINAL como criterio N
+ *                              (el primero en clickar = ↑1, el segundo = ↑2...)
+ * - 2º click en misma col    → invierte dirección (↓)
+ * - 3er click en misma col   → DESACTIVA, las demás se reordenan sin gaps
  * - sortIndicator(col)       → ' ↑' | ' ↓' | ' ↑2' | ' ↓2' | ' ↑3' | ' ↓3' | ''
  * - applySorts(rows)         → rows ordenadas por todos los criterios activos
- *
- * Ejemplo: click Concepto → Concepto↑1, click Fecha → Concepto↑1 Fecha↑2
  */
 
 import { useState, useCallback } from 'react'
@@ -37,7 +36,7 @@ export function useMultiSort<Row, Col extends string = string>(
         const idx = prev.findIndex(s => s.col === col)
 
         if (idx === -1) {
-          // Col nueva: añadir al FINAL — el orden de clicks define la prioridad
+          // Col nueva: añadir al FINAL — el primero en clickar es ↑1
           const next = [...prev, { col, dir: 'asc' as SortDir }]
           return next.slice(0, maxCriteria)
         }
@@ -49,7 +48,7 @@ export function useMultiSort<Row, Col extends string = string>(
           return prev.map((s, i) => i === idx ? { ...s, dir: 'desc' as SortDir } : s)
         }
 
-        // Ya activa en desc → DESACTIVAR y reordenar (gaps eliminados)
+        // Ya activa en desc → DESACTIVAR y reordenar sin gaps
         return prev.filter((_, i) => i !== idx)
       })
     },
