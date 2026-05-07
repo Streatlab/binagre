@@ -12,6 +12,22 @@ const EMILIO_ID = "c5358d43-a9cc-4f4c-b0b3-99895bdf4354"
 const NIF_RUBEN = "21669051S"
 const NIF_EMILIO = "53484832B"
 
+function normalizar(t: string): string {
+  return (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[,.]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+function mesAnterior(fecha: string) {
+  const d = new Date(fecha)
+  const año = d.getFullYear()
+  const mes = d.getMonth()
+  const inicio = new Date(año, mes - 1, 1)
+  const fin = new Date(año, mes, 0)
+  return {
+    inicio: inicio.toISOString().slice(0, 10),
+    fin: fin.toISOString().slice(0, 10),
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
 
@@ -55,6 +71,9 @@ serve(async (req) => {
   "nif_cliente": string,
   "numero_factura": string,
   "fecha_factura": "YYYY-MM-DD",
+  "es_recapitulativa": boolean,
+  "periodo_inicio": "YYYY-MM-DD" | null,
+  "periodo_fin": "YYYY-MM-DD" | null,
   "base_4": number, "iva_4": number,
   "base_10": number, "iva_10": number,
   "base_21": number, "iva_21": number,
@@ -108,6 +127,13 @@ Si un campo no existe, ponlo a 0 o null. Devuelve SOLO el JSON.`
     if (parsed.nif_cliente === NIF_RUBEN) titular_id = RUBEN_ID
     else if (parsed.nif_cliente === NIF_EMILIO) titular_id = EMILIO_ID
 
+    // Plataformas (Uber/Glovo/JE) sin NIF cliente → asume Rubén por defecto
+    const provNorm = normalizar(parsed.proveedor_nombre || "")
+    const esPlataforma = parsed.tipo === "plataforma" || ["uber", "glovo", "just_eat"].includes(parsed.plataforma)
+    if (!titular_id && esPlataforma) {
+      titular_id = RUBEN_ID
+    }
+
     let categoria_factura: string | null = null
     if (parsed.nif_emisor) {
       const { data: regla } = await supabase
@@ -146,12 +172,33 @@ Si un campo no existe, ponlo a 0 o null. Devuelve SOLO el JSON.`
       pdf_drive_url = pubUrl.publicUrl
     }
 
+    // Determinar estado según reglas de matching
+    // - Uber Eats: solo_drive (no matchea con banco)
+    // - Importe 0 (Alcampo saldo Club): solo_drive
+    // - Resto: matching activo
+    const importeAbs = Math.abs(parsed.total || 0)
+    const esUber = parsed.plataforma === "uber"
+    const esImporteCero = importeAbs < 0.01
+    const soloDrive = esUber || esImporteCero
+
+    let estadoFinal = "asociada"
+    let mensajeMatching: string | null = null
+    if (soloDrive) {
+      estadoFinal = "solo_drive"
+      mensajeMatching = esUber
+        ? "Factura Uber Eats: gasto deducible, no matchea con banco. Guardado en Drive."
+        : "Importe 0€: solo guardado en Drive para contabilidad."
+    }
+
     const { data: facturaIns, error: insErr } = await supabase
       .from("facturas")
       .insert({
         proveedor_nombre: parsed.proveedor_nombre,
         numero_factura: parsed.numero_factura,
         fecha_factura: parsed.fecha_factura,
+        es_recapitulativa: parsed.es_recapitulativa || false,
+        periodo_inicio: parsed.periodo_inicio || null,
+        periodo_fin: parsed.periodo_fin || null,
         tipo: parsed.tipo || "proveedor",
         plataforma: parsed.plataforma,
         base_4: parsed.base_4 || 0,
@@ -163,14 +210,17 @@ Si un campo no existe, ponlo a 0 o null. Devuelve SOLO el JSON.`
         total: parsed.total || 0,
         pdf_drive_url,
         pdf_filename: newName,
+        pdf_original_name: filename,
         pdf_hash: hashHex,
         titular_id,
         nif_emisor: parsed.nif_emisor,
         nif_cliente: parsed.nif_cliente,
         categoria_factura,
+        categoria_factura_origen: categoria_factura ? "regla" : null,
         ocr_confianza: parsed.confianza,
         ocr_raw: parsed,
-        estado: "asociada",
+        estado: estadoFinal,
+        mensaje_matching: mensajeMatching,
       })
       .select("id")
       .single()
@@ -180,24 +230,121 @@ Si un campo no existe, ponlo a 0 o null. Devuelve SOLO el JSON.`
     }
 
     let matched = false
-    if (titular_id && parsed.total && parsed.fecha_factura) {
-      const { data: movs } = await supabase
-        .from("conciliacion")
-        .select("id")
-        .eq("titular_id", titular_id)
-        .eq("fecha", parsed.fecha_factura)
-        .eq("importe", -Math.abs(parsed.total))
-        .limit(1)
 
-      if (movs && movs.length > 0) {
-        await supabase.from("facturas_gastos").insert({
-          factura_id: facturaIns.id,
-          conciliacion_id: movs[0].id,
-          importe_asociado: parsed.total,
-          confirmado: true,
-          confianza_match: 100,
-        })
-        matched = true
+    // Solo intentar matching si NO es solo_drive
+    if (!soloDrive && titular_id && parsed.total && parsed.fecha_factura) {
+      // REGLA MERCADONA: recapitulativa mes natural anterior
+      if (provNorm.includes("mercadona")) {
+        const { inicio, fin } = mesAnterior(parsed.fecha_factura)
+        const { data: movs } = await supabase
+          .from("conciliacion")
+          .select("id, importe")
+          .eq("titular_id", titular_id)
+          .gte("fecha", inicio)
+          .lte("fecha", fin)
+          .lt("importe", 0)
+          .or("concepto.ilike.%mercadona%,proveedor.ilike.%mercadona%")
+
+        if (movs && movs.length > 0) {
+          const sumaMovs = movs.reduce((a, m) => a + Math.abs(Number(m.importe)), 0)
+          const dif = Math.abs(sumaMovs - Math.abs(parsed.total))
+          if (dif <= 5) {
+            const filas = movs.map(m => ({
+              factura_id: facturaIns.id,
+              conciliacion_id: m.id,
+              importe_asociado: Math.abs(Number(m.importe)),
+              confirmado: dif <= 0.5,
+              confianza_match: dif <= 0.5 ? 95 : 70,
+            }))
+            await supabase.from("facturas_gastos").insert(filas)
+            matched = true
+            await supabase.from("facturas").update({
+              mensaje_matching: `Mercadona ${inicio} → ${fin}: ${movs.length} cargos suman ${sumaMovs.toFixed(2)}€`
+            }).eq("id", facturaIns.id)
+          }
+        }
+      }
+      // GLOVO / JUST EAT: liquidación bancaria en periodo
+      else if (parsed.plataforma === "glovo" || parsed.plataforma === "just_eat") {
+        const aliasMap: Record<string, string[]> = {
+          glovo: ["glovo", "glovoapp"],
+          just_eat: ["just eat", "justeat", "takeaway"],
+        }
+        const aliases = aliasMap[parsed.plataforma]
+        const fInicio = parsed.periodo_inicio || parsed.fecha_factura
+        const fFinBase = parsed.periodo_fin || parsed.fecha_factura
+        const fFin = new Date(fFinBase)
+        fFin.setDate(fFin.getDate() + 14)
+
+        const orFilter = aliases.flatMap(a => [`concepto.ilike.%${a}%`, `proveedor.ilike.%${a}%`]).join(",")
+        const { data: movs } = await supabase
+          .from("conciliacion")
+          .select("id, importe")
+          .gt("importe", 0)
+          .gte("fecha", fInicio)
+          .lte("fecha", fFin.toISOString().slice(0, 10))
+          .or(orFilter)
+
+        if (movs && movs.length > 0) {
+          const filas = movs.map(m => ({
+            factura_id: facturaIns.id,
+            conciliacion_id: m.id,
+            importe_asociado: Math.abs(Number(m.importe)),
+            confirmado: false,
+            confianza_match: 70,
+          }))
+          await supabase.from("facturas_gastos").insert(filas)
+          matched = true
+          await supabase.from("facturas").update({
+            mensaje_matching: `Liquidación ${parsed.plataforma}: ${movs.length} ingresos en periodo`
+          }).eq("id", facturaIns.id)
+        }
+      }
+      // RESTO: matching exacto importe + ventana fechas (-5/+30)
+      else {
+        const fechaBase = new Date(parsed.fecha_factura)
+        const fMin = new Date(fechaBase); fMin.setDate(fMin.getDate() - 5)
+        const fMax = new Date(fechaBase); fMax.setDate(fMax.getDate() + 30)
+        const palabras = provNorm.split(" ").filter(p => p.length >= 3)
+        const termino = palabras[0] || provNorm
+
+        const { data: movs } = await supabase
+          .from("conciliacion")
+          .select("id, importe")
+          .eq("titular_id", titular_id)
+          .lt("importe", 0)
+          .gte("fecha", fMin.toISOString().slice(0, 10))
+          .lte("fecha", fMax.toISOString().slice(0, 10))
+          .or(`concepto.ilike.%${termino}%,proveedor.ilike.%${termino}%`)
+
+        if (movs && movs.length > 0) {
+          const total = Math.abs(parsed.total)
+          const exactos = movs.filter(m => Math.abs(Math.abs(Number(m.importe)) - total) <= 0.5)
+          if (exactos.length === 1) {
+            await supabase.from("facturas_gastos").insert({
+              factura_id: facturaIns.id,
+              conciliacion_id: exactos[0].id,
+              importe_asociado: Math.abs(Number(exactos[0].importe)),
+              confirmado: true,
+              confianza_match: 95,
+            })
+            matched = true
+          } else if (exactos.length > 1) {
+            const filas = exactos.map(m => ({
+              factura_id: facturaIns.id,
+              conciliacion_id: m.id,
+              importe_asociado: Math.abs(Number(m.importe)),
+              confirmado: false,
+              confianza_match: 60,
+            }))
+            await supabase.from("facturas_gastos").insert(filas)
+            matched = true
+            await supabase.from("facturas").update({
+              estado: "pendiente_revision",
+              mensaje_matching: `Varios movimientos coinciden (${exactos.length})`
+            }).eq("id", facturaIns.id)
+          }
+        }
       }
     }
 
@@ -207,6 +354,7 @@ Si un campo no existe, ponlo a 0 o null. Devuelve SOLO el JSON.`
       matched,
       sin_categoria: !categoria_factura,
       sin_titular: !titular_id,
+      solo_drive: soloDrive,
     }), { headers: corsHeaders })
   } catch (err) {
     return new Response(JSON.stringify({ error: "unhandled", detail: String(err) }), { status: 500, headers: corsHeaders })
