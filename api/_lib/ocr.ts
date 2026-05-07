@@ -104,7 +104,7 @@ function clienteAnthropic(): Anthropic {
 }
 
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
