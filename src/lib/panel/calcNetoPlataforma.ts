@@ -1,126 +1,124 @@
 /**
  * calcNetoPlataforma.ts
- * Cálculo de neto cobrado por canal según spec FASE 5, sección 5.4.1
+ * Cálculo neto cobrado por canal leyendo SIEMPRE de config_canales en Supabase.
+ * NO usar hardcodes. Si no hay config en BBDD, devuelve neto=bruto (sin descontar nada).
  *
- * Fórmulas literales del spec. ADS NO se restan al neto (informativo aparte).
- * Comisiones % leídas de tabla canales (config_canales); defaults = valores spec.
+ * Campos config_canales:
+ *  - canal: 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web Propia' | 'Venta Directa'
+ *  - comision_pct: ej 0.33
+ *  - fijo_eur: comisión fija por pedido
+ *  - fee_periodo_eur: fee fijo del periodo (ej: Uber 2.29€/semana, Glovo 5€/quincena)
+ *  - fee_periodicidad: 'semanal_por_marca' | 'quincenal_por_marca' | 'mensual'
  */
 
-export interface CanalesConfig {
-  uber_comision_pct?: number   // default 0.30 (Portier)
-  uber_fees_total?: number     // fees por periodo (suma de fees del resumen mensual)
-  uber_cargos_promo?: number   // cargos promoción del periodo
-  glovo_comision_pct?: number  // default 0.25
-  glovo_comision_fija?: number // default 0.75 por pedido
-}
+import { supabase } from '@/lib/supabase'
+
+const IVA = 0.21
 
 export interface NetoResult {
   neto: number
   margenPct: number
 }
 
-const IVA = 0.21
+export interface CanalConfig {
+  canal: string
+  comision_pct: number
+  fijo_eur: number
+  fee_periodo_eur: number
+  fee_periodicidad: string
+}
 
-/**
- * Uber / Portier
- * neto = bruto - comision_pct*bruto - fees - cargos_promo - 0.21*(comision_pct*bruto + fees + cargos_promo)
- */
-export function calcNetoUber(
-  bruto: number,
-  pedidos: number,
-  cfg: Pick<CanalesConfig, 'uber_comision_pct' | 'uber_fees_total' | 'uber_cargos_promo'> = {}
-): NetoResult {
-  const comPct = cfg.uber_comision_pct ?? 0.30
-  const fees = cfg.uber_fees_total ?? 0
-  const promo = cfg.uber_cargos_promo ?? 0
-  // pedidos param unused for Uber (fee total already in fees), kept for interface consistency
-  void pedidos
-  const baseComision = comPct * bruto + fees + promo
-  const ivaComision = IVA * baseComision
-  const neto = Math.max(0, bruto - baseComision - ivaComision)
-  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
-  return { neto, margenPct }
+// Cache en memoria (se carga 1 vez por sesión)
+let cacheConfig: Record<string, CanalConfig> | null = null
+
+const MAP_ID_CANAL: Record<string, string> = {
+  uber: 'Uber Eats',
+  glovo: 'Glovo',
+  je: 'Just Eat',
+  web: 'Web Propia',
+  dir: 'Venta Directa',
+}
+
+export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> {
+  if (cacheConfig) return cacheConfig
+  const { data, error } = await supabase
+    .from('config_canales')
+    .select('canal, comision_pct, fijo_eur, fee_periodo_eur, fee_periodicidad')
+    .eq('activo', true)
+  if (error || !data) {
+    cacheConfig = {}
+    return cacheConfig
+  }
+  const out: Record<string, CanalConfig> = {}
+  for (const row of data) {
+    out[row.canal] = {
+      canal: row.canal,
+      comision_pct: Number(row.comision_pct ?? 0),
+      fijo_eur: Number(row.fijo_eur ?? 0),
+      fee_periodo_eur: Number(row.fee_periodo_eur ?? 0),
+      fee_periodicidad: String(row.fee_periodicidad ?? 'mensual'),
+    }
+  }
+  cacheConfig = out
+  return cacheConfig
+}
+
+export function invalidarCacheConfigCanales() {
+  cacheConfig = null
 }
 
 /**
- * Glovo
- * neto = bruto - comPct*bruto - comFija*pedidos - 0.21*(comPct*bruto + comFija*pedidos)
+ * Calcula nº de periodos (semanas, quincenas, meses) entre 2 fechas.
+ * Para fee_periodo_eur multiplicado por número de marcas activas.
  */
-export function calcNetoGlovo(
-  bruto: number,
-  pedidos: number,
-  cfg: Pick<CanalesConfig, 'glovo_comision_pct' | 'glovo_comision_fija'> = {}
-): NetoResult {
-  const comPct = cfg.glovo_comision_pct ?? 0.25
-  const comFija = cfg.glovo_comision_fija ?? 0.75
-  const baseComision = comPct * bruto + comFija * pedidos
-  const ivaComision = IVA * baseComision
-  const neto = Math.max(0, bruto - baseComision - ivaComision)
-  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
-  return { neto, margenPct }
+function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
+  const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
+  switch (periodicidad) {
+    case 'semanal_por_marca':    return Math.ceil(dias / 7)
+    case 'quincenal_por_marca':  return Math.ceil(dias / 15)
+    case 'mensual':              return Math.ceil(dias / 30)
+    default:                     return 1
+  }
 }
 
 /**
- * Just Eat
- * neto = bruto - 0.20*bruto - 0.75*pedidos - 0.21*(0.20*bruto + 0.75*pedidos)
- */
-export function calcNetoJustEat(
-  bruto: number,
-  pedidos: number
-): NetoResult {
-  const baseComision = 0.20 * bruto + 0.75 * pedidos
-  const ivaComision = IVA * baseComision
-  const neto = Math.max(0, bruto - baseComision - ivaComision)
-  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
-  return { neto, margenPct }
-}
-
-/**
- * Web (Stripe / Redsys)
- * neto = bruto - 0.07*bruto - 0.50*pedidos - 0.21*(0.07*bruto + 0.50*pedidos)
- */
-export function calcNetoWeb(
-  bruto: number,
-  pedidos: number
-): NetoResult {
-  const baseComision = 0.07 * bruto + 0.50 * pedidos
-  const ivaComision = IVA * baseComision
-  const neto = Math.max(0, bruto - baseComision - ivaComision)
-  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
-  return { neto, margenPct }
-}
-
-/**
- * Directa (sin comisión)
- * neto = bruto
- */
-export function calcNetoDirecta(bruto: number): NetoResult {
-  return { neto: bruto, margenPct: 100 }
-}
-
-/**
- * Dispatcher por canalId
- * canalId: 'uber' | 'glovo' | 'je' | 'web' | 'dir'
+ * Cálculo neto SÍNCRONO con config ya cargada en memoria.
+ * Usar tras llamar loadConfigCanales() previamente.
  */
 export function calcNetoPorCanal(
   canalId: string,
   bruto: number,
   pedidos: number,
-  cfg: CanalesConfig = {}
+  marcasActivas: number = 1,
+  fechaDesde?: Date,
+  fechaHasta?: Date,
+  configOverride?: Record<string, CanalConfig>,
 ): NetoResult {
-  switch (canalId) {
-    case 'uber':  return calcNetoUber(bruto, pedidos, cfg)
-    case 'glovo': return calcNetoGlovo(bruto, pedidos, cfg)
-    case 'je':    return calcNetoJustEat(bruto, pedidos)
-    case 'web':   return calcNetoWeb(bruto, pedidos)
-    case 'dir':   return calcNetoDirecta(bruto)
-    default:      return calcNetoDirecta(bruto)
+  const config = configOverride ?? cacheConfig ?? {}
+  const nombreCanal = MAP_ID_CANAL[canalId] ?? canalId
+  const cfg = config[nombreCanal]
+
+  if (!cfg) {
+    return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
   }
+
+  const baseComision = (cfg.comision_pct * bruto) + (cfg.fijo_eur * pedidos)
+
+  let feePeriodoTotal = 0
+  if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
+    const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
+    feePeriodoTotal = cfg.fee_periodo_eur * periodos * marcasActivas
+  }
+
+  const totalComisionable = baseComision + feePeriodoTotal
+  const ivaComision = IVA * totalComisionable
+  const neto = Math.max(0, bruto - totalComisionable - ivaComision)
+  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
+  return { neto, margenPct }
 }
 
 /**
  * Identificación de plataforma desde concepto bancario
- * Retorna: 'uber' | 'glovo' | 'just_eat' | 'web' | null
  */
 export function identificarPlataformaBancaria(concepto: string): string | null {
   const upper = concepto.toUpperCase()
@@ -131,9 +129,6 @@ export function identificarPlataformaBancaria(concepto: string): string | null {
   return null
 }
 
-/**
- * Estado validación banca vs calculado
- */
 export type EstadoValidacion = 'OK' | 'ALERTA' | 'ERROR'
 
 export function calcEstadoValidacion(diferenciaAbsPct: number): EstadoValidacion {
