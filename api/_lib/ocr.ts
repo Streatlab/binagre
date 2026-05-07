@@ -103,10 +103,9 @@ function clienteAnthropic(): Anthropic {
   return new Anthropic({ apiKey })
 }
 
-// Modelo configurable via env var ANTHROPIC_MODEL.
-// Fallback: claude-sonnet-4-5-20251001 (alias estable verificado)
+// Modelo: alias estable claude-sonnet-4-5 (snapshot 20250929)
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20251001'
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
