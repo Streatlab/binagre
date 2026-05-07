@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type CSSProperties } from 'react'
+import { useMemo, useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Search, Zap } from 'lucide-react'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useTheme, FONT, fmtFechaCorta } from '@/styles/tokens'
