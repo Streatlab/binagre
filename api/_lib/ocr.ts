@@ -97,30 +97,86 @@ type ContentBlock =
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'text'; text: string }
 
+// Modelo activo en producción a 08/05/2026.
+// Haiku 4.5 es óptimo para OCR de facturas: ~3x más barato que Sonnet, soporta vision (PDF + imagen),
+// suficiente calidad para extracción estructurada. Confirmado vivo en https://platform.claude.com/docs/en/about-claude/models/overview
+const MODELO_OCR_DEFAULT = 'claude-haiku-4-5-20251001'
+
+// Whitelist de modelos conocidos válidos. Si ANTHROPIC_MODEL en env contiene un valor que no está aquí,
+// se ignora y usa el default. Esto evita que un typo (ej: claude-sonnet-4-5-20251022, no existe)
+// rompa todo el OCR.
+const MODELOS_VALIDOS = new Set([
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-6',
+  'claude-opus-4-6',
+  'claude-opus-4-7',
+])
+
 function clienteAnthropic(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY no configurado')
+  if (!apiKey) throw new Error('CONFIG: ANTHROPIC_API_KEY no configurada en Vercel')
   return new Anthropic({ apiKey })
 }
 
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929'
+  const env = process.env.ANTHROPIC_MODEL?.trim()
+  if (env && MODELOS_VALIDOS.has(env)) return env
+  // Si la variable de entorno está mal puesta o vacía, usamos el default conocido bueno.
+  return MODELO_OCR_DEFAULT
+}
+
+// Convierte errores crípticos del SDK Anthropic en mensajes legibles para el toast.
+function errorAnthropicLegible(err: unknown, modelo: string): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  const txt = raw.toLowerCase()
+  if (txt.includes('credit balance is too low') || txt.includes('credit balance')) {
+    return 'SIN CRÉDITOS · Recarga en console.anthropic.com/settings/billing'
+  }
+  if (txt.includes('invalid x-api-key') || txt.includes('authentication_error')) {
+    return 'API KEY INVÁLIDA · Renueva ANTHROPIC_API_KEY en Vercel'
+  }
+  if (txt.includes('not_found_error') && txt.includes('model')) {
+    return `MODELO NO DISPONIBLE · "${modelo}" no existe. Comprueba ANTHROPIC_MODEL en Vercel o avisa en chat`
+  }
+  if (txt.includes('429') || txt.includes('rate_limit')) {
+    return 'LÍMITE DE PETICIONES · Espera 1 min y vuelve a probar'
+  }
+  if (txt.includes('overloaded')) {
+    return 'API ANTHROPIC SATURADA · Reintenta en unos segundos'
+  }
+  if (txt.includes('timeout') || txt.includes('etimedout')) {
+    return 'TIMEOUT · Anthropic tardó demasiado. Reintenta'
+  }
+  // Fallback: devolver el raw recortado para que al menos se vea algo útil
+  return `ERROR ANTHROPIC: ${raw.slice(0, 200)}`
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
   const anthropic = clienteAnthropic()
-  const msg = await anthropic.messages.create({
-    model: modeloOcr(),
-    max_tokens: 2000,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: [{ role: 'user', content: content as any }],
-  })
+  const modelo = modeloOcr()
+  let msg
+  try {
+    msg = await anthropic.messages.create({
+      model: modelo,
+      max_tokens: 2000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      messages: [{ role: 'user', content: content as any }],
+    })
+  } catch (err) {
+    throw new Error(errorAnthropicLegible(err, modelo))
+  }
   const textBlock = msg.content.find((c) => c.type === 'text')
   if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Respuesta Claude sin texto')
+    throw new Error('Anthropic devolvió respuesta sin texto')
   }
   const jsonStr = textBlock.text.replace(/```json|```/g, '').trim()
-  return JSON.parse(jsonStr) as ExtractedFactura
+  try {
+    return JSON.parse(jsonStr) as ExtractedFactura
+  } catch (err) {
+    const preview = jsonStr.slice(0, 120)
+    throw new Error(`JSON inválido devuelto por modelo (modelo=${modelo}). Preview: ${preview}`)
+  }
 }
 
 export async function extraerDatosDesdeContenido(
