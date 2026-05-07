@@ -9,10 +9,10 @@ import {
   COLORS, FONT, CARDS, LAYOUT, TABS_PILL,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
+import { calcNetoPorCanal, loadConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
-// CRÍTICO: NUNCA usar toISOString().slice(0,10) — convierte a UTC y rompe filtros en zona horaria positiva (Madrid)
 const toLocalDateStr = (d: Date): string => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -61,7 +61,6 @@ const MES_NOMBRE: Record<number, string> = {
 }
 
 const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
-const NETO_FACTOR = 0.66
 const COLOR_TODOS = COLORS.lun
 
 const SUBTAB_CONTAINER: CSSProperties = {
@@ -158,6 +157,14 @@ export default function Facturacion() {
   const [showAdd, setShowAdd] = useState(false)
   const [periodoDesde, setPeriodoDesde] = useState<Date>(()=>{ const h=new Date();h.setDate(1);h.setHours(0,0,0,0);return h })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(()=>{ const h=new Date();h.setHours(23,59,59,999);return h })
+  const [configCanales, setConfigCanales] = useState<Record<string, ConfigCanalRow>>({})
+  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+
+  useEffect(()=>{
+    loadConfigCanales().then(setConfigCanales)
+    supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activo', true)
+      .then(({ count })=>{ if(count && count > 0) setMarcasActivas(count) })
+  },[])
 
   useEffect(()=>{
     const handler=(e:MouseEvent)=>{ if(!(e.target as HTMLElement).closest('[data-drop-canal]')) setDropCanalOpen(false) }
@@ -180,7 +187,6 @@ export default function Facturacion() {
 
   const cols = useMemo(()=>ALL_COLS.filter(c=>canalesVisibles.includes(c.id)),[canalesVisibles])
 
-  // FIX TZ: usar fecha local, no UTC
   const filteredData = useMemo(()=>{
     const desde=toLocalDateStr(periodoDesde); const hasta=toLocalDateStr(periodoHasta)
     return allData.filter(r=>r.fecha>=desde&&r.fecha<=hasta).filter(r=>servicioFiltro==='Todos'||r.servicio===servicioFiltro)
@@ -188,7 +194,16 @@ export default function Facturacion() {
 
   const totals = useMemo(()=>aggregate(filteredData),[filteredData])
   const dias = useMemo(()=>new Set(filteredData.map(r=>r.fecha)).size,[filteredData])
-  const netoEstimado = totals.total_bruto*NETO_FACTOR
+  const netoEstimado = useMemo(()=>{
+    const canales: { id:string; bruto:number; pedidos:number }[] = [
+      { id:'uber',  bruto:totals.uber_bruto,    pedidos:totals.uber_pedidos },
+      { id:'glovo', bruto:totals.glovo_bruto,   pedidos:totals.glovo_pedidos },
+      { id:'je',    bruto:totals.je_bruto,      pedidos:totals.je_pedidos },
+      { id:'web',   bruto:totals.web_bruto,     pedidos:totals.web_pedidos },
+      { id:'dir',   bruto:totals.directa_bruto, pedidos:totals.directa_pedidos },
+    ]
+    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasActivas, periodoDesde, periodoHasta, configCanales).neto, 0)
+  },[totals, marcasActivas, periodoDesde, periodoHasta, configCanales])
   const tm = totals.total_pedidos>0?totals.total_bruto/totals.total_pedidos:0
   const tmNeto = totals.total_pedidos>0?netoEstimado/totals.total_pedidos:0
   const mediadiaria = dias>0?totals.total_bruto/dias:0
@@ -264,7 +279,7 @@ export default function Facturacion() {
 
 interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
-  const netoLabel = `NETO EST. · ${(NETO_FACTOR*100).toFixed(0)}%`
+  const netoLabel = totals.total_bruto > 0 ? `NETO EST. · ${((netoEstimado/totals.total_bruto)*100).toFixed(0)}%` : 'NETO EST.'
   const cardCompacto: CSSProperties = { ...CARDS.big, padding:'16px 20px' }
   const MEDIA_SIZE = 32
   return (
@@ -512,7 +527,6 @@ const CANAL_COLORS_M: Record<string,{bg:string;border:string;label:string}> = {'
 
 function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]; existing?:RawDiario; onClose:()=>void; onSaved:()=>void }) {
   const isEdit=!!existing
-  // FIX TZ: usar fecha local en lugar de toISOString
   const [fecha,setFecha]=useState(existing?.fecha??toLocalDateStr(new Date()))
   const [servicio,setServicio]=useState(existing?.servicio??'ALM')
   const [fields,setFields]=useState<FormFields>(()=>{ if(!existing) return {uber_pedidos:'',uber_bruto:'',glovo_pedidos:'',glovo_bruto:'',je_ped:'',je_bru:'',web_pedidos:'',web_bruto:'',directa_ped:'0',directa_bru:'0.00'}; return {uber_pedidos:String(existing.uber_pedidos||''),uber_bruto:String(existing.uber_bruto||''),glovo_pedidos:String(existing.glovo_pedidos||''),glovo_bruto:String(existing.glovo_bruto||''),je_ped:String(existing.je_pedidos||''),je_bru:String(existing.je_bruto||''),web_pedidos:String(existing.web_pedidos||''),web_bruto:String(existing.web_bruto||''),directa_ped:String(existing.directa_pedidos||0),directa_bru:String(existing.directa_bruto||0)} })
