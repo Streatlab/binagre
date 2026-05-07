@@ -18,7 +18,7 @@ import {
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import { calcNetoPorCanal, loadConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 
 interface Row {
@@ -138,6 +138,9 @@ export default function Dashboard() {
     loadConfigCanales().then(setConfigCanales)
     supabase.from('marcas').select('id', { count: 'exact', head: true }).eq('activo', true)
       .then(({ count }) => { if (count && count > 0) setMarcasActivas(count) })
+    const onCfgChange = () => { recargarConfigCanales().then(setConfigCanales) }
+    window.addEventListener('config_canales:changed', onCfgChange)
+    return () => window.removeEventListener('config_canales:changed', onCfgChange)
   }, [])
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
