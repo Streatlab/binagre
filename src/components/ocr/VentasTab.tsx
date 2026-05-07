@@ -24,7 +24,7 @@ interface Liquidacion {
 }
 
 interface Titular { id: string; nombre: string }
-interface ImportLog { archivo: string; plataforma: string; nuevas: number; duplicadas: number; errores: string[] }
+interface ImportLog { archivo: string; plataforma: string; nuevas: number; duplicadas: number; actualizadas: number; errores: string[] }
 
 type SortCol = 'fecha' | 'marca' | 'plataforma' | 'bruto' | 'comision' | 'neto' | 'estado' | 'titular'
 type SortDir = 'asc' | 'desc'
@@ -37,7 +37,7 @@ const DEFAULT_PAGE_SIZE: PageSize = 50
 function parsePage(raw: string | null) { const n = Number(raw); return Number.isInteger(n) && n >= 1 ? n : 1 }
 function parsePageSize(raw: string | null): PageSize { const n = Number(raw); return ([50, 100, 200] as number[]).includes(n) ? n as PageSize : DEFAULT_PAGE_SIZE }
 
-// ─── Parsers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtFechaCSV(v: string): string {
   if (!v) return ''
@@ -51,7 +51,72 @@ function numES(v: string): number {
   return parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0
 }
 
-function parseUberCSV(texto: string) {
+// ─── Detector de tipo de archivo ──────────────────────────────────────────────
+
+type TipoArchivo = 'uber_resumen' | 'uber_detalle' | 'glovo_pdf' | 'just_eat' | 'desconocido'
+
+function detectarTipoArchivo(texto: string, nombreArchivo: string): TipoArchivo {
+  const ext = nombreArchivo.split('.').pop()?.toLowerCase() || ''
+  const primeraLinea = texto.split('\n')[0] || ''
+  // CSV Uber resumen: primera línea empieza con "Nombre del restaurante"
+  if (ext === 'csv' && primeraLinea.includes('Nombre del restaurante') && primeraLinea.includes('Pago total')) return 'uber_resumen'
+  // CSV Uber detalle: segunda línea tiene "Id. del pedido"
+  if (ext === 'csv' && texto.includes('Id. del pedido') && texto.includes('Nombre de la tienda')) return 'uber_detalle'
+  // PDF Glovo
+  if (ext === 'pdf' || texto.includes('Factura Nº:') || texto.includes('Ingreso a cuenta colaborador')) return 'glovo_pdf'
+  // Just Eat HTML/DOC
+  if (ext === 'html' || ext === 'htm' || ext === 'doc' || texto.includes('Nº Factura') || texto.includes('Tu factura')) return 'just_eat'
+  return 'desconocido'
+}
+
+// ─── Parser CSV Resumen Uber (el correcto para pago_neto) ─────────────────────
+
+function parseUberResumenCSV(texto: string): { grupos: Record<string, any>; errores: string[] } {
+  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
+  if (lineas.length < 2) return { grupos: {}, errores: ['CSV vacío'] }
+  const cab = lineas[0].split(',')
+  const i = (n: string) => cab.indexOf(n)
+  const iMarca = i('Nombre del restaurante')
+  const iCodigo = i('Código del establecimiento')
+  const iPedidos = i('Cantidad de pedidos')
+  const iVentas = i('Ventas (con IVA)')
+  const iPromos = i('Promociones en artículos (con IVA)')
+  const iTasa = i('Tasa de servicio después del descuento (con IVA)')
+  const iPago = i('Pago total ')
+  const iFechaPago = i('Fecha de pago')
+  const iRef = i('Id. de referencia de ganancias')
+  if (iMarca === -1 || iPago === -1 || iRef === -1) return { grupos: {}, errores: ['No es CSV resumen Uber (faltan columnas clave)'] }
+  const n = (v: string) => parseFloat((v || '0').replace(',', '.')) || 0
+  const grupos: Record<string, any> = {}
+  for (let li = 1; li < lineas.length; li++) {
+    const cols = lineas[li].split(',')
+    if (cols.length < 5) continue
+    const ref = cols[iRef]?.trim(), marca = cols[iMarca]?.trim()
+    if (!ref || !marca) continue
+    const key = `${ref}__${marca}`
+    const fechaDeposito = fmtFechaCSV(cols[iFechaPago]?.trim())
+    grupos[key] = {
+      marca,
+      codigo_establecimiento: cols[iCodigo]?.trim() || '',
+      referencia_pago: ref,
+      fecha_deposito: fechaDeposito,
+      fecha_inicio_periodo: fechaDeposito,
+      fecha_fin_periodo: fechaDeposito,
+      num_pedidos: parseInt(cols[iPedidos]?.trim() || '0') || 0,
+      ventas_bruto: Math.round(n(cols[iVentas]) * 100) / 100,
+      comision_uber: Math.round(n(cols[iTasa]) * 100) / 100,
+      promociones: Math.round(n(cols[iPromos]) * 100) / 100,
+      ads: 0,
+      pago_neto: Math.round(n(cols[iPago]) * 100) / 100,
+    }
+  }
+  if (Object.keys(grupos).length === 0) return { grupos: {}, errores: ['Sin filas válidas en el CSV resumen'] }
+  return { grupos, errores: [] }
+}
+
+// ─── Parser CSV Detalle Uber (pedido a pedido, para uber_pedidos) ─────────────
+
+function parseUberDetalleCSV(texto: string) {
   const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (lineas.length < 3) return { grupos: {}, errores: ['CSV vacío'] }
   const cab = lineas[1].split(',')
@@ -117,21 +182,43 @@ function parseJustEatHTML(texto: string): { data: any; errores: string[] } {
   } catch (e: any) { return { data: null, errores: [`Error: ${e.message}`] } }
 }
 
-// ─── Autoconciliar ────────────────────────────────────────────────────────────
+// ─── Autoconciliar (ventana ±7 días, fallback importe único) ──────────────────
 
-async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaDeposito: string, margenCentimos = 0) {
+async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaDeposito: string, titularId: string | null): Promise<boolean> {
+  if (!pagoNeto || pagoNeto === 0) return false
   const d = new Date(fechaDeposito + 'T12:00:00')
   const desde = new Date(d); desde.setDate(d.getDate() - 2)
-  const hasta = new Date(d); hasta.setDate(d.getDate() + 5)
-  const importes = margenCentimos > 0 ? [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5].map(c => Math.round((pagoNeto + c * 0.01) * 100) / 100) : [pagoNeto]
-  for (const imp of importes) {
-    const { data } = await supabase.from('conciliacion').select('id').eq('tipo', 'ingreso').gte('fecha', desde.toISOString().slice(0, 10)).lte('fecha', hasta.toISOString().slice(0, 10)).eq('importe', imp).is('factura_id', null).limit(1)
-    if (data && data.length > 0) {
-      await supabase.from(tabla).update({ conciliacion_id: data[0].id, estado: 'conciliada', updated_at: new Date().toISOString() }).eq('id', id)
-      await supabase.from('conciliacion').update({ doc_estado: 'tiene' }).eq('id', data[0].id)
-      return true
-    }
+  const hasta = new Date(d); hasta.setDate(d.getDate() + 7)
+  const desdeStr = desde.toISOString().slice(0, 10)
+  const hastaStr = hasta.toISOString().slice(0, 10)
+
+  // Buscar match exacto por importe en ventana
+  let q = supabase.from('conciliacion').select('id').eq('tipo', 'ingreso').gte('fecha', desdeStr).lte('fecha', hastaStr).eq('importe', pagoNeto).is('factura_id', null)
+  if (titularId) q = q.eq('titular_id', titularId)
+  const { data: exactos } = await q.limit(2)
+
+  if (exactos && exactos.length === 1) {
+    // Match exacto único → conciliar
+    await supabase.from(tabla).update({ conciliacion_id: exactos[0].id, estado: 'conciliada', updated_at: new Date().toISOString() }).eq('id', id)
+    await supabase.from('conciliacion').update({ doc_estado: 'tiene' }).eq('id', exactos[0].id)
+    return true
   }
+
+  if (exactos && exactos.length > 1) {
+    // Varios matches con el mismo importe → no conciliar automáticamente (ambiguo)
+    return false
+  }
+
+  // Fallback: importe único en ventana sin filtro de titular (cambio de nombre de marca)
+  // Solo si hay exactamente 1 movimiento con ese importe en esa ventana en toda la BD
+  const { data: fallback } = await supabase.from('conciliacion').select('id, titular_id').eq('tipo', 'ingreso').gte('fecha', desdeStr).lte('fecha', hastaStr).eq('importe', pagoNeto).is('factura_id', null).limit(2)
+
+  if (fallback && fallback.length === 1) {
+    await supabase.from(tabla).update({ conciliacion_id: fallback[0].id, estado: 'conciliada', updated_at: new Date().toISOString() }).eq('id', id)
+    await supabase.from('conciliacion').update({ doc_estado: 'tiene' }).eq('id', fallback[0].id)
+    return true
+  }
+
   return false
 }
 
@@ -141,9 +228,7 @@ interface Props { fechaDesde: Date; fechaHasta: Date; titulares: Titular[] }
 
 export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) {
   const { T } = useTheme()
-  const uberRef = useRef<HTMLInputElement>(null)
-  const glovoRef = useRef<HTMLInputElement>(null)
-  const jeRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parsePage(searchParams.get('vpage'))
@@ -158,7 +243,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   const [todasFilas, setTodasFilas] = useState<Liquidacion[]>([])
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
-  const [subiendo, setSubiendo] = useState<string | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
   const [logs, setLogs] = useState<ImportLog[]>([])
   const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
   const [filtroPlataforma, setFiltroPlataforma] = useState<string>('todas')
@@ -175,7 +260,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
 
   useEffect(() => { const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400); return () => clearTimeout(t) }, [busqueda])
 
-  // ── Carga ─────────────────────────────────────────────────────────────────────
   const cargar = useCallback(async () => {
     setCargando(true)
     const [uber, glovo, je] = await Promise.all([
@@ -195,7 +279,104 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
 
   useEffect(() => { cargar() }, [cargar])
 
-  // ── Filtrado + sort + paginado (client-side, datos ya cargados) ───────────────
+  // ── Importar archivo (autodetección) ─────────────────────────────────────────
+
+  const importarArchivo = useCallback(async (file: File) => {
+    setSubiendo(true); setLogs([])
+    const texto = await file.text().catch(() => '')
+    const tipo = detectarTipoArchivo(texto, file.name)
+
+    if (tipo === 'uber_resumen') {
+      const { grupos, errores: ep } = parseUberResumenCSV(texto)
+      if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep }]); setSubiendo(false); return }
+      let nuevas = 0, duplicadas = 0, actualizadas = 0; const errores: string[] = []
+      for (const key of Object.keys(grupos)) {
+        const g = grupos[key]
+        const { data: existe } = await supabase.from('uber_liquidaciones').select('id, estado').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
+        if (existe) {
+          // Ya existe → actualizar pago_neto con el valor correcto del resumen y relanzar conciliación si pendiente
+          await supabase.from('uber_liquidaciones').update({ pago_neto: g.pago_neto, ventas_bruto: g.ventas_bruto, comision_uber: g.comision_uber, num_pedidos: g.num_pedidos, updated_at: new Date().toISOString() }).eq('id', existe.id)
+          if (existe.estado !== 'conciliada') {
+            const liqData = await supabase.from('uber_liquidaciones').select('titular_id, fecha_deposito').eq('id', existe.id).single()
+            if (liqData.data) await autoconciliar('uber_liquidaciones', existe.id, g.pago_neto, liqData.data.fecha_deposito, liqData.data.titular_id)
+          }
+          duplicadas++; actualizadas++; continue
+        }
+        const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, referencia_pago: g.referencia_pago, fecha_deposito: g.fecha_deposito, fecha_inicio_periodo: g.fecha_inicio_periodo, fecha_fin_periodo: g.fecha_fin_periodo, num_pedidos: g.num_pedidos, ventas_bruto: g.ventas_bruto, comision_uber: g.comision_uber, promociones: g.promociones, ads: g.ads, pago_neto: g.pago_neto, estado: 'pendiente' }).select('id, titular_id').single()
+        if (el || !liq) { errores.push(`Error ${g.referencia_pago}: ${el?.message}`); continue }
+        await autoconciliar('uber_liquidaciones', liq.id, g.pago_neto, g.fecha_deposito, liq.titular_id)
+        nuevas++
+      }
+      setLogs([{ archivo: file.name, plataforma: 'Uber Eats (resumen)', nuevas, duplicadas, actualizadas, errores }])
+
+    } else if (tipo === 'uber_detalle') {
+      const { grupos, errores: ep } = parseUberDetalleCSV(texto)
+      if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep }]); setSubiendo(false); return }
+      let nuevas = 0, duplicadas = 0; const errores: string[] = []
+      for (const key of Object.keys(grupos)) {
+        const g = grupos[key]
+        const { data: existe } = await supabase.from('uber_liquidaciones').select('id').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
+        if (existe) {
+          // Si existe por detalle, solo actualizar pedidos, no sobreescribir pago_neto (puede estar ya corregido por resumen)
+          const det = (g.detalle || []).filter((p: any) => p.pedido_id)
+          if (det.length > 0) await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: existe.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true })
+          duplicadas++; continue
+        }
+        const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, referencia_pago: g.referencia_pago, fecha_deposito: g.fecha_deposito, fecha_inicio_periodo: g.fecha_inicio_periodo, fecha_fin_periodo: g.fecha_fin_periodo, num_pedidos: g.num_pedidos, ventas_bruto: Math.round(g.ventas_bruto * 100) / 100, comision_uber: Math.round(g.comision_uber * 100) / 100, promociones: Math.round(g.promociones * 100) / 100, ads: Math.round(g.ads * 100) / 100, pago_neto: Math.round(g.pago_neto * 100) / 100, estado: 'pendiente' }).select('id, titular_id').single()
+        if (el || !liq) { errores.push(`Error ${g.referencia_pago}: ${el?.message}`); continue }
+        const det = (g.detalle || []).filter((p: any) => p.pedido_id)
+        if (det.length > 0) await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: liq.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true })
+        await autoconciliar('uber_liquidaciones', liq.id, g.pago_neto, g.fecha_deposito, liq.titular_id)
+        nuevas++
+      }
+      setLogs([{ archivo: file.name, plataforma: 'Uber Eats (detalle)', nuevas, duplicadas, actualizadas: 0, errores }])
+
+    } else if (tipo === 'glovo_pdf') {
+      const lines = texto.split('\n').map(l => l.trim()).filter(Boolean)
+      const facMatch = texto.match(/Factura Nº:\s*(I\w+)/)
+      const numero_factura = facMatch?.[1] || ''
+      const marcaLine = lines.find(l => /TABERNA|RAMEN|COCINA|MISTER|PASTA|MILANESA|FRENCH|GRETA|GUISAR|NINJA|LONDON|KOREAN|ES TIEMPO|POSMODERNO|COMIDA CASERA/i.test(l))
+      const marca = marcaLine?.replace(/\(PICO DE LA MALICIOSA\)/i, '').trim() || ''
+      const periodoMatch = texto.match(/Servicio prestado entre\s+(\d{4}-\d{2}-\d{2})\s+y\s+(\d{4}-\d{2}-\d{2})/)
+      const fechaMatch = texto.match(/Fecha:\s+(\d{4}-\d{2}-\d{2})/)
+      const ingresoMatch = texto.match(/Ingreso a cuenta colaborador\s+(-?[\d,\.]+)\s*€/)
+      const ventasMatch = texto.match(/\+\s+Productos\s+([\d,\.]+)\s*€/)
+      const totalFacturaMatch = texto.match(/Total factura\s*\(IVA[^)]+\)\s+([\d,\.]+)\s*€/)
+      if (!numero_factura) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['No se encontró Nº Factura'] }]); setSubiendo(false); return }
+      const { data: existe } = await supabase.from('glovo_liquidaciones').select('id').eq('numero_factura', numero_factura).maybeSingle()
+      if (existe) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 1, actualizadas: 0, errores: [] }]); setSubiendo(false); return }
+      const ingreso = ingresoMatch ? Math.abs(numES(ingresoMatch[1])) : 0
+      const { data: liq, error: el } = await supabase.from('glovo_liquidaciones').insert({ plataforma: 'glovo', marca: marca || 'Glovo', numero_factura, fecha_factura: fechaMatch?.[1] || new Date().toISOString().slice(0, 10), fecha_inicio_periodo: periodoMatch?.[1] || null, fecha_fin_periodo: periodoMatch?.[2] || null, ventas_bruto: ventasMatch ? numES(ventasMatch[1]) : 0, total_factura_iva: totalFacturaMatch ? numES(totalFacturaMatch[1]) : 0, ingreso_colaborador: ingreso, estado: 'pendiente' }).select('id, titular_id').single()
+      if (el || !liq) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: [`Error: ${el?.message}`] }]); setSubiendo(false); return }
+      const conciliado = await autoconciliar('glovo_liquidaciones', liq.id, ingreso, fechaMatch?.[1] || '', liq.titular_id)
+      setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco, revisa manualmente'] }])
+
+    } else if (tipo === 'just_eat') {
+      const { data, errores: ep } = parseJustEatHTML(texto)
+      if (ep.length > 0 || !data) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep.length ? ep : ['No se pudo parsear'] }]); setSubiendo(false); return }
+      const { data: existe } = await supabase.from('justeat_liquidaciones').select('id').eq('numero_factura', data.numero_factura).maybeSingle()
+      if (existe) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 1, actualizadas: 0, errores: [] }]); setSubiendo(false); return }
+      const { data: liq, error: el } = await supabase.from('justeat_liquidaciones').insert({ plataforma: 'just_eat', marca: data.marca, numero_factura: data.numero_factura, fecha_factura: data.fecha_factura, fecha_inicio_periodo: data.fecha_inicio_periodo, fecha_fin_periodo: data.fecha_fin_periodo, total_ventas: data.total_ventas, comision_total: data.comision_total, total_factura_iva: data.total_factura_iva, ingreso_colaborador: data.ingreso_colaborador, fecha_abono: data.fecha_abono, estado: 'pendiente' }).select('id, titular_id').single()
+      if (el || !liq) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: [`Error: ${el?.message}`] }]); setSubiendo(false); return }
+      const conciliado = await autoconciliar('justeat_liquidaciones', liq.id, data.ingreso_colaborador, data.fecha_abono || data.fecha_factura, liq.titular_id)
+      setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
+
+    } else {
+      setLogs([{ archivo: file.name, plataforma: '?', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['No se reconoce el formato. Sube CSV Uber, PDF Glovo o HTML/DOC Just Eat'] }])
+    }
+
+    setSubiendo(false); setRefreshTick(x => x + 1)
+  }, [])
+
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    // Procesar secuencialmente
+    files.reduce((p, f) => p.then(() => importarArchivo(f)), Promise.resolve())
+    e.target.value = ''
+  }
+
+  // ── Filtrado + sort + paginado ────────────────────────────────────────────────
   const filasFiltradas = useMemo(() => {
     let arr = [...todasFilas]
     if (filtroPlataforma !== 'todas') arr = arr.filter(f => f.plataforma === filtroPlataforma)
@@ -227,16 +408,14 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   const totalPages = Math.max(1, Math.ceil(filasFiltradas.length / pageSize))
   const filasPagina = filasFiltradas.slice((page - 1) * pageSize, page * pageSize)
 
-  // ── Agregados para cards ──────────────────────────────────────────────────────
   const agregados = useMemo(() => {
-    const base = filtroCard === null ? todasFilas.filter(f => (filtroPlataforma === 'todas' || f.plataforma === filtroPlataforma) && (filtroMarca === 'todas' || f.marca === filtroMarca)) : todasFilas.filter(f => (filtroPlataforma === 'todas' || f.plataforma === filtroPlataforma) && (filtroMarca === 'todas' || f.marca === filtroMarca))
-    const totalCount = base.length
+    const base = todasFilas.filter(f => (filtroPlataforma === 'todas' || f.plataforma === filtroPlataforma) && (filtroMarca === 'todas' || f.marca === filtroMarca))
     const conciliadas = base.filter(f => f.estado === 'conciliada')
     const pendientes = base.filter(f => f.estado !== 'conciliada')
     return {
-      totalCount, totalNeto: base.reduce((s, f) => s + f.pago_neto, 0),
+      totalCount: base.length, totalNeto: base.reduce((s, f) => s + f.pago_neto, 0),
       conciliadasCount: conciliadas.length, conciliadasNeto: conciliadas.reduce((s, f) => s + f.pago_neto, 0),
-      conciliadasPct: totalCount > 0 ? Math.round((conciliadas.length / totalCount) * 100) : 0,
+      conciliadasPct: base.length > 0 ? Math.round((conciliadas.length / base.length) * 100) : 0,
       pendientesCount: pendientes.length, pendientesNeto: pendientes.reduce((s, f) => s + f.pago_neto, 0),
     }
   }, [todasFilas, filtroPlataforma, filtroMarca])
@@ -247,78 +426,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   }
   const onFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); updateUrl({ page: 1 }) }
 
-  // ── Importar Uber ─────────────────────────────────────────────────────────────
-  const importarUber = useCallback(async (file: File) => {
-    setSubiendo('uber'); setLogs([])
-    const texto = await file.text()
-    const { grupos, errores: ep } = parseUberCSV(texto)
-    if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, errores: ep }]); setSubiendo(null); return }
-    let nuevas = 0, duplicadas = 0; const errores: string[] = []
-    for (const key of Object.keys(grupos)) {
-      const g = (grupos as Record<string, any>)[key]
-      const { data: existe } = await supabase.from('uber_liquidaciones').select('id').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
-      if (existe) { duplicadas++; continue }
-      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, referencia_pago: g.referencia_pago, fecha_deposito: g.fecha_deposito, fecha_inicio_periodo: g.fecha_inicio_periodo, fecha_fin_periodo: g.fecha_fin_periodo, num_pedidos: g.num_pedidos, ventas_bruto: Math.round(g.ventas_bruto * 100) / 100, comision_uber: Math.round(g.comision_uber * 100) / 100, promociones: Math.round(g.promociones * 100) / 100, ads: Math.round(g.ads * 100) / 100, pago_neto: Math.round(g.pago_neto * 100) / 100, estado: 'pendiente' }).select('id').single()
-      if (el || !liq) { errores.push(`Error ${g.referencia_pago}: ${el?.message}`); continue }
-      const det = g.detalle.filter((p: any) => p.pedido_id)
-      if (det.length > 0) await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: liq.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true })
-      await autoconciliar('uber_liquidaciones', liq.id, g.pago_neto, g.fecha_deposito, 5)
-      nuevas++
-    }
-    setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas, duplicadas, errores }])
-    setSubiendo(null); setRefreshTick(x => x + 1)
-  }, [])
-
-  // ── Importar Glovo PDF ────────────────────────────────────────────────────────
-  const importarGlovoPDF = useCallback(async (file: File) => {
-    setSubiendo('glovo'); setLogs([])
-    const texto = await file.text().catch(() => '')
-    const lines = texto.split('\n').map(l => l.trim()).filter(Boolean)
-    const facMatch = texto.match(/Factura Nº:\s*(I\w+)/)
-    const numero_factura = facMatch?.[1] || ''
-    const marcaLine = lines.find(l => /TABERNA|RAMEN|COCINA|MISTER|PASTA|MILANESA|FRENCH|GRETA|GUISAR|NINJA|LONDON|KOREAN|ES TIEMPO|POSMODERNO|COMIDA CASERA/i.test(l))
-    const marca = marcaLine?.replace(/\(PICO DE LA MALICIOSA\)/i, '').trim() || ''
-    const periodoMatch = texto.match(/Servicio prestado entre\s+(\d{4}-\d{2}-\d{2})\s+y\s+(\d{4}-\d{2}-\d{2})/)
-    const fechaMatch = texto.match(/Fecha:\s+(\d{4}-\d{2}-\d{2})/)
-    const ingresoMatch = texto.match(/Ingreso a cuenta colaborador\s+(-?[\d,\.]+)\s*€/)
-    const ventasMatch = texto.match(/\+\s+Productos\s+([\d,\.]+)\s*€/)
-    const totalFacturaMatch = texto.match(/Total factura\s*\(IVA[^)]+\)\s+([\d,\.]+)\s*€/)
-    if (!numero_factura) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 0, errores: ['No se encontró Nº Factura'] }]); setSubiendo(null); return }
-    const { data: existe } = await supabase.from('glovo_liquidaciones').select('id').eq('numero_factura', numero_factura).maybeSingle()
-    if (existe) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 1, errores: [] }]); setSubiendo(null); return }
-    const ingreso = ingresoMatch ? Math.abs(numES(ingresoMatch[1])) : 0
-    const { data: liq, error: el } = await supabase.from('glovo_liquidaciones').insert({ plataforma: 'glovo', marca: marca || 'Glovo', numero_factura, fecha_factura: fechaMatch?.[1] || new Date().toISOString().slice(0, 10), fecha_inicio_periodo: periodoMatch?.[1] || null, fecha_fin_periodo: periodoMatch?.[2] || null, ventas_bruto: ventasMatch ? numES(ventasMatch[1]) : 0, total_factura_iva: totalFacturaMatch ? numES(totalFacturaMatch[1]) : 0, ingreso_colaborador: ingreso, estado: 'pendiente' }).select('id').single()
-    if (el || !liq) { setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 0, duplicadas: 0, errores: [`Error: ${el?.message}`] }]); setSubiendo(null); return }
-    const conciliado = await autoconciliar('glovo_liquidaciones', liq.id, ingreso, fechaMatch?.[1] || '', 0)
-    setLogs([{ archivo: file.name, plataforma: 'Glovo', nuevas: 1, duplicadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco, revisa manualmente'] }])
-    setSubiendo(null); setRefreshTick(x => x + 1)
-  }, [])
-
-  // ── Importar Just Eat ─────────────────────────────────────────────────────────
-  const importarJustEat = useCallback(async (file: File) => {
-    setSubiendo('just_eat'); setLogs([])
-    const texto = await file.text()
-    const { data, errores: ep } = parseJustEatHTML(texto)
-    if (ep.length > 0 || !data) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 0, errores: ep.length ? ep : ['No se pudo parsear'] }]); setSubiendo(null); return }
-    const { data: existe } = await supabase.from('justeat_liquidaciones').select('id').eq('numero_factura', data.numero_factura).maybeSingle()
-    if (existe) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 1, errores: [] }]); setSubiendo(null); return }
-    const { data: liq, error: el } = await supabase.from('justeat_liquidaciones').insert({ plataforma: 'just_eat', marca: data.marca, numero_factura: data.numero_factura, fecha_factura: data.fecha_factura, fecha_inicio_periodo: data.fecha_inicio_periodo, fecha_fin_periodo: data.fecha_fin_periodo, total_ventas: data.total_ventas, comision_total: data.comision_total, total_factura_iva: data.total_factura_iva, ingreso_colaborador: data.ingreso_colaborador, fecha_abono: data.fecha_abono, estado: 'pendiente' }).select('id').single()
-    if (el || !liq) { setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 0, duplicadas: 0, errores: [`Error: ${el?.message}`] }]); setSubiendo(null); return }
-    const conciliado = await autoconciliar('justeat_liquidaciones', liq.id, data.ingreso_colaborador, data.fecha_abono || data.fecha_factura, 0)
-    setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
-    setSubiendo(null); setRefreshTick(x => x + 1)
-  }, [])
-
-  const handleFile = (plataforma: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    if (plataforma === 'uber') importarUber(file)
-    else if (plataforma === 'glovo') { if (file.name.toLowerCase().endsWith('.pdf')) importarGlovoPDF(file) }
-    else if (plataforma === 'just_eat') importarJustEat(file)
-    e.target.value = ''
-  }
-
-  // ── Estilos literales de Facturas ─────────────────────────────────────────────
-  const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
+  const cardStyle = (isActive: boolean): React.CSSProperties => ({
     background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
     borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
     boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s'
@@ -329,14 +437,10 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   const PLATS = [{ id: 'todas', label: 'Todas' }, { id: 'uber', label: 'Uber Eats' }, { id: 'glovo', label: 'Glovo' }, { id: 'just_eat', label: 'Just Eat' }]
 
   const HEADERS: { label: string; col: SortCol; align: 'left' | 'right' | 'center' }[] = [
-    { label: 'Fecha', col: 'fecha', align: 'left' },
-    { label: 'Marca', col: 'marca', align: 'left' },
-    { label: 'Plataforma', col: 'plataforma', align: 'left' },
-    { label: 'Periodo', col: 'fecha', align: 'left' },
-    { label: 'Bruto', col: 'bruto', align: 'right' },
-    { label: 'Comisión', col: 'comision', align: 'right' },
-    { label: 'Neto', col: 'neto', align: 'right' },
-    { label: 'Estado', col: 'estado', align: 'left' },
+    { label: 'Fecha', col: 'fecha', align: 'left' }, { label: 'Marca', col: 'marca', align: 'left' },
+    { label: 'Plataforma', col: 'plataforma', align: 'left' }, { label: 'Periodo', col: 'fecha', align: 'left' },
+    { label: 'Bruto', col: 'bruto', align: 'right' }, { label: 'Comisión', col: 'comision', align: 'right' },
+    { label: 'Neto', col: 'neto', align: 'right' }, { label: 'Estado', col: 'estado', align: 'left' },
     { label: 'Titular', col: 'titular', align: 'left' },
   ]
 
@@ -348,48 +452,45 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
 
   return (
     <div style={{ marginTop: 14 }}>
-
-      {/* ── Cards KPI (igual que Facturas) ───────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
-        <div onClick={() => onFiltroCard(null)} style={cardStyle(null, filtroCard === null)}>
+        <div onClick={() => onFiltroCard(null)} style={cardStyle(filtroCard === null)}>
           <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total ventas</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados.totalCount}</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#111' }}>{agregados.totalCount}</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{fmtNumES(agregados.totalNeto, 2)}</div>
         </div>
-        <div onClick={() => onFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}>
+        <div onClick={() => onFiltroCard('conciliadas')} style={cardStyle(filtroCard === 'conciliadas')}>
           <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados.conciliadasCount}</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#1D9E75' }}>{agregados.conciliadasCount}</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados.conciliadasPct}% · {fmtNumES(agregados.conciliadasNeto, 2)}</div>
         </div>
-        <div onClick={() => onFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}>
+        <div onClick={() => onFiltroCard('pendientes')} style={cardStyle(filtroCard === 'pendientes')}>
           <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados.pendientesCount}</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#F26B1F' }}>{agregados.pendientesCount}</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>Sin match · {fmtNumES(agregados.pendientesNeto, 2)}</div>
         </div>
 
-        {/* Botones subida estilo BtnSubir de Facturas */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[{ id: 'uber', label: 'CSV Uber', accept: '.csv', ref: uberRef }, { id: 'glovo', label: 'PDF Glovo', accept: '.pdf', ref: glovoRef }, { id: 'just_eat', label: 'DOC Just Eat', accept: '.doc,.html,.htm', ref: jeRef }].map(btn => (
-            <div key={btn.id} onClick={() => !subiendo && btn.ref.current?.click()}
-              style={{ background: subiendo === btn.id ? '#888' : '#B01D23', borderRadius: 10, padding: '8px 14px', cursor: subiendo ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: subiendo && subiendo !== btn.id ? 0.5 : 1 }}>
-              <input ref={btn.ref} type="file" accept={btn.accept} style={{ display: 'none' }} onChange={handleFile(btn.id)} />
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff' }}>{subiendo === btn.id ? 'Importando…' : btn.label}</span>
-            </div>
-          ))}
+        {/* Un solo botón */}
+        <div onClick={() => !subiendo && inputRef.current?.click()}
+          style={{ background: subiendo ? '#888' : '#B01D23', borderRadius: 14, padding: '18px 20px', cursor: subiendo ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <input ref={inputRef} type="file" multiple accept=".csv,.pdf,.doc,.html,.htm" style={{ display: 'none' }} onChange={handleFiles} />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center' }}>{subiendo ? 'Importando…' : 'Subir ventas'}</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>CSV Uber · PDF Glovo · DOC Just Eat</div>
         </div>
       </div>
 
-      {/* ── Logs ─────────────────────────────────────────────────────────────── */}
       {logs.map((log, i) => (
         <div key={i} style={{ background: log.errores.length > 0 ? '#fff5f5' : '#f0faf5', border: `0.5px solid ${log.errores.length > 0 ? '#B01D23' : '#1D9E75'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 10 }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: log.errores.length > 0 ? '#B01D23' : '#1D9E75', marginBottom: 3 }}>{log.plataforma} · {log.archivo}</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050' }}>{log.nuevas} nuevos · {log.duplicadas} duplicados ignorados</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050' }}>
+            {log.nuevas} nuevos · {log.duplicadas} ya existían{log.actualizadas > 0 ? ` (${log.actualizadas} actualizados y reconciliados)` : ''}
+          </div>
           {log.errores.map((e, j) => <div key={j} style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#B01D23', marginTop: 2 }}>{e}</div>)}
         </div>
       ))}
 
-      {/* ── Barra filtros ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
           <input type="text" value={busqueda} onChange={e => { setBusqueda(e.target.value); updateUrl({ page: 1 }) }} placeholder="Buscar marca o referencia…" style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }} />
@@ -409,14 +510,13 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         )}
       </div>
 
-      {/* ── Tabla (igual que Facturas) ───────────────────────────────────────── */}
       <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
         {cargando ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div>
         ) : filasPagina.length === 0 ? (
           <div style={{ padding: '48px 28px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>Sin datos</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Sube un CSV de Uber, PDF de Glovo o DOC de Just Eat para empezar</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Sube un CSV de Uber, PDF de Glovo o DOC de Just Eat</div>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -458,9 +558,9 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
                       <td style={{ ...tdBase, color: '#7a8090', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {f.fecha_inicio_periodo && f.fecha_fin_periodo ? `${fmtDate(f.fecha_inicio_periodo)} → ${fmtDate(f.fecha_fin_periodo)}` : '—'}
                       </td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: '#111', whiteSpace: 'nowrap' }}>{fmtNumES(f.ventas_bruto, 2)}</td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: '#E24B4A', whiteSpace: 'nowrap' }}>{fmtNumES(f.comision, 2)}</td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: '#1D9E75', whiteSpace: 'nowrap' }}>{fmtNumES(f.pago_neto, 2)}</td>
+                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#111', whiteSpace: 'nowrap' }}>{fmtNumES(f.ventas_bruto, 2)}</td>
+                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#E24B4A', whiteSpace: 'nowrap' }}>{fmtNumES(f.comision, 2)}</td>
+                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#1D9E75', whiteSpace: 'nowrap' }}>{fmtNumES(f.pago_neto, 2)}</td>
                       <td style={tdBase}>
                         {f.estado === 'conciliada'
                           ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span>
@@ -480,8 +580,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
             </table>
           </div>
         )}
-
-        {/* ── Paginado (igual que Facturas) ──────────────────────────────────── */}
         {filasFiltradas.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#fafaf7', borderTop: '0.5px solid #d0c8bc' }}>
             <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>{`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${filasFiltradas.length.toLocaleString('es-ES')} liquidaciones`}</span>
