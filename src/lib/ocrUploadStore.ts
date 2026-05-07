@@ -1,4 +1,4 @@
-// ocrUploadStore v9 — usa /api/facturas?action=upload (Vercel) en lugar de Edge Function Supabase
+// ocrUploadStore v10 — detecta errores críticos (créditos, API key, modelo) y los marca como ACHTUNG
 // Sesiones múltiples, persiste en localStorage, sobrevive F5
 
 import { useEffect, useState } from 'react'
@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
   filename: string
-  status: 'ok' | 'duplicado' | 'pendiente' | 'error'
+  status: 'ok' | 'duplicado' | 'pendiente' | 'error' | 'achtung'
   detalle: string
+  achtungTipo?: 'creditos' | 'api_key' | 'modelo' | 'otro'
 }
 
 export interface OcrSession {
@@ -18,6 +19,9 @@ export interface OcrSession {
   pendientes: number
   duplicados: number
   errores: number
+  achtung: number
+  achtungMensaje: string | null
+  achtungTipo: 'creditos' | 'api_key' | 'modelo' | 'otro' | null
   log: ArchivoLog[]
   visible: boolean
   procesando: boolean
@@ -40,7 +44,13 @@ function loadSessions(): OcrSession[] {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     return sessions
       .filter(s => s.creadoEn > cutoff && s.visible)
-      .map(s => ({ ...s, completadoEn: s.completadoEn ?? null }))
+      .map(s => ({
+        ...s,
+        completadoEn: s.completadoEn ?? null,
+        achtung: s.achtung ?? 0,
+        achtungMensaje: s.achtungMensaje ?? null,
+        achtungTipo: s.achtungTipo ?? null,
+      }))
   } catch { return [] }
 }
 
@@ -85,6 +95,8 @@ if (typeof window !== 'undefined') {
     let cambio = false
     sessions = sessions.map(s => {
       if (!s.procesando && s.completadoEn && (ahora - s.completadoEn) > TTL_COMPLETADO_MS && s.visible) {
+        // No auto-ocultar si hay achtung activo
+        if (s.achtung > 0) return s
         cambio = true
         return { ...s, visible: false }
       }
@@ -163,6 +175,24 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
+// Detecta errores críticos del API de Anthropic
+function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'modelo' | 'otro'; mensaje: string } | null {
+  const txt = detalle.toLowerCase()
+  if (txt.includes('credit balance is too low') || txt.includes('credit balance')) {
+    return { tipo: 'creditos', mensaje: 'SIN CRÉDITOS ANTHROPIC · Ve a console.anthropic.com/settings/billing y recarga' }
+  }
+  if (txt.includes('invalid x-api-key') || txt.includes('authentication_error') || (txt.includes('401') && txt.includes('anthropic'))) {
+    return { tipo: 'api_key', mensaje: 'API KEY ANTHROPIC INVÁLIDA · Renueva la key en Vercel → Environment Variables' }
+  }
+  if (txt.includes('not_found_error') && txt.includes('model')) {
+    return { tipo: 'modelo', mensaje: 'MODELO CLAUDE NO DISPONIBLE · Avisa en este chat para actualizar' }
+  }
+  if (txt.includes('ocr falló') && (txt.includes('429') || txt.includes('rate_limit'))) {
+    return { tipo: 'otro', mensaje: 'LÍMITE DE PETICIONES · Espera 1 min y vuelve a probar' }
+  }
+  return null
+}
+
 // Procesar via /api/facturas?action=upload (Vercel) — facturas
 async function procesarFactura(item: { name: string; type: string; base64: string }): Promise<ArchivoLog> {
   try {
@@ -177,16 +207,24 @@ async function procesarFactura(item: { name: string; type: string; base64: strin
     })
     const data = await res.json()
     if (!res.ok) {
-      return { filename: item.name, status: 'error', detalle: `HTTP ${res.status}: ${data?.error || 'sin detalle'}` }
+      const detalle = `HTTP ${res.status}: ${data?.error || 'sin detalle'}`
+      const ach = detectarAchtung(detalle)
+      if (ach) return { filename: item.name, status: 'achtung', detalle, achtungTipo: ach.tipo }
+      return { filename: item.name, status: 'error', detalle }
     }
     if (data?.error) {
+      const ach = detectarAchtung(data.error)
+      if (ach) return { filename: item.name, status: 'achtung', detalle: data.error, achtungTipo: ach.tipo }
       return { filename: item.name, status: 'error', detalle: data.error }
     }
     if (data?.estado === 'duplicada') {
       return { filename: item.name, status: 'duplicado', detalle: data.motivo || 'Ya existía' }
     }
     if (data?.estado === 'error') {
-      return { filename: item.name, status: 'error', detalle: data.error || 'Error procesando' }
+      const det = data.error || 'Error procesando'
+      const ach = detectarAchtung(det)
+      if (ach) return { filename: item.name, status: 'achtung', detalle: det, achtungTipo: ach.tipo }
+      return { filename: item.name, status: 'error', detalle: det }
     }
     if (data?.estado === 'ok') {
       const fact = data.factura
@@ -261,15 +299,31 @@ async function runSession(sessionId: string) {
 
     const cur = getSession()
     if (!cur) break
-    updateSession(sessionId, {
+
+    // Si es achtung, abortar resto de archivos pendientes (no tiene sentido seguir)
+    const esAchtung = logEntry.status === 'achtung'
+    const patch: Partial<OcrSession> = {
       enviados: cur.enviados + 1,
       log: [...cur.log, logEntry],
       ok: cur.ok + (logEntry.status === 'ok' ? 1 : 0),
       duplicados: cur.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
       pendientes: cur.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
       errores: cur.errores + (logEntry.status === 'error' ? 1 : 0),
-    })
+      achtung: cur.achtung + (esAchtung ? 1 : 0),
+    }
+    if (esAchtung && !cur.achtungMensaje) {
+      const ach = detectarAchtung(logEntry.detalle)
+      if (ach) {
+        patch.achtungMensaje = ach.mensaje
+        patch.achtungTipo = ach.tipo
+      }
+      // Abortar: vaciar pendientes y marcar todos como error con mismo detalle
+      patch.archivosPendientes = []
+      patch.procesando = false
+    }
+    updateSession(sessionId, patch)
 
+    if (esAchtung) break
     await new Promise(r => setTimeout(r, 800))
   }
 }
@@ -318,6 +372,7 @@ export function useOcrUpload() {
       id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       total: files.length,
       enviados: 0, ok: 0, pendientes: 0, duplicados: 0, errores: 0,
+      achtung: 0, achtungMensaje: null, achtungTipo: null,
       log: [], visible: true, procesando: true,
       fnName, titular_id,
       archivosPendientes: archivosSerial,
