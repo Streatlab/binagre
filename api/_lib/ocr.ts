@@ -46,16 +46,16 @@ Reglas:
 - Si no detectas número factura, usa la referencia más única que encuentres.
 - "ventas_brutas" en plataformas = PVP con IVA (lo que pagó el cliente).
 - Si la factura es de Uber/Glovo/Just Eat (o "Portier Eats"), rellena plataforma_detalle con una entrada por marca facturada.
-- "Portier Eats" → tipo=plataforma, plataforma=uber.
-- "Glovo App" o "Glovoapp" → tipo=plataforma, plataforma=glovo.
-- "Just Eat" → tipo=plataforma, plataforma=just_eat.
+- "Portier Eats" tipo=plataforma, plataforma=uber.
+- "Glovo App" o "Glovoapp" tipo=plataforma, plataforma=glovo.
+- "Just Eat" tipo=plataforma, plataforma=just_eat.
 - Todos los importes en euros con punto decimal. NO uses coma.
-- confianza entre 0 y 1, cómo de seguro estás de la extracción.
-- nif_cliente: NIF/CIF del CLIENTE (destinatario de la factura), NO del emisor. Búscalo tras "Razón Social", "Datos Fiscales", "Cliente:", "NIF:", "CIF:", "DNI:". Si no aparece → null.
-- nif_emisor: NIF/CIF de quien EMITE la factura. Búscalo cerca del nombre del proveedor, en el encabezado o pie. Si no aparece → null.
-- nombre_cliente: razón social o nombre del cliente. Si no aparece → null.
+- confianza entre 0 y 1, como de seguro estas de la extraccion.
+- nif_cliente: NIF/CIF del CLIENTE (destinatario de la factura), NO del emisor. Buscalo tras Razon Social, Datos Fiscales, Cliente, NIF, CIF, DNI. Si no aparece null.
+- nif_emisor: NIF/CIF de quien EMITE la factura. Buscalo cerca del nombre del proveedor. Si no aparece null.
+- nombre_cliente: razon social o nombre del cliente. Si no aparece null.
 
-Devuelve SOLO el JSON, nada más.`
+Devuelve SOLO el JSON, nada mas.`
 
 export type ExtractedFactura = {
   proveedor_nombre: string
@@ -106,7 +106,7 @@ function clienteAnthropic(): Anthropic {
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
   const anthropic = clienteAnthropic()
   const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 2000,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: [{ role: 'user', content: content as any }],
@@ -119,9 +119,6 @@ async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> 
   return JSON.parse(jsonStr) as ExtractedFactura
 }
 
-/**
- * Nueva signature: acepta ContenidoExtraido (vision o texto).
- */
 export async function extraerDatosDesdeContenido(
   contenido: ContenidoExtraido,
 ): Promise<ExtractedFactura> {
@@ -155,9 +152,6 @@ export async function extraerDatosDesdeContenido(
   return llamarClaude(content)
 }
 
-/**
- * Backwards-compat: acepta base64 PDF directamente.
- */
 export async function extraerDatosFactura(pdfBase64: string): Promise<ExtractedFactura> {
   const buffer = Buffer.from(pdfBase64, 'base64')
   return extraerDatosDesdeContenido({
