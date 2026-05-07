@@ -48,17 +48,12 @@ export interface ArchivoEntrada {
   mimeType?: string | null
 }
 
-/**
- * Procesa un archivo completo: detecta tipo → extrae → OCR → inserta factura →
- * matching → Drive. Para emails, procesa recursivamente cada adjunto PDF/imagen.
- */
 export async function procesarArchivo(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
 ): Promise<ProcesarResultado[]> {
   const tipo = detectarTipoArchivo(file.nombre, file.mimeType)
 
-  // 1. Extraer contenido según tipo
   let contenido: ContenidoExtraido
   try {
     contenido = await extraerContenido(file, tipo)
@@ -72,10 +67,8 @@ export async function procesarArchivo(
     ]
   }
 
-  // 2. Procesar el archivo principal
   const principal = await procesarContenidoPrincipal(supabase, file, contenido, tipo)
 
-  // 3. Si es email con adjuntos PDF/imagen, procesarlos recursivamente
   const resultados: ProcesarResultado[] = [principal]
   if (tipo === 'email' && contenido.adjuntos?.length) {
     for (const adj of contenido.adjuntos) {
@@ -122,10 +115,8 @@ async function procesarContenidoPrincipal(
   contenido: ContenidoExtraido,
   tipo: TipoArchivo,
 ): Promise<ProcesarResultado> {
-  // Hash SHA-256
   const hash = createHash('sha256').update(file.buffer).digest('hex')
 
-  // Dedup por hash
   const { data: existente } = await supabase
     .from('facturas')
     .select('id, numero_factura, proveedor_nombre, total, estado, pdf_drive_id, pdf_drive_url, fecha_factura, tipo, plataforma, titular_id')
@@ -134,7 +125,6 @@ async function procesarContenidoPrincipal(
   if (existente) {
     let motivo = 'ya existe'
 
-    // Si la existente no está en Drive y nos re-envían el PDF, aprovecha para subirla
     if (!existente.pdf_drive_id) {
       try {
         let carpeta = 'SIN_TITULAR'
@@ -187,7 +177,6 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // 1. OCR PRIMERO — si falla, NO se crea registro (evita zombies)
   let extracted: Awaited<ReturnType<typeof extraerDatosDesdeContenido>>
   try {
     extracted = await extraerDatosDesdeContenido(contenido)
@@ -199,8 +188,7 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // 2. Validar que el OCR devolvió datos mínimos
-  if (!extracted.proveedor_nombre || !extracted.total) {
+  if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
     return {
       estado: 'error',
       archivo: file.nombre,
@@ -208,7 +196,6 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // 3. Crear registro ya con datos reales
   const { data: nueva, error: errInsert } = await supabase
     .from('facturas')
     .insert({
@@ -232,8 +219,6 @@ async function procesarContenidoPrincipal(
   }
 
   try {
-
-    // Matching proveedor por nombre (fallback) + dedup proveedor+numero
     const provQuery = extracted.proveedor_nombre.slice(0, 20)
     const { data: proveedor } = await supabase
       .from('proveedores')
@@ -270,10 +255,11 @@ async function procesarContenidoPrincipal(
       proveedorId = nuevoProv?.id
     }
 
-    // Detectar titular por NIF cliente (constantes cerradas primero, luego BD)
+    // Detectar titular por NIF cliente. Para facturas Uber/Glovo/Just Eat se asume Rubén por defecto (titular principal del negocio plataformas)
     let titularId: string | null = null
     let carpetaTitular = 'SIN_TITULAR'
     let pendienteTitularManual = false
+
     if (extracted.nif_cliente) {
       if (extracted.nif_cliente === NIF_RUBEN) {
         titularId = RUBEN_ID
@@ -282,7 +268,6 @@ async function procesarContenidoPrincipal(
         titularId = EMILIO_ID
         carpetaTitular = 'EMILIO'
       } else {
-        // NIF presente pero no reconocido → buscar en BD como fallback
         const { data: titular } = await supabase
           .from('titulares')
           .select('id, carpeta_drive')
@@ -295,8 +280,11 @@ async function procesarContenidoPrincipal(
           pendienteTitularManual = true
         }
       }
+    } else if (extracted.tipo === 'plataforma') {
+      // Plataformas sin NIF cliente → titular por defecto Rubén (ajustable a futuro con regla)
+      titularId = RUBEN_ID
+      carpetaTitular = 'RUBÉN'
     } else {
-      // Sin NIF cliente → no se puede determinar titular
       pendienteTitularManual = true
     }
 
@@ -329,7 +317,6 @@ async function procesarContenidoPrincipal(
       })
       .eq('id', nueva.id)
 
-    // Plataforma: detalle por marca
     if (extracted.tipo === 'plataforma' && extracted.plataforma_detalle?.length) {
       for (const det of extracted.plataforma_detalle) {
         const { data: marca } = await supabase
@@ -355,7 +342,6 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Matching (pasa titular_id para detectar cross-cuenta) — omitir si sin titular
     if (!pendienteTitularManual) {
       const resultadoMatch = await matchFactura(supabase, {
         ...extracted,
@@ -366,7 +352,6 @@ async function procesarContenidoPrincipal(
       await aplicarMatching(supabase, nueva.id, resultadoMatch)
     }
 
-    // Drive: preserva extensión original
     const ext = extensionDeNombre(file.nombre)
     const nombreArchivo = generarNombreArchivo(
       {
@@ -380,7 +365,6 @@ async function procesarContenidoPrincipal(
     )
     let driveErrorMsg: string | null = null
     try {
-      // Si es texto pegado o email sin .pdf, también subimos el buffer original
       const drive = await subirArchivoADrive(file.buffer, nombreArchivo, {
         proveedor_nombre: extracted.proveedor_nombre,
         numero_factura: extracted.numero_factura,
@@ -399,7 +383,6 @@ async function procesarContenidoPrincipal(
         .eq('id', nueva.id)
     } catch (driveErr) {
       driveErrorMsg = errMsg(driveErr)
-      // Solo marcar drive_pendiente si OCR + matching OK y solo Drive falló
       if (!pendienteTitularManual) {
         await supabase
           .from('facturas')
@@ -408,7 +391,6 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Estado final: si hubo error Drive, preservarlo; si no, trazar origen de texto
     const mensajeFinal = driveErrorMsg
       ? `Drive: ${driveErrorMsg}`
       : tipo === 'texto'
