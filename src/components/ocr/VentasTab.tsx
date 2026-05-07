@@ -5,8 +5,6 @@ import { FONT, useTheme } from '@/styles/tokens'
 import { fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
 interface Liquidacion {
   id: string
   plataforma: 'uber' | 'glovo' | 'just_eat'
@@ -38,8 +36,6 @@ const DEFAULT_PAGE_SIZE: PageSize = 50
 function parsePage(raw: string | null) { const n = Number(raw); return Number.isInteger(n) && n >= 1 ? n : 1 }
 function parsePageSize(raw: string | null): PageSize { const n = Number(raw); return ([50, 100, 200] as number[]).includes(n) ? n as PageSize : DEFAULT_PAGE_SIZE }
 
-// ─── Parsers ──────────────────────────────────────────────────────────────────
-
 function fmtFechaCSV(v: string): string {
   if (!v) return ''
   const m = v.match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/)
@@ -49,7 +45,12 @@ function fmtFechaCSV(v: string): string {
 }
 
 function numES(v: string): number {
-  return parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0
+  const s = (v || '0').trim().replace(/\s/g,'')
+  if (s.includes(',') && s.includes('.')) {
+    return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0
+  }
+  if (s.includes(',')) return parseFloat(s.replace(',', '.')) || 0
+  return parseFloat(s) || 0
 }
 
 function parseUberCSV(texto: string) {
@@ -89,15 +90,29 @@ function parseUberCSV(texto: string) {
 }
 
 function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] } {
-  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
+  const lineas = texto.split('\n').map(l => l.replace(/\r$/, '')).filter(Boolean)
   if (lineas.length < 2) return { items: [], errores: ['CSV vacío'] }
-  const cab = lineas[0].split(',').map(h => h.trim().toLowerCase())
-  const idx = (n: string) => cab.indexOf(n)
-  const iMarca = idx('store name') !== -1 ? idx('store name') : idx('nombre de la tienda')
-  const iRef = idx('payment reference') !== -1 ? idx('payment reference') : idx('id. de referencia de ganancias')
-  const iPago = idx('pago neto') !== -1 ? idx('pago neto') : idx('net payout') !== -1 ? idx('net payout') : idx('pago total ')
-  if (iMarca === -1 || iRef === -1 || iPago === -1) return { items: [], errores: ['Formato CSV resumen no reconocido'] }
-  const iFecha = idx('payment date') !== -1 ? idx('payment date') : idx('fecha de pago')
+  const cab = lineas[0].replace(/^\uFEFF/, '').split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, ' '))
+  const findCol = (...names: string[]) => {
+    for (const n of names) {
+      const idx = cab.indexOf(n.toLowerCase().trim())
+      if (idx !== -1) return idx
+    }
+    return -1
+  }
+  const iMarca = findCol('store name', 'nombre de la tienda', 'nombre del restaurante')
+  const iRef = findCol('payment reference', 'id. de referencia de ganancias', 'id de referencia de ganancias')
+  const iPago = findCol('pago total', 'pago neto', 'net payout', 'total payout', 'total payment')
+  const iFecha = findCol('payment date', 'fecha de pago')
+  const iVentas = findCol('ventas (con iva)', 'ventas con iva', 'sales (incl. vat)')
+  const iVentasSinIva = findCol('ventas (sin iva)', 'ventas sin iva', 'sales (excl. vat)')
+  const iTasa = findCol('tasa de servicio después del descuento (con iva)', 'tasa de servicio (con iva)', 'service fee (incl. vat)')
+  const iPromos = findCol('promociones en artículos (con iva)', 'promociones (con iva)', 'item promotions (incl. vat)')
+  const iCodigo = findCol('código del establecimiento', 'store id', 'restaurant id', 'id. del restaurante', 'id. del establecimiento')
+  const iPedidos = findCol('cantidad de pedidos', 'pedidos liquidados', 'order count', 'orders')
+  if (iMarca === -1 || iRef === -1 || iPago === -1) {
+    return { items: [], errores: [`Formato CSV resumen no reconocido (marca=${iMarca}, ref=${iRef}, pago=${iPago})`] }
+  }
   const items: any[] = []
   for (let li = 1; li < lineas.length; li++) {
     const cols = lineas[li].split(',')
@@ -106,7 +121,12 @@ function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] }
     if (!ref || !marca) continue
     const pagoNeto = numES(cols[iPago]?.trim() || '0')
     const fecha = iFecha !== -1 ? fmtFechaCSV(cols[iFecha]?.trim() || '') : ''
-    items.push({ referencia_pago: ref, marca, pago_neto: pagoNeto, fecha_deposito: fecha })
+    const ventasBruto = iVentas !== -1 ? numES(cols[iVentas]?.trim() || '0') : (iVentasSinIva !== -1 ? numES(cols[iVentasSinIva]?.trim() || '0') : 0)
+    const comision = iTasa !== -1 ? numES(cols[iTasa]?.trim() || '0') : 0
+    const promos = iPromos !== -1 ? numES(cols[iPromos]?.trim() || '0') : 0
+    const codigo = iCodigo !== -1 ? cols[iCodigo]?.trim() || '' : ''
+    const pedidos = iPedidos !== -1 ? parseInt(cols[iPedidos]?.trim() || '0', 10) || 0 : 0
+    items.push({ referencia_pago: ref, marca, pago_neto: pagoNeto, fecha_deposito: fecha, ventas_bruto: ventasBruto, comision_uber: comision, promociones: promos, codigo_establecimiento: codigo, num_pedidos: pedidos })
   }
   return { items, errores: [] }
 }
@@ -141,8 +161,6 @@ function parseJustEatHTML(texto: string): { data: any; errores: string[] } {
   } catch (e: any) { return { data: null, errores: [`Error: ${e.message}`] } }
 }
 
-// ─── Autoconciliar ────────────────────────────────────────────────────────────
-
 async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaDeposito: string, margenCentimos = 0) {
   const d = new Date(fechaDeposito + 'T12:00:00')
   const desde = new Date(d); desde.setDate(d.getDate() - 2)
@@ -158,8 +176,6 @@ async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaD
   }
   return false
 }
-
-// ─── Componente ───────────────────────────────────────────────────────────────
 
 interface Props { fechaDesde: Date; fechaHasta: Date; titulares: Titular[] }
 
@@ -290,11 +306,13 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         const nombre = file.name.toLowerCase()
         if (nombre.endsWith('.csv')) {
           const lineas = texto.split('\n').filter(Boolean)
-          const cab = lineas[0]?.toLowerCase() || ''
-          const cab2 = lineas[1]?.toLowerCase() || ''
-          if (cab2.includes('id. del pedido') || cab.includes('id. del pedido')) {
+          const cab1 = (lineas[0] || '').replace(/^\uFEFF/, '').toLowerCase()
+          const cab2 = (lineas[1] || '').toLowerCase()
+          const esDetalle = cab2.includes('id. del pedido') || cab1.includes('id. del pedido')
+          const esResumen = cab1.includes('store name') || cab1.includes('nombre de la tienda') || cab1.includes('nombre del restaurante') || cab1.includes('payment reference') || cab1.includes('id. de referencia de ganancias') || cab1.includes('pago neto') || cab1.includes('net payout') || cab1.includes('pago total')
+          if (esDetalle) {
             await importarUberDetalle(file, texto)
-          } else if (cab.includes('store name') || cab.includes('nombre de la tienda') || cab.includes('payment reference') || cab.includes('pago neto') || cab.includes('net payout')) {
+          } else if (esResumen) {
             await importarUberResumen(file, texto)
           } else {
             setLogs([{ archivo: file.name, plataforma: 'Auto', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['Formato CSV no reconocido. Verifica que sea un CSV de Uber Eats.'] }])
@@ -344,14 +362,21 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     let nuevas = 0, duplicadas = 0, actualizadas = 0; const errores: string[] = []
     for (const item of items) {
       const { data: existe } = await supabase.from('uber_liquidaciones').select('id,pago_neto').eq('referencia_pago', item.referencia_pago).eq('marca', item.marca).maybeSingle()
+      const payload: any = { pago_neto: item.pago_neto }
+      if (item.fecha_deposito) payload.fecha_deposito = item.fecha_deposito
+      if (item.ventas_bruto) payload.ventas_bruto = item.ventas_bruto
+      if (item.comision_uber) payload.comision_uber = item.comision_uber
+      if (item.promociones) payload.promociones = item.promociones
+      if (item.codigo_establecimiento) payload.codigo_establecimiento = item.codigo_establecimiento
+      if (item.num_pedidos) payload.num_pedidos = item.num_pedidos
       if (existe) {
         if (Math.abs(Number(existe.pago_neto) - item.pago_neto) > 0.01) {
-          await supabase.from('uber_liquidaciones').update({ pago_neto: item.pago_neto, ...(item.fecha_deposito ? { fecha_deposito: item.fecha_deposito } : {}) }).eq('id', existe.id)
+          await supabase.from('uber_liquidaciones').update(payload).eq('id', existe.id)
           actualizadas++
         } else { duplicadas++ }
         continue
       }
-      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: item.marca, referencia_pago: item.referencia_pago, fecha_deposito: item.fecha_deposito || new Date().toISOString().slice(0,10), pago_neto: item.pago_neto, estado: 'pendiente' }).select('id').single()
+      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: item.marca, referencia_pago: item.referencia_pago, fecha_deposito: item.fecha_deposito || new Date().toISOString().slice(0,10), pago_neto: item.pago_neto, ventas_bruto: item.ventas_bruto || 0, comision_uber: item.comision_uber || 0, promociones: item.promociones || 0, codigo_establecimiento: item.codigo_establecimiento || '', num_pedidos: item.num_pedidos || 0, estado: 'pendiente' }).select('id').single()
       if (el || !liq) { errores.push(`Error ${item.referencia_pago}: ${el?.message}`); continue }
       if (item.fecha_deposito) await autoconciliar('uber_liquidaciones', liq.id, item.pago_neto, item.fecha_deposito, 5)
       nuevas++
