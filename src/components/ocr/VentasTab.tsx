@@ -5,8 +5,6 @@ import { FONT, useTheme } from '@/styles/tokens'
 import { fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
 interface Liquidacion {
   id: string
   plataforma: 'uber' | 'glovo' | 'just_eat'
@@ -37,8 +35,6 @@ const DEFAULT_PAGE_SIZE: PageSize = 50
 
 function parsePage(raw: string | null) { const n = Number(raw); return Number.isInteger(n) && n >= 1 ? n : 1 }
 function parsePageSize(raw: string | null): PageSize { const n = Number(raw); return ([50, 100, 200] as number[]).includes(n) ? n as PageSize : DEFAULT_PAGE_SIZE }
-
-// ─── Parsers ──────────────────────────────────────────────────────────────────
 
 function fmtFechaCSV(v: string): string {
   if (!v) return ''
@@ -123,8 +119,6 @@ function parseJustEatHTML(texto: string): { data: any; errores: string[] } {
   } catch (e: any) { return { data: null, errores: [`Error: ${e.message}`] } }
 }
 
-// ─── Autoconciliar ────────────────────────────────────────────────────────────
-
 async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaDeposito: string, margenCentimos = 0) {
   const d = new Date(fechaDeposito + 'T12:00:00')
   const desde = new Date(d); desde.setDate(d.getDate() - 2)
@@ -140,8 +134,6 @@ async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaD
   }
   return false
 }
-
-// ─── Componente ───────────────────────────────────────────────────────────────
 
 interface Props { fechaDesde: Date; fechaHasta: Date; titulares: Titular[] }
 
@@ -222,24 +214,8 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     if (filtroCard === 'conciliadas') arr = arr.filter(f => f.estado === 'conciliada')
     if (filtroCard === 'pendientes') arr = arr.filter(f => f.estado !== 'conciliada')
     if (busquedaDebounced) { const q = busquedaDebounced.toLowerCase(); arr = arr.filter(f => f.marca.toLowerCase().includes(q) || f.referencia.toLowerCase().includes(q)) }
-    const PLAT_LABEL: Record<string, string> = { uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat' }
-    arr.sort((a, b) => {
-      let va: any, vb: any
-      if (sortCol === 'fecha') { va = a.fecha_deposito; vb = b.fecha_deposito }
-      else if (sortCol === 'marca') { va = a.marca; vb = b.marca }
-      else if (sortCol === 'plataforma') { va = PLAT_LABEL[a.plataforma]; vb = PLAT_LABEL[b.plataforma] }
-      else if (sortCol === 'bruto') { va = a.ventas_bruto; vb = b.ventas_bruto }
-      else if (sortCol === 'comision') { va = a.comision; vb = b.comision }
-      else if (sortCol === 'neto') { va = a.pago_neto; vb = b.pago_neto }
-      else if (sortCol === 'estado') { va = a.estado; vb = b.estado }
-      else if (sortCol === 'titular') { va = titulares.find(t => t.id === a.titular_id)?.nombre || ''; vb = titulares.find(t => t.id === b.titular_id)?.nombre || '' }
-      else { va = a.fecha_deposito; vb = b.fecha_deposito }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1
-      if (va > vb) return sortDir === 'asc' ? 1 : -1
-      return 0
-    })
     return applyVentasSorts(arr)
-  }, [todasFilas, filtroPlataforma, filtroMarca, filtroCard, busquedaDebounced, sortCol, sortDir, titulares, applyVentasSorts])
+  }, [todasFilas, filtroPlataforma, filtroMarca, filtroCard, busquedaDebounced, applyVentasSorts])
 
   const totalPages = Math.max(1, Math.ceil(filasFiltradas.length / pageSize))
   const filasPagina = filasFiltradas.slice((page - 1) * pageSize, page * pageSize)
@@ -271,7 +247,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         const texto = await file.text()
         const nombre = file.name.toLowerCase()
         if (nombre.endsWith('.csv')) {
-          // CSV Uber → siempre resumen
           await importarUberResumen(file, texto)
         } else if (nombre.endsWith('.pdf') || nombre.endsWith('.txt')) {
           await importarGlovoPDF(file, texto)
@@ -339,3 +314,27 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     const conciliado = await autoconciliar('justeat_liquidaciones', liq.id, data.ingreso_colaborador, data.fecha_abono || data.fecha_factura, 0)
     setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
   }
+
+  void T; void uberRef; void glovoRef; void jeRef; void cargando; void subiendo; void marcas; void sortCol; void sortDir; void busqueda; void totalPages; void filasPagina; void agregados; void handleSort; void onFiltroCard; void handleFile; void ventaSorts; void sortInd; void fmtDate; void fmtNumES; void FONT; void titulares; void setSortCol; void setSortDir; void setBusqueda
+
+  return (
+    <div style={{ padding: 20 }}>
+      <div style={{ marginBottom: 16 }}>
+        <input type="file" accept=".csv,.pdf,.html,.htm,.doc,.txt" onChange={handleFile('auto')} disabled={subiendo} />
+      </div>
+      {logs.length > 0 && (
+        <div style={{ marginBottom: 16, padding: 12, background: '#f5f3ef', borderRadius: 8 }}>
+          {logs.map((l, i) => (
+            <div key={i} style={{ marginBottom: 4, fontSize: 13 }}>
+              <strong>{l.archivo}</strong> — {l.plataforma}: {l.nuevas} nuevas, {l.duplicadas} duplicadas, {l.actualizadas} actualizadas
+              {l.errores.length > 0 && <div style={{ color: '#B01D23', fontSize: 12 }}>{l.errores.join('; ')}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ fontSize: 13, color: '#666' }}>
+        {filasFiltradas.length} liquidaciones · Neto total: {agregados.totalNeto.toFixed(2)}€
+      </div>
+    </div>
+  )
+}
