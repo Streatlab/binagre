@@ -1,3 +1,4 @@
+import { useMultiSort } from '@/hooks/useMultiSort'
 /**
  * GestorDocumental — v15: ZIP via signed URL (descarga directa desde Storage)
  * Fix definitivo: la edge function sube ZIP a Storage y devuelve URL firmada.
@@ -165,6 +166,22 @@ export default function GestionFacturas() {
   const [expansionMap, setExpansionMap] = useState<Record<string,boolean>>({})
   const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const { handleSort: multiHandleSort, sortIndicator: sortInd, applySorts: applyFactSorts } = useMultiSort<FacturaRow, SortColumn>({
+    getValue: (row, col) => {
+      switch(col) {
+        case 'fecha':      return row.fecha_factura ?? ''
+        case 'proveedor':  return row.proveedor_nombre ?? ''
+        case 'nif':        return row.nif_emisor ?? ''
+        case 'importe':    return Number(row.total ?? 0)
+        case 'categoria':  return row.categoria_factura ?? ''
+        case 'doc':        return row.pdf_drive_url ? '1' : '0'
+        case 'estado':     return row.estado ?? ''
+        default:           return ''
+      }
+    }
+  })
+
   const [mesesDisp, setMesesDisp] = useState<{valor:string;label:string}[]>([])
   const [mesSeleccionado, setMesSeleccionado] = useState<string>('')
   const [bannerVisible, setBannerVisible] = useState(true)
@@ -230,6 +247,7 @@ export default function GestionFacturas() {
   const catNombre = useMemo(()=>{const m=new Map<string,string>(); for(const c of categorias) m.set(c.id,c.nombre); return m},[categorias])
 
   function handleSort(col: SortColumn){
+    multiHandleSort(col)
     if(sortColumn===col) setSortDir(d=>d==='asc'?'desc':'asc')
     else{setSortColumn(col);setSortDir('asc')}
   }
@@ -277,8 +295,8 @@ export default function GestionFacturas() {
       }
       return va<vb?-dv:va>vb?dv:0
     })
-    return arr
-  },[facturasFiltradas,sortColumn,sortDir])
+    return applyFactSorts(arr)
+  },[facturasFiltradas,sortColumn,sortDir,applyFactSorts])
 
   const facturasMes = useMemo(()=>{
     if(!desdeStr||!hastaStr) return [] as FacturaRow[]
@@ -406,11 +424,12 @@ export default function GestionFacturas() {
                     <thead>
                       <tr>
                         {HEADERS.map(h=>{
-                          const isActive=sortColumn===h.col
+                          const arrow=sortInd(h.col)
+                          const isActive=arrow!==''
                           return(
                             <th key={h.col} onClick={()=>handleSort(h.col)}
                               style={{fontFamily:FONT.heading,fontSize:10,fontWeight:500,letterSpacing:'2px',color:isActive?COLORS.redSL:COLORS.mut,textTransform:'uppercase',textAlign:h.align,padding:'10px 12px',background:COLORS.group,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>
-                              {h.label}{isActive?(sortDir==='asc'?' ↑':' ↓'):''}
+                              {h.label}{arrow}
                             </th>
                           )
                         })}
@@ -544,7 +563,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
           try {
             const txt = await ctx.text?.()
             if (txt) {
-              try { const j = JSON.parse(txt); detail = `${j.error || detail}${j.step?` (step=${j.step})`:''}` }
+              try { const j = JSON.parse(txt); detail = `${j.error || detail}${j.step?` (step=${j.step})`:''}`  }
               catch { detail = txt.slice(0,200) }
             }
           } catch {}
