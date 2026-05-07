@@ -52,46 +52,9 @@ function numES(v: string): number {
   return parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0
 }
 
-function parseUberCSV(texto: string) {
-  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
-  if (lineas.length < 3) return { grupos: {}, errores: ['CSV vacío'] }
-  const cab = lineas[1].split(',')
-  const i = (n: string) => cab.indexOf(n)
-  const iId = i('Id. del pedido'), iPago = i('Pago total '), iRef = i('Id. de referencia de ganancias')
-  const iMarca = i('Nombre de la tienda'), iCodigo = i('Código del establecimiento')
-  const iFecha = i('Fecha del pedido'), iHora = i('Hora a la que se aceptó el pedido')
-  const iModalidad = i('Modalidad de consumo'), iCanal = i('Canal de pedidos'), iEstado = i('Estado del pedido')
-  const iVentas = i('Ventas (con IVA)'), iPromos = i('Promociones en artículos (con IVA)')
-  const iTasa = i('Tasa de servicio después del descuento (con IVA)'), iOtros = i('Otros pagos (con IVA)')
-  const iFechaPago = i('Fecha de pago')
-  const iLinkEst = i('Enlace de la factura del establecimiento al cliente')
-  const iLinkPortier = i('Enlace de Uber a la factura del establecimiento')
-  const iWorkflow = i('Id. del flujo de trabajo')
-  if (iId === -1 || iPago === -1 || iRef === -1) return { grupos: {}, errores: ['No es CSV detalle Uber'] }
-  const n = (v: string) => parseFloat((v || '0').replace(',', '.')) || 0
-  const grupos: Record<string, any> = {}
-  for (let li = 2; li < lineas.length; li++) {
-    const cols = lineas[li].split(',')
-    if (cols.length < 10) continue
-    const ref = cols[iRef]?.trim(), marca = cols[iMarca]?.trim()
-    if (!ref || !marca) continue
-    const key = `${ref}__${marca}`
-    if (!grupos[key]) grupos[key] = { marca, codigo_establecimiento: cols[iCodigo]?.trim() || '', referencia_pago: ref, fecha_deposito: fmtFechaCSV(cols[iFechaPago]?.trim()), fecha_inicio_periodo: fmtFechaCSV(cols[iFecha]?.trim()), fecha_fin_periodo: fmtFechaCSV(cols[iFecha]?.trim()), num_pedidos: 0, ventas_bruto: 0, comision_uber: 0, promociones: 0, ads: 0, pago_neto: 0, detalle: [] }
-    const g = grupos[key]
-    const fp = fmtFechaCSV(cols[iFecha]?.trim())
-    if (fp && fp < g.fecha_inicio_periodo) g.fecha_inicio_periodo = fp
-    if (fp && fp > g.fecha_fin_periodo) g.fecha_fin_periodo = fp
-    const pedidoId = cols[iId]?.trim(), pagoTotal = n(cols[iPago])
-    if (pedidoId && pagoTotal !== 0) { g.num_pedidos++; g.ventas_bruto += n(cols[iVentas]); g.comision_uber += n(cols[iTasa]); g.promociones += n(cols[iPromos]); g.ads += n(cols[iOtros]); g.pago_neto += pagoTotal }
-    g.detalle.push({ pedido_id: pedidoId || '', workflow_id: cols[iWorkflow]?.trim() || '', fecha_pedido: fp, hora_pedido: cols[iHora]?.trim() || '', modalidad: cols[iModalidad]?.trim() || '', canal: cols[iCanal]?.trim() || '', estado_pedido: cols[iEstado]?.trim() || '', ventas_con_iva: n(cols[iVentas]), promociones_con_iva: n(cols[iPromos]), tasa_servicio_con_iva: n(cols[iTasa]), otros_pagos: n(cols[iOtros]), pago_total: pagoTotal, fecha_pago: fmtFechaCSV(cols[iFechaPago]?.trim()), link_factura_establecimiento: cols[iLinkEst]?.trim() || '', link_factura_portier: cols[iLinkPortier]?.trim() || '' })
-  }
-  return { grupos, errores: [] }
-}
-
 function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] } {
   const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (lineas.length < 2) return { items: [], errores: ['CSV vacío'] }
-  // Eliminar BOM y normalizar cabeceras
   const rawCab = lineas[0].replace(/^\uFEFF/, '')
   const cols0 = rawCab.split(',').map(h => h.trim().replace(/\s+/g, ' '))
   const cab = cols0.map(h => h.toLowerCase())
@@ -104,8 +67,6 @@ function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] }
   }
   const iMarca = findIdx('nombre del restaurante', 'store name', 'nombre de la tienda', 'restaurant name')
   const iRef   = findIdx('id. de referencia de ganancias', 'id de referencia de ganancias', 'payment reference', 'earnings reference id')
-  // Pago total es la penúltima columna antes de fecha y ref en el resumen ES
-  // Buscamos explícitamente "pago total" (con o sin espacio trailing)
   const iPago  = findIdx('pago total', 'net payout', 'pago neto', 'total payout', 'payment total')
   const iFecha = findIdx('fecha de pago', 'payment date')
   const iVentasBruto  = findIdx('ventas (con iva)', 'sales (incl. vat)', 'ventas con iva')
@@ -310,22 +271,8 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         const texto = await file.text()
         const nombre = file.name.toLowerCase()
         if (nombre.endsWith('.csv')) {
-          const lineas = texto.split('\n').filter(Boolean)
-          const cab0 = (lineas[0] || '').replace(/^\uFEFF/, '').toLowerCase()
-          const cab1 = (lineas[1] || '').toLowerCase()
-          // Detalle Uber: cabecera en línea 2 con "id. del pedido"
-          if (cab1.includes('id. del pedido') || cab0.includes('id. del pedido')) {
-            await importarUberDetalle(file, texto)
-          // Resumen Uber: cabecera en línea 1 con nombre del restaurante + referencia
-          } else if (
-            cab0.includes('nombre del restaurante') || cab0.includes('store name') ||
-            cab0.includes('nombre de la tienda') || cab0.includes('id. de referencia de ganancias') ||
-            cab0.includes('payment reference') || cab0.includes('pago total') || cab0.includes('net payout')
-          ) {
-            await importarUberResumen(file, texto)
-          } else {
-            setLogs([{ archivo: file.name, plataforma: 'Auto', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['Formato CSV no reconocido. Verifica que sea un CSV de Uber Eats.'] }])
-          }
+          // CSV Uber → siempre resumen
+          await importarUberResumen(file, texto)
         } else if (nombre.endsWith('.pdf') || nombre.endsWith('.txt')) {
           await importarGlovoPDF(file, texto)
         } else if (nombre.endsWith('.html') || nombre.endsWith('.htm') || nombre.endsWith('.doc')) {
@@ -340,29 +287,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
       setSubiendo(false)
       setRefreshTick(x => x + 1)
     }
-  }
-
-  const importarUberDetalle = async (file: File, texto: string) => {
-    const { grupos, errores: ep } = parseUberCSV(texto)
-    if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep }]); return }
-    let nuevas = 0, duplicadas = 0, actualizadas = 0; const errores: string[] = []
-    for (const key of Object.keys(grupos)) {
-      const g = (grupos as Record<string, any>)[key]
-      const { data: existe } = await supabase.from('uber_liquidaciones').select('id').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
-      if (existe) {
-        duplicadas++
-        const det = g.detalle.filter((p: any) => p.pedido_id)
-        if (det.length > 0) { await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: existe.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true }); actualizadas++ }
-        continue
-      }
-      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, referencia_pago: g.referencia_pago, fecha_deposito: g.fecha_deposito, fecha_inicio_periodo: g.fecha_inicio_periodo, fecha_fin_periodo: g.fecha_fin_periodo, num_pedidos: g.num_pedidos, ventas_bruto: Math.round(g.ventas_bruto * 100) / 100, comision_uber: Math.round(g.comision_uber * 100) / 100, promociones: Math.round(g.promociones * 100) / 100, ads: Math.round(g.ads * 100) / 100, pago_neto: Math.round(g.pago_neto * 100) / 100, estado: 'pendiente' }).select('id').single()
-      if (el || !liq) { errores.push(`Error ${g.referencia_pago}: ${el?.message}`); continue }
-      const det = g.detalle.filter((p: any) => p.pedido_id)
-      if (det.length > 0) await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: liq.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true })
-      await autoconciliar('uber_liquidaciones', liq.id, g.pago_neto, g.fecha_deposito, 5)
-      nuevas++
-    }
-    setLogs([{ archivo: file.name, plataforma: 'Uber Eats (detalle)', nuevas, duplicadas, actualizadas, errores }])
   }
 
   const importarUberResumen = async (file: File, texto: string) => {
