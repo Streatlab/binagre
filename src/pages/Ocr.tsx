@@ -277,7 +277,7 @@ export default function Ocr() {
       )}
 
       {tab === 'ventas' && (
-        <VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
+        <VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />
       )}
 
       {(tab === 'facturas' || tab === 'otros') && (
