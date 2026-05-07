@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { fetchAllPaginated } from '@/lib/supabasePaginated'
-import type { Movimiento } from '@/types/conciliacion'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
+import { useMultiSort } from '@/hooks/useMultiSort'
+import type { Movimiento } from '@/types/conciliacion'
 
 const PAGE_SIZES = [50, 100, 200] as const
 type PageSize = typeof PAGE_SIZES[number]
@@ -114,6 +115,23 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [catFiltro, setCatFiltro] = useState(persistidos.catFiltro ?? 'todas')
   const [sortColumn, setSortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
   const [sortDir, setSortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
+
+  // Multi-sort: criterio primario al servidor, secundario en cliente
+  const { handleSort: multiHandleSort, sortIndicator, applySorts } = useMultiSort<Movimiento, SortColumn>({
+    getValue: (row, col) => {
+      switch (col) {
+        case 'fecha':        return row.fecha
+        case 'concepto':     return row.concepto ?? ''
+        case 'contraparte':  return row.contraparte ?? ''
+        case 'importe':      return row.importe
+        case 'categoria':    return row.categoria_id ?? ''
+        case 'doc':          return row.doc_estado ?? ''
+        case 'estado':       return calcularEstado(row)
+        case 'titular':      return row.titular_id ?? ''
+        default:             return ''
+      }
+    }
+  })
 
   const [filas, setFilas]           = useState<Movimiento[]>([])
   const [total, setTotal]           = useState<number>(0)
@@ -370,28 +388,19 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  function handleSort(col: SortColumn) {
-    if (sortColumn === col) {
-      if (sortDir === 'asc') setSortDir('desc')
-      else setSortDir('asc')
-    } else {
-      setSortColumn(col)
-      setSortDir('asc')
+  function handleSort(col: SortColumn, e?: React.MouseEvent) {
+    const shift = e?.shiftKey ?? false
+    if (!shift) {
+      // Primario → va al servidor
+      if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+      else { setSortColumn(col); setSortDir('asc') }
+      if (page !== 1) updateUrl({ page: 1 })
     }
-    if (page !== 1) updateUrl({ page: 1 })
+    // Siempre sincronizar el hook (indicadores + orden secundario cliente)
+    multiHandleSort(col, shift)
   }
 
-  const filasVisibles = useMemo(() => {
-    let out = filas
-    if (sortColumn === 'estado') {
-      out = [...out].sort((a, b) => {
-        const ea = calcularEstado(a)
-        const eb = calcularEstado(b)
-        return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea)
-      })
-    }
-    return out
-  }, [filas, sortColumn, sortDir])
+  const filasVisibles = useMemo(() => applySorts(filas), [filas, applySorts])
 
   const handleExportar = async () => {
     setExportando(true)
@@ -665,9 +674,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                   <tr>
                     {HEADERS.map(h => {
                       const isActive = sortColumn === h.col
-                      const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+                      const arrow = sortIndicator(h.col)
                       return (
-                        <th key={h.col} onClick={() => handleSort(h.col)}
+                        <th key={h.col} onClick={(e) => handleSort(h.col, e)}
                           style={{
                             fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
                             color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
