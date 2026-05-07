@@ -1,6 +1,5 @@
-// ocrUploadStore v8 — múltiples sesiones simultáneas, persiste en localStorage, sobrevive F5
-// Cada lote tiene su propio ID. Los toasts se apilan. El proceso continúa tras F5.
-// TTL: cuando una sesión completa (procesando=false) pasa 5 minutos, se auto-oculta.
+// ocrUploadStore v9 — usa /api/facturas?action=upload (Vercel) en lugar de Edge Function Supabase
+// Sesiones múltiples, persiste en localStorage, sobrevive F5
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -24,15 +23,13 @@ export interface OcrSession {
   procesando: boolean
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
   titular_id: string | null
-  // Archivos pendientes de procesar (serializados como nombre+tipo para reanudar)
   archivosPendientes: { name: string; type: string; base64: string }[]
   creadoEn: number
-  // Timestamp de cuando completó la sesión (procesando=false). Se usa para TTL auto-cierre.
   completadoEn: number | null
 }
 
 const STORAGE_KEY = 'ocr_sessions_v2'
-const TTL_COMPLETADO_MS = 5 * 60 * 1000 // 5 min tras completar
+const TTL_COMPLETADO_MS = 5 * 60 * 1000
 const emitter = new EventTarget()
 
 function loadSessions(): OcrSession[] {
@@ -40,7 +37,6 @@ function loadSessions(): OcrSession[] {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const sessions: OcrSession[] = JSON.parse(raw)
-    // Limpiar sesiones muy viejas (>24h) o que no estaban procesando
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     return sessions
       .filter(s => s.creadoEn > cutoff && s.visible)
@@ -63,7 +59,6 @@ function updateSession(id: string, patch: Partial<OcrSession>) {
   sessions = sessions.map(s => {
     if (s.id !== id) return s
     const next = { ...s, ...patch }
-    // Si pasa a no procesando, marcar timestamp para TTL
     if (s.procesando && next.procesando === false && next.completadoEn == null) {
       next.completadoEn = Date.now()
     }
@@ -85,7 +80,6 @@ if (typeof window !== 'undefined') {
     }
   })
 
-  // Watcher TTL: cada 30s revisa sesiones completadas y oculta las que pasen 5 min
   setInterval(() => {
     const ahora = Date.now()
     let cambio = false
@@ -100,7 +94,6 @@ if (typeof window !== 'undefined') {
   }, 30000)
 }
 
-// Helpers de archivo
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 function esTextoPlano(name: string, type: string) {
   const ext = getExt(name)
@@ -170,44 +163,45 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
-// Procesar un archivo ya serializado (base64 + metadata)
-async function procesarArchivo(
-  sessionId: string,
-  item: { name: string; type: string; base64: string },
-  fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto',
-  titular_id: string | null
-): Promise<ArchivoLog> {
+// Procesar via /api/facturas?action=upload (Vercel) — facturas
+async function procesarFactura(item: { name: string; type: string; base64: string }): Promise<ArchivoLog> {
   try {
-    let body: Record<string, unknown>
-    const mimeType = item.type
-
-    if (esTextoPlano(item.name, item.type)) {
-      // base64 → texto
-      const texto = atob(item.base64)
-      body = { fileTexto: texto, filename: item.name, mimeType }
-    } else {
-      body = { fileBase64: item.base64, filename: item.name, mimeType }
+    const res = await fetch('/api/facturas?action=upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre: item.name,
+        base64: item.base64,
+        mimeType: item.type,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      return { filename: item.name, status: 'error', detalle: `HTTP ${res.status}: ${data?.error || 'sin detalle'}` }
     }
-
-    if (fnName === 'ocr-procesar-extracto' && titular_id) body.titular_id = titular_id
-
-    const { data, error } = await supabase.functions.invoke(fnName, { body })
-
-    if (error) return { filename: item.name, status: 'error', detalle: `Error: ${error.message || JSON.stringify(error)}` }
-    if (data?.error) return { filename: item.name, status: 'error', detalle: `${data.error}${data.detail ? ': ' + String(data.detail).slice(0, 200) : ''}` }
-    if (data?.status === 'duplicado') return { filename: item.name, status: 'duplicado', detalle: 'Ya existía en la BD' }
-    if (data?.status === 'ok') {
-      if (fnName === 'ocr-procesar-extracto') {
-        return { filename: item.name, status: 'ok', detalle: `${data.insertados||0} nuevos · ${data.saltados||0} ya existían · ${data.categorizados_auto||0} categ.` }
-      }
-      if (data?.matched && !data?.sin_categoria && !data?.sin_titular) {
-        return { filename: item.name, status: 'ok', detalle: 'Conciliada' }
-      }
-      const motivos: string[] = []
-      if (!data.matched) motivos.push('sin mov. bancario')
-      if (data.sin_categoria) motivos.push('sin categoría')
-      if (data.sin_titular) motivos.push('sin titular')
-      return { filename: item.name, status: 'pendiente', detalle: `Subida — falta: ${motivos.join(', ')}` }
+    if (data?.error) {
+      return { filename: item.name, status: 'error', detalle: data.error }
+    }
+    if (data?.estado === 'duplicada') {
+      return { filename: item.name, status: 'duplicado', detalle: data.motivo || 'Ya existía' }
+    }
+    if (data?.estado === 'error') {
+      return { filename: item.name, status: 'error', detalle: data.error || 'Error procesando' }
+    }
+    if (data?.estado === 'ok') {
+      const fact = data.factura
+      const estado = fact?.estado || 'asociada'
+      if (estado === 'asociada') return { filename: item.name, status: 'ok', detalle: fact?.mensaje_matching || 'Conciliada' }
+      if (estado === 'solo_drive') return { filename: item.name, status: 'ok', detalle: 'Solo Drive (no requiere match)' }
+      if (estado === 'pendiente_revision') return { filename: item.name, status: 'pendiente', detalle: fact?.mensaje_matching || 'Pendiente revisión' }
+      if (estado === 'sin_match') return { filename: item.name, status: 'pendiente', detalle: 'Sin movimiento bancario' }
+      if (estado === 'pendiente_titular_manual') return { filename: item.name, status: 'pendiente', detalle: 'Falta titular manual' }
+      return { filename: item.name, status: 'pendiente', detalle: estado }
+    }
+    if (data?.estado === 'multi') {
+      const ok = data.resultados?.filter((r: any) => r.estado === 'ok').length || 0
+      const err = data.resultados?.filter((r: any) => r.estado === 'error').length || 0
+      return { filename: item.name, status: ok > 0 ? 'ok' : 'error', detalle: `${ok} ok · ${err} error` }
     }
     return { filename: item.name, status: 'error', detalle: 'Respuesta inesperada' }
   } catch (err) {
@@ -215,7 +209,33 @@ async function procesarArchivo(
   }
 }
 
-// Loop de procesamiento — reanudable tras F5
+// Extractos siguen yendo a Supabase Edge Function (no se ha tocado esa)
+async function procesarExtracto(
+  item: { name: string; type: string; base64: string },
+  titular_id: string | null
+): Promise<ArchivoLog> {
+  try {
+    let body: Record<string, unknown>
+    if (esTextoPlano(item.name, item.type)) {
+      const texto = atob(item.base64)
+      body = { fileTexto: texto, filename: item.name, mimeType: item.type }
+    } else {
+      body = { fileBase64: item.base64, filename: item.name, mimeType: item.type }
+    }
+    if (titular_id) body.titular_id = titular_id
+
+    const { data, error } = await supabase.functions.invoke('ocr-procesar-extracto', { body })
+    if (error) return { filename: item.name, status: 'error', detalle: `Error: ${error.message || JSON.stringify(error)}` }
+    if (data?.error) return { filename: item.name, status: 'error', detalle: data.error }
+    if (data?.status === 'ok') {
+      return { filename: item.name, status: 'ok', detalle: `${data.insertados||0} nuevos · ${data.saltados||0} ya existían · ${data.categorizados_auto||0} categ.` }
+    }
+    return { filename: item.name, status: 'error', detalle: 'Respuesta inesperada' }
+  } catch (err) {
+    return { filename: item.name, status: 'error', detalle: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 async function runSession(sessionId: string) {
   const getSession = () => sessions.find(s => s.id === sessionId)
 
@@ -230,7 +250,14 @@ async function runSession(sessionId: string) {
     const [item, ...resto] = s.archivosPendientes
     updateSession(sessionId, { archivosPendientes: resto })
 
-    const logEntry = await procesarArchivo(sessionId, item, s.fnName!, s.titular_id)
+    let logEntry: ArchivoLog
+    if (s.fnName === 'ocr-procesar-factura') {
+      logEntry = await procesarFactura(item)
+    } else if (s.fnName === 'ocr-procesar-extracto') {
+      logEntry = await procesarExtracto(item, s.titular_id)
+    } else {
+      logEntry = { filename: item.name, status: 'error', detalle: 'Función desconocida' }
+    }
 
     const cur = getSession()
     if (!cur) break
@@ -243,12 +270,10 @@ async function runSession(sessionId: string) {
       errores: cur.errores + (logEntry.status === 'error' ? 1 : 0),
     })
 
-    // Pequeña pausa entre archivos para no saturar
     await new Promise(r => setTimeout(r, 800))
   }
 }
 
-// Al arrancar: reanudar sesiones que estaban en curso
 export function reanudarSesionsPendientes() {
   for (const s of sessions) {
     if (s.procesando && s.archivosPendientes.length > 0) {
@@ -263,7 +288,6 @@ export function useOcrUpload() {
   useEffect(() => {
     const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
-    // Reanudar sesiones pendientes al montar
     reanudarSesionsPendientes()
     return () => emitter.removeEventListener('change', handler)
   }, [])
@@ -273,7 +297,6 @@ export function useOcrUpload() {
     fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto',
     titular_id: string | null
   ) {
-    // Serializar archivos a base64 ANTES de guardar (para sobrevivir F5)
     const archivosSerial: { name: string; type: string; base64: string }[] = []
     for (const file of files) {
       let base64: string
