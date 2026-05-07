@@ -358,6 +358,18 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares, refreshTick])
 
+  // Cuando sorts cambia → forzar recarga (setState async; refreshTick garantiza la query)
+  const prevSortsRef = useRef<string>('')
+  useEffect(() => {
+    const key = JSON.stringify(sorts)
+    if (key !== prevSortsRef.current) {
+      prevSortsRef.current = key
+      if (page !== 1) updateUrl({ page: 1 })
+      else setRefreshTick(t => t + 1)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorts])
+
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
 
@@ -395,7 +407,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   function handleSort(col: SortColumn) {
     multiHandleSort(col)
-    // Al cambiar orden volvemos a página 1
     if (page !== 1) updateUrl({ page: 1 })
   }
 
