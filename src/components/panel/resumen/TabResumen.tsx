@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal, loadConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
 import { COLOR, LEXEND, row3 } from './tokens'
 import CardVentas from './CardVentas'
 import CardPedidosTM from './CardPedidosTM'
@@ -154,9 +154,14 @@ export default function TabResumen({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  /* ── fetch config_canales ─────────────────── */
+  /* ── fetch config_canales + listener refresco vivo ─────────────────── */
   useEffect(() => {
     loadConfigCanales().then(cfg => setConfigCanales(cfg))
+    const onChange = () => {
+      recargarConfigCanales().then(cfg => setConfigCanales(cfg))
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
 
   /* ── fetch nº marcas activas ─────────────────── */
