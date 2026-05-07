@@ -26,6 +26,7 @@ export interface Movimiento {
   beneficiario?: string | null
   factura_id?: string | null
   factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
+  doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null
 }
 
 export interface Regla {
@@ -96,10 +97,8 @@ export function useConciliacion() {
   ): Promise<{ insertados: number; duplicados: number; omitidos: number }> {
     if (rows.length === 0) return { insertados: 0, duplicados: 0, omitidos: 0 }
 
-    // 0. Cargar reglas multi-dimensión y alias en paralelo
     const [reglasActivas, aliases] = await Promise.all([cargarReglas(), loadAliases()])
 
-    // 1. Aplicar matching de proveedor (alias) para los que vengan sin proveedor
     let workRows: Omit<Movimiento, 'id'>[] = rows.map(r => ({
       ...r,
       proveedor: r.proveedor && r.proveedor.trim() !== ''
@@ -107,7 +106,6 @@ export function useConciliacion() {
         : matchProveedor(r.concepto ?? '', aliases),
     }))
 
-    // 2. Aplicar motor de reglas multi-dimensión
     let omitidos = 0
     const rowsPostReglas: Omit<Movimiento, 'id'>[] = []
     for (const r of workRows) {
@@ -134,7 +132,6 @@ export function useConciliacion() {
       })
     }
 
-    // 3. Calcular dedup_key SHA-256 para cada row
     onProgress?.('saving', 0, rowsPostReglas.length)
     const rowsConKey = await Promise.all(rowsPostReglas.map(async r => ({
       ...r,
@@ -146,7 +143,6 @@ export function useConciliacion() {
       ),
     })))
 
-    // 4. Upsert con ignoreDuplicates — conflict en (titular_id, dedup_key)
     const { data, error } = await supabase
       .from('conciliacion')
       .upsert(rowsConKey, { ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })
@@ -162,16 +158,9 @@ export function useConciliacion() {
     return { insertados, duplicados, omitidos }
   }
 
-  /**
-   * Sincroniza el gasto asociado a un movimiento bancario:
-   * - Si tipo === 'gasto' y codigo_categoria → crea o actualiza gasto
-   * - Si tipo !== 'gasto' o codigo_categoria es null → borra el gasto si existía
-   * Retorna gasto_id actualizado (o null).
-   */
   async function syncGasto(mov: Movimiento, codigo_categoria: string | null, tipo: 'ingreso' | 'gasto' | null): Promise<string | null> {
     const esGasto = tipo === 'gasto' && !!codigo_categoria
 
-    // Caso 1: ya no es gasto → borrar gasto existente
     if (!esGasto) {
       if (mov.gasto_id) {
         await supabase.from('gastos').delete().eq('id', mov.gasto_id)
@@ -179,7 +168,6 @@ export function useConciliacion() {
       return null
     }
 
-    // Caso 2: es gasto → buscar categoria para resolver grupo
     const cat = categorias.find(c => c.tipo_parent === 'gasto' && c.codigo === codigo_categoria)
     const grupo = grupoFromCategoria(codigo_categoria, cat?.grupo ?? null)
     const subcategoria = categoriaToSubcategoria(codigo_categoria)
@@ -196,13 +184,11 @@ export function useConciliacion() {
     }
 
     if (mov.gasto_id) {
-      // Update existente
       const { error } = await supabase.from('gastos').update(payload).eq('id', mov.gasto_id)
       if (error) throw error
       return mov.gasto_id
     }
 
-    // Insert nuevo
     const { data, error } = await supabase.from('gastos').insert(payload).select('id').single()
     if (error) throw error
     return (data?.id as string) ?? null
@@ -212,22 +198,18 @@ export function useConciliacion() {
     const mov = movimientos.find(m => m.id === id)
     if (!mov) return
 
-    // 1. Sync gasto (create/update/delete)
     let nuevoGastoId: string | null = null
     try {
       nuevoGastoId = await syncGasto(mov, codigo_categoria, tipo)
     } catch (e: any) {
-      // Registrar pero no abortar la categorización; el usuario verá el campo actualizado en Conciliación y puede reintentar.
       console.error('syncGasto failed:', e?.message ?? e)
     }
 
-    // 2. Actualizar la fila de conciliación
     const { error } = await supabase.from('conciliacion')
       .update({ categoria: codigo_categoria, tipo, gasto_id: nuevoGastoId })
       .eq('id', id)
     if (error) throw error
 
-    // 3. Aprender: upsert de regla por patrón normalizado
     if (codigo_categoria && tipo) {
       const patron = normalizarConcepto(mov.concepto ?? '')
       if (patron) {
@@ -275,7 +257,6 @@ export function useConciliacion() {
       const regla = reglasOrdenadas.find(r => matchPatron(conceptoNorm, r.patron))
       if (!regla) continue
 
-      // Resolver código: priorizar categoria_codigo (nuevo), fallback a categoria_id legacy
       let codigo = regla.categoria_codigo
       if (!codigo && regla.categoria_id) {
         const cat = categorias.find(c => c.id === regla.categoria_id)
