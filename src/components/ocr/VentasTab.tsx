@@ -255,7 +255,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, errores: ep }]); setSubiendo(null); return }
     let nuevas = 0, duplicadas = 0; const errores: string[] = []
     for (const key of Object.keys(grupos)) {
-      const g = grupos[key]
+      const g = (grupos as Record<string, any>)[key]
       const { data: existe } = await supabase.from('uber_liquidaciones').select('id').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
       if (existe) { duplicadas++; continue }
       const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, referencia_pago: g.referencia_pago, fecha_deposito: g.fecha_deposito, fecha_inicio_periodo: g.fecha_inicio_periodo, fecha_fin_periodo: g.fecha_fin_periodo, num_pedidos: g.num_pedidos, ventas_bruto: Math.round(g.ventas_bruto * 100) / 100, comision_uber: Math.round(g.comision_uber * 100) / 100, promociones: Math.round(g.promociones * 100) / 100, ads: Math.round(g.ads * 100) / 100, pago_neto: Math.round(g.pago_neto * 100) / 100, estado: 'pendiente' }).select('id').single()
