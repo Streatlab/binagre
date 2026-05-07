@@ -5,6 +5,8 @@ import { FONT, useTheme } from '@/styles/tokens'
 import { fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
 interface Liquidacion {
   id: string
   plataforma: 'uber' | 'glovo' | 'just_eat'
@@ -36,6 +38,8 @@ const DEFAULT_PAGE_SIZE: PageSize = 50
 function parsePage(raw: string | null) { const n = Number(raw); return Number.isInteger(n) && n >= 1 ? n : 1 }
 function parsePageSize(raw: string | null): PageSize { const n = Number(raw); return ([50, 100, 200] as number[]).includes(n) ? n as PageSize : DEFAULT_PAGE_SIZE }
 
+// ─── Parsers ──────────────────────────────────────────────────────────────────
+
 function fmtFechaCSV(v: string): string {
   if (!v) return ''
   const m = v.match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/)
@@ -45,12 +49,7 @@ function fmtFechaCSV(v: string): string {
 }
 
 function numES(v: string): number {
-  const s = (v || '0').trim().replace(/\s/g,'')
-  if (s.includes(',') && s.includes('.')) {
-    return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0
-  }
-  if (s.includes(',')) return parseFloat(s.replace(',', '.')) || 0
-  return parseFloat(s) || 0
+  return parseFloat((v || '0').replace(/\./g, '').replace(',', '.')) || 0
 }
 
 function parseUberCSV(texto: string) {
@@ -90,29 +89,33 @@ function parseUberCSV(texto: string) {
 }
 
 function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] } {
-  const lineas = texto.split('\n').map(l => l.replace(/\r$/, '')).filter(Boolean)
+  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (lineas.length < 2) return { items: [], errores: ['CSV vacío'] }
-  const cab = lineas[0].replace(/^\uFEFF/, '').split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, ' '))
-  const findCol = (...names: string[]) => {
-    for (const n of names) {
-      const idx = cab.indexOf(n.toLowerCase().trim())
+  // Eliminar BOM y normalizar cabeceras
+  const rawCab = lineas[0].replace(/^\uFEFF/, '')
+  const cols0 = rawCab.split(',').map(h => h.trim().replace(/\s+/g, ' '))
+  const cab = cols0.map(h => h.toLowerCase())
+  const findIdx = (...candidates: string[]) => {
+    for (const c of candidates) {
+      const idx = cab.indexOf(c.toLowerCase())
       if (idx !== -1) return idx
     }
     return -1
   }
-  const iMarca = findCol('store name', 'nombre de la tienda', 'nombre del restaurante')
-  const iRef = findCol('payment reference', 'id. de referencia de ganancias', 'id de referencia de ganancias')
-  const iPago = findCol('pago total', 'pago neto', 'net payout', 'total payout', 'total payment')
-  const iFecha = findCol('payment date', 'fecha de pago')
-  const iVentas = findCol('ventas (con iva)', 'ventas con iva', 'sales (incl. vat)')
-  const iVentasSinIva = findCol('ventas (sin iva)', 'ventas sin iva', 'sales (excl. vat)')
-  const iTasa = findCol('tasa de servicio después del descuento (con iva)', 'tasa de servicio (con iva)', 'service fee (incl. vat)')
-  const iPromos = findCol('promociones en artículos (con iva)', 'promociones (con iva)', 'item promotions (incl. vat)')
-  const iCodigo = findCol('código del establecimiento', 'store id', 'restaurant id', 'id. del restaurante', 'id. del establecimiento')
-  const iPedidos = findCol('cantidad de pedidos', 'pedidos liquidados', 'order count', 'orders')
+  const iMarca = findIdx('nombre del restaurante', 'store name', 'nombre de la tienda', 'restaurant name')
+  const iRef   = findIdx('id. de referencia de ganancias', 'id de referencia de ganancias', 'payment reference', 'earnings reference id')
+  // Pago total es la penúltima columna antes de fecha y ref en el resumen ES
+  // Buscamos explícitamente "pago total" (con o sin espacio trailing)
+  const iPago  = findIdx('pago total', 'net payout', 'pago neto', 'total payout', 'payment total')
+  const iFecha = findIdx('fecha de pago', 'payment date')
+  const iVentasBruto  = findIdx('ventas (con iva)', 'sales (incl. vat)', 'ventas con iva')
+  const iComision = findIdx('tasas de servicio', 'tasa de servicio después del descuento (con iva)', 'service fee (incl. vat)')
+  const iOtrosCargos = findIdx('tarifa por canje de la oferta', 'offer redemption fee')
+
   if (iMarca === -1 || iRef === -1 || iPago === -1) {
-    return { items: [], errores: [`Formato CSV resumen no reconocido (marca=${iMarca}, ref=${iRef}, pago=${iPago})`] }
+    return { items: [], errores: [`Formato CSV resumen no reconocido. Columnas detectadas: ${cols0.slice(0,5).join(' | ')}`] }
   }
+
   const items: any[] = []
   for (let li = 1; li < lineas.length; li++) {
     const cols = lineas[li].split(',')
@@ -121,12 +124,10 @@ function parseUberResumenCSV(texto: string): { items: any[]; errores: string[] }
     if (!ref || !marca) continue
     const pagoNeto = numES(cols[iPago]?.trim() || '0')
     const fecha = iFecha !== -1 ? fmtFechaCSV(cols[iFecha]?.trim() || '') : ''
-    const ventasBruto = iVentas !== -1 ? numES(cols[iVentas]?.trim() || '0') : (iVentasSinIva !== -1 ? numES(cols[iVentasSinIva]?.trim() || '0') : 0)
-    const comision = iTasa !== -1 ? numES(cols[iTasa]?.trim() || '0') : 0
-    const promos = iPromos !== -1 ? numES(cols[iPromos]?.trim() || '0') : 0
-    const codigo = iCodigo !== -1 ? cols[iCodigo]?.trim() || '' : ''
-    const pedidos = iPedidos !== -1 ? parseInt(cols[iPedidos]?.trim() || '0', 10) || 0 : 0
-    items.push({ referencia_pago: ref, marca, pago_neto: pagoNeto, fecha_deposito: fecha, ventas_bruto: ventasBruto, comision_uber: comision, promociones: promos, codigo_establecimiento: codigo, num_pedidos: pedidos })
+    const ventas_bruto = iVentasBruto !== -1 ? numES(cols[iVentasBruto]?.trim() || '0') : 0
+    const comision_uber = iComision !== -1 ? numES(cols[iComision]?.trim() || '0') : 0
+    const otros_cargos = iOtrosCargos !== -1 ? numES(cols[iOtrosCargos]?.trim() || '0') : 0
+    items.push({ referencia_pago: ref, marca, pago_neto: pagoNeto, fecha_deposito: fecha, ventas_bruto, comision_uber, otros_cargos_promo: otros_cargos })
   }
   return { items, errores: [] }
 }
@@ -161,6 +162,8 @@ function parseJustEatHTML(texto: string): { data: any; errores: string[] } {
   } catch (e: any) { return { data: null, errores: [`Error: ${e.message}`] } }
 }
 
+// ─── Autoconciliar ────────────────────────────────────────────────────────────
+
 async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaDeposito: string, margenCentimos = 0) {
   const d = new Date(fechaDeposito + 'T12:00:00')
   const desde = new Date(d); desde.setDate(d.getDate() - 2)
@@ -176,6 +179,8 @@ async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaD
   }
   return false
 }
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 interface Props { fechaDesde: Date; fechaHasta: Date; titulares: Titular[] }
 
@@ -306,13 +311,17 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         const nombre = file.name.toLowerCase()
         if (nombre.endsWith('.csv')) {
           const lineas = texto.split('\n').filter(Boolean)
-          const cab1 = (lineas[0] || '').replace(/^\uFEFF/, '').toLowerCase()
-          const cab2 = (lineas[1] || '').toLowerCase()
-          const esDetalle = cab2.includes('id. del pedido') || cab1.includes('id. del pedido')
-          const esResumen = cab1.includes('store name') || cab1.includes('nombre de la tienda') || cab1.includes('nombre del restaurante') || cab1.includes('payment reference') || cab1.includes('id. de referencia de ganancias') || cab1.includes('pago neto') || cab1.includes('net payout') || cab1.includes('pago total')
-          if (esDetalle) {
+          const cab0 = (lineas[0] || '').replace(/^\uFEFF/, '').toLowerCase()
+          const cab1 = (lineas[1] || '').toLowerCase()
+          // Detalle Uber: cabecera en línea 2 con "id. del pedido"
+          if (cab1.includes('id. del pedido') || cab0.includes('id. del pedido')) {
             await importarUberDetalle(file, texto)
-          } else if (esResumen) {
+          // Resumen Uber: cabecera en línea 1 con nombre del restaurante + referencia
+          } else if (
+            cab0.includes('nombre del restaurante') || cab0.includes('store name') ||
+            cab0.includes('nombre de la tienda') || cab0.includes('id. de referencia de ganancias') ||
+            cab0.includes('payment reference') || cab0.includes('pago total') || cab0.includes('net payout')
+          ) {
             await importarUberResumen(file, texto)
           } else {
             setLogs([{ archivo: file.name, plataforma: 'Auto', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['Formato CSV no reconocido. Verifica que sea un CSV de Uber Eats.'] }])
@@ -362,21 +371,14 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     let nuevas = 0, duplicadas = 0, actualizadas = 0; const errores: string[] = []
     for (const item of items) {
       const { data: existe } = await supabase.from('uber_liquidaciones').select('id,pago_neto').eq('referencia_pago', item.referencia_pago).eq('marca', item.marca).maybeSingle()
-      const payload: any = { pago_neto: item.pago_neto }
-      if (item.fecha_deposito) payload.fecha_deposito = item.fecha_deposito
-      if (item.ventas_bruto) payload.ventas_bruto = item.ventas_bruto
-      if (item.comision_uber) payload.comision_uber = item.comision_uber
-      if (item.promociones) payload.promociones = item.promociones
-      if (item.codigo_establecimiento) payload.codigo_establecimiento = item.codigo_establecimiento
-      if (item.num_pedidos) payload.num_pedidos = item.num_pedidos
       if (existe) {
         if (Math.abs(Number(existe.pago_neto) - item.pago_neto) > 0.01) {
-          await supabase.from('uber_liquidaciones').update(payload).eq('id', existe.id)
+          await supabase.from('uber_liquidaciones').update({ pago_neto: item.pago_neto, ventas_bruto: item.ventas_bruto, comision_uber: item.comision_uber, otros_cargos_promo: item.otros_cargos, ...(item.fecha_deposito ? { fecha_deposito: item.fecha_deposito } : {}) }).eq('id', existe.id)
           actualizadas++
         } else { duplicadas++ }
         continue
       }
-      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: item.marca, referencia_pago: item.referencia_pago, fecha_deposito: item.fecha_deposito || new Date().toISOString().slice(0,10), pago_neto: item.pago_neto, ventas_bruto: item.ventas_bruto || 0, comision_uber: item.comision_uber || 0, promociones: item.promociones || 0, codigo_establecimiento: item.codigo_establecimiento || '', num_pedidos: item.num_pedidos || 0, estado: 'pendiente' }).select('id').single()
+      const { data: liq, error: el } = await supabase.from('uber_liquidaciones').insert({ plataforma: 'uber', marca: item.marca, referencia_pago: item.referencia_pago, fecha_deposito: item.fecha_deposito || new Date().toISOString().slice(0,10), pago_neto: item.pago_neto, ventas_bruto: item.ventas_bruto, comision_uber: item.comision_uber, otros_cargos_promo: item.otros_cargos, estado: 'pendiente' }).select('id').single()
       if (el || !liq) { errores.push(`Error ${item.referencia_pago}: ${el?.message}`); continue }
       if (item.fecha_deposito) await autoconciliar('uber_liquidaciones', liq.id, item.pago_neto, item.fecha_deposito, 5)
       nuevas++
@@ -413,166 +415,3 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     const conciliado = await autoconciliar('justeat_liquidaciones', liq.id, data.ingreso_colaborador, data.fecha_abono || data.fecha_factura, 0)
     setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
   }
-
-  const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
-    background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
-    borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
-    boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s'
-  })
-
-  const PLAT_COLOR: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', just_eat: '#f5a623' }
-  const PLAT_LABEL: Record<string, string> = { uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat' }
-  const PLATS = [{ id: 'todas', label: 'Todas' }, { id: 'uber', label: 'Uber Eats' }, { id: 'glovo', label: 'Glovo' }, { id: 'just_eat', label: 'Just Eat' }]
-
-  const HEADERS: { label: string; col: SortCol; align: 'left' | 'right' | 'center' }[] = [
-    { label: 'Fecha', col: 'fecha', align: 'left' },
-    { label: 'Marca', col: 'marca', align: 'left' },
-    { label: 'Plataforma', col: 'plataforma', align: 'left' },
-    { label: 'Periodo', col: 'fecha', align: 'left' },
-    { label: 'Bruto', col: 'bruto', align: 'right' },
-    { label: 'Comisión', col: 'comision', align: 'right' },
-    { label: 'Neto', col: 'neto', align: 'right' },
-    { label: 'Estado', col: 'estado', align: 'left' },
-    { label: 'Titular', col: 'titular', align: 'left' },
-  ]
-
-  const desde = (page - 1) * pageSize + 1
-  const hasta = Math.min(page * pageSize, filasFiltradas.length)
-  const isFirst = page === 1, isLastPage = page === totalPages
-  const btnBase: React.CSSProperties = { background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 8, padding: '6px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }
-  const btnDis: React.CSSProperties = { ...btnBase, opacity: 0.35, cursor: 'default' }
-
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
-        <div onClick={() => onFiltroCard(null)} style={cardStyle(null, filtroCard === null)}>
-          <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total ventas</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados.totalCount}</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{fmtNumES(agregados.totalNeto, 2)}</div>
-        </div>
-        <div onClick={() => onFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}>
-          <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados.conciliadasCount}</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados.conciliadasPct}% · {fmtNumES(agregados.conciliadasNeto, 2)}</div>
-        </div>
-        <div onClick={() => onFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}>
-          <div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados.pendientesCount}</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>Sin match · {fmtNumES(agregados.pendientesNeto, 2)}</div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <input ref={uberRef} type="file" accept=".csv,.pdf,.html,.htm,.doc,.txt" style={{ display: 'none' }} onChange={handleFile('auto')} />
-          <div onClick={() => !subiendo && uberRef.current?.click()}
-            style={{ background: subiendo ? '#888' : '#B01D23', borderRadius: 10, padding: '10px 14px', cursor: subiendo ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 7, flex: 1, justifyContent: 'center' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff' }}>{subiendo ? 'Importando…' : 'Subir liquidación'}</span>
-          </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', textAlign: 'center' }}>CSV Uber · PDF Glovo · DOC Just Eat</div>
-        </div>
-      </div>
-
-      {logs.map((log, i) => (
-        <div key={i} style={{ background: log.errores.length > 0 ? '#fff5f5' : '#f0faf5', border: `0.5px solid ${log.errores.length > 0 ? '#B01D23' : '#1D9E75'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 10 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: log.errores.length > 0 ? '#B01D23' : '#1D9E75', marginBottom: 3 }}>{log.plataforma} · {log.archivo}</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050' }}>{log.nuevas} nuevos · {log.duplicadas} duplicados · {log.actualizadas} actualizados</div>
-          {log.errores.map((e, j) => <div key={j} style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#B01D23', marginTop: 2 }}>{e}</div>)}
-        </div>
-      ))}
-
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-          <input type="text" value={busqueda} onChange={e => { setBusqueda(e.target.value); updateUrl({ page: 1 }) }} placeholder="Buscar marca o referencia…" style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }} />
-          {busqueda && <button onClick={() => { setBusqueda(''); updateUrl({ page: 1 }) }} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}
-        </div>
-        {PLATS.map(p => (
-          <button key={p.id} onClick={() => { setFiltroPlataforma(p.id); updateUrl({ page: 1 }) }}
-            style={{ padding: '10px 14px', borderRadius: 10, border: `0.5px solid ${filtroPlataforma === p.id ? '#B01D23' : '#d0c8bc'}`, background: filtroPlataforma === p.id ? '#B01D2312' : '#fff', color: filtroPlataforma === p.id ? '#B01D23' : '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', fontWeight: filtroPlataforma === p.id ? 600 : 400 }}>
-            {p.label}
-          </button>
-        ))}
-        {marcas.length > 1 && (
-          <select value={filtroMarca} onChange={e => { setFiltroMarca(e.target.value); updateUrl({ page: 1 }) }} style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>
-            <option value="todas">Todas las marcas</option>
-            {marcas.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        )}
-      </div>
-
-      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
-        {cargando ? (
-          <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div>
-        ) : filasPagina.length === 0 ? (
-          <div style={{ padding: '48px 28px', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>Sin datos</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Sube una liquidación para empezar</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 960, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-              <colgroup>
-                <col style={{ width: 90 }} /><col /><col style={{ width: 110 }} /><col style={{ width: 160 }} />
-                <col style={{ width: 100 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} />
-                <col style={{ width: 120 }} /><col style={{ width: 90 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  {HEADERS.map((h, hi) => {
-                    const isActive = ventaSorts.some(s => s.col === h.col) && !(h.label === 'Periodo' && hi === 3)
-                    const clickable = h.label !== 'Periodo'
-                    return (
-                      <th key={h.label + hi} onClick={() => clickable && handleSort(h.col)}
-                        style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: isActive && clickable ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align, padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc', whiteSpace: 'nowrap', cursor: clickable ? 'pointer' : 'default', userSelect: 'none' }}>
-                        {h.label}{clickable ? sortInd(h.col) : ''}
-                      </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {filasPagina.map((f, idx) => {
-                  const isLast = idx === filasPagina.length - 1
-                  const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
-                  const color = PLAT_COLOR[f.plataforma] || '#888'
-                  const titNombre = titulares.find(t => t.id === f.titular_id)?.nombre?.toLowerCase() || ''
-                  const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
-                  const isEmilio = titNombre.includes('emilio')
-                  return (
-                    <tr key={f.id} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f5f3ef60'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}>
-                      <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_deposito)}</td>
-                      <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.marca}</td>
-                      <td style={tdBase}><span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, background: color + '22', color, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase' }}>{PLAT_LABEL[f.plataforma]}</span></td>
-                      <td style={{ ...tdBase, color: '#7a8090', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.fecha_inicio_periodo && f.fecha_fin_periodo ? `${fmtDate(f.fecha_inicio_periodo)} → ${fmtDate(f.fecha_fin_periodo)}` : '—'}</td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#111', whiteSpace: 'nowrap' }}>{fmtNumES(f.ventas_bruto, 2)}</td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#E24B4A', whiteSpace: 'nowrap' }}>{fmtNumES(f.comision, 2)}</td>
-                      <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, color: '#1D9E75', whiteSpace: 'nowrap' }}>{fmtNumES(f.pago_neto, 2)}</td>
-                      <td style={tdBase}>{f.estado === 'conciliada' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>Pendiente</span>}</td>
-                      <td style={tdBase}>{isRuben ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />Rubén</span> : isEmilio ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />Emilio</span> : <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {filasFiltradas.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#fafaf7', borderTop: '0.5px solid #d0c8bc' }}>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>{`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${filasFiltradas.length.toLocaleString('es-ES')} liquidaciones`}</span>
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#7a8090', textTransform: 'uppercase' }}>Filas:</label>
-                <select value={pageSize} onChange={e => updateUrl({ page: 1, size: Number(e.target.value) as PageSize })} style={{ padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>{PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                <button style={isFirst ? btnDis : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: 1 })}>Primera</button>
-                <button style={isFirst ? btnDis : btnBase} disabled={isFirst} onClick={() => !isFirst && updateUrl({ page: page - 1 })}>‹ Anterior</button>
-                <span style={{ ...btnBase, cursor: 'default' }}>{`Página ${page} de ${totalPages}`}</span>
-                <button style={isLastPage ? btnDis : btnBase} disabled={isLastPage} onClick={() => !isLastPage && updateUrl({ page: page + 1 })}>Siguiente ›</button>
-                <button style={isLastPage ? btnDis : btnBase} disabled={isLastPage} onClick={() => !isLastPage && updateUrl({ page: totalPages })}>Última</button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
