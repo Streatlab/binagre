@@ -1,13 +1,13 @@
 /**
- * Tab Resumen v2 — Panel Global
- * Implementación según .claude/plans/spec-panel-resumen-v2.md
- * Wrapper light (#f5f3ef) independiente del modo dark del ERP.
+ * Tab Resumen v3 — Panel Global
+ * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
+ * Pasa marcasActivas + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
 import { COLOR, LEXEND, row3 } from './tokens'
 import CardVentas from './CardVentas'
 import CardPedidosTM from './CardPedidosTM'
@@ -134,6 +134,8 @@ export default function TabResumen({
   const [presupuestosBD, setPresupuestosBD] = useState<PresupuestoRow[]>([])
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
+  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
+  const [marcasActivas, setMarcasActivas] = useState<number>(1)
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -152,15 +154,20 @@ export default function TabResumen({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  /* ── fetch config_canales ─────────────────── */
+  useEffect(() => {
+    loadConfigCanales().then(cfg => setConfigCanales(cfg))
+  }, [])
+
+  /* ── fetch nº marcas activas ─────────────────── */
+  useEffect(() => {
+    supabase.from('marcas').select('id', { count: 'exact', head: true }).eq('activo', true)
+      .then(({ count }) => {
+        if (count && count > 0) setMarcasActivas(count)
+      })
+  }, [])
+
   /* ── fetch objetivos ventas ─────────────────── */
-  // Lee misma fuente que módulo Objetivos:
-  //  - 'objetivos' (tipo=semanal/mensual/anual): override editable (solo si > 0)
-  //  - 'objetivos_dia_semana': base hardcodeada
-  // Bases:
-  //  - semanal = suma exacta de los 7 objetivos diarios
-  //  - mensual = (sumaSemana / 7) × días naturales del mes
-  //  - anual   = (sumaSemana / 7) × días naturales del año
-  // Si override es 0 o no existe, se aplica la base.
   const loadObjetivos = useCallback(async () => {
     const [resObj, resDias] = await Promise.all([
       supabase.from('objetivos').select('tipo,importe').in('tipo', ['diario', 'semanal', 'mensual', 'anual', 'ratio_ingresos_gastos']),
@@ -190,12 +197,10 @@ export default function TabResumen({
     const dAno = esBis ? 366 : 365
     const diaActual = hoyD.getDay() === 0 ? 7 : hoyD.getDay()
 
-    // Bases (mismo cálculo que módulo Objetivos)
     const mediaDia = sumaSemana / 7
     const sumaMes = mediaDia * diasEnMes
     const sumaAno = mediaDia * dAno
 
-    // Override solo si existe Y > 0 (0 o ausente → usa la base)
     const useOverride = (k: 'diario' | 'semanal' | 'mensual' | 'anual') =>
       overrides[k] !== undefined && (overrides[k] as number) > 0
 
@@ -211,14 +216,12 @@ export default function TabResumen({
 
   useEffect(() => { loadObjetivos() }, [loadObjetivos])
 
-  /* ── fetch pe_parametros ────────────────────── */
   useEffect(() => {
     supabase.from('pe_parametros').select('*').limit(1).maybeSingle().then(({ data }) => {
       if (data) setPeParams(data as PeParams)
     })
   }, [])
 
-  /* ── fetch ingresos_mensuales (rolling 12m) ─── */
   useEffect(() => {
     const hoy = new Date()
     const haceAno = new Date(hoy.getFullYear() - 1, hoy.getMonth(), 1)
@@ -231,7 +234,6 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── fetch gastos del año actual ────────────── */
   useEffect(() => {
     const ano = new Date().getFullYear()
     supabase
@@ -243,7 +245,6 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── fetch presupuestos mensuales actuales ──── */
   useEffect(() => {
     const ahora = new Date()
     supabase
@@ -256,7 +257,6 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── fetch presupuestos por grupo (objetivos) ─ */
   useEffect(() => {
     const ahora = new Date()
     supabase
@@ -278,7 +278,6 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── fetch provisiones pendientes ───────────── */
   useEffect(() => {
     supabase
       .from('provisiones')
@@ -306,7 +305,7 @@ export default function TabResumen({
       const pedKey = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
       const bruto = rowsPeriodo.reduce((a, r) => a + (Number(r[brutoKey]) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a, r) => a + (Number(r[pedKey]) || 0), 0)
-      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos)
+      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fechaDesde, fechaHasta, configCanales)
       return {
         id, label: labels[id], color: colores[id], bruto, neto, pedidos,
         pct: totalBruto > 0 ? (bruto / totalBruto) * 100 : 0,
@@ -314,7 +313,7 @@ export default function TabResumen({
         margen: margenPct,
       }
     })
-  }, [rowsPeriodo, canalesFiltro])
+  }, [rowsPeriodo, canalesFiltro, configCanales, marcasActivas, fechaDesde, fechaHasta])
 
   const ventasPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsPeriodo])
   const pedidosPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsPeriodo])
@@ -322,7 +321,6 @@ export default function TabResumen({
   const netoEstimado = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
   const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
 
-  /* ── deltas vs periodo anterior ─────────────── */
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
     const { desde, hasta } = rangoPrevio(fechaDesde, fechaHasta)
     const prevRows = rowsAll.filter(r => r.fecha >= desde && r.fecha <= hasta)
@@ -336,7 +334,6 @@ export default function TabResumen({
     }
   }, [rowsAll, fechaDesde, fechaHasta, ventasPeriodo, pedidosPeriodo, tmBruto])
 
-  /* ── ventas semanal/mensual/anual ───────────── */
   const ventasSemana = useMemo(() => {
     const ws = startOfWeekStr()
     const monday = parseLocalDate(ws)
@@ -357,7 +354,6 @@ export default function TabResumen({
   const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' })
   const ano = new Date().getFullYear()
 
-  /* ── netos reales del periodo ─ */
   const netosReales = useMemo(() => {
     const fIni = fechaDesde.getFullYear() * 100 + (fechaDesde.getMonth() + 1)
     const fFin = fechaHasta.getFullYear() * 100 + (fechaHasta.getMonth() + 1)
@@ -370,7 +366,6 @@ export default function TabResumen({
       .reduce((a, i) => a + (Number(i.importe) || 0), 0)
   }, [ingresosM, fechaDesde, fechaHasta])
 
-  /* ── total gastos del periodo ───────────────── */
   const totalGastosPeriodo = useMemo(() => {
     const desde = toLocalDateStr(fechaDesde)
     const hasta = toLocalDateStr(fechaHasta)
@@ -381,7 +376,6 @@ export default function TabResumen({
 
   const resultadoLimpio = netosReales - totalGastosPeriodo
 
-  /* ── EBITDA y prime cost ────────────────────── */
   const { ebitda, ebitdaPct, primeCostPct } = useMemo(() => {
     const cogs = peParams ? netoEstimado * (peParams.food_cost_pct / 100) : netoEstimado * 0.28
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos) : 0
@@ -398,7 +392,6 @@ export default function TabResumen({
     return variacionVentas / 10
   }, [variacionVentas])
 
-  /* ── grupos de gasto ────────────────────────── */
   const gruposData = useMemo(() => {
     const desde = toLocalDateStr(fechaDesde)
     const hasta = toLocalDateStr(fechaHasta)
@@ -432,7 +425,6 @@ export default function TabResumen({
     }
   }, [gastos, presupuestosBD, presupuestosGrupo, netoEstimado, fechaDesde, fechaHasta])
 
-  /* ── días pico mes actual ───────────────────── */
   const diasPico: DiaPico[] = useMemo(() => {
     const m = toLocalDateStr(new Date()).slice(0, 7)
     const acum = [0, 0, 0, 0, 0, 0, 0]
@@ -450,7 +442,6 @@ export default function TabResumen({
     return validos.reduce((a, d) => a + d.valor, 0) / validos.length
   }, [diasPico])
 
-  /* ── saldo + proyección ─ */
   const saldoData = useMemo(() => {
     if (gastos.length === 0 && rowsAll.length === 0) {
       return { saldoHoy: 0, cobros7d: 0, pagos7d: 0, cobros30d: 0, pagos30d: 0 }
@@ -462,7 +453,7 @@ export default function TabResumen({
     const desde30 = toLocalDateStr(hace30)
     const hasta = toLocalDateStr(hoy)
 
-    function netoRows(d1: string, d2: string): number {
+    function netoRows(d1: string, d2: string, fIni: Date, fFin: Date): number {
       const rs = rowsAll.filter(r => r.fecha >= d1 && r.fecha <= d2)
       const ids: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']
       let n = 0
@@ -471,12 +462,12 @@ export default function TabResumen({
         const pk = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
         const bruto = rs.reduce((a, r) => a + (Number(r[bk]) || 0), 0)
         const pedidos = rs.reduce((a, r) => a + (Number(r[pk]) || 0), 0)
-        n += calcNetoPorCanal(id, bruto, pedidos).neto
+        n += calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales).neto
       }
       return n
     }
-    const cobros7d = netoRows(desde7, hasta)
-    const cobros30d = netoRows(desde30, hasta)
+    const cobros7d = netoRows(desde7, hasta, hace7, hoy)
+    const cobros30d = netoRows(desde30, hasta, hace30, hoy)
 
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos + peParams.alquiler_local + peParams.gestoria + peParams.luz + peParams.agua + peParams.telefono + peParams.hosting_software + peParams.otros_fijos) : 3500
     const pagos7d  = (sueldosMes / 30) * 7  + gastos.filter(g => g.fecha >= desde7  && g.fecha <= hasta).reduce((a, g) => a + (Number(g.importe) || 0), 0) * 0.3
@@ -484,9 +475,8 @@ export default function TabResumen({
 
     const saldoHoy = Math.max(0, cobros30d - pagos30d) + (peParams?.caja_minima_verde ?? 0)
     return { saldoHoy, cobros7d, pagos7d, cobros30d, pagos30d }
-  }, [rowsAll, gastos, peParams])
+  }, [rowsAll, gastos, peParams, configCanales, marcasActivas])
 
-  /* ── ratio ingresos / gastos ────────────────── */
   const gastosFijosMes = useMemo(() => {
     if (!peParams) return 0
     return peParams.alquiler_local + peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados +
@@ -495,7 +485,6 @@ export default function TabResumen({
       peParams.think_paladar + peParams.otros_fijos
   }, [peParams])
 
-  /* ── PE día verde estimado ──────────────────── */
   const peCalc = useMemo(() => {
     if (!peParams || gastosFijosMes <= 0) {
       return {
@@ -542,7 +531,6 @@ export default function TabResumen({
     return { peBruto, peNeto, acumulado: ventasMes, pctProgreso, diaVerdeEstimado, facturacionDia, pedidosDia, tmActual, realFacDia, realPedDia }
   }, [peParams, gastosFijosMes, ventasMes, netoEstimado, pedidosPeriodo, rowsPeriodo.length, tmBruto])
 
-  /* ── provisiones ────────────────────────────── */
   const { totalAGuardar, provIVA, provIRPF, proximosPagos } = useMemo(() => {
     const hoyProv = new Date()
     const mesActual = `${hoyProv.getFullYear()}-${String(hoyProv.getMonth() + 1).padStart(2, '0')}`
@@ -568,7 +556,6 @@ export default function TabResumen({
     return { totalAGuardar: iva + irpf, provIVA: iva, provIRPF: irpf, proximosPagos: items }
   }, [provisiones, peParams])
 
-  /* ── top ventas ─ */
   const topItems: TopVentaItem[] = useMemo(() => [], [])
 
   useEffect(() => {
@@ -583,7 +570,6 @@ export default function TabResumen({
       })
   }, [])
 
-  /* ── flag demo ──────────────────────────────── */
   const dataInicializadaRef = useRef(false)
   useEffect(() => {
     if (dataInicializadaRef.current) return
@@ -593,17 +579,12 @@ export default function TabResumen({
     }
   }, [rowsAll.length, gastos.length])
 
-  /* ── handlers persist objetivos ─────────────── */
-  // Override editable en CardVentas:
-  //  - valor → upsert override
-  //  - null  → DELETE override → vuelve a la base calculada
   async function saveObjetivoVenta(tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) {
     if (valor == null) {
       await supabase.from('objetivos').delete().eq('tipo', tipo)
       await loadObjetivos()
       return
     }
-    // Update optimista del state
     setObjetivos(p => ({ ...p, [tipo]: valor }))
     await supabase.from('objetivos').upsert({ tipo, importe: valor }, { onConflict: 'tipo' })
     await loadObjetivos()
@@ -629,7 +610,6 @@ export default function TabResumen({
     )
   }
 
-  /* ── render ─────────────────────────────────── */
   return (
     <div style={{
       background: COLOR.bgPagina,
