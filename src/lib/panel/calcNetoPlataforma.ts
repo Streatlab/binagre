@@ -1,8 +1,10 @@
 /**
  * calcNetoPlataforma.ts
  * Cálculo neto cobrado por canal leyendo SIEMPRE de config_canales en Supabase.
+ * Suscripción Realtime: cualquier UPDATE en config_canales invalida cache y emite evento.
  */
 
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const IVA = 0.21
@@ -17,13 +19,33 @@ export interface CanalConfig {
 }
 
 let cacheConfig: Record<string, CanalConfig> | null = null
+let realtimeInit = false
 
 const MAP_ID_CANAL: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat',
   web: 'Web Propia', dir: 'Venta Directa',
 }
 
+/** Inicializa suscripción realtime una sola vez. Cualquier cambio en config_canales recarga cache + emite evento global. */
+function ensureRealtime() {
+  if (realtimeInit) return
+  realtimeInit = true
+  supabase
+    .channel('config_canales_changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'config_canales' },
+      async () => {
+        cacheConfig = null
+        await loadConfigCanales()
+        window.dispatchEvent(new CustomEvent('config_canales:changed'))
+        window.dispatchEvent(new CustomEvent('config_canales_updated'))
+      }
+    )
+    .subscribe()
+}
+
 export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> {
+  ensureRealtime()
   if (cacheConfig) return cacheConfig
   const { data, error } = await supabase
     .from('config_canales')
@@ -46,10 +68,33 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
 
 export function invalidarCacheConfigCanales() { cacheConfig = null }
 
-/** Recarga config desde BBDD ignorando cache. Devuelve config fresca. */
+/** Recarga config desde BBDD ignorando cache. */
 export async function recargarConfigCanales(): Promise<Record<string, CanalConfig>> {
   cacheConfig = null
   return loadConfigCanales()
+}
+
+/**
+ * Hook React: devuelve config_canales y se actualiza automáticamente
+ * cuando cambia en BBDD (vía Realtime + evento manual).
+ */
+export function useConfigCanales(): Record<string, CanalConfig> {
+  const [config, setConfig] = useState<Record<string, CanalConfig>>({})
+  useEffect(() => {
+    let mounted = true
+    loadConfigCanales().then(c => { if (mounted) setConfig({ ...c }) })
+    const onChange = () => {
+      recargarConfigCanales().then(c => { if (mounted) setConfig({ ...c }) })
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    window.addEventListener('config_canales_updated', onChange)
+    return () => {
+      mounted = false
+      window.removeEventListener('config_canales:changed', onChange)
+      window.removeEventListener('config_canales_updated', onChange)
+    }
+  }, [])
+  return config
 }
 
 function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
