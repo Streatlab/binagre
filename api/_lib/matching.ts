@@ -3,7 +3,15 @@ import type { ExtractedFactura } from './ocr.js'
 
 const LIMITE_CONCILIACION = '2023-07-01'
 
-export type MatchingEstado = 'asociada' | 'pendiente_revision' | 'historica' | 'sin_match' | 'pendiente_titular_manual' | 'ocr_fallido' | 'drive_pendiente'
+export type MatchingEstado =
+  | 'asociada'
+  | 'pendiente_revision'
+  | 'historica'
+  | 'sin_match'
+  | 'pendiente_titular_manual'
+  | 'ocr_fallido'
+  | 'drive_pendiente'
+  | 'solo_drive'
 
 export interface MatchCandidato {
   id: string
@@ -29,7 +37,7 @@ export function normalizar(texto: string): string {
   return texto
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[,.]/g, ' ')
     .replace(/\s+s\s*\.?\s*a\s*\.?(\s|$)/gi, ' ')
     .replace(/\s+s\s*\.?\s*l\s*\.?\s*u?\s*\.?(\s|$)/gi, ' ')
@@ -48,7 +56,6 @@ export async function obtenerAliasProveedor(
   const normalizado = normalizar(proveedorNombre)
   if (!normalizado) return []
 
-  // Buscar alias donde CUALQUIER palabra del nombre coincida con algún alias o con el canónico
   const palabras = normalizado.split(' ').filter((p) => p.length >= 3)
   const termino = palabras[0] || normalizado
 
@@ -58,11 +65,9 @@ export async function obtenerAliasProveedor(
     .or(`alias.ilike.%${escaparLike(termino)}%,proveedor_canonico.ilike.%${escaparLike(termino)}%`)
 
   if (!matches || matches.length === 0) {
-    // fallback: usa el nombre normalizado como único alias y busca coincidencia por palabras
     return palabras.length > 0 ? palabras : [normalizado]
   }
 
-  // Todos los alias del canónico encontrado
   const canonico = matches[0].proveedor_canonico as string
   const { data: aliasCompletos } = await supabase
     .from('proveedor_alias')
@@ -74,7 +79,6 @@ export async function obtenerAliasProveedor(
 }
 
 function orFilterAlias(alias: string[]): string {
-  // Construye or-filter que busca en concepto y proveedor cualquiera de los alias
   const parts: string[] = []
   for (const a of alias) {
     const esc = escaparLike(a)
@@ -90,6 +94,19 @@ function diasEntre(a: string | Date, b: string | Date): number {
   return Math.abs((d1.getTime() - d2.getTime()) / 86_400_000)
 }
 
+function mesAnterior(fecha: string): { inicio: string; fin: string } {
+  const d = new Date(fecha)
+  const año = d.getFullYear()
+  const mes = d.getMonth() // 0-indexado, ya es el mes anterior si la factura es del mes siguiente
+  // Mercadona emite factura a principios del mes M+1 cubriendo todo el mes M
+  const inicio = new Date(año, mes - 1, 1)
+  const fin = new Date(año, mes, 0) // último día del mes anterior
+  return {
+    inicio: inicio.toISOString().slice(0, 10),
+    fin: fin.toISOString().slice(0, 10),
+  }
+}
+
 /* ═════════════ ENTRY POINT ═════════════ */
 
 export async function matchFactura(
@@ -97,16 +114,47 @@ export async function matchFactura(
   factura: ExtractedFactura & { id?: string; total: number; titular_id?: string | null },
 ): Promise<MatchingResult> {
   let result: MatchingResult
-  if (factura.tipo === 'plataforma') {
-    result = await matchFacturaPlataforma(supabase, factura)
-  } else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) {
+
+  // REGLA 1: Uber Eats → solo Drive, NO matchear (los gastos Uber van al banco como descuentos en liquidaciones, no como cargos individuales)
+  if (factura.plataforma === 'uber') {
+    return {
+      estado: 'solo_drive',
+      matches: [],
+      confianza: 100,
+      mensaje: 'Factura Uber Eats: gasto deducible, no matchea con banco (se descuenta en liquidación). Guardado en Drive.',
+    }
+  }
+
+  // REGLA 2: Importe 0 (ej. Alcampo pagado con saldo Club) → solo Drive, NO matchear
+  if (Math.abs(factura.total) < 0.01) {
+    return {
+      estado: 'solo_drive',
+      matches: [],
+      confianza: 100,
+      mensaje: 'Importe 0€ (pagado con saldo/crédito): solo guardado en Drive para contabilidad.',
+    }
+  }
+
+  // REGLA 3: Mercadona → recapitulativa mensual del mes anterior
+  const provNorm = normalizar(factura.proveedor_nombre || '')
+  if (provNorm.includes('mercadona')) {
+    result = await matchFacturaMercadona(supabase, factura)
+  }
+  // REGLA 4: Glovo / Just Eat → factura mixta, matchear contra liquidación bancaria por neto liquidado
+  else if (factura.plataforma === 'glovo' || factura.plataforma === 'just_eat') {
+    result = await matchFacturaGlovoJustEat(supabase, factura)
+  }
+  // REGLA 5: Recapitulativa explícita con periodo
+  else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaRecapitulativa(supabase, factura, alias)
-  } else {
+  }
+  // REGLA 6: Resto → matching normal por importe + ventana fechas
+  else {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaNormal(supabase, factura, alias)
   }
-  // Detectar si algún match es de una cuenta de otro titular
+
   result.cruza_cuentas = Boolean(
     factura.titular_id &&
       result.matches.some((m) => m.titular_id && m.titular_id !== factura.titular_id),
@@ -197,7 +245,139 @@ async function matchFacturaNormal(
   }
 }
 
-/* ═════════════ RECAPITULATIVA ═════════════ */
+/* ═════════════ MERCADONA (mes natural anterior) ═════════════ */
+
+async function matchFacturaMercadona(
+  supabase: SupabaseClient,
+  factura: ExtractedFactura & { total: number; titular_id?: string | null },
+): Promise<MatchingResult> {
+  const { inicio, fin } = mesAnterior(factura.fecha_factura)
+  const alias = ['mercadona']
+
+  let q = supabase
+    .from('conciliacion')
+    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .lt('importe', 0)
+    .gte('fecha', inicio)
+    .lte('fecha', fin)
+    .or(orFilterAlias(alias))
+
+  if (factura.titular_id) {
+    q = q.eq('titular_id', factura.titular_id)
+  }
+
+  const { data: movimientosRaw } = await q
+
+  const movimientos: MatchCandidato[] = (movimientosRaw || []).map((c) => ({
+    id: c.id as string,
+    fecha: c.fecha as string,
+    concepto: (c.concepto as string) || null,
+    importe: Number(c.importe),
+    proveedor: (c.proveedor as string) || null,
+    titular_id: (c.titular_id as string | null) ?? null,
+  }))
+
+  if (movimientos.length === 0) {
+    return {
+      estado: 'pendiente_revision',
+      matches: [],
+      confianza: 0,
+      mensaje: `Mercadona ${inicio} → ${fin}: no hay cargos en banco para este periodo/titular`,
+    }
+  }
+
+  const ids = movimientos.map((m) => m.id)
+  const { data: yaAsociados } = await supabase
+    .from('facturas_gastos')
+    .select('conciliacion_id')
+    .in('conciliacion_id', ids)
+  const yaAsociadosIds = new Set((yaAsociados || []).map((a) => a.conciliacion_id as string))
+
+  const disponibles = movimientos.filter((m) => !yaAsociadosIds.has(m.id))
+  const sumaMovs = disponibles.reduce((acc, m) => acc + Math.abs(m.importe), 0)
+  const totalFactura = Math.abs(factura.total)
+  const diferencia = Math.abs(sumaMovs - totalFactura)
+
+  if (diferencia <= 0.5) {
+    return {
+      estado: 'asociada',
+      matches: disponibles,
+      confianza: 95,
+      mensaje: `Mercadona ${inicio} → ${fin}: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ ✓ cuadra`,
+    }
+  }
+
+  if (diferencia <= 5.0) {
+    return {
+      estado: 'pendiente_revision',
+      matches: disponibles,
+      confianza: 70,
+      mensaje: `Mercadona: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€). Probable: alguna compra no incluida en factura.`,
+    }
+  }
+
+  return {
+    estado: 'pendiente_revision',
+    matches: disponibles,
+    confianza: 40,
+    mensaje: `Mercadona descuadre fuerte: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€)`,
+  }
+}
+
+/* ═════════════ GLOVO / JUST EAT (factura mixta gasto+ingreso) ═════════════ */
+
+async function matchFacturaGlovoJustEat(
+  supabase: SupabaseClient,
+  factura: ExtractedFactura & { total: number },
+): Promise<MatchingResult> {
+  const plataforma = factura.plataforma as 'glovo' | 'just_eat'
+  const aliasMap: Record<string, string[]> = {
+    glovo: ['glovo', 'glovoapp', 'glovo app'],
+    just_eat: ['just eat', 'justeat', 'je spain', 'takeaway'],
+  }
+  const alias = aliasMap[plataforma]
+
+  const fechaInicio = factura.periodo_inicio || factura.fecha_factura
+  const fechaFinBase = factura.periodo_fin || factura.fecha_factura
+  const fechaFinExt = new Date(fechaFinBase)
+  fechaFinExt.setDate(fechaFinExt.getDate() + 14)
+
+  // Buscar ingresos positivos (liquidaciones) en ventana, da igual la categoría contable
+  const { data: ingresosRaw } = await supabase
+    .from('conciliacion')
+    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .gt('importe', 0)
+    .gte('fecha', fechaInicio)
+    .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
+    .or(orFilterAlias(alias))
+
+  const ingresos: MatchCandidato[] = (ingresosRaw || []).map((c) => ({
+    id: c.id as string,
+    fecha: c.fecha as string,
+    concepto: (c.concepto as string) || null,
+    importe: Number(c.importe),
+    proveedor: (c.proveedor as string) || null,
+    titular_id: (c.titular_id as string | null) ?? null,
+  }))
+
+  if (ingresos.length === 0) {
+    return {
+      estado: 'pendiente_revision',
+      matches: [],
+      confianza: 0,
+      mensaje: `Liquidación ${plataforma}: sin ingresos en banco entre ${fechaInicio} y ${fechaFinExt.toISOString().slice(0, 10)}`,
+    }
+  }
+
+  return {
+    estado: 'asociada',
+    matches: ingresos,
+    confianza: 70,
+    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo (revisar manualmente cuál corresponde)`,
+  }
+}
+
+/* ═════════════ RECAPITULATIVA GENÉRICA ═════════════ */
 
 async function matchFacturaRecapitulativa(
   supabase: SupabaseClient,
@@ -242,7 +422,6 @@ async function matchFacturaRecapitulativa(
     }
   }
 
-  // Excluir movimientos ya asociados a otras facturas
   const ids = movimientos.map((m) => m.id)
   let yaAsociadosIds = new Set<string>()
   if (ids.length > 0) {
@@ -271,9 +450,7 @@ async function matchFacturaRecapitulativa(
       estado: 'pendiente_revision',
       matches: disponibles,
       confianza: 70,
-      mensaje: `Suma ${disponibles.length} cargos: ${sumaMovs.toFixed(
-        2,
-      )}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)`,
+      mensaje: `Suma ${disponibles.length} cargos: ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)`,
     }
   }
 
@@ -285,74 +462,6 @@ async function matchFacturaRecapitulativa(
   }
 }
 
-/* ═════════════ PLATAFORMA ═════════════ */
-
-const CATEGORIA_INGRESO: Record<string, string> = {
-  uber: 'ING-UE',
-  glovo: 'ING-GL',
-  just_eat: 'ING-JE',
-}
-
-const PLATAFORMA_ALIAS: Record<string, string[]> = {
-  uber: ['portier', 'uber', 'uber eats', 'portier eats'],
-  glovo: ['glovo', 'glovoapp', 'glovo app'],
-  just_eat: ['just eat', 'justeat', 'je spain'],
-}
-
-async function matchFacturaPlataforma(
-  supabase: SupabaseClient,
-  factura: ExtractedFactura & { total: number },
-): Promise<MatchingResult> {
-  const plataforma = factura.plataforma
-  if (!plataforma || !CATEGORIA_INGRESO[plataforma]) {
-    return {
-      estado: 'pendiente_revision',
-      matches: [],
-      confianza: 0,
-      mensaje: 'Plataforma desconocida',
-    }
-  }
-
-  const categoria = CATEGORIA_INGRESO[plataforma]
-  const fechaInicio = factura.periodo_inicio || factura.fecha_factura
-  const fechaFinBase = factura.periodo_fin || factura.fecha_factura
-  const fechaFinExt = new Date(fechaFinBase)
-  fechaFinExt.setDate(fechaFinExt.getDate() + 14)
-
-  const { data: ingresosRaw } = await supabase
-    .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id')
-    .gt('importe', 0)
-    .eq('categoria', categoria)
-    .gte('fecha', fechaInicio)
-    .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
-
-  const ingresos: MatchCandidato[] = (ingresosRaw || []).map((c) => ({
-    id: c.id as string,
-    fecha: c.fecha as string,
-    concepto: (c.concepto as string) || null,
-    importe: Number(c.importe),
-    proveedor: (c.proveedor as string) || null,
-    titular_id: (c.titular_id as string | null) ?? null,
-  }))
-
-  if (ingresos.length === 0) {
-    return {
-      estado: 'pendiente_revision',
-      matches: [],
-      confianza: 0,
-      mensaje: `Liquidación ${plataforma}: no hay ingresos aún en el periodo ${fechaInicio} → ${fechaFinBase}`,
-    }
-  }
-
-  return {
-    estado: 'asociada',
-    matches: ingresos,
-    confianza: 80,
-    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en el periodo`,
-  }
-}
-
 /* ═════════════ UTIL ═════════════ */
 
 function fechaEsHistorica(fecha: string): boolean {
@@ -361,10 +470,6 @@ function fechaEsHistorica(fecha: string): boolean {
 
 /* ═════════════ PERSISTENCIA ═════════════ */
 
-/**
- * Aplica un MatchingResult a la BD: borra matches previos, inserta nuevos con confianza,
- * actualiza factura con estado + mensaje_matching.
- */
 export async function aplicarMatching(
   supabase: SupabaseClient,
   facturaId: string,
@@ -373,7 +478,6 @@ export async function aplicarMatching(
   await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId)
 
   if (result.matches.length > 0) {
-    // Calcular titular_id de la factura para marcar cada match si cruza cuentas
     const { data: fac } = await supabase
       .from('facturas')
       .select('titular_id')
@@ -398,7 +502,6 @@ export async function aplicarMatching(
     .update({ estado: result.estado, mensaje_matching: result.mensaje })
     .eq('id', facturaId)
 
-  // Sincronizar conciliacion.factura_id solo si match 1-a-1 confirmado (CA-6 punto 5)
   if (result.estado === 'asociada' && result.matches.length === 1) {
     await supabase
       .from('conciliacion')
@@ -407,5 +510,4 @@ export async function aplicarMatching(
   }
 }
 
-/* Legacy export para compatibilidad (ya no usado) */
 export type { MatchingEstado as MatchingResultLegacy }
