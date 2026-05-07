@@ -58,33 +58,24 @@ type TipoArchivo = 'uber_resumen' | 'uber_detalle' | 'glovo_pdf' | 'just_eat' | 
 function detectarTipoArchivo(texto: string, nombreArchivo: string): TipoArchivo {
   const ext = nombreArchivo.split('.').pop()?.toLowerCase() || ''
   const primeraLinea = texto.split('\n')[0] || ''
-  // CSV Uber resumen: primera línea empieza con "Nombre del restaurante"
   if (ext === 'csv' && primeraLinea.includes('Nombre del restaurante') && primeraLinea.includes('Pago total')) return 'uber_resumen'
-  // CSV Uber detalle: segunda línea tiene "Id. del pedido"
   if (ext === 'csv' && texto.includes('Id. del pedido') && texto.includes('Nombre de la tienda')) return 'uber_detalle'
-  // PDF Glovo
   if (ext === 'pdf' || texto.includes('Factura Nº:') || texto.includes('Ingreso a cuenta colaborador')) return 'glovo_pdf'
-  // Just Eat HTML/DOC
   if (ext === 'html' || ext === 'htm' || ext === 'doc' || texto.includes('Nº Factura') || texto.includes('Tu factura')) return 'just_eat'
   return 'desconocido'
 }
 
-// ─── Parser CSV Resumen Uber (el correcto para pago_neto) ─────────────────────
+// ─── Parser CSV Resumen Uber ──────────────────────────────────────────────────
 
 function parseUberResumenCSV(texto: string): { grupos: Record<string, any>; errores: string[] } {
   const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (lineas.length < 2) return { grupos: {}, errores: ['CSV vacío'] }
   const cab = lineas[0].split(',')
   const i = (n: string) => cab.indexOf(n)
-  const iMarca = i('Nombre del restaurante')
-  const iCodigo = i('Código del establecimiento')
-  const iPedidos = i('Cantidad de pedidos')
-  const iVentas = i('Ventas (con IVA)')
-  const iPromos = i('Promociones en artículos (con IVA)')
-  const iTasa = i('Tasa de servicio después del descuento (con IVA)')
-  const iPago = i('Pago total ')
-  const iFechaPago = i('Fecha de pago')
-  const iRef = i('Id. de referencia de ganancias')
+  const iMarca = i('Nombre del restaurante'), iCodigo = i('Código del establecimiento')
+  const iPedidos = i('Cantidad de pedidos'), iVentas = i('Ventas (con IVA)')
+  const iPromos = i('Promociones en artículos (con IVA)'), iTasa = i('Tasa de servicio después del descuento (con IVA)')
+  const iPago = i('Pago total '), iFechaPago = i('Fecha de pago'), iRef = i('Id. de referencia de ganancias')
   if (iMarca === -1 || iPago === -1 || iRef === -1) return { grupos: {}, errores: ['No es CSV resumen Uber (faltan columnas clave)'] }
   const n = (v: string) => parseFloat((v || '0').replace(',', '.')) || 0
   const grupos: Record<string, any> = {}
@@ -96,27 +87,22 @@ function parseUberResumenCSV(texto: string): { grupos: Record<string, any>; erro
     const key = `${ref}__${marca}`
     const fechaDeposito = fmtFechaCSV(cols[iFechaPago]?.trim())
     grupos[key] = {
-      marca,
-      codigo_establecimiento: cols[iCodigo]?.trim() || '',
-      referencia_pago: ref,
-      fecha_deposito: fechaDeposito,
-      fecha_inicio_periodo: fechaDeposito,
-      fecha_fin_periodo: fechaDeposito,
+      marca, codigo_establecimiento: cols[iCodigo]?.trim() || '', referencia_pago: ref,
+      fecha_deposito: fechaDeposito, fecha_inicio_periodo: fechaDeposito, fecha_fin_periodo: fechaDeposito,
       num_pedidos: parseInt(cols[iPedidos]?.trim() || '0') || 0,
       ventas_bruto: Math.round(n(cols[iVentas]) * 100) / 100,
       comision_uber: Math.round(n(cols[iTasa]) * 100) / 100,
       promociones: Math.round(n(cols[iPromos]) * 100) / 100,
-      ads: 0,
-      pago_neto: Math.round(n(cols[iPago]) * 100) / 100,
+      ads: 0, pago_neto: Math.round(n(cols[iPago]) * 100) / 100,
     }
   }
   if (Object.keys(grupos).length === 0) return { grupos: {}, errores: ['Sin filas válidas en el CSV resumen'] }
   return { grupos, errores: [] }
 }
 
-// ─── Parser CSV Detalle Uber (pedido a pedido, para uber_pedidos) ─────────────
+// ─── Parser CSV Detalle Uber ──────────────────────────────────────────────────
 
-function parseUberDetalleCSV(texto: string) {
+function parseUberDetalleCSV(texto: string): { grupos: Record<string, any>; errores: string[] } {
   const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (lineas.length < 3) return { grupos: {}, errores: ['CSV vacío'] }
   const cab = lineas[1].split(',')
@@ -127,10 +113,8 @@ function parseUberDetalleCSV(texto: string) {
   const iModalidad = i('Modalidad de consumo'), iCanal = i('Canal de pedidos'), iEstado = i('Estado del pedido')
   const iVentas = i('Ventas (con IVA)'), iPromos = i('Promociones en artículos (con IVA)')
   const iTasa = i('Tasa de servicio después del descuento (con IVA)'), iOtros = i('Otros pagos (con IVA)')
-  const iFechaPago = i('Fecha de pago')
-  const iLinkEst = i('Enlace de la factura del establecimiento al cliente')
-  const iLinkPortier = i('Enlace de Uber a la factura del establecimiento')
-  const iWorkflow = i('Id. del flujo de trabajo')
+  const iFechaPago = i('Fecha de pago'), iLinkEst = i('Enlace de la factura del establecimiento al cliente')
+  const iLinkPortier = i('Enlace de Uber a la factura del establecimiento'), iWorkflow = i('Id. del flujo de trabajo')
   if (iId === -1 || iPago === -1 || iRef === -1) return { grupos: {}, errores: ['No es CSV detalle Uber'] }
   const n = (v: string) => parseFloat((v || '0').replace(',', '.')) || 0
   const grupos: Record<string, any> = {}
@@ -141,7 +125,7 @@ function parseUberDetalleCSV(texto: string) {
     if (!ref || !marca) continue
     const key = `${ref}__${marca}`
     if (!grupos[key]) grupos[key] = { marca, codigo_establecimiento: cols[iCodigo]?.trim() || '', referencia_pago: ref, fecha_deposito: fmtFechaCSV(cols[iFechaPago]?.trim()), fecha_inicio_periodo: fmtFechaCSV(cols[iFecha]?.trim()), fecha_fin_periodo: fmtFechaCSV(cols[iFecha]?.trim()), num_pedidos: 0, ventas_bruto: 0, comision_uber: 0, promociones: 0, ads: 0, pago_neto: 0, detalle: [] }
-    const g = grupos[key]
+    const g: Record<string, any> = grupos[key]
     const fp = fmtFechaCSV(cols[iFecha]?.trim())
     if (fp && fp < g.fecha_inicio_periodo) g.fecha_inicio_periodo = fp
     if (fp && fp > g.fecha_fin_periodo) g.fecha_fin_periodo = fp
@@ -192,33 +176,24 @@ async function autoconciliar(tabla: string, id: string, pagoNeto: number, fechaD
   const desdeStr = desde.toISOString().slice(0, 10)
   const hastaStr = hasta.toISOString().slice(0, 10)
 
-  // Buscar match exacto por importe en ventana
   let q = supabase.from('conciliacion').select('id').eq('tipo', 'ingreso').gte('fecha', desdeStr).lte('fecha', hastaStr).eq('importe', pagoNeto).is('factura_id', null)
   if (titularId) q = q.eq('titular_id', titularId)
   const { data: exactos } = await q.limit(2)
 
   if (exactos && exactos.length === 1) {
-    // Match exacto único → conciliar
     await supabase.from(tabla).update({ conciliacion_id: exactos[0].id, estado: 'conciliada', updated_at: new Date().toISOString() }).eq('id', id)
     await supabase.from('conciliacion').update({ doc_estado: 'tiene' }).eq('id', exactos[0].id)
     return true
   }
+  if (exactos && exactos.length > 1) return false
 
-  if (exactos && exactos.length > 1) {
-    // Varios matches con el mismo importe → no conciliar automáticamente (ambiguo)
-    return false
-  }
-
-  // Fallback: importe único en ventana sin filtro de titular (cambio de nombre de marca)
-  // Solo si hay exactamente 1 movimiento con ese importe en esa ventana en toda la BD
-  const { data: fallback } = await supabase.from('conciliacion').select('id, titular_id').eq('tipo', 'ingreso').gte('fecha', desdeStr).lte('fecha', hastaStr).eq('importe', pagoNeto).is('factura_id', null).limit(2)
-
+  // Fallback sin filtro titular (cambio nombre marca)
+  const { data: fallback } = await supabase.from('conciliacion').select('id').eq('tipo', 'ingreso').gte('fecha', desdeStr).lte('fecha', hastaStr).eq('importe', pagoNeto).is('factura_id', null).limit(2)
   if (fallback && fallback.length === 1) {
     await supabase.from(tabla).update({ conciliacion_id: fallback[0].id, estado: 'conciliada', updated_at: new Date().toISOString() }).eq('id', id)
     await supabase.from('conciliacion').update({ doc_estado: 'tiene' }).eq('id', fallback[0].id)
     return true
   }
-
   return false
 }
 
@@ -279,8 +254,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
 
   useEffect(() => { cargar() }, [cargar])
 
-  // ── Importar archivo (autodetección) ─────────────────────────────────────────
-
   const importarArchivo = useCallback(async (file: File) => {
     setSubiendo(true); setLogs([])
     const texto = await file.text().catch(() => '')
@@ -291,10 +264,9 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
       if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep }]); setSubiendo(false); return }
       let nuevas = 0, duplicadas = 0, actualizadas = 0; const errores: string[] = []
       for (const key of Object.keys(grupos)) {
-        const g = grupos[key]
+        const g: Record<string, any> = grupos[key]
         const { data: existe } = await supabase.from('uber_liquidaciones').select('id, estado').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
         if (existe) {
-          // Ya existe → actualizar pago_neto con el valor correcto del resumen y relanzar conciliación si pendiente
           await supabase.from('uber_liquidaciones').update({ pago_neto: g.pago_neto, ventas_bruto: g.ventas_bruto, comision_uber: g.comision_uber, num_pedidos: g.num_pedidos, updated_at: new Date().toISOString() }).eq('id', existe.id)
           if (existe.estado !== 'conciliada') {
             const liqData = await supabase.from('uber_liquidaciones').select('titular_id, fecha_deposito').eq('id', existe.id).single()
@@ -314,10 +286,9 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
       if (ep.length > 0) { setLogs([{ archivo: file.name, plataforma: 'Uber Eats', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ep }]); setSubiendo(false); return }
       let nuevas = 0, duplicadas = 0; const errores: string[] = []
       for (const key of Object.keys(grupos)) {
-        const g = grupos[key]
+        const g: Record<string, any> = grupos[key]
         const { data: existe } = await supabase.from('uber_liquidaciones').select('id').eq('referencia_pago', g.referencia_pago).eq('marca', g.marca).maybeSingle()
         if (existe) {
-          // Si existe por detalle, solo actualizar pedidos, no sobreescribir pago_neto (puede estar ya corregido por resumen)
           const det = (g.detalle || []).filter((p: any) => p.pedido_id)
           if (det.length > 0) await supabase.from('uber_pedidos').upsert(det.map((p: any) => ({ liquidacion_id: existe.id, pedido_id: p.pedido_id, workflow_id: p.workflow_id, marca: g.marca, codigo_establecimiento: g.codigo_establecimiento, fecha_pedido: p.fecha_pedido, hora_pedido: p.hora_pedido || null, modalidad: p.modalidad, canal: p.canal, estado_pedido: p.estado_pedido, ventas_con_iva: p.ventas_con_iva, promociones_con_iva: p.promociones_con_iva, tasa_servicio_con_iva: p.tasa_servicio_con_iva, otros_pagos: p.otros_pagos, pago_total: p.pago_total, fecha_pago: p.fecha_pago, referencia_pago: g.referencia_pago, link_factura_establecimiento: p.link_factura_establecimiento, link_factura_portier: p.link_factura_portier })), { onConflict: 'pedido_id,referencia_pago', ignoreDuplicates: true })
           duplicadas++; continue
@@ -362,7 +333,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
       setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
 
     } else {
-      setLogs([{ archivo: file.name, plataforma: '?', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['No se reconoce el formato. Sube CSV Uber, PDF Glovo o HTML/DOC Just Eat'] }])
+      setLogs([{ archivo: file.name, plataforma: '?', nuevas: 0, duplicadas: 0, actualizadas: 0, errores: ['Formato no reconocido. Sube CSV Uber, PDF Glovo o HTML/DOC Just Eat'] }])
     }
 
     setSubiendo(false); setRefreshTick(x => x + 1)
@@ -371,12 +342,10 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
-    // Procesar secuencialmente
     files.reduce((p, f) => p.then(() => importarArchivo(f)), Promise.resolve())
     e.target.value = ''
   }
 
-  // ── Filtrado + sort + paginado ────────────────────────────────────────────────
   const filasFiltradas = useMemo(() => {
     let arr = [...todasFilas]
     if (filtroPlataforma !== 'todas') arr = arr.filter(f => f.plataforma === filtroPlataforma)
@@ -468,8 +437,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, color: '#F26B1F' }}>{agregados.pendientesCount}</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>Sin match · {fmtNumES(agregados.pendientesNeto, 2)}</div>
         </div>
-
-        {/* Un solo botón */}
         <div onClick={() => !subiendo && inputRef.current?.click()}
           style={{ background: subiendo ? '#888' : '#B01D23', borderRadius: 14, padding: '18px 20px', cursor: subiendo ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <input ref={inputRef} type="file" multiple accept=".csv,.pdf,.doc,.html,.htm" style={{ display: 'none' }} onChange={handleFiles} />
