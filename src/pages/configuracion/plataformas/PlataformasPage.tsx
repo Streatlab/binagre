@@ -60,6 +60,8 @@ export default function PlataformasPage() {
 
   const notificarCambio = () => {
     invalidarCacheConfigCanales()
+    // Emite ambos nombres por compatibilidad (TabResumen escucha :changed, Facturación _updated)
+    window.dispatchEvent(new CustomEvent('config_canales:changed'))
     window.dispatchEvent(new CustomEvent('config_canales_updated'))
   }
 
