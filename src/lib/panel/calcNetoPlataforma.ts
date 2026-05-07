@@ -1,25 +1,13 @@
 /**
  * calcNetoPlataforma.ts
  * Cálculo neto cobrado por canal leyendo SIEMPRE de config_canales en Supabase.
- * NO usar hardcodes. Si no hay config en BBDD, devuelve neto=bruto (sin descontar nada).
- *
- * Campos config_canales:
- *  - canal: 'Uber Eats' | 'Glovo' | 'Just Eat' | 'Web Propia' | 'Venta Directa'
- *  - comision_pct: ej 0.33
- *  - fijo_eur: comisión fija por pedido
- *  - fee_periodo_eur: fee fijo del periodo (ej: Uber 2.29€/semana, Glovo 5€/quincena)
- *  - fee_periodicidad: 'semanal_por_marca' | 'quincenal_por_marca' | 'mensual'
  */
 
 import { supabase } from '@/lib/supabase'
 
 const IVA = 0.21
 
-export interface NetoResult {
-  neto: number
-  margenPct: number
-}
-
+export interface NetoResult { neto: number; margenPct: number }
 export interface CanalConfig {
   canal: string
   comision_pct: number
@@ -28,15 +16,11 @@ export interface CanalConfig {
   fee_periodicidad: string
 }
 
-// Cache en memoria (se carga 1 vez por sesión)
 let cacheConfig: Record<string, CanalConfig> | null = null
 
 const MAP_ID_CANAL: Record<string, string> = {
-  uber: 'Uber Eats',
-  glovo: 'Glovo',
-  je: 'Just Eat',
-  web: 'Web Propia',
-  dir: 'Venta Directa',
+  uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat',
+  web: 'Web Propia', dir: 'Venta Directa',
 }
 
 export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> {
@@ -45,10 +29,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
     .from('config_canales')
     .select('canal, comision_pct, fijo_eur, fee_periodo_eur, fee_periodicidad')
     .eq('activo', true)
-  if (error || !data) {
-    cacheConfig = {}
-    return cacheConfig
-  }
+  if (error || !data) { cacheConfig = {}; return cacheConfig }
   const out: Record<string, CanalConfig> = {}
   for (const row of data) {
     out[row.canal] = {
@@ -63,14 +44,14 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
   return cacheConfig
 }
 
-export function invalidarCacheConfigCanales() {
+export function invalidarCacheConfigCanales() { cacheConfig = null }
+
+/** Recarga config desde BBDD ignorando cache. Devuelve config fresca. */
+export async function recargarConfigCanales(): Promise<Record<string, CanalConfig>> {
   cacheConfig = null
+  return loadConfigCanales()
 }
 
-/**
- * Calcula nº de periodos (semanas, quincenas, meses) entre 2 fechas.
- * Para fee_periodo_eur multiplicado por número de marcas activas.
- */
 function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
   const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
   switch (periodicidad) {
@@ -81,35 +62,23 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
   }
 }
 
-/**
- * Cálculo neto SÍNCRONO con config ya cargada en memoria.
- * Usar tras llamar loadConfigCanales() previamente.
- */
 export function calcNetoPorCanal(
-  canalId: string,
-  bruto: number,
-  pedidos: number,
+  canalId: string, bruto: number, pedidos: number,
   marcasActivas: number = 1,
-  fechaDesde?: Date,
-  fechaHasta?: Date,
+  fechaDesde?: Date, fechaHasta?: Date,
   configOverride?: Record<string, CanalConfig>,
 ): NetoResult {
   const config = configOverride ?? cacheConfig ?? {}
   const nombreCanal = MAP_ID_CANAL[canalId] ?? canalId
   const cfg = config[nombreCanal]
-
-  if (!cfg) {
-    return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
-  }
+  if (!cfg) return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
 
   const baseComision = (cfg.comision_pct * bruto) + (cfg.fijo_eur * pedidos)
-
   let feePeriodoTotal = 0
   if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
     const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
     feePeriodoTotal = cfg.fee_periodo_eur * periodos * marcasActivas
   }
-
   const totalComisionable = baseComision + feePeriodoTotal
   const ivaComision = IVA * totalComisionable
   const neto = Math.max(0, bruto - totalComisionable - ivaComision)
@@ -117,9 +86,6 @@ export function calcNetoPorCanal(
   return { neto, margenPct }
 }
 
-/**
- * Identificación de plataforma desde concepto bancario
- */
 export function identificarPlataformaBancaria(concepto: string): string | null {
   const upper = concepto.toUpperCase()
   if (upper.includes('UBER') || upper.includes('PORTIER')) return 'uber'
@@ -130,7 +96,6 @@ export function identificarPlataformaBancaria(concepto: string): string | null {
 }
 
 export type EstadoValidacion = 'OK' | 'ALERTA' | 'ERROR'
-
 export function calcEstadoValidacion(diferenciaAbsPct: number): EstadoValidacion {
   if (diferenciaAbsPct <= 1) return 'OK'
   if (diferenciaAbsPct <= 5) return 'ALERTA'
