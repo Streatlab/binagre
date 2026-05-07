@@ -104,9 +104,9 @@ function clienteAnthropic(): Anthropic {
 }
 
 // Modelo configurable via env var ANTHROPIC_MODEL.
-// Cuando Anthropic actualice el modelo, basta cambiar la env var en Vercel sin tocar codigo.
+// Fallback: claude-sonnet-4-5-20251001 (alias estable verificado)
 function modeloOcr(): string {
-  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20251001'
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
