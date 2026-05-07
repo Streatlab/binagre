@@ -113,10 +113,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [busqueda, setBusqueda] = useState(persistidos.busqueda ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(persistidos.busqueda ?? '')
   const [catFiltro, setCatFiltro] = useState(persistidos.catFiltro ?? 'todas')
-  const [sortColumn, setSortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
-  const [sortDir, setSortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
+  const [sortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
+  const [sortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
 
-  const { handleSort: multiHandleSort, sortIndicator, applySorts } = useMultiSort<Movimiento, SortColumn>({
+  // Multi-sort: los criterios se mandan al servidor via .order() encadenados
+  const { sorts, handleSort: multiHandleSort, sortIndicator, applySorts } = useMultiSort<Movimiento, SortColumn>({
     getValue: (row, col) => {
       switch (col) {
         case 'fecha':        return row.fecha
@@ -198,6 +199,18 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }, [])
 
+  // Mapa col → campo Supabase (null = solo cliente, no se manda al servidor)
+  const sortMap: Record<SortColumn, string | null> = {
+    fecha:       'fecha',
+    concepto:    'concepto',
+    contraparte: 'proveedor',
+    importe:     'importe',
+    categoria:   'categoria',
+    doc:         'doc_estado',
+    titular:     'titular_id',
+    estado:      null,  // calculado en cliente, no existe en BD
+  }
+
   const cargarPagina = useCallback(async () => {
     const myFetchId = ++fetchIdRef.current
     setCargando(true)
@@ -205,18 +218,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     const from = (page - 1) * pageSize
     const to   = from + pageSize - 1
-
-    const sortMap: Record<string, string | null> = {
-      fecha:       'fecha',
-      concepto:    'concepto',
-      contraparte: 'proveedor',
-      importe:     'importe',
-      categoria:   'categoria',
-      doc:         'doc_estado',
-      titular:     'titular_id',
-      estado:      null,
-    }
-    const sortField = sortMap[sortColumn] ?? 'fecha'
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
@@ -255,11 +256,16 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
     }
 
-    if (sortField) {
-      q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to)
+    // Multi-sort al servidor: encadenar .order() por cada criterio que tenga campo BD
+    const sortsServidor = sorts.filter(s => sortMap[s.col] !== null)
+    if (sortsServidor.length > 0) {
+      for (const { col, dir } of sortsServidor) {
+        q = q.order(sortMap[col]!, { ascending: dir === 'asc' })
+      }
     } else {
-      q = q.order('fecha', { ascending: false }).range(from, to)
+      q = q.order('fecha', { ascending: false })
     }
+    q = q.range(from, to)
 
     const { data, error, count } = await q
 
@@ -288,7 +294,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
+  }, [page, pageSize, sorts, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -389,11 +395,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
   function handleSort(col: SortColumn) {
     multiHandleSort(col)
-    if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortColumn(col); setSortDir('asc') }
+    // Al cambiar orden volvemos a página 1
     if (page !== 1) updateUrl({ page: 1 })
   }
 
+  // Estado se ordena solo en cliente (no existe en BD)
   const filasVisibles = useMemo(() => applySorts(filas), [filas, applySorts])
 
   const handleExportar = async () => {
@@ -668,7 +674,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                   <tr>
                     {HEADERS.map(h => {
                       const arrow = sortIndicator(h.col)
-                      const isActive = arrow !== ''
+                      const isActive = sorts.some(s => s.col === h.col)
                       return (
                         <th key={h.col} onClick={() => handleSort(h.col)}
                           style={{
