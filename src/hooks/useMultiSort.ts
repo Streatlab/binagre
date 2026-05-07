@@ -1,13 +1,12 @@
 /**
- * useMultiSort — ordenación multi-criterio estilo Excel
+ * useMultiSort — ordenación multi-criterio tipo checks acumulativo
  *
- * Uso:
- *   const { sorts, handleSort, sortIndicator, applySorts } = useMultiSort<MyRow>({ getValue })
- *
- * - 1er click en columna nueva  → se añade como criterio 1 (el anterior pasa a ser 2)
- * - Click en columna ya activa  → alterna asc/desc
- * - sortIndicator(col)          → ' ↑' | ' ↓' | ' ↑2' | ' ↓2' | ''
- * - applySorts(rows)            → rows ordenadas por todos los criterios
+ * Comportamiento:
+ * - 1er click en col nueva   → activa como criterio 1 (↑ asc), desplaza las demás (+1)
+ * - 2º click en misma col    → invierte dirección (↓ desc)
+ * - Click en col ya activa   → la DESACTIVA y las demás se reordenan (gaps eliminados)
+ * - sortIndicator(col)       → ' ↑' | ' ↓' | ' ↑2' | ' ↓2' | ' ↑3' | ' ↓3' | ''
+ * - applySorts(rows)         → rows ordenadas por todos los criterios activos
  */
 
 import { useState, useCallback } from 'react'
@@ -27,25 +26,29 @@ export interface UseMultiSortOptions<Row, Col extends string = string> {
 export function useMultiSort<Row, Col extends string = string>(
   opts: UseMultiSortOptions<Row, Col>
 ) {
-  const { getValue, maxCriteria = 2 } = opts
+  const { getValue, maxCriteria = 3 } = opts
   const [sorts, setSorts] = useState<SortCriterion<Col>[]>([])
 
   const handleSort = useCallback(
     (col: Col) => {
       setSorts(prev => {
-        const existing = prev.findIndex(s => s.col === col)
+        const idx = prev.findIndex(s => s.col === col)
 
-        if (existing !== -1) {
-          // Ya está: alterna dirección manteniendo posición
-          return prev.map((s, i) =>
-            i === existing ? { ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' } : s
-          )
+        if (idx === -1) {
+          // Col nueva: añadir al FRENTE como criterio 1, desplazar las demás
+          const next = [{ col, dir: 'asc' as SortDir }, ...prev]
+          return next.slice(0, maxCriteria)
         }
 
-        // Nueva columna: se añade al frente como criterio 1
-        // Los anteriores se desplazan (máx 2 criterios)
-        const next = [{ col, dir: 'asc' as SortDir }, ...prev]
-        return next.slice(0, maxCriteria)
+        const criterion = prev[idx]
+
+        if (criterion.dir === 'asc') {
+          // Primer click (ya activa en asc) → cambiar a desc
+          return prev.map((s, i) => i === idx ? { ...s, dir: 'desc' as SortDir } : s)
+        }
+
+        // Segundo click (ya activa en desc) → DESACTIVAR y reordenar
+        return prev.filter((_, i) => i !== idx)
       })
     },
     [maxCriteria]
@@ -56,7 +59,8 @@ export function useMultiSort<Row, Col extends string = string>(
       const idx = sorts.findIndex(s => s.col === col)
       if (idx === -1) return ''
       const arrow = sorts[idx].dir === 'asc' ? '↑' : '↓'
-      return idx === 0 ? ` ${arrow}` : ` ${arrow}${idx + 1}`
+      const num = sorts.length > 1 ? String(idx + 1) : ''
+      return ` ${arrow}${num}`
     },
     [sorts]
   )
