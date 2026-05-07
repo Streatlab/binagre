@@ -103,10 +103,16 @@ function clienteAnthropic(): Anthropic {
   return new Anthropic({ apiKey })
 }
 
+// Modelo configurable via env var ANTHROPIC_MODEL.
+// Cuando Anthropic actualice el modelo, basta cambiar la env var en Vercel sin tocar codigo.
+function modeloOcr(): string {
+  return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5'
+}
+
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
   const anthropic = clienteAnthropic()
   const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: modeloOcr(),
     max_tokens: 2000,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: [{ role: 'user', content: content as any }],
