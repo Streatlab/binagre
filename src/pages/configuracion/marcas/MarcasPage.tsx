@@ -3,11 +3,10 @@ import { ModTitle } from '@/components/configuracion/ModTitle'
 import { TabPills } from '@/components/configuracion/TabPills'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 
-// Accesos Uber → movido a tab Plataformas (FASE 10.5)
-// Tipos de cocina → propiedad de Marca (FASE 10.5)
 const TABS = [
   { id: 'marcas',  label: 'Marcas' },
   { id: 'canales', label: 'Canales de venta' },
+  { id: 'drive',   label: 'Google Drive' },
 ]
 
 export default function MarcasPage() {
@@ -17,16 +16,17 @@ export default function MarcasPage() {
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
   const active =
     seg === 'canales' ? 'canales' :
+    seg === 'drive'   ? 'drive'   :
     'marcas'
 
   const handleChange = (id: string) => {
-    if (id === 'marcas') nav('/configuracion/marcas')
-    else nav(`/configuracion/marcas/${id}`)
+    if (id === 'marcas') nav('/configuracion/integraciones')
+    else nav(`/configuracion/integraciones/${id}`)
   }
 
   return (
     <ConfigShell>
-      <ModTitle>Marcas</ModTitle>
+      <ModTitle>Integraciones</ModTitle>
       <TabPills tabs={TABS} active={active} onChange={handleChange} />
       <Outlet />
     </ConfigShell>
