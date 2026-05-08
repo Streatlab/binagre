@@ -14,7 +14,6 @@ import Placeholder from '@/pages/Placeholder'
 // Configuración · Marcas
 import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
 import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
-// TabAccesosUber → eliminado FASE 10.5, movido a Plataformas
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 
 // Configuración · Bancos
@@ -44,6 +43,8 @@ import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 // Configuración · Calendario operativo
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
+// Configuración · Integraciones (Drive, OAuth)
+import IntegracionesPage from '@/pages/configuracion/integraciones/IntegracionesPage'
 
 // Finanzas
 import Objetivos from '@/pages/finanzas/Objetivos'
@@ -56,15 +57,14 @@ import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 // Panel Global
 import PanelGlobal from '@/pages/PanelGlobal'
 
-// OCR (renombrado desde Importador FASE 7)
+// OCR
 import Ocr from '@/pages/Ocr'
 
-// Tareas pendientes (FASE 8)
+// Tareas pendientes
 import Tareas from '@/pages/Tareas'
 
 // Escandallo v2
 import EscandalloV2 from '@/pages/EscandalloV2'
-// Carta (T-F4-05)
 import Carta from '@/pages/Carta'
 
 // Analytics
@@ -78,7 +78,6 @@ import PrediccionDemanda from '@/pages/analytics/PrediccionDemanda'
 // Cocina
 import CocinaRecetas from '@/pages/CocinaRecetas'
 import CocinaInventario from '@/pages/CocinaInventario'
-// Cocina FASE 6
 import MenuEngineering from '@/pages/cocina/MenuEngineering'
 import Recetario from '@/pages/cocina/Recetario'
 import RecetaDetalle from '@/pages/cocina/RecetaDetalle'
@@ -100,13 +99,11 @@ import ReunionesEquipo from '@/pages/ops/ReunionesEquipo'
 import RecetasFichasTecnicas from '@/pages/ops/RecetasFichasTecnicas'
 import ReclamacionReembolsos from '@/pages/ops/ReclamacionReembolsos'
 
-// Inventario (módulo FASE 5)
+// Inventario
 import Inventario from '@/pages/stock/Inventario'
 
-// Equipo (módulo FASE 3)
+// Equipo
 import Equipo from '@/pages/Equipo'
-
-// Equipo (legacy placeholder pages)
 import FichasEmpleados from '@/pages/equipo/FichasEmpleados'
 import Evaluaciones from '@/pages/equipo/Evaluaciones'
 import LlamadosAtencion from '@/pages/equipo/LlamadosAtencion'
@@ -125,7 +122,7 @@ import PanelResenas from '@/pages/clientes/PanelResenas'
 // Integraciones
 import PosVentas from '@/pages/integraciones/PosVentas'
 
-// Informes (módulo nuevo mayo 2026)
+// Informes
 import InformesPanel from '@/pages/informes/InformesPanel'
 import Destinatarios from '@/pages/informes/Destinatarios'
 import Historial from '@/pages/informes/Historial'
@@ -154,23 +151,24 @@ function AppRoutes() {
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
         {/* Configuración · Redirect */}
-        <Route path="configuracion" element={<Navigate to="/configuracion/marcas" replace />} />
+        <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 
-        {/* Configuración · Legacy (accesible solo por URL directa) */}
+        {/* Configuración · Legacy */}
         <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
 
-        {/* Configuración · Marcas */}
+        {/* Configuración · Integraciones (Drive, OAuth) */}
+        <Route path="configuracion/integraciones" element={<ProtectedRoute solo={['admin']}><IntegracionesPage /></ProtectedRoute>} />
+
+        {/* Configuración · Marcas (legacy, accesible por URL directa) */}
         <Route path="configuracion/marcas" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
-          {/* accesos-uber → eliminado FASE 10.5, contenido en Plataformas */}
           <Route path="canales" element={<TabCanales />} />
         </Route>
 
-        {/* Configuración · Bancos (single page con subpills internos) */}
+        {/* Configuración · Bancos */}
         <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
-
-        {/* Configuración · Cuentas bancarias multi-titular */}
         <Route path="configuracion/cuentas-bancarias" element={<ProtectedRoute solo={['admin']}><CuentasBancarias /></ProtectedRoute>} />
+        <Route path="configuracion/bancos-y-cuentas/*" element={<ProtectedRoute solo={['admin']}><BancosYCuentasPage /></ProtectedRoute>} />
 
         {/* Configuración · Compras */}
         <Route path="configuracion/compras" element={<ProtectedRoute solo={['admin']}><ComprasPage /></ProtectedRoute>}>
@@ -184,10 +182,7 @@ function AppRoutes() {
         {/* Configuración · Usuarios */}
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
 
-        {/* Configuración · Bancos y Cuentas (nuevo) */}
-        <Route path="configuracion/bancos-y-cuentas/*" element={<ProtectedRoute solo={['admin']}><BancosYCuentasPage /></ProtectedRoute>} />
-
-        {/* Configuración · Categorías financieras (redirect a bancos-y-cuentas) */}
+        {/* Configuración · Categorías financieras */}
         <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
 
         {/* Configuración · Plataformas */}
@@ -201,7 +196,6 @@ function AppRoutes() {
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
-        {/* Gestión de Facturas (antes Listado de Facturas) */}
         <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
         <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/gestion-facturas" replace />} />
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
@@ -209,14 +203,14 @@ function AppRoutes() {
         {/* Panel Global */}
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
-        {/* Importador unificado FASE 7 → OCR */}
+        {/* OCR */}
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
 
-        {/* Tareas pendientes FASE 8 */}
+        {/* Tareas */}
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 
-        {/* Informes (módulo nuevo) */}
+        {/* Informes */}
         <Route path="informes" element={<ProtectedRoute solo={['admin']}><InformesPanel /></ProtectedRoute>} />
         <Route path="informes/destinatarios" element={<ProtectedRoute solo={['admin']}><Destinatarios /></ProtectedRoute>} />
         <Route path="informes/historial" element={<ProtectedRoute solo={['admin']}><Historial /></ProtectedRoute>} />
@@ -244,10 +238,8 @@ function AppRoutes() {
         <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
         <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
 
-        {/* Módulo Equipo FASE 3 */}
+        {/* Equipo */}
         <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
-
-        {/* Equipo legacy */}
         <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
         <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
         <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />
@@ -270,25 +262,22 @@ function AppRoutes() {
         <Route path="marketing/embudo" element={<MarketingEmbudo />} />
         <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
+        {/* Inventario */}
+        <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
+
+        {/* Cocina */}
+        <Route path="cocina/inventario" element={<CocinaInventario />} />
+        <Route path="cocina/recetas" element={<CocinaRecetas />} />
+        <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
+        <Route path="cocina/recetario" element={<Recetario />} />
+        <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
+
         {/* Catch-all */}
         <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="ops/:slug" element={<Placeholder />} />
         <Route path="equipo/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="clientes/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="integraciones/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
-
-        {/* Inventario físico FASE 5 */}
-        <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
-
-        {/* Cocina */}
-        <Route path="cocina/inventario" element={<CocinaInventario />} />
-        <Route path="cocina/recetas" element={<CocinaRecetas />} />
-        {/* Cocina FASE 6 */}
-        <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
-        <Route path="cocina/recetario" element={<Recetario />} />
-        <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
-
-        {/* Nuevas secciones acordeón */}
         <Route path="finanzas/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="cocina/:slug" element={<Placeholder />} />
         <Route path="stock/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
