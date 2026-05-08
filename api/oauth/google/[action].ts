@@ -3,6 +3,9 @@ import { google } from 'googleapis'
 import { GOOGLE_OAUTH_SCOPES, makeOAuth2Client, tieneDriveConectado } from '../../_lib/google-oauth.js'
 import { supabaseAdmin } from '../../_lib/supabase-admin.js'
 
+const REDIRECT_OK  = '/configuracion/integraciones/drive?drive_conectado=1'
+const REDIRECT_ERR = (e: string) => `/configuracion/integraciones/drive?drive_error=${encodeURIComponent(e)}`
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = String(req.query.action || '')
 
@@ -37,11 +40,11 @@ async function callback(req: VercelRequest, res: VercelResponse) {
   const errParam = typeof req.query.error === 'string' ? req.query.error : null
 
   if (errParam) {
-    res.writeHead(302, { Location: `/configuracion/bancos?drive_error=${encodeURIComponent(errParam)}` })
+    res.writeHead(302, { Location: REDIRECT_ERR(errParam) })
     return res.end()
   }
   if (!code) {
-    res.writeHead(302, { Location: '/configuracion/bancos?drive_error=missing_code' })
+    res.writeHead(302, { Location: REDIRECT_ERR('missing_code') })
     return res.end()
   }
 
@@ -49,7 +52,7 @@ async function callback(req: VercelRequest, res: VercelResponse) {
     const client = makeOAuth2Client()
     const { tokens } = await client.getToken(code)
     if (!tokens.refresh_token) {
-      res.writeHead(302, { Location: '/configuracion/bancos?drive_error=no_refresh_token' })
+      res.writeHead(302, { Location: REDIRECT_ERR('no_refresh_token') })
       return res.end()
     }
     client.setCredentials(tokens)
@@ -83,11 +86,11 @@ async function callback(req: VercelRequest, res: VercelResponse) {
       await supabaseAdmin.from('google_oauth_tokens').insert(payload)
     }
 
-    res.writeHead(302, { Location: '/configuracion/bancos?drive_conectado=1' })
+    res.writeHead(302, { Location: REDIRECT_OK })
     return res.end()
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    res.writeHead(302, { Location: `/configuracion/bancos?drive_error=${encodeURIComponent(msg.slice(0, 200))}` })
+    res.writeHead(302, { Location: REDIRECT_ERR(msg.slice(0, 200)) })
     return res.end()
   }
 }
