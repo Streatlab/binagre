@@ -3,6 +3,26 @@ import type { ExtractedFactura } from './ocr.js'
 
 const LIMITE_CONCILIACION = '2023-07-01'
 
+// Tolerancia matching factura↔banco (regla 08/05/26: ±0.05€ máximo).
+const TOLERANCIA_IMPORTE = 0.05
+
+// Ventana temporal por defecto (días antes / después fecha factura).
+const VENTANA_DEFAULT = { antes: 5, despues: 30 }
+
+// Ventanas especiales por proveedor (en días). Lidl emite facturas con
+// retraso de hasta 3 meses + 15 días respecto al cargo bancario.
+const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = {
+  lidl: { antes: 5, despues: 105 }, // 3 meses + 15 días
+}
+
+function ventanaProveedor(proveedorNombre: string): { antes: number; despues: number } {
+  const norm = normalizar(proveedorNombre)
+  for (const [clave, ventana] of Object.entries(VENTANAS_ESPECIALES)) {
+    if (norm.includes(clave)) return ventana
+  }
+  return VENTANA_DEFAULT
+}
+
 export type MatchingEstado =
   | 'asociada'
   | 'pendiente_revision'
@@ -20,6 +40,7 @@ export interface MatchCandidato {
   importe: number
   proveedor: string | null
   titular_id?: string | null
+  categoria_codigo?: string | null
 }
 
 export interface MatchingResult {
@@ -149,7 +170,7 @@ export async function matchFactura(
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaRecapitulativa(supabase, factura, alias)
   }
-  // REGLA 6: Resto → matching normal por importe + ventana fechas
+  // REGLA 6: Resto → matching normal por importe + ventana fechas (con excepción Lidl)
   else {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaNormal(supabase, factura, alias)
@@ -178,15 +199,16 @@ async function matchFacturaNormal(
     }
   }
 
+  const ventana = ventanaProveedor(factura.proveedor_nombre)
   const fechaBase = new Date(factura.fecha_factura)
   const fechaMin = new Date(fechaBase)
-  fechaMin.setDate(fechaMin.getDate() - 5)
+  fechaMin.setDate(fechaMin.getDate() - ventana.antes)
   const fechaMax = new Date(fechaBase)
-  fechaMax.setDate(fechaMax.getDate() + 30)
+  fechaMax.setDate(fechaMax.getDate() + ventana.despues)
 
   const { data: candidatosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
     .lt('importe', 0)
     .gte('fecha', fechaMin.toISOString().slice(0, 10))
     .lte('fecha', fechaMax.toISOString().slice(0, 10))
@@ -199,6 +221,7 @@ async function matchFacturaNormal(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
+    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
   }))
 
   if (candidatos.length === 0) {
@@ -213,14 +236,16 @@ async function matchFacturaNormal(
   }
 
   const total = Math.abs(factura.total)
-  const matchesExactos = candidatos.filter((c) => Math.abs(Math.abs(c.importe) - total) <= 0.5)
+  const matchesExactos = candidatos.filter(
+    (c) => Math.abs(Math.abs(c.importe) - total) <= TOLERANCIA_IMPORTE,
+  )
 
   if (matchesExactos.length === 0) {
     return {
       estado: 'pendiente_revision',
       matches: candidatos.slice(0, 5),
       confianza: 0,
-      mensaje: `Proveedor encontrado pero ningún importe cuadra con ${total.toFixed(2)}€`,
+      mensaje: `Proveedor encontrado pero ningún importe cuadra con ${total.toFixed(2)}€ (tolerancia ±${TOLERANCIA_IMPORTE}€)`,
     }
   }
 
@@ -256,7 +281,7 @@ async function matchFacturaMercadona(
 
   let q = supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
     .lt('importe', 0)
     .gte('fecha', inicio)
     .lte('fecha', fin)
@@ -275,6 +300,7 @@ async function matchFacturaMercadona(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
+    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
   }))
 
   if (movimientos.length === 0) {
@@ -298,7 +324,7 @@ async function matchFacturaMercadona(
   const totalFactura = Math.abs(factura.total)
   const diferencia = Math.abs(sumaMovs - totalFactura)
 
-  if (diferencia <= 0.5) {
+  if (diferencia <= TOLERANCIA_IMPORTE) {
     return {
       estado: 'asociada',
       matches: disponibles,
@@ -345,7 +371,7 @@ async function matchFacturaGlovoJustEat(
   // Buscar ingresos positivos (liquidaciones) en ventana, da igual la categoría contable
   const { data: ingresosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
     .gt('importe', 0)
     .gte('fecha', fechaInicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
@@ -358,6 +384,7 @@ async function matchFacturaGlovoJustEat(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
+    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
   }))
 
   if (ingresos.length === 0) {
@@ -398,7 +425,7 @@ async function matchFacturaRecapitulativa(
 
   const { data: movimientosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
     .lt('importe', 0)
     .gte('fecha', factura.periodo_inicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
@@ -411,6 +438,7 @@ async function matchFacturaRecapitulativa(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
+    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
   }))
 
   if (movimientos.length === 0) {
@@ -436,7 +464,7 @@ async function matchFacturaRecapitulativa(
   const totalFactura = Math.abs(factura.total)
   const diferencia = Math.abs(sumaMovs - totalFactura)
 
-  if (diferencia <= 0.5) {
+  if (diferencia <= TOLERANCIA_IMPORTE) {
     return {
       estado: 'asociada',
       matches: disponibles,
@@ -497,10 +525,29 @@ export async function aplicarMatching(
     await supabase.from('facturas_gastos').insert(filas)
   }
 
-  await supabase
-    .from('facturas')
-    .update({ estado: result.estado, mensaje_matching: result.mensaje })
-    .eq('id', facturaId)
+  // REGLA 08/05/26: si la factura quedó asociada con UN solo movimiento bancario,
+  // copiamos su categoria_codigo a la factura. Si hay varios movimientos
+  // pero todos tienen la misma categoría, también la copiamos.
+  let categoriaPropagada: string | null = null
+  if (result.estado === 'asociada' && result.matches.length > 0) {
+    const categorias = result.matches
+      .map((m) => m.categoria_codigo)
+      .filter((c): c is string => Boolean(c))
+    const unicas = Array.from(new Set(categorias))
+    if (unicas.length === 1) {
+      categoriaPropagada = unicas[0]
+    }
+  }
+
+  const updateFactura: Record<string, unknown> = {
+    estado: result.estado,
+    mensaje_matching: result.mensaje,
+  }
+  if (categoriaPropagada) {
+    updateFactura.categoria_factura = categoriaPropagada
+  }
+
+  await supabase.from('facturas').update(updateFactura).eq('id', facturaId)
 
   if (result.estado === 'asociada' && result.matches.length === 1) {
     await supabase
