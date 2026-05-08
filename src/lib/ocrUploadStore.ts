@@ -1,4 +1,4 @@
-// ocrUploadStore v10 — detecta errores críticos (créditos, API key, modelo) y los marca como ACHTUNG
+// ocrUploadStore v11 — try/catch por archivo en lectura para que un archivo malo no aborte el lote
 // Sesiones múltiples, persiste en localStorage, sobrevive F5
 
 import { useEffect, useState } from 'react'
@@ -95,7 +95,6 @@ if (typeof window !== 'undefined') {
     let cambio = false
     sessions = sessions.map(s => {
       if (!s.procesando && s.completadoEn && (ahora - s.completadoEn) > TTL_COMPLETADO_MS && s.visible) {
-        // No auto-ocultar si hay achtung activo
         if (s.achtung > 0) return s
         cambio = true
         return { ...s, visible: false }
@@ -175,7 +174,6 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
-// Detecta errores críticos del API de Anthropic
 function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'modelo' | 'otro'; mensaje: string } | null {
   const txt = detalle.toLowerCase()
   if (txt.includes('credit balance is too low') || txt.includes('credit balance')) {
@@ -193,7 +191,6 @@ function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'mod
   return null
 }
 
-// Procesar via /api/facturas?action=upload (Vercel) — facturas
 async function procesarFactura(item: { name: string; type: string; base64: string }): Promise<ArchivoLog> {
   try {
     const res = await fetch('/api/facturas?action=upload', {
@@ -247,7 +244,6 @@ async function procesarFactura(item: { name: string; type: string; base64: strin
   }
 }
 
-// Extractos siguen yendo a Supabase Edge Function (no se ha tocado esa)
 async function procesarExtracto(
   item: { name: string; type: string; base64: string },
   titular_id: string | null
@@ -300,7 +296,6 @@ async function runSession(sessionId: string) {
     const cur = getSession()
     if (!cur) break
 
-    // Si es achtung, abortar resto de archivos pendientes (no tiene sentido seguir)
     const esAchtung = logEntry.status === 'achtung'
     const patch: Partial<OcrSession> = {
       enviados: cur.enviados + 1,
@@ -317,7 +312,6 @@ async function runSession(sessionId: string) {
         patch.achtungMensaje = ach.mensaje
         patch.achtungTipo = ach.tipo
       }
-      // Abortar: vaciar pendientes y marcar todos como error con mismo detalle
       patch.archivosPendientes = []
       patch.procesando = false
     }
@@ -352,28 +346,44 @@ export function useOcrUpload() {
     titular_id: string | null
   ) {
     const archivosSerial: { name: string; type: string; base64: string }[] = []
+    const fallosLectura: ArchivoLog[] = []
+
+    // FIX v11: try/catch por archivo. Si uno falla en lectura, los demás siguen
+    // y el fallo se registra en el log como error visible al usuario.
     for (const file of files) {
-      let base64: string
-      if (esExcel(file.name)) {
-        const csvTexto = await excelACSV(file)
-        base64 = btoa(unescape(encodeURIComponent(csvTexto)))
-        archivosSerial.push({ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', base64 })
-      } else if (esTextoPlano(file.name, file.type)) {
-        const texto = await leerTexto(file)
-        base64 = btoa(unescape(encodeURIComponent(texto)))
-        archivosSerial.push({ name: file.name, type: 'text/csv', base64 })
-      } else {
-        base64 = await leerBase64(file)
-        archivosSerial.push({ name: file.name, type: getMimeType(file), base64 })
+      try {
+        let base64: string
+        if (esExcel(file.name)) {
+          const csvTexto = await excelACSV(file)
+          base64 = btoa(unescape(encodeURIComponent(csvTexto)))
+          archivosSerial.push({ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', base64 })
+        } else if (esTextoPlano(file.name, file.type)) {
+          const texto = await leerTexto(file)
+          base64 = btoa(unescape(encodeURIComponent(texto)))
+          archivosSerial.push({ name: file.name, type: 'text/csv', base64 })
+        } else {
+          base64 = await leerBase64(file)
+          archivosSerial.push({ name: file.name, type: getMimeType(file), base64 })
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        fallosLectura.push({
+          filename: file.name,
+          status: 'error',
+          detalle: `Error leyendo archivo: ${msg}`,
+        })
       }
     }
 
     const newSession: OcrSession = {
       id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      total: files.length,
-      enviados: 0, ok: 0, pendientes: 0, duplicados: 0, errores: 0,
+      total: files.length, // total es el lanzado, NO los leídos OK
+      enviados: fallosLectura.length, // los fallos cuentan como enviados/errores ya
+      ok: 0, pendientes: 0, duplicados: 0,
+      errores: fallosLectura.length,
       achtung: 0, achtungMensaje: null, achtungTipo: null,
-      log: [], visible: true, procesando: true,
+      log: [...fallosLectura],
+      visible: true, procesando: true,
       fnName, titular_id,
       archivosPendientes: archivosSerial,
       creadoEn: Date.now(),
