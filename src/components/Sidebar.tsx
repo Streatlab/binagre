@@ -64,11 +64,11 @@ const SECTIONS: NavSection[] = [
   {
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
       { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
-      { path: '/carta',                   label: 'Carta',               emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/cocina/recetario',        label: 'Recetario',         emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
+      { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -82,20 +82,20 @@ const SECTIONS: NavSection[] = [
   {
     key: 'informes', emoji: '📑', label: 'Informes', perfiles: ['admin'],
     items: [
-      { path: '/informes',                  label: 'Panel Informes',     emoji: '📊', perfiles: ['admin'] },
-      { path: '/informes/destinatarios',    label: 'Destinatarios',      emoji: '👥', perfiles: ['admin'] },
-      { path: '/informes/historial',        label: 'Historial envíos',   emoji: '🕒', perfiles: ['admin'] },
-      { path: '/informes/configuracion',    label: 'Configuración',      emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/informes',               label: 'Panel Informes',   emoji: '📊', perfiles: ['admin'] },
+      { path: '/informes/destinatarios', label: 'Destinatarios',    emoji: '👥', perfiles: ['admin'] },
+      { path: '/informes/historial',     label: 'Historial envíos', emoji: '🕒', perfiles: ['admin'] },
+      { path: '/informes/configuracion', label: 'Configuración',    emoji: '⚙️', perfiles: ['admin'] },
     ],
   },
   {
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
-      { path: '/configuracion/marcas',                label: 'Marcas',                   emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/configuracion/bancos-y-cuentas',       label: 'Bancos y Cuentas',        emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/plataformas',           label: 'Plataformas',              emoji: '📡', perfiles: ['admin'] },
-      { path: '/configuracion/usuarios',              label: 'Usuarios',                 emoji: '👤', perfiles: ['admin'] },
-      { path: '/configuracion/calendario',             label: 'Calendario operativo',     emoji: '📅', perfiles: ['admin'] },
+      { path: '/configuracion/integraciones',    label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
+      { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
+      { path: '/configuracion/plataformas',      label: 'Plataformas',          emoji: '📡', perfiles: ['admin'] },
+      { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
+      { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
     ],
   },
 ]
@@ -161,7 +161,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Búsqueda Avanzada',            emoji: '🔎' },
   { label: 'Ranking Marcas',               emoji: '📊' },
   { label: 'Ranking Canales',              emoji: '📡' },
-  { label: 'Integraciones',                emoji: '🔌' },
   { label: 'Alérgenos',                    emoji: '🥜' },
   { label: 'Alertas Caducidad',            emoji: '⏰' },
   { label: 'Automatización Impuestos',     emoji: '🧾' },
