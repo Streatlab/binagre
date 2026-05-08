@@ -26,6 +26,9 @@ const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls'
 
+// Estados de facturas considerados "conciliados"  (la factura tiene resolución contable, con o sin movimiento bancario)
+const ESTADOS_CONCILIADOS = new Set(['asociada', 'solo_drive', 'historica'])
+
 function parsePageSize(raw: string | null): PageSize {
   const n = Number(raw)
   return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE
@@ -37,14 +40,13 @@ function parsePage(raw: string | null): number {
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
-interface ConciliacionRef { id: string; doc_estado: string }
 
 interface Factura {
   id: string; fecha_factura: string; proveedor_nombre: string; total: number; tipo: string
   categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null
   pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null
   numero_factura: string | null; estado: string
-  conciliacion_refs: ConciliacionRef[]
+  matches_count: number
 }
 
 interface Agregados {
@@ -55,12 +57,15 @@ interface Agregados {
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc {
-  const noRequiere = f.conciliacion_refs.some(r => r.doc_estado === 'no_requiere')
-  if (noRequiere) return 'no_requiere'
-  if (f.conciliacion_refs.length > 0 && f.pdf_drive_url) return 'conciliada'
+  // solo_drive = factura conciliada por regla (importe 0€, etc.) sin movimiento bancario
+  if (f.estado === 'solo_drive') return 'no_requiere'
+  // asociada = factura conciliada con movimiento bancario (independiente de Drive)
+  if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
   return 'pendiente'
 }
-function esConciliada(f: Factura): boolean { return getEstadoDoc(f) === 'conciliada' }
+function esConciliada(f: Factura): boolean {
+  return ESTADOS_CONCILIADOS.has(f.estado)
+}
 
 interface BtnSubirProps { label: string; sublabel: string; accept: string; onArchivos: (files: File[]) => void }
 function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
@@ -94,7 +99,7 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
 }
 
 function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick?: () => void }) {
-  if (estado === 'conciliada') return <div onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: '#0F6E56', cursor: 'pointer', userSelect: 'none' }} title="Factura conciliada · Ver documento">📎</div>
+  if (estado === 'conciliada') return <div onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: url ? '#0F6E56' : '#9ba8c0', cursor: url ? 'pointer' : 'default', userSelect: 'none' }} title={url ? 'Factura conciliada · Ver documento' : 'Factura conciliada · Drive pendiente'}>📎</div>
   if (estado === 'no_requiere') return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
   return <div onClick={e => { e.stopPropagation(); onClick?.() }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }} title="Falta documento · Haz clic para editar">✕</div>
 }
@@ -166,9 +171,9 @@ export default function Ocr() {
     const myFetchId = ++fetchIdRef.current
     setCargando(true); setErrorCarga(null)
     const from = (page - 1) * pageSize; const to = from + pageSize - 1
-    const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: null }
+    const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }
     const sortField = sortMap[sortColumn] ?? 'fecha_factura'
-    let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, conciliacion_refs:conciliacion(id, doc_estado)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
+    let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro')
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
     if (busquedaDebounced) { const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim(); if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`) }
@@ -177,7 +182,22 @@ export default function Ocr() {
     if (myFetchId !== fetchIdRef.current) return
     if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) }
     else {
-      const mapped: Factura[] = (data ?? []).map((m: any) => ({ id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '', total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null, pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null, numero_factura: m.numero_factura ?? null, estado: m.estado ?? '', conciliacion_refs: (m.conciliacion_refs ?? []).map((r: any) => ({ id: r.id, doc_estado: r.doc_estado ?? '' })) }))
+      const mapped: Factura[] = (data ?? []).map((m: any) => ({
+        id: m.id,
+        fecha_factura: m.fecha_factura,
+        proveedor_nombre: m.proveedor_nombre ?? '',
+        total: Number(m.total) || 0,
+        tipo: m.tipo ?? 'proveedor',
+        categoria_factura: m.categoria_factura ?? null,
+        nif_emisor: m.nif_emisor ?? null,
+        titular_id: m.titular_id ?? null,
+        pdf_drive_url: m.pdf_drive_url ?? null,
+        pdf_drive_id: m.pdf_drive_id ?? null,
+        pdf_filename: m.pdf_filename ?? null,
+        numero_factura: m.numero_factura ?? null,
+        estado: m.estado ?? '',
+        matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0,
+      }))
       let filtradas = mapped
       if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada)
       else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f))
@@ -188,15 +208,20 @@ export default function Ocr() {
 
   const cargarAgregados = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('facturas').select('id, total, pdf_drive_url, categoria_factura, titular_id, tipo, conciliacion_refs:conciliacion(id, doc_estado)').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
+      const { data, error } = await supabase.from('facturas').select('id, total, estado, tipo').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr).in('tipo', ['proveedor', 'plataforma'])
       if (error) throw error
       let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0, pendientesCount = 0, pendientesImporte = 0
       for (const r of data ?? []) {
-        totalCount++; const imp = Number(r.total) || 0; totalImporte += imp
-        const refs: ConciliacionRef[] = (r.conciliacion_refs ?? []).map((x: any) => ({ id: x.id, doc_estado: x.doc_estado ?? '' }))
-        const noRequiere = refs.some(x => x.doc_estado === 'no_requiere')
-        const conciliada = !noRequiere && refs.length > 0 && !!r.pdf_drive_url
-        if (conciliada || noRequiere) { conciliadasCount++; conciliadasImporte += imp } else { pendientesCount++; pendientesImporte += imp }
+        totalCount++
+        const imp = Number(r.total) || 0
+        totalImporte += imp
+        if (ESTADOS_CONCILIADOS.has(r.estado)) {
+          conciliadasCount++
+          conciliadasImporte += imp
+        } else {
+          pendientesCount++
+          pendientesImporte += imp
+        }
       }
       setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0, conciliadasImporte, pendientesCount, pendientesImporte })
     } catch { setAgregados(null) }
@@ -219,10 +244,7 @@ export default function Ocr() {
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  const filasVisibles = useMemo(() => {
-    if (sortColumn !== 'estado') return filas
-    return [...filas].sort((a, b) => { const ea = esConciliada(a) ? 'c' : 'p', eb = esConciliada(b) ? 'c' : 'p'; return sortDir === 'asc' ? ea.localeCompare(eb) : eb.localeCompare(ea) })
-  }, [filas, sortColumn, sortDir])
+  const filasVisibles = useMemo(() => filas, [filas])
 
   function getBadgeCategoria(f: Factura) {
     if (!f.categoria_factura) return null
@@ -421,7 +443,7 @@ export default function Ocr() {
       )}
 
       {facturaEditando && (
-        <OcrEditModal factura={facturaEditando} categoriasPyg={categoriasPyg} onClose={() => setFacturaEditando(null)}
+        <OcrEditModal factura={facturaEditando as any} categoriasPyg={categoriasPyg} onClose={() => setFacturaEditando(null)}
           onSaved={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }}
           onDeleted={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} />
       )}
