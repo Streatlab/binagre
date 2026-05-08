@@ -34,6 +34,27 @@ function normalizarNif(nif: string | null | undefined): string | null {
   return limpio || null
 }
 
+// Detecta titular por nombre del cliente cuando OCR no extrae el NIF correctamente.
+// Casos reales: facturas Lidl, Joaquín Ayora, Envases — el OCR confunde el NIF cliente
+// con un código interno de cliente del proveedor (ej: "623036634").
+function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
+  titularId: string | null
+  carpeta: string
+  match: boolean
+} {
+  if (!nombreCliente) return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
+  const n = nombreCliente.toLowerCase()
+  if (n.includes('rodriguez vinagre') || n.includes('rodríguez vinagre') ||
+      (n.includes('ruben') && n.includes('vinagre')) ||
+      (n.includes('rubén') && n.includes('vinagre'))) {
+    return { titularId: RUBEN_ID, carpeta: 'RUBÉN', match: true }
+  }
+  if (n.includes('emilio dorca') || (n.includes('emilio') && n.includes('dorca'))) {
+    return { titularId: EMILIO_ID, carpeta: 'EMILIO', match: true }
+  }
+  return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
+}
+
 function detectarCategoriaFactura(extracted: { proveedor_nombre: string; tipo?: string }): 'plataforma' | 'proveedor' {
   const nombre = (extracted.proveedor_nombre || '').toLowerCase()
   if (PLATAFORMAS_NOMBRES.some(p => nombre.includes(p))) return 'plataforma'
@@ -263,40 +284,51 @@ async function procesarContenidoPrincipal(
       proveedorId = nuevoProv?.id
     }
 
-    // Detectar titular por NIF cliente. Para facturas Uber/Glovo/Just Eat se asume Rubén por defecto (titular principal del negocio plataformas)
+    // Detectar titular: 1º por NIF, 2º por nombre del cliente, 3º plataforma=Rubén por defecto.
     let titularId: string | null = null
     let carpetaTitular = 'SIN_TITULAR'
     let pendienteTitularManual = false
 
-    // Normalizar NIF antes de comparar (OCR a veces devuelve minúsculas, guiones, espacios)
     const nifClienteNorm = normalizarNif(extracted.nif_cliente)
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+    const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
 
-    if (nifClienteNorm) {
-      if (nifClienteNorm === NIF_RUBEN) {
-        titularId = RUBEN_ID
-        carpetaTitular = 'RUBÉN'
-      } else if (nifClienteNorm === NIF_EMILIO) {
-        titularId = EMILIO_ID
-        carpetaTitular = 'EMILIO'
-      } else {
-        const { data: titular } = await supabase
-          .from('titulares')
-          .select('id, carpeta_drive')
-          .eq('nif', nifClienteNorm)
-          .maybeSingle()
-        if (titular) {
-          titularId = titular.id as string
-          carpetaTitular = (titular.carpeta_drive as string) || 'SIN_TITULAR'
-        } else {
-          pendienteTitularManual = true
-        }
-      }
-    } else if (extracted.tipo === 'plataforma') {
-      // Plataformas sin NIF cliente → titular por defecto Rubén (ajustable a futuro con regla)
+    // Paso 1: por NIF
+    if (nifClienteNorm === NIF_RUBEN) {
       titularId = RUBEN_ID
       carpetaTitular = 'RUBÉN'
-    } else {
+    } else if (nifClienteNorm === NIF_EMILIO) {
+      titularId = EMILIO_ID
+      carpetaTitular = 'EMILIO'
+    } else if (nifClienteNorm) {
+      const { data: titular } = await supabase
+        .from('titulares')
+        .select('id, carpeta_drive')
+        .eq('nif', nifClienteNorm)
+        .maybeSingle()
+      if (titular) {
+        titularId = titular.id as string
+        carpetaTitular = (titular.carpeta_drive as string) || 'SIN_TITULAR'
+      }
+    }
+
+    // Paso 2: si no se detectó por NIF, intentar por nombre del cliente
+    if (!titularId) {
+      const porNombre = detectarTitularPorNombre(nombreCliente)
+      if (porNombre.match) {
+        titularId = porNombre.titularId
+        carpetaTitular = porNombre.carpeta
+      }
+    }
+
+    // Paso 3: plataforma sin NIF detectado → Rubén por defecto
+    if (!titularId && extracted.tipo === 'plataforma') {
+      titularId = RUBEN_ID
+      carpetaTitular = 'RUBÉN'
+    }
+
+    // Si ninguna heurística lo detecta, queda pendiente manual
+    if (!titularId) {
       pendienteTitularManual = true
     }
 
@@ -354,8 +386,6 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // FIX: la conciliación no debe depender de Drive. Si el OCR identificó titular,
-    // intentamos matchear con extractos bancarios SIEMPRE (independiente del estado del Drive).
     if (!pendienteTitularManual) {
       try {
         const resultadoMatch = await matchFactura(supabase, {
@@ -366,7 +396,6 @@ async function procesarContenidoPrincipal(
         })
         await aplicarMatching(supabase, nueva.id, resultadoMatch)
       } catch (matchErr) {
-        // Conciliación falla → no bloquea factura, solo log
         console.error('[procesarArchivo] error en matching:', errMsg(matchErr))
       }
     }
@@ -402,11 +431,9 @@ async function procesarContenidoPrincipal(
         .eq('id', nueva.id)
     } catch (driveErr) {
       driveErrorMsg = errMsg(driveErr)
-      // FIX: si Drive falla por OAuth caducado, traducir a mensaje claro
       if (driveErrorMsg.includes('invalid_client') || driveErrorMsg.includes('invalid_grant')) {
         driveErrorMsg = 'Drive desconectado · Reconecta Google Drive en Ajustes'
       }
-      // El estado pendiente_titular_manual prevalece sobre drive_pendiente
       if (!pendienteTitularManual) {
         await supabase
           .from('facturas')
