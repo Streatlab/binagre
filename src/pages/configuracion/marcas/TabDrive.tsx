@@ -18,14 +18,18 @@ export default function TabDrive() {
     }
   }, [])
 
-  const conectar = () => {
-    window.location.href = '/api/oauth/google/start'
-  }
-
   const desconectar = async () => {
     if (!confirm('¿Desconectar la cuenta de Google Drive?')) return
     await fetch('/api/oauth/google/disconnect', { method: 'POST' })
     setEstado({ conectado: false })
+  }
+
+  const btnPrimario: React.CSSProperties = {
+    display: 'inline-block',
+    fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
+    textTransform: 'uppercase', padding: '11px 26px', borderRadius: 6,
+    background: '#B01D23', border: 'none', color: '#fff',
+    cursor: 'pointer', fontWeight: 600, textDecoration: 'none',
   }
 
   return (
@@ -65,18 +69,9 @@ export default function TabDrive() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href="/api/oauth/google/start" style={btnPrimario}>Reconectar cuenta</a>
             <button
-              onClick={conectar}
-              style={{
-                fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-                textTransform: 'uppercase', padding: '9px 20px', borderRadius: 6,
-                background: '#B01D23', border: 'none', color: '#fff',
-                cursor: 'pointer', fontWeight: 600,
-              }}
-            >
-              Reconectar cuenta
-            </button>
-            <button
+              type="button"
               onClick={desconectar}
               style={{
                 fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
@@ -102,17 +97,7 @@ export default function TabDrive() {
           <p style={{ fontSize: 12, color: T.mut, marginBottom: 18, lineHeight: 1.5 }}>
             Conecta tu cuenta de Google para subir facturas automáticamente a Drive y mantener los PDFs organizados por titular y trimestre.
           </p>
-          <button
-            onClick={conectar}
-            style={{
-              fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-              textTransform: 'uppercase', padding: '11px 26px', borderRadius: 6,
-              background: '#B01D23', border: 'none', color: '#fff',
-              cursor: 'pointer', fontWeight: 600,
-            }}
-          >
-            🔗 Conectar Google Drive
-          </button>
+          <a href="/api/oauth/google/start" style={btnPrimario}>🔗 Conectar Google Drive</a>
         </>
       )}
     </div>
