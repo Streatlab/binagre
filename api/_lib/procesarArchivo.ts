@@ -26,6 +26,14 @@ const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
+// Normaliza NIF: mayúsculas, sin espacios, sin guiones, sin puntos.
+// El OCR a veces devuelve "21669051s" (minúscula) o "B-26309096" (con guión).
+function normalizarNif(nif: string | null | undefined): string | null {
+  if (!nif) return null
+  const limpio = nif.replace(/[\s\-.]/g, '').toUpperCase()
+  return limpio || null
+}
+
 function detectarCategoriaFactura(extracted: { proveedor_nombre: string; tipo?: string }): 'plataforma' | 'proveedor' {
   const nombre = (extracted.proveedor_nombre || '').toLowerCase()
   if (PLATAFORMAS_NOMBRES.some(p => nombre.includes(p))) return 'plataforma'
@@ -260,18 +268,22 @@ async function procesarContenidoPrincipal(
     let carpetaTitular = 'SIN_TITULAR'
     let pendienteTitularManual = false
 
-    if (extracted.nif_cliente) {
-      if (extracted.nif_cliente === NIF_RUBEN) {
+    // Normalizar NIF antes de comparar (OCR a veces devuelve minúsculas, guiones, espacios)
+    const nifClienteNorm = normalizarNif(extracted.nif_cliente)
+    const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+
+    if (nifClienteNorm) {
+      if (nifClienteNorm === NIF_RUBEN) {
         titularId = RUBEN_ID
         carpetaTitular = 'RUBÉN'
-      } else if (extracted.nif_cliente === NIF_EMILIO) {
+      } else if (nifClienteNorm === NIF_EMILIO) {
         titularId = EMILIO_ID
         carpetaTitular = 'EMILIO'
       } else {
         const { data: titular } = await supabase
           .from('titulares')
           .select('id, carpeta_drive')
-          .eq('nif', extracted.nif_cliente)
+          .eq('nif', nifClienteNorm)
           .maybeSingle()
         if (titular) {
           titularId = titular.id as string
@@ -301,8 +313,8 @@ async function procesarContenidoPrincipal(
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
         titular_id: titularId,
-        nif_cliente: extracted.nif_cliente ?? null,
-        nif_emisor: (extracted as any).nif_emisor ?? null,
+        nif_cliente: nifClienteNorm,
+        nif_emisor: nifEmisorNorm,
         categoria_factura: detectarCategoriaFactura(extracted),
         base_4: extracted.base_4,
         iva_4: extracted.iva_4,
@@ -342,14 +354,21 @@ async function procesarContenidoPrincipal(
       }
     }
 
+    // FIX: la conciliación no debe depender de Drive. Si el OCR identificó titular,
+    // intentamos matchear con extractos bancarios SIEMPRE (independiente del estado del Drive).
     if (!pendienteTitularManual) {
-      const resultadoMatch = await matchFactura(supabase, {
-        ...extracted,
-        id: nueva.id,
-        total: extracted.total,
-        titular_id: titularId,
-      })
-      await aplicarMatching(supabase, nueva.id, resultadoMatch)
+      try {
+        const resultadoMatch = await matchFactura(supabase, {
+          ...extracted,
+          id: nueva.id,
+          total: extracted.total,
+          titular_id: titularId,
+        })
+        await aplicarMatching(supabase, nueva.id, resultadoMatch)
+      } catch (matchErr) {
+        // Conciliación falla → no bloquea factura, solo log
+        console.error('[procesarArchivo] error en matching:', errMsg(matchErr))
+      }
     }
 
     const ext = extensionDeNombre(file.nombre)
@@ -383,6 +402,11 @@ async function procesarContenidoPrincipal(
         .eq('id', nueva.id)
     } catch (driveErr) {
       driveErrorMsg = errMsg(driveErr)
+      // FIX: si Drive falla por OAuth caducado, traducir a mensaje claro
+      if (driveErrorMsg.includes('invalid_client') || driveErrorMsg.includes('invalid_grant')) {
+        driveErrorMsg = 'Drive desconectado · Reconecta Google Drive en Ajustes'
+      }
+      // El estado pendiente_titular_manual prevalece sobre drive_pendiente
       if (!pendienteTitularManual) {
         await supabase
           .from('facturas')
