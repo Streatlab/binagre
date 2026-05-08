@@ -26,7 +26,6 @@ const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls'
 
-// Estados de facturas considerados "conciliados"  (la factura tiene resolución contable, con o sin movimiento bancario)
 const ESTADOS_CONCILIADOS = new Set(['asociada', 'solo_drive', 'historica'])
 
 function parsePageSize(raw: string | null): PageSize {
@@ -57,9 +56,7 @@ interface Agregados {
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc {
-  // solo_drive = factura conciliada por regla (importe 0€, etc.) sin movimiento bancario
   if (f.estado === 'solo_drive') return 'no_requiere'
-  // asociada = factura conciliada con movimiento bancario (independiente de Drive)
   if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
   return 'pendiente'
 }
@@ -98,10 +95,36 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
   )
 }
 
-function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick?: () => void }) {
-  if (estado === 'conciliada') return <div onClick={e => { e.stopPropagation(); if (url) window.open(url, '_blank', 'noopener,noreferrer') }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: url ? '#0F6E56' : '#9ba8c0', cursor: url ? 'pointer' : 'default', userSelect: 'none' }} title={url ? 'Factura conciliada · Ver documento' : 'Factura conciliada · Drive pendiente'}>📎</div>
-  if (estado === 'no_requiere') return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
-  return <div onClick={e => { e.stopPropagation(); onClick?.() }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }} title="Falta documento · Haz clic para editar">✕</div>
+function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick: () => void }) {
+  // FIX: si hay url Drive → abre PDF directo. Si no hay url (Drive caído pero conciliada) → abre modal de la factura.
+  if (estado === 'conciliada') {
+    const tieneUrl = !!url
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (tieneUrl) {
+        window.open(url!, '_blank', 'noopener,noreferrer')
+      } else {
+        onClick()
+      }
+    }
+    return (
+      <div
+        onClick={handleClick}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: tieneUrl ? '#0F6E56' : '#9ba8c0', cursor: 'pointer', userSelect: 'none' }}
+        title={tieneUrl ? 'Factura conciliada · Ver PDF' : 'Conciliada · PDF pendiente de Drive · Click para detalle'}
+      >📎</div>
+    )
+  }
+  if (estado === 'no_requiere') {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
+  }
+  return (
+    <div
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+      title="Falta documento · Haz clic para editar"
+    >✕</div>
+  )
 }
 
 export default function Ocr() {
