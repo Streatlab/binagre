@@ -13,13 +13,29 @@ type DriveExtracted = {
 }
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || ''
+const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
 
 /**
- * Devuelve el cliente Drive global. Hay un solo token OAuth en todo el sistema.
- * La separación por titular se hace en la estructura de carpetas (RUBEN/, EMILIO/),
- * no a nivel de cuenta Google.
+ * Devuelve el cliente Drive. Prioridad:
+ * 1. Service Account si GOOGLE_SERVICE_ACCOUNT_JSON está configurado (no caduca).
+ * 2. OAuth user fallback.
  */
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
+  if (SERVICE_ACCOUNT_JSON) {
+    let credentials: { client_email: string; private_key: string }
+    try {
+      credentials = JSON.parse(SERVICE_ACCOUNT_JSON)
+    } catch {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON no es JSON válido')
+    }
+    const auth = new google.auth.JWT({
+      email: credentials.client_email,
+      key: credentials.private_key.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    })
+    await auth.authorize()
+    return google.drive({ version: 'v3', auth })
+  }
   const auth = await getOAuthClient()
   return google.drive({ version: 'v3', auth })
 }
@@ -32,6 +48,8 @@ async function getOrCreateFolder(drive: drive_v3.Drive, name: string, parentId: 
   const { data } = await drive.files.list({
     q: listQ,
     fields: 'files(id)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   })
   if (data.files?.[0]?.id) return data.files[0].id
   const { data: created } = await drive.files.create({
@@ -41,6 +59,7 @@ async function getOrCreateFolder(drive: drive_v3.Drive, name: string, parentId: 
       parents: parentId ? [parentId] : undefined,
     },
     fields: 'id',
+    supportsAllDrives: true,
   })
   return created.id!
 }
@@ -61,7 +80,7 @@ const MESES = [
 function slug(s: string): string {
   return (s || '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '')
     .trim()
 }
@@ -89,8 +108,6 @@ export async function subirArchivoADrive(
   const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
   const carpetaTitular = extracted.carpeta_titular || 'SIN_TITULAR'
 
-  // Estructura: {raíz configurable}/STREATLAB_FACTURAS/{TITULAR}/{año}/{trimestre}/{mes}/{tipo}/archivo
-  // Si hay ROOT_FOLDER_ID y el user lo comparte, se usa como ancla. Si no, se crea en root.
   const anclaId: string | null = ROOT_FOLDER_ID || null
   let folderId: string
   if (anclaId) {
@@ -113,14 +130,12 @@ export async function subirArchivoADrive(
       body: Readable.from(buffer),
     },
     fields: 'id, webViewLink',
+    supportsAllDrives: true,
   })
 
   return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
 }
 
-/**
- * Backwards-compat (upload.ts antiguo llamaba a esto con nombre que ya incluía .pdf).
- */
 export async function subirPdfADrive(
   buffer: Buffer,
   nombre: string,
