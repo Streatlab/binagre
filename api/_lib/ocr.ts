@@ -55,6 +55,8 @@ Reglas:
 - nif_emisor: NIF/CIF de quien EMITE. Si no aparece null.
 - nombre_cliente: razon social del cliente. Si no aparece null.
 
+IMPORTANTE: NUNCA confundas el NIF/DNI con el número de factura. El número de factura suele tener formato A-2026/000123, INV-2026-001, B26/0001283, FAC-2026-12345, etc. El NIF/DNI tiene 8 dígitos + letra (formato 12345678X) o letra + 8 dígitos (B26309096). Si el documento solo tiene NIFs y ningún identificador único de factura, devuelve null en numero_factura.
+
 Devuelve SOLO el JSON, nada mas.`
 
 export type ExtractedFactura = {
@@ -98,9 +100,9 @@ type ContentBlock =
   | { type: 'text'; text: string }
 
 // Modelo activo en producción a 08/05/2026.
-// Haiku 4.5 es óptimo para OCR de facturas: ~3x más barato que Sonnet, soporta vision (PDF + imagen),
-// suficiente calidad para extracción estructurada. Confirmado vivo en https://platform.claude.com/docs/en/about-claude/models/overview
-const MODELO_OCR_DEFAULT = 'claude-haiku-4-5-20251001'
+// Sonnet 4.6: mejor precisión en tickets pequeños y PDFs con datos densos (NIFs, números factura, importes).
+// Cambio 08/05/26: Haiku confundió DNI con número factura en ticket Lidl. Sonnet más fiable.
+const MODELO_OCR_DEFAULT = 'claude-sonnet-4-6'
 
 // Whitelist de modelos conocidos válidos. Si ANTHROPIC_MODEL en env contiene un valor que no está aquí,
 // se ignora y usa el default. Esto evita que un typo (ej: claude-sonnet-4-5-20251022, no existe)
