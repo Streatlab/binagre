@@ -19,8 +19,6 @@ export type ProcesarEstado =
   | 'error'
   | 'ok'
 
-const PLATAFORMAS_NOMBRES = ['uber eats', 'uber bv', 'portier eats', 'glovo', 'glovoapp', 'just eat', 'takeaway', 'rushour']
-
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
@@ -53,12 +51,6 @@ function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
     return { titularId: EMILIO_ID, carpeta: 'EMILIO', match: true }
   }
   return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
-}
-
-function detectarCategoriaFactura(extracted: { proveedor_nombre: string; tipo?: string }): 'plataforma' | 'proveedor' {
-  const nombre = (extracted.proveedor_nombre || '').toLowerCase()
-  if (PLATAFORMAS_NOMBRES.some(p => nombre.includes(p))) return 'plataforma'
-  return extracted.tipo === 'plataforma' ? 'plataforma' : 'proveedor'
 }
 
 export interface ProcesarResultado {
@@ -332,6 +324,9 @@ async function procesarContenidoPrincipal(
       pendienteTitularManual = true
     }
 
+    // REGLA 08/05/26: NUNCA inventar categoria_factura. La categoría real
+    // viene del movimiento bancario al matchear (en aplicarMatching) o de
+    // reglas_conciliacion. Si no hay match, queda NULL.
     await supabase
       .from('facturas')
       .update({
@@ -347,7 +342,7 @@ async function procesarContenidoPrincipal(
         titular_id: titularId,
         nif_cliente: nifClienteNorm,
         nif_emisor: nifEmisorNorm,
-        categoria_factura: detectarCategoriaFactura(extracted),
+        categoria_factura: null,
         base_4: extracted.base_4,
         iva_4: extracted.iva_4,
         base_10: extracted.base_10,
