@@ -134,7 +134,7 @@ function TabDrive() {
               cursor: 'pointer', fontWeight: 600,
             }}
           >
-            🔗 Conectar Google Drive
+            🔗 Conectar con Google Drive
           </button>
         </>
       )}
