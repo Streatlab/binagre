@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 
 type Tab = 'drive'
@@ -56,14 +55,14 @@ function TabDrive() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/oauth/google/status')
+    fetch('/api/oauth/google?action=status')
       .then(r => r.json())
       .then(d => { setEstado(d); setLoading(false) })
       .catch(() => { setEstado({ conectado: false }); setLoading(false) })
   }, [])
 
   const conectar = () => {
-    window.location.href = '/api/oauth/google/connect'
+    window.location.href = '/api/oauth/google?action=start'
   }
 
   return (
