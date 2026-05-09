@@ -40,6 +40,7 @@ import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
+import Mockup from '@/pages/Mockup'
 import Ocr from '@/pages/Ocr'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
@@ -157,6 +158,7 @@ function AppRoutes() {
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+        <Route path="mockup" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
