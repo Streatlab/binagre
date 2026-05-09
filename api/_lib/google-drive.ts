@@ -1,7 +1,7 @@
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
-import { getOAuthClient } from './google-oauth.js'
+import { getOAuthClient, tieneDriveConectado } from './google-oauth.js'
 
 type DriveExtracted = {
   proveedor_nombre: string
@@ -17,10 +17,23 @@ const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
 
 /**
  * Devuelve el cliente Drive. Prioridad:
- * 1. Service Account si GOOGLE_SERVICE_ACCOUNT_JSON está configurado (no caduca).
- * 2. OAuth user fallback.
+ * 1. OAuth de usuario si está conectado (Drive personal con cuota).
+ * 2. Service Account fallback (NO funciona en Drive personal sin shared drive: no tiene cuota).
+ *
+ * Nota 09/05/26: el Service Account de Google no tiene quota propia de almacenamiento.
+ * Subir archivos a una carpeta de Drive personal con SA da error
+ * "Service Accounts do not have storage quota". Para que funcione hay
+ * que usar OAuth del usuario o un Shared Drive (Workspace).
  */
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
+  // 1. Intentar OAuth si hay token guardado
+  const oauthStatus = await tieneDriveConectado()
+  if (oauthStatus.conectado) {
+    const auth = await getOAuthClient()
+    return google.drive({ version: 'v3', auth })
+  }
+
+  // 2. Fallback Service Account (solo útil con Shared Drive)
   if (SERVICE_ACCOUNT_JSON) {
     let credentials: { client_email: string; private_key: string }
     try {
@@ -36,8 +49,8 @@ async function getDriveGlobal(): Promise<drive_v3.Drive> {
     await auth.authorize()
     return google.drive({ version: 'v3', auth })
   }
-  const auth = await getOAuthClient()
-  return google.drive({ version: 'v3', auth })
+
+  throw new Error('Drive no configurado. Conecta Google Drive en Integraciones.')
 }
 
 async function getOrCreateFolder(drive: drive_v3.Drive, name: string, parentId: string | null): Promise<string> {
