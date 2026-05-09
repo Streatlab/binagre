@@ -315,11 +315,18 @@ export default function Ocr() {
         await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds)
       }
 
-      // 3. Borrar archivos Drive (best effort)
+      // 3. Borrar archivos Drive (debe completar; si falla alguno se reporta y se aborta el resto)
+      const driveErrors: string[] = []
       for (const driveId of driveIds) {
         try {
           await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } })
-        } catch {/* swallow */}
+        } catch (e: any) {
+          driveErrors.push(`${driveId}: ${e?.message || 'error'}`)
+        }
+      }
+      if (driveErrors.length > 0) {
+        toast.error(`No se pudieron borrar ${driveErrors.length} archivo(s) de Drive. Se cancela el borrado.`)
+        return
       }
 
       // 4. Borrar facturas
@@ -444,7 +451,7 @@ export default function Ocr() {
                 </>
               ) : (
                 <>
-                  <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borrarán las facturas, se quitarán asociaciones y se intentará borrar PDFs en Drive.</span>
+                  <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borran las facturas, sus asociaciones y los PDFs en Drive.</span>
                   <button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
                     Cancelar
                   </button>
