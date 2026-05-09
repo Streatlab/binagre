@@ -3,9 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toastStore'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import OcrEditModal from '@/components/ocr/OcrEditModal'
+import ModalDetalleFactura from '@/components/ocr/ModalDetalleFactura'
 import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import VentasTab from '@/components/ocr/VentasTab'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
@@ -96,7 +97,6 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
 }
 
 function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick: () => void }) {
-  // FIX: si hay url Drive → abre PDF directo. Si no hay url (Drive caído pero conciliada) → abre modal de la factura.
   if (estado === 'conciliada') {
     const tieneUrl = !!url
     const handleClick = (e: React.MouseEvent) => {
@@ -111,18 +111,18 @@ function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | n
       <div
         onClick={handleClick}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: tieneUrl ? '#0F6E56' : '#9ba8c0', cursor: 'pointer', userSelect: 'none' }}
-        title={tieneUrl ? 'Factura conciliada · Ver PDF' : 'Conciliada · PDF pendiente de Drive · Click para detalle'}
+        title={tieneUrl ? 'Conciliada · Ver PDF' : 'Conciliada · PDF pendiente de Drive · Click para detalle'}
       >📎</div>
     )
   }
   if (estado === 'no_requiere') {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 18, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
   }
   return (
     <div
       onClick={e => { e.stopPropagation(); onClick() }}
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
-      title="Falta documento · Haz clic para editar"
+      title="Falta documento o asociación · Click para editar"
     >✕</div>
   )
 }
@@ -161,6 +161,11 @@ export default function Ocr() {
   const [exportando, setExportando] = useState(false)
   const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
   const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
+
+  // SELECCIÓN MÚLTIPLE
+  const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
+  const [confirmarBorrarLote, setConfirmarBorrarLote] = useState(false)
+  const [borrandoLote, setBorrandoLote] = useState(false)
 
   const { sessions, procesar } = useOcrUpload()
 
@@ -258,6 +263,12 @@ export default function Ocr() {
     if (page > tp) updateUrl({ page: tp })
   }, [cargando, total, pageSize, page, updateUrl])
 
+  // Limpiar selección cuando cambia el filtrado/página
+  useEffect(() => {
+    setSeleccionadas(new Set())
+    setConfirmarBorrarLote(false)
+  }, [page, pageSize, filtroCard, catFiltro, busquedaDebounced, tab])
+
   const onCambiarFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarBusqueda = (v: string) => { setBusqueda(v); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarCatFiltro = (v: string) => { setCatFiltro(v); if (page !== 1) updateUrl({ page: 1 }) }
@@ -268,6 +279,63 @@ export default function Ocr() {
   }
 
   const filasVisibles = useMemo(() => filas, [filas])
+
+  const todasSeleccionadas = filasVisibles.length > 0 && filasVisibles.every(f => seleccionadas.has(f.id))
+  const algunaSeleccionada = filasVisibles.some(f => seleccionadas.has(f.id))
+
+  function toggleSeleccion(id: string) {
+    setSeleccionadas(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function toggleSeleccionTodas() {
+    if (todasSeleccionadas) {
+      setSeleccionadas(new Set())
+    } else {
+      setSeleccionadas(new Set(filasVisibles.map(f => f.id)))
+    }
+  }
+
+  async function handleBorrarLote() {
+    if (seleccionadas.size === 0) return
+    setBorrandoLote(true)
+    try {
+      const ids = Array.from(seleccionadas)
+      // 1. Obtener facturas con pdf_drive_id y movs asociados
+      const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids)
+      const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]
+      const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]
+
+      // 2. Quitar asociaciones y limpiar movs
+      if (movIds.length > 0) {
+        await supabase.from('facturas_gastos').delete().in('factura_id', ids)
+        await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds)
+      }
+
+      // 3. Borrar archivos Drive (best effort)
+      for (const driveId of driveIds) {
+        try {
+          await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } })
+        } catch {/* swallow */}
+      }
+
+      // 4. Borrar facturas
+      const { error: errDel } = await supabase.from('facturas').delete().in('id', ids)
+      if (errDel) throw errDel
+
+      toast.success(`${ids.length} factura${ids.length > 1 ? 's' : ''} borrada${ids.length > 1 ? 's' : ''}`)
+      setSeleccionadas(new Set())
+      setConfirmarBorrarLote(false)
+      setRefreshTick(x => x + 1)
+    } catch (err: any) {
+      toast.error(err.message || 'Error borrando')
+    } finally {
+      setBorrandoLote(false)
+    }
+  }
 
   function getBadgeCategoria(f: Factura) {
     if (!f.categoria_factura) return null
@@ -358,6 +426,36 @@ export default function Ocr() {
             <button onClick={handleExportar} disabled={exportando} style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}>{exportando ? 'Exportando...' : 'Exportar'}</button>
           </div>
 
+          {/* Barra acción lote */}
+          {seleccionadas.size > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}>
+              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>
+                {seleccionadas.size} factura{seleccionadas.size > 1 ? 's' : ''} seleccionada{seleccionadas.size > 1 ? 's' : ''}
+              </span>
+              <div style={{ flex: 1 }} />
+              {!confirmarBorrarLote ? (
+                <>
+                  <button onClick={() => setSeleccionadas(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+                    Quitar selección
+                  </button>
+                  <button onClick={() => setConfirmarBorrarLote(true)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
+                    Borrar seleccionadas
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borrarán las facturas, se quitarán asociaciones y se intentará borrar PDFs en Drive.</span>
+                  <button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleBorrarLote} disabled={borrandoLote} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrandoLote ? 0.6 : 1 }}>
+                    {borrandoLote ? 'Borrando…' : 'Sí, borrar'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {errorCarga && (
             <div style={{ background: '#fff5f5', border: '0.5px solid #B01D23', borderRadius: 8, padding: '10px 14px', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23' }}>
               <span>{errorCarga}</span>
@@ -374,16 +472,22 @@ export default function Ocr() {
             <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
               {cargando ? <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div> : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 900, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-                    <colgroup><col style={{ width: 90 }} /><col /><col style={{ width: '14%' }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 60 }} /><col style={{ width: 130 }} /><col style={{ width: 100 }} /></colgroup>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 940, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+                    <colgroup>
+                      <col style={{ width: 40 }} />
+                      <col style={{ width: 90 }} /><col /><col style={{ width: '14%' }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 60 }} /><col style={{ width: 130 }} /><col style={{ width: 100 }} />
+                    </colgroup>
                     <thead>
                       <tr>
+                        <th style={{ padding: '10px 8px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc', textAlign: 'center' }}>
+                          <input type="checkbox" checked={todasSeleccionadas} ref={el => { if (el) el.indeterminate = !todasSeleccionadas && algunaSeleccionada }} onChange={toggleSeleccionTodas} style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#FF4757' }} />
+                        </th>
                         {HEADERS.map(h => { const isActive = sortColumn === h.col; return <th key={h.col} onClick={() => handleSort(h.col)} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align, padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>{h.label}{isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th> })}
                       </tr>
                     </thead>
                     <tbody>
                       {filasVisibles.length === 0 ? (
-                        <tr><td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Sin resultados</td></tr>
+                        <tr><td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Sin resultados</td></tr>
                       ) : filasVisibles.map((f, idx) => {
                         const isLast = idx === filasVisibles.length - 1
                         const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
@@ -395,8 +499,12 @@ export default function Ocr() {
                         const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                         const isEmilio = titNombre.includes('emilio')
                         const contraparte = f.proveedor_nombre || '—'
+                        const sel = seleccionadas.has(f.id)
                         return (
-                          <tr key={f.id} style={{ cursor: 'pointer' }} onClick={() => setFacturaEditando(f)} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f5f3ef60'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}>
+                          <tr key={f.id} style={{ cursor: 'pointer', background: sel ? '#FF475710' : undefined }} onClick={() => setFacturaEditando(f)} onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }} onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = '' }}>
+                            <td style={{ ...tdBase, padding: '8px', textAlign: 'center' }} onClick={e => { e.stopPropagation(); toggleSeleccion(f.id) }}>
+                              <input type="checkbox" checked={sel} onChange={() => toggleSeleccion(f.id)} onClick={e => e.stopPropagation()} style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#FF4757' }} />
+                            </td>
                             <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_factura)}</td>
                             <td style={{ ...tdBase, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contraparte.length > 40 ? contraparte.slice(0, 40) + '…' : contraparte}</td>
                             <td style={{ ...tdBase, color: f.nif_emisor ? '#111' : '#7a8090', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nif_emisor || 'Sin identificar'}</td>
@@ -466,7 +574,10 @@ export default function Ocr() {
       )}
 
       {facturaEditando && (
-        <OcrEditModal factura={facturaEditando as any} categoriasPyg={categoriasPyg} onClose={() => setFacturaEditando(null)}
+        <ModalDetalleFactura
+          factura={facturaEditando as any}
+          categoriasPyg={categoriasPyg}
+          onClose={() => setFacturaEditando(null)}
           onSaved={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }}
           onDeleted={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} />
       )}
