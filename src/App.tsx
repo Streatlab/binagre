@@ -41,6 +41,14 @@ import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
 import Mockup from '@/pages/Mockup'
+import MockupBinagrePosthog from '@/pages/mockups/MockupBinagrePosthog'
+import MockupHolded from '@/pages/mockups/MockupHolded'
+import MockupMarginEdge from '@/pages/mockups/MockupMarginEdge'
+import MockupRestaurant365 from '@/pages/mockups/MockupRestaurant365'
+import MockupFusion3 from '@/pages/mockups/MockupFusion3'
+import MockupFusion3Binagre from '@/pages/mockups/MockupFusion3Binagre'
+import MockupBinagreColors from '@/pages/mockups/MockupBinagreColors'
+import MockupPosthogBinagre from '@/pages/mockups/MockupPosthogBinagre'
 import Ocr from '@/pages/Ocr'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
@@ -123,7 +131,6 @@ function AppRoutes() {
         <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
         <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
 
-        {/* Configuración · Integraciones (Marcas + Canales + Drive) */}
         <Route path="configuracion/integraciones" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
           <Route path="canales" element={<TabCanales />} />
@@ -158,7 +165,19 @@ function AppRoutes() {
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
-        <Route path="mockup" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
+
+        {/* Mockup desplegable con 8 submódulos */}
+        <Route path="mockup" element={<Navigate to="/mockup/binagre-posthog" replace />} />
+        <Route path="mockup/binagre-posthog" element={<ProtectedRoute solo={['admin']}><MockupBinagrePosthog /></ProtectedRoute>} />
+        <Route path="mockup/holded" element={<ProtectedRoute solo={['admin']}><MockupHolded /></ProtectedRoute>} />
+        <Route path="mockup/marginedge" element={<ProtectedRoute solo={['admin']}><MockupMarginEdge /></ProtectedRoute>} />
+        <Route path="mockup/restaurant365" element={<ProtectedRoute solo={['admin']}><MockupRestaurant365 /></ProtectedRoute>} />
+        <Route path="mockup/fusion3" element={<ProtectedRoute solo={['admin']}><MockupFusion3 /></ProtectedRoute>} />
+        <Route path="mockup/fusion3-binagre" element={<ProtectedRoute solo={['admin']}><MockupFusion3Binagre /></ProtectedRoute>} />
+        <Route path="mockup/binagre-colors" element={<ProtectedRoute solo={['admin']}><MockupBinagreColors /></ProtectedRoute>} />
+        <Route path="mockup/posthog-binagre" element={<ProtectedRoute solo={['admin']}><MockupPosthogBinagre /></ProtectedRoute>} />
+        {/* Compatibilidad con la ruta antigua /mockup */}
+        <Route path="mockup-old" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
