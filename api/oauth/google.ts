@@ -94,8 +94,9 @@ async function callback(req: VercelRequest, res: VercelResponse) {
 
 async function status(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-  // Si validate=1 (o por defecto) prueba el refresh real y autoborra si está corrupto
-  const validate = req.query.validate !== '0'
+  // Valida el token real solo si se pasa validate=1 explícitamente
+  // Por defecto solo comprueba si existe el registro en BBDD (sin hacer refresh)
+  const validate = req.query.validate === '1'
   const s = await tieneDriveConectado({ validate })
   return res.status(200).json(s)
 }
