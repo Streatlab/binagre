@@ -1,35 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
-import { toast } from '@/lib/toastStore'
-
-/**
- * MODAL UNIFICADO Factura ↔ Movimiento bancario.
- *
- * Ley maestra (definida 09/05/26 por Rubén):
- * Factura y movimiento bancario son LA MISMA REALIDAD vista desde 2 sitios.
- * Campos idénticos en ambos lados: titular, importe (±0.05€),
- * fecha (con ventanas conocidas), categoría (copiada del banco), contraparte, NIF.
- *
- * Al asociar factura↔movimiento:
- *  - La categoría del movimiento bancario se copia a la factura (categoria_factura).
- *  - El proveedor canónico de la factura se copia al movimiento (campo proveedor).
- *  - El NIF emisor de la factura se guarda como referencia en el movimiento.
- *  - El movimiento pasa a doc_estado='tiene' si los importes cuadran (±0.05€).
- *  - La factura pasa a estado='asociada'.
- *
- * Al desasociar:
- *  - Se borra la fila facturas_gastos.
- *  - El movimiento pasa a doc_estado='falta'.
- *  - La factura pierde el match (estado vuelve a sin_match o pendiente_revision).
- *  - La categoría se mantiene (puede haberla puesto Rubén manualmente).
- */
 
 const TOLERANCIA = 0.05
 
-// Ventana temporal por proveedor (días antes / después de la fecha factura)
 const VENTANAS: Record<string, { antes: number; despues: number }> = {
-  lidl: { antes: 5, despues: 105 }, // Lidl emite con retraso
+  lidl: { antes: 5, despues: 105 },
 }
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
@@ -93,7 +69,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
     return base
   }, [factura.proveedor_nombre, ampliarVentana])
 
-  // Buscar candidatos: mismo titular + importe ±0.05€ + ventana fecha
   const buscarCandidatos = useCallback(async () => {
     if (!factura.titular_id || !factura.fecha_factura || !factura.total) return
     setCargandoMovs(true)
@@ -113,7 +88,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         .order('fecha', { ascending: false })
         .limit(40)
 
-      // Si está asociada, asegurarnos de que el mov asociado esté en la lista aunque caiga fuera de la ventana
       const asociado = factura.facturas_gastos?.find(fg => fg.confirmado)?.conciliacion_id
       let movs: MovBanco[] = (data || []).map((d: any) => ({
         id: d.id,
@@ -149,7 +123,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
   useEffect(() => { buscarCandidatos() }, [buscarCandidatos])
 
-  // Cuando cambia el movimiento seleccionado, proponer su categoría como categoría de la factura
   useEffect(() => {
     if (!movimientoId) return
     const m = movsCandidatos.find(x => x.id === movimientoId)
@@ -166,26 +139,20 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
     try {
       const movActual = factura.facturas_gastos?.find(fg => fg.confirmado)
       const movSeleccionado = movsCandidatos.find(m => m.id === movimientoId) || null
-
-      // Categoría definitiva: si hay mov asociado, su categoria_codigo manda. Si no, la del select.
       const categoriaFinal = movSeleccionado?.categoria_codigo || categoria || null
 
-      // 1. Actualizar factura (categoría + nif + estado)
       const updateFactura: Record<string, unknown> = {
         categoria_factura: categoriaFinal,
       }
       if (movSeleccionado) {
         updateFactura.estado = 'asociada'
       } else if (movActual) {
-        // Se quita asociación
         updateFactura.estado = 'sin_match'
       }
       const { error: errF } = await supabase.from('facturas').update(updateFactura).eq('id', factura.id)
       if (errF) throw new Error(`Factura: ${errF.message}`)
 
-      // 2. Sincronizar facturas_gastos
       if (movimientoId && movimientoId !== movActual?.conciliacion_id) {
-        // Quitar la anterior si la había
         if (movActual) {
           await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
           await supabase.from('conciliacion').update({
@@ -193,7 +160,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             factura_id: null,
           }).eq('id', movActual.conciliacion_id)
         }
-        // Crear nueva
         await supabase.from('facturas_gastos').insert({
           factura_id: factura.id,
           conciliacion_id: movimientoId,
@@ -201,7 +167,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
           confirmado: true,
           confianza_match: 100,
         })
-        // Actualizar mov bancario: doc_estado + sincroniza proveedor con la factura
         await supabase.from('conciliacion').update({
           doc_estado: 'tiene',
           factura_id: factura.id,
@@ -209,21 +174,18 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
           ...(categoriaFinal ? { categoria: categoriaFinal, categoria_codigo: categoriaFinal } : {}),
         }).eq('id', movimientoId)
       } else if (!movimientoId && movActual) {
-        // Quitar asociación
         await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
         await supabase.from('conciliacion').update({
           doc_estado: 'falta',
           factura_id: null,
         }).eq('id', movActual.conciliacion_id)
       } else if (movimientoId && categoriaFinal) {
-        // Mismo mov asociado, solo refrescar categoría
         await supabase.from('conciliacion').update({
           categoria: categoriaFinal,
           categoria_codigo: categoriaFinal,
         }).eq('id', movimientoId)
       }
 
-      toast.success('Guardado')
       onSaved()
     } catch (err: any) {
       setError(err.message || String(err))
@@ -256,7 +218,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
       const { error: errDel } = await supabase.from('facturas').delete().eq('id', factura.id)
       if (errDel) throw new Error(errDel.message)
 
-      toast.success('Factura borrada')
       onDeleted()
     } catch (err: any) {
       setError(err.message || String(err))
@@ -272,7 +233,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
-        {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Factura</div>
@@ -285,10 +245,8 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#7a8090', cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
         </div>
 
-        {/* Body */}
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-          {/* Doc */}
           {tienePdf && (
             <div>
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Documento</div>
@@ -298,7 +256,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             </div>
           )}
 
-          {/* Movimiento bancario asociado — primer bloque importante */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090' }}>Movimiento bancario</label>
@@ -336,7 +293,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             )}
           </div>
 
-          {/* Categoría — propuesta del banco si hay mov */}
           <div>
             <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>
               Categoría {categoriaPropuesta ? <span style={{ color: '#1D9E75', fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
@@ -371,7 +327,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: '#fafaf7' }}>
           {!confirmarBorrar ? (
             <button
