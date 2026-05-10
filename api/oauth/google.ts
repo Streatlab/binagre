@@ -65,11 +65,11 @@ async function callback(req: VercelRequest, res: VercelResponse) {
       ? new Date(tokens.expiry_date).toISOString()
       : new Date(Date.now() + 55 * 60 * 1000).toISOString()
 
-    const { data: existente } = await supabaseAdmin
+    // Borrar cualquier token previo para evitar duplicados / conflictos
+    await supabaseAdmin
       .from('google_oauth_tokens')
-      .select('id')
+      .delete()
       .is('titular_id', null)
-      .maybeSingle()
 
     const payload = {
       titular_id: null,
@@ -81,11 +81,7 @@ async function callback(req: VercelRequest, res: VercelResponse) {
       updated_at: new Date().toISOString(),
     }
 
-    if (existente?.id) {
-      await supabaseAdmin.from('google_oauth_tokens').update(payload).eq('id', existente.id)
-    } else {
-      await supabaseAdmin.from('google_oauth_tokens').insert(payload)
-    }
+    await supabaseAdmin.from('google_oauth_tokens').insert(payload)
 
     res.writeHead(302, { Location: REDIRECT_OK })
     return res.end()
@@ -98,16 +94,27 @@ async function callback(req: VercelRequest, res: VercelResponse) {
 
 async function status(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-  const s = await tieneDriveConectado()
+  // Si validate=1 (o por defecto) prueba el refresh real y autoborra si está corrupto
+  const validate = req.query.validate !== '0'
+  const s = await tieneDriveConectado({ validate })
   return res.status(200).json(s)
 }
 
 async function disconnect(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  // Aceptar GET y POST (GET permite hacerlo desde URL en navegador)
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
   const { error } = await supabaseAdmin
     .from('google_oauth_tokens')
     .delete()
     .is('titular_id', null)
   if (error) return res.status(500).json({ error: error.message })
+
+  // Si vino por GET (navegador), redirigir a integraciones
+  if (req.method === 'GET') {
+    res.writeHead(302, { Location: '/configuracion/integraciones/drive?drive_desconectado=1' })
+    return res.end()
+  }
   return res.status(200).json({ ok: true })
 }
