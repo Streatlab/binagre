@@ -162,7 +162,6 @@ export default function Ocr() {
   const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
   const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
 
-  // SELECCIÓN MÚLTIPLE
   const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
   const [confirmarBorrarLote, setConfirmarBorrarLote] = useState(false)
   const [borrandoLote, setBorrandoLote] = useState(false)
@@ -263,7 +262,6 @@ export default function Ocr() {
     if (page > tp) updateUrl({ page: tp })
   }, [cargando, total, pageSize, page, updateUrl])
 
-  // Limpiar selección cuando cambia el filtrado/página
   useEffect(() => {
     setSeleccionadas(new Set())
     setConfirmarBorrarLote(false)
@@ -304,18 +302,15 @@ export default function Ocr() {
     setBorrandoLote(true)
     try {
       const ids = Array.from(seleccionadas)
-      // 1. Obtener facturas con pdf_drive_id y movs asociados
       const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids)
       const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]
       const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]
 
-      // 2. Quitar asociaciones y limpiar movs
       if (movIds.length > 0) {
         await supabase.from('facturas_gastos').delete().in('factura_id', ids)
         await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds)
       }
 
-      // 3. Borrar archivos Drive (debe completar; si falla alguno se reporta y se aborta el resto)
       const driveErrors: string[] = []
       for (const driveId of driveIds) {
         try {
@@ -329,11 +324,9 @@ export default function Ocr() {
         return
       }
 
-      // 4. Borrar facturas
       const { error: errDel } = await supabase.from('facturas').delete().in('id', ids)
       if (errDel) throw errDel
 
-      toast.success(`${ids.length} factura${ids.length > 1 ? 's' : ''} borrada${ids.length > 1 ? 's' : ''}`)
       setSeleccionadas(new Set())
       setConfirmarBorrarLote(false)
       setRefreshTick(x => x + 1)
@@ -433,7 +426,6 @@ export default function Ocr() {
             <button onClick={handleExportar} disabled={exportando} style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}>{exportando ? 'Exportando...' : 'Exportar'}</button>
           </div>
 
-          {/* Barra acción lote */}
           {seleccionadas.size > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}>
               <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>
