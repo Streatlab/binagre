@@ -28,11 +28,6 @@ export interface TokenRow {
   email: string | null
 }
 
-/**
- * Devuelve el OAuth2Client global. Solo existe UN token en todo el sistema
- * (titular_id IS NULL). Los PDFs van siempre al Drive de ese usuario,
- * dentro de carpetas RUBEN/ o EMILIO/ según el titular de cada factura.
- */
 export async function getOAuthClient(): Promise<OAuth2Client> {
   const { data, error } = await supabaseAdmin
     .from('google_oauth_tokens')
@@ -42,7 +37,7 @@ export async function getOAuthClient(): Promise<OAuth2Client> {
   if (error) throw error
   const token = data as TokenRow | null
   if (!token) {
-    throw new Error('Drive no conectado. Conecta en Configuración → Cuentas bancarias → Drive (Google).')
+    throw new Error('Drive no conectado. Conecta en Configuración → Integraciones → Drive.')
   }
 
   const oauth2Client = makeOAuth2Client()
@@ -70,12 +65,41 @@ export async function getOAuthClient(): Promise<OAuth2Client> {
   return oauth2Client
 }
 
-export async function tieneDriveConectado(): Promise<{ conectado: boolean; email?: string }> {
+/**
+ * Comprueba conexión Drive. Si validate=true, prueba el refresh_token de verdad:
+ * si falla con invalid_grant, BORRA el token corrupto y devuelve conectado=false.
+ * Esto fuerza al usuario a reconectar y soluciona invalid_grant silenciosamente.
+ */
+export async function tieneDriveConectado(opts: { validate?: boolean } = {}): Promise<{ conectado: boolean; email?: string; error?: string }> {
   const { data } = await supabaseAdmin
     .from('google_oauth_tokens')
-    .select('email')
+    .select('id, email, refresh_token, access_token, expires_at, scope')
     .is('titular_id', null)
     .maybeSingle()
   if (!data) return { conectado: false }
-  return { conectado: true, email: (data as { email: string | null }).email || undefined }
+
+  if (!opts.validate) {
+    return { conectado: true, email: (data as { email: string | null }).email || undefined }
+  }
+
+  try {
+    const client = makeOAuth2Client()
+    client.setCredentials({
+      access_token: (data as any).access_token,
+      refresh_token: (data as any).refresh_token,
+      expiry_date: new Date((data as any).expires_at).getTime(),
+      scope: (data as any).scope || undefined,
+    })
+    // Forzar refresh para validar
+    await client.getAccessToken()
+    return { conectado: true, email: (data as { email: string | null }).email || undefined }
+  } catch (err: any) {
+    const msg = err?.message || String(err)
+    if (msg.includes('invalid_grant') || msg.includes('invalid_token')) {
+      // Token corrupto, borrar para forzar reconexión limpia
+      await supabaseAdmin.from('google_oauth_tokens').delete().eq('id', (data as any).id)
+      return { conectado: false, error: 'token_invalido_borrado' }
+    }
+    return { conectado: false, error: msg.slice(0, 120) }
+  }
 }
