@@ -1,4 +1,4 @@
-// ocrUploadStore v11 — try/catch por archivo en lectura para que un archivo malo no aborte el lote
+// ocrUploadStore v12 — pausa anti rate limit + reintento automático
 // Sesiones múltiples, persiste en localStorage, sobrevive F5
 
 import { useEffect, useState } from 'react'
@@ -34,6 +34,13 @@ export interface OcrSession {
 
 const STORAGE_KEY = 'ocr_sessions_v2'
 const TTL_COMPLETADO_MS = 5 * 60 * 1000
+
+// Anti rate-limit: 1 archivo cada 1500 ms = 40/min, dentro del límite Anthropic (50/min)
+const PAUSA_ENTRE_ARCHIVOS_MS = 1500
+// Cuando salta rate_limit, esperar 65 segundos y reintentar (la ventana es de 60s)
+const RATE_LIMIT_BACKOFF_MS = 65 * 1000
+const MAX_REINTENTOS_RATE_LIMIT = 3
+
 const emitter = new EventTarget()
 
 function loadSessions(): OcrSession[] {
@@ -174,6 +181,11 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
+function esRateLimit(detalle: string): boolean {
+  const txt = detalle.toLowerCase()
+  return (txt.includes('429') || txt.includes('rate_limit') || txt.includes('rate limit') || txt.includes('límite de peticiones'))
+}
+
 function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'modelo' | 'otro'; mensaje: string } | null {
   const txt = detalle.toLowerCase()
   if (txt.includes('credit balance is too low') || txt.includes('credit balance')) {
@@ -184,9 +196,6 @@ function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'mod
   }
   if (txt.includes('not_found_error') && txt.includes('model')) {
     return { tipo: 'modelo', mensaje: 'MODELO CLAUDE NO DISPONIBLE · Avisa en este chat para actualizar' }
-  }
-  if (txt.includes('ocr falló') && (txt.includes('429') || txt.includes('rate_limit'))) {
-    return { tipo: 'otro', mensaje: 'LÍMITE DE PETICIONES · Espera 1 min y vuelve a probar' }
   }
   return null
 }
@@ -284,13 +293,33 @@ async function runSession(sessionId: string) {
     const [item, ...resto] = s.archivosPendientes
     updateSession(sessionId, { archivosPendientes: resto })
 
-    let logEntry: ArchivoLog
-    if (s.fnName === 'ocr-procesar-factura') {
-      logEntry = await procesarFactura(item)
-    } else if (s.fnName === 'ocr-procesar-extracto') {
-      logEntry = await procesarExtracto(item, s.titular_id)
-    } else {
-      logEntry = { filename: item.name, status: 'error', detalle: 'Función desconocida' }
+    // Procesar archivo con reintentos automáticos en caso de rate limit
+    let logEntry: ArchivoLog | null = null
+    let intentosRateLimit = 0
+
+    while (intentosRateLimit <= MAX_REINTENTOS_RATE_LIMIT) {
+      let result: ArchivoLog
+      if (s.fnName === 'ocr-procesar-factura') {
+        result = await procesarFactura(item)
+      } else if (s.fnName === 'ocr-procesar-extracto') {
+        result = await procesarExtracto(item, s.titular_id)
+      } else {
+        result = { filename: item.name, status: 'error', detalle: 'Función desconocida' }
+      }
+
+      if (result.status === 'error' && esRateLimit(result.detalle) && intentosRateLimit < MAX_REINTENTOS_RATE_LIMIT) {
+        intentosRateLimit++
+        // Reintento silencioso tras esperar la ventana de rate limit
+        await new Promise(r => setTimeout(r, RATE_LIMIT_BACKOFF_MS))
+        continue
+      }
+
+      logEntry = result
+      break
+    }
+
+    if (!logEntry) {
+      logEntry = { filename: item.name, status: 'error', detalle: 'Error desconocido' }
     }
 
     const cur = getSession()
@@ -318,7 +347,7 @@ async function runSession(sessionId: string) {
     updateSession(sessionId, patch)
 
     if (esAchtung) break
-    await new Promise(r => setTimeout(r, 800))
+    await new Promise(r => setTimeout(r, PAUSA_ENTRE_ARCHIVOS_MS))
   }
 }
 
@@ -348,8 +377,6 @@ export function useOcrUpload() {
     const archivosSerial: { name: string; type: string; base64: string }[] = []
     const fallosLectura: ArchivoLog[] = []
 
-    // FIX v11: try/catch por archivo. Si uno falla en lectura, los demás siguen
-    // y el fallo se registra en el log como error visible al usuario.
     for (const file of files) {
       try {
         let base64: string
@@ -377,8 +404,8 @@ export function useOcrUpload() {
 
     const newSession: OcrSession = {
       id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      total: files.length, // total es el lanzado, NO los leídos OK
-      enviados: fallosLectura.length, // los fallos cuentan como enviados/errores ya
+      total: files.length,
+      enviados: fallosLectura.length,
       ok: 0, pendientes: 0, duplicados: 0,
       errores: fallosLectura.length,
       achtung: 0, achtungMensaje: null, achtungTipo: null,
