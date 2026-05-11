@@ -7,7 +7,7 @@ type DriveExtracted = {
   proveedor_nombre: string
   numero_factura?: string
   fecha_factura: string
-  tipo: 'proveedor' | 'plataforma' | 'otro'
+  tipo: 'proveedor' | 'plataforma'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
   carpeta_titular?: string
 }
