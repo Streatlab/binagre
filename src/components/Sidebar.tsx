@@ -355,7 +355,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* MOCKUP — desplegable con 8 submódulos */}
+          {/* MOCKUP — desplegable con 10 submódulos */}
           {(!collapsed && perfil === 'admin') && (
             <MockupSubmenu T={T} onClose={onClose} />
           )}
@@ -364,7 +364,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <NavLink
               to="/mockup"
               onClick={onClose}
-              title="Mockup · 8 estilos visuales"
+              title="Mockup · 10 estilos visuales"
               style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             >
               <LayoutDashboard size={20} strokeWidth={1.8} color="#e8f442" />
@@ -614,6 +614,8 @@ function MockupSubmenu({ T, onClose }: { T: ReturnType<typeof useTheme>['T']; on
     { path: '/mockup/fusion3-binagre',  label: '6 · Fusión + Binagre' },
     { path: '/mockup/binagre-colors',   label: '7 · Actual + colores BIN' },
     { path: '/mockup/posthog-binagre',  label: '8 · Posthog + Binagre' },
+    { path: '/mockup/lymon',            label: '9 · Lymon' },
+    { path: '/mockup/lymon-binagre',    label: '10 · Lymon + Rojo BIN' },
   ]
 
   return (
