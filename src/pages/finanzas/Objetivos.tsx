@@ -9,7 +9,6 @@ interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
 interface ObjetivoPresupuesto { id: string; categoria_codigo: string; anio: number; mes: number; importe: number }
 
-// ─── ISO week helpers ──────────────────────────────────────────────────────────
 function getISOWeek(d: Date): { year: number; week: number } {
   const dd = new Date(d)
   const day = dd.getDay() || 7
@@ -31,8 +30,7 @@ function mondayOfWeek(year: number, week: number): Date {
 }
 
 function isoWeekFromStr(dateStr: string): { year: number; week: number } {
-  const d = new Date(dateStr + 'T12:00:00')
-  return getISOWeek(d)
+  return getISOWeek(new Date(dateStr + 'T12:00:00'))
 }
 
 function toDateStr(d: Date): string {
@@ -90,88 +88,68 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
+// Barras de progreso: solo verde y rojo. Sin ámbar intermedio.
+function barColor(pct: number): string {
+  if (pct <= 0) return '#E24B4A'
+  if (pct >= 100) return '#1D9E75'
+  return '#1D9E75' // verde siempre que haya algo
+}
+
 export default function Objetivos() {
   const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
+  const { year: curYear, week: curWeek } = useMemo(() => getISOWeek(hoy), [hoy])
 
-  // ── Selector fecha universal (controla el periodo mostrado) ──────────────────
-  // Por defecto: semana actual
+  // ── Selector fecha universal ─────────────────────────────────────────────────
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
-    const d = new Date(); d.setHours(0,0,0,0)
+    const d = new Date(); d.setHours(0, 0, 0, 0)
     const dow = d.getDay() || 7
     d.setDate(d.getDate() - dow + 1)
     return d
   })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
-    const d = new Date(); d.setHours(23,59,59,999)
+    const d = new Date(); d.setHours(23, 59, 59, 999)
     const dow = d.getDay() || 7
     d.setDate(d.getDate() - dow + 7)
     return d
   })
   const [periodoLabel, setPeriodoLabel] = useState('Semana actual')
 
+  // Semana activa para la card de días — derivada del periodo seleccionado
+  const [weekMon, setWeekMon] = useState<Date>(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0)
+    const dow = d.getDay() || 7
+    d.setDate(d.getDate() - dow + 1)
+    return d
+  })
+
   const handlePeriodo = useCallback((desde: Date, hasta: Date, label: string) => {
     setPeriodoDesde(desde)
     setPeriodoHasta(hasta)
     setPeriodoLabel(label)
-    // Si el selector elige una semana, sincronizamos el nav de semanas
+    // Sincronizar card de días: usar el lunes de la semana del inicio del periodo
     const { year, week } = getISOWeek(desde)
-    const { year: cy, week: cw } = getISOWeek(hoy)
-    // offset = semana seleccionada - semana actual (aprox, mismo año)
-    if (year === cy) setWeekOffset(week - cw)
-    else {
-      // año diferente: calculamos offset en semanas
-      const diffMs = mondayOfWeek(year, week).getTime() - mondayOfWeek(cy, cw).getTime()
-      setWeekOffset(Math.round(diffMs / (7 * 86400000)))
-    }
-  }, [hoy])
+    setWeekMon(mondayOfWeek(year, week))
+  }, [])
 
-  // ── Nav semanas (‹ ›) — sincronizado con el selector ────────────────────────
-  const { year: curYear, week: curWeek } = useMemo(() => getISOWeek(hoy), [hoy])
-  const [weekOffset, setWeekOffset] = useState(0)
-
-  const displayWeekNum = useMemo(() => {
-    let w = curWeek + weekOffset
-    let y = curYear
-    if (w < 1) {
-      y--
-      const weeksInPrev = getISOWeek(new Date(y, 11, 28)).week
-      w = weeksInPrev + w
-    } else {
-      const weeksInYear = getISOWeek(new Date(y, 11, 28)).week
-      if (w > weeksInYear) { w = w - weeksInYear; y++ }
-    }
-    return { week: w, year: y }
-  }, [curWeek, curYear, weekOffset])
-
-  const monday = useMemo(() => mondayOfWeek(displayWeekNum.year, displayWeekNum.week), [displayWeekNum])
-  const sunday = useMemo(() => { const d = new Date(monday); d.setDate(d.getDate() + 6); return d }, [monday])
-
-  // Cuando el nav de semanas cambia, actualiza también el periodo
-  useEffect(() => {
-    const label = `S${displayWeekNum.week} — ${monday.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
-    setPeriodoDesde(new Date(monday))
-    setPeriodoHasta(new Date(sunday))
-    setPeriodoLabel(label)
-  }, [monday, sunday, displayWeekNum.week])
-
-  const isCurrentWeek = weekOffset === 0
-
-  const weekStart = useMemo(() => toDateStr(monday), [monday])
-  const weekEnd = useMemo(() => toDateStr(sunday), [sunday])
+  const weekSun = useMemo(() => { const d = new Date(weekMon); d.setDate(d.getDate() + 6); return d }, [weekMon])
+  const weekStart = useMemo(() => toDateStr(weekMon), [weekMon])
+  const weekEnd = useMemo(() => toDateStr(weekSun), [weekSun])
+  const { week: weekNum } = useMemo(() => getISOWeek(weekMon), [weekMon])
+  const weekLabel = `S${weekNum} — ${weekMon.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
 
   const fechaDia = useCallback((dia: number) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + dia - 1)
+    const d = new Date(weekMon)
+    d.setDate(weekMon.getDate() + dia - 1)
     return d
-  }, [monday])
+  }, [weekMon])
 
   const esFinde = (dia: number) => dia >= 5
   const esFestivo = (dia: number) => FESTIVOS_2026.includes(toDateStr(fechaDia(dia)))
-  const esHoy = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
+  const esHoyFlag = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
   // ── Datos ────────────────────────────────────────────────────────────────────
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
@@ -207,11 +185,8 @@ export default function Objetivos() {
   const loadPresupuestos = useCallback(async (anio: number) => {
     setPresLoading(true)
     const { data } = await supabase
-      .from('objetivos')
-      .select('id,categoria_codigo,anio,mes,importe')
-      .eq('tipo', 'presupuesto')
-      .eq('anio', anio)
-      .in('categoria_codigo', ALL_CODIGOS)
+      .from('objetivos').select('id,categoria_codigo,anio,mes,importe')
+      .eq('tipo', 'presupuesto').eq('anio', anio).in('categoria_codigo', ALL_CODIGOS)
     setPresData((data ?? []).map((r: any) => ({ id: r.id, categoria_codigo: r.categoria_codigo, anio: r.anio, mes: r.mes, importe: Number(r.importe) })))
     setPresLoading(false)
   }, [])
@@ -220,16 +195,16 @@ export default function Objetivos() {
     if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
   }, [activeTab, presAnio, loadPresupuestos])
 
-  // ── Guardar objetivos ────────────────────────────────────────────────────────
+  // ── Guardar ──────────────────────────────────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
-    const valEntero = Math.round(val)
+    const v = Math.round(val)
     const existing = objetivos.find(o => o.tipo === tipo)
     if (existing) {
-      await supabase.from('objetivos').update({ importe: valEntero }).eq('id', existing.id)
-      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: valEntero } : o))
+      await supabase.from('objetivos').update({ importe: v }).eq('id', existing.id)
+      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
     } else {
-      const { data } = await supabase.from('objetivos').insert({ tipo, importe: valEntero }).select()
-      if (data && data[0]) setObjetivos(prev => [...prev, { tipo, importe: valEntero, id: data[0].id }])
+      const { data } = await supabase.from('objetivos').insert({ tipo, importe: v }).select()
+      if (data?.[0]) setObjetivos(prev => [...prev, { tipo, importe: v, id: data[0].id }])
     }
     setEditingId(null)
   }
@@ -244,14 +219,14 @@ export default function Objetivos() {
   }
 
   const saveDiaSemana = async (dia: number, val: number) => {
-    const valEntero = Math.round(val)
+    const v = Math.round(val)
     const existing = diasSemana.find(d => d.dia === dia)
     if (existing) {
-      await supabase.from('objetivos_dia_semana').update({ importe: valEntero }).eq('id', existing.id)
-      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: valEntero } : o))
+      await supabase.from('objetivos_dia_semana').update({ importe: v }).eq('id', existing.id)
+      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
     } else {
-      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: valEntero }).select()
-      if (data && data[0]) setDiasSemana(prev => [...prev, { dia, importe: valEntero, id: data[0].id }])
+      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: v }).select()
+      if (data?.[0]) setDiasSemana(prev => [...prev, { dia, importe: v, id: data[0].id }])
     }
     setEditingId(null)
   }
@@ -264,7 +239,7 @@ export default function Objetivos() {
       setPresData(prev => prev.map(p => p.id === existing.id ? { ...p, importe: val } : p))
     } else {
       const { data } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
-      if (data && data[0]) setPresData(prev => [...prev, { id: data[0].id, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
+      if (data?.[0]) setPresData(prev => [...prev, { id: data[0].id, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
     }
     setPresEditing(null)
     setPresSaving(false)
@@ -273,55 +248,43 @@ export default function Objetivos() {
   const copiarAnioAnterior = async () => {
     const anioAnt = presAnio - 1
     const { data } = await supabase.from('objetivos').select('*').eq('tipo', 'presupuesto').eq('anio', anioAnt).in('categoria_codigo', ALL_CODIGOS)
-    if (!data || data.length === 0) { alert(`No hay datos de presupuesto para ${anioAnt}`); return }
+    if (!data?.length) { alert(`No hay datos de presupuesto para ${anioAnt}`); return }
     setPresSaving(true)
     for (const row of data) {
       const existing = presData.find(p => p.categoria_codigo === row.categoria_codigo && p.mes === row.mes)
-      if (existing) {
-        await supabase.from('objetivos').update({ importe: row.importe, updated_at: new Date().toISOString() }).eq('id', existing.id)
-      } else {
-        await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: row.categoria_codigo, anio: presAnio, mes: row.mes, importe: row.importe })
-      }
+      if (existing) await supabase.from('objetivos').update({ importe: row.importe, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      else await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: row.categoria_codigo, anio: presAnio, mes: row.mes, importe: row.importe })
     }
     await loadPresupuestos(presAnio)
     setPresSaving(false)
   }
 
-  // ── Cálculos de ventas reactivos al periodo ──────────────────────────────────
+  // ── Ventas calculadas ────────────────────────────────────────────────────────
   const hoyStr = toDateStr(hoy)
-  const diaSemanaHoy = hoy.getDay() === 0 ? 7 : hoy.getDay()
-  const objHoy = diasSemana.find(d => d.dia === diaSemanaHoy)?.importe || 0
-
-  const ventasHoy = useMemo(
-    () => ventas.filter(r => r.fecha === hoyStr).reduce((a, r) => a + r.total_bruto, 0),
-    [ventas, hoyStr]
-  )
-
-  // Ventas del periodo seleccionado (desde/hasta reactivo)
   const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
   const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
 
+  // "Ventas del periodo" — reactivo al selector
   const ventasPeriodo = useMemo(
     () => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, periodoDesdeStr, periodoHastaStr]
   )
 
-  // Ventas semana (para la card de días) — siempre sigue al nav semanas
+  // Ventas semana activa (card de días)
   const ventasSemana = useMemo(
     () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, weekStart, weekEnd]
   )
 
-  const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(monday), [diasCerradosSemana, monday])
-  const diasOperativosSemana = useMemo(() => diasOperativosEnRango(monday, sunday), [diasOperativosEnRango, monday, sunday])
+  const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(weekMon), [diasCerradosSemana, weekMon])
+  const diasOperativosSemana = useMemo(() => diasOperativosEnRango(weekMon, weekSun), [diasOperativosEnRango, weekMon, weekSun])
 
   const ventasPorDiaSemana = useMemo(() => {
     const map: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 }
     for (const r of ventas) {
       if (r.fecha >= weekStart && r.fecha <= weekEnd) {
         const d = new Date(r.fecha + 'T12:00:00')
-        const ds = d.getDay() === 0 ? 7 : d.getDay()
-        map[ds] += r.total_bruto
+        map[d.getDay() === 0 ? 7 : d.getDay()] += r.total_bruto
       }
     }
     return map
@@ -332,37 +295,30 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha.startsWith(currentMonth)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentMonth]
   )
-
   const currentYear = hoyStr.slice(0, 4)
   const ventasAno = useMemo(
     () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentYear]
   )
 
-  // ── Objetivos calculados ─────────────────────────────────────────────────────
+  // ── Objetivos ────────────────────────────────────────────────────────────────
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
 
   const sumaMes = useMemo(() => {
-    const ano = hoy.getFullYear(); const mes = hoy.getMonth()
-    return Math.round((sumaSemana / 7) * new Date(ano, mes + 1, 0).getDate())
+    const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
+    return Math.round((sumaSemana / 7) * diasEnMes)
   }, [sumaSemana, hoy])
 
   const sumaAno = useMemo(() => {
-    const ano = hoy.getFullYear()
-    const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
+    const esBis = (hoy.getFullYear() % 4 === 0 && hoy.getFullYear() % 100 !== 0) || hoy.getFullYear() % 400 === 0
     return Math.round((sumaSemana / 7) * (esBis ? 366 : 365))
   }, [sumaSemana, hoy])
 
-  const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
-  const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? Math.round(objSemanalOverride) : sumaSemana
+  const objSemanal = Math.round(objetivos.find(o => o.tipo === 'semanal')?.importe || 0) || sumaSemana
+  const objMensual = Math.round(objetivos.find(o => o.tipo === 'mensual')?.importe || 0) || sumaMes
+  const objAnual   = Math.round(objetivos.find(o => o.tipo === 'anual')?.importe   || 0) || sumaAno
 
-  const objMensualOverride = objetivos.find(o => o.tipo === 'mensual')?.importe
-  const objMensual = (objMensualOverride !== undefined && objMensualOverride > 0) ? Math.round(objMensualOverride) : sumaMes
-
-  const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
-  const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? Math.round(objAnualOverride) : sumaAno
-
-  // Objetivo del periodo seleccionado: proporcional a los días del rango
+  // Objetivo del periodo seleccionado: proporcional a sus días
   const objPeriodo = useMemo(() => {
     const dias = Math.round((periodoHasta.getTime() - periodoDesde.getTime()) / 86400000) + 1
     return Math.round((sumaSemana / 7) * dias)
@@ -372,16 +328,16 @@ export default function Objetivos() {
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
     const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
-    if (arr.length === 0) arr.push(hoy.getFullYear())
+    if (!arr.length) arr.push(hoy.getFullYear())
     return arr
   }, [ventas, hoy])
 
   const historico = useMemo(() => {
     const esAnioActual = histAnio === hoy.getFullYear()
-    const ventasFiltAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
+    const filtAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
 
     if (histTipo === 'dias') {
-      return [...ventasFiltAnio].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
+      return [...filtAnio].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
         const d = new Date(r.fecha + 'T12:00:00')
         const ds = d.getDay() === 0 ? 7 : d.getDay()
         const enCurso = esAnioActual && r.fecha === hoyStr
@@ -392,7 +348,7 @@ export default function Objetivos() {
 
     if (histTipo === 'semanas') {
       const map = new Map<string, number>()
-      for (const r of ventasFiltAnio) {
+      for (const r of filtAnio) {
         const { year, week } = isoWeekFromStr(r.fecha)
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + r.total_bruto)
@@ -400,22 +356,21 @@ export default function Objetivos() {
       const curKey = `${curYear}-${String(curWeek).padStart(2, '0')}`
       return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
         const enCurso = esAnioActual && key === curKey
-        const wNum = parseInt(key.split('-')[1])
-        return { label: enCurso ? `S${wNum} (en curso)` : `S${wNum}`, real, objetivo: objSemanal, enCurso }
+        return { label: enCurso ? `S${parseInt(key.split('-')[1])} (en curso)` : `S${parseInt(key.split('-')[1])}`, real, objetivo: objSemanal, enCurso }
       })
     }
 
     if (histTipo === 'anual') {
-      const total = ventasFiltAnio.reduce((a, r) => a + r.total_bruto, 0)
+      const total = filtAnio.reduce((a, r) => a + r.total_bruto, 0)
       return [{ label: esAnioActual ? `${histAnio} (en curso)` : String(histAnio), real: total, objetivo: objAnual, enCurso: esAnioActual }]
     }
 
-    const currentMonthStr = hoy.toISOString().slice(0, 7)
+    const curMonthStr = hoy.toISOString().slice(0, 7)
     const map = new Map<string, number>()
-    for (const r of ventasFiltAnio) { const m = r.fecha.slice(0, 7); map.set(m, (map.get(m) || 0) + r.total_bruto) }
+    for (const r of filtAnio) { const m = r.fecha.slice(0, 7); map.set(m, (map.get(m) || 0) + r.total_bruto) }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
       const [y, mm] = key.split('-')
-      const enCurso = esAnioActual && key === currentMonthStr
+      const enCurso = esAnioActual && key === curMonthStr
       const labelBase = new Date(parseInt(y), parseInt(mm) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
       return { label: enCurso ? `${labelBase} (en curso)` : labelBase, real, objetivo: objMensual, enCurso }
     })
@@ -426,19 +381,23 @@ export default function Objetivos() {
   )
 
   // ── Porcentajes ──────────────────────────────────────────────────────────────
-  const pctHoy  = objHoy      > 0 ? Math.round((ventasHoy    / objHoy)     * 100) : 0
-  const pctPer  = objPeriodo  > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
-  const pctSem  = objSemanal  > 0 ? Math.round((ventasSemana / objSemanal)  * 100) : 0
-  const pctMes  = objMensual  > 0 ? Math.round((ventasMes    / objMensual)  * 100) : 0
-  const pctAno  = objAnual    > 0 ? Math.round((ventasAno    / objAnual)    * 100) : 0
-  const colHoy  = semaforoColor(pctHoy)
-  const colPer  = semaforoColor(pctPer)
-  const colSem  = semaforoColor(pctSem)
-  const colMes  = semaforoColor(pctMes)
-  const colAno  = semaforoColor(pctAno)
+  const pctPer = objPeriodo  > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
+  const pctSem = objSemanal  > 0 ? Math.round((ventasSemana  / objSemanal) * 100) : 0
+  const pctMes = objMensual  > 0 ? Math.round((ventasMes     / objMensual) * 100) : 0
+  const pctAno = objAnual    > 0 ? Math.round((ventasAno     / objAnual)   * 100) : 0
+
   const INCUMPLIDO = '#E24B4A'
 
-  const weekLabel = `S${displayWeekNum.week} — ${monday.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
+  const inputSelectStyle = {
+    background: isDark ? '#3a4058' : '#ffffff',
+    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
+    color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
+  }
+
+  const sectionLabel = {
+    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px',
+    textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px',
+  }
 
   const editableNumberStyle = (color: string = T.pri) => ({
     color, fontWeight: 600 as const, cursor: 'pointer',
@@ -472,42 +431,31 @@ export default function Objetivos() {
     )
   }
 
-  const renderPeriodRow = (titulo: string, sub: string, real: number, obj: number, pct: number, color: string, editId: string, onSave: (v: number) => void, onReset?: () => void) => {
+  const renderPeriodRow = (titulo: string, sub: string, real: number, obj: number, pct: number, editId: string, onSave: (v: number) => void, onReset?: () => void) => {
     const pctCap = Math.min(pct, 100)
     const falta = Math.max(0, obj - real)
+    const col = semaforoColor(pct)
     return (
       <div style={{ marginBottom: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
           <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase' }}>
-            {titulo} <span style={{ color: T.mut, fontWeight: 400, opacity: 0.7 }}>— {sub}</span>
+            {titulo} <span style={{ fontWeight: 400, opacity: 0.7 }}>— {sub}</span>
           </span>
-          <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color }}>{pct}%</span>
+          <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: col }}>{pct}%</span>
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 6 }}>
-          Faltan <span style={{ color, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave, onReset)}
+          Faltan <span style={{ color: col, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave, onReset)}
         </div>
         <div style={{ height: 4, background: T.brd, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ height: 4, background: color, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
+          <div style={{ height: 4, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
           <div style={{ height: 4, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
         </div>
       </div>
     )
   }
 
-  const inputSelectStyle = {
-    background: isDark ? '#3a4058' : '#ffffff',
-    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
-    color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
-  }
-
-  const sectionLabel = {
-    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px',
-    textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px',
-  }
-
-  const getPresVal = (codigo: string, mes: number) =>
-    presData.find(p => p.categoria_codigo === codigo && p.mes === mes)?.importe ?? 0
-  const totalMes = (mes: number) => ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
+  const getPresVal = (codigo: string, mes: number) => presData.find(p => p.categoria_codigo === codigo && p.mes === mes)?.importe ?? 0
+  const totalMesPres = (mes: number) => ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
   const totalCodigo = (codigo: string) => Array.from({ length: 12 }, (_, i) => i + 1).reduce((a, m) => a + getPresVal(codigo, m), 0)
   const totalAnual = () => ALL_CODIGOS.reduce((a, c) => a + totalCodigo(c), 0)
 
@@ -525,31 +473,14 @@ export default function Objetivos() {
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      {/* HEADER: título + selector fecha universal */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+      {/* HEADER */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
         <SelectorFechaUniversal
           nombreModulo="objetivos"
           defaultOpcion="semana_actual"
           onChange={handlePeriodo}
         />
-      </div>
-
-      {/* NAV SEMANAS — debajo del selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-        <button
-          onClick={() => setWeekOffset(w => w - 1)}
-          style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 36, minHeight: 36 }}
-        >‹</button>
-        <span style={{ fontFamily: FONT.heading, fontSize: 12, color: T.sec, minWidth: 140, textAlign: 'center' }}>{weekLabel}</span>
-        <button
-          onClick={() => setWeekOffset(w => w + 1)}
-          disabled={isCurrentWeek}
-          style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 36, minHeight: 36 }}
-        >›</button>
-        <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginLeft: 4 }}>
-          {periodoLabel !== weekLabel ? `· periodo: ${periodoLabel}` : ''}
-        </span>
       </div>
 
       {/* TABS */}
@@ -569,8 +500,8 @@ export default function Objetivos() {
           {nDiasCerradosSemana > 0 && (() => {
             const objAjustado = objMensual > 0 && diasOperativosSemana > 0
               ? objMensual / (diasOperativosEnRango(
-                  new Date(monday.getFullYear(), monday.getMonth(), 1),
-                  new Date(monday.getFullYear(), monday.getMonth() + 1, 0),
+                  new Date(weekMon.getFullYear(), weekMon.getMonth(), 1),
+                  new Date(weekMon.getFullYear(), weekMon.getMonth() + 1, 0),
                 ) || 1) * diasOperativosSemana
               : null
             return (
@@ -582,30 +513,29 @@ export default function Objetivos() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            {/* CARD: ventas vs objetivos — reactiva al periodo */}
+            {/* CARD VENTAS — título dinámico al periodo */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
-                Ventas · Hoy {hoy.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).toUpperCase()}
+                VENTAS · {periodoLabel.toUpperCase()}
               </div>
               <div style={{ fontFamily: FONT.heading, fontSize: 36, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px', marginBottom: 6 }}>
-                {fmtEur(ventasHoy)}
+                {fmtEur(ventasPeriodo)}
               </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: colHoy, marginBottom: 22 }}>
-                {pctHoy >= 100 ? '▲' : '▼'} {pctHoy}% del objetivo diario · {fmtEur(objHoy)}
+              <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: semaforoColor(pctPer), marginBottom: 22 }}>
+                {pctPer >= 100 ? '▲' : '▼'} {pctPer}% del objetivo del periodo · {fmtEur(objPeriodo)}
               </div>
 
-              {/* Fila periodo seleccionado */}
-              {renderPeriodRow('Periodo', periodoLabel, ventasPeriodo, objPeriodo, pctPer, colPer, 'obj-periodo', () => {}, undefined)}
-
-              {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
-              {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
-              {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
+              {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
+              {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
+              {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
             </div>
 
-            {/* CARD: objetivo por día de la semana seleccionada */}
+            {/* CARD DÍAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>Objetivo por día · {weekLabel}</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>
+                  Objetivo por día · {weekLabel}
+                </span>
                 <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase', opacity: 0.7 }}>click editar</span>
               </div>
 
@@ -616,52 +546,50 @@ export default function Objetivos() {
                   const ventasDia = ventasPorDiaSemana[dia] || 0
                   const pct = importe > 0 ? Math.round((ventasDia / importe) * 100) : 0
                   const pctCap = Math.min(pct, 100)
-                  const col = '#1D9E75'
                   const finde = esFinde(dia)
                   const festivo = esFestivo(dia)
-                  const hoyFlag = esHoy(dia) && isCurrentWeek
+                  const hoyFl = esHoyFlag(dia)
                   const fechaDiaD = fechaDia(dia)
                   const fechaDiaStr = toDateStr(fechaDiaD)
                   const tipoDiaActual = tipoDia(fechaDiaStr)
-                  const esCerradoCalendario = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
+                  const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent'
                   let rowBorderLeft = '3px solid transparent'
                   let diaColor = T.sec
                   if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
                   else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
-                  if (hoyFlag) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
+                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
 
-                  const fecha = fechaDia(dia)
-                  const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
+                  const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
-                  void esCerradoCalendario
+                  void esCerrado
 
                   return (
                     <div key={dia} style={{
                       display: 'grid', gridTemplateColumns: '70px 1fr 90px', alignItems: 'center', gap: 14,
-                      padding: hoyFlag ? '12px 14px' : '10px 14px', margin: '0 -14px', background: rowBg,
+                      padding: hoyFl ? '12px 14px' : '10px 14px', margin: '0 -14px', background: rowBg,
                       borderLeft: rowBorderLeft, borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
-                      borderRadius: hoyFlag ? 8 : 0, position: 'relative',
+                      borderRadius: hoyFl ? 8 : 0, position: 'relative',
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFl ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFl ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFlag ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFlag ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          {fechaStr}{hoyFlag ? ' · HOY' : ''}
-                          {esCerradoCalendario && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CERRADO</span>}
+                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFl ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {fechaStr}{hoyFl ? ' · HOY' : ''}
+                          {esCerrado && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CERRADO</span>}
                           {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>}
                           {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CENA</span>}
                         </div>
                       </div>
                       <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
-                        {importe > 0 ? (
+                        {importe > 0 && (
                           <>
-                            <div style={{ height: 5, background: col, width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
+                            <div style={{ height: 5, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
                             <div style={{ height: 5, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                           </>
-                        ) : null}
+                        )}
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         {editingId === editId ? (
@@ -672,11 +600,11 @@ export default function Objetivos() {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#1E5BCC' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
+                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFl ? 700 : 600, color: hoyFl ? '#1E5BCC' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
+                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFl ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
                             {fmtEur(importe)}
                           </span>
                         )}
@@ -707,8 +635,7 @@ export default function Objetivos() {
 
           <div style={cardStyle(T)}>
             <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
-              <span>Período</span>
-              <span>Cumplido · Pendiente</span>
+              <span>Período</span><span>Cumplido · Pendiente</span>
               <span style={{ textAlign: 'right' }}>% Real</span>
               <span style={{ textAlign: 'right' }}>Real</span>
               <span style={{ textAlign: 'right' }}>Objetivo</span>
@@ -721,27 +648,26 @@ export default function Objetivos() {
             {historico.map((h, idx) => {
               const pct = h.objetivo > 0 ? Math.round((h.real / h.objetivo) * 100) : 0
               const pctCap = Math.min(pct, 100)
-              const sc = semaforoColor(pct)
+              const sc = semaforoColor(pct)         // color del % y texto
+              const bc = barColor(pct)              // color barra: solo verde/rojo
               const desv = h.real - h.objetivo
               const desvColor = desv >= 0 ? '#1D9E75' : '#E24B4A'
-              const desvStr = (desv >= 0 ? '+' : '') + fmtEur(desv)
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
-              const pctDesvStr = (pctDesv >= 0 ? '+' : '') + pctDesv + '%'
               const enCurso = (h as any).enCurso === true
               return (
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? '#1E5BCC10' : 'transparent', borderLeft: enCurso ? '3px solid #1E5BCC' : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: enCurso ? 4 : 0 }}>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? '#1E5BCC' : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
-                      <div style={{ height: 8, background: sc, width: `${pctCap}%` }} />
+                      <div style={{ height: 8, background: bc, width: `${pctCap}%` }} />
                       <div style={{ height: 8, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                     </div>
                   </div>
                   <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: sc, textAlign: 'right' }}>{pct}%</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: T.pri, textAlign: 'right' }}>{fmtEur(h.real)}</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, textAlign: 'right' }}>{fmtEur(h.objetivo)}</span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: desvColor, textAlign: 'right' }}>{desvStr}</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: desvColor, textAlign: 'right' }}>{pctDesvStr}</span>
+                  <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: desvColor, textAlign: 'right' }}>{(desv >= 0 ? '+' : '') + fmtEur(desv)}</span>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: desvColor, textAlign: 'right' }}>{(pctDesv >= 0 ? '+' : '') + pctDesv + '%'}</span>
                 </div>
               )
             })}
@@ -780,9 +706,7 @@ export default function Objetivos() {
                       <thead>
                         <tr style={{ background: '#0a0a0a' }}>
                           <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: '#0a0a0a', zIndex: 1, minWidth: 160 }}>Categoría</th>
-                          {MESES.map((m) => (
-                            <th key={m} style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>
-                          ))}
+                          {MESES.map(m => <th key={m} style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>)}
                           <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 10px', textAlign: 'right', minWidth: 90 }}>Total</th>
                         </tr>
                       </thead>
@@ -850,7 +774,7 @@ export default function Objetivos() {
                     <td style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: '#e8f442', padding: '10px 12px', textTransform: 'uppercase', minWidth: 160 }}>Total gastos {presAnio}</td>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (
                       <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, padding: '10px 6px', textAlign: 'right', fontWeight: 600, minWidth: 72 }}>
-                        {fmtEur(totalMes(mes))}
+                        {fmtEur(totalMesPres(mes))}
                       </td>
                     ))}
                     <td style={{ fontFamily: FONT.heading, fontSize: 13, color: '#e8f442', padding: '10px 10px', textAlign: 'right', fontWeight: 700, minWidth: 90 }}>
