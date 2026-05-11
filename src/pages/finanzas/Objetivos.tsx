@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
+import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
@@ -29,9 +30,13 @@ function mondayOfWeek(year: number, week: number): Date {
   return result
 }
 
-function isoWeek(dateStr: string): { year: number; week: number } {
+function isoWeekFromStr(dateStr: string): { year: number; week: number } {
   const d = new Date(dateStr + 'T12:00:00')
   return getISOWeek(d)
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
@@ -91,26 +96,72 @@ export default function Objetivos() {
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
+
+  // ── Selector fecha universal (controla el periodo mostrado) ──────────────────
+  // Por defecto: semana actual
+  const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
+    const d = new Date(); d.setHours(0,0,0,0)
+    const dow = d.getDay() || 7
+    d.setDate(d.getDate() - dow + 1)
+    return d
+  })
+  const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
+    const d = new Date(); d.setHours(23,59,59,999)
+    const dow = d.getDay() || 7
+    d.setDate(d.getDate() - dow + 7)
+    return d
+  })
+  const [periodoLabel, setPeriodoLabel] = useState('Semana actual')
+
+  const handlePeriodo = useCallback((desde: Date, hasta: Date, label: string) => {
+    setPeriodoDesde(desde)
+    setPeriodoHasta(hasta)
+    setPeriodoLabel(label)
+    // Si el selector elige una semana, sincronizamos el nav de semanas
+    const { year, week } = getISOWeek(desde)
+    const { year: cy, week: cw } = getISOWeek(hoy)
+    // offset = semana seleccionada - semana actual (aprox, mismo año)
+    if (year === cy) setWeekOffset(week - cw)
+    else {
+      // año diferente: calculamos offset en semanas
+      const diffMs = mondayOfWeek(year, week).getTime() - mondayOfWeek(cy, cw).getTime()
+      setWeekOffset(Math.round(diffMs / (7 * 86400000)))
+    }
+  }, [hoy])
+
+  // ── Nav semanas (‹ ›) — sincronizado con el selector ────────────────────────
+  const { year: curYear, week: curWeek } = useMemo(() => getISOWeek(hoy), [hoy])
   const [weekOffset, setWeekOffset] = useState(0)
 
-  const { year: curYear, week: curWeek } = useMemo(() => getISOWeek(hoy), [hoy])
   const displayWeekNum = useMemo(() => {
     let w = curWeek + weekOffset
     let y = curYear
-    if (w < 1) { y--; const jan4prev = new Date(y, 0, 4); const d2 = jan4prev.getDay() || 7; const fm = new Date(jan4prev); fm.setDate(jan4prev.getDate() - d2 + 1); const weeksInYear = getISOWeek(new Date(y, 11, 28)).week; w = weeksInYear + w }
-    else { const weeksInYear = getISOWeek(new Date(y, 11, 28)).week; if (w > weeksInYear) { w = w - weeksInYear; y++ } }
+    if (w < 1) {
+      y--
+      const weeksInPrev = getISOWeek(new Date(y, 11, 28)).week
+      w = weeksInPrev + w
+    } else {
+      const weeksInYear = getISOWeek(new Date(y, 11, 28)).week
+      if (w > weeksInYear) { w = w - weeksInYear; y++ }
+    }
     return { week: w, year: y }
   }, [curWeek, curYear, weekOffset])
 
   const monday = useMemo(() => mondayOfWeek(displayWeekNum.year, displayWeekNum.week), [displayWeekNum])
   const sunday = useMemo(() => { const d = new Date(monday); d.setDate(d.getDate() + 6); return d }, [monday])
 
-  const weekLabel = useMemo(() => {
-    const mondayFmt = monday.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    return `S${displayWeekNum.week} — ${mondayFmt}`
-  }, [monday, displayWeekNum.week])
+  // Cuando el nav de semanas cambia, actualiza también el periodo
+  useEffect(() => {
+    const label = `S${displayWeekNum.week} — ${monday.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
+    setPeriodoDesde(new Date(monday))
+    setPeriodoHasta(new Date(sunday))
+    setPeriodoLabel(label)
+  }, [monday, sunday, displayWeekNum.week])
 
   const isCurrentWeek = weekOffset === 0
+
+  const weekStart = useMemo(() => toDateStr(monday), [monday])
+  const weekEnd = useMemo(() => toDateStr(sunday), [sunday])
 
   const fechaDia = useCallback((dia: number) => {
     const d = new Date(monday)
@@ -119,9 +170,10 @@ export default function Objetivos() {
   }, [monday])
 
   const esFinde = (dia: number) => dia >= 5
-  const esFestivo = (dia: number) => FESTIVOS_2026.includes(fechaDia(dia).toISOString().split('T')[0])
+  const esFestivo = (dia: number) => FESTIVOS_2026.includes(toDateStr(fechaDia(dia)))
   const esHoy = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
+  // ── Datos ────────────────────────────────────────────────────────────────────
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
   const [diasSemana, setDiasSemana] = useState<ObjetivoDia[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -168,7 +220,7 @@ export default function Objetivos() {
     if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
   }, [activeTab, presAnio, loadPresupuestos])
 
-  // Guardar objetivo: SIEMPRE redondea a entero. Sin decimales basura.
+  // ── Guardar objetivos ────────────────────────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
     const valEntero = Math.round(val)
     const existing = objetivos.find(o => o.tipo === tipo)
@@ -235,16 +287,30 @@ export default function Objetivos() {
     setPresSaving(false)
   }
 
-  const hoyStr = hoy.toISOString().slice(0, 10)
+  // ── Cálculos de ventas reactivos al periodo ──────────────────────────────────
+  const hoyStr = toDateStr(hoy)
   const diaSemanaHoy = hoy.getDay() === 0 ? 7 : hoy.getDay()
   const objHoy = diasSemana.find(d => d.dia === diaSemanaHoy)?.importe || 0
 
-  const ventasHoy = useMemo(() => ventas.filter(r => r.fecha === hoyStr).reduce((a, r) => a + r.total_bruto, 0), [ventas, hoyStr])
+  const ventasHoy = useMemo(
+    () => ventas.filter(r => r.fecha === hoyStr).reduce((a, r) => a + r.total_bruto, 0),
+    [ventas, hoyStr]
+  )
 
-  const weekStart = useMemo(() => monday.toISOString().slice(0, 10), [monday])
-  const weekEnd = useMemo(() => sunday.toISOString().slice(0, 10), [sunday])
+  // Ventas del periodo seleccionado (desde/hasta reactivo)
+  const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
+  const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
 
-  const ventasSemana = useMemo(() => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0), [ventas, weekStart, weekEnd])
+  const ventasPeriodo = useMemo(
+    () => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr).reduce((a, r) => a + r.total_bruto, 0),
+    [ventas, periodoDesdeStr, periodoHastaStr]
+  )
+
+  // Ventas semana (para la card de días) — siempre sigue al nav semanas
+  const ventasSemana = useMemo(
+    () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
+    [ventas, weekStart, weekEnd]
+  )
 
   const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(monday), [diasCerradosSemana, monday])
   const diasOperativosSemana = useMemo(() => diasOperativosEnRango(monday, sunday), [diasOperativosEnRango, monday, sunday])
@@ -262,31 +328,31 @@ export default function Objetivos() {
   }, [ventas, weekStart, weekEnd])
 
   const currentMonth = hoyStr.slice(0, 7)
-  const ventasMes = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentMonth)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentMonth])
+  const ventasMes = useMemo(
+    () => ventas.filter(r => r.fecha.startsWith(currentMonth)).reduce((a, r) => a + r.total_bruto, 0),
+    [ventas, currentMonth]
+  )
 
   const currentYear = hoyStr.slice(0, 4)
-  const ventasAno = useMemo(() => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0), [ventas, currentYear])
+  const ventasAno = useMemo(
+    () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
+    [ventas, currentYear]
+  )
 
-  // Semanal base = suma de los 7 objetivos diarios (es entera por construcción)
+  // ── Objetivos calculados ─────────────────────────────────────────────────────
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
 
-  // Mensual base = (suma semanal / 7) × días naturales del mes — REDONDEADO A ENTERO
   const sumaMes = useMemo(() => {
-    const ano = hoy.getFullYear()
-    const mes = hoy.getMonth()
-    const diasEnMes = new Date(ano, mes + 1, 0).getDate()
-    return Math.round((sumaSemana / 7) * diasEnMes)
+    const ano = hoy.getFullYear(); const mes = hoy.getMonth()
+    return Math.round((sumaSemana / 7) * new Date(ano, mes + 1, 0).getDate())
   }, [sumaSemana, hoy])
 
-  // Anual base = (suma semanal / 7) × días naturales del año — REDONDEADO A ENTERO
   const sumaAno = useMemo(() => {
     const ano = hoy.getFullYear()
     const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
-    const dAno = esBis ? 366 : 365
-    return Math.round((sumaSemana / 7) * dAno)
+    return Math.round((sumaSemana / 7) * (esBis ? 366 : 365))
   }, [sumaSemana, hoy])
 
-  // Override viene de BD; lo redondeamos a entero por si fue guardado con decimales antiguos
   const objSemanalOverride = objetivos.find(o => o.tipo === 'semanal')?.importe
   const objSemanal = (objSemanalOverride !== undefined && objSemanalOverride > 0) ? Math.round(objSemanalOverride) : sumaSemana
 
@@ -296,6 +362,13 @@ export default function Objetivos() {
   const objAnualOverride = objetivos.find(o => o.tipo === 'anual')?.importe
   const objAnual = (objAnualOverride !== undefined && objAnualOverride > 0) ? Math.round(objAnualOverride) : sumaAno
 
+  // Objetivo del periodo seleccionado: proporcional a los días del rango
+  const objPeriodo = useMemo(() => {
+    const dias = Math.round((periodoHasta.getTime() - periodoDesde.getTime()) / 86400000) + 1
+    return Math.round((sumaSemana / 7) * dias)
+  }, [periodoDesde, periodoHasta, sumaSemana])
+
+  // ── Histórico ────────────────────────────────────────────────────────────────
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
     const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
@@ -313,63 +386,38 @@ export default function Objetivos() {
         const ds = d.getDay() === 0 ? 7 : d.getDay()
         const enCurso = esAnioActual && r.fecha === hoyStr
         const labelBase = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
-        return {
-          label: enCurso ? `${labelBase} (en curso)` : labelBase,
-          real: r.total_bruto,
-          objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0,
-          enCurso,
-        }
+        return { label: enCurso ? `${labelBase} (en curso)` : labelBase, real: r.total_bruto, objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0, enCurso }
       })
     }
 
     if (histTipo === 'semanas') {
       const map = new Map<string, number>()
       for (const r of ventasFiltAnio) {
-        const { year, week } = isoWeek(r.fecha)
+        const { year, week } = isoWeekFromStr(r.fecha)
         const key = `${year}-${String(week).padStart(2, '0')}`
         map.set(key, (map.get(key) || 0) + r.total_bruto)
       }
       const curKey = `${curYear}-${String(curWeek).padStart(2, '0')}`
-      return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12)
-        .map(([key, real]) => {
-          const enCurso = esAnioActual && key === curKey
-          const wNum = parseInt(key.split('-')[1])
-          return {
-            label: enCurso ? `S${wNum} (en curso)` : `S${wNum}`,
-            real,
-            objetivo: objSemanal,
-            enCurso,
-          }
-        })
+      return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
+        const enCurso = esAnioActual && key === curKey
+        const wNum = parseInt(key.split('-')[1])
+        return { label: enCurso ? `S${wNum} (en curso)` : `S${wNum}`, real, objetivo: objSemanal, enCurso }
+      })
     }
 
     if (histTipo === 'anual') {
       const total = ventasFiltAnio.reduce((a, r) => a + r.total_bruto, 0)
-      const enCurso = esAnioActual
-      return [{
-        label: enCurso ? `${histAnio} (en curso)` : String(histAnio),
-        real: total,
-        objetivo: objAnual,
-        enCurso,
-      }]
+      return [{ label: esAnioActual ? `${histAnio} (en curso)` : String(histAnio), real: total, objetivo: objAnual, enCurso: esAnioActual }]
     }
 
     const currentMonthStr = hoy.toISOString().slice(0, 7)
     const map = new Map<string, number>()
-    for (const r of ventasFiltAnio) {
-      const m = r.fecha.slice(0, 7)
-      map.set(m, (map.get(m) || 0) + r.total_bruto)
-    }
+    for (const r of ventasFiltAnio) { const m = r.fecha.slice(0, 7); map.set(m, (map.get(m) || 0) + r.total_bruto) }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, real]) => {
       const [y, mm] = key.split('-')
       const enCurso = esAnioActual && key === currentMonthStr
       const labelBase = new Date(parseInt(y), parseInt(mm) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-      return {
-        label: enCurso ? `${labelBase} (en curso)` : labelBase,
-        real,
-        objetivo: objMensual,
-        enCurso,
-      }
+      return { label: enCurso ? `${labelBase} (en curso)` : labelBase, real, objetivo: objMensual, enCurso }
     })
   }, [ventas, histTipo, histAnio, diasSemana, objSemanal, objMensual, objAnual, hoyStr, hoy, curYear, curWeek])
 
@@ -377,22 +425,24 @@ export default function Objetivos() {
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
   )
 
-  const pctHoy = objHoy > 0 ? Math.round((ventasHoy / objHoy) * 100) : 0
-  const pctSem = objSemanal > 0 ? Math.round((ventasSemana / objSemanal) * 100) : 0
-  const pctMes = objMensual > 0 ? Math.round((ventasMes / objMensual) * 100) : 0
-  const pctAno = objAnual > 0 ? Math.round((ventasAno / objAnual) * 100) : 0
-  const colHoy = semaforoColor(pctHoy)
-  const colSem = semaforoColor(pctSem)
-  const colMes = semaforoColor(pctMes)
-  const colAno = semaforoColor(pctAno)
+  // ── Porcentajes ──────────────────────────────────────────────────────────────
+  const pctHoy  = objHoy      > 0 ? Math.round((ventasHoy    / objHoy)     * 100) : 0
+  const pctPer  = objPeriodo  > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
+  const pctSem  = objSemanal  > 0 ? Math.round((ventasSemana / objSemanal)  * 100) : 0
+  const pctMes  = objMensual  > 0 ? Math.round((ventasMes    / objMensual)  * 100) : 0
+  const pctAno  = objAnual    > 0 ? Math.round((ventasAno    / objAnual)    * 100) : 0
+  const colHoy  = semaforoColor(pctHoy)
+  const colPer  = semaforoColor(pctPer)
+  const colSem  = semaforoColor(pctSem)
+  const colMes  = semaforoColor(pctMes)
+  const colAno  = semaforoColor(pctAno)
   const INCUMPLIDO = '#E24B4A'
 
+  const weekLabel = `S${displayWeekNum.week} — ${monday.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
+
   const editableNumberStyle = (color: string = T.pri) => ({
-    color,
-    fontWeight: 600 as const,
-    cursor: 'pointer',
-    borderBottom: `1px dashed ${T.mut}`,
-    paddingBottom: 1,
+    color, fontWeight: 600 as const, cursor: 'pointer',
+    borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1,
   })
 
   const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
@@ -406,27 +456,17 @@ export default function Objetivos() {
     }
     if (editingId === id) {
       return (
-        <input
-          type="number"
-          value={editValue}
-          onChange={e => setEditValue(e.target.value)}
+        <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
           onBlur={commit}
-          onKeyDown={e => {
-            if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') setEditingId(null)
-          }}
-          autoFocus
-          placeholder="vacío o 0 = restaurar"
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
+          autoFocus placeholder="vacío o 0 = restaurar"
           style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 130, textAlign: 'right' }}
         />
       )
     }
     return (
-      <span
-        onClick={() => { setEditingId(id); setEditValue(String(Math.round(currentVal))) }}
-        style={editableNumberStyle(color)}
-        title="Click para editar · vacío o 0 restaura el valor calculado"
-      >
+      <span onClick={() => { setEditingId(id); setEditValue(String(Math.round(currentVal))) }}
+        style={editableNumberStyle(color)} title="Click para editar · vacío o 0 restaura el valor calculado">
         {fmtEur(currentVal)}
       </span>
     )
@@ -457,31 +497,19 @@ export default function Objetivos() {
   const inputSelectStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
     border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
-    color: T.pri,
-    fontFamily: FONT.body,
-    fontSize: 12,
-    borderRadius: 8,
-    padding: '4px 10px',
-    cursor: 'pointer',
+    color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
   }
 
   const sectionLabel = {
-    fontFamily: FONT.heading, fontSize: 10,
-    letterSpacing: '2px', textTransform: 'uppercase' as const,
-    color: T.mut, margin: '24px 0 10px',
+    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px',
+    textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px',
   }
 
   const getPresVal = (codigo: string, mes: number) =>
     presData.find(p => p.categoria_codigo === codigo && p.mes === mes)?.importe ?? 0
-
-  const totalMes = (mes: number) =>
-    ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
-
-  const totalCodigo = (codigo: string) =>
-    Array.from({ length: 12 }, (_, i) => i + 1).reduce((a, m) => a + getPresVal(codigo, m), 0)
-
-  const totalAnual = () =>
-    ALL_CODIGOS.reduce((a, c) => a + totalCodigo(c), 0)
+  const totalMes = (mes: number) => ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
+  const totalCodigo = (codigo: string) => Array.from({ length: 12 }, (_, i) => i + 1).reduce((a, m) => a + getPresVal(codigo, m), 0)
+  const totalAnual = () => ALL_CODIGOS.reduce((a, c) => a + totalCodigo(c), 0)
 
   const commitPresEdit = (codigo: string, mes: number) => {
     const v = parseFloat(presEditVal.replace(',', '.'))
@@ -497,26 +525,37 @@ export default function Objetivos() {
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      {/* HEADER: título + selector fecha universal */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={() => setWeekOffset(w => w - 1)}
-            style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 44, minHeight: 44 }}
-          >‹</button>
-          <span style={{ fontFamily: FONT.heading, fontSize: 13, color: T.pri, minWidth: 130, textAlign: 'center' }}>{weekLabel}</span>
-          <button
-            onClick={() => setWeekOffset(w => w + 1)}
-            disabled={isCurrentWeek}
-            style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 44, minHeight: 44 }}
-          >›</button>
-        </div>
+        <SelectorFechaUniversal
+          nombreModulo="objetivos"
+          defaultOpcion="semana_actual"
+          onChange={handlePeriodo}
+        />
       </div>
 
+      {/* NAV SEMANAS — debajo del selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <button
+          onClick={() => setWeekOffset(w => w - 1)}
+          style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: T.sec, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, minWidth: 36, minHeight: 36 }}
+        >‹</button>
+        <span style={{ fontFamily: FONT.heading, fontSize: 12, color: T.sec, minWidth: 140, textAlign: 'center' }}>{weekLabel}</span>
+        <button
+          onClick={() => setWeekOffset(w => w + 1)}
+          disabled={isCurrentWeek}
+          style={{ background: 'transparent', border: `1px solid ${T.brd}`, color: isCurrentWeek ? T.mut : T.sec, borderRadius: 6, padding: '3px 10px', cursor: isCurrentWeek ? 'default' : 'pointer', fontFamily: FONT.heading, fontSize: 14, lineHeight: 1, opacity: isCurrentWeek ? 0.4 : 1, minWidth: 36, minHeight: 36 }}
+        >›</button>
+        <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginLeft: 4 }}>
+          {periodoLabel !== weekLabel ? `· periodo: ${periodoLabel}` : ''}
+        </span>
+      </div>
+
+      {/* TABS */}
       <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
-          <button
-            key={tab.key}
+          <button key={tab.key}
             onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
             style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
           >
@@ -543,6 +582,7 @@ export default function Objetivos() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
+            {/* CARD: ventas vs objetivos — reactiva al periodo */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 Ventas · Hoy {hoy.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).toUpperCase()}
@@ -553,14 +593,19 @@ export default function Objetivos() {
               <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: colHoy, marginBottom: 22 }}>
                 {pctHoy >= 100 ? '▲' : '▼'} {pctHoy}% del objetivo diario · {fmtEur(objHoy)}
               </div>
+
+              {/* Fila periodo seleccionado */}
+              {renderPeriodRow('Periodo', periodoLabel, ventasPeriodo, objPeriodo, pctPer, colPer, 'obj-periodo', () => {}, undefined)}
+
               {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, colSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
               {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, colMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, colAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
             </div>
 
+            {/* CARD: objetivo por día de la semana seleccionada */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>Objetivo por día</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>Objetivo por día · {weekLabel}</span>
                 <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase', opacity: 0.7 }}>click editar</span>
               </div>
 
@@ -576,7 +621,7 @@ export default function Objetivos() {
                   const festivo = esFestivo(dia)
                   const hoyFlag = esHoy(dia) && isCurrentWeek
                   const fechaDiaD = fechaDia(dia)
-                  const fechaDiaStr = `${fechaDiaD.getFullYear()}-${String(fechaDiaD.getMonth()+1).padStart(2,'0')}-${String(fechaDiaD.getDate()).padStart(2,'0')}`
+                  const fechaDiaStr = toDateStr(fechaDiaD)
                   const tipoDiaActual = tipoDia(fechaDiaStr)
                   const esCerradoCalendario = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
@@ -585,11 +630,7 @@ export default function Objetivos() {
                   let diaColor = T.sec
                   if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
                   else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
-
-                  if (hoyFlag) {
-                    rowBorderLeft = '3px solid #1E5BCC'
-                    rowBg = '#ffffff15'
-                  }
+                  if (hoyFlag) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
 
                   const fecha = fechaDia(dia)
                   const fechaStr = `${fecha.getDate()} ${fecha.toLocaleDateString('es-ES', { month: 'short' })}`
@@ -598,17 +639,10 @@ export default function Objetivos() {
 
                   return (
                     <div key={dia} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '70px 1fr 90px',
-                      alignItems: 'center',
-                      gap: 14,
-                      padding: hoyFlag ? '12px 14px' : '10px 14px',
-                      margin: '0 -14px',
-                      background: rowBg,
-                      borderLeft: rowBorderLeft,
-                      borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
-                      borderRadius: hoyFlag ? 8 : 0,
-                      position: 'relative',
+                      display: 'grid', gridTemplateColumns: '70px 1fr 90px', alignItems: 'center', gap: 14,
+                      padding: hoyFlag ? '12px 14px' : '10px 14px', margin: '0 -14px', background: rowBg,
+                      borderLeft: rowBorderLeft, borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
+                      borderRadius: hoyFlag ? 8 : 0, position: 'relative',
                     }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFlag ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFlag ? 700 : 500 }}>
@@ -631,10 +665,7 @@ export default function Objetivos() {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         {editingId === editId ? (
-                          <input
-                            type="number"
-                            value={editValue}
-                            onChange={e => setEditValue(e.target.value)}
+                          <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
                             onBlur={() => { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) saveDiaSemana(dia, v); else setEditingId(null) }}
                             onKeyDown={e => {
                               if (e.key === 'Enter') { const v = parseFloat(editValue.replace(',', '.')); if (!isNaN(v)) saveDiaSemana(dia, v); else setEditingId(null) }
@@ -644,10 +675,8 @@ export default function Objetivos() {
                             style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: hoyFlag ? '#1E5BCC' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
                           />
                         ) : (
-                          <span
-                            onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: T.pri, cursor: 'pointer' }}
-                          >
+                          <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
+                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFlag ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
                             {fmtEur(importe)}
                           </span>
                         )}
@@ -660,6 +689,7 @@ export default function Objetivos() {
 
           </div>
 
+          {/* HISTÓRICO */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -722,20 +752,13 @@ export default function Objetivos() {
       {activeTab === 'presupuestos' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <select
-              value={presAnio}
-              onChange={e => setPresAnio(parseInt(e.target.value))}
-              style={inputSelectStyle}
-            >
+            <select value={presAnio} onChange={e => setPresAnio(parseInt(e.target.value))} style={inputSelectStyle}>
               {[hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1].map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <button
-              onClick={copiarAnioAnterior}
-              disabled={presSaving}
-              style={{ background: '#222', color: T.sec, border: `1px solid #383838`, borderRadius: 6, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}
-            >
+            <button onClick={copiarAnioAnterior} disabled={presSaving}
+              style={{ background: '#222', color: T.sec, border: `1px solid #383838`, borderRadius: 6, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
               Copiar año anterior
             </button>
             {presSaving && <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Guardando…</span>}
@@ -747,7 +770,6 @@ export default function Objetivos() {
             PRESUPUESTO_GRUPOS.map(grupo => {
               const totalGrupoMes = (mes: number) => grupo.codigos.reduce((a, c) => a + getPresVal(c.codigo, mes), 0)
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
-
               return (
                 <div key={grupo.grupo} style={{ marginBottom: 28 }}>
                   <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#e8f442', marginBottom: 8 }}>
@@ -778,24 +800,16 @@ export default function Objetivos() {
                               return (
                                 <td key={mes} style={{ padding: '4px 6px', textAlign: 'right' }}>
                                   {isEditing ? (
-                                    <input
-                                      type="number"
-                                      value={presEditVal}
-                                      onChange={e => setPresEditVal(e.target.value)}
+                                    <input type="number" value={presEditVal} onChange={e => setPresEditVal(e.target.value)}
                                       onBlur={() => commitPresEdit(cat.codigo, mes)}
-                                      onKeyDown={e => {
-                                        if (e.key === 'Enter') commitPresEdit(cat.codigo, mes)
-                                        if (e.key === 'Escape') setPresEditing(null)
-                                      }}
+                                      onKeyDown={e => { if (e.key === 'Enter') commitPresEdit(cat.codigo, mes); if (e.key === 'Escape') setPresEditing(null) }}
                                       autoFocus
                                       style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: '#1e1e1e', border: `1px solid #e8f442`, borderRadius: 4, padding: '3px 5px', width: 66, textAlign: 'right' }}
                                     />
                                   ) : (
-                                    <span
-                                      onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
+                                    <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
                                       style={{ fontFamily: FONT.heading, fontSize: 11, color: val > 0 ? T.pri : T.mut, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
-                                      title="Clic para editar"
-                                    >
+                                      title="Clic para editar">
                                       {val > 0 ? fmtEur(val) : '—'}
                                     </span>
                                   )}
