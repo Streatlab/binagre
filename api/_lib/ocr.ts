@@ -10,7 +10,7 @@ const PROMPT_OCR_FACTURA = `Eres un extractor de datos de facturas espanolas. An
   "es_recapitulativa": boolean,
   "periodo_inicio": "YYYY-MM-DD" | null,
   "periodo_fin": "YYYY-MM-DD" | null,
-  "tipo": "proveedor" | "plataforma" | "otro",
+  "tipo": "proveedor" | "plataforma",
   "plataforma": "uber" | "glovo" | "just_eat" | null,
   "nif_cliente": "string" | null,
   "nif_emisor": "string" | null,
@@ -41,6 +41,7 @@ const PROMPT_OCR_FACTURA = `Eres un extractor de datos de facturas espanolas. An
 }
 
 Reglas:
+- TIPO: solo dos valores posibles. "plataforma" si es Uber/Glovo/Just Eat/Portier Eats/Glovo App. En cualquier otro caso, "proveedor". Toda factura tiene un proveedor que la emite, por tanto siempre es proveedor salvo plataformas delivery.
 - Si no hay base al 4%/10%/21% usa 0.
 - Si es ticket de supermercado recapitulativo de Mercadona/Lidl/Alcampo, es_recapitulativa=true y extrae periodo.
 - Si no detectas numero factura, usa la referencia mas unica que encuentres.
@@ -66,7 +67,7 @@ export type ExtractedFactura = {
   es_recapitulativa: boolean
   periodo_inicio: string | null
   periodo_fin: string | null
-  tipo: 'proveedor' | 'plataforma' | 'otro'
+  tipo: 'proveedor' | 'plataforma'
   plataforma: 'uber' | 'glovo' | 'just_eat' | null
   nif_cliente: string | null
   nif_emisor: string | null
@@ -174,7 +175,14 @@ async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> 
   }
   const jsonStr = textBlock.text.replace(/```json|```/g, '').trim()
   try {
-    return JSON.parse(jsonStr) as ExtractedFactura
+    const parsed = JSON.parse(jsonStr) as ExtractedFactura & { tipo: string }
+    // Defensa: si el modelo devuelve "otro" o cualquier otro valor, forzar "proveedor".
+    // Reglas de negocio: toda factura tiene un proveedor que la emite, así que el fallback
+    // siempre es "proveedor" salvo que sea explícitamente plataforma delivery.
+    if (parsed.tipo !== 'plataforma') {
+      parsed.tipo = 'proveedor'
+    }
+    return parsed as ExtractedFactura
   } catch (err) {
     const preview = jsonStr.slice(0, 120)
     throw new Error(`JSON inválido devuelto por modelo (modelo=${modelo}). Preview: ${preview}`)
