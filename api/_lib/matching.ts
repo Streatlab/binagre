@@ -208,7 +208,7 @@ async function matchFacturaNormal(
 
   const { data: candidatosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .lt('importe', 0)
     .gte('fecha', fechaMin.toISOString().slice(0, 10))
     .lte('fecha', fechaMax.toISOString().slice(0, 10))
@@ -221,7 +221,7 @@ async function matchFacturaNormal(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
-    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
+    categoria_codigo: (c.categoria as string | null) ?? null,
   }))
 
   if (candidatos.length === 0) {
@@ -281,7 +281,7 @@ async function matchFacturaMercadona(
 
   let q = supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .lt('importe', 0)
     .gte('fecha', inicio)
     .lte('fecha', fin)
@@ -300,7 +300,7 @@ async function matchFacturaMercadona(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
-    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
+    categoria_codigo: (c.categoria as string | null) ?? null,
   }))
 
   if (movimientos.length === 0) {
@@ -371,7 +371,7 @@ async function matchFacturaGlovoJustEat(
   // Buscar ingresos positivos (liquidaciones) en ventana, da igual la categoría contable
   const { data: ingresosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .gt('importe', 0)
     .gte('fecha', fechaInicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
@@ -384,7 +384,7 @@ async function matchFacturaGlovoJustEat(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
-    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
+    categoria_codigo: (c.categoria as string | null) ?? null,
   }))
 
   if (ingresos.length === 0) {
@@ -425,7 +425,7 @@ async function matchFacturaRecapitulativa(
 
   const { data: movimientosRaw } = await supabase
     .from('conciliacion')
-    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
+    .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .lt('importe', 0)
     .gte('fecha', factura.periodo_inicio)
     .lte('fecha', fechaFinExt.toISOString().slice(0, 10))
@@ -438,7 +438,7 @@ async function matchFacturaRecapitulativa(
     importe: Number(c.importe),
     proveedor: (c.proveedor as string) || null,
     titular_id: (c.titular_id as string | null) ?? null,
-    categoria_codigo: (c.categoria_codigo as string | null) ?? null,
+    categoria_codigo: (c.categoria as string | null) ?? null,
   }))
 
   if (movimientos.length === 0) {
@@ -526,7 +526,7 @@ export async function aplicarMatching(
   }
 
   // REGLA 08/05/26: si la factura quedó asociada con UN solo movimiento bancario,
-  // copiamos su categoria_codigo a la factura. Si hay varios movimientos
+  // copiamos su categoria a la factura. Si hay varios movimientos
   // pero todos tienen la misma categoría, también la copiamos.
   let categoriaPropagada: string | null = null
   if (result.estado === 'asociada' && result.matches.length > 0) {
