@@ -162,14 +162,14 @@ async function procesarContenidoPrincipal(
           proveedor_nombre: existente.proveedor_nombre as string,
           numero_factura: (existente.numero_factura as string) || '',
           fecha_factura: existente.fecha_factura as string,
-          tipo: (existente.tipo as 'proveedor' | 'plataforma' | 'otro') || 'proveedor',
+          tipo: (existente.tipo as 'proveedor' | 'plataforma') || 'proveedor',
           plataforma: (existente.plataforma as 'uber' | 'glovo' | 'just_eat' | null) || null,
         }, ext)
         const drive = await subirArchivoADrive(file.buffer, nombreArchivo, {
           proveedor_nombre: existente.proveedor_nombre as string,
           numero_factura: (existente.numero_factura as string) || '',
           fecha_factura: existente.fecha_factura as string,
-          tipo: (existente.tipo as 'proveedor' | 'plataforma' | 'otro') || 'proveedor',
+          tipo: (existente.tipo as 'proveedor' | 'plataforma') || 'proveedor',
           plataforma: (existente.plataforma as 'uber' | 'glovo' | 'just_eat' | null) || null,
           carpeta_titular: carpeta,
         }, ext)
