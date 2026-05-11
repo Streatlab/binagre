@@ -49,6 +49,8 @@ import MockupFusion3 from '@/pages/mockups/MockupFusion3'
 import MockupFusion3Binagre from '@/pages/mockups/MockupFusion3Binagre'
 import MockupBinagreColors from '@/pages/mockups/MockupBinagreColors'
 import MockupPosthogBinagre from '@/pages/mockups/MockupPosthogBinagre'
+import MockupLymon from '@/pages/mockups/MockupLymon'
+import MockupLymonBinagre from '@/pages/mockups/MockupLymonBinagre'
 import Ocr from '@/pages/Ocr'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
@@ -166,8 +168,8 @@ function AppRoutes() {
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
-        {/* Mockup desplegable con 8 submódulos */}
-        <Route path="mockup" element={<Navigate to="/mockup/binagre-posthog" replace />} />
+        {/* Mockup desplegable con 10 submódulos */}
+        <Route path="mockup" element={<Navigate to="/mockup/lymon-binagre" replace />} />
         <Route path="mockup/binagre-posthog" element={<ProtectedRoute solo={['admin']}><MockupBinagrePosthog /></ProtectedRoute>} />
         <Route path="mockup/holded" element={<ProtectedRoute solo={['admin']}><MockupHolded /></ProtectedRoute>} />
         <Route path="mockup/marginedge" element={<ProtectedRoute solo={['admin']}><MockupMarginEdge /></ProtectedRoute>} />
@@ -176,6 +178,8 @@ function AppRoutes() {
         <Route path="mockup/fusion3-binagre" element={<ProtectedRoute solo={['admin']}><MockupFusion3Binagre /></ProtectedRoute>} />
         <Route path="mockup/binagre-colors" element={<ProtectedRoute solo={['admin']}><MockupBinagreColors /></ProtectedRoute>} />
         <Route path="mockup/posthog-binagre" element={<ProtectedRoute solo={['admin']}><MockupPosthogBinagre /></ProtectedRoute>} />
+        <Route path="mockup/lymon" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
+        <Route path="mockup/lymon-binagre" element={<ProtectedRoute solo={['admin']}><MockupLymonBinagre /></ProtectedRoute>} />
         {/* Compatibilidad con la ruta antigua /mockup */}
         <Route path="mockup-old" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
 
