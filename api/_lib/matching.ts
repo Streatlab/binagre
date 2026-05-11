@@ -9,10 +9,21 @@ const TOLERANCIA_IMPORTE = 0.05
 // Ventana temporal por defecto (días antes / después fecha factura).
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
-// Ventanas especiales por proveedor (en días). Lidl emite facturas con
-// retraso de hasta 3 meses + 15 días respecto al cargo bancario.
+// Ventanas especiales por proveedor (en días). 11/05/26:
+// - Lidl: factura llega con retraso hasta trimestre completo + 20 días
+// - Alcampo: norma SL, NUNCA se paga en efectivo; si total>0 el cargo
+//   está en banco aunque tarde varios días. Si no hay cargo, es factura 0€ (cupón).
+// - Waitry: cobro vía GoCardless, llega con retraso variable
 const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = {
-  lidl: { antes: 5, despues: 105 }, // 3 meses + 15 días
+  lidl: { antes: 30, despues: 110 }, // ~trimestre + 20 días
+  alcampo: { antes: 15, despues: 45 },
+  waitry: { antes: 5, despues: 60 },
+  tesys: { antes: 5, despues: 60 },
+  piensasolutions: { antes: 5, despues: 60 },
+  envases: { antes: 5, despues: 45 },
+  envapro: { antes: 5, despues: 45 },
+  ayora: { antes: 5, despues: 30 },
+  amazon: { antes: 10, despues: 45 },
 }
 
 function ventanaProveedor(proveedorNombre: string): { antes: number; despues: number } {
@@ -118,10 +129,9 @@ function diasEntre(a: string | Date, b: string | Date): number {
 function mesAnterior(fecha: string): { inicio: string; fin: string } {
   const d = new Date(fecha)
   const año = d.getFullYear()
-  const mes = d.getMonth() // 0-indexado, ya es el mes anterior si la factura es del mes siguiente
-  // Mercadona emite factura a principios del mes M+1 cubriendo todo el mes M
+  const mes = d.getMonth()
   const inicio = new Date(año, mes - 1, 1)
-  const fin = new Date(año, mes, 0) // último día del mes anterior
+  const fin = new Date(año, mes, 0)
   return {
     inicio: inicio.toISOString().slice(0, 10),
     fin: fin.toISOString().slice(0, 10),
@@ -136,7 +146,6 @@ export async function matchFactura(
 ): Promise<MatchingResult> {
   let result: MatchingResult
 
-  // REGLA 1: Uber Eats → solo Drive, NO matchear (los gastos Uber van al banco como descuentos en liquidaciones, no como cargos individuales)
   if (factura.plataforma === 'uber') {
     return {
       estado: 'solo_drive',
@@ -146,31 +155,28 @@ export async function matchFactura(
     }
   }
 
-  // REGLA 2: Importe 0 (ej. Alcampo pagado con saldo Club) → solo Drive, NO matchear
+  // REGLA 11/05/26: Total 0€ = factura pagada con cupón/bono (Alcampo, Lidl…).
+  // Norma SL: jamás se paga en efectivo. Si total>0 SIEMPRE hay cargo bancario.
   if (Math.abs(factura.total) < 0.01) {
     return {
       estado: 'solo_drive',
       matches: [],
       confianza: 100,
-      mensaje: 'Importe 0€ (pagado con saldo/crédito): solo guardado en Drive para contabilidad.',
+      mensaje: 'Importe 0€ (cupón/bono): solo guardado en Drive para contabilidad.',
     }
   }
 
-  // REGLA 3: Mercadona → recapitulativa mensual del mes anterior
   const provNorm = normalizar(factura.proveedor_nombre || '')
   if (provNorm.includes('mercadona')) {
     result = await matchFacturaMercadona(supabase, factura)
   }
-  // REGLA 4: Glovo / Just Eat → factura mixta, matchear contra liquidación bancaria por neto liquidado
   else if (factura.plataforma === 'glovo' || factura.plataforma === 'just_eat') {
     result = await matchFacturaGlovoJustEat(supabase, factura)
   }
-  // REGLA 5: Recapitulativa explícita con periodo
   else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaRecapitulativa(supabase, factura, alias)
   }
-  // REGLA 6: Resto → matching normal por importe + ventana fechas (con excepción Lidl)
   else {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
     result = await matchFacturaNormal(supabase, factura, alias)
@@ -236,14 +242,30 @@ async function matchFacturaNormal(
   }
 
   const total = Math.abs(factura.total)
-  const matchesExactos = candidatos.filter(
+  // Excluir movimientos ya asociados a otra factura
+  const ids = candidatos.map((c) => c.id)
+  let yaAsociadosIds = new Set<string>()
+  if (ids.length > 0) {
+    const { data: yaAsociados } = await supabase
+      .from('facturas_gastos')
+      .select('conciliacion_id, factura_id')
+      .in('conciliacion_id', ids)
+    yaAsociadosIds = new Set(
+      (yaAsociados || [])
+        .filter((a) => a.factura_id !== (factura as { id?: string }).id)
+        .map((a) => a.conciliacion_id as string),
+    )
+  }
+  const disponibles = candidatos.filter((c) => !yaAsociadosIds.has(c.id))
+
+  const matchesExactos = disponibles.filter(
     (c) => Math.abs(Math.abs(c.importe) - total) <= TOLERANCIA_IMPORTE,
   )
 
   if (matchesExactos.length === 0) {
     return {
       estado: 'pendiente_revision',
-      matches: candidatos.slice(0, 5),
+      matches: disponibles.slice(0, 5),
       confianza: 0,
       mensaje: `Proveedor encontrado pero ningún importe cuadra con ${total.toFixed(2)}€ (tolerancia ±${TOLERANCIA_IMPORTE}€)`,
     }
@@ -262,6 +284,20 @@ async function matchFacturaNormal(
     }
   }
 
+  // Múltiples candidatos exactos: elegir el más cercano en fecha
+  const ordenadosPorFecha = matchesExactos
+    .map((m) => ({ m, dias: diasEntre(m.fecha, factura.fecha_factura) }))
+    .sort((a, b) => a.dias - b.dias)
+  const mejor = ordenadosPorFecha[0]
+  // Si hay un único más cercano, lo damos por asociado con confianza alta
+  if (ordenadosPorFecha.length === 1 || ordenadosPorFecha[0].dias !== ordenadosPorFecha[1].dias) {
+    return {
+      estado: 'asociada',
+      matches: [mejor.m],
+      confianza: 80,
+      mensaje: `Match por importe + fecha más próxima (${mejor.dias.toFixed(0)} días)`,
+    }
+  }
   return {
     estado: 'pendiente_revision',
     matches: matchesExactos,
@@ -270,28 +306,26 @@ async function matchFacturaNormal(
   }
 }
 
-/* ═════════════ MERCADONA (mes natural anterior) ═════════════ */
+/* ═════════════ MERCADONA (mes natural anterior, multi-titular) ═════════════ */
 
 async function matchFacturaMercadona(
   supabase: SupabaseClient,
   factura: ExtractedFactura & { total: number; titular_id?: string | null },
 ): Promise<MatchingResult> {
   const { inicio, fin } = mesAnterior(factura.fecha_factura)
-  const alias = ['mercadona']
 
-  let q = supabase
+  // REGLA 11/05/26: Mercadona recapitulativa cubre TODOS los pagos del mes
+  // realizados con cualquier tarjeta de la SL (Rubén o Emilio). El alias
+  // "Cc.albufera plaza" también es Mercadona. NO filtrar por titular.
+  const alias = ['mercadona', 'cc.albufera plaza', 'albufera plaza', 'mercadona online']
+
+  const { data: movimientosRaw } = await supabase
     .from('conciliacion')
     .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .lt('importe', 0)
     .gte('fecha', inicio)
     .lte('fecha', fin)
     .or(orFilterAlias(alias))
-
-  if (factura.titular_id) {
-    q = q.eq('titular_id', factura.titular_id)
-  }
-
-  const { data: movimientosRaw } = await q
 
   const movimientos: MatchCandidato[] = (movimientosRaw || []).map((c) => ({
     id: c.id as string,
@@ -308,7 +342,7 @@ async function matchFacturaMercadona(
       estado: 'pendiente_revision',
       matches: [],
       confianza: 0,
-      mensaje: `Mercadona ${inicio} → ${fin}: no hay cargos en banco para este periodo/titular`,
+      mensaje: `Mercadona ${inicio} → ${fin}: no hay cargos en banco`,
     }
   }
 
@@ -338,7 +372,7 @@ async function matchFacturaMercadona(
       estado: 'pendiente_revision',
       matches: disponibles,
       confianza: 70,
-      mensaje: `Mercadona: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€). Probable: alguna compra no incluida en factura.`,
+      mensaje: `Mercadona: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)`,
     }
   }
 
@@ -346,11 +380,11 @@ async function matchFacturaMercadona(
     estado: 'pendiente_revision',
     matches: disponibles,
     confianza: 40,
-    mensaje: `Mercadona descuadre fuerte: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€)`,
+    mensaje: `Mercadona descuadre: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€). Revisar cargos sin etiquetar Mercadona en el periodo.`,
   }
 }
 
-/* ═════════════ GLOVO / JUST EAT (factura mixta gasto+ingreso) ═════════════ */
+/* ═════════════ GLOVO / JUST EAT ═════════════ */
 
 async function matchFacturaGlovoJustEat(
   supabase: SupabaseClient,
@@ -368,7 +402,6 @@ async function matchFacturaGlovoJustEat(
   const fechaFinExt = new Date(fechaFinBase)
   fechaFinExt.setDate(fechaFinExt.getDate() + 14)
 
-  // Buscar ingresos positivos (liquidaciones) en ventana, da igual la categoría contable
   const { data: ingresosRaw } = await supabase
     .from('conciliacion')
     .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
@@ -400,7 +433,7 @@ async function matchFacturaGlovoJustEat(
     estado: 'asociada',
     matches: ingresos,
     confianza: 70,
-    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo (revisar manualmente cuál corresponde)`,
+    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo`,
   }
 }
 
@@ -525,9 +558,6 @@ export async function aplicarMatching(
     await supabase.from('facturas_gastos').insert(filas)
   }
 
-  // REGLA 08/05/26: si la factura quedó asociada con UN solo movimiento bancario,
-  // copiamos su categoria a la factura. Si hay varios movimientos
-  // pero todos tienen la misma categoría, también la copiamos.
   let categoriaPropagada: string | null = null
   if (result.estado === 'asociada' && result.matches.length > 0) {
     const categorias = result.matches
