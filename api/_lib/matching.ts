@@ -9,14 +9,12 @@ const TOLERANCIA_IMPORTE = 0.05
 // Ventana temporal por defecto (días antes / después fecha factura).
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
-// Ventanas especiales por proveedor (en días). 11/05/26:
-// - Lidl: factura llega con retraso hasta trimestre completo + 20 días
-// - Alcampo: norma SL, NUNCA se paga en efectivo; si total>0 el cargo
-//   está en banco aunque tarde varios días. Si no hay cargo, es factura 0€ (cupón).
-// - Waitry: cobro vía GoCardless, llega con retraso variable
+// Ventanas ampliadas 11/05/26 (Rubén): Alcampo se cargan a tarjeta y suelen
+// aparecer en banco hasta 30 días antes de la fecha factura. TGT va por
+// transferencia y puede tardar hasta 4 meses.
 const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = {
   lidl: { antes: 30, despues: 110 }, // ~trimestre + 20 días
-  alcampo: { antes: 15, despues: 45 },
+  alcampo: { antes: 30, despues: 45 },
   waitry: { antes: 5, despues: 60 },
   tesys: { antes: 5, despues: 60 },
   piensasolutions: { antes: 5, despues: 60 },
@@ -24,6 +22,8 @@ const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = 
   envapro: { antes: 5, despues: 45 },
   ayora: { antes: 5, despues: 30 },
   amazon: { antes: 10, despues: 45 },
+  tgt: { antes: 5, despues: 120 },
+  lacteos: { antes: 5, despues: 120 },
 }
 
 function ventanaProveedor(proveedorNombre: string): { antes: number; despues: number } {
@@ -380,7 +380,7 @@ async function matchFacturaMercadona(
     estado: 'pendiente_revision',
     matches: disponibles,
     confianza: 40,
-    mensaje: `Mercadona descuadre: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€). Revisar cargos sin etiquetar Mercadona en el periodo.`,
+    mensaje: `Mercadona descuadre: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€). Falta extracto tarjeta Emilio o cargo sin etiquetar.`,
   }
 }
 
