@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur } from '@/utils/format'
-import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle } from '@/styles/tokens'
+import { fmtEur, fmtNumES } from '@/utils/format'
+import { useTheme, cardStyle, semaforoColor, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
@@ -88,12 +88,23 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-// Barras de progreso: solo verde y rojo. Sin ámbar intermedio.
+// Barras: verde/rojo, sin naranja intermedio
 function barColor(pct: number): string {
-  if (pct <= 0) return '#E24B4A'
-  if (pct >= 100) return '#1D9E75'
-  return '#1D9E75' // verde siempre que haya algo
+  return pct > 0 ? '#1D9E75' : '#E24B4A'
 }
+
+// Neto estimado: pondera comisiones medias por canal
+// Cuando haya datos reales de neto en Supabase, sustituir este cálculo por el campo real
+function calcNetoEstimado(bruto: number): number {
+  // Comisión media ponderada estimada de todos los canales (~28%) + IVA comisión (21%)
+  // UberEats 30%+iva, Glovo 25%+iva, JustEat 20%+iva, Web 7%+iva
+  // Estimación conservadora global: 27% comisión media × 1.21 IVA ≈ 32.7% total
+  const COM_MEDIA = 0.327
+  return Math.max(0, bruto * (1 - COM_MEDIA))
+}
+
+// Porcentaje neto s/bruto estimado (para mostrar junto al número)
+const PCT_NETO_EST = Math.round((1 - 0.327) * 100) // ≈ 67%
 
 export default function Objetivos() {
   const { T, isDark } = useTheme()
@@ -106,31 +117,21 @@ export default function Objetivos() {
   // ── Selector fecha universal ─────────────────────────────────────────────────
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0)
-    const dow = d.getDay() || 7
-    d.setDate(d.getDate() - dow + 1)
-    return d
+    const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 1); return d
   })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
     const d = new Date(); d.setHours(23, 59, 59, 999)
-    const dow = d.getDay() || 7
-    d.setDate(d.getDate() - dow + 7)
-    return d
+    const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 7); return d
   })
   const [periodoLabel, setPeriodoLabel] = useState('Semana actual')
 
-  // Semana activa para la card de días — derivada del periodo seleccionado
   const [weekMon, setWeekMon] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0)
-    const dow = d.getDay() || 7
-    d.setDate(d.getDate() - dow + 1)
-    return d
+    const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 1); return d
   })
 
   const handlePeriodo = useCallback((desde: Date, hasta: Date, label: string) => {
-    setPeriodoDesde(desde)
-    setPeriodoHasta(hasta)
-    setPeriodoLabel(label)
-    // Sincronizar card de días: usar el lunes de la semana del inicio del periodo
+    setPeriodoDesde(desde); setPeriodoHasta(hasta); setPeriodoLabel(label)
     const { year, week } = getISOWeek(desde)
     setWeekMon(mondayOfWeek(year, week))
   }, [])
@@ -142,9 +143,7 @@ export default function Objetivos() {
   const weekLabel = `S${weekNum} — ${weekMon.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
 
   const fechaDia = useCallback((dia: number) => {
-    const d = new Date(weekMon)
-    d.setDate(weekMon.getDate() + dia - 1)
-    return d
+    const d = new Date(weekMon); d.setDate(weekMon.getDate() + dia - 1); return d
   }, [weekMon])
 
   const esFinde = (dia: number) => dia >= 5
@@ -156,12 +155,10 @@ export default function Objetivos() {
   const [diasSemana, setDiasSemana] = useState<ObjetivoDia[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
-
   const [histTipo, setHistTipo] = useState<'dias' | 'semanas' | 'meses' | 'anual'>('semanas')
   const [histAnio, setHistAnio] = useState<number>(hoy.getFullYear())
   const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
   const [loading, setLoading] = useState(true)
-
   const [presAnio, setPresAnio] = useState(hoy.getFullYear())
   const [presData, setPresData] = useState<ObjetivoPresupuesto[]>([])
   const [presLoading, setPresLoading] = useState(false)
@@ -184,16 +181,13 @@ export default function Objetivos() {
 
   const loadPresupuestos = useCallback(async (anio: number) => {
     setPresLoading(true)
-    const { data } = await supabase
-      .from('objetivos').select('id,categoria_codigo,anio,mes,importe')
+    const { data } = await supabase.from('objetivos').select('id,categoria_codigo,anio,mes,importe')
       .eq('tipo', 'presupuesto').eq('anio', anio).in('categoria_codigo', ALL_CODIGOS)
     setPresData((data ?? []).map((r: any) => ({ id: r.id, categoria_codigo: r.categoria_codigo, anio: r.anio, mes: r.mes, importe: Number(r.importe) })))
     setPresLoading(false)
   }, [])
 
-  useEffect(() => {
-    if (activeTab === 'presupuestos') loadPresupuestos(presAnio)
-  }, [activeTab, presAnio, loadPresupuestos])
+  useEffect(() => { if (activeTab === 'presupuestos') loadPresupuestos(presAnio) }, [activeTab, presAnio, loadPresupuestos])
 
   // ── Guardar ──────────────────────────────────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
@@ -241,8 +235,7 @@ export default function Objetivos() {
       const { data } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
       if (data?.[0]) setPresData(prev => [...prev, { id: data[0].id, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
     }
-    setPresEditing(null)
-    setPresSaving(false)
+    setPresEditing(null); setPresSaving(false)
   }
 
   const copiarAnioAnterior = async () => {
@@ -255,22 +248,18 @@ export default function Objetivos() {
       if (existing) await supabase.from('objetivos').update({ importe: row.importe, updated_at: new Date().toISOString() }).eq('id', existing.id)
       else await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: row.categoria_codigo, anio: presAnio, mes: row.mes, importe: row.importe })
     }
-    await loadPresupuestos(presAnio)
-    setPresSaving(false)
+    await loadPresupuestos(presAnio); setPresSaving(false)
   }
 
-  // ── Ventas calculadas ────────────────────────────────────────────────────────
+  // ── Ventas ────────────────────────────────────────────────────────────────────
   const hoyStr = toDateStr(hoy)
   const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
   const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
 
-  // "Ventas del periodo" — reactivo al selector
   const ventasPeriodo = useMemo(
     () => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, periodoDesdeStr, periodoHastaStr]
   )
-
-  // Ventas semana activa (card de días)
   const ventasSemana = useMemo(
     () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, weekStart, weekEnd]
@@ -301,14 +290,15 @@ export default function Objetivos() {
     [ventas, currentYear]
   )
 
+  // Neto estimado del periodo (TODO: sustituir por datos reales cuando estén disponibles en Supabase)
+  const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo])
+
   // ── Objetivos ────────────────────────────────────────────────────────────────
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
-
   const sumaMes = useMemo(() => {
     const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
     return Math.round((sumaSemana / 7) * diasEnMes)
   }, [sumaSemana, hoy])
-
   const sumaAno = useMemo(() => {
     const esBis = (hoy.getFullYear() % 4 === 0 && hoy.getFullYear() % 100 !== 0) || hoy.getFullYear() % 400 === 0
     return Math.round((sumaSemana / 7) * (esBis ? 366 : 365))
@@ -318,7 +308,6 @@ export default function Objetivos() {
   const objMensual = Math.round(objetivos.find(o => o.tipo === 'mensual')?.importe || 0) || sumaMes
   const objAnual   = Math.round(objetivos.find(o => o.tipo === 'anual')?.importe   || 0) || sumaAno
 
-  // Objetivo del periodo seleccionado: proporcional a sus días
   const objPeriodo = useMemo(() => {
     const dias = Math.round((periodoHasta.getTime() - periodoDesde.getTime()) / 86400000) + 1
     return Math.round((sumaSemana / 7) * dias)
@@ -345,7 +334,6 @@ export default function Objetivos() {
         return { label: enCurso ? `${labelBase} (en curso)` : labelBase, real: r.total_bruto, objetivo: diasSemana.find(x => x.dia === ds)?.importe || 0, enCurso }
       })
     }
-
     if (histTipo === 'semanas') {
       const map = new Map<string, number>()
       for (const r of filtAnio) {
@@ -359,12 +347,10 @@ export default function Objetivos() {
         return { label: enCurso ? `S${parseInt(key.split('-')[1])} (en curso)` : `S${parseInt(key.split('-')[1])}`, real, objetivo: objSemanal, enCurso }
       })
     }
-
     if (histTipo === 'anual') {
       const total = filtAnio.reduce((a, r) => a + r.total_bruto, 0)
       return [{ label: esAnioActual ? `${histAnio} (en curso)` : String(histAnio), real: total, objetivo: objAnual, enCurso: esAnioActual }]
     }
-
     const curMonthStr = hoy.toISOString().slice(0, 7)
     const map = new Map<string, number>()
     for (const r of filtAnio) { const m = r.fecha.slice(0, 7); map.set(m, (map.get(m) || 0) + r.total_bruto) }
@@ -381,30 +367,24 @@ export default function Objetivos() {
   )
 
   // ── Porcentajes ──────────────────────────────────────────────────────────────
-  const pctPer = objPeriodo  > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
-  const pctSem = objSemanal  > 0 ? Math.round((ventasSemana  / objSemanal) * 100) : 0
-  const pctMes = objMensual  > 0 ? Math.round((ventasMes     / objMensual) * 100) : 0
-  const pctAno = objAnual    > 0 ? Math.round((ventasAno     / objAnual)   * 100) : 0
+  const pctPer = objPeriodo > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
+  const pctSem = objSemanal > 0 ? Math.round((ventasSemana  / objSemanal) * 100) : 0
+  const pctMes = objMensual > 0 ? Math.round((ventasMes     / objMensual) * 100) : 0
+  const pctAno = objAnual   > 0 ? Math.round((ventasAno     / objAnual)   * 100) : 0
 
   const INCUMPLIDO = '#E24B4A'
+  const VERDE = '#1D9E75'
 
   const inputSelectStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
     border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
     color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
   }
+  const sectionLabel = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px' }
+  const editableNumberStyle = (color: string = T.pri) => ({ color, fontWeight: 600 as const, cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1 })
 
-  const sectionLabel = {
-    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px',
-    textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px',
-  }
-
-  const editableNumberStyle = (color: string = T.pri) => ({
-    color, fontWeight: 600 as const, cursor: 'pointer',
-    borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1,
-  })
-
-  const renderInlineEdit = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
+  // Renderiza número editable SIN € (para cards)
+  const renderInlineEditNoEur = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
     const commit = () => {
       const trimmed = editValue.trim()
       if (trimmed === '' && onReset) { onReset(); return }
@@ -419,14 +399,14 @@ export default function Objetivos() {
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
           autoFocus placeholder="vacío o 0 = restaurar"
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 130, textAlign: 'right' }}
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
         />
       )
     }
     return (
       <span onClick={() => { setEditingId(id); setEditValue(String(Math.round(currentVal))) }}
         style={editableNumberStyle(color)} title="Click para editar · vacío o 0 restaura el valor calculado">
-        {fmtEur(currentVal)}
+        {fmtNumES(currentVal, 2)}
       </span>
     )
   }
@@ -444,7 +424,7 @@ export default function Objetivos() {
           <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: col }}>{pct}%</span>
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 6 }}>
-          Faltan <span style={{ color: col, fontWeight: 500 }}>{fmtEur(falta)}</span> de {renderInlineEdit(editId, obj, onSave, onReset)}
+          Faltan <span style={{ color: col, fontWeight: 500 }}>{fmtNumES(falta, 2)}</span> de {renderInlineEditNoEur(editId, obj, onSave, onReset)}
         </div>
         <div style={{ height: 4, background: T.brd, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
           <div style={{ height: 4, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
@@ -458,7 +438,6 @@ export default function Objetivos() {
   const totalMesPres = (mes: number) => ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
   const totalCodigo = (codigo: string) => Array.from({ length: 12 }, (_, i) => i + 1).reduce((a, m) => a + getPresVal(codigo, m), 0)
   const totalAnual = () => ALL_CODIGOS.reduce((a, c) => a + totalCodigo(c), 0)
-
   const commitPresEdit = (codigo: string, mes: number) => {
     const v = parseFloat(presEditVal.replace(',', '.'))
     if (!isNaN(v) && v >= 0) savePresupuesto(codigo, mes, v)
@@ -470,26 +449,22 @@ export default function Objetivos() {
     { key: 'presupuestos', label: 'Presupuesto de gastos' },
   ]
 
+  void CANALES // usado en calcNetoEstimado (futuro)
+
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
       {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
-        <SelectorFechaUniversal
-          nombreModulo="objetivos"
-          defaultOpcion="semana_actual"
-          onChange={handlePeriodo}
-        />
+        <SelectorFechaUniversal nombreModulo="objetivos" defaultOpcion="semana_actual" onChange={handlePeriodo} />
       </div>
 
       {/* TABS */}
       <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
-          <button key={tab.key}
-            onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
-            style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
+            style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
             {tab.label}
           </button>
         ))}
@@ -506,23 +481,37 @@ export default function Objetivos() {
               : null
             return (
               <div style={{ backgroundColor: '#e8f442', color: '#111111', padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontFamily: FONT.heading, fontSize: 13, letterSpacing: 0.5 }}>
-                Esta semana hay {nDiasCerradosSemana} día{nDiasCerradosSemana > 1 ? 's' : ''} cerrado{nDiasCerradosSemana > 1 ? 's' : ''}, objetivo ajustado a {objAjustado != null ? fmtEur(objAjustado) : '—'}
+                Esta semana hay {nDiasCerradosSemana} día{nDiasCerradosSemana > 1 ? 's' : ''} cerrado{nDiasCerradosSemana > 1 ? 's' : ''}, objetivo ajustado a {objAjustado != null ? fmtNumES(objAjustado, 2) : '—'}
               </div>
             )
           })()}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            {/* CARD VENTAS — título dinámico al periodo */}
+            {/* CARD VENTAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 36, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px', marginBottom: 6 }}>
-                {fmtEur(ventasPeriodo)}
+
+              {/* Bruto grande + neto estimado en verde al lado */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+                <div style={{ fontFamily: FONT.heading, fontSize: 36, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                  {fmtNumES(ventasPeriodo, 2)}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: VERDE, lineHeight: 1 }}>
+                    {fmtNumES(netoEstPeriodo, 2)}
+                  </span>
+                  {/* TODO: cuando haya neto real en Supabase, quitar este badge */}
+                  <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 2 }}>
+                    NETO EST. {PCT_NETO_EST}%
+                  </span>
+                </div>
               </div>
+
               <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: semaforoColor(pctPer), marginBottom: 22 }}>
-                {pctPer >= 100 ? '▲' : '▼'} {pctPer}% del objetivo del periodo · {fmtEur(objPeriodo)}
+                {pctPer >= 100 ? '▲' : '▼'} {pctPer}% del objetivo · {fmtNumES(objPeriodo, 2)}
               </div>
 
               {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
@@ -554,9 +543,7 @@ export default function Objetivos() {
                   const tipoDiaActual = tipoDia(fechaDiaStr)
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
-                  let rowBg = 'transparent'
-                  let rowBorderLeft = '3px solid transparent'
-                  let diaColor = T.sec
+                  let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
                   if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
                   else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
                   if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
@@ -567,10 +554,10 @@ export default function Objetivos() {
 
                   return (
                     <div key={dia} style={{
-                      display: 'grid', gridTemplateColumns: '70px 1fr 90px', alignItems: 'center', gap: 14,
+                      display: 'grid', gridTemplateColumns: '70px 1fr 80px', alignItems: 'center', gap: 14,
                       padding: hoyFl ? '12px 14px' : '10px 14px', margin: '0 -14px', background: rowBg,
                       borderLeft: rowBorderLeft, borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
-                      borderRadius: hoyFl ? 8 : 0, position: 'relative',
+                      borderRadius: hoyFl ? 8 : 0,
                     }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFl ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFl ? 700 : 500 }}>
@@ -578,9 +565,9 @@ export default function Objetivos() {
                         </div>
                         <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFl ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
-                          {esCerrado && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CERRADO</span>}
-                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>ALM</span>}
-                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, letterSpacing: 0.5 }}>CENA</span>}
+                          {esCerrado && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
+                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
+                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
                         </div>
                       </div>
                       <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
@@ -591,6 +578,7 @@ export default function Objetivos() {
                           </>
                         )}
                       </div>
+                      {/* Objetivo por día SIN € */}
                       <div style={{ textAlign: 'right' }}>
                         {editingId === editId ? (
                           <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
@@ -600,12 +588,12 @@ export default function Objetivos() {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFl ? 700 : 600, color: hoyFl ? '#1E5BCC' : T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 80, textAlign: 'right' }}
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 72, textAlign: 'right' }}
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: hoyFl ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
-                            {fmtEur(importe)}
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
+                            {fmtNumES(importe, 0)}
                           </span>
                         )}
                       </div>
@@ -617,7 +605,7 @@ export default function Objetivos() {
 
           </div>
 
-          {/* HISTÓRICO */}
+          {/* HISTÓRICO — mantiene € en tabla */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -648,10 +636,10 @@ export default function Objetivos() {
             {historico.map((h, idx) => {
               const pct = h.objetivo > 0 ? Math.round((h.real / h.objetivo) * 100) : 0
               const pctCap = Math.min(pct, 100)
-              const sc = semaforoColor(pct)         // color del % y texto
-              const bc = barColor(pct)              // color barra: solo verde/rojo
+              const sc = semaforoColor(pct)
+              const bc = barColor(pct)
               const desv = h.real - h.objetivo
-              const desvColor = desv >= 0 ? '#1D9E75' : '#E24B4A'
+              const desvColor = desv >= 0 ? VERDE : '#E24B4A'
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
               const enCurso = (h as any).enCurso === true
               return (
@@ -679,9 +667,7 @@ export default function Objetivos() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <select value={presAnio} onChange={e => setPresAnio(parseInt(e.target.value))} style={inputSelectStyle}>
-              {[hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1].map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
+              {[hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={copiarAnioAnterior} disabled={presSaving}
               style={{ background: '#222', color: T.sec, border: `1px solid #383838`, borderRadius: 6, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
@@ -698,9 +684,7 @@ export default function Objetivos() {
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
               return (
                 <div key={grupo.grupo} style={{ marginBottom: 28 }}>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#e8f442', marginBottom: 8 }}>
-                    {grupo.label}
-                  </div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#e8f442', marginBottom: 8 }}>{grupo.label}</div>
                   <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                       <thead>
@@ -720,10 +704,9 @@ export default function Objetivos() {
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
                               const cellKey = `${cat.codigo}-${mes}`
                               const val = getPresVal(cat.codigo, mes)
-                              const isEditing = presEditing === cellKey
                               return (
                                 <td key={mes} style={{ padding: '4px 6px', textAlign: 'right' }}>
-                                  {isEditing ? (
+                                  {presEditing === cellKey ? (
                                     <input type="number" value={presEditVal} onChange={e => setPresEditVal(e.target.value)}
                                       onBlur={() => commitPresEdit(cat.codigo, mes)}
                                       onKeyDown={e => { if (e.key === 'Enter') commitPresEdit(cat.codigo, mes); if (e.key === 'Escape') setPresEditing(null) }}
