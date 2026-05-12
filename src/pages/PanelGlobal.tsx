@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
+import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
@@ -18,13 +19,14 @@ interface MarcaItem {
   nombre: string
 }
 
-type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'marcas'
+type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
   { id: 'operaciones', label: 'Operaciones' },
   { id: 'finanzas',    label: 'Finanzas' },
   { id: 'cashflow',    label: 'Cashflow' },
+  { id: 'evolucion',   label: 'Evolución' },
   { id: 'marcas',      label: 'Marcas' },
 ]
 
@@ -320,6 +322,13 @@ export default function PanelGlobal() {
       {activeTab === 'operaciones' && <TabPlaceholder nombre="Operaciones" />}
       {activeTab === 'finanzas'    && <TabPlaceholder nombre="Finanzas" />}
       {activeTab === 'cashflow'    && <TabPlaceholder nombre="Cashflow" />}
+      {activeTab === 'evolucion'   && (
+        <TabEvolucion
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
+          canalesFiltro={canalesFiltro}
+        />
+      )}
       {activeTab === 'marcas'      && <TabPlaceholder nombre="Marcas" />}
     </div>
   )
