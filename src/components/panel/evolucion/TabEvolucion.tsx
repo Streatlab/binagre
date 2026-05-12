@@ -27,10 +27,6 @@ function labelDia(fecha: string) {
   const [,m,d] = fecha.split('-')
   return `${d}/${m}`
 }
-function labelSemana(fecha: string) {
-  const [,m,d] = fecha.split('-')
-  return `S${d}/${m}`
-}
 function labelMes(anio: number, mes: number) {
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
   return `${meses[mes-1]} ${String(anio).slice(2)}`
@@ -44,26 +40,41 @@ function isoWeekKey(dateStr: string) {
   return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`
 }
 function weekLabel(key: string) {
-  // key = "2026-W15" → "S15"
   return `S${key.split('W')[1]}`
 }
 
-/* ── tipos Supabase ────────────────────────────── */
+/* ── tipos ─────────────────────────────────────── */
 interface RowFac {
   fecha: string
   uber_bruto: number; glovo_bruto: number; je_bruto: number
   web_bruto: number; directa_bruto: number; total_bruto: number
   marca_id: number | null
 }
-interface RowRunning {
-  año: number; mes: number
-  ingresos_netos: number | null
-  producto: number | null
-  personal: number | null
-  local: number | null
-  controlables: number | null
+
+// "año" con tilde rompe el parser de tipos de Supabase — usar Record<string,unknown>
+type RowRunningRaw = Record<string, unknown>
+
+interface RunningItem {
+  anio: number
+  mes: number
+  producto: number
+  equipo: number
+  local: number
+  controlables: number
 }
+
 interface Marca { id: number; nombre: string }
+
+function parseRunning(raw: RowRunningRaw[]): RunningItem[] {
+  return raw.map(r => ({
+    anio: Number(r['año'] ?? r['anio'] ?? 0),
+    mes: Number(r['mes'] ?? 0),
+    producto: Number(r['producto'] ?? 0),
+    equipo: Number(r['personal'] ?? 0),
+    local: Number(r['local'] ?? 0),
+    controlables: Number(r['controlables'] ?? 0),
+  }))
+}
 
 /* ── tooltip oscuro ────────────────────────────── */
 const TooltipOscuro = ({ active, payload, label }: {
@@ -198,29 +209,17 @@ function agruparPorGran(rows: RowFac[], gran: Granularidad) {
     .map(([, v]) => v)
 }
 
-/* ── agrupar running por granularidad ──────────── */
-function agruparRunning(rows: RowRunning[], gran: Granularidad) {
-  if (gran === 'mes') {
-    return rows
-      .sort((a, b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes)
-      .map(r => ({
-        label: labelMes(r.año, r.mes),
-        producto: r.producto || 0,
-        equipo: r.personal || 0,
-        local: r.local || 0,
-        controlables: r.controlables || 0,
-      }))
-  }
-  // Para día/semana los datos de running son mensuales igualmente
-  return rows
-    .sort((a, b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes)
-    .map(r => ({
-      label: labelMes(r.año, r.mes) + '*',
-      producto: r.producto || 0,
-      equipo: r.personal || 0,
-      local: r.local || 0,
-      controlables: r.controlables || 0,
-    }))
+/* ── agrupar running ───────────────────────────── */
+function agruparRunning(rows: RunningItem[], gran: Granularidad) {
+  const sorted = [...rows].sort((a, b) => a.anio !== b.anio ? a.anio - b.anio : a.mes - b.mes)
+  const suffix = gran !== 'mes' ? '*' : ''
+  return sorted.map(r => ({
+    label: labelMes(r.anio, r.mes) + suffix,
+    producto: r.producto,
+    equipo: r.equipo,
+    local: r.local,
+    controlables: r.controlables,
+  }))
 }
 
 /* ── paleta marcas ─────────────────────────────── */
@@ -235,15 +234,14 @@ interface Props {
 
 /* ── componente principal ──────────────────────── */
 export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
-  const [rows, setRows]       = useState<RowFac[]>([])
-  const [running, setRunning] = useState<RowRunning[]>([])
-  const [marcas, setMarcas]   = useState<Marca[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows]           = useState<RowFac[]>([])
+  const [running, setRunning]     = useState<RunningItem[]>([])
+  const [marcas, setMarcas]       = useState<Marca[]>([])
+  const [loading, setLoading]     = useState(true)
 
   const dias = diffDays(fechaDesde, fechaHasta)
   const [gran, setGran] = useState<Granularidad>(() => autoGran(dias))
 
-  // Recalcular granularidad cuando cambia el período
   useEffect(() => {
     setGran(autoGran(diffDays(fechaDesde, fechaHasta)))
   }, [fechaDesde, fechaHasta])
@@ -263,18 +261,19 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
       })
   }, [fechaDesde, fechaHasta])
 
-  // Cargar running (datos mensuales de gastos)
+  // Cargar running — select('*') para evitar parser con "año" tilde
   useEffect(() => {
-    const añoDesde = fechaDesde.getFullYear()
-    const mesDesde = fechaDesde.getMonth() + 1
-    const añoHasta = fechaHasta.getFullYear()
-    const mesHasta = fechaHasta.getMonth() + 1
+    const anioDesde = fechaDesde.getFullYear()
+    const mesDesde  = fechaDesde.getMonth() + 1
+    const anioHasta = fechaHasta.getFullYear()
+    const mesHasta  = fechaHasta.getMonth() + 1
     supabase
       .from('running')
-      .select('año,mes,ingresos_netos,producto,personal,local,controlables')
-      .or(`and(año.eq.${añoDesde},mes.gte.${mesDesde}),and(año.eq.${añoHasta},mes.lte.${mesHasta})`)
-      .order('año').order('mes')
-      .then(({ data }) => setRunning((data ?? []) as RowRunning[]))
+      .select('*')
+      .or(`and(año.eq.${anioDesde},mes.gte.${mesDesde}),and(año.eq.${anioHasta},mes.lte.${mesHasta})`)
+      .then(({ data }) => {
+        setRunning(parseRunning((data ?? []) as RowRunningRaw[]))
+      })
   }, [fechaDesde, fechaHasta])
 
   // Cargar marcas activas
@@ -284,20 +283,17 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
   }, [])
 
   /* ── datos derivados ─────────────────────────── */
-  const agrupado = useMemo(() => agruparPorGran(rows, gran), [rows, gran])
+  const agrupado        = useMemo(() => agruparPorGran(rows, gran), [rows, gran])
   const runningAgrupado = useMemo(() => agruparRunning(running, gran), [running, gran])
 
-  // Datos Card 1: Ingresos totales
   const dataTotales = useMemo(() =>
     agrupado.map(r => ({ name: r.label, Ingresos: r.total }))
   , [agrupado])
 
-  // Datos Card 2: Por plataforma
   const dataPlataforma = useMemo(() =>
     agrupado.map(r => ({ name: r.label, 'Uber Eats': r.uber, Glovo: r.glovo, 'Just Eat': r.je, Web: r.web, Directa: r.dir }))
   , [agrupado])
 
-  // Datos Card 3: Por marca
   const dataMarcas = useMemo(() => {
     return agrupado.map(r => {
       const obj: Record<string, number | string> = { name: r.label }
@@ -308,31 +304,25 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
     })
   }, [agrupado, marcas])
 
-  // Datos Card 4: Grupos gasto
-  const dataGrupos = useMemo(() => runningAgrupado, [runningAgrupado])
-
-  // Total período para KPI
   const totalPeriodo = useMemo(() => rows.reduce((a, r) => a + (r.total_bruto || 0), 0), [rows])
 
   const axisProps = {
     tick: { fontSize: 10, fontFamily: LEXEND, fill: COLORS.mut },
-    axisLine: false,
-    tickLine: false,
+    axisLine: false as const,
+    tickLine: false as const,
   }
 
   const gridProps = {
     strokeDasharray: '3 3',
     stroke: '#ebe8e2',
-    vertical: false,
+    vertical: false as const,
   }
 
   return (
     <div style={{ marginTop: 18, color: COLORS.pri, fontFamily: FONT.body }}>
 
-      {/* Subtabs granularidad */}
       <SubtabsGran value={gran} onChange={setGran} />
 
-      {/* Grid 2x2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
         {/* Card 1: Ingresos Totales */}
@@ -351,14 +341,9 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
                 </defs>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="name" {...axisProps} />
-                <YAxis {...axisProps} tickFormatter={v => fmtEur(v, { showEuro: false, decimals: 0 })} width={52} />
+                <YAxis {...axisProps} tickFormatter={v => fmtEur(v as number, { showEuro: false, decimals: 0 })} width={52} />
                 <Tooltip content={<TooltipOscuro />} />
-                <Area
-                  type="monotone" dataKey="Ingresos"
-                  stroke={COLORS.redSL} strokeWidth={2}
-                  fill="url(#gradTotal)"
-                  dot={false} activeDot={{ r: 4, fill: COLORS.redSL }}
-                />
+                <Area type="monotone" dataKey="Ingresos" stroke={COLORS.redSL} strokeWidth={2} fill="url(#gradTotal)" dot={false} activeDot={{ r: 4, fill: COLORS.redSL }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -371,14 +356,14 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
               <LineChart data={dataPlataforma} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="name" {...axisProps} />
-                <YAxis {...axisProps} tickFormatter={v => fmtEur(v, { showEuro: false, decimals: 0 })} width={52} />
+                <YAxis {...axisProps} tickFormatter={v => fmtEur(v as number, { showEuro: false, decimals: 0 })} width={52} />
                 <Tooltip content={<TooltipOscuro />} />
                 <Legend wrapperStyle={{ fontSize: 11, fontFamily: LEXEND, paddingTop: 8 }} />
-                <Line type="monotone" dataKey="Uber Eats"  stroke={COLORS.uber}     strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Glovo"      stroke={COLORS.glovoDark} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Just Eat"   stroke={COLORS.je}        strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Web"        stroke={COLORS.web}       strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Directa"    stroke={COLORS.directa}   strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Uber Eats" stroke={COLORS.uber}     strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Glovo"     stroke={COLORS.glovoDark} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Just Eat"  stroke={COLORS.je}        strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Web"       stroke={COLORS.web}       strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Directa"   stroke={COLORS.directa}   strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -391,18 +376,11 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
               <LineChart data={dataMarcas} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="name" {...axisProps} />
-                <YAxis {...axisProps} tickFormatter={v => fmtEur(v, { showEuro: false, decimals: 0 })} width={52} />
+                <YAxis {...axisProps} tickFormatter={v => fmtEur(v as number, { showEuro: false, decimals: 0 })} width={52} />
                 <Tooltip content={<TooltipOscuro />} />
                 <Legend wrapperStyle={{ fontSize: 11, fontFamily: LEXEND, paddingTop: 8 }} />
                 {marcas.map((m, i) => (
-                  <Line
-                    key={m.id}
-                    type="monotone"
-                    dataKey={m.nombre}
-                    stroke={PALETA_MARCAS[i % PALETA_MARCAS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                  />
+                  <Line key={m.id} type="monotone" dataKey={m.nombre} stroke={PALETA_MARCAS[i % PALETA_MARCAS.length]} strokeWidth={2} dot={false} />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -411,7 +389,7 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
 
         {/* Card 4: Grupos de Gasto */}
         <CardEvo label="GRUPOS DE GASTO · EVOLUCIÓN">
-          {dataGrupos.length === 0 ? <SinDatos /> : (
+          {runningAgrupado.length === 0 ? <SinDatos /> : (
             <>
               {gran !== 'mes' && (
                 <div style={{ fontSize: 10, color: COLORS.mut, fontFamily: LEXEND, marginBottom: 8 }}>
@@ -419,10 +397,10 @@ export default function TabEvolucion({ fechaDesde, fechaHasta }: Props) {
                 </div>
               )}
               <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={dataGrupos} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="30%">
+                <BarChart data={runningAgrupado} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barCategoryGap="30%">
                   <CartesianGrid {...gridProps} />
                   <XAxis dataKey="label" {...axisProps} />
-                  <YAxis {...axisProps} tickFormatter={v => fmtEur(v, { showEuro: false, decimals: 0 })} width={52} />
+                  <YAxis {...axisProps} tickFormatter={v => fmtEur(v as number, { showEuro: false, decimals: 0 })} width={52} />
                   <Tooltip content={<TooltipOscuro />} />
                   <Legend wrapperStyle={{ fontSize: 11, fontFamily: LEXEND, paddingTop: 8 }} />
                   <Bar dataKey="producto"     name="Producto"     fill={COLORS.catPrd} radius={[3,3,0,0]} />
