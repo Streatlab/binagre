@@ -169,17 +169,17 @@ export const progressFillStyle = (pct: number, color: string): CSSProperties => 
 })
 
 /* ═══════════════════════════════════════════════════════════
-   SEMAFORO — Reglas oficiales (Rubén, 03/05/2026)
+   SEMAFORO — Reglas actualizadas 11/05/2026
    ───────────────────────────────────────────────────────────
-   - 0%       → rojo  (#B01D23)
-   - 0.01-50% → ámbar (#e8f442)
-   - >50%     → verde (#1D9E75)  · 50.01% ya supera la mitad
+   - 0%      → rojo   (#B01D23)
+   - 1–49%   → naranja (#f5a623)
+   - ≥50%    → verde  (#1D9E75)
    ═══════════════════════════════════════════════════════════ */
 
 export function semaforoColor(pct: number): string {
-  if (pct <= 0) return '#B01D23'   // rojo
-  if (pct > 50) return '#1D9E75'   // verde
-  return '#e8f442'                 // ámbar
+  if (pct <= 0)  return '#B01D23'  // rojo
+  if (pct >= 50) return '#1D9E75'  // verde
+  return '#f5a623'                 // naranja
 }
 
 /* ═══════════════════════════════════════════════════════════
