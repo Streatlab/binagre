@@ -1,6 +1,7 @@
 /**
  * PanelGlobal — Módulo Panel Global del ERP Binagre
  * Spec: .claude/plans/spec-mockups-validados.md · FASE A
+ * v2 — tab Evolución añadida 12/05/2026
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -193,14 +194,12 @@ export default function PanelGlobal() {
   const [rowsPeriodo, setRowsPeriodo] = useState<RowFacturacion[]>([])
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([])
 
-  /* Cargar marcas activas */
   useEffect(() => {
     supabase.from('marcas').select('id,nombre').eq('estado', 'activa').then(({ data }) => {
       if (data) setMarcasDisp(data as MarcaItem[])
     })
   }, [])
 
-  /* Cargar facturación cuando cambia periodo */
   useEffect(() => {
     const desde = toLocalDateStr(fechaDesde)
     const hasta  = toLocalDateStr(fechaHasta)
@@ -215,7 +214,6 @@ export default function PanelGlobal() {
       })
   }, [fechaDesde, fechaHasta])
 
-  /* Cargar todo para cálculos de delta */
   useEffect(() => {
     const anoActual = new Date().getFullYear()
     supabase
@@ -235,8 +233,6 @@ export default function PanelGlobal() {
   }, [])
 
   const subtitulo = buildSubtitulo(periodoLabel, fechaDesde, fechaHasta)
-
-  /* Opciones marcas para el multiselect */
   const marcasOpts = marcasDisp.map(m => ({ id: m.id, label: m.nombre }))
 
   return (
@@ -247,7 +243,6 @@ export default function PanelGlobal() {
       fontFamily: FONT.body,
       color: COLORS.pri,
     }}>
-      {/* HEADER A.1 */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -256,7 +251,6 @@ export default function PanelGlobal() {
         flexWrap: 'wrap',
         gap: 12,
       }}>
-        {/* Izquierda */}
         <div>
           <div style={{
             fontFamily: 'Oswald, sans-serif',
@@ -278,7 +272,6 @@ export default function PanelGlobal() {
           </div>
         </div>
 
-        {/* Derecha: 3 dropdowns */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <SelectorFechaUniversal
             nombreModulo="panel_global"
@@ -302,14 +295,12 @@ export default function PanelGlobal() {
         </div>
       </div>
 
-      {/* TABS PASTILLA A.2 */}
       <TabsPastilla
         tabs={TABS}
         activeId={activeTab}
         onChange={id => setActiveTab(id as TabId)}
       />
 
-      {/* CONTENIDO */}
       {activeTab === 'resumen' && (
         <TabResumen
           rowsPeriodo={rowsPeriodo}
