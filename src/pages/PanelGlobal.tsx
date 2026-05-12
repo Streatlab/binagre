@@ -1,7 +1,6 @@
 /**
  * PanelGlobal — Módulo Panel Global del ERP Binagre
- * Spec: .claude/plans/spec-mockups-validados.md · FASE A
- * v2 — tab Evolución añadida 12/05/2026
+ * v3 — tab Evolución forzada 13/05/2026
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -14,11 +13,7 @@ import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
-/* ── Tipos ─────────────────────────────────────── */
-interface MarcaItem {
-  id: string
-  nombre: string
-}
+interface MarcaItem { id: string; nombre: string }
 
 type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
 
@@ -80,13 +75,8 @@ function toLocalDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/* ── Dropdown multiselect genérico ─────────────── */
 function MultiSelect({
-  label,
-  options,
-  selected,
-  onToggle,
-  onAll,
+  label, options, selected, onToggle, onAll,
 }: {
   label: string
   options: Array<{ id: string; label: string }>
@@ -106,8 +96,7 @@ function MultiSelect({
   }, [])
 
   const displayLabel = selected.length === 0 || selected.length === options.length
-    ? label
-    : `${selected.length} sel.`
+    ? label : `${selected.length} sel.`
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -133,12 +122,10 @@ function MultiSelect({
               key={o.id}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '2px 10px', cursor: 'pointer',
-                lineHeight: 1.3,
+                padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
                 background: selected.includes(o.id) ? '#FF475715' : 'transparent',
                 color: selected.includes(o.id) ? '#FF4757' : '#7a8090',
-                fontFamily: 'Lexend, sans-serif', fontSize: 12,
-                whiteSpace: 'nowrap',
+                fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
               }}
             >
               <input
@@ -156,7 +143,6 @@ function MultiSelect({
   )
 }
 
-/* ── Subtítulo dinámico ─────────────────────────── */
 function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   const fmtDate = (d: Date) => {
     const dia = d.getDate()
@@ -167,22 +153,14 @@ function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`
 }
 
-/* ── Placeholder para tabs no implementados ─────── */
 function TabPlaceholder({ nombre }: { nombre: string }) {
   return (
-    <div style={{
-      padding: 40,
-      textAlign: 'center',
-      color: '#7a8090',
-      fontFamily: 'Lexend, sans-serif',
-      fontSize: 14,
-    }}>
+    <div style={{ padding: 40, textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
       {nombre} · Próximamente
     </div>
   )
 }
 
-/* ── PanelGlobal ────────────────────────────────── */
 export default function PanelGlobal() {
   const [activeTab, setActiveTab] = useState<TabId>('resumen')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
@@ -204,123 +182,62 @@ export default function PanelGlobal() {
     const desde = toLocalDateStr(fechaDesde)
     const hasta  = toLocalDateStr(fechaHasta)
     supabase
-      .from('facturacion_diario')
-      .select('*')
-      .gte('fecha', desde)
-      .lte('fecha', hasta)
+      .from('facturacion_diario').select('*')
+      .gte('fecha', desde).lte('fecha', hasta)
       .order('fecha', { ascending: true })
-      .then(({ data }) => {
-        setRowsPeriodo((data ?? []) as RowFacturacion[])
-      })
+      .then(({ data }) => { setRowsPeriodo((data ?? []) as RowFacturacion[]) })
   }, [fechaDesde, fechaHasta])
 
   useEffect(() => {
     const anoActual = new Date().getFullYear()
     supabase
-      .from('facturacion_diario')
-      .select('*')
+      .from('facturacion_diario').select('*')
       .gte('fecha', `${anoActual - 1}-01-01`)
       .order('fecha', { ascending: true })
-      .then(({ data }) => {
-        setRowsAll((data ?? []) as RowFacturacion[])
-      })
+      .then(({ data }) => { setRowsAll((data ?? []) as RowFacturacion[]) })
   }, [])
 
   const handleFecha = useCallback((desde: Date, hasta: Date, label: string) => {
-    setFechaDesde(desde)
-    setFechaHasta(hasta)
-    setPeriodoLabel(label)
+    setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
   }, [])
 
   const subtitulo = buildSubtitulo(periodoLabel, fechaDesde, fechaHasta)
   const marcasOpts = marcasDisp.map(m => ({ id: m.id, label: m.nombre }))
 
   return (
-    <div style={{
-      background: COLORS.bg,
-      minHeight: '100vh',
-      padding: '24px 28px',
-      fontFamily: FONT.body,
-      color: COLORS.pri,
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: 18,
-        flexWrap: 'wrap',
-        gap: 12,
-      }}>
+    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{
-            fontFamily: 'Oswald, sans-serif',
-            fontSize: 22,
-            fontWeight: 600,
-            color: COLORS.redSL,
-            letterSpacing: 3,
-            textTransform: 'uppercase',
-          }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>
             PANEL GLOBAL
           </div>
-          <div style={{
-            fontFamily: 'Lexend, sans-serif',
-            fontSize: 13,
-            color: COLORS.mut,
-            marginTop: 2,
-          }}>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: COLORS.mut, marginTop: 2 }}>
             {subtitulo}
           </div>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <SelectorFechaUniversal
-            nombreModulo="panel_global"
-            defaultOpcion="mes_en_curso"
-            onChange={handleFecha}
-          />
-          <MultiSelect
-            label="Todas las marcas"
-            options={marcasOpts}
-            selected={marcasFiltro}
+          <SelectorFechaUniversal nombreModulo="panel_global" defaultOpcion="mes_en_curso" onChange={handleFecha} />
+          <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
             onToggle={id => setMarcasFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
-            onAll={() => setMarcasFiltro([])}
-          />
-          <MultiSelect
-            label="Canales"
-            options={CANALES_DISPONIBLES}
-            selected={canalesFiltro}
+            onAll={() => setMarcasFiltro([])} />
+          <MultiSelect label="Canales" options={CANALES_DISPONIBLES} selected={canalesFiltro}
             onToggle={id => setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
-            onAll={() => setCanalesFiltro([])}
-          />
+            onAll={() => setCanalesFiltro([])} />
         </div>
       </div>
 
-      <TabsPastilla
-        tabs={TABS}
-        activeId={activeTab}
-        onChange={id => setActiveTab(id as TabId)}
-      />
+      <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       {activeTab === 'resumen' && (
-        <TabResumen
-          rowsPeriodo={rowsPeriodo}
-          rowsAll={rowsAll}
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          canalesFiltro={canalesFiltro}
-        />
+        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} />
       )}
       {activeTab === 'operaciones' && <TabPlaceholder nombre="Operaciones" />}
       {activeTab === 'finanzas'    && <TabPlaceholder nombre="Finanzas" />}
       {activeTab === 'cashflow'    && <TabPlaceholder nombre="Cashflow" />}
       {activeTab === 'evolucion'   && (
-        <TabEvolucion
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          canalesFiltro={canalesFiltro}
-        />
+        <TabEvolucion fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} />
       )}
-      {activeTab === 'marcas'      && <TabPlaceholder nombre="Marcas" />}
+      {activeTab === 'marcas' && <TabPlaceholder nombre="Marcas" />}
     </div>
   )
 }
