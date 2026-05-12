@@ -12,28 +12,18 @@ type DriveExtracted = {
   carpeta_titular?: string
 }
 
-const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || ''
+// 11/05/26: raíz Drive definitiva = "00 SISTEMA STREAT LAB > 05 OPERACIONES"
+// Bajo esta raíz se crea RUBÉN/EMILIO > AÑO > TRIMESTRE > MES > PROVEEDORES|PLATAFORMAS
+const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNl8JxGGuv8MXloUCJ3_evd7H'
 const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
 
-/**
- * Devuelve el cliente Drive. Prioridad:
- * 1. OAuth de usuario si está conectado (Drive personal con cuota).
- * 2. Service Account fallback (NO funciona en Drive personal sin shared drive: no tiene cuota).
- *
- * Nota 09/05/26: el Service Account de Google no tiene quota propia de almacenamiento.
- * Subir archivos a una carpeta de Drive personal con SA da error
- * "Service Accounts do not have storage quota". Para que funcione hay
- * que usar OAuth del usuario o un Shared Drive (Workspace).
- */
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
-  // 1. Intentar OAuth si hay token guardado
   const oauthStatus = await tieneDriveConectado()
   if (oauthStatus.conectado) {
     const auth = await getOAuthClient()
     return google.drive({ version: 'v3', auth })
   }
 
-  // 2. Fallback Service Account (solo útil con Shared Drive)
   if (SERVICE_ACCOUNT_JSON) {
     let credentials: { client_email: string; private_key: string }
     try {
