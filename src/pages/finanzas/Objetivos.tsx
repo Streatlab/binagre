@@ -88,23 +88,16 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-// Barras: verde/rojo, sin naranja intermedio
 function barColor(pct: number): string {
   return pct > 0 ? '#1D9E75' : '#E24B4A'
 }
 
-// Neto estimado: pondera comisiones medias por canal
-// Cuando haya datos reales de neto en Supabase, sustituir este cálculo por el campo real
+// TODO: sustituir por datos reales de neto cuando estén disponibles en Supabase
 function calcNetoEstimado(bruto: number): number {
-  // Comisión media ponderada estimada de todos los canales (~28%) + IVA comisión (21%)
-  // UberEats 30%+iva, Glovo 25%+iva, JustEat 20%+iva, Web 7%+iva
-  // Estimación conservadora global: 27% comisión media × 1.21 IVA ≈ 32.7% total
   const COM_MEDIA = 0.327
   return Math.max(0, bruto * (1 - COM_MEDIA))
 }
-
-// Porcentaje neto s/bruto estimado (para mostrar junto al número)
-const PCT_NETO_EST = Math.round((1 - 0.327) * 100) // ≈ 67%
+const PCT_NETO_EST = Math.round((1 - 0.327) * 100)
 
 export default function Objetivos() {
   const { T, isDark } = useTheme()
@@ -114,7 +107,6 @@ export default function Objetivos() {
   const hoy = useMemo(() => new Date(), [])
   const { year: curYear, week: curWeek } = useMemo(() => getISOWeek(hoy), [hoy])
 
-  // ── Selector fecha universal ─────────────────────────────────────────────────
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0)
     const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 1); return d
@@ -124,7 +116,6 @@ export default function Objetivos() {
     const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 7); return d
   })
   const [periodoLabel, setPeriodoLabel] = useState('Semana actual')
-
   const [weekMon, setWeekMon] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0)
     const dow = d.getDay() || 7; d.setDate(d.getDate() - dow + 1); return d
@@ -150,7 +141,6 @@ export default function Objetivos() {
   const esFestivo = (dia: number) => FESTIVOS_2026.includes(toDateStr(fechaDia(dia)))
   const esHoyFlag = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
-  // ── Datos ────────────────────────────────────────────────────────────────────
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
   const [diasSemana, setDiasSemana] = useState<ObjetivoDia[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -189,7 +179,6 @@ export default function Objetivos() {
 
   useEffect(() => { if (activeTab === 'presupuestos') loadPresupuestos(presAnio) }, [activeTab, presAnio, loadPresupuestos])
 
-  // ── Guardar ──────────────────────────────────────────────────────────────────
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
     const v = Math.round(val)
     const existing = objetivos.find(o => o.tipo === tipo)
@@ -251,7 +240,6 @@ export default function Objetivos() {
     await loadPresupuestos(presAnio); setPresSaving(false)
   }
 
-  // ── Ventas ────────────────────────────────────────────────────────────────────
   const hoyStr = toDateStr(hoy)
   const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
   const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
@@ -264,7 +252,6 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, weekStart, weekEnd]
   )
-
   const nDiasCerradosSemana = useMemo(() => diasCerradosSemana(weekMon), [diasCerradosSemana, weekMon])
   const diasOperativosSemana = useMemo(() => diasOperativosEnRango(weekMon, weekSun), [diasOperativosEnRango, weekMon, weekSun])
 
@@ -289,11 +276,8 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentYear]
   )
-
-  // Neto estimado del periodo (TODO: sustituir por datos reales cuando estén disponibles en Supabase)
   const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo])
 
-  // ── Objetivos ────────────────────────────────────────────────────────────────
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
   const sumaMes = useMemo(() => {
     const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
@@ -313,7 +297,6 @@ export default function Objetivos() {
     return Math.round((sumaSemana / 7) * dias)
   }, [periodoDesde, periodoHasta, sumaSemana])
 
-  // ── Histórico ────────────────────────────────────────────────────────────────
   const aniosDisponibles = useMemo(() => {
     const set = new Set(ventas.map(r => parseInt(r.fecha.slice(0, 4))))
     const arr = [...set].filter(y => !isNaN(y)).sort((a, b) => b - a)
@@ -324,7 +307,6 @@ export default function Objetivos() {
   const historico = useMemo(() => {
     const esAnioActual = histAnio === hoy.getFullYear()
     const filtAnio = ventas.filter(r => r.fecha.startsWith(String(histAnio)))
-
     if (histTipo === 'dias') {
       return [...filtAnio].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 14).map(r => {
         const d = new Date(r.fecha + 'T12:00:00')
@@ -366,7 +348,6 @@ export default function Objetivos() {
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
   )
 
-  // ── Porcentajes ──────────────────────────────────────────────────────────────
   const pctPer = objPeriodo > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
   const pctSem = objSemanal > 0 ? Math.round((ventasSemana  / objSemanal) * 100) : 0
   const pctMes = objMensual > 0 ? Math.round((ventasMes     / objMensual) * 100) : 0
@@ -374,6 +355,7 @@ export default function Objetivos() {
 
   const INCUMPLIDO = '#E24B4A'
   const VERDE = '#1D9E75'
+  const KPI_SIZE = 36 // tamaño único para bruto y neto
 
   const inputSelectStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
@@ -383,7 +365,6 @@ export default function Objetivos() {
   const sectionLabel = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px' }
   const editableNumberStyle = (color: string = T.pri) => ({ color, fontWeight: 600 as const, cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1 })
 
-  // Renderiza número editable SIN € (para cards)
   const renderInlineEditNoEur = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
     const commit = () => {
       const trimmed = editValue.trim()
@@ -449,18 +430,16 @@ export default function Objetivos() {
     { key: 'presupuestos', label: 'Presupuesto de gastos' },
   ]
 
-  void CANALES // usado en calcNetoEstimado (futuro)
+  void CANALES
 
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
-      {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
         <SelectorFechaUniversal nombreModulo="objetivos" defaultOpcion="semana_actual" onChange={handlePeriodo} />
       </div>
 
-      {/* TABS */}
       <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
@@ -494,17 +473,17 @@ export default function Objetivos() {
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
 
-              {/* Bruto grande + neto estimado en verde al lado */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
-                <div style={{ fontFamily: FONT.heading, fontSize: 36, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
+              {/* Bruto negro + neto verde — MISMO tamaño */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
                   {fmtNumES(ventasPeriodo, 2)}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: VERDE, lineHeight: 1 }}>
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: VERDE, lineHeight: 1, letterSpacing: '-0.5px' }}>
                     {fmtNumES(netoEstPeriodo, 2)}
                   </span>
-                  {/* TODO: cuando haya neto real en Supabase, quitar este badge */}
-                  <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 2 }}>
+                  {/* TODO: quitar badge cuando haya neto real en Supabase */}
+                  <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
                     NETO EST. {PCT_NETO_EST}%
                   </span>
                 </div>
@@ -578,7 +557,6 @@ export default function Objetivos() {
                           </>
                         )}
                       </div>
-                      {/* Objetivo por día SIN € */}
                       <div style={{ textAlign: 'right' }}>
                         {editingId === editId ? (
                           <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
@@ -605,7 +583,7 @@ export default function Objetivos() {
 
           </div>
 
-          {/* HISTÓRICO — mantiene € en tabla */}
+          {/* HISTÓRICO — con € */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>
