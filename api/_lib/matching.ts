@@ -9,11 +9,8 @@ const TOLERANCIA_IMPORTE = 0.05
 // Ventana temporal por defecto (días antes / después fecha factura).
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
-// Ventanas ampliadas 11/05/26 (Rubén): Alcampo se cargan a tarjeta y suelen
-// aparecer en banco hasta 30 días antes de la fecha factura. TGT va por
-// transferencia y puede tardar hasta 4 meses.
 const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = {
-  lidl: { antes: 30, despues: 110 }, // ~trimestre + 20 días
+  lidl: { antes: 30, despues: 110 },
   alcampo: { antes: 30, despues: 45 },
   waitry: { antes: 5, despues: 60 },
   tesys: { antes: 5, despues: 60 },
@@ -138,6 +135,70 @@ function mesAnterior(fecha: string): { inicio: string; fin: string } {
   }
 }
 
+// FIX 13/05/26: Obtiene la categoría mayoritaria de una lista de matches.
+// Antes se exigía unicas.length === 1, lo que fallaba con Mercadona multi-cargo
+// (8 movimientos con la misma categoría 2.11.1 → devolvía vacío).
+function categoriaMayoritaria(matches: MatchCandidato[]): string | null {
+  const categorias = matches
+    .map((m) => m.categoria_codigo)
+    .filter((c): c is string => Boolean(c))
+  if (categorias.length === 0) return null
+  const frecuencia: Record<string, number> = {}
+  for (const c of categorias) {
+    frecuencia[c] = (frecuencia[c] || 0) + 1
+  }
+  const [mejor] = Object.entries(frecuencia).sort((a, b) => b[1] - a[1])
+  return mejor ? mejor[0] : null
+}
+
+// FIX 13/05/26: Fallback a reglas_conciliacion cuando no hay match bancario.
+// Busca por NIF emisor primero, luego por patron (nombre proveedor).
+async function categoriaDesdReglas(
+  supabase: SupabaseClient,
+  proveedorNombre: string,
+  nifEmisor: string | null | undefined,
+): Promise<{ categoria: string | null; proveedor_canonico: string | null }> {
+  // Paso 1: por NIF emisor (más fiable)
+  if (nifEmisor) {
+    const { data } = await supabase
+      .from('reglas_conciliacion')
+      .select('categoria_codigo, set_proveedor')
+      .eq('patron_nif', nifEmisor.toUpperCase())
+      .eq('activa', true)
+      .order('prioridad', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (data?.categoria_codigo) {
+      return {
+        categoria: data.categoria_codigo as string,
+        proveedor_canonico: (data.set_proveedor as string) || null,
+      }
+    }
+  }
+
+  // Paso 2: por patron (nombre proveedor normalizado)
+  const norm = normalizar(proveedorNombre)
+  const palabras = norm.split(' ').filter((p) => p.length >= 3)
+  for (const palabra of palabras) {
+    const { data } = await supabase
+      .from('reglas_conciliacion')
+      .select('categoria_codigo, set_proveedor')
+      .ilike('patron', `%${escaparLike(palabra)}%`)
+      .eq('activa', true)
+      .order('prioridad', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (data?.categoria_codigo) {
+      return {
+        categoria: data.categoria_codigo as string,
+        proveedor_canonico: (data.set_proveedor as string) || null,
+      }
+    }
+  }
+
+  return { categoria: null, proveedor_canonico: null }
+}
+
 /* ═════════════ ENTRY POINT ═════════════ */
 
 export async function matchFactura(
@@ -155,8 +216,6 @@ export async function matchFactura(
     }
   }
 
-  // REGLA 11/05/26: Total 0€ = factura pagada con cupón/bono (Alcampo, Lidl…).
-  // Norma SL: jamás se paga en efectivo. Si total>0 SIEMPRE hay cargo bancario.
   if (Math.abs(factura.total) < 0.01) {
     return {
       estado: 'solo_drive',
@@ -242,7 +301,6 @@ async function matchFacturaNormal(
   }
 
   const total = Math.abs(factura.total)
-  // Excluir movimientos ya asociados a otra factura
   const ids = candidatos.map((c) => c.id)
   let yaAsociadosIds = new Set<string>()
   if (ids.length > 0) {
@@ -284,12 +342,10 @@ async function matchFacturaNormal(
     }
   }
 
-  // Múltiples candidatos exactos: elegir el más cercano en fecha
   const ordenadosPorFecha = matchesExactos
     .map((m) => ({ m, dias: diasEntre(m.fecha, factura.fecha_factura) }))
     .sort((a, b) => a.dias - b.dias)
   const mejor = ordenadosPorFecha[0]
-  // Si hay un único más cercano, lo damos por asociado con confianza alta
   if (ordenadosPorFecha.length === 1 || ordenadosPorFecha[0].dias !== ordenadosPorFecha[1].dias) {
     return {
       estado: 'asociada',
@@ -314,10 +370,9 @@ async function matchFacturaMercadona(
 ): Promise<MatchingResult> {
   const { inicio, fin } = mesAnterior(factura.fecha_factura)
 
-  // REGLA 11/05/26: Mercadona recapitulativa cubre TODOS los pagos del mes
-  // realizados con cualquier tarjeta de la SL (Rubén o Emilio). El alias
-  // "Cc.albufera plaza" también es Mercadona. NO filtrar por titular.
-  const alias = ['mercadona', 'cc.albufera plaza', 'albufera plaza', 'mercadona online']
+  // Todos los alias Mercadona incluyendo Colmena y CC Albufera Plaza.
+  // NO filtrar por titular: la factura puede ser de Rubén pero pagos con tarjeta Emilio y viceversa.
+  const alias = ['mercadona', 'cc.albufera', 'albufera plaza', 'mercadona online', 'mercadona colmena']
 
   const { data: movimientosRaw } = await supabase
     .from('conciliacion')
@@ -535,6 +590,7 @@ export async function aplicarMatching(
   supabase: SupabaseClient,
   facturaId: string,
   result: MatchingResult,
+  facturaExtra?: { proveedor_nombre?: string; nif_emisor?: string | null },
 ): Promise<void> {
   await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId)
 
@@ -558,14 +614,23 @@ export async function aplicarMatching(
     await supabase.from('facturas_gastos').insert(filas)
   }
 
+  // FIX 13/05/26: categoría mayoritaria en vez de exigir única.
+  // Cubre Mercadona multi-cargo (8 movimientos con la misma categoría 2.11.1).
   let categoriaPropagada: string | null = null
   if (result.estado === 'asociada' && result.matches.length > 0) {
-    const categorias = result.matches
-      .map((m) => m.categoria_codigo)
-      .filter((c): c is string => Boolean(c))
-    const unicas = Array.from(new Set(categorias))
-    if (unicas.length === 1) {
-      categoriaPropagada = unicas[0]
+    categoriaPropagada = categoriaMayoritaria(result.matches)
+  }
+
+  // FIX 13/05/26: fallback a reglas_conciliacion si no hay categoría del banco.
+  // Aplica tanto a 'asociada' sin categoría como a 'sin_match'/'pendiente_revision'.
+  if (!categoriaPropagada && facturaExtra?.proveedor_nombre) {
+    const fromReglas = await categoriaDesdReglas(
+      supabase,
+      facturaExtra.proveedor_nombre,
+      facturaExtra.nif_emisor,
+    )
+    if (fromReglas.categoria) {
+      categoriaPropagada = fromReglas.categoria
     }
   }
 
@@ -579,11 +644,14 @@ export async function aplicarMatching(
 
   await supabase.from('facturas').update(updateFactura).eq('id', facturaId)
 
-  if (result.estado === 'asociada' && result.matches.length === 1) {
+  // FIX 13/05/26: enlazar TODOS los movimientos en conciliacion.factura_id,
+  // no solo cuando hay 1 match. Mercadona siempre tiene varios.
+  if (result.estado === 'asociada' && result.matches.length > 0) {
+    const matchIds = result.matches.map((m) => m.id)
     await supabase
       .from('conciliacion')
       .update({ factura_id: facturaId })
-      .eq('id', result.matches[0].id)
+      .in('id', matchIds)
   }
 }
 
