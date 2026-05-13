@@ -9,8 +9,6 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import ModalDetalleFactura from '@/components/ocr/ModalDetalleFactura'
 import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import VentasTab from '@/components/ocr/VentasTab'
-import DocBadge from '@/components/ocr/DocBadge'
-import type { EstadoDoc } from '@/components/ocr/DocBadge'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 
 type TabId = 'facturas' | 'extractos' | 'ventas' | 'otros'
@@ -56,6 +54,8 @@ interface Agregados {
   conciliadasImporte: number; pendientesCount: number; pendientesImporte: number
 }
 
+type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
+
 function getEstadoDoc(f: Factura): EstadoDoc {
   if (f.estado === 'solo_drive') return 'no_requiere'
   if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
@@ -93,6 +93,37 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center' }}>{over ? 'Suelta aquí' : label}</div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{sublabel}</div>
     </div>
+  )
+}
+
+function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: string | null; onClick: () => void }) {
+  if (estado === 'conciliada') {
+    const tieneUrl = !!url
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (tieneUrl) {
+        window.open(url!, '_blank', 'noopener,noreferrer')
+      } else {
+        onClick()
+      }
+    }
+    return (
+      <div
+        onClick={handleClick}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 22, lineHeight: 1, color: tieneUrl ? '#0F6E56' : '#9ba8c0', cursor: 'pointer', userSelect: 'none' }}
+        title={tieneUrl ? 'Conciliada · Ver PDF' : 'Conciliada · PDF pendiente de Drive · Click para detalle'}
+      >📎</div>
+    )
+  }
+  if (estado === 'no_requiere') {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontFamily: 'Lexend, sans-serif', fontSize: 18, fontWeight: 600, color: '#9ba8c0', cursor: 'default', userSelect: 'none' }} title="No requiere documento">—</div>
+  }
+  return (
+    <div
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+      title="Falta documento o asociación · Click para editar"
+    >✕</div>
   )
 }
 
@@ -137,15 +168,11 @@ export default function Ocr() {
 
   const { sessions, procesar } = useOcrUpload()
 
-  // Refresh en vivo: cada vez que termina un archivo (ok o duplicada), recarga lista + agregados.
-  const completedCountRef = useRef(0)
+  const prevProcessing = useRef(false)
   useEffect(() => {
-    const completed = sessions.reduce((acc, s) =>
-      acc + s.resultados.filter(r => r.estado === 'ok' || r.estado === 'duplicada').length, 0)
-    if (completed !== completedCountRef.current) {
-      completedCountRef.current = completed
-      setRefreshTick(x => x + 1)
-    }
+    const anyProcessing = sessions.some(s => s.procesando)
+    if (prevProcessing.current && !anyProcessing) setRefreshTick(x => x + 1)
+    prevProcessing.current = anyProcessing
   }, [sessions])
 
   useEffect(() => {
