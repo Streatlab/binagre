@@ -20,6 +20,7 @@ import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
 import TabResumen from '@/components/panel/resumen/TabResumen'
+import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 
 interface Row {
   fecha: string
@@ -51,7 +52,7 @@ interface Objetivos {
   anual: number
 }
 
-type MainTab = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'marcas'
+type MainTab = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
 
 const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 
@@ -62,6 +63,7 @@ const MAIN_TABS = [
   { id: 'operaciones', label: 'Operaciones' },
   { id: 'finanzas',    label: 'Finanzas' },
   { id: 'cashflow',    label: 'Cashflow' },
+  { id: 'evolucion',   label: 'Evolución' },
   { id: 'marcas',      label: 'Marcas' },
 ] as const
 
@@ -533,6 +535,14 @@ export default function Dashboard() {
             fechaHasta={fechaHasta}
             canalesFiltro={canalesFiltro}
             onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
+          />
+        )}
+
+        {mainTab === 'evolucion' && (
+          <TabEvolucion
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
+            canalesFiltro={canalesFiltro}
           />
         )}
 
