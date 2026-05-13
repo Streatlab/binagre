@@ -1,1 +1,69 @@
-aW1wb3J0IFJlYWN0IGZyb20gJ3JlYWN0JzsgZXhwb3J0IHR5cGUgRXN0YWRvRG9jID0gJ2NvbmNpbGlhZGEnIHwgJ25vX3JlcXVpZXJlJyB8ICdwZW5kaWVudGUnOyBjb25zdCBTVFlMRV9CQVNFOiBSZWFjdC5DU1NQcm9wZXJ0aWVzID0geyBkaXNwbGF5OiAnZmxleCcsIGFsaWduSXRlbXM6ICdjZW50ZXInLCBqdXN0aWZ5Q29udGVudDogJ2NlbnRlcicsIHdpZHRoOiAnMTAwJScsIGhlaWdodDogJzEwMCUnLCBtaW5IZWlnaHQ6IDM4LCBsaW5lSGVpZ2h0OiAxLCB1c2VyU2VsZWN0OiAnbm9uZScgfTsgZXhwb3J0IGRlZmF1bHQgZnVuY3Rpb24gRG9jQmFkZ2UocHJvcHM6IHsgZXN0YWRvOiBFc3RhZG9Eb2M7IHVybDogc3RyaW5nIHwgbnVsbDsgb25DbGljazogKCkgPT4gdm9pZCB9KSB7IGNvbnN0IHsgZXN0YWRvLCB1cmwsIG9uQ2xpY2sgfSA9IHByb3BzOyBpZiAodXJsKSB7IGNvbnN0IGhhbmRsZSA9IChlOiBSZWFjdC5Nb3VzZUV2ZW50KSA9PiB7IGUuc3RvcFByb3BhZ2F0aW9uKCk7IHdpbmRvdy5vcGVuKHVybCwgJ19ibGFuaycsICdub29wZW5lcixub3JlZmVycmVyJyk7IH07IGNvbnN0IHRpdGxlID0gZXN0YWRvID09PSAnY29uY2lsaWFkYScgPyAnQ29uY2lsaWFkYSBcdTAwQjcgVmVyIFBERicgOiBlc3RhZG8gPT09ICdub19yZXF1aWVyZScgPyAnTm8gcmVxdWllcmUgXHUwMEI3IFBERiBlbiBEcml2ZScgOiAnUGVuZGllbnRlIFx1MDBCNyBWZXIgUERGJzsgcmV0dXJuIFJlYWN0LmNyZWF0ZUVsZW1lbnQoJ2RpdicsIHsgb25DbGljazogaGFuZGxlLCB0aXRsZSwgc3R5bGU6IHsgLi4uU1RZTEVfQkFTRSwgZm9udFNpemU6IDIyLCBjb2xvcjogJyMwRjZFNTYnLCBjdXJzb3I6ICdwb2ludGVyJyB9IH0sICdcdUQ4M0RcdURDQ0UnKTsgfSBpZiAoZXN0YWRvID09PSAnbm9fcmVxdWllcmUnKSB7IHJldHVybiBSZWFjdC5jcmVhdGVFbGVtZW50KCdkaXYnLCB7IHRpdGxlOiAnTm8gcmVxdWllcmUgZG9jdW1lbnRvJywgc3R5bGU6IHsgLi4uU1RZTEVfQkFTRSwgZm9udEZhbWlseTogJ0xleGVuZCwgc2Fucy1zZXJpZicsIGZvbnRTaXplOiAxOCwgZm9udFdlaWdodDogNjAwLCBjb2xvcjogJyM5YmE4YzAnLCBjdXJzb3I6ICdkZWZhdWx0JyB9IH0sICdcdTIwMTQnKTsgfSBjb25zdCBoYW5kbGVYID0gKGU6IFJlYWN0Lk1vdXNlRXZlbnQpID0+IHsgZS5zdG9wUHJvcGFnYXRpb24oKTsgb25DbGljaygpOyB9OyByZXR1cm4gUmVhY3QuY3JlYXRlRWxlbWVudCgnZGl2JywgeyBvbkNsaWNrOiBoYW5kbGVYLCB0aXRsZTogJ0ZhbHRhIGRvY3VtZW50byBvIGFzb2NpYWNpXHUwMEYzbiBcdTAwQjcgQ2xpY2sgcGFyYSBlZGl0YXInLCBzdHlsZTogeyAuLi5TVFlMRV9CQVNFLCBmb250U2l6ZTogMTgsIGNvbG9yOiAnI0UyNEI0QScsIGZvbnRXZWlnaHQ6IDYwMCwgY3Vyc29yOiAncG9pbnRlcicgfSB9LCAnXHUyNzE1Jyk7IH0K
+import React from 'react'
+
+export type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
+
+const STYLE_BASE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  height: '100%',
+  minHeight: 38,
+  lineHeight: 1,
+  userSelect: 'none',
+}
+
+export default function DocBadge(props: { estado: EstadoDoc; url: string | null; onClick: () => void }) {
+  const { estado, url, onClick } = props
+  if (url) {
+    const handle = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    const title =
+      estado === 'conciliada'
+        ? 'Conciliada \u00B7 Ver PDF'
+        : estado === 'no_requiere'
+          ? 'No requiere \u00B7 PDF en Drive'
+          : 'Pendiente \u00B7 Ver PDF'
+    return React.createElement(
+      'div',
+      {
+        onClick: handle,
+        title,
+        style: { ...STYLE_BASE, fontSize: 22, color: '#0F6E56', cursor: 'pointer' },
+      },
+      '\uD83D\uDCCE'
+    )
+  }
+  if (estado === 'no_requiere') {
+    return React.createElement(
+      'div',
+      {
+        title: 'No requiere documento',
+        style: {
+          ...STYLE_BASE,
+          fontFamily: 'Lexend, sans-serif',
+          fontSize: 18,
+          fontWeight: 600,
+          color: '#9ba8c0',
+          cursor: 'default',
+        },
+      },
+      '\u2014'
+    )
+  }
+  const handleX = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onClick()
+  }
+  return React.createElement(
+    'div',
+    {
+      onClick: handleX,
+      title: 'Falta documento o asociaci\u00F3n \u00B7 Click para editar',
+      style: { ...STYLE_BASE, fontSize: 18, color: '#E24B4A', fontWeight: 600, cursor: 'pointer' },
+    },
+    '\u2715'
+  )
+}
