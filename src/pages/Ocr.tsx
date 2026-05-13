@@ -28,7 +28,11 @@ const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls'
 
-const ESTADOS_CONCILIADOS = new Set(['asociada', 'solo_drive', 'historica'])
+// 13/05/26: 'conciliada' es el estado definitivo. 'asociada' e 'historica' mantienen
+// retrocompatibilidad. 'solo_drive' = factura 0€ (cupón) → sin movimiento bancario,
+// cuenta como conciliada pero con doc_estado 'no_requiere' (muestra raya, no clip).
+const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'historica', 'solo_drive'])
+const ESTADOS_SIN_DOC = new Set(['solo_drive'])
 
 function parsePageSize(raw: string | null): PageSize {
   const n = Number(raw)
@@ -46,7 +50,7 @@ interface Factura {
   id: string; fecha_factura: string; proveedor_nombre: string; total: number; tipo: string
   categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null
   pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null
-  numero_factura: string | null; estado: string
+  numero_factura: string | null; estado: string; doc_estado: string | null
   matches_count: number
 }
 
@@ -58,7 +62,8 @@ interface Agregados {
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc {
-  if (f.estado === 'solo_drive') return 'no_requiere'
+  // Factura 0€ (cupón): conciliada pero sin movimiento bancario → muestra raya
+  if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'
   if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
   return 'pendiente'
 }
@@ -173,7 +178,8 @@ export default function Ocr() {
     const from = (page - 1) * pageSize; const to = from + pageSize - 1
     const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }
     const sortField = sortMap[sortColumn] ?? 'fecha_factura'
-    let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
+    // 13/05/26: añadido doc_estado a la select para calcular correctamente el icono de documento
+    let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro')
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
     if (busquedaDebounced) { const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim(); if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`) }
@@ -196,6 +202,7 @@ export default function Ocr() {
         pdf_filename: m.pdf_filename ?? null,
         numero_factura: m.numero_factura ?? null,
         estado: m.estado ?? '',
+        doc_estado: m.doc_estado ?? null,
         matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0,
       }))
       let filtradas = mapped
@@ -487,9 +494,12 @@ export default function Ocr() {
                             </td>
                             <td style={tdDocBase}><DocBadge estado={estadoDoc} url={f.pdf_drive_url} onClick={() => setFacturaEditando(f)} /></td>
                             <td style={tdBase}>
-                              {conciliada ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span>
-                              : estadoDoc === 'no_requiere' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#9ba8c015', color: '#9ba8c0' }}>Sin doc</span>
-                              : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>Pendiente</span>}
+                              {conciliada
+                                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span>
+                                : estadoDoc === 'no_requiere'
+                                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>Conciliada</span>
+                                  : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>Pendiente</span>
+                              }
                             </td>
                             <td style={tdBase}>
                               {isRuben ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />Rubén</span>
