@@ -24,17 +24,12 @@ const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// Normaliza NIF: mayúsculas, sin espacios, sin guiones, sin puntos.
-// El OCR a veces devuelve "21669051s" (minúscula) o "B-26309096" (con guión).
 function normalizarNif(nif: string | null | undefined): string | null {
   if (!nif) return null
   const limpio = nif.replace(/[\s\-.]/g, '').toUpperCase()
   return limpio || null
 }
 
-// Detecta titular por nombre del cliente cuando OCR no extrae el NIF correctamente.
-// Casos reales: facturas Lidl, Joaquín Ayora, Envases — el OCR confunde el NIF cliente
-// con un código interno de cliente del proveedor (ej: "623036634").
 function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
   titularId: string | null
   carpeta: string
@@ -276,7 +271,6 @@ async function procesarContenidoPrincipal(
       proveedorId = nuevoProv?.id
     }
 
-    // Detectar titular: 1º por NIF, 2º por nombre del cliente, 3º plataforma=Rubén por defecto.
     let titularId: string | null = null
     let carpetaTitular = 'SIN_TITULAR'
     let pendienteTitularManual = false
@@ -285,7 +279,6 @@ async function procesarContenidoPrincipal(
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
     const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
 
-    // Paso 1: por NIF
     if (nifClienteNorm === NIF_RUBEN) {
       titularId = RUBEN_ID
       carpetaTitular = 'RUBÉN'
@@ -304,7 +297,6 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Paso 2: si no se detectó por NIF, intentar por nombre del cliente
     if (!titularId) {
       const porNombre = detectarTitularPorNombre(nombreCliente)
       if (porNombre.match) {
@@ -313,20 +305,15 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // Paso 3: plataforma sin NIF detectado → Rubén por defecto
     if (!titularId && extracted.tipo === 'plataforma') {
       titularId = RUBEN_ID
       carpetaTitular = 'RUBÉN'
     }
 
-    // Si ninguna heurística lo detecta, queda pendiente manual
     if (!titularId) {
       pendienteTitularManual = true
     }
 
-    // REGLA 08/05/26: NUNCA inventar categoria_factura. La categoría real
-    // viene del movimiento bancario al matchear (en aplicarMatching) o de
-    // reglas_conciliacion. Si no hay match, queda NULL.
     await supabase
       .from('facturas')
       .update({
@@ -389,7 +376,11 @@ async function procesarContenidoPrincipal(
           total: extracted.total,
           titular_id: titularId,
         })
-        await aplicarMatching(supabase, nueva.id, resultadoMatch)
+        // FIX 13/05/26: pasar proveedor_nombre y nif_emisor para fallback a reglas_conciliacion
+        await aplicarMatching(supabase, nueva.id, resultadoMatch, {
+          proveedor_nombre: extracted.proveedor_nombre,
+          nif_emisor: nifEmisorNorm,
+        })
       } catch (matchErr) {
         console.error('[procesarArchivo] error en matching:', errMsg(matchErr))
       }
