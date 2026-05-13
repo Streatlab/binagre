@@ -13,6 +13,11 @@ type Opcion = 'semana_actual' | 'ultimos_7' | 'mes_en_curso' | 'un_mes' | 'ultim
 interface PersistedState { opcion: Opcion; desde: string; hasta: string; semanaISO?: number; semanaYear?: number }
 interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Date; label: string }
 
+// 13/05/26: clave GLOBAL para que el periodo persista entre pestañas y tras F5.
+// Todos los módulos comparten el mismo periodo. nombreModulo se mantiene como parámetro
+// por compatibilidad pero ya no se usa para diferenciar la clave de storage.
+const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
+
 function isoWeekNumber(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   const dayNum = date.getUTCDay() || 7
@@ -39,8 +44,6 @@ function toDateString(d: Date): string {
 }
 function todayStr(): string { return toDateString(new Date()) }
 
-// Parser de fechas: acepta DD/MM/AA, DD/MM/AAAA, DD-MM-AA, DDMMAA, DD.MM.AA, etc.
-// Devuelve YYYY-MM-DD o null
 function parseFechaInput(s: string): string | null {
   if (!s) return null
   const clean = s.trim().replace(/[^\d/.\-]/g, '')
@@ -59,7 +62,6 @@ function parseFechaInput(s: string): string | null {
   return `${yr}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`
 }
 
-// Formato display: YYYY-MM-DD → DD/MM/AAAA
 function isoToDisplay(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!m) return iso
@@ -140,15 +142,13 @@ const itemStyle: React.CSSProperties = {
 }
 
 export default function SelectorFechaUniversal({
-  nombreModulo, onChange, defaultOpcion = 'semana_actual',
+  nombreModulo: _nombreModulo, onChange, defaultOpcion = 'semana_actual',
 }: SelectorFechaUniversalProps) {
-  const storageKey = `selector_fecha_${nombreModulo}`
   const defaultLabel = OPCIONES.find(o => o.id === defaultOpcion)?.label ?? 'Semana actual'
 
   const [opcion, setOpcion] = useState<Opcion>(defaultOpcion)
   const [open, setOpen] = useState(false)
   const [semanaOpen, setSemanaOpen] = useState(false)
-  // Inputs personalizados: lo que escribe el usuario
   const [desdeInput, setDesdeInput] = useState('')
   const [hastaInput, setHastaInput] = useState('')
   const [selectedLabel, setSelectedLabel] = useState(defaultLabel)
@@ -159,7 +159,8 @@ export default function SelectorFechaUniversal({
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(storageKey)
+      // Leer de localStorage (persiste entre pestañas y F5)
+      const raw = localStorage.getItem(STORAGE_KEY_GLOBAL)
       if (raw) {
         const saved: PersistedState = JSON.parse(raw)
         const op = saved.opcion
@@ -201,16 +202,14 @@ export default function SelectorFechaUniversal({
   }, [])
 
   function persist(state: PersistedState) {
-    try { sessionStorage.setItem(storageKey, JSON.stringify(state)) } catch {}
+    try { localStorage.setItem(STORAGE_KEY_GLOBAL, JSON.stringify(state)) } catch {}
   }
 
   function selectOpcion(op: Opcion) {
     if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
       setOpcion(op); setOpen(false)
-      // Inicializar hasta con hoy si está vacío
       if (!hastaInput) setHastaInput(isoToDisplay(todayStr()))
-      // Foco al input de desde
       setTimeout(() => desdeRef.current?.focus(), 50)
       return
     }
@@ -227,12 +226,10 @@ export default function SelectorFechaUniversal({
     onChange(item.lunes, item.domingo, item.label)
   }
 
-  // Aplicar fechas escritas
   function applyPersonalizado() {
     const desdeIso = parseFechaInput(desdeInput)
     const hastaIso = parseFechaInput(hastaInput) || todayStr()
     if (!desdeIso) return
-    // Si hasta no estaba escrita o era inválida, normalizamos a hoy o desde
     const hastaFinal = hastaIso < desdeIso ? desdeIso : hastaIso
     setDesdeInput(isoToDisplay(desdeIso))
     setHastaInput(isoToDisplay(hastaFinal))
@@ -245,7 +242,6 @@ export default function SelectorFechaUniversal({
   }
 
   function handleDesdeBlur() {
-    // Al salir del campo desde, si hay fecha válida y hasta vacío → poner hoy
     const desdeIso = parseFechaInput(desdeInput)
     if (desdeIso) {
       setDesdeInput(isoToDisplay(desdeIso))
@@ -262,7 +258,6 @@ export default function SelectorFechaUniversal({
     if (e.key === 'Enter') { e.preventDefault(); applyPersonalizado() }
   }
 
-  // Validez visual
   const desdeOk = !desdeInput || parseFechaInput(desdeInput) !== null
   const hastaOk = !hastaInput || parseFechaInput(hastaInput) !== null
 
