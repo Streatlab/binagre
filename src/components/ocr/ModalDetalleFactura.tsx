@@ -25,7 +25,7 @@ interface MovBanco {
   importe: number
   proveedor: string | null
   titular_id: string | null
-  categoria_codigo: string | null
+  categoria: string | null
 }
 
 interface FacturaEdit {
@@ -63,9 +63,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
   const ventana = useMemo(() => {
     const base = ventanaProveedor(factura.proveedor_nombre)
-    if (ampliarVentana) {
-      return { antes: base.antes + 30, despues: base.despues + 60 }
-    }
+    if (ampliarVentana) return { antes: base.antes + 30, despues: base.despues + 60 }
     return base
   }, [factura.proveedor_nombre, ampliarVentana])
 
@@ -81,7 +79,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
       const importeMax = -(importeAbs - TOLERANCIA)
 
       const { data } = await supabase.from('conciliacion')
-        .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
+        .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
         .eq('titular_id', factura.titular_id)
         .gte('fecha', fechaMin).lte('fecha', fechaMax)
         .gte('importe', importeMin).lte('importe', importeMax)
@@ -89,29 +87,19 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         .limit(40)
 
       const asociado = factura.facturas_gastos?.find(fg => fg.confirmado)?.conciliacion_id
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let movs: MovBanco[] = (data || []).map((d: any) => ({
-        id: d.id,
-        fecha: d.fecha,
-        concepto: d.concepto,
-        importe: Number(d.importe),
-        proveedor: d.proveedor,
-        titular_id: d.titular_id,
-        categoria_codigo: d.categoria_codigo,
+        id: d.id, fecha: d.fecha, concepto: d.concepto, importe: Number(d.importe),
+        proveedor: d.proveedor, titular_id: d.titular_id, categoria: d.categoria,
       }))
       if (asociado && !movs.some(m => m.id === asociado)) {
         const { data: extra } = await supabase.from('conciliacion')
-          .select('id, fecha, concepto, importe, proveedor, titular_id, categoria_codigo')
-          .eq('id', asociado)
-          .maybeSingle()
+          .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
+          .eq('id', asociado).maybeSingle()
         if (extra) {
           movs = [{
-            id: extra.id,
-            fecha: extra.fecha,
-            concepto: extra.concepto,
-            importe: Number(extra.importe),
-            proveedor: extra.proveedor,
-            titular_id: extra.titular_id,
-            categoria_codigo: extra.categoria_codigo,
+            id: extra.id, fecha: extra.fecha, concepto: extra.concepto, importe: Number(extra.importe),
+            proveedor: extra.proveedor, titular_id: extra.titular_id, categoria: extra.categoria,
           }, ...movs]
         }
       }
@@ -126,67 +114,47 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   useEffect(() => {
     if (!movimientoId) return
     const m = movsCandidatos.find(x => x.id === movimientoId)
-    if (m?.categoria_codigo) {
-      setCategoria(m.categoria_codigo)
-    }
+    if (m?.categoria) setCategoria(m.categoria)
   }, [movimientoId, movsCandidatos])
 
   const catNivel3 = useMemo(() => categoriasPyg.filter(c => c.nivel === 3), [categoriasPyg])
 
   const handleGuardar = async () => {
-    setGuardando(true)
-    setError(null)
+    setGuardando(true); setError(null)
     try {
       const movActual = factura.facturas_gastos?.find(fg => fg.confirmado)
       const movSeleccionado = movsCandidatos.find(m => m.id === movimientoId) || null
-      const categoriaFinal = movSeleccionado?.categoria_codigo || categoria || null
+      const categoriaFinal = movSeleccionado?.categoria || categoria || null
 
-      const updateFactura: Record<string, unknown> = {
-        categoria_factura: categoriaFinal,
-      }
-      if (movSeleccionado) {
-        updateFactura.estado = 'asociada'
-      } else if (movActual) {
-        updateFactura.estado = 'sin_match'
-      }
+      const updateFactura: Record<string, unknown> = { categoria_factura: categoriaFinal }
+      if (movSeleccionado) updateFactura.estado = 'asociada'
+      else if (movActual) updateFactura.estado = 'sin_match'
+
       const { error: errF } = await supabase.from('facturas').update(updateFactura).eq('id', factura.id)
       if (errF) throw new Error(`Factura: ${errF.message}`)
 
       if (movimientoId && movimientoId !== movActual?.conciliacion_id) {
         if (movActual) {
           await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
-          await supabase.from('conciliacion').update({
-            doc_estado: 'falta',
-            factura_id: null,
-          }).eq('id', movActual.conciliacion_id)
+          await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).eq('id', movActual.conciliacion_id)
         }
         await supabase.from('facturas_gastos').insert({
-          factura_id: factura.id,
-          conciliacion_id: movimientoId,
-          importe_asociado: Math.abs(factura.total),
-          confirmado: true,
-          confianza_match: 100,
+          factura_id: factura.id, conciliacion_id: movimientoId,
+          importe_asociado: Math.abs(factura.total), confirmado: true, confianza_match: 100,
         })
         await supabase.from('conciliacion').update({
-          doc_estado: 'tiene',
-          factura_id: factura.id,
-          proveedor: factura.proveedor_nombre,
-          ...(categoriaFinal ? { categoria: categoriaFinal, categoria_codigo: categoriaFinal } : {}),
+          doc_estado: 'tiene', factura_id: factura.id,
+          ...(categoriaFinal ? { categoria: categoriaFinal } : {}),
         }).eq('id', movimientoId)
       } else if (!movimientoId && movActual) {
         await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
-        await supabase.from('conciliacion').update({
-          doc_estado: 'falta',
-          factura_id: null,
-        }).eq('id', movActual.conciliacion_id)
+        await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).eq('id', movActual.conciliacion_id)
       } else if (movimientoId && categoriaFinal) {
-        await supabase.from('conciliacion').update({
-          categoria: categoriaFinal,
-          categoria_codigo: categoriaFinal,
-        }).eq('id', movimientoId)
+        await supabase.from('conciliacion').update({ categoria: categoriaFinal }).eq('id', movimientoId)
       }
 
       onSaved()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.message || String(err))
     } finally {
@@ -195,47 +163,38 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   }
 
   const handleBorrar = async () => {
-    setBorrando(true)
-    setError(null)
+    setBorrando(true); setError(null)
     try {
       const movActual = factura.facturas_gastos?.find(fg => fg.confirmado)
       if (movActual) {
         await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
-        await supabase.from('conciliacion').update({
-          doc_estado: 'falta',
-          factura_id: null,
-        }).eq('id', movActual.conciliacion_id)
+        await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).eq('id', movActual.conciliacion_id)
       } else {
         await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
       }
-
       if (factura.pdf_drive_id) {
-        try {
-          await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: factura.pdf_drive_id } })
-        } catch {/* swallow */}
+        try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: factura.pdf_drive_id } }) } catch {/* swallow */}
       }
-
       const { error: errDel } = await supabase.from('facturas').delete().eq('id', factura.id)
       if (errDel) throw new Error(errDel.message)
-
       onDeleted()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message || String(err))
-      setBorrando(false)
+      setError(err.message || String(err)); setBorrando(false)
     }
   }
 
   const tienePdf = !!factura.pdf_drive_url
   const movActualId = factura.facturas_gastos?.find(fg => fg.confirmado)?.conciliacion_id || null
   const movSeleccionado = movsCandidatos.find(m => m.id === movimientoId) || null
-  const categoriaPropuesta = movSeleccionado?.categoria_codigo || null
+  const categoriaPropuesta = movSeleccionado?.categoria || null
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Factura</div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Factura (datos no editables)</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{factura.proveedor_nombre || '—'}</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 2 }}>
               {fmtDate(factura.fecha_factura)} · {fmtEur(factura.total)} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
@@ -246,7 +205,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-
           {tienePdf && (
             <div>
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Documento</div>
@@ -272,16 +230,12 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
                 No hay movimientos del mismo titular con importe {fmtEur(-Math.abs(factura.total))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
               </div>
             ) : (
-              <select
-                value={movimientoId}
-                onChange={e => setMovimientoId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}
-              >
+              <select value={movimientoId} onChange={e => setMovimientoId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>
                 <option value="">— Sin asociar —</option>
                 {movsCandidatos.map(m => (
                   <option key={m.id} value={m.id}>
-                    {fmtDate(m.fecha)} · {(m.concepto || '').slice(0, 40)} · {fmtEur(m.importe)}
-                    {m.categoria_codigo ? ` · ${m.categoria_codigo}` : ''}
+                    {fmtDate(m.fecha)} · {(m.concepto || '').slice(0, 40)} · {fmtEur(m.importe)}{m.categoria ? ` · ${m.categoria}` : ''}
                   </option>
                 ))}
               </select>
@@ -297,21 +251,13 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>
               Categoría {categoriaPropuesta ? <span style={{ color: '#1D9E75', fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
             </label>
-            <select
-              value={categoria}
-              onChange={e => setCategoria(e.target.value)}
-              disabled={!!categoriaPropuesta}
-              style={{
-                width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+            <select value={categoria} onChange={e => setCategoria(e.target.value)} disabled={!!categoriaPropuesta}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
                 background: categoriaPropuesta ? '#fafaf7' : '#fff',
                 fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111',
-                cursor: categoriaPropuesta ? 'not-allowed' : 'pointer',
-              }}
-            >
+                cursor: categoriaPropuesta ? 'not-allowed' : 'pointer' }}>
               <option value="">— Sin categoría —</option>
-              {catNivel3.map(c => (
-                <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
-              ))}
+              {catNivel3.map(c => (<option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>))}
             </select>
             {categoriaPropuesta && (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
@@ -329,45 +275,30 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
         <div style={{ padding: '14px 24px', borderTop: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: '#fafaf7' }}>
           {!confirmarBorrar ? (
-            <button
-              onClick={() => setConfirmarBorrar(true)}
-              disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: '#fff', color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}
-            >
+            <button onClick={() => setConfirmarBorrar(true)} disabled={guardando || borrando}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: '#fff', color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
               Borrar factura
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro?</span>
-              <button
-                onClick={() => setConfirmarBorrar(false)}
-                disabled={borrando}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}
-              >
+              <button onClick={() => setConfirmarBorrar(false)} disabled={borrando}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
                 Cancelar
               </button>
-              <button
-                onClick={handleBorrar}
-                disabled={borrando}
-                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}
-              >
+              <button onClick={handleBorrar} disabled={borrando}
+                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
                 {borrando ? 'Borrando…' : 'Sí, borrar'}
               </button>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={onClose}
-              disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}
-            >
+            <button onClick={onClose} disabled={guardando || borrando}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
-            <button
-              onClick={handleGuardar}
-              disabled={guardando || borrando}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}
-            >
+            <button onClick={handleGuardar} disabled={guardando || borrando}
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
