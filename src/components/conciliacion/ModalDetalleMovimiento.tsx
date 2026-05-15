@@ -243,11 +243,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     }
   }
 
-  /**
-   * GUARDAR — Mínimo y robusto.
-   * Solo actualiza el mov en cuestión. NO toca otros movs ni regla automática.
-   * Si BBDD acepta el UPDATE, refresca el mov directamente desde BBDD para evitar caché.
-   */
   async function handleGuardar() {
     if (!movimiento) return
     setSaving(true)
@@ -262,8 +257,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         doc_estado: docEstado,
       }
       if (selectedDetalle) updates.categoria = selectedDetalle
-      if (contraparte.trim()) updates.proveedor = contraparte.trim()
-      else if (movimiento.contraparte && contraparte.trim() === '') updates.proveedor = null
+      // Contraparte/proveedor NO se edita aquí: viene del banco
 
       const { error } = await supabase
         .from('conciliacion')
@@ -272,7 +266,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
       if (error) throw error
 
-      // Releer el mov directamente desde BBDD para garantizar estado fresco (no caché)
       const { data: refreshed } = await supabase
         .from('conciliacion')
         .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
@@ -302,7 +295,6 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           ...movimiento,
           categoria_id: selectedDetalle || movimiento.categoria_id,
           titular_id: (updates.titular_id as string | null),
-          contraparte: contraparte.trim() || movimiento.contraparte,
           doc_estado: docEstado,
         })
       }
@@ -373,10 +365,11 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         </div>
 
         <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte</label>
-          <input type="text" value={contraparte} onChange={e => setContraparte(e.target.value)}
-            placeholder="Nombre comercial del proveedor"
-            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#111', fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+          <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte (no editable)</label>
+          <div
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fafaf7', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box' }}>
+            {contraparte || '—'}
+          </div>
         </div>
 
         <div style={{ marginBottom: 18 }}>
