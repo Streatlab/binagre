@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import ReglasPanel from './ReglasPanel'
+import ReglasGlobalesPanel from './ReglasGlobalesPanel'
 import CuentasPanel from './CuentasPanel'
 
 interface CategoriaPyg {
@@ -26,6 +27,7 @@ export default function BancosYCuentasPage() {
 
   const path = location.pathname
   const subTab = path.endsWith('cuentas') ? 'cuentas'
+    : path.endsWith('reglas-globales') ? 'reglas-globales'
     : path.endsWith('reglas') ? 'reglas'
     : 'categorias'
 
@@ -80,7 +82,8 @@ export default function BancosYCuentasPage() {
         {[
           { id: 'cuentas', label: 'Cuentas bancarias', path: '/configuracion/bancos-y-cuentas/cuentas' },
           { id: 'categorias', label: 'Categorías', path: '/configuracion/bancos-y-cuentas/categorias' },
-          { id: 'reglas', label: 'Reglas', path: '/configuracion/bancos-y-cuentas/reglas' },
+          { id: 'reglas', label: 'Reglas de matching', path: '/configuracion/bancos-y-cuentas/reglas' },
+          { id: 'reglas-globales', label: 'Reglas del sistema', path: '/configuracion/bancos-y-cuentas/reglas-globales' },
         ].map(st => {
           const isActive = st.id === subTab
           return (
@@ -110,6 +113,7 @@ export default function BancosYCuentasPage() {
       )}
       {subTab === 'cuentas' && <CuentasPanel />}
       {subTab === 'reglas' && <ReglasPanel />}
+      {subTab === 'reglas-globales' && <ReglasGlobalesPanel />}
     </div>
   )
 }
