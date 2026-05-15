@@ -431,31 +431,14 @@ export default function Objetivos() {
   ]
 
   void CANALES
+  void LAYOUT
 
   return (
-<<<<<<< HEAD
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
         <SelectorFechaUniversal nombreModulo="objetivos" defaultOpcion="semana_actual" onChange={handlePeriodo} />
-=======
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: LAYOUT.pagePadding, maxWidth: LAYOUT.pageMaxWidth }}>
-
-      {/* Cabecera */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.pageTitle, fontSize: 28, fontWeight: 700, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>
-            Objetivos
-          </h1>
-          <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 6 }}>
-            Generales y específicos por período. El Dashboard los usa para calcular cumplimiento.
-          </p>
-        </div>
-        <button style={btnAdd} onClick={() => setShowNuevo(p => !p)}>
-          {showNuevo ? '✕ Cancelar' : '+ Nuevo objetivo específico'}
-        </button>
->>>>>>> 44a13a1 (fix: LAYOUT+FONT tokens, objetivos ancho+titulo homogéneo)
       </div>
 
       <div style={tabsContainerStyle()}>
