@@ -1,4 +1,4 @@
-// OcrUploadToast v6 — muestra DETALLE de cada error/achtung en la lista expandida
+// OcrUploadToast v7 — colores ERP blanco/crema + botón cancelar
 import { useState } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
@@ -16,121 +16,129 @@ function AchtungBanner({ session }: { session: OcrSession }) {
       animation: 'achtungPulse 1.4s ease-in-out infinite',
       boxShadow: '0 0 16px rgba(255, 71, 87, 0.5)',
     }}>
-      <div style={{
-        fontFamily: 'Oswald, sans-serif',
-        fontSize: 14,
-        letterSpacing: '3px',
-        fontWeight: 700,
-        marginBottom: 6,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '3px', fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 18 }}>⚠️</span>
         <span>ACHTUNG</span>
       </div>
-      <div style={{
-        fontFamily: 'Lexend, sans-serif',
-        fontSize: 12,
-        lineHeight: 1.4,
-        fontWeight: 500,
-      }}>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>
         {session.achtungMensaje}
       </div>
-      <style>{`
-        @keyframes achtungPulse {
-          0%, 100% { box-shadow: 0 0 16px rgba(255, 71, 87, 0.5); }
-          50% { box-shadow: 0 0 24px rgba(255, 71, 87, 0.9); }
-        }
-      `}</style>
+      <style>{`@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}}`}</style>
     </div>
   )
 }
 
-function SessionToast({ session, onCerrar, onOcultar }: {
-  session: OcrSession; onCerrar: () => void; onOcultar: () => void
+function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
+  session: OcrSession; onCerrar: () => void; onOcultar: () => void; onCancelar: () => void
 }) {
-  // Auto-expandir si hay errores o achtung — para que el usuario vea el detalle sin tener que hacer clic
   const tieneErroresOAchtung = session.errores > 0 || session.achtung > 0
   const [expandido, setExpandido] = useState(tieneErroresOAchtung)
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false)
   const pct = session.total > 0 ? Math.round((session.enviados / session.total) * 100) : 0
   const tieneAchtung = session.achtung > 0
+
+  const bgPrincipal = '#fff'
+  const bgSubtle = '#f5f3ef'
+  const bordeColor = tieneAchtung ? '#B01D23' : '#d0c8bc'
+  const textoPrincipal = '#111'
+  const textoMuted = '#7a8090'
+
   return (
     <div style={{
-      background: tieneAchtung ? '#2a1a1d' : '#1e2233',
-      color: '#fff',
+      background: bgPrincipal,
+      color: textoPrincipal,
       padding: '14px 18px',
       borderRadius: 12,
       width: 380,
       fontFamily: 'Lexend, sans-serif',
       fontSize: 13,
-      boxShadow: tieneAchtung ? '0 6px 32px rgba(176, 29, 35, 0.5)' : '0 6px 24px rgba(0,0,0,0.35)',
-      border: tieneAchtung ? '0.5px solid #B01D23' : '0.5px solid rgba(255,255,255,0.08)',
+      boxShadow: tieneAchtung ? '0 6px 32px rgba(176, 29, 35, 0.25)' : '0 6px 24px rgba(0,0,0,0.12)',
+      border: tieneAchtung ? `1px solid ${bordeColor}` : `0.5px solid ${bordeColor}`,
     }}>
       <AchtungBanner session={session} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: tieneAchtung ? '#FF4757' : (session.procesando ? '#e8f442' : '#1D9E75') }}>
-          {tieneAchtung ? `Abortado · ${session.enviados}/${session.total}` : (session.procesando ? `Procesando… ${session.enviados}/${session.total}` : `Completado · ${session.total} archivos`)}
+        <span style={{
+          fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase',
+          color: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.procesando ? '#B01D23' : '#1D9E75')),
+          fontWeight: 600,
+        }}>
+          {session.cancelado
+            ? `Cancelada · ${session.enviados}/${session.total}`
+            : tieneAchtung
+              ? `Abortado · ${session.enviados}/${session.total}`
+              : session.procesando
+                ? `Procesando ${session.enviados}/${session.total}`
+                : `Completado · ${session.total} archivos`}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
+          {session.procesando && !confirmarCancelar && (
+            <button onClick={() => setConfirmarCancelar(true)}
+              style={{ background: 'transparent', border: '0.5px solid #d0c8bc', color: '#E24B4A', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Cancelar
+            </button>
+          )}
+          {session.procesando && confirmarCancelar && (
+            <>
+              <button onClick={() => setConfirmarCancelar(false)}
+                style={{ background: '#fff', border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
+                No
+              </button>
+              <button onClick={() => { onCancelar(); setConfirmarCancelar(false) }}
+                style={{ background: '#E24B4A', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                Sí, cancelar
+              </button>
+            </>
+          )}
           {session.procesando
-            ? <button onClick={onOcultar} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 10, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>–</button>
-            : <button onClick={onCerrar} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            ? <button onClick={onOcultar} title="Ocultar" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
+            : <button onClick={onCerrar} style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
           }
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 16, fontSize: 12, marginBottom: 8 }}>
-        <span style={{ color: '#1D9E75' }}>✓ {session.ok}</span>
-        <span style={{ color: '#F26B1F' }}>⏳ {session.pendientes}</span>
-        <span style={{ color: '#7a8090' }}>= {session.duplicados}</span>
-        {session.errores > 0 && <span style={{ color: '#E24B4A' }}>✕ {session.errores}</span>}
-        {session.achtung > 0 && <span style={{ color: '#FF4757', fontWeight: 700 }}>⚠ {session.achtung}</span>}
+      <div style={{ display: 'flex', gap: 14, fontSize: 12, marginBottom: 8 }}>
+        <span style={{ color: '#1D9E75', fontWeight: 500 }}>✓ {session.ok}</span>
+        <span style={{ color: '#F26B1F', fontWeight: 500 }}>⏳ {session.pendientes}</span>
+        <span style={{ color: textoMuted }}>= {session.duplicados}</span>
+        {session.errores > 0 && <span style={{ color: '#E24B4A', fontWeight: 500 }}>✕ {session.errores}</span>}
+        {session.achtung > 0 && <span style={{ color: '#B01D23', fontWeight: 700 }}>⚠ {session.achtung}</span>}
+        {session.cancelados > 0 && <span style={{ color: textoMuted }}>⊘ {session.cancelados}</span>}
       </div>
-      <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: tieneAchtung ? '#FF4757' : (session.procesando ? '#e8f442' : '#1D9E75'), transition: 'width 0.4s' }} />
+      <div style={{ height: 4, background: bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct}%`, height: '100%',
+          background: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.procesando ? '#B01D23' : '#1D9E75')),
+          transition: 'width 0.4s'
+        }} />
       </div>
       {session.log.length > 0 && (
         <>
-          <button onClick={() => setExpandido(x => !x)} style={{ marginTop: 8, width: '100%', padding: '5px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: 'none', color: '#a0a8b8', cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={() => setExpandido(x => !x)}
+            style={{ marginTop: 10, width: '100%', padding: '6px 8px', borderRadius: 6, background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>Detalle ({session.log.length})</span>
             <span>{expandido ? '▲' : '▼'}</span>
           </button>
           {expandido && (
-            <div style={{ marginTop: 6, maxHeight: 220, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: '6px 8px' }}>
+            <div style={{ marginTop: 6, maxHeight: 240, overflowY: 'auto', background: bgSubtle, borderRadius: 6, padding: '8px 10px' }}>
               {[...session.log].reverse().map((entry, idx) => {
-                const colors: Record<string, string> = { ok: '#1D9E75', duplicado: '#7a8090', pendiente: '#F26B1F', error: '#E24B4A', achtung: '#FF4757' }
+                const colors: Record<string, string> = {
+                  ok: '#1D9E75', duplicado: textoMuted, pendiente: '#F26B1F',
+                  error: '#E24B4A', achtung: '#B01D23', cancelado: textoMuted,
+                }
                 const esCritico = entry.status === 'error' || entry.status === 'achtung'
                 return (
-                  <div key={idx} style={{ padding: '5px 0', borderBottom: idx < session.log.length - 1 ? '0.5px solid rgba(255,255,255,0.06)' : 'none' }}>
+                  <div key={idx} style={{ padding: '6px 0', borderBottom: idx < session.log.length - 1 ? `0.5px solid #d0c8bc` : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#cdd0d8' }}>{entry.filename}</span>
-                      <span style={{ color: colors[entry.status], fontSize: 9, flexShrink: 0, textTransform: 'uppercase', fontWeight: 600 }}>{entry.status}</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: textoPrincipal }}>{entry.filename}</span>
+                      <span style={{ color: colors[entry.status], fontSize: 9, flexShrink: 0, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{entry.status}</span>
                     </div>
-                    {/* Mostrar el detalle del error/achtung debajo del filename — esto es lo que faltaba */}
                     {esCritico && entry.detalle && (
-                      <div style={{
-                        marginTop: 3,
-                        marginLeft: 11,
-                        fontSize: 10,
-                        color: colors[entry.status],
-                        lineHeight: 1.35,
-                        wordBreak: 'break-word',
-                        opacity: 0.9,
-                      }}>
+                      <div style={{ marginTop: 3, marginLeft: 12, fontSize: 10, color: colors[entry.status], lineHeight: 1.4, wordBreak: 'break-word' }}>
                         {entry.detalle}
                       </div>
                     )}
-                    {/* Para pendientes/duplicados también mostrar el motivo, en gris */}
                     {!esCritico && entry.detalle && entry.status !== 'ok' && (
-                      <div style={{
-                        marginTop: 2,
-                        marginLeft: 11,
-                        fontSize: 10,
-                        color: '#7a8090',
-                        lineHeight: 1.35,
-                        wordBreak: 'break-word',
-                      }}>
+                      <div style={{ marginTop: 2, marginLeft: 12, fontSize: 10, color: textoMuted, lineHeight: 1.4, wordBreak: 'break-word' }}>
                         {entry.detalle}
                       </div>
                     )}
@@ -146,13 +154,16 @@ function SessionToast({ session, onCerrar, onOcultar }: {
 }
 
 export default function OcrUploadToast() {
-  const { sessions, cerrar, ocultar } = useOcrUpload()
+  const { sessions, cerrar, ocultar, cancelar } = useOcrUpload()
   const visibles = [...sessions.filter(s => s.visible)].sort((a, b) => a.creadoEn - b.creadoEn)
   if (visibles.length === 0) return null
   return (
-    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 8, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden' }}>
       {visibles.map(s => (
-        <SessionToast key={s.id} session={s} onCerrar={() => cerrar(s.id)} onOcultar={() => ocultar(s.id)} />
+        <SessionToast key={s.id} session={s}
+          onCerrar={() => cerrar(s.id)}
+          onOcultar={() => ocultar(s.id)}
+          onCancelar={() => cancelar(s.id)} />
       ))}
     </div>
   )
