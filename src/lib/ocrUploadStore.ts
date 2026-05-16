@@ -1,12 +1,11 @@
-// ocrUploadStore v12 — pausa anti rate limit + reintento automático
-// Sesiones múltiples, persiste en localStorage, sobrevive F5
-
+// ocrUploadStore v14 — persistencia BBDD + worker Supabase + Realtime
+// Sesiones sobreviven a cierre navegador, visible en cualquier dispositivo
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
   filename: string
-  status: 'ok' | 'duplicado' | 'pendiente' | 'error' | 'achtung'
+  status: 'ok' | 'duplicado' | 'pendiente' | 'error' | 'achtung' | 'cancelado'
   detalle: string
   achtungTipo?: 'creditos' | 'api_key' | 'modelo' | 'otro'
 }
@@ -20,96 +19,78 @@ export interface OcrSession {
   duplicados: number
   errores: number
   achtung: number
+  cancelados: number
   achtungMensaje: string | null
   achtungTipo: 'creditos' | 'api_key' | 'modelo' | 'otro' | null
   log: ArchivoLog[]
   visible: boolean
   procesando: boolean
+  cancelado: boolean
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
   titular_id: string | null
-  archivosPendientes: { name: string; type: string; base64: string }[]
+  archivosPendientesCount: number
   creadoEn: number
   completadoEn: number | null
 }
 
-const STORAGE_KEY = 'ocr_sessions_v2'
-const TTL_COMPLETADO_MS = 5 * 60 * 1000
-
-// Anti rate-limit: 1 archivo cada 1500 ms = 40/min, dentro del límite Anthropic (50/min)
-const PAUSA_ENTRE_ARCHIVOS_MS = 1500
-// Cuando salta rate_limit, esperar 65 segundos y reintentar (la ventana es de 60s)
-const RATE_LIMIT_BACKOFF_MS = 65 * 1000
-const MAX_REINTENTOS_RATE_LIMIT = 3
-
 const emitter = new EventTarget()
+let sessions: OcrSession[] = []
 
-function loadSessions(): OcrSession[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const sessions: OcrSession[] = JSON.parse(raw)
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000
-    return sessions
-      .filter(s => s.creadoEn > cutoff && s.visible)
-      .map(s => ({
-        ...s,
-        completadoEn: s.completadoEn ?? null,
-        achtung: s.achtung ?? 0,
-        achtungMensaje: s.achtungMensaje ?? null,
-        achtungTipo: s.achtungTipo ?? null,
-      }))
-  } catch { return [] }
+function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
+
+function mapDbToSession(row: any): OcrSession {
+  return {
+    id: row.id,
+    total: row.total,
+    enviados: row.enviados,
+    ok: row.ok,
+    pendientes: row.pendientes,
+    duplicados: row.duplicados,
+    errores: row.errores,
+    achtung: row.achtung,
+    cancelados: row.cancelados ?? 0,
+    achtungMensaje: row.achtung_mensaje,
+    achtungTipo: row.achtung_tipo,
+    log: Array.isArray(row.log) ? row.log : [],
+    visible: row.visible,
+    procesando: row.estado === 'procesando',
+    cancelado: row.estado === 'cancelada',
+    fnName: row.fn_name,
+    titular_id: row.titular_id,
+    archivosPendientesCount: Array.isArray(row.archivos_pendientes) ? row.archivos_pendientes.length : 0,
+    creadoEn: row.creado_en ? new Date(row.creado_en).getTime() : Date.now(),
+    completadoEn: row.completado_en ? new Date(row.completado_en).getTime() : null,
+  }
 }
 
-let sessions: OcrSession[] = loadSessions()
-
-function persistSessions() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)) } catch {}
+async function refrescarTodas() {
+  const { data } = await supabase
+    .from('ocr_sessions')
+    .select('*')
+    .eq('visible', true)
+    .gte('creado_en', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .order('creado_en', { ascending: false })
+  if (data) {
+    sessions = data.map(mapDbToSession)
+    emit()
+  }
 }
 
-function emit() {
-  persistSessions()
-  emitter.dispatchEvent(new CustomEvent('change'))
-}
-
-function updateSession(id: string, patch: Partial<OcrSession>) {
-  sessions = sessions.map(s => {
-    if (s.id !== id) return s
-    const next = { ...s, ...patch }
-    if (s.procesando && next.procesando === false && next.completadoEn == null) {
-      next.completadoEn = Date.now()
-    }
-    return next
-  })
-  emit()
-}
-
-function removeSession(id: string) {
-  sessions = sessions.filter(s => s.id !== id)
-  emit()
+// Suscripción Realtime: se actualiza en cualquier dispositivo
+let realtimeChannel: any = null
+function iniciarRealtime() {
+  if (realtimeChannel) return
+  realtimeChannel = supabase
+    .channel('ocr_sessions_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ocr_sessions' }, () => {
+      refrescarTodas()
+    })
+    .subscribe()
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('storage', e => {
-    if (e.key === STORAGE_KEY) {
-      try { sessions = e.newValue ? JSON.parse(e.newValue) : [] } catch { sessions = [] }
-      emitter.dispatchEvent(new CustomEvent('change'))
-    }
-  })
-
-  setInterval(() => {
-    const ahora = Date.now()
-    let cambio = false
-    sessions = sessions.map(s => {
-      if (!s.procesando && s.completadoEn && (ahora - s.completadoEn) > TTL_COMPLETADO_MS && s.visible) {
-        if (s.achtung > 0) return s
-        cambio = true
-        return { ...s, visible: false }
-      }
-      return s
-    })
-    if (cambio) emit()
-  }, 30000)
+  refrescarTodas()
+  iniciarRealtime()
 }
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
@@ -146,6 +127,7 @@ function leerTexto(file: File): Promise<string> {
     r.readAsText(file, 'UTF-8')
   })
 }
+
 async function cargarSheetJS(): Promise<any> {
   if ((window as any).XLSX) return (window as any).XLSX
   await new Promise<void>((res, rej) => {
@@ -181,191 +163,14 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
-function esRateLimit(detalle: string): boolean {
-  const txt = detalle.toLowerCase()
-  return (txt.includes('429') || txt.includes('rate_limit') || txt.includes('rate limit') || txt.includes('límite de peticiones'))
-}
-
-function detectarAchtung(detalle: string): { tipo: 'creditos' | 'api_key' | 'modelo' | 'otro'; mensaje: string } | null {
-  const txt = detalle.toLowerCase()
-  if (txt.includes('credit balance is too low') || txt.includes('credit balance')) {
-    return { tipo: 'creditos', mensaje: 'SIN CRÉDITOS ANTHROPIC · Ve a console.anthropic.com/settings/billing y recarga' }
-  }
-  if (txt.includes('invalid x-api-key') || txt.includes('authentication_error') || (txt.includes('401') && txt.includes('anthropic'))) {
-    return { tipo: 'api_key', mensaje: 'API KEY ANTHROPIC INVÁLIDA · Renueva la key en Vercel → Environment Variables' }
-  }
-  if (txt.includes('not_found_error') && txt.includes('model')) {
-    return { tipo: 'modelo', mensaje: 'MODELO CLAUDE NO DISPONIBLE · Avisa en este chat para actualizar' }
-  }
-  return null
-}
-
-async function procesarFactura(item: { name: string; type: string; base64: string }): Promise<ArchivoLog> {
-  try {
-    const res = await fetch('/api/facturas?action=upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nombre: item.name,
-        base64: item.base64,
-        mimeType: item.type,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      const detalle = `HTTP ${res.status}: ${data?.error || 'sin detalle'}`
-      const ach = detectarAchtung(detalle)
-      if (ach) return { filename: item.name, status: 'achtung', detalle, achtungTipo: ach.tipo }
-      return { filename: item.name, status: 'error', detalle }
-    }
-    if (data?.error) {
-      const ach = detectarAchtung(data.error)
-      if (ach) return { filename: item.name, status: 'achtung', detalle: data.error, achtungTipo: ach.tipo }
-      return { filename: item.name, status: 'error', detalle: data.error }
-    }
-    if (data?.estado === 'duplicada') {
-      return { filename: item.name, status: 'duplicado', detalle: data.motivo || 'Ya existía' }
-    }
-    if (data?.estado === 'error') {
-      const det = data.error || 'Error procesando'
-      const ach = detectarAchtung(det)
-      if (ach) return { filename: item.name, status: 'achtung', detalle: det, achtungTipo: ach.tipo }
-      return { filename: item.name, status: 'error', detalle: det }
-    }
-    if (data?.estado === 'ok') {
-      const fact = data.factura
-      const estado = fact?.estado || 'asociada'
-      if (estado === 'asociada') return { filename: item.name, status: 'ok', detalle: fact?.mensaje_matching || 'Conciliada' }
-      if (estado === 'solo_drive') return { filename: item.name, status: 'ok', detalle: 'Solo Drive (no requiere match)' }
-      if (estado === 'pendiente_revision') return { filename: item.name, status: 'pendiente', detalle: fact?.mensaje_matching || 'Pendiente revisión' }
-      if (estado === 'sin_match') return { filename: item.name, status: 'pendiente', detalle: 'Sin movimiento bancario' }
-      if (estado === 'pendiente_titular_manual') return { filename: item.name, status: 'pendiente', detalle: 'Falta titular manual' }
-      return { filename: item.name, status: 'pendiente', detalle: estado }
-    }
-    if (data?.estado === 'multi') {
-      const ok = data.resultados?.filter((r: any) => r.estado === 'ok').length || 0
-      const err = data.resultados?.filter((r: any) => r.estado === 'error').length || 0
-      return { filename: item.name, status: ok > 0 ? 'ok' : 'error', detalle: `${ok} ok · ${err} error` }
-    }
-    return { filename: item.name, status: 'error', detalle: 'Respuesta inesperada' }
-  } catch (err) {
-    return { filename: item.name, status: 'error', detalle: err instanceof Error ? err.message : String(err) }
-  }
-}
-
-async function procesarExtracto(
-  item: { name: string; type: string; base64: string },
-  titular_id: string | null
-): Promise<ArchivoLog> {
-  try {
-    let body: Record<string, unknown>
-    if (esTextoPlano(item.name, item.type)) {
-      const texto = atob(item.base64)
-      body = { fileTexto: texto, filename: item.name, mimeType: item.type }
-    } else {
-      body = { fileBase64: item.base64, filename: item.name, mimeType: item.type }
-    }
-    if (titular_id) body.titular_id = titular_id
-
-    const { data, error } = await supabase.functions.invoke('ocr-procesar-extracto', { body })
-    if (error) return { filename: item.name, status: 'error', detalle: `Error: ${error.message || JSON.stringify(error)}` }
-    if (data?.error) return { filename: item.name, status: 'error', detalle: data.error }
-    if (data?.status === 'ok') {
-      return { filename: item.name, status: 'ok', detalle: `${data.insertados||0} nuevos · ${data.saltados||0} ya existían · ${data.categorizados_auto||0} categ.` }
-    }
-    return { filename: item.name, status: 'error', detalle: 'Respuesta inesperada' }
-  } catch (err) {
-    return { filename: item.name, status: 'error', detalle: err instanceof Error ? err.message : String(err) }
-  }
-}
-
-async function runSession(sessionId: string) {
-  const getSession = () => sessions.find(s => s.id === sessionId)
-
-  while (true) {
-    const s = getSession()
-    if (!s || !s.procesando) break
-    if (s.archivosPendientes.length === 0) {
-      updateSession(sessionId, { procesando: false })
-      break
-    }
-
-    const [item, ...resto] = s.archivosPendientes
-    updateSession(sessionId, { archivosPendientes: resto })
-
-    // Procesar archivo con reintentos automáticos en caso de rate limit
-    let logEntry: ArchivoLog | null = null
-    let intentosRateLimit = 0
-
-    while (intentosRateLimit <= MAX_REINTENTOS_RATE_LIMIT) {
-      let result: ArchivoLog
-      if (s.fnName === 'ocr-procesar-factura') {
-        result = await procesarFactura(item)
-      } else if (s.fnName === 'ocr-procesar-extracto') {
-        result = await procesarExtracto(item, s.titular_id)
-      } else {
-        result = { filename: item.name, status: 'error', detalle: 'Función desconocida' }
-      }
-
-      if (result.status === 'error' && esRateLimit(result.detalle) && intentosRateLimit < MAX_REINTENTOS_RATE_LIMIT) {
-        intentosRateLimit++
-        // Reintento silencioso tras esperar la ventana de rate limit
-        await new Promise(r => setTimeout(r, RATE_LIMIT_BACKOFF_MS))
-        continue
-      }
-
-      logEntry = result
-      break
-    }
-
-    if (!logEntry) {
-      logEntry = { filename: item.name, status: 'error', detalle: 'Error desconocido' }
-    }
-
-    const cur = getSession()
-    if (!cur) break
-
-    const esAchtung = logEntry.status === 'achtung'
-    const patch: Partial<OcrSession> = {
-      enviados: cur.enviados + 1,
-      log: [...cur.log, logEntry],
-      ok: cur.ok + (logEntry.status === 'ok' ? 1 : 0),
-      duplicados: cur.duplicados + (logEntry.status === 'duplicado' ? 1 : 0),
-      pendientes: cur.pendientes + (logEntry.status === 'pendiente' ? 1 : 0),
-      errores: cur.errores + (logEntry.status === 'error' ? 1 : 0),
-      achtung: cur.achtung + (esAchtung ? 1 : 0),
-    }
-    if (esAchtung && !cur.achtungMensaje) {
-      const ach = detectarAchtung(logEntry.detalle)
-      if (ach) {
-        patch.achtungMensaje = ach.mensaje
-        patch.achtungTipo = ach.tipo
-      }
-      patch.archivosPendientes = []
-      patch.procesando = false
-    }
-    updateSession(sessionId, patch)
-
-    if (esAchtung) break
-    await new Promise(r => setTimeout(r, PAUSA_ENTRE_ARCHIVOS_MS))
-  }
-}
-
-export function reanudarSesionsPendientes() {
-  for (const s of sessions) {
-    if (s.procesando && s.archivosPendientes.length > 0) {
-      runSession(s.id)
-    }
-  }
-}
-
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
 
   useEffect(() => {
     const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
-    reanudarSesionsPendientes()
+    refrescarTodas()
+    iniciarRealtime()
     return () => emitter.removeEventListener('change', handler)
   }, [])
 
@@ -394,36 +199,48 @@ export function useOcrUpload() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        fallosLectura.push({
-          filename: file.name,
-          status: 'error',
-          detalle: `Error leyendo archivo: ${msg}`,
-        })
+        fallosLectura.push({ filename: file.name, status: 'error', detalle: `Error leyendo: ${msg}` })
       }
     }
 
-    const newSession: OcrSession = {
-      id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    const sessionId = `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+    // Crear sesión en BBDD
+    const { error: errInsert } = await supabase.from('ocr_sessions').insert({
+      id: sessionId,
       total: files.length,
       enviados: fallosLectura.length,
-      ok: 0, pendientes: 0, duplicados: 0,
       errores: fallosLectura.length,
-      achtung: 0, achtungMensaje: null, achtungTipo: null,
-      log: [...fallosLectura],
-      visible: true, procesando: true,
-      fnName, titular_id,
-      archivosPendientes: archivosSerial,
-      creadoEn: Date.now(),
-      completadoEn: null,
-    }
+      log: fallosLectura,
+      archivos_pendientes: archivosSerial,
+      fn_name: fnName,
+      titular_id,
+      estado: 'procesando',
+      visible: true,
+      ultimo_heartbeat: new Date().toISOString(),
+    })
+    if (errInsert) { console.error('Error creando sesión OCR:', errInsert); return }
 
-    sessions = [...sessions, newSession]
-    emit()
-    runSession(newSession.id)
+    // Disparar worker en Supabase (corre en background, no bloquea)
+    supabase.functions.invoke('ocr-procesar-sesion', { body: { sessionId } }).catch(err => console.error('Error invocando worker:', err))
+
+    await refrescarTodas()
   }
 
-  function cerrar(id: string) { removeSession(id) }
-  function ocultar(id: string) { updateSession(id, { visible: false }) }
+  async function cancelar(id: string) {
+    await supabase.from('ocr_sessions').update({ cancelar_solicitado: true }).eq('id', id)
+    await refrescarTodas()
+  }
 
-  return { sessions: snap, procesar, cerrar, ocultar }
+  async function cerrar(id: string) {
+    await supabase.from('ocr_sessions').delete().eq('id', id)
+    await refrescarTodas()
+  }
+
+  async function ocultar(id: string) {
+    await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    await refrescarTodas()
+  }
+
+  return { sessions: snap, procesar, cancelar, cerrar, ocultar }
 }
