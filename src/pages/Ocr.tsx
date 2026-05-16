@@ -28,9 +28,6 @@ const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp'
 const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls'
 
-// 13/05/26: 'conciliada' es el estado definitivo. 'asociada' e 'historica' mantienen
-// retrocompatibilidad. 'solo_drive' = factura 0€ (cupón) → sin movimiento bancario,
-// cuenta como conciliada pero con doc_estado 'no_requiere' (muestra raya, no clip).
 const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'historica', 'solo_drive'])
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
 
@@ -62,7 +59,6 @@ interface Agregados {
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc {
-  // Factura 0€ (cupón): conciliada pero sin movimiento bancario → muestra raya
   if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'
   if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
   return 'pendiente'
@@ -146,12 +142,23 @@ export default function Ocr() {
   const completedCountRef = useRef(0)
   useEffect(() => {
     const completed = sessions.reduce((acc, s) =>
-      acc + s.log.filter(r => r.status === 'ok' || r.status === 'duplicado').length, 0)
+      acc + s.log.filter(r => r.status === 'ok' || r.status === 'duplicado' || r.status === 'pendiente').length, 0)
     if (completed !== completedCountRef.current) {
       completedCountRef.current = completed
       setRefreshTick(x => x + 1)
     }
   }, [sessions])
+
+  // Realtime: refresca tabla y cards al instante cuando se inserta/actualiza una factura
+  useEffect(() => {
+    const ch = supabase
+      .channel('facturas_realtime_ocr')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'facturas' }, () => {
+        setRefreshTick(x => x + 1)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -178,7 +185,6 @@ export default function Ocr() {
     const from = (page - 1) * pageSize; const to = from + pageSize - 1
     const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }
     const sortField = sortMap[sortColumn] ?? 'fecha_factura'
-    // 13/05/26: añadido doc_estado a la select para calcular correctamente el icono de documento
     let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro')
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
