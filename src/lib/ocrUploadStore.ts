@@ -1,6 +1,4 @@
-// ocrUploadStore v15 — Vuelve al modelo localStorage funcional + BBDD opcional
-// El front procesa con su propio loop. Si tienes varios dispositivos no se sincroniza
-// (eso lo arreglamos cuando publiquemos OAuth en Producción).
+// ocrUploadStore v16 — cola estricta + cancelar inmediato + auto-cerrar 20s
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -32,12 +30,14 @@ export interface OcrSession {
   archivosPendientes: { name: string; type: string; base64: string }[]
   creadoEn: number
   completadoEn: number | null
+  orden: number  // orden de cola: menor = primero
 }
 
-const STORAGE_KEY = 'ocr_sessions_v3'
+const STORAGE_KEY = 'ocr_sessions_v4'
 const PAUSA_MS = 1500
 const RATE_LIMIT_BACKOFF_MS = 65000
 const MAX_REINTENTOS = 3
+const AUTO_CERRAR_MS = 20000
 
 const emitter = new EventTarget()
 
@@ -49,7 +49,7 @@ function loadSessions(): OcrSession[] {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     return arr
       .filter(s => s.creadoEn > cutoff && s.visible)
-      .map(s => ({
+      .map((s, i) => ({
         ...s,
         completadoEn: s.completadoEn ?? null,
         achtung: s.achtung ?? 0,
@@ -57,16 +57,31 @@ function loadSessions(): OcrSession[] {
         achtungMensaje: s.achtungMensaje ?? null,
         achtungTipo: s.achtungTipo ?? null,
         cancelado: s.cancelado ?? false,
+        orden: s.orden ?? i,
       }))
   } catch { return [] }
 }
 
 let sessions: OcrSession[] = loadSessions()
-const procesandoActivamente = new Set<string>()
+let procesandoActualId: string | null = null
 const cancelacionesActivas = new Set<string>()
+const autoCerrarTimers = new Map<string, number>()
+let ordenCounter = sessions.reduce((m, s) => Math.max(m, s.orden ?? 0), 0)
 
 function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)) } catch {} }
 function emit() { persist(); emitter.dispatchEvent(new CustomEvent('change')) }
+
+function programarAutoCierre(id: string) {
+  // si ya hay un timer activo, cancelar
+  const t = autoCerrarTimers.get(id)
+  if (t) clearTimeout(t)
+  const timerId = window.setTimeout(() => {
+    sessions = sessions.filter(s => s.id !== id)
+    autoCerrarTimers.delete(id)
+    emit()
+  }, AUTO_CERRAR_MS)
+  autoCerrarTimers.set(id, timerId)
+}
 
 function updateSession(id: string, patch: Partial<OcrSession>) {
   sessions = sessions.map(s => {
@@ -76,13 +91,18 @@ function updateSession(id: string, patch: Partial<OcrSession>) {
     return next
   })
   emit()
+  // Si la sesión ha terminado (procesando=false), programar auto-cierre
+  const ses = sessions.find(s => s.id === id)
+  if (ses && !ses.procesando) programarAutoCierre(id)
 }
 
 function removeSession(id: string) {
   sessions = sessions.filter(s => s.id !== id)
-  procesandoActivamente.delete(id)
   cancelacionesActivas.delete(id)
+  const t = autoCerrarTimers.get(id); if (t) { clearTimeout(t); autoCerrarTimers.delete(id) }
+  if (procesandoActualId === id) procesandoActualId = null
   emit()
+  arrancarSiguienteEnCola()
 }
 
 if (typeof window !== 'undefined') {
@@ -175,23 +195,22 @@ async function invocarOCR(item: any, fnName: string, titular_id: string | null) 
 }
 
 async function runSession(id: string) {
-  if (procesandoActivamente.has(id)) return
-  procesandoActivamente.add(id)
+  if (procesandoActualId !== null && procesandoActualId !== id) return  // estricto: una a la vez
+  procesandoActualId = id
   
   try {
     while (true) {
       const ses = sessions.find(s => s.id === id)
       if (!ses) break
-      if (cancelacionesActivas.has(id) || ses.cancelado) {
-        const pendientes = ses.archivosPendientes.length
-        updateSession(id, { 
-          cancelado: true, procesando: false, 
-          cancelados: (ses.cancelados||0) + pendientes,
-          enviados: ses.enviados + pendientes,
-          archivosPendientes: [],
-        })
+      
+      // Comprobar cancelación INMEDIATA: si lo han pedido, parar y eliminar el toast
+      if (cancelacionesActivas.has(id)) {
+        sessions = sessions.filter(s => s.id !== id)
+        cancelacionesActivas.delete(id)
+        emit()
         break
       }
+      
       if (ses.archivosPendientes.length === 0) {
         updateSession(id, { procesando: false })
         break
@@ -202,6 +221,8 @@ async function runSession(id: string) {
       
       let result: any = null
       for (let intento = 0; intento <= MAX_REINTENTOS; intento++) {
+        // Verificar cancelación en cada iteración
+        if (cancelacionesActivas.has(id)) break
         try {
           result = await invocarOCR(item, ses.fnName!, ses.titular_id)
           if (result.status === 'error' && esRateLimit(result.detalle) && intento < MAX_REINTENTOS) {
@@ -213,6 +234,14 @@ async function runSession(id: string) {
           result = { status: 'error', detalle: e?.message || String(e) }
           break
         }
+      }
+      
+      // Si cancelaron durante el procesamiento, descartar resultado y salir
+      if (cancelacionesActivas.has(id)) {
+        sessions = sessions.filter(s => s.id !== id)
+        cancelacionesActivas.delete(id)
+        emit()
+        break
       }
       
       const entry: ArchivoLog = { filename: item.name, status: result.status, detalle: result.detalle, achtungTipo: result.achtungTipo }
@@ -242,27 +271,21 @@ async function runSession(id: string) {
       await new Promise(r => setTimeout(r, PAUSA_MS))
     }
   } finally {
-    procesandoActivamente.delete(id)
-    // Arrancar siguiente sesión en cola
-    const proxima = sessions.find(s => s.procesando && s.archivosPendientes.length > 0 && s.id !== id && !procesandoActivamente.has(s.id))
-    if (proxima) runSession(proxima.id)
+    if (procesandoActualId === id) procesandoActualId = null
+    arrancarSiguienteEnCola()
   }
 }
 
-// Reanudar sesiones al cargar
-function reanudarTodas() {
-  for (const s of sessions) {
-    if (s.procesando && s.archivosPendientes.length > 0 && !procesandoActivamente.has(s.id)) {
-      // Si ya hay otra procesando, dejar en cola
-      if (procesandoActivamente.size === 0) {
-        runSession(s.id)
-        break // sólo arranca una; las demás esperan
-      }
-    }
-  }
+function arrancarSiguienteEnCola() {
+  if (procesandoActualId !== null) return
+  // Sesiones pendientes ordenadas por orden ASC (primero la más antigua)
+  const cola = sessions
+    .filter(s => s.procesando && s.archivosPendientes.length > 0 && !cancelacionesActivas.has(s.id))
+    .sort((a, b) => a.orden - b.orden)
+  if (cola.length > 0) runSession(cola[0].id)
 }
 
-if (typeof window !== 'undefined') reanudarTodas()
+if (typeof window !== 'undefined') arrancarSiguienteEnCola()
 
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
@@ -271,7 +294,7 @@ export function useOcrUpload() {
   useEffect(() => {
     const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
-    if (!initRef.current) { initRef.current = true; reanudarTodas() }
+    if (!initRef.current) { initRef.current = true; arrancarSiguienteEnCola() }
     return () => emitter.removeEventListener('change', handler)
   }, [])
 
@@ -294,6 +317,7 @@ export function useOcrUpload() {
       }
     }
     
+    ordenCounter++
     const nueva: OcrSession = {
       id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       total: files.length, enviados: fallos.length, ok: 0, pendientes: 0, duplicados: 0,
@@ -302,28 +326,23 @@ export function useOcrUpload() {
       log: fallos, visible: true, procesando: true, cancelado: false,
       fnName, titular_id, archivosPendientes: archivos,
       creadoEn: Date.now(), completadoEn: null,
+      orden: ordenCounter,
     }
     sessions = [...sessions, nueva]
     emit()
-    // Si no hay nada procesando, arrancar; si no, espera en cola
-    if (procesandoActivamente.size === 0) runSession(nueva.id)
+    arrancarSiguienteEnCola()
   }
 
   function cancelar(id: string) {
     cancelacionesActivas.add(id)
-    // Si no estaba procesando todavía (en cola), marcar cancelada ya
-    const ses = sessions.find(s => s.id === id)
-    if (ses && !procesandoActivamente.has(id)) {
-      const pendientes = ses.archivosPendientes.length
-      updateSession(id, {
-        cancelado: true, procesando: false,
-        cancelados: (ses.cancelados||0) + pendientes,
-        archivosPendientes: [],
-      })
-      // Arrancar siguiente
-      const proxima = sessions.find(s => s.procesando && s.archivosPendientes.length > 0 && s.id !== id && !procesandoActivamente.has(s.id))
-      if (proxima) runSession(proxima.id)
+    // Si NO es la que está procesando (está en cola), eliminar inmediatamente
+    if (procesandoActualId !== id) {
+      sessions = sessions.filter(s => s.id !== id)
+      cancelacionesActivas.delete(id)
+      emit()
+      arrancarSiguienteEnCola()
     }
+    // Si SÍ es la que está procesando, runSession detectará la cancelación en su próxima iteración y la borrará
   }
 
   function cerrar(id: string) { removeSession(id) }
