@@ -35,7 +35,7 @@ export default function TabComparativas({ data }: Props) {
           <BarChart data={barData} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
             <XAxis dataKey="name" tick={{ fontSize: 12, fontFamily: 'Lexend,sans-serif', fill: T.sec }} />
             <YAxis tick={{ fontSize: 11, fontFamily: 'Lexend,sans-serif', fill: T.mut }} />
-            <Tooltip formatter={(v: number) => fmtEur(v)} contentStyle={{ fontFamily: 'Lexend,sans-serif', fontSize: 12 }} />
+            <Tooltip formatter={(v: any) => fmtEur(Number(v))} contentStyle={{ fontFamily: 'Lexend,sans-serif', fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 12, fontFamily: 'Lexend,sans-serif' }} />
             <Bar dataKey="actual" name="Actual" fill="#B01D23" radius={[4, 4, 0, 0]} barSize={28} />
             <Bar dataKey="anterior" name="Anterior" fill="#d0c8bc" radius={[4, 4, 0, 0]} barSize={28} />
@@ -68,7 +68,6 @@ export default function TabComparativas({ data }: Props) {
 
       {/* Top proveedores + Top categorías */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        {/* Top proveedores */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>
             TOP 5 PROVEEDORES
@@ -90,7 +89,6 @@ export default function TabComparativas({ data }: Props) {
           )}
         </div>
 
-        {/* Top categorías */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>
             TOP 5 CATEGORÍAS GASTO
