@@ -1,10 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from '@/lib/supabase'
 
 interface OcrJob {
   id: string
@@ -22,10 +17,9 @@ interface OcrJob {
 export default function OcrJobToasts() {
   const [jobs, setJobs] = useState<OcrJob[]>([])
   const [cancelando, setCancelando] = useState<string | null>(null)
-  const pollingRef = useRef<NodeJS.Timer | null>(null)
-  const autoCloseTimers = useRef<Record<string, NodeJS.Timer>>({})
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoCloseTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  // Cargar jobs activos
   const cargarJobs = useCallback(async () => {
     const ahora = new Date()
     const hace20s = new Date(ahora.getTime() - 20000).toISOString()
@@ -39,23 +33,11 @@ export default function OcrJobToasts() {
     if (data) setJobs(data)
   }, [])
 
-  // Polling para avanzar procesamiento
-  const tick = useCallback(async () => {
-    const hayActivo = jobs.some(j => j.estado === 'procesando' || j.estado === 'pendiente')
-    if (!hayActivo) return
-
-    try {
-      await fetch('/api/ocr/procesar-job', { method: 'POST' })
-    } catch {}
-    await cargarJobs()
-  }, [jobs, cargarJobs])
-
-  // Montar: cargar + suscribir Realtime
   useEffect(() => {
     cargarJobs()
 
     const channel = supabase
-      .channel('ocr-jobs-realtime')
+      .channel('ocr-jobs-realtime-toasts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ocr_jobs' }, () => {
         cargarJobs()
       })
@@ -64,56 +46,45 @@ export default function OcrJobToasts() {
     return () => { supabase.removeChannel(channel) }
   }, [cargarJobs])
 
-  // Polling cada 3s si hay jobs activos
-  useEffect(() => {
-    const hayActivo = jobs.some(j => j.estado === 'procesando' || j.estado === 'pendiente')
-    
-    if (hayActivo && !pollingRef.current) {
-      pollingRef.current = setInterval(tick, 3000)
-    } else if (!hayActivo && pollingRef.current) {
-      clearInterval(pollingRef.current)
-      pollingRef.current = null
-    }
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
-    }
-  }, [jobs, tick])
-
   // Auto-close completados después de 20s
   useEffect(() => {
     jobs.forEach(j => {
       if ((j.estado === 'completado' || j.estado === 'error') && j.completed_at && !autoCloseTimers.current[j.id]) {
         const elapsed = Date.now() - new Date(j.completed_at).getTime()
         const remaining = Math.max(0, 20000 - elapsed)
-        
+
         autoCloseTimers.current[j.id] = setTimeout(() => {
           setJobs(prev => prev.filter(p => p.id !== j.id))
           delete autoCloseTimers.current[j.id]
         }, remaining)
       }
     })
-
-    return () => {
-      Object.values(autoCloseTimers.current).forEach(t => clearTimeout(t))
-    }
   }, [jobs])
 
-  // Cancelar job
   const cancelar = async (jobId: string) => {
     setCancelando(jobId)
   }
 
   const confirmarCancelar = async (jobId: string) => {
-    await fetch('/api/ocr/cancelar-job', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ job_id: jobId }),
-    })
-    // Desaparece inmediatamente
+    await supabase
+      .from('ocr_jobs')
+      .update({ estado: 'cancelado', completed_at: new Date().toISOString() })
+      .eq('id', jobId)
+      .in('estado', ['pendiente', 'procesando'])
+
+    // Arrancar siguiente
+    const { data: siguiente } = await supabase
+      .from('ocr_jobs')
+      .select('id')
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    if (siguiente) {
+      await supabase.from('ocr_jobs').update({ estado: 'procesando' }).eq('id', siguiente.id)
+    }
+
     setJobs(prev => prev.filter(j => j.id !== jobId))
     setCancelando(null)
   }
@@ -158,14 +129,12 @@ export default function OcrJobToasts() {
             opacity: isPending ? 0.7 : 1,
             borderLeft: `4px solid ${isComplete ? '#1D9E75' : isError ? '#B01D23' : isPending ? '#666' : '#FF4757'}`,
           }}>
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontWeight: 600, fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', fontSize: 12, letterSpacing: 1 }}>
                 {isComplete ? '✅ ' : isError ? '❌ ' : isPending ? '⏳ ' : '🔄 '}
                 {tipoLabel[job.tipo] || job.tipo}
                 {isPending && ' — En cola'}
               </div>
-              {/* Botón cancelar/cerrar */}
               {(isProcessing || isPending) && cancelando !== job.id && (
                 <button
                   onClick={() => cancelar(job.id)}
@@ -217,7 +186,6 @@ export default function OcrJobToasts() {
               )}
             </div>
 
-            {/* Progreso */}
             {isProcessing && (
               <>
                 <div style={{
