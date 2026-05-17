@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import ToastHost from '@/components/ui/ToastHost'
-import OcrUploadToast from '@/components/ocr/OcrUploadToast'
+import OcrJobToasts from '@/components/ocr/OcrJobToasts'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -30,7 +30,7 @@ export default function Layout() {
         </main>
       </div>
       <ToastHost />
-      <OcrUploadToast />
+      <OcrJobToasts />
     </div>
   )
 }
