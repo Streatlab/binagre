@@ -168,7 +168,7 @@ export default function Running() {
             }))}
             ingresosAnio={[]}
             facturacionAnio={data.facturacion}
-            rangos={data.rangos}
+            rangos={data.rangos as any}
           />
         </div>
       )}
