@@ -1,29 +1,19 @@
 /**
- * Running Financiero — refactor 3 may 2026 v4
- *
- * Tab Resumen:
- *  - TabResumen del Panel Global (3 cards top + 3 cols medias + 3 cards bottom + provisiones/top ventas)
- *  - DEBAJO: CarruselMarcas (datos por marca con cards calcadas Panel Global)
- *
- * El header del Running se mantiene (titulo + selector fecha + tabs).
- * Tab "PyG detallado" → TablaPyG con plan contable real.
- * Tab "Comparativas" → 3 smart cards.
+ * Running V2 — 17 may 2026
+ * 4 tabs: Resumen | PyG detallado | Por marca | Comparativas
+ * Datos de conciliación + facturacion_diario reales.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTheme, FONT } from '@/styles/tokens';
-import { supabase } from '@/lib/supabase';
-import { useRunning } from '@/hooks/useRunning';
+import { useRunningV2 } from '@/hooks/useRunningV2';
 import { useIVA } from '@/contexts/IVAContext';
-import TablaPyG from '@/components/finanzas/running/TablaPyG';
-import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal';
 import TabsPastilla from '@/components/ui/TabsPastilla';
-import AlertasPresupuestoCard from '@/components/finanzas/running/AlertasPresupuestoCard';
-import RitmoMesCard from '@/components/finanzas/running/RitmoMesCard';
-import ComparativaMensualCard from '@/components/finanzas/running/ComparativaMensualCard';
-import TabResumen from '@/components/panel/resumen/TabResumen';
-import CarruselMarcas from '@/components/finanzas/running/CarruselMarcas';
-import type { RowFacturacion } from '@/components/panel/resumen/types';
+import TablaPyG from '@/components/finanzas/running/TablaPyG';
+import TabResumenV2 from '@/components/finanzas/running/TabResumenV2';
+import TabPorMarca from '@/components/finanzas/running/TabPorMarca';
+import TabComparativas from '@/components/finanzas/running/TabComparativas';
+import ModalAddGasto from '@/components/finanzas/running/ModalAddGasto';
 import type { PeriodoRango } from '@/lib/running';
 
 function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
@@ -36,87 +26,52 @@ function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`;
 }
 
-type RunTab = 'resumen' | 'pyg' | 'comparativas';
+type RunTab = 'resumen' | 'pyg' | 'marcas' | 'comparativas';
 
-const TablaPyGAny = TablaPyG as any;
-
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+const TITULARES = [
+  { id: null, label: 'Todos' },
+  { id: '6ce69d55-60d0-423c-b68b-eb795a0f32fe', label: 'Rubén' },
+  { id: 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354', label: 'Emilio' },
+] as const;
 
 export default function Running() {
   const { T } = useTheme();
   const [tab, setTab] = useState<RunTab>('resumen');
+  const [modalOpen, setModalOpen] = useState(false);
 
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
-    const h = new Date(); h.setDate(1); h.setHours(0,0,0,0); return h;
+    const h = new Date(); h.setDate(1); h.setHours(0, 0, 0, 0); return h;
   });
   const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
-    const h = new Date(); h.setHours(23,59,59,999); return h;
+    const h = new Date(); h.setHours(23, 59, 59, 999); return h;
   });
-  const [periodoLabelSFU, setPeriodoLabelSFU] = useState('Mes en curso');
+  const [periodoLabel, setPeriodoLabel] = useState('Mes en curso');
+
+  const [titularIdx, setTitularIdx] = useState(0);
+  const titularId = TITULARES[titularIdx].id;
 
   const periodo: PeriodoRango = useMemo(() => ({
     desde: periodoDesde,
     hasta: periodoHasta,
     key: 'mes',
-    label: periodoLabelSFU,
-  }), [periodoDesde, periodoHasta, periodoLabelSFU]);
+    label: periodoLabel,
+  }), [periodoDesde, periodoHasta, periodoLabel]);
+
   const anio = periodo.desde.getFullYear();
-
-  const [modalOpen, setModalOpen] = useState(false);
-
   const { modo: modoIVA } = useIVA();
 
-  const { loading, error, gastos, ingresosMes, rangos, reload } = useRunning(
-    periodo, anio, null, null, modoIVA,
-  );
+  const data = useRunningV2(periodo, titularId, null, modoIVA);
 
-  const [facturacionAnio, setFacturacionAnio] = useState<any[]>([]);
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const desde = `${anio}-01-01`;
-      const hasta = `${anio}-12-31`;
-      const { data } = await supabase.from('facturacion_diario')
-        .select('fecha,marca_id,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_pedidos')
-        .gte('fecha', desde)
-        .lte('fecha', hasta);
-      if (cancel) return;
-      setFacturacionAnio(data ?? []);
-    })();
-    return () => { cancel = true; };
-  }, [anio]);
+  const subtitulo = buildSubtitulo(periodoLabel, periodoDesde, periodoHasta);
 
-  const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([]);
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const { data } = await supabase
-        .from('facturacion_diario')
-        .select('fecha, total_bruto, total_pedidos, uber_bruto, uber_pedidos, glovo_bruto, glovo_pedidos, je_bruto, je_pedidos, web_bruto, web_pedidos, directa_bruto, directa_pedidos');
-      if (cancel) return;
-      setRowsAll((data ?? []) as RowFacturacion[]);
-    })();
-    return () => { cancel = true; };
-  }, []);
-
-  const rowsPeriodo: RowFacturacion[] = useMemo(() => {
-    const desde = toLocalDateStr(periodoDesde);
-    const hasta = toLocalDateStr(periodoHasta);
-    return rowsAll.filter(r => r.fecha >= desde && r.fecha <= hasta);
-  }, [rowsAll, periodoDesde, periodoHasta]);
-
-  const subtitulo = buildSubtitulo(periodoLabelSFU, periodoDesde, periodoHasta);
-
-  if (error) {
+  if (data.error) {
     return (
       <div style={{ padding: 24 }}>
-        <div style={{ background: '#FCEBEB', border: '1px solid #B01D23', color: '#A32D2D', padding: 16, borderRadius: 8, fontFamily: FONT.body, fontSize: 13 }}>
-          Error: {error}
+        <div style={{
+          background: '#FCEBEB', border: '1px solid #B01D23', color: '#A32D2D',
+          padding: 16, borderRadius: 8, fontFamily: FONT.body, fontSize: 13,
+        }}>
+          Error: {data.error}
         </div>
       </div>
     );
@@ -126,41 +81,47 @@ export default function Running() {
     <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
       {/* HEADER */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: 18,
-        flexWrap: 'wrap',
-        gap: 12,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        marginBottom: 18, flexWrap: 'wrap', gap: 12,
       }}>
         <div>
           <div style={{
-            fontFamily: 'Oswald, sans-serif',
-            fontSize: 22,
-            fontWeight: 600,
-            color: '#B01D23',
-            letterSpacing: 3,
-            textTransform: 'uppercase',
+            fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600,
+            color: '#B01D23', letterSpacing: 3, textTransform: 'uppercase',
           }}>
             RUNNING FINANCIERO
           </div>
           <div style={{
-            fontFamily: 'Lexend, sans-serif',
-            fontSize: 13,
-            color: '#7a8090',
-            marginTop: 2,
+            fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginTop: 2,
           }}>
             {subtitulo}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Selector Titular */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {TITULARES.map((t, i) => (
+              <button
+                key={t.label}
+                onClick={() => setTitularIdx(i)}
+                style={{
+                  padding: '5px 12px', borderRadius: 6, border: 'none',
+                  background: i === titularIdx ? '#B01D23' : T.card,
+                  color: i === titularIdx ? '#fff' : T.sec,
+                  fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <SelectorFechaUniversal
             nombreModulo="running"
             defaultOpcion="mes_en_curso"
             onChange={(desde, hasta, label) => {
               setPeriodoDesde(desde);
               setPeriodoHasta(hasta);
-              setPeriodoLabelSFU(label);
+              setPeriodoLabel(label);
             }}
           />
         </div>
@@ -171,76 +132,59 @@ export default function Running() {
         tabs={[
           { id: 'resumen', label: 'Resumen' },
           { id: 'pyg', label: 'PyG detallado' },
+          { id: 'marcas', label: 'Por marca' },
           { id: 'comparativas', label: 'Comparativas' },
         ]}
         activeId={tab}
         onChange={(id) => setTab(id as RunTab)}
       />
 
-      {/* TAB RESUMEN */}
-      {tab === 'resumen' && (
-        <>
-          <TabResumen
-            rowsPeriodo={rowsPeriodo}
-            rowsAll={rowsAll}
-            fechaDesde={periodoDesde}
-            fechaHasta={periodoHasta}
-            canalesFiltro={[]}
-          />
-          <CarruselMarcas
-            periodoDesde={periodoDesde}
-            periodoHasta={periodoHasta}
-          />
-        </>
+      {/* CONTENIDO */}
+      {data.loading && (
+        <div style={{
+          textAlign: 'center', padding: 24, color: T.mut,
+          fontFamily: FONT.body, fontSize: 12,
+        }}>
+          Cargando datos…
+        </div>
       )}
 
-      {/* TAB PYG DETALLADO */}
-      {tab === 'pyg' && (
+      {!data.loading && tab === 'resumen' && (
+        <TabResumenV2 data={data} />
+      )}
+
+      {!data.loading && tab === 'pyg' && (
         <div style={{ marginTop: 18 }}>
-          <TablaPyGAny
+          <TablaPyG
             anio={anio}
-            gastosAnio={gastos}
-            ingresosAnio={ingresosMes}
-            facturacionAnio={facturacionAnio}
-            rangos={rangos}
+            gastosAnio={data.gastos.map(g => ({
+              fecha: g.fecha,
+              categoria: g.grupo as any,
+              subcategoria: g.subcategoria,
+              proveedor: g.proveedor,
+              concepto: g.concepto,
+              importe: g.importe,
+              marca: g.marca,
+            }))}
+            ingresosAnio={[]}
+            facturacionAnio={data.facturacion}
+            rangos={data.rangos}
           />
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
-              Cargando…
-            </div>
-          )}
         </div>
       )}
 
-      {/* TAB COMPARATIVAS */}
-      {tab === 'comparativas' && (
-        <div style={{ marginTop: 18 }}>
-          <div
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginBottom: 24, alignItems: 'stretch' }}
-            className="rf-smart-row"
-          >
-            <AlertasPresupuestoCard gastos={gastos} />
-            <RitmoMesCard />
-            <ComparativaMensualCard />
-          </div>
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 16, color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
-              Cargando…
-            </div>
-          )}
-        </div>
+      {!data.loading && tab === 'marcas' && (
+        <TabPorMarca
+          facturacion={data.facturacion}
+          facturacionYTD={data.facturacionYTD}
+        />
       )}
 
-      <ModalAddGasto open={modalOpen} onClose={() => setModalOpen(false)} onSaved={reload} />
+      {!data.loading && tab === 'comparativas' && (
+        <TabComparativas data={data} />
+      )}
 
-      <style>{`
-        @media (max-width: 1280px) {
-          .rf-smart-row { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 600px) {
-          .rf-smart-row { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      <ModalAddGasto open={modalOpen} onClose={() => setModalOpen(false)} onSaved={data.reload} />
     </div>
   );
 }
