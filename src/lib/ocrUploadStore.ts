@@ -51,6 +51,10 @@ function loadSessions(): OcrSession[] {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     return arr
       .filter(s => s.creadoEn > cutoff && s.visible)
+      .filter(s => {
+        if (!s.procesando && s.completadoEn && Date.now() - s.completadoEn > AUTO_CERRAR_MS) return false
+        return true
+      })
       .map((s, i) => ({
         ...s,
         completadoEn: s.completadoEn ?? null,
@@ -337,7 +341,10 @@ function arrancarSiguienteEnCola() {
   if (cola.length > 0) runSession(cola[0].id)
 }
 
-if (typeof window !== 'undefined') arrancarSiguienteEnCola()
+if (typeof window !== 'undefined') {
+  arrancarSiguienteEnCola()
+  sessions.filter(s => !s.procesando && s.completadoEn).forEach(s => programarAutoCierre(s.id))
+}
 
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
