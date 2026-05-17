@@ -58,7 +58,6 @@ export default function TabResumenV2({ data }: Props) {
     <div style={{ marginTop: 18 }}>
       {/* KPIs grandes */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-        {/* Ingresos netos */}
         <div style={{ ...cardStyle(T), padding: '20px 22px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
             INGRESOS NETOS
@@ -72,7 +71,6 @@ export default function TabResumenV2({ data }: Props) {
           </div>
         </div>
 
-        {/* Gastos */}
         <div style={{ ...cardStyle(T), padding: '20px 22px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
             GASTOS
@@ -83,7 +81,6 @@ export default function TabResumenV2({ data }: Props) {
           <div style={{ marginTop: 6 }}><DeltaBadge value={c.deltaGastos} /></div>
         </div>
 
-        {/* Resultado */}
         <div style={{ ...cardStyle(T), padding: '20px 22px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
             RESULTADO
@@ -97,7 +94,6 @@ export default function TabResumenV2({ data }: Props) {
 
       {/* Prime Cost + Break-even + Proyección */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-        {/* Prime Cost */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>
             PRIME COST
@@ -122,7 +118,6 @@ export default function TabResumenV2({ data }: Props) {
           </div>
         </div>
 
-        {/* Break-even */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>
             BREAK-EVEN
@@ -141,7 +136,6 @@ export default function TabResumenV2({ data }: Props) {
           </div>
         </div>
 
-        {/* Proyección cierre mes */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>
             PROYECCIÓN CIERRE MES
@@ -165,7 +159,6 @@ export default function TabResumenV2({ data }: Props) {
 
       {/* Ingresos por plataforma + Gastos donut */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-        {/* Barras plataforma */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>
             INGRESOS POR PLATAFORMA (NETO)
@@ -176,7 +169,7 @@ export default function TabResumenV2({ data }: Props) {
                 <XAxis type="number" hide />
                 <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12, fontFamily: 'Lexend,sans-serif', fill: T.sec }} />
                 <Tooltip
-                  formatter={(v: number) => fmtEur(v)}
+                  formatter={(v: any) => fmtEur(Number(v))}
                   contentStyle={{ fontFamily: 'Lexend,sans-serif', fontSize: 12 }}
                 />
                 <Bar dataKey="neto" radius={[0, 4, 4, 0]} barSize={20}>
@@ -193,7 +186,6 @@ export default function TabResumenV2({ data }: Props) {
           )}
         </div>
 
-        {/* Donut gastos */}
         <div style={{ ...cardStyle(T), padding: '18px 20px' }}>
           <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>
             DISTRIBUCIÓN GASTOS
@@ -213,7 +205,7 @@ export default function TabResumenV2({ data }: Props) {
                       <Cell key={i} fill={GRUPO_COLORS[entry.name] || '#888'} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => fmtEur(v)} />
+                  <Tooltip formatter={(v: any) => fmtEur(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
               <div style={{ flex: 1 }}>
