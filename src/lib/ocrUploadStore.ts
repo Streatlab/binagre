@@ -1,4 +1,4 @@
-// ocrUploadStore v17 — persistente en BBDD (ocr_jobs + ocr_job_files)
+// ocrUploadStore v18 — persistente BBDD + contadores locales intactos
 // Cola secuencial, cancelar inmediato, auto-cerrar 20s, persiste entre dispositivos/F5/módulos
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -32,7 +32,6 @@ export interface OcrSession {
   creadoEn: number
   completadoEn: number | null
   orden: number
-  // BBDD fields
   dbJobId?: string
   dbEstado?: string
 }
@@ -44,7 +43,6 @@ const AUTO_CERRAR_MS = 20000
 
 const emitter = new EventTarget()
 
-// Estado global en memoria (NO localStorage)
 let sessions: OcrSession[] = []
 let procesandoActualId: string | null = null
 const cancelacionesActivas = new Set<string>()
@@ -100,19 +98,11 @@ async function syncDesdeDB() {
 
   if (!jobs) return
 
-  // Actualizar sessions locales con estado BBDD para jobs que ya no manejamos localmente
   for (const job of jobs) {
     const existing = sessions.find(s => s.dbJobId === job.id)
     if (existing) {
-      // Actualizar estado desde BBDD
-      updateSession(existing.id, {
-        dbEstado: job.estado,
-        enviados: job.archivos_procesados + job.archivos_error,
-        ok: job.archivos_procesados,
-        errores: job.archivos_error,
-        procesando: job.estado === 'procesando',
-        completadoEn: job.completed_at ? new Date(job.completed_at).getTime() : null,
-      })
+      // Solo actualizar dbEstado, NO sobreescribir contadores locales
+      updateSession(existing.id, { dbEstado: job.estado })
     } else if (!dbJobsLoaded) {
       // Job de BBDD sin sesión local (vino de otro dispositivo/pestaña)
       ordenCounter++
@@ -163,7 +153,6 @@ async function crearJobEnDB(tipo: string, archivosCount: number, titularId: stri
 
   if (error || !job) return null
 
-  // Verificar si hay algún job procesando
   const { data: activo } = await supabase
     .from('ocr_jobs')
     .select('id')
@@ -188,7 +177,6 @@ async function cancelarJobDB(jobId: string) {
     .eq('id', jobId)
     .in('estado', ['pendiente', 'procesando'])
 
-  // Arrancar siguiente
   const { data: siguiente } = await supabase
     .from('ocr_jobs')
     .select('id')
@@ -211,7 +199,6 @@ async function completarJobDB(jobId: string, procesados: number, errores: number
     mensaje: `${procesados} procesados, ${errores} errores`,
   }).eq('id', jobId)
 
-  // Arrancar siguiente
   const { data: siguiente } = await supabase
     .from('ocr_jobs')
     .select('id')
@@ -340,7 +327,6 @@ async function runSession(id: string) {
       const [item, ...resto] = sesNow.archivosPendientes
       updateSession(id, { archivosPendientes: resto })
 
-      // Actualizar archivo_actual en BBDD
       if (dbJobId) await actualizarJobDB(dbJobId, { archivo_actual: item.name })
 
       let result: any = null
@@ -390,7 +376,7 @@ async function runSession(id: string) {
 
       updateSession(id, patch)
 
-      // Sync contadores a BBDD
+      // Sync contadores a BBDD (solo escritura, nunca lectura)
       if (dbJobId) {
         const s = sessions.find(x => x.id === id)
         if (s) await actualizarJobDB(dbJobId, {
@@ -436,12 +422,10 @@ export function useOcrUpload() {
 
     if (!initRef.current) {
       initRef.current = true
-      // Cargar jobs activos de BBDD al montar
       syncDesdeDB().then(() => {
         arrancarSiguienteEnCola()
       })
 
-      // Suscribirse a Realtime para sincronizar entre pestañas/dispositivos
       const channel = supabase
         .channel('ocr-jobs-sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'ocr_jobs' }, () => {
@@ -477,7 +461,6 @@ export function useOcrUpload() {
       }
     }
 
-    // Crear job en BBDD
     const dbJobId = await crearJobEnDB(fnName, files.length, titular_id)
 
     ordenCounter++
@@ -502,14 +485,12 @@ export function useOcrUpload() {
     cancelacionesActivas.add(id)
     const ses = sessions.find(s => s.id === id)
     if (procesandoActualId !== id) {
-      // En cola, eliminar inmediatamente
       if (ses?.dbJobId) cancelarJobDB(ses.dbJobId)
       sessions = sessions.filter(s => s.id !== id)
       cancelacionesActivas.delete(id)
       emit()
       arrancarSiguienteEnCola()
     }
-    // Si está procesando, runSession detectará la cancelación
   }
 
   function cerrar(id: string) { removeSession(id) }
