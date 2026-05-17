@@ -1,6 +1,6 @@
-// ocrUploadStore v18 — persistente BBDD + contadores locales intactos
-// Cola secuencial, cancelar inmediato, auto-cerrar 20s, persiste entre dispositivos/F5/módulos
-import { useEffect, useRef, useState, useCallback } from 'react'
+// ocrUploadStore v16b — v16 original restaurado + sync BBDD solo escritura
+// Cola estricta + cancelar inmediato + auto-cerrar 20s + localStorage + BBDD background
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
@@ -33,9 +33,9 @@ export interface OcrSession {
   completadoEn: number | null
   orden: number
   dbJobId?: string
-  dbEstado?: string
 }
 
+const STORAGE_KEY = 'ocr_sessions_v4'
 const PAUSA_MS = 1500
 const RATE_LIMIT_BACKOFF_MS = 65000
 const MAX_REINTENTOS = 3
@@ -43,14 +43,35 @@ const AUTO_CERRAR_MS = 20000
 
 const emitter = new EventTarget()
 
-let sessions: OcrSession[] = []
+function loadSessions(): OcrSession[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const arr: OcrSession[] = JSON.parse(raw)
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    return arr
+      .filter(s => s.creadoEn > cutoff && s.visible)
+      .map((s, i) => ({
+        ...s,
+        completadoEn: s.completadoEn ?? null,
+        achtung: s.achtung ?? 0,
+        cancelados: s.cancelados ?? 0,
+        achtungMensaje: s.achtungMensaje ?? null,
+        achtungTipo: s.achtungTipo ?? null,
+        cancelado: s.cancelado ?? false,
+        orden: s.orden ?? i,
+      }))
+  } catch { return [] }
+}
+
+let sessions: OcrSession[] = loadSessions()
 let procesandoActualId: string | null = null
 const cancelacionesActivas = new Set<string>()
 const autoCerrarTimers = new Map<string, number>()
-let ordenCounter = 0
-let dbJobsLoaded = false
+let ordenCounter = sessions.reduce((m, s) => Math.max(m, s.orden ?? 0), 0)
 
-function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
+function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)) } catch {} }
+function emit() { persist(); emitter.dispatchEvent(new CustomEvent('change')) }
 
 function programarAutoCierre(id: string) {
   const t = autoCerrarTimers.get(id)
@@ -84,135 +105,55 @@ function removeSession(id: string) {
   arrancarSiguienteEnCola()
 }
 
-// ========== BBDD sync ==========
-
-async function syncDesdeDB() {
-  const ahora = new Date()
-  const hace20s = new Date(ahora.getTime() - AUTO_CERRAR_MS).toISOString()
-
-  const { data: jobs } = await supabase
-    .from('ocr_jobs')
-    .select('*')
-    .or(`estado.in.(pendiente,procesando),and(estado.eq.completado,completed_at.gte.${hace20s}),and(estado.eq.error,completed_at.gte.${hace20s})`)
-    .order('created_at', { ascending: true })
-
-  if (!jobs) return
-
-  for (const job of jobs) {
-    const existing = sessions.find(s => s.dbJobId === job.id)
-    if (existing) {
-      // Solo actualizar dbEstado, NO sobreescribir contadores locales
-      updateSession(existing.id, { dbEstado: job.estado })
-    } else if (!dbJobsLoaded) {
-      // Job de BBDD sin sesión local (vino de otro dispositivo/pestaña)
-      ordenCounter++
-      const ses: OcrSession = {
-        id: `db_${job.id}`,
-        total: job.archivos_total,
-        enviados: job.archivos_procesados + job.archivos_error,
-        ok: job.archivos_procesados,
-        pendientes: 0,
-        duplicados: 0,
-        errores: job.archivos_error,
-        achtung: 0,
-        cancelados: 0,
-        achtungMensaje: null,
-        achtungTipo: null,
-        log: [],
-        visible: true,
-        procesando: job.estado === 'procesando',
-        cancelado: job.estado === 'cancelado',
-        fnName: null,
-        titular_id: job.titular_id,
-        archivosPendientes: [],
-        creadoEn: new Date(job.created_at).getTime(),
-        completadoEn: job.completed_at ? new Date(job.completed_at).getTime() : null,
-        orden: ordenCounter,
-        dbJobId: job.id,
-        dbEstado: job.estado,
-      }
-      sessions.push(ses)
-      if (ses.completadoEn) programarAutoCierre(ses.id)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', e => {
+    if (e.key === STORAGE_KEY) {
+      try { sessions = e.newValue ? JSON.parse(e.newValue) : [] } catch { sessions = [] }
+      emitter.dispatchEvent(new CustomEvent('change'))
     }
-  }
-  dbJobsLoaded = true
-  emit()
+  })
 }
 
-async function crearJobEnDB(tipo: string, archivosCount: number, titularId: string | null): Promise<string | null> {
-  const { data: job, error } = await supabase
-    .from('ocr_jobs')
-    .insert({
+// ========== BBDD sync (solo escritura, nunca lectura) ==========
+const RUBEN_ID_DEFAULT = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+
+async function crearJobEnDB(tipo: string, total: number, titularId: string | null): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from('ocr_jobs').insert({
       tipo: tipo === 'ocr-procesar-factura' ? 'factura' : 'extracto',
-      estado: 'pendiente',
-      archivos_total: archivosCount,
-      titular_id: titularId,
-    })
-    .select('id')
-    .single()
-
-  if (error || !job) return null
-
-  const { data: activo } = await supabase
-    .from('ocr_jobs')
-    .select('id')
-    .eq('estado', 'procesando')
-    .limit(1)
-    .single()
-
-  if (!activo) {
-    await supabase.from('ocr_jobs').update({ estado: 'procesando' }).eq('id', job.id)
-  }
-
-  return job.id
+      estado: 'procesando',
+      archivos_total: total,
+      titular_id: titularId || RUBEN_ID_DEFAULT,
+    }).select('id').single()
+    return error ? null : data?.id || null
+  } catch { return null }
 }
 
 async function actualizarJobDB(jobId: string, patch: Record<string, any>) {
-  await supabase.from('ocr_jobs').update(patch).eq('id', jobId)
+  try { await supabase.from('ocr_jobs').update(patch).eq('id', jobId) } catch {}
+}
+
+async function completarJobDB(jobId: string, ok: number, errores: number) {
+  try {
+    await supabase.from('ocr_jobs').update({
+      estado: errores > 0 && ok === 0 ? 'error' : 'completado',
+      archivos_procesados: ok,
+      archivos_error: errores,
+      completed_at: new Date().toISOString(),
+    }).eq('id', jobId)
+  } catch {}
 }
 
 async function cancelarJobDB(jobId: string) {
-  await supabase.from('ocr_jobs')
-    .update({ estado: 'cancelado', completed_at: new Date().toISOString() })
-    .eq('id', jobId)
-    .in('estado', ['pendiente', 'procesando'])
-
-  const { data: siguiente } = await supabase
-    .from('ocr_jobs')
-    .select('id')
-    .eq('estado', 'pendiente')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .single()
-
-  if (siguiente) {
-    await supabase.from('ocr_jobs').update({ estado: 'procesando' }).eq('id', siguiente.id)
-  }
+  try {
+    await supabase.from('ocr_jobs').update({
+      estado: 'cancelado',
+      completed_at: new Date().toISOString(),
+    }).eq('id', jobId)
+  } catch {}
 }
 
-async function completarJobDB(jobId: string, procesados: number, errores: number) {
-  await supabase.from('ocr_jobs').update({
-    estado: errores > 0 && procesados === 0 ? 'error' : 'completado',
-    archivos_procesados: procesados,
-    archivos_error: errores,
-    completed_at: new Date().toISOString(),
-    mensaje: `${procesados} procesados, ${errores} errores`,
-  }).eq('id', jobId)
-
-  const { data: siguiente } = await supabase
-    .from('ocr_jobs')
-    .select('id')
-    .eq('estado', 'pendiente')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .single()
-
-  if (siguiente) {
-    await supabase.from('ocr_jobs').update({ estado: 'procesando' }).eq('id', siguiente.id)
-  }
-}
-
-// ========== Helpers de archivos ==========
+// ========== Helpers ==========
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 function esTextoPlano(name: string, type: string) {
@@ -261,8 +202,6 @@ async function excelACSV(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })
 }
 
-// ========== OCR invoke ==========
-
 function esRateLimit(d: string): boolean { const t = d.toLowerCase(); return t.includes('429') || t.includes('rate_limit') || t.includes('rate limit') }
 function detectarAchtung(d: string) {
   const t = d.toLowerCase()
@@ -296,44 +235,39 @@ async function invocarOCR(item: any, fnName: string, titular_id: string | null) 
   return { status: 'error', detalle: 'Respuesta inesperada' }
 }
 
-// ========== Procesamiento ==========
-
 async function runSession(id: string) {
   if (procesandoActualId !== null && procesandoActualId !== id) return
   procesandoActualId = id
 
-  const ses = sessions.find(s => s.id === id)
-  const dbJobId = ses?.dbJobId
-
   try {
     while (true) {
-      const sesNow = sessions.find(s => s.id === id)
-      if (!sesNow) break
+      const ses = sessions.find(s => s.id === id)
+      if (!ses) break
 
       if (cancelacionesActivas.has(id)) {
-        if (dbJobId) await cancelarJobDB(dbJobId)
+        const sesCan = sessions.find(s => s.id === id)
+        if (sesCan?.dbJobId) cancelarJobDB(sesCan.dbJobId)
         sessions = sessions.filter(s => s.id !== id)
         cancelacionesActivas.delete(id)
         emit()
         break
       }
 
-      if (sesNow.archivosPendientes.length === 0) {
+      if (ses.archivosPendientes.length === 0) {
         updateSession(id, { procesando: false })
-        if (dbJobId) await completarJobDB(dbJobId, sesNow.ok + sesNow.duplicados + sesNow.pendientes, sesNow.errores)
+        const sesEnd = sessions.find(x => x.id === id)
+        if (sesEnd?.dbJobId) completarJobDB(sesEnd.dbJobId, sesEnd.ok + sesEnd.duplicados + sesEnd.pendientes, sesEnd.errores)
         break
       }
 
-      const [item, ...resto] = sesNow.archivosPendientes
+      const [item, ...resto] = ses.archivosPendientes
       updateSession(id, { archivosPendientes: resto })
-
-      if (dbJobId) await actualizarJobDB(dbJobId, { archivo_actual: item.name })
 
       let result: any = null
       for (let intento = 0; intento <= MAX_REINTENTOS; intento++) {
         if (cancelacionesActivas.has(id)) break
         try {
-          result = await invocarOCR(item, sesNow.fnName!, sesNow.titular_id)
+          result = await invocarOCR(item, ses.fnName!, ses.titular_id)
           if (result.status === 'error' && esRateLimit(result.detalle) && intento < MAX_REINTENTOS) {
             await new Promise(r => setTimeout(r, RATE_LIMIT_BACKOFF_MS))
             continue
@@ -346,7 +280,6 @@ async function runSession(id: string) {
       }
 
       if (cancelacionesActivas.has(id)) {
-        if (dbJobId) await cancelarJobDB(dbJobId)
         sessions = sessions.filter(s => s.id !== id)
         cancelacionesActivas.delete(id)
         emit()
@@ -354,20 +287,20 @@ async function runSession(id: string) {
       }
 
       const entry: ArchivoLog = { filename: item.name, status: result.status, detalle: result.detalle, achtungTipo: result.achtungTipo }
-      const sesAfter = sessions.find(s => s.id === id)
-      if (!sesAfter) break
+      const sesNow = sessions.find(s => s.id === id)
+      if (!sesNow) break
 
       const patch: Partial<OcrSession> = {
-        log: [...sesAfter.log, entry],
-        enviados: sesAfter.enviados + 1,
-        ok: sesAfter.ok + (entry.status === 'ok' ? 1 : 0),
-        duplicados: sesAfter.duplicados + (entry.status === 'duplicado' ? 1 : 0),
-        pendientes: sesAfter.pendientes + (entry.status === 'pendiente' ? 1 : 0),
-        errores: sesAfter.errores + (entry.status === 'error' ? 1 : 0),
-        achtung: sesAfter.achtung + (entry.status === 'achtung' ? 1 : 0),
+        log: [...sesNow.log, entry],
+        enviados: sesNow.enviados + 1,
+        ok: sesNow.ok + (entry.status === 'ok' ? 1 : 0),
+        duplicados: sesNow.duplicados + (entry.status === 'duplicado' ? 1 : 0),
+        pendientes: sesNow.pendientes + (entry.status === 'pendiente' ? 1 : 0),
+        errores: sesNow.errores + (entry.status === 'error' ? 1 : 0),
+        achtung: sesNow.achtung + (entry.status === 'achtung' ? 1 : 0),
       }
 
-      if (entry.status === 'achtung' && !sesAfter.achtungMensaje) {
+      if (entry.status === 'achtung' && !sesNow.achtungMensaje) {
         patch.achtungMensaje = result.achtungMensaje
         patch.achtungTipo = result.achtungTipo
         patch.archivosPendientes = []
@@ -376,23 +309,17 @@ async function runSession(id: string) {
 
       updateSession(id, patch)
 
-      // Sync contadores a BBDD (solo escritura, nunca lectura)
-      if (dbJobId) {
-        const s = sessions.find(x => x.id === id)
-        if (s) await actualizarJobDB(dbJobId, {
-          archivos_procesados: s.ok + s.duplicados + s.pendientes,
-          archivos_error: s.errores,
+      // Sync a BBDD (solo escritura, fire-and-forget)
+      const sesSync = sessions.find(x => x.id === id)
+      if (sesSync?.dbJobId) {
+        actualizarJobDB(sesSync.dbJobId, {
+          archivos_procesados: sesSync.ok + sesSync.duplicados + sesSync.pendientes,
+          archivos_error: sesSync.errores,
+          archivo_actual: item.name,
         })
       }
 
-      if (entry.status === 'achtung') {
-        if (dbJobId) await actualizarJobDB(dbJobId, {
-          estado: 'error',
-          mensaje: result.achtungMensaje,
-          completed_at: new Date().toISOString(),
-        })
-        break
-      }
+      if (entry.status === 'achtung') break
 
       await new Promise(r => setTimeout(r, PAUSA_MS))
     }
@@ -410,7 +337,7 @@ function arrancarSiguienteEnCola() {
   if (cola.length > 0) runSession(cola[0].id)
 }
 
-// ========== Hook público ==========
+if (typeof window !== 'undefined') arrancarSiguienteEnCola()
 
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
@@ -419,26 +346,7 @@ export function useOcrUpload() {
   useEffect(() => {
     const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
-
-    if (!initRef.current) {
-      initRef.current = true
-      syncDesdeDB().then(() => {
-        arrancarSiguienteEnCola()
-      })
-
-      const channel = supabase
-        .channel('ocr-jobs-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'ocr_jobs' }, () => {
-          syncDesdeDB()
-        })
-        .subscribe()
-
-      return () => {
-        emitter.removeEventListener('change', handler)
-        supabase.removeChannel(channel)
-      }
-    }
-
+    if (!initRef.current) { initRef.current = true; arrancarSiguienteEnCola() }
     return () => emitter.removeEventListener('change', handler)
   }, [])
 
@@ -474,7 +382,6 @@ export function useOcrUpload() {
       creadoEn: Date.now(), completadoEn: null,
       orden: ordenCounter,
       dbJobId: dbJobId || undefined,
-      dbEstado: 'pendiente',
     }
     sessions = [...sessions, nueva]
     emit()
@@ -483,8 +390,8 @@ export function useOcrUpload() {
 
   function cancelar(id: string) {
     cancelacionesActivas.add(id)
-    const ses = sessions.find(s => s.id === id)
     if (procesandoActualId !== id) {
+      const ses = sessions.find(s => s.id === id)
       if (ses?.dbJobId) cancelarJobDB(ses.dbJobId)
       sessions = sessions.filter(s => s.id !== id)
       cancelacionesActivas.delete(id)
