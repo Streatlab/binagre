@@ -34,7 +34,7 @@ import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
 import Objetivos from '@/pages/finanzas/Objetivos'
 import PyGPage from '@/pages/finanzas/PyG'
-import RunningNuevo from '@/pages/finanzas/RunningNuevo'
+import Running from '@/pages/finanzas/Running'
 import Cashflow from '@/pages/finanzas/Cashflow'
 import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
@@ -162,7 +162,7 @@ function AppRoutes() {
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
         <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyGPage /></ProtectedRoute>} />
-        <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><RunningNuevo /></ProtectedRoute>} />
+        <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
         <Route path="finanzas/cashflow" element={<ProtectedRoute solo={['admin']}><Cashflow /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
