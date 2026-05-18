@@ -5,6 +5,7 @@ export interface RunningAnualData {
   ingresos: Record<string, Record<number, number>>
   gastos: Record<string, Record<number, number>>
   brutos: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number; total:number; pedidos:number }>
+  diasOp: Record<number, number>
   categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
   benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
   loading: boolean
@@ -14,6 +15,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [ingresos, setIngresos] = useState<Record<string, Record<number, number>>>({})
   const [gastos, setGastos] = useState<Record<string, Record<number, number>>>({})
   const [brutos, setBrutos] = useState<RunningAnualData['brutos']>({})
+  const [diasOp, setDiasOp] = useState<Record<number, number>>({})
   const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
   const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
   const [loading, setLoading] = useState(true)
@@ -38,18 +40,27 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       if (titularId) qBrut = qBrut.eq('titular_id', titularId)
       const { data: dBrut } = await qBrut
       const brutMap: RunningAnualData['brutos'] = {}
-      ;(dBrut || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; if (!brutMap[mes]) brutMap[mes]={uber:0,glovo:0,je:0,web:0,directa:0,total:0,pedidos:0}; brutMap[mes].uber+=Number(r.uber_bruto||0); brutMap[mes].glovo+=Number(r.glovo_bruto||0); brutMap[mes].je+=Number(r.je_bruto||0); brutMap[mes].web+=Number(r.web_bruto||0); brutMap[mes].directa+=Number(r.directa_bruto||0); brutMap[mes].total+=Number(r.total_bruto||0); brutMap[mes].pedidos+=Number(r.total_pedidos||0) })
+      const diasMap: Record<number, Set<string>> = {}
+      ;(dBrut || []).forEach((r: any) => {
+        const mes = new Date(r.fecha).getMonth()+1
+        if (!brutMap[mes]) brutMap[mes]={uber:0,glovo:0,je:0,web:0,directa:0,total:0,pedidos:0}
+        brutMap[mes].uber+=Number(r.uber_bruto||0); brutMap[mes].glovo+=Number(r.glovo_bruto||0); brutMap[mes].je+=Number(r.je_bruto||0); brutMap[mes].web+=Number(r.web_bruto||0); brutMap[mes].directa+=Number(r.directa_bruto||0); brutMap[mes].total+=Number(r.total_bruto||0); brutMap[mes].pedidos+=Number(r.total_pedidos||0)
+        if (!diasMap[mes]) diasMap[mes] = new Set()
+        diasMap[mes].add(r.fecha)
+      })
+      const dOp: Record<number, number> = {}
+      for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
 
-      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setLoading(false) }
+      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setLoading(false) }
     }
     load()
     return () => { cancelled = true }
   }, [año, titularId])
 
-  return { ingresos, gastos, brutos, categorias, benchmarks, loading }
+  return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, loading }
 }
 
 export function sumMeses(map: Record<number, number>, meses: number[]): number {
