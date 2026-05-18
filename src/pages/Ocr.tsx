@@ -139,26 +139,20 @@ export default function Ocr() {
 
   const { sessions, procesar } = useOcrUpload()
 
-  const completedCountRef = useRef(0)
+  // Refrescar cards/tabla SOLO cuando un batch TERMINA (no por cada archivo)
+  const prevProcessingRef = useRef<Set<string>>(new Set())
   useEffect(() => {
-    const completed = sessions.reduce((acc, s) =>
-      acc + s.log.filter(r => r.status === 'ok' || r.status === 'duplicado' || r.status === 'pendiente').length, 0)
-    if (completed !== completedCountRef.current) {
-      completedCountRef.current = completed
+    const currentProcessing = new Set(sessions.filter(s => s.procesando).map(s => s.id))
+    const prevProcessing = prevProcessingRef.current
+    let alguienTermino = false
+    prevProcessing.forEach(id => {
+      if (!currentProcessing.has(id)) alguienTermino = true
+    })
+    if (alguienTermino) {
       setRefreshTick(x => x + 1)
     }
+    prevProcessingRef.current = currentProcessing
   }, [sessions])
-
-  // Realtime: refresca tabla y cards al instante cuando se inserta/actualiza una factura
-  useEffect(() => {
-    const ch = supabase
-      .channel('facturas_realtime_ocr')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'facturas' }, () => {
-        setRefreshTick(x => x + 1)
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -195,20 +189,12 @@ export default function Ocr() {
     if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) }
     else {
       const mapped: Factura[] = (data ?? []).map((m: any) => ({
-        id: m.id,
-        fecha_factura: m.fecha_factura,
-        proveedor_nombre: m.proveedor_nombre ?? '',
-        total: Number(m.total) || 0,
-        tipo: m.tipo ?? 'proveedor',
-        categoria_factura: m.categoria_factura ?? null,
-        nif_emisor: m.nif_emisor ?? null,
-        titular_id: m.titular_id ?? null,
-        pdf_drive_url: m.pdf_drive_url ?? null,
-        pdf_drive_id: m.pdf_drive_id ?? null,
-        pdf_filename: m.pdf_filename ?? null,
-        numero_factura: m.numero_factura ?? null,
-        estado: m.estado ?? '',
-        doc_estado: m.doc_estado ?? null,
+        id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '',
+        total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null,
+        nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null,
+        pdf_drive_url: m.pdf_drive_url ?? null, pdf_drive_id: m.pdf_drive_id ?? null,
+        pdf_filename: m.pdf_filename ?? null, numero_factura: m.numero_factura ?? null,
+        estado: m.estado ?? '', doc_estado: m.doc_estado ?? null,
         matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0,
       }))
       let filtradas = mapped
@@ -228,13 +214,8 @@ export default function Ocr() {
         totalCount++
         const imp = Number(r.total) || 0
         totalImporte += imp
-        if (ESTADOS_CONCILIADOS.has(r.estado)) {
-          conciliadasCount++
-          conciliadasImporte += imp
-        } else {
-          pendientesCount++
-          pendientesImporte += imp
-        }
+        if (ESTADOS_CONCILIADOS.has(r.estado)) { conciliadasCount++; conciliadasImporte += imp }
+        else { pendientesCount++; pendientesImporte += imp }
       }
       setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0, conciliadasImporte, pendientesCount, pendientesImporte })
     } catch { setAgregados(null) }
@@ -263,25 +244,11 @@ export default function Ocr() {
   }
 
   const filasVisibles = useMemo(() => filas, [filas])
-
   const todasSeleccionadas = filasVisibles.length > 0 && filasVisibles.every(f => seleccionadas.has(f.id))
   const algunaSeleccionada = filasVisibles.some(f => seleccionadas.has(f.id))
 
-  function toggleSeleccion(id: string) {
-    setSeleccionadas(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-  function toggleSeleccionTodas() {
-    if (todasSeleccionadas) {
-      setSeleccionadas(new Set())
-    } else {
-      setSeleccionadas(new Set(filasVisibles.map(f => f.id)))
-    }
-  }
+  function toggleSeleccion(id: string) { setSeleccionadas(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
+  function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
 
   async function handleBorrarLote() {
     if (seleccionadas.size === 0) return
@@ -291,36 +258,14 @@ export default function Ocr() {
       const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids)
       const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]
       const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]
-
-      if (movIds.length > 0) {
-        await supabase.from('facturas_gastos').delete().in('factura_id', ids)
-        await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds)
-      }
-
+      if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }
       const driveErrors: string[] = []
-      for (const driveId of driveIds) {
-        try {
-          await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } })
-        } catch (e: any) {
-          driveErrors.push(`${driveId}: ${e?.message || 'error'}`)
-        }
-      }
-      if (driveErrors.length > 0) {
-        toast.error(`No se pudieron borrar ${driveErrors.length} archivo(s) de Drive. Se cancela el borrado.`)
-        return
-      }
-
+      for (const driveId of driveIds) { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } }
+      if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} archivo(s) de Drive.`); return }
       const { error: errDel } = await supabase.from('facturas').delete().in('id', ids)
       if (errDel) throw errDel
-
-      setSeleccionadas(new Set())
-      setConfirmarBorrarLote(false)
-      setRefreshTick(x => x + 1)
-    } catch (err: any) {
-      toast.error(err.message || 'Error borrando')
-    } finally {
-      setBorrandoLote(false)
-    }
+      setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1)
+    } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) }
   }
 
   function getBadgeCategoria(f: Factura) {
@@ -375,9 +320,7 @@ export default function Ocr() {
         </div>
       )}
 
-      {tab === 'ventas' && (
-        <VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />
-      )}
+      {tab === 'ventas' && (<VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />)}
 
       {(tab === 'facturas' || tab === 'otros') && (
         <>
@@ -414,28 +357,18 @@ export default function Ocr() {
 
           {seleccionadas.size > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}>
-              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>
-                {seleccionadas.size} factura{seleccionadas.size > 1 ? 's' : ''} seleccionada{seleccionadas.size > 1 ? 's' : ''}
-              </span>
+              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>{seleccionadas.size} factura{seleccionadas.size > 1 ? 's' : ''} seleccionada{seleccionadas.size > 1 ? 's' : ''}</span>
               <div style={{ flex: 1 }} />
               {!confirmarBorrarLote ? (
                 <>
-                  <button onClick={() => setSeleccionadas(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
-                    Quitar selección
-                  </button>
-                  <button onClick={() => setConfirmarBorrarLote(true)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
-                    Borrar seleccionadas
-                  </button>
+                  <button onClick={() => setSeleccionadas(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Quitar selección</button>
+                  <button onClick={() => setConfirmarBorrarLote(true)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>Borrar seleccionadas</button>
                 </>
               ) : (
                 <>
                   <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borran las facturas, sus asociaciones y los PDFs en Drive.</span>
-                  <button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
-                    Cancelar
-                  </button>
-                  <button onClick={handleBorrarLote} disabled={borrandoLote} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrandoLote ? 0.6 : 1 }}>
-                    {borrandoLote ? 'Borrando…' : 'Sí, borrar'}
-                  </button>
+                  <button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                  <button onClick={handleBorrarLote} disabled={borrandoLote} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrandoLote ? 0.6 : 1 }}>{borrandoLote ? 'Borrando…' : 'Sí, borrar'}</button>
                 </>
               )}
             </div>
