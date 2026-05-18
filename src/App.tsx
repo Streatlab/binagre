@@ -33,26 +33,14 @@ import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
 import Objetivos from '@/pages/finanzas/Objetivos'
-import PyGPage from '@/pages/finanzas/PyG'
 import Running from '@/pages/finanzas/Running'
-import Cashflow from '@/pages/finanzas/Cashflow'
 import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
-import Mockup from '@/pages/Mockup'
-import MockupBinagrePosthog from '@/pages/mockups/MockupBinagrePosthog'
-import MockupHolded from '@/pages/mockups/MockupHolded'
-import MockupMarginEdge from '@/pages/mockups/MockupMarginEdge'
-import MockupRestaurant365 from '@/pages/mockups/MockupRestaurant365'
-import MockupFusion3 from '@/pages/mockups/MockupFusion3'
-import MockupFusion3Binagre from '@/pages/mockups/MockupFusion3Binagre'
-import MockupBinagreColors from '@/pages/mockups/MockupBinagreColors'
-import MockupPosthogBinagre from '@/pages/mockups/MockupPosthogBinagre'
 import MockupLymon from '@/pages/mockups/MockupLymon'
-import MockupLymonBinagre from '@/pages/mockups/MockupLymonBinagre'
 import Ocr from '@/pages/Ocr'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
@@ -161,9 +149,7 @@ function AppRoutes() {
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
-        <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyGPage /></ProtectedRoute>} />
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
-        <Route path="finanzas/cashflow" element={<ProtectedRoute solo={['admin']}><Cashflow /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
         <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
@@ -172,18 +158,8 @@ function AppRoutes() {
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
-        <Route path="mockup" element={<Navigate to="/mockup/lymon-binagre" replace />} />
-        <Route path="mockup/binagre-posthog" element={<ProtectedRoute solo={['admin']}><MockupBinagrePosthog /></ProtectedRoute>} />
-        <Route path="mockup/holded" element={<ProtectedRoute solo={['admin']}><MockupHolded /></ProtectedRoute>} />
-        <Route path="mockup/marginedge" element={<ProtectedRoute solo={['admin']}><MockupMarginEdge /></ProtectedRoute>} />
-        <Route path="mockup/restaurant365" element={<ProtectedRoute solo={['admin']}><MockupRestaurant365 /></ProtectedRoute>} />
-        <Route path="mockup/fusion3" element={<ProtectedRoute solo={['admin']}><MockupFusion3 /></ProtectedRoute>} />
-        <Route path="mockup/fusion3-binagre" element={<ProtectedRoute solo={['admin']}><MockupFusion3Binagre /></ProtectedRoute>} />
-        <Route path="mockup/binagre-colors" element={<ProtectedRoute solo={['admin']}><MockupBinagreColors /></ProtectedRoute>} />
-        <Route path="mockup/posthog-binagre" element={<ProtectedRoute solo={['admin']}><MockupPosthogBinagre /></ProtectedRoute>} />
-        <Route path="mockup/lymon" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
-        <Route path="mockup/lymon-binagre" element={<ProtectedRoute solo={['admin']}><MockupLymonBinagre /></ProtectedRoute>} />
-        <Route path="mockup-old" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
+        {/* Mockup único · estilo Lymon */}
+        <Route path="mockup" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
