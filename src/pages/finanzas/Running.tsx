@@ -16,9 +16,16 @@ const CSS = `
 .rtw table{width:100%;border-collapse:collapse;min-width:1200px}
 .rtw th{font-family:'Oswald',sans-serif;font-size:10px;color:#7a8090;text-transform:uppercase;letter-spacing:1.5px;padding:8px 6px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #d0c8bc;font-weight:400;background:rgba(235,232,226,0.7);position:sticky;top:0;z-index:2}
 .rtw th:first-child{text-align:left;width:220px;min-width:180px;position:sticky;left:0;z-index:3;background:rgba(235,232,226,0.7)}
-.rtw td{padding:6px 6px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;border-bottom:0.5px solid rgba(208,200,188,0.4);font-size:12px;font-family:'Lexend',sans-serif}
-.rtw td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:1;font-size:12px}
-.rtw tr:hover td{background:rgba(176,29,35,0.03)!important}
+.rtw td{padding:6px 6px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;border-bottom:0.5px solid rgba(208,200,188,0.25);font-size:12px;font-family:'Lexend',sans-serif}
+.rtw td:first-child{text-align:left;position:sticky;left:0;z-index:1;font-size:12px}
+.rtw tr:hover td{background:rgba(176,29,35,0.04)!important}
+
+/* Filas alternas — estilo Facturación */
+.rtw tbody tr.row-even td{background:#fff}
+.rtw tbody tr.row-even td:first-child{background:#fff}
+.rtw tbody tr.row-odd td{background:rgba(245,243,239,0.6)}
+.rtw tbody tr.row-odd td:first-child{background:rgba(245,243,239,0.6)}
+
 .rh td{font-family:'Oswald',sans-serif!important;font-size:10px!important;letter-spacing:1.5px;text-transform:uppercase;color:#7a8090!important;background:rgba(235,232,226,0.7)!important;padding:10px 6px 5px!important;border-bottom:1px solid #d0c8bc!important;font-weight:500}
 .rh td:first-child{background:rgba(235,232,226,0.7)!important}
 .rg td{font-weight:600;background:rgba(176,29,35,0.035)!important;font-size:12px}
@@ -114,6 +121,16 @@ export default function Running() {
     return label.toLowerCase().includes(buscar.toLowerCase())
   }
 
+  // Contador de filas para alternar sombreado
+  let rowIdx = 0
+  const rowClass = (base: string) => {
+    const alt = rowIdx % 2 === 0 ? 'row-even' : 'row-odd'
+    rowIdx++
+    return `${base} ${alt}`
+  }
+  // Reset para filas especiales (headers/separadores no cuentan)
+  const resetRow = () => { rowIdx = 0 }
+
   if (loading) return (
     <div style={{padding:28,background:'#f5f3ef',minHeight:'100vh'}}>
       <style>{CSS}</style>
@@ -124,6 +141,9 @@ export default function Running() {
 
   const grupos = categorias.filter(c=>c.nivel===1 && c.id.startsWith('2.'))
   const ingCats = categorias.filter(c=>c.parent_id==='1.1' && c.nivel===3)
+
+  // Pre-build rows para poder asignar filas alternas
+  resetRow()
 
   return (
     <div style={{padding:28,background:'#f5f3ef',minHeight:'100vh'}}>
@@ -153,44 +173,46 @@ export default function Running() {
           </tr></thead>
           <tbody>
             <tr className="rh"><td colSpan={99}>Resumen</td></tr>
-            <tr className="rg"><td>Ingresos netos</td><Cells fn={ingTotal}/></tr>
+            <tr className={rowClass('rg')}><td>Ingresos netos</td><Cells fn={ingTotal}/></tr>
             {grupos.map(g=>{
               const b = getBench(g.id); const yi = ingTotal(ALL); const yv = gasByPrefix(g.id,ALL); const yp = yi?yv/yi*100:0; const sc = sColor(yp,b)
-              const bInfo = b?` (${b.pct_min}-${b.pct_max}%)`:''
-              return <tr key={g.id} className="rg"><td><span className={`s ${sc}`}/>{g.id} {g.nombre} <span className="pct">{bInfo}</span></td><Cells fn={ms=>gasByPrefix(g.id,ms)}/></tr>
+              const bInfo = b?` (${b.pct_min}-${b.pct_max}%)`:'';
+              return <tr key={g.id} className={rowClass('rg')}><td><span className={`s ${sc}`}/>{g.id} {g.nombre} <span className="pct">{bInfo}</span></td><Cells fn={ms=>gasByPrefix(g.id,ms)}/></tr>
             })}
             <tr className="rt"><td>Total gastos</td><Cells fn={gasTotal}/></tr>
             <tr className="re"><td>Resultado</td><Cells fn={resultado} sign/></tr>
-            <tr className="rp"><td>Prime Cost <span className="pct">(obj &lt;60%)</span></td><Cells fn={primeCost} pct/></tr>
+            <tr className={rowClass('rp')}><td>Prime Cost <span className="pct">(obj &lt;60%)</span></td><Cells fn={primeCost} pct/></tr>
             <tr className="sep"><td colSpan={99}/></tr>
 
+            {(() => { resetRow(); return null })()}
             <tr className="rh"><td colSpan={99}>1. Ingresos</td></tr>
             {ingCats.map(c=>visible(c.nombre)&&(
-              <tr key={c.id} className="rs"><td>{c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)}/></tr>
+              <tr key={c.id} className={rowClass('rs')}><td>{c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)}/></tr>
             ))}
             <tr className="rg"><td>1.01 Ingresos netos</td><Cells fn={ingTotal}/></tr>
-            <tr className="ri"><td>1.02 Facturación bruta</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)}/></tr>
-            <tr className="rs"><td style={{color:'#7a8090'}}>Pedidos</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)}/></tr>
-            <tr className="rs"><td style={{color:'#7a8090'}}>Ticket medio</td><Cells fn={ms=>{const b=ms.reduce((s,m)=>s+(brutos[m]?.total||0),0);const p=ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0);return p?Math.round(b/p*100)/100:0}}/></tr>
+            <tr className={rowClass('ri')}><td>1.02 Facturación bruta</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)}/></tr>
+            <tr className={rowClass('rs')}><td style={{color:'#7a8090'}}>Pedidos</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)}/></tr>
+            <tr className={rowClass('rs')}><td style={{color:'#7a8090'}}>Ticket medio</td><Cells fn={ms=>{const b=ms.reduce((s,m)=>s+(brutos[m]?.total||0),0);const p=ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0);return p?Math.round(b/p*100)/100:0}}/></tr>
 
             {grupos.map(g=>{
-              const b = getBench(g.id); const bLabel = b?` (benchmark ${b.pct_min}-${b.pct_max}%)`:''
+              const b = getBench(g.id); const bLabel = b?` (benchmark ${b.pct_min}-${b.pct_max}%)`:'';
               const subN2 = catN2.filter(c=>c.parent_id===g.id)
-              const yi = ingTotal(ALL); const yv = gasByPrefix(g.id,ALL); const yp = yi?yv/yi*100:0; const sc = sColor(yp,b)
+              const yi = ingTotal(ALL); const yv = gasByPrefix(g.id,ALL); const yp = yi?yv/yi*100:0; const sc = sColor(yp,b);
               return [
                 <tr key={`sep-${g.id}`} className="sep"><td colSpan={99}/></tr>,
+                (() => { resetRow(); return null })(),
                 <tr key={`hdr-${g.id}`} className="rh"><td colSpan={99}>{g.id} {g.nombre} <span style={{fontWeight:300}}>{bLabel}</span></td></tr>,
                 ...subN2.flatMap(sub=>{
                   const children = catChildren(sub.id)
                   return [
-                    visible(sub.nombre,true)&&<tr key={sub.id} className="rs"><td>{sub.id} {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)}/></tr>,
+                    visible(sub.nombre,true)&&<tr key={sub.id} className={rowClass('rs')}><td>{sub.id} {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)}/></tr>,
                     ...children.map(ch=>visible(ch.nombre)&&(
-                      <tr key={ch.id} className="rs2"><td>{ch.nombre}</td><Cells fn={ms=>sumMeses(gastos[ch.id]||{},ms)}/></tr>
+                      <tr key={ch.id} className={rowClass('rs2')}><td>{ch.nombre}</td><Cells fn={ms=>sumMeses(gastos[ch.id]||{},ms)}/></tr>
                     ))
                   ].filter(Boolean)
                 }),
                 <tr key={`tot-${g.id}`} className="rg"><td><span className={`s ${sc}`}/>{g.id} Total {g.nombre}</td><Cells fn={ms=>gasByPrefix(g.id,ms)}/></tr>,
-                b?<tr key={`pct-${g.id}`} className="rs"><td style={{color:'#7a8090'}}>% s/Ingresos</td><Cells fn={ms=>{const i=ingTotal(ms);return i?gasByPrefix(g.id,ms)/i*100:0}} pct/></tr>:null,
+                b?<tr key={`pct-${g.id}`} className={rowClass('rs')}><td style={{color:'#7a8090'}}>% s/Ingresos</td><Cells fn={ms=>{const i=ingTotal(ms);return i?gasByPrefix(g.id,ms)/i*100:0}} pct/></tr>:null,
               ].filter(Boolean)
             }).flat()}
 
