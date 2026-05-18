@@ -1,156 +1,202 @@
 import { useState, useMemo } from 'react'
 import { useRunningAnual, sumMeses, sumCatMeses, fmtN } from '@/hooks/useRunningAnual'
-import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
 import { useTitular } from '@/contexts/TitularContext'
 
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-const Q_MESES: Record<number, number[]> = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] }
-const ALL_MESES = [1,2,3,4,5,6,7,8,9,10,11,12]
-
-const ING_CATS: {cat:string;label:string}[] = [
-  {cat:'1.1.1',label:'Uber Eats (neto)'},
-  {cat:'1.1.2',label:'Glovo (neto)'},
-  {cat:'1.1.3',label:'Just Eat (neto)'},
-  {cat:'1.1.4',label:'Tienda Online'},
-  {cat:'1.1.5',label:'Venta Directa'},
-]
+const M = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const QM: Record<number,number[]> = {1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
+const ALL = [1,2,3,4,5,6,7,8,9,10,11,12]
 
 const BENCH_MAP: Record<string,string> = {
   '2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER',
   '2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'
 }
 
+const CSS = `
+.rtw{background:#fff;border:0.5px solid #d0c8bc;border-radius:10px;overflow:hidden;margin-bottom:20px}
+.rtw table{width:100%;border-collapse:collapse;min-width:1200px}
+.rtw th{font-family:'Oswald',sans-serif;font-size:10px;color:#7a8090;text-transform:uppercase;letter-spacing:1.5px;padding:8px 6px;text-align:right;white-space:nowrap;border-bottom:0.5px solid #d0c8bc;font-weight:400;background:rgba(235,232,226,0.7);position:sticky;top:0;z-index:2}
+.rtw th:first-child{text-align:left;width:220px;min-width:180px;position:sticky;left:0;z-index:3;background:rgba(235,232,226,0.7)}
+.rtw td{padding:6px 6px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;border-bottom:0.5px solid rgba(208,200,188,0.4);font-size:12px;font-family:'Lexend',sans-serif}
+.rtw td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:1;font-size:12px}
+.rtw tr:hover td{background:rgba(176,29,35,0.03)!important}
+.rh td{font-family:'Oswald',sans-serif!important;font-size:10px!important;letter-spacing:1.5px;text-transform:uppercase;color:#7a8090!important;background:rgba(235,232,226,0.7)!important;padding:10px 6px 5px!important;border-bottom:1px solid #d0c8bc!important;font-weight:500}
+.rh td:first-child{background:rgba(235,232,226,0.7)!important}
+.rg td{font-weight:600;background:rgba(176,29,35,0.035)!important;font-size:12px}
+.rg td:first-child{font-family:'Oswald',sans-serif!important;font-size:11px!important;letter-spacing:1px;text-transform:uppercase;color:#B01D23!important;background:rgba(176,29,35,0.035)!important}
+.rt td{font-weight:700;background:rgba(176,29,35,0.07)!important;border-top:1.5px solid #d0c8bc!important;font-size:12.5px}
+.rt td:first-child{font-family:'Oswald',sans-serif!important;font-size:12px!important;letter-spacing:1px;text-transform:uppercase;color:#B01D23!important;background:rgba(176,29,35,0.07)!important}
+.rp td{font-weight:700;background:rgba(176,29,35,0.05)!important;font-size:12px}
+.rp td:first-child{font-family:'Oswald',sans-serif!important;font-size:11px!important;letter-spacing:1px;text-transform:uppercase;background:rgba(176,29,35,0.05)!important}
+.re td{font-weight:700;background:rgba(29,158,117,0.06)!important;border-top:2px solid #d0c8bc!important;font-size:13px}
+.re td:first-child{font-family:'Oswald',sans-serif!important;font-size:12px!important;letter-spacing:1px;text-transform:uppercase;background:rgba(29,158,117,0.06)!important}
+.rs td{padding-left:18px!important;color:#3a4050;font-size:11.5px}
+.rs td:first-child{padding-left:18px!important;color:#3a4050}
+.rs2 td{padding-left:32px!important;color:#7a8090!important;font-size:11px!important}
+.rs2 td:first-child{padding-left:32px!important;color:#7a8090!important}
+.ri td{color:#7a8090!important;font-style:italic;font-size:11px!important}
+.ri td:first-child{font-style:italic;color:#7a8090!important}
+.sep td{height:6px!important;border:none!important;background:#f5f3ef!important;padding:0!important}
+.s{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.sg{background:#1D9E75}.sr{background:#B01D23}.so{background:#f5a623}
+.pos{color:#1D9E75!important}.neg{color:#B01D23!important}.mt{color:#7a8090!important}
+.pct{color:#7a8090;font-size:10px}
+th.qh{background:rgba(176,29,35,0.06)!important;font-weight:600!important;color:#B01D23!important}
+th.qt{cursor:pointer;user-select:none}
+th.qt:hover{text-decoration:underline}
+td.qv{background:rgba(176,29,35,0.02)!important;font-weight:600!important}
+.hid{display:none}
+.rfl{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.rfb{padding:5px 12px;border-radius:6px;border:0.5px solid #d0c8bc;background:transparent;color:#3a4050;font-family:'Lexend',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.rfb.on{background:#FF4757;color:#fff;border-color:#FF4757}
+.rfb:hover:not(.on){border-color:#999}
+.rsi{padding:5px 10px;border-radius:6px;border:0.5px solid #d0c8bc;background:#fff;color:#111;font-family:'Lexend',sans-serif;font-size:12px;width:180px;outline:none}
+.rsi:focus{border-color:#f5a623}
+.rsi::placeholder{color:#7a8090}
+`
+
 export default function Running() {
-  const { T } = useTheme()
-  const { filtro } = useTitular()
+  const { filtro, titulares } = useTitular()
   const [año, setAño] = useState(2026)
   const [buscar, setBuscar] = useState('')
   const [qOpen, setQOpen] = useState<Record<number,boolean>>(() => {
-    const mesActual = new Date().getMonth() + 1
-    const qActual = Math.ceil(mesActual / 3)
-    return { 1: true, 2: qActual >= 2, 3: qActual >= 3, 4: qActual >= 4 }
+    const q = Math.ceil((new Date().getMonth()+1)/3)
+    return {1:true, 2:q>=2, 3:q>=3, 4:q>=4}
   })
-
   const titularId = filtro === 'unificado' ? null : filtro
   const { ingresos, gastos, brutos, categorias, benchmarks, loading } = useRunningAnual(año, titularId)
 
-  const d = useMemo(() => {
-    const ingTotal = (meses: number[]) => ING_CATS.reduce((s, c) => s + sumMeses(ingresos[c.cat] || {}, meses), 0)
-    const gasProd = (m: number[]) => sumCatMeses(gastos, '2.1', m)
-    const gasEquipo = (m: number[]) => sumCatMeses(gastos, '2.2', m)
-    const gasAlq = (m: number[]) => sumCatMeses(gastos, '2.3', m)
-    const gasCtrl = (m: number[]) => sumCatMeses(gastos, '2.4', m)
-    const gasTotal = (m: number[]) => gasProd(m) + gasEquipo(m) + gasAlq(m) + gasCtrl(m)
-    const resultado = (m: number[]) => ingTotal(m) - gasTotal(m)
-    const primeCost = (m: number[]) => { const ing = ingTotal(m); if (!ing) return 0; return (gasProd(m) + gasEquipo(m)) / ing * 100 }
-    return { ingTotal, gasProd, gasEquipo, gasAlq, gasCtrl, gasTotal, resultado, primeCost }
-  }, [ingresos, gastos])
-
-  const getBenchmark = (grupo: string) => { const key = BENCH_MAP[grupo]; if (!key) return null; return benchmarks.find(b => b.categoria === key) || null }
-  const semaforoColor = (pct: number, bench: {pct_min:number;pct_max:number}|null): string => { if (!bench) return T.mut; if (pct <= bench.pct_max) return '#1D9E75'; if (pct <= bench.pct_max * 1.2) return '#f5a623'; return '#B01D23' }
-  const toggleQ = (q: number) => setQOpen(p => ({ ...p, [q]: !p[q] }))
-
-  type Col = { label: string; meses: number[]; isQ?: boolean; qNum?: number; isYear?: boolean; hidden?: boolean }
-  const cols: Col[] = useMemo(() => {
-    const c: Col[] = []
-    for (let q = 1; q <= 4; q++) { const ms = Q_MESES[q]; const open = qOpen[q]; ms.forEach(m => c.push({ label: MESES[m-1], meses: [m], hidden: !open })); c.push({ label: `${q}T`, meses: ms, isQ: true, qNum: q }) }
-    c.push({ label: 'Año', meses: ALL_MESES, isYear: true })
-    return c
-  }, [qOpen])
-
-  const Row = ({ label, fn, indent, style, sign, pct, muted, semaforo }: {
-    label: string; fn: (m:number[])=>number; indent?: number; style?: 'header'|'group'|'total'|'result'|'prime'|'info'|'sub'
-    sign?: boolean; pct?: boolean; muted?: boolean; semaforo?: {grupo:string}
-  }) => {
-    if (buscar.length >= 2 && !['header','group','total','result','prime'].includes(style||'')) { if (!label.toLowerCase().includes(buscar.toLowerCase())) return null }
-    const rowStyle: React.CSSProperties = {}
-    const tdStyle: React.CSSProperties = { paddingLeft: indent ? indent * 14 + 6 : 6 }
-    if (style === 'header') { Object.assign(rowStyle, { background: T.group }); Object.assign(tdStyle, { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: T.mut, fontWeight: 500, padding: '10px 6px 5px', borderBottom: `1px solid ${T.brd}` }) }
-    if (style === 'group') { Object.assign(rowStyle, { background: 'rgba(176,29,35,0.035)' }); Object.assign(tdStyle, { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' as const, color: '#B01D23', fontWeight: 600 }) }
-    if (style === 'total') { Object.assign(rowStyle, { background: 'rgba(176,29,35,0.07)', borderTop: `1.5px solid ${T.brd}` }); Object.assign(tdStyle, { fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase' as const, color: '#B01D23', fontWeight: 700 }) }
-    if (style === 'result') { Object.assign(rowStyle, { background: 'rgba(29,158,117,0.06)', borderTop: `2px solid ${T.brd}` }); Object.assign(tdStyle, { fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase' as const, fontWeight: 700 }) }
-    if (style === 'prime') { Object.assign(rowStyle, { background: 'rgba(176,29,35,0.05)' }); Object.assign(tdStyle, { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' as const, fontWeight: 700 }) }
-    if (style === 'info') Object.assign(tdStyle, { fontStyle: 'italic', color: T.mut })
-    if (style === 'sub' || muted) Object.assign(tdStyle, { color: T.mut, fontSize: 11.5 })
-    const semaforoEl = semaforo ? (() => { const bench = getBenchmark(semaforo.grupo); const yearIng = d.ingTotal(ALL_MESES); const yearVal = fn(ALL_MESES); const yearPct = yearIng ? yearVal / yearIng * 100 : 0; const color = semaforoColor(yearPct, bench); return <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:color,marginRight:6,verticalAlign:'middle'}} /> })() : null
-    return (
-      <tr style={rowStyle}>
-        <td style={{...tdStyle, position:'sticky', left:0, background: rowStyle.background || T.card, zIndex:1}}>{semaforoEl}{label}</td>
-        {cols.map((c, i) => { if (c.hidden) return null; const val = fn(c.meses); const isQ = c.isQ || c.isYear; const tdS: React.CSSProperties = { fontWeight: isQ ? 600 : undefined, background: c.isYear ? 'rgba(176,29,35,0.04)' : c.isQ ? 'rgba(176,29,35,0.02)' : undefined, color: sign ? (val > 0 ? '#1D9E75' : val < 0 ? '#B01D23' : T.mut) : muted ? T.mut : undefined }; if (pct) return <td key={i} style={tdS}>{val ? `${val.toFixed(1)}%` : '—'}</td>; const prefix = sign && val > 0 ? '+' : ''; return <td key={i} style={tdS}>{val ? `${prefix}${fmtN(val)}` : '—'}</td> })}
-      </tr>
-    )
+  const ingTotal = (ms: number[]) => {
+    let s = 0
+    for (const [cat, map] of Object.entries(ingresos)) { if (cat.startsWith('1.')) s += sumMeses(map, ms) }
+    return s
   }
-  const Sep = () => <tr><td colSpan={cols.filter(c=>!c.hidden).length + 1} style={{height:6,border:'none',background:T.bg}} /></tr>
-  const PctRow = ({ label, fn }: { label: string; fn: (m:number[])=>number }) => <Row label={label} fn={(m) => { const ing = d.ingTotal(m); return ing ? fn(m)/ing*100 : 0 }} style="sub" pct muted />
+  const gasByPrefix = (prefix: string, ms: number[]) => sumCatMeses(gastos, prefix, ms)
+  const gasTotal = (ms: number[]) => gasByPrefix('2.', ms)
+  const resultado = (ms: number[]) => ingTotal(ms) - gasTotal(ms)
+  const primeCost = (ms: number[]) => { const i = ingTotal(ms); return i ? (gasByPrefix('2.1',ms)+gasByPrefix('2.2',ms))/i*100 : 0 }
 
-  if (loading) return (<div style={{padding:28}}><h1 style={pageTitleStyle(T)}>Running {año}</h1><p style={{color:T.mut,fontSize:13}}>Cargando datos...</p></div>)
+  const getBench = (grupo: string) => { const k = BENCH_MAP[grupo]; return k ? benchmarks.find(b=>b.categoria===k) : null }
+  const sColor = (pct: number, b: {pct_min:number;pct_max:number}|null|undefined) => {
+    if (!b) return 'mt'; if (pct<=b.pct_max) return 'sg'; if (pct<=b.pct_max*1.2) return 'so'; return 'sr'
+  }
 
-  const topProvs = (prefix: string) => categorias.filter(c => c.id.startsWith(prefix) && c.nivel === 3).filter(c => ALL_MESES.some(m => (gastos[c.id]?.[m] || 0) > 0)).sort((a,b) => sumMeses(gastos[b.id]||{}, ALL_MESES) - sumMeses(gastos[a.id]||{}, ALL_MESES))
+  const toggleQ = (q: number) => setQOpen(p=>({...p,[q]:!p[q]}))
+
+  type Col = {label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean;cls?:string}
+  const cols = useMemo(()=>{
+    const c: Col[] = []
+    for (let q=1;q<=4;q++){
+      QM[q].forEach(m=>c.push({label:M[m-1],ms:[m],cls:qOpen[q]?'':`hid q${q}m`}))
+      c.push({label:`${qOpen[q]?'▾':'▸'} ${q}T`,ms:QM[q],isQ:true,qn:q})
+    }
+    c.push({label:'Año',ms:ALL,isY:true})
+    return c
+  },[qOpen])
+
+  const catN2 = useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
+  const catChildren = (parentId: string) => categorias.filter(c=>c.parent_id===parentId && c.nivel===3).filter(c=>ALL.some(m=>(gastos[c.id]?.[m]||0)>0)).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
+
+  const Fp = (v: number) => v ? `${v.toFixed(1)}%` : '—'
+
+  const Cells = ({fn,sign,pct}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean}) => (<>
+    {cols.map((c,i)=>{
+      const v = fn(c.ms)
+      const cls = [c.cls||'', c.isQ||c.isY?'qv':''].filter(Boolean).join(' ')
+      const color = sign ? (v>0?'pos':v<0?'neg':'mt') : ''
+      const pre = sign&&v>0?'+':''
+      return <td key={i} className={`${cls} ${color}`}>{pct?Fp(v):v?`${pre}${fmtN(v)}`:'—'}</td>
+    })}
+  </>)
+
+  const visible = (label: string, force?: boolean) => {
+    if (force) return true
+    if (buscar.length<2) return true
+    return label.toLowerCase().includes(buscar.toLowerCase())
+  }
+
+  if (loading) return (
+    <div style={{padding:28,background:'#f5f3ef',minHeight:'100vh'}}>
+      <style>{CSS}</style>
+      <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:22,letterSpacing:3,textTransform:'uppercase',color:'#B01D23',fontWeight:600}}>Running {año}</h1>
+      <p style={{color:'#7a8090',fontSize:13}}>Cargando datos...</p>
+    </div>
+  )
+
+  const grupos = categorias.filter(c=>c.nivel===1 && c.id.startsWith('2.'))
+  const ingCats = categorias.filter(c=>c.parent_id==='1.1' && c.nivel===3)
 
   return (
-    <div style={{padding:28}}>
-      <h1 style={pageTitleStyle(T)}>Running {año}</h1>
-      <p style={{color:T.mut,fontSize:12,marginBottom:16}}>Datos reales de Conciliación + Facturación · Año completo</p>
-      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-        {[2026,2025].map(a => (<button key={a} onClick={()=>setAño(a)} style={{padding:'5px 12px',borderRadius:6,border:`0.5px solid ${año===a?'#FF4757':T.brd}`,background:año===a?'#FF4757':'transparent',color:año===a?'#fff':T.sec,fontFamily:FONT.body,fontSize:12,cursor:'pointer'}}>{a}</button>))}
-        <div style={{flex:1}} />
-        <input value={buscar} onChange={e=>setBuscar(e.target.value)} placeholder="🔍 Buscar proveedor..." style={{padding:'5px 10px',borderRadius:6,border:`0.5px solid ${T.brd}`,background:T.card,color:T.pri,fontFamily:FONT.body,fontSize:12,width:180,outline:'none'}} />
+    <div style={{padding:28,background:'#f5f3ef',minHeight:'100vh'}}>
+      <style>{CSS}</style>
+      <h1 style={{fontFamily:"'Oswald',sans-serif",fontSize:22,letterSpacing:3,textTransform:'uppercase',color:'#B01D23',fontWeight:600,margin:'0 0 4px'}}>Running {año}</h1>
+      <p style={{color:'#7a8090',fontSize:12,marginBottom:16}}>Datos reales de Conciliación · Año completo · Trimestres colapsables</p>
+
+      <div className="rfl">
+        {[2026,2025].map(a=><button key={a} className={`rfb${año===a?' on':''}`} onClick={()=>setAño(a)}>{a}</button>)}
+        <span style={{color:'#7a8090',fontSize:11,margin:'0 4px'}}>|</span>
+        {[{id:null as string|null,label:'Todos'},...titulares.map(t=>({id:t.id as string|null,label:t.nombre}))].map(t=>
+          <button key={t.id||'all'} className={`rfb${(t.id===titularId||(t.id===null&&!titularId))?' on':''}`}
+            onClick={()=>{}}>{t.label}</button>
+        )}
+        <div style={{flex:1}}/>
+        <input className="rsi" placeholder="🔍 Buscar..." value={buscar} onChange={e=>setBuscar(e.target.value)}/>
       </div>
-      <div style={{background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:10,overflow:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto',minWidth:1200}}>
+
+      <div className="rtw" style={{overflowX:'auto'}}>
+        <table>
           <thead><tr>
-            <th style={{fontFamily:FONT.heading,fontSize:10,color:T.mut,textTransform:'uppercase',letterSpacing:'1.5px',padding:'8px 6px',textAlign:'left',whiteSpace:'nowrap',borderBottom:`0.5px solid ${T.brd}`,fontWeight:400,background:T.group,position:'sticky',left:0,zIndex:3,minWidth:220}}>Running {año}</th>
-            {cols.map((c, i) => { if (c.hidden) return null; const isQ = c.isQ; const isYear = c.isYear; return (<th key={i} onClick={isQ && c.qNum ? ()=>toggleQ(c.qNum!) : undefined} style={{fontFamily:FONT.heading,fontSize:10,color: isQ||isYear ? '#B01D23' : T.mut,textTransform:'uppercase',letterSpacing:'1.5px',padding:'8px 6px',textAlign:'right',whiteSpace:'nowrap',borderBottom:`0.5px solid ${T.brd}`,fontWeight: isQ||isYear ? 600 : 400,background: isYear ? 'rgba(176,29,35,0.06)' : isQ ? 'rgba(176,29,35,0.04)' : T.group,cursor: isQ ? 'pointer' : undefined, userSelect: isQ ? 'none' : undefined,position:'sticky',top:0,zIndex:2}}>{isQ && c.qNum ? `${qOpen[c.qNum]?'▾':'▸'} ${c.label}` : c.label}</th>) })}
+            <th>Running {año}</th>
+            {cols.map((c,i)=>(
+              <th key={i} className={`${c.cls||''} ${c.isQ||c.isY?'qh':''} ${c.isQ?'qt':''}`}
+                onClick={c.qn?()=>toggleQ(c.qn!):undefined}>{c.label}</th>
+            ))}
           </tr></thead>
-          <tbody style={{fontSize:12}}>
-            <Row label="Resumen" fn={()=>0} style="header" />
-            <Row label="Ingresos netos" fn={d.ingTotal} style="group" />
-            <Row label="2.1 Producto" fn={d.gasProd} style="group" semaforo={{grupo:'2.1'}} />
-            <Row label="2.2 Equipo" fn={d.gasEquipo} style="group" semaforo={{grupo:'2.2'}} />
-            <Row label="2.3 Alquiler" fn={d.gasAlq} style="group" semaforo={{grupo:'2.3'}} />
-            <Row label="2.4 Controlables" fn={d.gasCtrl} style="group" semaforo={{grupo:'2.4'}} />
-            <Row label="Total gastos" fn={d.gasTotal} style="total" />
-            <Row label="Resultado" fn={d.resultado} style="result" sign />
-            <Row label="Prime Cost (obj <60%)" fn={d.primeCost} style="prime" pct />
-            <Sep />
-            <Row label="1. Ingresos" fn={()=>0} style="header" />
-            {ING_CATS.map(c => <Row key={c.cat} label={c.label} fn={(m) => sumMeses(ingresos[c.cat]||{}, m)} indent={1} muted />)}
-            <Row label="1.01 Ingresos netos" fn={d.ingTotal} style="group" />
-            <Row label="1.02 Facturación bruta" fn={(m) => m.reduce((s,mes) => s + (brutos[mes]?.total||0), 0)} style="info" />
-            <Row label="Pedidos" fn={(m) => m.reduce((s,mes) => s + (brutos[mes]?.pedidos||0), 0)} indent={1} muted />
-            <Row label="Ticket medio" fn={(m) => { const b = m.reduce((s,mes) => s + (brutos[mes]?.total||0), 0); const p = m.reduce((s,mes) => s + (brutos[mes]?.pedidos||0), 0); return p ? Math.round(b/p*100)/100 : 0 }} indent={1} muted />
-            <Sep />
-            <Row label="2.1 Producto (25-30%)" fn={()=>0} style="header" />
-            <Row label="2.11 Alimentos y bebidas" fn={(m) => sumCatMeses(gastos,'2.11',m)} indent={1} />
-            {topProvs('2.11.').slice(0, 5).map(c => <Row key={c.id} label={c.nombre} fn={(m) => sumMeses(gastos[c.id]||{},m)} indent={2} muted />)}
-            <Row label="2.12 Packaging" fn={(m) => sumCatMeses(gastos,'2.12',m)} indent={1} />
-            <Row label="2.13 Entregas" fn={(m) => sumCatMeses(gastos,'2.13',m)} indent={1} />
-            <Row label="2.1 Total Producto" fn={d.gasProd} style="group" semaforo={{grupo:'2.1'}} />
-            <PctRow label="% s/Ingresos" fn={d.gasProd} />
-            <Sep />
-            <Row label="2.2 Equipo (30-35%)" fn={()=>0} style="header" />
-            <Row label="2.21 Fijos Equipo" fn={(m) => sumCatMeses(gastos,'2.21',m)} indent={1} />
-            {topProvs('2.21.').slice(0, 5).map(c => <Row key={c.id} label={c.nombre} fn={(m) => sumMeses(gastos[c.id]||{},m)} indent={2} muted />)}
-            <Row label="2.22 Variables Equipo" fn={(m) => sumCatMeses(gastos,'2.22',m)} indent={1} />
-            <Row label="2.2 Total Equipo" fn={d.gasEquipo} style="group" semaforo={{grupo:'2.2'}} />
-            <PctRow label="% s/Ingresos" fn={d.gasEquipo} />
-            <Sep />
-            <Row label="2.3 Alquiler (5-8%)" fn={()=>0} style="header" />
-            <Row label="2.31 Alquiler e inmueble" fn={(m) => sumCatMeses(gastos,'2.31',m)} indent={1} />
-            {topProvs('2.31.').slice(0, 4).map(c => <Row key={c.id} label={c.nombre} fn={(m) => sumMeses(gastos[c.id]||{},m)} indent={2} muted />)}
-            <Row label="2.3 Total Alquiler" fn={d.gasAlq} style="group" semaforo={{grupo:'2.3'}} />
-            <Sep />
-            <Row label="2.4 Controlables (15-18%)" fn={()=>0} style="header" />
-            <Row label="2.41 Marketing" fn={(m) => sumCatMeses(gastos,'2.41',m)} indent={1} />
-            <Row label="2.42 Internet y ventas" fn={(m) => sumCatMeses(gastos,'2.42',m)} indent={1} />
-            <Row label="2.43 Administración" fn={(m) => sumCatMeses(gastos,'2.43',m)} indent={1} />
-            {topProvs('2.43.').slice(0, 4).map(c => <Row key={c.id} label={c.nombre} fn={(m) => sumMeses(gastos[c.id]||{},m)} indent={2} muted />)}
-            <Row label="2.44 Suministros" fn={(m) => sumCatMeses(gastos,'2.44',m)} indent={1} />
-            {topProvs('2.44.').slice(0, 4).map(c => <Row key={c.id} label={c.nombre} fn={(m) => sumMeses(gastos[c.id]||{},m)} indent={2} muted />)}
-            <Row label="2.4 Total Controlables" fn={d.gasCtrl} style="group" semaforo={{grupo:'2.4'}} />
-            <Sep />
-            <Row label="Total gastos" fn={d.gasTotal} style="total" />
-            <Row label="EBITDA / Resultado" fn={d.resultado} style="result" sign />
+          <tbody>
+            <tr className="rh"><td colSpan={99}>Resumen</td></tr>
+            <tr className="rg"><td>Ingresos netos</td><Cells fn={ingTotal}/></tr>
+            {grupos.map(g=>{
+              const b = getBench(g.id); const yi = ingTotal(ALL); const yv = gasByPrefix(g.id,ALL); const yp = yi?yv/yi*100:0; const sc = sColor(yp,b)
+              const bInfo = b?` (${b.pct_min}-${b.pct_max}%)`:''
+              return <tr key={g.id} className="rg"><td><span className={`s ${sc}`}/>{g.id} {g.nombre} <span className="pct">{bInfo}</span></td><Cells fn={ms=>gasByPrefix(g.id,ms)}/></tr>
+            })}
+            <tr className="rt"><td>Total gastos</td><Cells fn={gasTotal}/></tr>
+            <tr className="re"><td>Resultado</td><Cells fn={resultado} sign/></tr>
+            <tr className="rp"><td>Prime Cost <span className="pct">(obj &lt;60%)</span></td><Cells fn={primeCost} pct/></tr>
+            <tr className="sep"><td colSpan={99}/></tr>
+
+            <tr className="rh"><td colSpan={99}>1. Ingresos</td></tr>
+            {ingCats.map(c=>visible(c.nombre)&&(
+              <tr key={c.id} className="rs"><td>{c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)}/></tr>
+            ))}
+            <tr className="rg"><td>1.01 Ingresos netos</td><Cells fn={ingTotal}/></tr>
+            <tr className="ri"><td>1.02 Facturación bruta</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)}/></tr>
+            <tr className="rs"><td style={{color:'#7a8090'}}>Pedidos</td><Cells fn={ms=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)}/></tr>
+            <tr className="rs"><td style={{color:'#7a8090'}}>Ticket medio</td><Cells fn={ms=>{const b=ms.reduce((s,m)=>s+(brutos[m]?.total||0),0);const p=ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0);return p?Math.round(b/p*100)/100:0}}/></tr>
+
+            {grupos.map(g=>{
+              const b = getBench(g.id); const bLabel = b?` (benchmark ${b.pct_min}-${b.pct_max}%)`:''
+              const subN2 = catN2.filter(c=>c.parent_id===g.id)
+              const yi = ingTotal(ALL); const yv = gasByPrefix(g.id,ALL); const yp = yi?yv/yi*100:0; const sc = sColor(yp,b)
+              return [
+                <tr key={`sep-${g.id}`} className="sep"><td colSpan={99}/></tr>,
+                <tr key={`hdr-${g.id}`} className="rh"><td colSpan={99}>{g.id} {g.nombre} <span style={{fontWeight:300}}>{bLabel}</span></td></tr>,
+                ...subN2.flatMap(sub=>{
+                  const children = catChildren(sub.id)
+                  return [
+                    visible(sub.nombre,true)&&<tr key={sub.id} className="rs"><td>{sub.id} {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)}/></tr>,
+                    ...children.map(ch=>visible(ch.nombre)&&(
+                      <tr key={ch.id} className="rs2"><td>{ch.nombre}</td><Cells fn={ms=>sumMeses(gastos[ch.id]||{},ms)}/></tr>
+                    ))
+                  ].filter(Boolean)
+                }),
+                <tr key={`tot-${g.id}`} className="rg"><td><span className={`s ${sc}`}/>{g.id} Total {g.nombre}</td><Cells fn={ms=>gasByPrefix(g.id,ms)}/></tr>,
+                b?<tr key={`pct-${g.id}`} className="rs"><td style={{color:'#7a8090'}}>% s/Ingresos</td><Cells fn={ms=>{const i=ingTotal(ms);return i?gasByPrefix(g.id,ms)/i*100:0}} pct/></tr>:null,
+              ].filter(Boolean)
+            }).flat()}
+
+            <tr className="sep"><td colSpan={99}/></tr>
+            <tr className="rt"><td>Total gastos</td><Cells fn={gasTotal}/></tr>
+            <tr className="re"><td>EBITDA / Resultado</td><Cells fn={resultado} sign/></tr>
           </tbody>
         </table>
       </div>
