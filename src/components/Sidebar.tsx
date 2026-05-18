@@ -48,6 +48,7 @@ const SECTIONS: NavSection[] = [
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
+      { path: '/finanzas/pyg',                  label: 'PyG',                 emoji: '📈', perfiles: ['admin'] },
       { path: '/finanzas/cashflow',             label: 'Cashflow',            emoji: '💰', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
@@ -128,7 +129,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Evaluaciones',                 emoji: '⭐' },
   { label: 'Llamados Atención',            emoji: '⚠️' },
   { label: 'Beneficios Antigüedad',        emoji: '🎁' },
-  { label: 'Celebraciones',                emoji: '🎉' },
+  { label: 'Celebraciones',               emoji: '🎉' },
   { label: 'Onboarding Digital',           emoji: '🚀' },
   { label: 'Mis Ventas / Mis Metas',       emoji: '🏅' },
   { label: 'Calendario',                   emoji: '📅' },
@@ -356,7 +357,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* MOCKUP — desplegable con 10 submódulos */}
           {(!collapsed && perfil === 'admin') && (
             <MockupSubmenu T={T} onClose={onClose} />
           )}
