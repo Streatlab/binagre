@@ -33,7 +33,8 @@ import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
 import Objetivos from '@/pages/finanzas/Objetivos'
-import Running from '@/pages/finanzas/Running'
+import PyGPage from '@/pages/finanzas/PyG'
+import RunningNuevo from '@/pages/finanzas/RunningNuevo'
 import Cashflow from '@/pages/finanzas/Cashflow'
 import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
@@ -160,7 +161,8 @@ function AppRoutes() {
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
-        <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
+        <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyGPage /></ProtectedRoute>} />
+        <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><RunningNuevo /></ProtectedRoute>} />
         <Route path="finanzas/cashflow" element={<ProtectedRoute solo={['admin']}><Cashflow /></ProtectedRoute>} />
         <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
         <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
@@ -170,7 +172,6 @@ function AppRoutes() {
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
 
-        {/* Mockup desplegable con 10 submódulos */}
         <Route path="mockup" element={<Navigate to="/mockup/lymon-binagre" replace />} />
         <Route path="mockup/binagre-posthog" element={<ProtectedRoute solo={['admin']}><MockupBinagrePosthog /></ProtectedRoute>} />
         <Route path="mockup/holded" element={<ProtectedRoute solo={['admin']}><MockupHolded /></ProtectedRoute>} />
@@ -182,7 +183,6 @@ function AppRoutes() {
         <Route path="mockup/posthog-binagre" element={<ProtectedRoute solo={['admin']}><MockupPosthogBinagre /></ProtectedRoute>} />
         <Route path="mockup/lymon" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
         <Route path="mockup/lymon-binagre" element={<ProtectedRoute solo={['admin']}><MockupLymonBinagre /></ProtectedRoute>} />
-        {/* Compatibilidad con la ruta antigua /mockup */}
         <Route path="mockup-old" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
