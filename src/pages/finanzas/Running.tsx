@@ -6,7 +6,7 @@ const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic
 const QM:Record<number,number[]>={1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
 const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
 const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.4':'CONTROLABLES','2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'}
-const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables'}
+const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables','2.5':'Plataformas'}
 const RATIO_COLORS:Record<string,string>={'margen':COLORS.ok,'food':'#f5a623','labor':'#1E5BCC','ratio':'#B01D23','coste':'#E24B4A','neto':COLORS.ok,'be':'#1E5BCC','directo':'#f5a623'}
 const COM:Record<string,number>={uber:.30,glovo:.32,je:.28,web:.05,directa:0}
 const cM=new Date().getMonth()+1,BL='#1E5BCC'
@@ -27,7 +27,7 @@ const{filtro,titulares}=useTitular()
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
 const[qO,sQ]=useState<Record<number,boolean>>(()=>{const q=Math.ceil(cM/3);return{1:true,2:q>=2,3:q>=3,4:q>=4}})
-const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
+const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true,'2.5':true})
 const[aO,sAO]=useState(true)
 const mainRef=useRef<HTMLDivElement>(null)
 const midRef=useRef<HTMLDivElement>(null)
@@ -42,14 +42,15 @@ const syncB=()=>{if(lock)return;lock=true;main.scrollLeft=mid.scrollLeft;lock=fa
 main.addEventListener('scroll',syncA);mid.addEventListener('scroll',syncB)
 return()=>{main.removeEventListener('scroll',syncA);mid.removeEventListener('scroll',syncB)}
 },[])
-const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
+const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.1'))s+=sumMeses(m,ms)};return s}
+const iE=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.3'))s+=sumMeses(m,ms)};return s}
 const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
 const gT=(ms:number[])=>gP('2.',ms)
-const re=(ms:number[])=>iT(ms)-gT(ms)
+const re=(ms:number[])=>iT(ms)+iE(ms)-gT(ms)
 const gB=(g:string)=>{const k=BM[g];return k?benchmarks.find(b=>b.categoria===k):null}
 const tQ=(q:number)=>sQ(p=>({...p,[q]:!p[q]}))
 const gF=(ms:number[])=>gP('2.2',ms)+gP('2.3',ms)
-const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
+const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)+gP('2.5',ms)
 const pe=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)
 const fB=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)
 const nE=(ms:number[])=>ms.reduce((s,m)=>{const b=brutos[m];if(!b)return s;return s+b.uber*(1-COM.uber)+b.glovo*(1-COM.glovo)+b.je*(1-COM.je)+b.web*(1-COM.web)+b.directa*(1-COM.directa)},0)
@@ -86,6 +87,7 @@ const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const 
 if(loading)return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>Running {año}</h2><p style={{fontFamily:FONT.body,fontSize:14,color:COLORS.mut,marginTop:4}}>Cargando…</p></div>)
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
 const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
+const ingE=categorias.filter(c=>c.parent_id==='1.3'&&c.nivel===2)
 let ri=0;const aB=()=>{const b=ri%2===0?'#fff':'#f0ede7';ri++;return b};const rA=()=>{ri=0}
 const hv={onMouseEnter:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=`${COLORS.bg}60`},onMouseLeave:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=''}}
 const sH=(l:string,cl:string,x?:React.ReactNode)=><tr><td colSpan={99} style={{...t1,background:COLORS.bg,fontFamily:FONT.heading,fontSize:13,letterSpacing:'2px',textTransform:'uppercase',color:cl,padding:'8px 5px 3px',borderBottom:`1.5px solid ${cl}40`,borderLeft:`3px solid ${cl}`,fontWeight:700}}>{l}{x}</td></tr>
@@ -93,7 +95,7 @@ const gR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:14,letterSp
 const tR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.redSL,fontWeight:700,background:`${COLORS.redSL}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const rR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:16,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.ok,fontWeight:700,background:`${COLORS.ok}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.bg,padding:0}}/></tr>
-const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
+const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 const tW=2200
@@ -116,11 +118,12 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 {sH('INGRESOS',COLORS.redSL)}{rA() as any}
 <tr {...hv}><td style={{...ingLabel,color:COLORS.sec}}>1.2 Facturación bruta</td><Cells fn={fB} rz/></tr>
 <tr><td style={{...ingLabel,color:COLORS.ok}}>1.1 Ingresos netos</td><CI rz/></tr>
+<tr {...hv}><td style={{...ingLabel,color:COLORS.ok,fontSize:13}}>1.3 Ingresos extra plataforma</td><Cells fn={iE} rz vc={COLORS.ok}/></tr>
 <tr {...hv}><td style={{...r1(),color:COLORS.mut}}><span style={{color:BL,fontWeight:600}}>Pedidos</span> · <span style={{color:COLORS.warn}}>TM Bruto</span> / <span style={{color:COLORS.ok}}>TM Neto</span></td><CTM rz/></tr>
 {sp}
 {sH('GASTOS',COLORS.err)}{rA() as any}
 <tr {...hv}><td style={{...r1(COLORS.err),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.sec,fontWeight:600}}>Gastos fijos</td><Cells fn={gF} pctFn={ms=>po(gF(ms),fB(ms))} rz tip="% sobre Facturación bruta"/></tr>
-<tr {...hv}><td style={{...r1(COLORS.err),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.sec,fontWeight:600}}>Gastos variables</td><Cells fn={gV} pctFn={ms=>po(gV(ms),fB(ms))} rz tip="% sobre Facturación bruta"/></tr>
+<tr {...hv}><td style={{...r1(COLORS.err),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.sec,fontWeight:600}}>Gastos variables</td><Cells fn={gV} pctFn={ms=>po(gV(ms),fB(ms))} rz tip="% sobre Facturación bruta · incluye Plataformas"/></tr>
 <tr><td style={{...tR,borderLeft:`3px solid ${COLORS.err}`}}>Total gastos</td><Cells fn={gT} pctFn={ms=>po(gT(ms),fB(ms))} rz tip="% sobre Facturación bruta"/></tr>
 {sp}
 <tr><td style={{...rR,borderLeft:`3px solid ${COLORS.ok}`,fontSize:17}}>Resultado <span style={{fontSize:11,color:COLORS.mut,fontWeight:400}}>(Ingresos − Gastos)</span> <Sp fn={re}/></td><Cells fn={re} sign rz/></tr>
@@ -142,13 +145,15 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr {...hv}><td style={rRow(RATIO_COLORS.directo)}>COSTE DIRECTO <span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>(Producto + Equipo · obj &lt;60%)</span></td><Cells fn={cD} pct rz alertMax={60}/></tr>
 <tr><td colSpan={99} style={{height:14,border:'none',background:COLORS.bg,padding:0}}/></tr>
 {sH('Detalle por categoría',COLORS.mut)}{rA() as any}
-<tr><td style={{...t1,padding:'2px 5px'}}><button onClick={()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}} style={{padding:'2px 8px',borderRadius:5,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontFamily:FONT.body,fontSize:11,color:COLORS.mut,cursor:'pointer'}}>{aO?'▴ Colapsar todo':'▾ Expandir todo'}</button></td><td colSpan={98}/></tr>
+<tr><td style={{...t1,padding:'2px 5px'}}><button onClick={()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4','2.5'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}} style={{padding:'2px 8px',borderRadius:5,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontFamily:FONT.body,fontSize:11,color:COLORS.mut,cursor:'pointer'}}>{aO?'▴ Colapsar todo':'▾ Expandir todo'}</button></td><td colSpan={98}/></tr>
 {detHeaders}
-<tr style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1':!p['1']}))}><td style={gR}>{det['1']?'▾':'▸'} 1 · Ingresos por operación</td><Cells fn={iM}/></tr>
+<tr style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1':!p['1']}))}><td style={gR}>{det['1']?'▾':'▸'} 1 · Ingresos por operación</td><Cells fn={ms=>iM(ms)+iE(ms)}/></tr>
 {det['1']&&<>
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.1 · Ingresos netos por ventas</td><Cells fn={iT}/></tr>
 {ingC.filter(c=>vi(c.nombre)).map(c=>{const b=aB();return<tr key={c.id} style={{background:b}} {...hv}><td style={{...t1,paddingLeft:26}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>})}
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.2 · Facturación bruta por ventas</td><Cells fn={fB}/></tr>
+<tr style={{background:aB(),cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1.3':p['1.3']===false}))}><td style={{...t1,paddingLeft:14,fontWeight:600}}>{det['1.3']!==false?'▾':'▸'} 1.3 · Ingresos extra plataforma</td><Cells fn={iE}/></tr>
+{det['1.3']!==false&&ingE.filter(c=>vi(c.nombre)).map(c=><tr key={c.id} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:26,color:COLORS.mut,fontSize:14}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>)}
 </>}{sp}
 {grupos.map(g=>{const bn=gB(g.id);const bL=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const sN=cN2.filter(c=>c.parent_id===g.id);const nm=LBL[g.id]||g.nombre;const op=!!det[g.id];return[
 <tr key={`h-${g.id}`} style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,[g.id]:!p[g.id]}))}><td style={gR}>{op?'▾':'▸'} {g.id} · {nm}<span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>{bL}</span></td><Cells fn={ms=>gP(g.id,ms)} pctFn={ms=>po(gP(g.id,ms),iM(ms))}/></tr>,
