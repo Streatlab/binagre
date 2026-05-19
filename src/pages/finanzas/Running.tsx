@@ -1,11 +1,11 @@
-import{useState,useMemo}from'react'
+import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses}from'@/hooks/useRunningAnual'
 import{useTitular}from'@/contexts/TitularContext'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const QM:Record<number,number[]>={1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
 const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
-const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'}
+const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.4':'CONTROLABLES','2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'}
 const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables'}
 const RATIO_COLORS:Record<string,string>={'margen':COLORS.ok,'food':'#f5a623','labor':'#1E5BCC','ratio':'#B01D23','coste':'#E24B4A','neto':COLORS.ok,'be':'#1E5BCC','directo':'#f5a623'}
 const COM:Record<string,number>={uber:.30,glovo:.32,je:.28,web:.05,directa:0}
@@ -26,6 +26,7 @@ const[buscar,sBu]=useState('')
 const[qO,sQ]=useState<Record<number,boolean>>(()=>{const q=Math.ceil(cM/3);return{1:true,2:q>=2,3:q>=3,4:q>=4}})
 const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
 const[aO,sAO]=useState(true)
+const scrollRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
 const{ingresos,gastos,brutos,diasOp,categorias,benchmarks,loading}=useRunningAnual(año,tId)
 const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
@@ -51,10 +52,12 @@ const vc=cols.filter(c=>!c.hid||c.isY)
 const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
 const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>{const sa=sumMeses(gastos[a.id]||{},ALL);const sb=sumMeses(gastos[b.id]||{},ALL);return sb-sa})
 const cQ=(c:Col)=>{for(let q=1;q<=4;q++){if(c.isQ&&c.qn===q)return q;if(!c.isQ&&!c.isY&&QM[q].includes(c.ms[0]))return q};return 0}
-const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?600:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 2px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:c.isY?5:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?BL:COLORS.mut),background:qy?(c.isY?`${COLORS.redSL}14`:QHD[q-1]):(c.isCur?'#1E5BCC10':(q?QBG[q-1]:COLORS.bg)),...(c.isY?{right:0,borderLeft:`3px solid ${COLORS.brd}`,marginLeft:4}:{})}}
+/* AÑO: NO sticky right, columna normal pero con separador visual fuerte */
+const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?600:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 4px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?BL:COLORS.mut),background:qy?(c.isY?`${COLORS.redSL}14`:QHD[q-1]):(c.isCur?'#1E5BCC10':(q?QBG[q-1]:COLORS.bg)),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
 const th1:React.CSSProperties={fontFamily:FONT.heading,fontSize:12,fontWeight:600,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',textAlign:'left',padding:'4px 5px',background:COLORS.bg,borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',left:0,top:0,zIndex:6,minWidth:210}
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,color:COLORS.mut+'70',minWidth:28,padding:'4px 1px'})
-const td0=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{padding:'1px 2px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:c.isCur&&!qy?'#1E5BCC08':(qy?(c.isY?`${COLORS.redSL}08`:QBG[q-1]):(q?QBG[q-1]:undefined)),...(c.isY?{position:'sticky' as const,right:0,zIndex:1,borderLeft:`3px solid ${COLORS.brd}`}:{})}}
+/* Trimestres: colores de fondo en celdas de datos */
+const td0=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{padding:'1px 4px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:c.isCur&&!qy?'#1E5BCC0A':(qy?(c.isY?`${COLORS.redSL}08`:QBG[q-1]):(q?QBG[q-1]:undefined)),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
 const t1:React.CSSProperties={padding:'1px 5px',fontSize:15,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:1,verticalAlign:'middle',background:'#fff'}
 const tdP=(c:Col):React.CSSProperties=>({...td0(c),fontSize:12,color:COLORS.mut+'90',padding:'1px 1px',minWidth:28})
 const nZ=(c:Col,rz?:boolean):React.CSSProperties=>({fontFamily:FONT.heading,fontSize:c.isY?(rz?24:20):(c.isQ?(rz?20:17):(c.isCur?(rz?19:17):(rz?18:16))),fontWeight:c.isY?700:(c.isQ||c.isCur?600:500),letterSpacing:'0.3px'})
@@ -62,13 +65,12 @@ const RB='#fdf6ed'
 const r1=(bc?:string):React.CSSProperties=>({...t1,background:RB,borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:15})
 const rC=(c:Col):React.CSSProperties=>({...td0(c),background:c.isY?`${COLORS.redSL}10`:(c.isQ?td0(c).background:RB)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
-/* Cells: sign sin '+' delante de positivos, solo '−' en negativos */
 const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily}}>{pct?fP(v):v?fI(v):'—'}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined,background:rz?RB:tdP(c).background}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11,animation:'pulse 2s infinite'}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={{...tdP(c),background:rz?RB:tdP(c).background}}/>]})}</>)
 const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=c.isY?20:(c.isQ?17:16);return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:c.isY?700:(c.isQ?600:500)}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
 const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const v=rv||e;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2}}>(est.)</span>}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
 const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:14,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
-/* Semáforo estilo Objetivos: barra con parte cumplida (verde/naranja) + parte pendiente (roja) */
-const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentroRango=v>=mn&&v<=max;const cerca=!dentroRango&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentroRango?COLORS.ok:(cerca?COLORS.warn:COLORS.err);const pctCap=Math.min(v?v/(max||1)*100:0,100);return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,background:COLORS.brd,marginTop:1,display:'flex',overflow:'hidden'}}><div style={{height:5,background:bc,width:`${pctCap}%`,transition:'width 0.4s ease'}}/><div style={{height:5,background:'#E24B4A',width:`${100-pctCap}%`}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
+/* Semáforo: barra = valor real como % directo (14.2% → barra al 14.2%). Color: verde si en rango, naranja si cerca, rojo si fuera */
+const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentroRango=v>=mn&&v<=max;const cerca=!dentroRango&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentroRango?COLORS.ok:(cerca?COLORS.warn:'#E24B4A');const pctBar=Math.min(v,100);return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,display:'flex',overflow:'hidden',marginTop:1}}><div style={{height:5,background:bc,width:`${pctBar}%`,borderRadius:'3px 0 0 3px',transition:'width 0.4s ease'}}/><div style={{height:5,background:'#E24B4A',flex:1,borderRadius:'0 3px 3px 0'}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
 const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const mx=Math.max(...vs.map(v=>Math.abs(v)),1);return<span style={{display:'inline-flex',alignItems:'flex-end',gap:1,height:16,verticalAlign:'middle',marginLeft:6}}>{vs.map((v,i)=><span key={i} style={{width:3,borderRadius:'1px 1px 0 0',height:`${Math.max(Math.abs(v)/mx*16,v?1:0)}px`,background:v>0?COLORS.ok:v<0?COLORS.err:COLORS.brd}}/>)}</span>}
 if(loading)return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>Running {año}</h2><p style={{fontFamily:FONT.body,fontSize:14,color:COLORS.mut,marginTop:4}}>Cargando…</p></div>)
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
@@ -83,6 +85,8 @@ const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.b
 const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
+/* Scroll sync: scrollbar duplicada arriba */
+const SyncScroll=()=>{const topRef=useRef<HTMLDivElement>(null);useEffect(()=>{const main=scrollRef.current;const top=topRef.current;if(!main||!top)return;const onMain=()=>{if(top)top.scrollLeft=main.scrollLeft};const onTop=()=>{if(main)main.scrollLeft=top.scrollLeft};main.addEventListener('scroll',onMain);top.addEventListener('scroll',onTop);return()=>{main.removeEventListener('scroll',onMain);top.removeEventListener('scroll',onTop)}},[]);return<div ref={topRef} style={{overflowX:'auto',overflowY:'hidden',height:12,marginBottom:-1}}><div style={{width:2200,height:1}}/></div>}
 return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><style>{CA}</style>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:6}}>
 <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>RUNNING {año}</h2>
@@ -92,7 +96,9 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <span style={{color:COLORS.brd}}>|</span>
 <div style={{...TABS_PILL.container}}>{[{id:null as string|null,label:'Todos'},...titulares.map(t=>({id:t.id as string|null,label:t.nombre}))].map(t=><button key={t.id||'all'} style={(t.id===tId||(t.id===null&&!tId))?TABS_PILL.active:TABS_PILL.inactive} onClick={()=>{}}>{t.label}</button>)}</div>
 </div></div>
-<div style={{...CARDS.std,padding:0,overflow:'hidden'}}><div style={{overflowX:'auto',overflowY:'visible',maxHeight:'none'}}>
+<div style={{...CARDS.std,padding:0,overflow:'hidden'}}>
+<SyncScroll/>
+<div ref={scrollRef} style={{overflowX:'auto'}}>
 <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,minWidth:1100}}>
 <thead><tr><th style={th1}>PyG</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr></thead>
 <tbody>
