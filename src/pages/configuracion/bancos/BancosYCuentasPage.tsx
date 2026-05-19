@@ -5,7 +5,6 @@ import { toast } from '@/lib/toastStore'
 import ReglasPanel from './ReglasPanel'
 import ReglasGlobalesPanel from './ReglasGlobalesPanel'
 import CuentasPanel from './CuentasPanel'
-import AlertasTitularPanel from './AlertasTitularPanel'
 
 interface CategoriaPyg {
   id: string
@@ -30,12 +29,10 @@ export default function BancosYCuentasPage() {
   const subTab = path.endsWith('cuentas') ? 'cuentas'
     : path.endsWith('reglas-globales') ? 'reglas-globales'
     : path.endsWith('reglas') ? 'reglas'
-    : path.endsWith('alertas') ? 'alertas'
     : 'categorias'
 
   const [categorias, setCategorias] = useState<CategoriaPyg[]>([])
   const [loading, setLoading] = useState(true)
-  const [alertasPendientes, setAlertasPendientes] = useState(0)
 
   useEffect(() => {
     supabase.from('categorias_pyg')
@@ -46,14 +43,7 @@ export default function BancosYCuentasPage() {
         if (!error && data) setCategorias(data as CategoriaPyg[])
         setLoading(false)
       })
-
-    supabase.from('alertas_titular_dudoso')
-      .select('id', { count: 'exact', head: true })
-      .eq('resuelto', false)
-      .then(({ count }) => {
-        if (count !== null) setAlertasPendientes(count)
-      })
-  }, [subTab])
+  }, [])
 
   async function handleRename(id: string, nombre: string) {
     const { error } = await supabase.from('categorias_pyg').update({ nombre, updated_at: new Date().toISOString() }).eq('id', id)
@@ -94,7 +84,6 @@ export default function BancosYCuentasPage() {
           { id: 'categorias', label: 'Categorías', path: '/configuracion/bancos-y-cuentas/categorias' },
           { id: 'reglas', label: 'Reglas de matching', path: '/configuracion/bancos-y-cuentas/reglas' },
           { id: 'reglas-globales', label: 'Reglas del sistema', path: '/configuracion/bancos-y-cuentas/reglas-globales' },
-          { id: 'alertas', label: 'Alertas titular', path: '/configuracion/bancos-y-cuentas/alertas', badge: alertasPendientes },
         ].map(st => {
           const isActive = st.id === subTab
           return (
@@ -111,26 +100,9 @@ export default function BancosYCuentasPage() {
                 fontSize: 12,
                 fontWeight: 500,
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
               }}
             >
               {st.label}
-              {st.badge !== undefined && st.badge > 0 && (
-                <span style={{
-                  background: isActive ? '#fff' : '#FF4757',
-                  color: isActive ? '#FF4757' : '#fff',
-                  borderRadius: 10,
-                  padding: '1px 7px',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  fontFamily: 'Oswald, sans-serif',
-                  letterSpacing: '0.5px',
-                }}>
-                  {st.badge}
-                </span>
-              )}
             </button>
           )
         })}
@@ -142,7 +114,6 @@ export default function BancosYCuentasPage() {
       {subTab === 'cuentas' && <CuentasPanel />}
       {subTab === 'reglas' && <ReglasPanel />}
       {subTab === 'reglas-globales' && <ReglasGlobalesPanel />}
-      {subTab === 'alertas' && <AlertasTitularPanel />}
     </div>
   )
 }
