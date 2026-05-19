@@ -7,6 +7,7 @@ const QM:Record<number,number[]>={1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
 const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
 const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'}
 const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables'}
+const RATIO_COLORS:Record<string,string>={'margen':COLORS.ok,'food':'#f5a623','labor':'#1E5BCC','ratio':'#B01D23','coste':'#E24B4A','neto':COLORS.ok,'be':'#1E5BCC','directo':'#f5a623'}
 const COM:Record<string,number>={uber:.30,glovo:.32,je:.28,web:.05,directa:0}
 const cM=new Date().getMonth()+1,BL='#1E5BCC'
 const QBG=['rgba(30,91,204,.04)','rgba(29,158,117,.04)','rgba(245,166,35,.04)','rgba(176,29,35,.04)']
@@ -17,6 +18,7 @@ const fD=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'�
 const fP=(v:number)=>v?`${v.toFixed(1)}%`:'—'
 const po=(p:number,t:number)=>t?(p/t)*100:0
 const CA=`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`
+const DESV_PCT=5
 export default function Running(){
 const{filtro,titulares}=useTitular()
 const[año,sA]=useState(2026)
@@ -31,7 +33,6 @@ const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
 const gT=(ms:number[])=>gP('2.',ms)
 const re=(ms:number[])=>iT(ms)-gT(ms)
 const gB=(g:string)=>{const k=BM[g];return k?benchmarks.find(b=>b.categoria===k):null}
-const sC=(p:number,b:{pct_min:number;pct_max:number}|null|undefined)=>{if(!b)return COLORS.mut;if(p<=b.pct_max)return COLORS.ok;if(p<=b.pct_max*1.2)return COLORS.warn;return COLORS.err}
 const tQ=(q:number)=>sQ(p=>({...p,[q]:!p[q]}))
 const gF=(ms:number[])=>gP('2.2',ms)+gP('2.3',ms)
 const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
@@ -48,13 +49,12 @@ type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean;hid?:boo
 const cols=useMemo(()=>{const c:Col[]=[];for(let q=1;q<=4;q++){QM[q].forEach(m=>c.push({label:MN[m-1],ms:[m],hid:!qO[q],isCur:m===cM}));c.push({label:`${qO[q]?'▾':'▸'} ${q}T`,ms:QM[q],isQ:true,qn:q})};c.push({label:'AÑO',ms:ALL,isY:true});return c},[qO])
 const vc=cols.filter(c=>!c.hid||c.isY)
 const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
-const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).filter(c=>ALL.some(m=>(gastos[c.id]?.[m]||0)>0)).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
+const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>{const sa=sumMeses(gastos[a.id]||{},ALL);const sb=sumMeses(gastos[b.id]||{},ALL);return sb-sa})
 const cQ=(c:Col)=>{for(let q=1;q<=4;q++){if(c.isQ&&c.qn===q)return q;if(!c.isQ&&!c.isY&&QM[q].includes(c.ms[0]))return q};return 0}
-/* fontSize +2, padding -1 */
-const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:500,letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 1px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:c.isY?5:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?BL:COLORS.mut),background:qy?(c.isY?`${COLORS.redSL}14`:QHD[q-1]):(c.isCur?'#1E5BCC0C':(q?QBG[q-1]:COLORS.bg)),...(c.isY?{right:0}:{})}}
+const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?600:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 2px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:c.isY?5:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?BL:COLORS.mut),background:qy?(c.isY?`${COLORS.redSL}14`:QHD[q-1]):(c.isCur?'#1E5BCC10':(q?QBG[q-1]:COLORS.bg)),...(c.isY?{right:0,borderLeft:`2px solid ${COLORS.brd}`}:{})}}
 const th1:React.CSSProperties={fontFamily:FONT.heading,fontSize:12,fontWeight:600,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',textAlign:'left',padding:'4px 5px',background:COLORS.bg,borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',left:0,top:0,zIndex:6,minWidth:210}
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,color:COLORS.mut+'70',minWidth:28,padding:'4px 1px'})
-const td0=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{padding:'1px 1px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:c.isCur&&!qy?'#1E5BCC08':(qy?(c.isY?`${COLORS.redSL}08`:QBG[q-1]):(q?QBG[q-1]:undefined)),...(c.isY?{position:'sticky' as const,right:0,zIndex:1}:{})}}
+const td0=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{padding:'1px 2px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:c.isCur&&!qy?'#1E5BCC08':(qy?(c.isY?`${COLORS.redSL}08`:QBG[q-1]):(q?QBG[q-1]:undefined)),...(c.isY?{position:'sticky' as const,right:0,zIndex:1,borderLeft:`2px solid ${COLORS.brd}`}:{})}}
 const t1:React.CSSProperties={padding:'1px 5px',fontSize:15,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:1,verticalAlign:'middle',background:'#fff'}
 const tdP=(c:Col):React.CSSProperties=>({...td0(c),fontSize:12,color:COLORS.mut+'90',padding:'1px 1px',minWidth:28})
 const nZ=(c:Col,rz?:boolean):React.CSSProperties=>({fontFamily:FONT.heading,fontSize:c.isY?(rz?24:20):(c.isQ?(rz?20:17):(c.isCur?(rz?19:17):(rz?18:16))),fontWeight:c.isY?700:(c.isQ||c.isCur?600:500),letterSpacing:'0.3px'})
@@ -62,13 +62,12 @@ const RB='#fdf6ed'
 const r1=(bc?:string):React.CSSProperties=>({...t1,background:RB,borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:15})
 const rC=(c:Col):React.CSSProperties=>({...td0(c),background:c.isY?`${COLORS.redSL}10`:(c.isQ?td0(c).background:RB)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
-/* Cells: SIEMPRE devuelve 2 tds (valor + %) para alinear con headers */
 const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const pr=sign&&v>0?'+':'';const st=rz?rC(c):td0(c);const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily}}>{pct?fP(v):v?`${pr}${fI(v)}`:'—'}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined,background:rz?RB:tdP(c).background}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11,animation:'pulse 2s infinite'}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={{...tdP(c),background:rz?RB:tdP(c).background}}/>]})}</>)
 const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=c.isY?20:(c.isQ?17:16);return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:c.isY?700:(c.isQ?600:500)}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
 const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const v=rv||e;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2}}>(est.)</span>}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
 const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:14,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={{...tdP(c),background:r?RB:tdP(c).background}}/>]})}</>)
-/* Barras semáforo: verde=dentro benchmark, amarillo=exceso leve (hasta 1.2x), rojo=resto */
-const CB=({fn,max}:{fn:(ms:number[])=>number;max:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const bc=!v?COLORS.err:(v<=max?COLORS.ok:(v<=max*1.2?COLORS.warn:COLORS.err));const bw=v?Math.min(v/max*100,100):100;return[<td key={i} style={{...td0(c),...nZ(c),color:v>max?COLORS.err:(v<=max?COLORS.ok:undefined)}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,background:COLORS.err+'30',marginTop:1,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:bc,width:`${bw}%`}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
+/* Semáforo: barra 100% roja de fondo. Encima: verde=dentro rango, naranja=cerca (±DESV_PCT), nada si disparado */
+const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentroRango=v>=mn&&v<=max;const cerca=!dentroRango&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentroRango?COLORS.ok:(cerca?COLORS.warn:COLORS.err);const bw=v?Math.min(v/(max+10)*100,100):0;return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,background:COLORS.err+'40',marginTop:1,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:bc,width:`${bw}%`}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
 const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const mx=Math.max(...vs.map(v=>Math.abs(v)),1);return<span style={{display:'inline-flex',alignItems:'flex-end',gap:1,height:16,verticalAlign:'middle',marginLeft:6}}>{vs.map((v,i)=><span key={i} style={{width:3,borderRadius:'1px 1px 0 0',height:`${Math.max(Math.abs(v)/mx*16,v?1:0)}px`,background:v>0?COLORS.ok:v<0?COLORS.err:COLORS.brd}}/>)}</span>}
 if(loading)return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>Running {año}</h2><p style={{fontFamily:FONT.body,fontSize:14,color:COLORS.mut,marginTop:4}}>Cargando…</p></div>)
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
@@ -81,7 +80,9 @@ const tR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:15,letterSp
 const rR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:16,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.ok,fontWeight:700,background:`${COLORS.ok}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.bg,padding:0}}/></tr>
 const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
-const ratioRow:React.CSSProperties={...r1(COLORS.ok),fontSize:14,color:COLORS.sec,fontWeight:600}
+const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
+/* Headers row for detail table */
+const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><style>{CA}</style>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:6}}>
 <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>RUNNING {año}</h2>
@@ -108,22 +109,23 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr><td style={{...rR,background:RB,borderLeft:`3px solid ${COLORS.ok}`,fontSize:17}}>Resultado <span style={{fontSize:11,color:COLORS.mut,fontWeight:400}}>(Ingresos − Gastos)</span> <Sp fn={re}/></td><Cells fn={re} sign rz/></tr>
 {sp}
 {sH('Distribución de gastos · % s/Ingresos netos',COLORS.warn)}{rA() as any}
-{grupos.map(g=>{const bn=gB(g.id);const sc=sC(po(gP(g.id,ALL),iM(ALL)),bn);const bI=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const nm=LBL[g.id]||g.nombre;const b=aB();return<tr key={g.id} style={{background:b}} {...hv}><td style={{...gR,borderLeft:`3px solid ${COLORS.warn}`}}>{nm}<span style={{color:COLORS.mut,fontSize:10,fontWeight:400,textDecoration:'underline dashed',cursor:'pointer'}}>{bI}</span></td><CB fn={ms=>po(gP(g.id,ms),iM(ms))} max={bn?bn.pct_max:20}/></tr>})}
+{grupos.map(g=>{const bn=gB(g.id);const bI=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const nm=LBL[g.id]||g.nombre;const b=aB();return<tr key={g.id} style={{background:b}} {...hv}><td style={{...gR,borderLeft:`3px solid ${COLORS.warn}`}}>{nm}<span style={{color:COLORS.mut,fontSize:10,fontWeight:400,textDecoration:'underline dashed',cursor:'pointer'}}>{bI}</span></td><CB fn={ms=>po(gP(g.id,ms),iM(ms))} max={bn?bn.pct_max:20} min={bn?bn.pct_min:0}/></tr>})}
 <tr><td style={{...rR,borderLeft:`3px solid ${COLORS.warn}`}}>Resultado <Sp fn={ms=>po(re(ms),iM(ms))}/></td><Cells fn={ms=>po(re(ms),iM(ms))} pct sign/></tr>
 {sp}
 {sH('RATIOS',COLORS.ok)}{rA() as any}
-<tr style={{background:RB}}><td style={ratioRow}>Margen bruto <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Ingresos netos − Producto)</span></td><Cells fn={mB} pctFn={ms=>po(mB(ms),iM(ms))} sign vc={COLORS.ok} rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={ratioRow}>Food Cost % <span style={{fontSize:10,color:COLORS.mut}}>(Producto / Ingresos netos)</span></td><Cells fn={ms=>po(gP('2.1',ms),iM(ms))} pct rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={ratioRow}>Labor Cost % <span style={{fontSize:10,color:COLORS.mut}}>(Equipo / Ingresos netos)</span></td><Cells fn={ms=>po(gP('2.2',ms),iM(ms))} pct rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={ratioRow}>Ratio Ingresos/Gastos <span style={{fontSize:10,color:COLORS.mut}}>(€ ingresado por € gastado)</span></td><Cells fn={ms=>{const g=gT(ms);return g?iM(ms)/g:0}} rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={ratioRow}>Coste por pedido <span style={{fontSize:10,color:COLORS.mut}}>(Total gastos / Pedidos)</span></td><CR fn={ms=>{const p=pe(ms);return p?gT(ms)/p:0}} rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={{...ratioRow,paddingLeft:20,fontSize:13,color:COLORS.mut,fontStyle:'italic',fontWeight:400}}>— Fijos/pedido</td><CR fn={ms=>{const p=pe(ms);return p?gF(ms)/p:0}} rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={{...ratioRow,paddingLeft:20,fontSize:13,color:COLORS.mut,fontStyle:'italic',fontWeight:400}}>— Variables/pedido</td><CR fn={ms=>{const p=pe(ms);return p?gV(ms)/p:0}} rz/></tr>
-<tr style={{background:aB()}} {...hv}><td style={ratioRow}>Margen neto por pedido <span style={{fontSize:10,color:COLORS.mut}}>(Resultado / Pedidos)</span></td><CR fn={ms=>{const p=pe(ms);return p?re(ms)/p:0}} rz/></tr>
-<tr><td style={{...t1,fontFamily:FONT.heading,fontSize:14,textTransform:'uppercase',color:BL,fontWeight:600,background:'rgba(30,91,204,.04)',borderTop:'2px dashed #1E5BCC',borderBottom:'2px dashed #1E5BCC',borderLeft:`3px solid ${BL}`}}>Break-even <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Mínimo para cubrir fijos)</span></td><Cells fn={gF}/></tr>
-<tr style={{background:RB}} {...hv}><td style={{...r1(COLORS.ok),fontFamily:FONT.heading,fontSize:14,textTransform:'uppercase',fontWeight:700}}>Coste directo <span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>(Producto + Equipo · obj &lt;60%)</span></td><Cells fn={cD} pct rz alertMax={60}/></tr>
+<tr style={{background:RB}}><td style={rRow(RATIO_COLORS.margen)}>MARGEN BRUTO <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(IN − Producto)</span></td><Cells fn={mB} pctFn={ms=>po(mB(ms),iM(ms))} sign vc={COLORS.ok} rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={rRow(RATIO_COLORS.food)}>FOOD COST % <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Producto / IN)</span></td><Cells fn={ms=>po(gP('2.1',ms),iM(ms))} pct rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={rRow(RATIO_COLORS.labor)}>LABOR COST % <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Equipo / IN)</span></td><Cells fn={ms=>po(gP('2.2',ms),iM(ms))} pct rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={rRow(RATIO_COLORS.ratio)}>RATIO ING/GASTOS <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(€ por € gastado)</span></td><Cells fn={ms=>{const g=gT(ms);return g?Math.round(iM(ms)/g*100)/100:0}} rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={rRow(RATIO_COLORS.coste)}>COSTE POR PEDIDO <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Gastos / Pedidos)</span></td><CR fn={ms=>{const p=pe(ms);return p?gT(ms)/p:0}} rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={{...rRow(RATIO_COLORS.coste),paddingLeft:20,fontSize:12,fontWeight:400,fontStyle:'italic',color:COLORS.mut}}>— Fijos/pedido</td><CR fn={ms=>{const p=pe(ms);return p?gF(ms)/p:0}} rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={{...rRow(RATIO_COLORS.coste),paddingLeft:20,fontSize:12,fontWeight:400,fontStyle:'italic',color:COLORS.mut}}>— Variables/pedido</td><CR fn={ms=>{const p=pe(ms);return p?gV(ms)/p:0}} rz/></tr>
+<tr style={{background:aB()}} {...hv}><td style={rRow(RATIO_COLORS.neto)}>MARGEN NETO/PEDIDO <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Resultado / Pedidos)</span></td><CR fn={ms=>{const p=pe(ms);return p?re(ms)/p:0}} rz/></tr>
+<tr><td style={{...t1,fontFamily:FONT.heading,fontSize:14,textTransform:'uppercase',color:BL,fontWeight:700,background:'rgba(30,91,204,.06)',borderTop:'2px dashed #1E5BCC',borderBottom:'2px dashed #1E5BCC',borderLeft:`3px solid ${BL}`}}>BREAK-EVEN <span style={{fontSize:10,color:COLORS.mut,fontWeight:400}}>(Mínimo para cubrir fijos)</span></td><Cells fn={gF}/></tr>
+<tr style={{background:RB}} {...hv}><td style={rRow(RATIO_COLORS.directo)}>COSTE DIRECTO <span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>(Producto + Equipo · obj &lt;60%)</span></td><Cells fn={cD} pct rz alertMax={60}/></tr>
 <tr><td colSpan={99} style={{height:14,border:'none',background:COLORS.bg,padding:0}}/></tr>
-{sH('Detalle por categoría',COLORS.mut,<button onClick={()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}} style={{float:'right',padding:'2px 8px',borderRadius:5,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontFamily:FONT.body,fontSize:11,color:COLORS.mut,cursor:'pointer'}}>{aO?'▴ Colapsar':'▾ Expandir'}</button>)}{rA() as any}
+{sH('Detalle por categoría',COLORS.mut,<button onClick={()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}} style={{float:'right',padding:'2px 8px',borderRadius:5,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontFamily:FONT.body,fontSize:11,color:COLORS.mut,cursor:'pointer'}}>{aO?'▴ Colapsar todo':'▾ Expandir todo'}</button>)}{rA() as any}
+{detHeaders}
 <tr style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1':!p['1']}))}><td style={gR}>{det['1']?'▾':'▸'} 1 · Ingresos por operación</td><Cells fn={iM}/></tr>
 {det['1']&&<>
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.1 · Ingresos netos por ventas</td><Cells fn={iT}/></tr>
@@ -133,10 +135,9 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 {grupos.map(g=>{const bn=gB(g.id);const bL=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const sN=cN2.filter(c=>c.parent_id===g.id);const nm=LBL[g.id]||g.nombre;const op=!!det[g.id];return[
 <tr key={`h-${g.id}`} style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,[g.id]:!p[g.id]}))}><td style={gR}>{op?'▾':'▸'} {g.id} · {nm}<span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>{bL}</span></td><Cells fn={ms=>gP(g.id,ms)} pctFn={ms=>po(gP(g.id,ms),iM(ms))}/></tr>,
 ...(op?sN.flatMap(sub=>{const ch=cCh(sub.id);return[
-<tr key={sub.id} style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>{sub.id} · {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)} pctFn={ms=>po(sumCatMeses(gastos,sub.id,ms),iM(ms))}/></tr>,
-...ch.filter(c=>vi(c.nombre)).map(c=><tr key={c.id} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:28,color:COLORS.mut,fontSize:14}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(gastos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(gastos[c.id]||{},ms),iM(ms))}/></tr>),
-<tr key={`st-${sub.id}`} style={{background:'#f0ede7'}}><td style={{...t1,paddingLeft:14,fontWeight:600,color:COLORS.mut,fontSize:13}}>Subtotal {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)}/></tr>
+<tr key={sub.id} style={{background:aB(),cursor:'pointer'}} onClick={()=>sD(p=>({...p,[sub.id]:!p[sub.id]}))}><td style={{...t1,paddingLeft:14,fontWeight:600}}>{det[sub.id]!==false?'▾':'▸'} {sub.id} · {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)} pctFn={ms=>po(sumCatMeses(gastos,sub.id,ms),iM(ms))}/></tr>,
+...(det[sub.id]!==false?ch.filter(c=>vi(c.nombre)).map(c=><tr key={c.id} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:28,color:COLORS.mut,fontSize:14}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(gastos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(gastos[c.id]||{},ms),iM(ms))}/></tr>):[]),
 ].filter(Boolean)}):[]),
-...(op?[<tr key={`t-${g.id}`}><td style={gR}>{g.id} Total {nm}</td><Cells fn={ms=>gP(g.id,ms)} pctFn={ms=>po(gP(g.id,ms),iM(ms))}/></tr>]:[]),sp].filter(Boolean)}).flat()}
+sp].filter(Boolean)}).flat()}
 </tbody></table></div></div></div>)
 }
