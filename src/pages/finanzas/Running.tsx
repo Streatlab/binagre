@@ -1,4 +1,4 @@
-import{useState,useMemo,useRef,useCallback,useEffect}from'react'
+import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses}from'@/hooks/useRunningAnual'
 import{useTitular}from'@/contexts/TitularContext'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
@@ -9,7 +9,6 @@ const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
 const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.4':'CONTROLABLES','2.41':'MARKETING','2.42':'INTERNET_VENTAS','2.43':'ADMIN_GENERALES','2.44':'SUMINISTROS'}
 const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables'}
 const RATIO_COLORS:Record<string,string>={'margen':COLORS.ok,'food':'#f5a623','labor':'#1E5BCC','ratio':'#B01D23','coste':'#E24B4A','neto':COLORS.ok,'be':'#1E5BCC','directo':'#f5a623'}
-const COM:Record<string,number>={uber:.30,glovo:.32,je:.28,web:.05,directa:0}
 const cM=new Date().getMonth()+1,BL='#1E5BCC'
 const Q_MES=['#f5f0dc','#e0f0e4','#ece0f0','#f5e8d8']
 const Q_TOT=['#ede5c4','#c8e4cf','#dcc8e8','#ebd4b8']
@@ -35,7 +34,8 @@ const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const midRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
-const{ingresos,gastos,brutos,diasOp,categorias,benchmarks,loading}=useRunningAnual(año,tId)
+const{ingresos,gastos,brutos,categorias,benchmarks,comisiones,loading}=useRunningAnual(año,tId)
+const COM={uber:comisiones.uber||0,glovo:comisiones.glovo||0,je:comisiones.je||0,web:comisiones.web||0,directa:comisiones.directa||0}
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const mid=midRef.current;if(!main||!mid)return
@@ -96,13 +96,12 @@ const gR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:14,letterSp
 const tR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.redSL,fontWeight:700,background:`${COLORS.redSL}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const rR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:16,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.ok,fontWeight:700,background:`${COLORS.ok}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.bg,padding:0}}/></tr>
-const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
+const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 const tW=2200
-/* Filas desglose plataforma — informativas, no suman PyG */
 const platHeader=(name:string,color:string)=><tr><td colSpan={99} style={{...t1,background:`${color}10`,fontFamily:FONT.heading,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',color:color,padding:'6px 5px 3px',borderLeft:`3px solid ${color}`,fontWeight:700}}>{name}</td></tr>
-const platRow=(label:string,plat:string,field:keyof ResRow,negative?:boolean,color?:string)=><tr {...hv}><td style={{...t1,paddingLeft:14,fontSize:13,color:color||COLORS.mut}}>{label}</td>{vc.map((c,i)=>{const v=rSum(plat,field,c.ms);const cv=v?(negative?-v:v):0;const st=td0(c);return[<td key={i} style={{...st,color:color||(negative?COLORS.err:COLORS.sec),fontFamily:v?FONT.heading:st.fontFamily,...(v?nZ(c):{})}}>{v?(negative?'−':'')+fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+const platRow=(label:string,plat:string,field:keyof ResRow,negative?:boolean,color?:string)=><tr {...hv}><td style={{...t1,paddingLeft:14,fontSize:13,color:color||COLORS.mut}}>{label}</td>{vc.map((c,i)=>{const v=rSum(plat,field,c.ms);const st=td0(c);return[<td key={i} style={{...st,color:color||(negative?COLORS.err:COLORS.sec),fontFamily:v?FONT.heading:st.fontFamily,...(v?nZ(c):{})}}>{v?(negative?'−':'')+fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
 return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:6}}>
 <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>RUNNING {año}</h2>
