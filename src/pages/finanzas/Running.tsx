@@ -1,4 +1,4 @@
-import{useState,useMemo,useRef,useCallback}from'react'
+import{useState,useMemo,useRef,useCallback,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses}from'@/hooks/useRunningAnual'
 import{useTitular}from'@/contexts/TitularContext'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
@@ -10,15 +10,17 @@ const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','
 const RATIO_COLORS:Record<string,string>={'margen':COLORS.ok,'food':'#f5a623','labor':'#1E5BCC','ratio':'#B01D23','coste':'#E24B4A','neto':COLORS.ok,'be':'#1E5BCC','directo':'#f5a623'}
 const COM:Record<string,number>={uber:.30,glovo:.32,je:.28,web:.05,directa:0}
 const cM=new Date().getMonth()+1,BL='#1E5BCC'
-const QBG=['rgba(30,91,204,.07)','rgba(29,158,117,.07)','rgba(245,166,35,.07)','rgba(176,29,35,.07)']
-const QHD=['rgba(30,91,204,.15)','rgba(29,158,117,.15)','rgba(245,166,35,.15)','rgba(176,29,35,.15)']
-const QCL=['#1E5BCC','#1D9E75','#f5a623','#B01D23']
-const CUR_BG='rgba(30,91,204,.15)'
+/* Colores trimestre: 1T amarillo palo, 2T verde claro, 3T morado claro, 4T naranja claro */
+const Q_MES=['#f5f0dc','#e0f0e4','#ece0f0','#f5e8d8']
+const Q_TOT=['#ede5c4','#c8e4cf','#dcc8e8','#ebd4b8']
+const Q_RES=['#e6ddb0','#b4d8ba','#cdb4dc','#e0c4a0']
+const Q_HDR=['#ddd4a0','#a0ccaa','#bea0d0','#d4b490']
+const QCL=['#8a7a20','#1D9E75','#7a40a0','#c07020']
+const CUR_BG='rgba(30,91,204,.20)'
 const fI=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'−':'')+Math.round(a).toLocaleString('es-ES',{useGrouping:true})}
 const fD=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'−':'')+a.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:true})}
 const fP=(v:number)=>v?`${v.toFixed(1)}%`:'—'
 const po=(p:number,t:number)=>t?(p/t)*100:0
-const CA=`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`
 const DESV_PCT=5
 export default function Running(){
 const{filtro,titulares}=useTitular()
@@ -28,12 +30,18 @@ const[qO,sQ]=useState<Record<number,boolean>>(()=>{const q=Math.ceil(cM/3);retur
 const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
 const[aO,sAO]=useState(true)
 const mainRef=useRef<HTMLDivElement>(null)
-const topRef=useRef<HTMLDivElement>(null)
+const midRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
 const{ingresos,gastos,brutos,diasOp,categorias,benchmarks,loading}=useRunningAnual(año,tId)
-/* Scroll sync callbacks — no useEffect, direct onScroll */
-const onMainScroll=useCallback(()=>{if(mainRef.current&&topRef.current)topRef.current.scrollLeft=mainRef.current.scrollLeft},[])
-const onTopScroll=useCallback(()=>{if(topRef.current&&mainRef.current)mainRef.current.scrollLeft=topRef.current.scrollLeft},[])
+/* Scroll: barra flotante a mitad de pantalla, sincronizada con tabla principal */
+useEffect(()=>{
+const main=mainRef.current;const mid=midRef.current;if(!main||!mid)return
+let lock=false
+const syncA=()=>{if(lock)return;lock=true;mid.scrollLeft=main.scrollLeft;lock=false}
+const syncB=()=>{if(lock)return;lock=true;main.scrollLeft=mid.scrollLeft;lock=false}
+main.addEventListener('scroll',syncA);mid.addEventListener('scroll',syncB)
+return()=>{main.removeEventListener('scroll',syncA);mid.removeEventListener('scroll',syncB)}
+},[])
 const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
 const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
 const gT=(ms:number[])=>gP('2.',ms)
@@ -57,24 +65,22 @@ const vc=cols.filter(c=>!c.hid||c.isY)
 const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
 const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
 const cQ=(c:Col)=>{for(let q=1;q<=4;q++){if(c.isQ&&c.qn===q)return q;if(!c.isQ&&!c.isY&&QM[q].includes(c.ms[0]))return q};return 0}
-/* colBg: SIEMPRE devuelve color de trimestre para TODAS las celdas */
-const colBg=(c:Col):string=>{if(c.isCur&&!c.isQ&&!c.isY)return CUR_BG;const q=cQ(c);if(c.isQ&&q)return QHD[q-1];if(c.isY)return`${COLORS.redSL}10`;if(q)return QBG[q-1];return'transparent'}
-const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?700:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 4px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?'#fff':COLORS.mut),background:c.isCur&&!qy?BL:colBg(c),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
+/* colBg: amarillo/verde/morado/naranja por trimestre, resumen más intenso */
+const colBg=(c:Col,resumen?:boolean):string=>{if(c.isCur&&!c.isQ&&!c.isY)return CUR_BG;const q=cQ(c);if(c.isQ&&q)return Q_TOT[q-1];if(c.isY)return'transparent';if(q)return resumen?Q_RES[q-1]:Q_MES[q-1];return'transparent'}
+const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?700:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 4px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:2,cursor:c.isQ?'pointer':'default',userSelect:'none',color:qy?(c.isY?COLORS.redSL:QCL[q-1]):(c.isCur?'#fff':COLORS.mut),background:c.isCur&&!qy?BL:(c.isQ&&q?Q_HDR[q-1]:(c.isY?`${COLORS.redSL}14`:(q?Q_MES[q-1]:COLORS.bg))),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
 const th1:React.CSSProperties={fontFamily:FONT.heading,fontSize:12,fontWeight:600,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',textAlign:'left',padding:'4px 5px',background:COLORS.bg,borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',left:0,top:0,zIndex:6,minWidth:210}
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,color:c.isCur?'rgba(255,255,255,.7)':(COLORS.mut+'70'),minWidth:28,padding:'4px 1px'})
-const td0=(c:Col):React.CSSProperties=>{const qy=c.isQ||c.isY;return{padding:'1px 4px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:colBg(c),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
+const td0=(c:Col,resumen?:boolean):React.CSSProperties=>{const qy=c.isQ||c.isY;return{padding:'1px 4px',fontSize:16,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:colBg(c,resumen),...(c.isY?{borderLeft:`4px solid ${COLORS.redSL}`,paddingLeft:8}:{})}}
 const t1:React.CSSProperties={padding:'1px 5px',fontSize:15,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:1,verticalAlign:'middle',background:'#fff'}
-const tdP=(c:Col):React.CSSProperties=>({...td0(c),fontSize:12,color:COLORS.mut+'90',padding:'1px 1px',minWidth:28})
+const tdP=(c:Col,resumen?:boolean):React.CSSProperties=>({...td0(c,resumen),fontSize:12,color:COLORS.mut+'90',padding:'1px 1px',minWidth:28})
 const nZ=(c:Col,rz?:boolean):React.CSSProperties=>({fontFamily:FONT.heading,fontSize:c.isY?(rz?24:20):(c.isQ?(rz?20:17):(c.isCur?(rz?19:17):(rz?18:16))),fontWeight:c.isY?700:(c.isQ||c.isCur?600:500),letterSpacing:'0.3px'})
-const RB='#fdf6ed'
-const r1=(bc?:string):React.CSSProperties=>({...t1,background:RB,borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:15})
-/* rC: usa colBg siempre, NO sobreescribe con RB */
-const rC=(c:Col):React.CSSProperties=>({...td0(c)})
+const r1=(bc?:string):React.CSSProperties=>({...t1,background:'#fff',borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:15})
+const rC=(c:Col):React.CSSProperties=>({...td0(c,true)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
-const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily}}>{pct?fP(v):v?fI(v):'—'}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11,animation:'pulse 2s infinite'}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
-const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=c.isY?20:(c.isQ?17:16);return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:c.isY?700:(c.isQ?600:500)}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
-const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const v=rv||e;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2}}>(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
-const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:14,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
+const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily}}>{pct?fP(v):v?fI(v):'—'}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c,rz),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c,rz)}/>]})}</>)
+const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=c.isY?20:(c.isQ?17:16);return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:c.isY?700:(c.isQ?600:500)}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
+const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const v=rv||e;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2}}>(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
+const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:14,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentroRango=v>=mn&&v<=max;const cerca=!dentroRango&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentroRango?COLORS.ok:(cerca?COLORS.warn:'#E24B4A');const pctBar=Math.min(v,100);return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,display:'flex',overflow:'hidden',marginTop:1}}><div style={{height:5,background:bc,width:`${pctBar}%`,borderRadius:'3px 0 0 3px',transition:'width 0.4s ease'}}/><div style={{height:5,background:'#E24B4A',flex:1,borderRadius:'0 3px 3px 0'}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
 const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const mx=Math.max(...vs.map(v=>Math.abs(v)),1);return<span style={{display:'inline-flex',alignItems:'flex-end',gap:1,height:16,verticalAlign:'middle',marginLeft:6}}>{vs.map((v,i)=><span key={i} style={{width:3,borderRadius:'1px 1px 0 0',height:`${Math.max(Math.abs(v)/mx*16,v?1:0)}px`,background:v>0?COLORS.ok:v<0?COLORS.err:COLORS.brd}}/>)}</span>}
 if(loading)return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>Running {año}</h2><p style={{fontFamily:FONT.body,fontSize:14,color:COLORS.mut,marginTop:4}}>Cargando…</p></div>)
@@ -91,7 +97,7 @@ const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,p
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 const tW=2200
-return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}><style>{CA}</style>
+return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:6}}>
 <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>RUNNING {año}</h2>
 <div style={{display:'flex',gap:4,alignItems:'center'}}>
@@ -100,10 +106,10 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <span style={{color:COLORS.brd}}>|</span>
 <div style={{...TABS_PILL.container}}>{[{id:null as string|null,label:'Todos'},...titulares.map(t=>({id:t.id as string|null,label:t.nombre}))].map(t=><button key={t.id||'all'} style={(t.id===tId||(t.id===null&&!tId))?TABS_PILL.active:TABS_PILL.inactive} onClick={()=>{}}>{t.label}</button>)}</div>
 </div></div>
-<div style={{...CARDS.std,padding:0,overflowX:'visible',overflowY:'visible'}}>
-{/* Scrollbar arriba sincronizada */}
-<div ref={topRef} onScroll={onTopScroll} style={{overflowX:'auto',overflowY:'hidden',height:14,borderBottom:`1px solid ${COLORS.brd}40`}}><div style={{width:tW,height:1}}/></div>
-<div ref={mainRef} onScroll={onMainScroll} style={{overflowX:'auto'}}>
+{/* Scroll flotante fijo — siempre visible a mitad de pantalla */}
+<div ref={midRef} style={{position:'sticky',top:'50vh',zIndex:20,overflowX:'auto',overflowY:'hidden',height:14,background:'rgba(245,243,239,.9)',borderRadius:7,border:`1px solid ${COLORS.brd}40`,marginBottom:-14}}><div style={{width:tW,height:1}}/></div>
+<div style={{...CARDS.std,padding:0,overflow:'visible'}}>
+<div ref={mainRef} style={{overflowX:'auto'}}>
 <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0,minWidth:tW}}>
 <thead><tr><th style={th1}>PyG</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr></thead>
 <tbody>
