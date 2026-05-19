@@ -8,7 +8,16 @@ export interface RunningAnualData {
   diasOp: Record<number, number>
   categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
   benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
+  comisiones: Record<string, number>
   loading: boolean
+}
+
+const CANAL_MAP: Record<string, string> = {
+  'Uber Eats': 'uber',
+  'Glovo': 'glovo',
+  'Just Eat': 'je',
+  'Web Propia': 'web',
+  'Venta Directa': 'directa',
 }
 
 export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
@@ -18,6 +27,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [diasOp, setDiasOp] = useState<Record<number, number>>({})
   const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
   const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
+  const [comisiones, setComisiones] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -53,14 +63,21 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
 
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
+      const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct').eq('activo',true)
 
-      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setLoading(false) }
+      const comMap: Record<string, number> = {}
+      ;(dCom || []).forEach((r: any) => {
+        const key = CANAL_MAP[r.canal]
+        if (key) comMap[key] = Number(r.comision_pct || 0)
+      })
+
+      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setLoading(false) }
     }
     load()
     return () => { cancelled = true }
   }, [año, titularId])
 
-  return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, loading }
+  return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, comisiones, loading }
 }
 
 export function sumMeses(map: Record<number, number>, meses: number[]): number {
