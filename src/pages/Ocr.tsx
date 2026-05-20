@@ -24,7 +24,6 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// Extensiones aceptadas. ZIP se descomprime en cliente (incl. anidados).
 const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
 const EXT_ZIP = ['zip']
@@ -32,9 +31,11 @@ const EXT_ACEPTADAS_FACTURAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
 const EXT_ACEPTADAS_EXTRACTOS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
 const EXT_ACEPTADAS_OTROS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
 
-const ACCEPT_FACTURAS = EXT_ACEPTADAS_FACTURAS.map(e => `.${e}`).join(',')
-const ACCEPT_EXTRACTOS = EXT_ACEPTADAS_EXTRACTOS.map(e => `.${e}`).join(',')
-const ACCEPT_OTROS = EXT_ACEPTADAS_OTROS.map(e => `.${e}`).join(',')
+// FIX: en iOS Safari, accept con muchas extensiones abre Drive por defecto en lugar del picker nativo.
+// Detectamos el caso y dejamos accept vacío para forzar picker nativo completo.
+const ACCEPT_FACTURAS = ''
+const ACCEPT_EXTRACTOS = ''
+const ACCEPT_OTROS = ''
 
 const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'historica', 'solo_drive'])
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
@@ -51,7 +52,6 @@ type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
 function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) }
 
-// Cargar JSZip desde CDN (lazy)
 async function cargarJSZip(): Promise<any> {
   if ((window as any).JSZip) return (window as any).JSZip
   await new Promise<void>((res, rej) => {
@@ -142,9 +142,12 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
     transition: 'background 0.15s', opacity: preparando ? 0.6 : 1
   }
 
+  // Construir accept solo si está disponible. Si vacío, omitir el atributo (picker nativo completo)
+  const acceptProps = accept ? { accept } : {}
+
   return (
     <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
-      <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
+      <input ref={inputFileRef} type="file" multiple {...acceptProps} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
       <input
         ref={inputFolderRef}
         type="file"
