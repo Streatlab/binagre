@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase'
 export interface RunningAnualData {
   ingresos: Record<string, Record<number, number>>
   gastos: Record<string, Record<number, number>>
-  gastosPagados: Record<string, Record<number, number>>
   gastosEstimados: Record<string, Record<number, boolean>>
   facturacionFutura: Record<number, { importe: number; origen: 'objetivo'|'anyo_anterior'|'mes_anterior' }>
   brutos: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number; total:number; pedidos:number }>
@@ -28,13 +27,31 @@ const CANAL_MAP: Record<string, string> = {
 
 const IVA = 0.21
 
-// Categorías de gastos fijos que se estiman (mismo valor mes anterior si no hay del mes)
-const CATS_ESTIMABLES_FIJOS = ['2.31','2.32','2.33','2.34','2.3','2.21','2.22']
+// Keywords (case-insensitive sobre nombre de categoría) que marcan una categoría como fija estimable.
+// Si el mes no tiene factura y es mes pasado/presente, se rellena con el valor del mes anterior.
+const KW_ESTIMABLES: string[] = [
+  'sueldo','salario','nomina','nómina',
+  'autonomo','autónomo','cuota ss','seguridad social',
+  'alquiler','irpf','retencion alquiler','retención alquiler',
+  'seguro local','seguro responsabilidad',
+  'hosting','dominio',
+  'sinqro','rushour',
+  'gestoria','gestoría','asesoria','asesoría',
+  'electricidad','luz',
+  'gas',
+  'agua',
+  'telefono','teléfono','internet'
+]
+
+function esCategoriaEstimable(nombre: string): boolean {
+  if (!nombre) return false
+  const n = nombre.toLowerCase()
+  return KW_ESTIMABLES.some(kw => n.includes(kw))
+}
 
 export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
   const [ingresos, setIngresos] = useState<Record<string, Record<number, number>>>({})
   const [gastos, setGastos] = useState<Record<string, Record<number, number>>>({})
-  const [gastosPagados, setGastosPagados] = useState<Record<string, Record<number, number>>>({})
   const [gastosEstimados, setGastosEstimados] = useState<Record<string, Record<number, boolean>>>({})
   const [facturacionFutura, setFacturacionFutura] = useState<RunningAnualData['facturacionFutura']>({})
   const [brutos, setBrutos] = useState<RunningAnualData['brutos']>({})
@@ -58,33 +75,29 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const ingMap: Record<string, Record<number, number>> = {}
       ;(dIng || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!ingMap[cat]) ingMap[cat] = {}; ingMap[cat][mes] = (ingMap[cat][mes]||0) + Number(r.importe||0) })
 
-      // GASTOS por factura (tabla gastos, base_imponible)
+      // GASTOS = SIEMPRE por factura (tabla gastos, base_imponible). NUNCA por banco.
       let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
       if (titularId) qGas = qGas.eq('titular_id', titularId)
       const { data: dGas } = await qGas
       const gasMap: Record<string, Record<number, number>> = {}
       ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
 
-      // PUNTO 14: GASTOS REALES pagados banco (conciliacion tipo=gasto)
-      let qGasPag = supabase.from('conciliacion').select('fecha,categoria,importe').eq('tipo','gasto').like('categoria','2.%').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
-      if (titularId) qGasPag = qGasPag.eq('titular_id', titularId)
-      const { data: dGasPag } = await qGasPag
-      const gasPagMap: Record<string, Record<number, number>> = {}
-      ;(dGasPag || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!gasPagMap[cat]) gasPagMap[cat] = {}; gasPagMap[cat][mes] = (gasPagMap[cat][mes]||0) + Math.abs(Number(r.importe||0)) })
+      // Categorías PyG (necesario para detectar estimables por nombre)
+      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
+      const cats = dCat || []
 
-      // PUNTO 18: GASTOS ESTIMADOS (fijos sin factura del mes → valor mes anterior)
+      // PUNTO 18: GASTOS ESTIMADOS (categorías fijas detectadas por nombre, mes sin factura → valor mes anterior)
       const gasEstMap: Record<string, Record<number, boolean>> = {}
       const mesActual = new Date().getMonth() + 1
       const anioActual = new Date().getFullYear()
-      for (const cat of CATS_ESTIMABLES_FIJOS) {
+      const codigosEstimables = cats.filter((c:any) => esCategoriaEstimable(c.nombre)).map((c:any) => c.id)
+      for (const cat of codigosEstimables) {
         if (!gasMap[cat]) gasMap[cat] = {}
         if (!gasEstMap[cat]) gasEstMap[cat] = {}
         for (let mes = 1; mes <= 12; mes++) {
-          // Si no hay factura del mes Y es mes pasado o presente del año actual
           const sinFactura = !gasMap[cat][mes] || gasMap[cat][mes] === 0
           const esMesElegible = año < anioActual || (año === anioActual && mes <= mesActual)
           if (sinFactura && esMesElegible) {
-            // Buscar mes anterior con valor
             for (let mPrev = mes - 1; mPrev >= 1; mPrev--) {
               if (gasMap[cat][mPrev] && gasMap[cat][mPrev] > 0) {
                 gasMap[cat][mes] = gasMap[cat][mPrev]
@@ -114,23 +127,16 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
-      // PUNTO 17: CASCADA FACTURACION FUTURA
-      // Para meses futuros sin bruto real:
-      // 1. Buscar Objetivos del mes
-      // 2. Si no hay, buscar mismo mes año anterior
-      // 3. Si no hay, usar mes anterior
+      // PUNTO 17: CASCADA FACTURACION FUTURA → Objetivos > Mismo mes año anterior > Mes anterior
       const facFutMap: RunningAnualData['facturacionFutura'] = {}
-      // Objetivos del año
-      const { data: dObj } = await supabase.from('objetivos').select('mes,facturacion_objetivo').eq('año', año).maybeSingle ? supabase.from('objetivos').select('mes,facturacion_objetivo').eq('año', año) : { data: [] } as any
+      const { data: dObj } = await supabase.from('objetivos').select('mes,facturacion_objetivo').eq('año', año)
       const objMap: Record<number, number> = {}
       ;(dObj || []).forEach((r: any) => { if (r.mes && r.facturacion_objetivo) objMap[r.mes] = Number(r.facturacion_objetivo || 0) })
-      // Brutos año anterior
       let qBrutPrev = supabase.from('facturacion_diario').select('fecha,total_bruto').gte('fecha',`${año-1}-01-01`).lte('fecha',`${año-1}-12-31`)
       if (titularId) qBrutPrev = qBrutPrev.eq('titular_id', titularId)
       const { data: dBrutPrev } = await qBrutPrev
       const brutPrevMap: Record<number, number> = {}
       ;(dBrutPrev || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; brutPrevMap[mes] = (brutPrevMap[mes]||0) + Number(r.total_bruto||0) })
-      // Aplicar cascada solo a meses futuros del año en curso o años futuros
       for (let mes = 1; mes <= 12; mes++) {
         const brutoReal = brutMap[mes]?.total || 0
         const esFuturo = año > anioActual || (año === anioActual && mes > mesActual)
@@ -140,7 +146,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
           } else if (brutPrevMap[mes] && brutPrevMap[mes] > 0) {
             facFutMap[mes] = { importe: brutPrevMap[mes], origen: 'anyo_anterior' }
           } else {
-            // Mes anterior (real o estimado previamente)
             for (let mPrev = mes - 1; mPrev >= 1; mPrev--) {
               const prevReal = brutMap[mPrev]?.total || 0
               const prevEst = facFutMap[mPrev]?.importe || 0
@@ -154,7 +159,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
         }
       }
 
-      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
       const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct,fijo_eur,coste_fijo,fee_periodo_eur,fee_periodicidad').eq('activo',true)
       const { count: marcasCount } = await supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activo', true)
@@ -174,7 +178,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       })
 
       if (!cancelled) {
-        setIngresos(ingMap); setGastos(gasMap); setGastosPagados(gasPagMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setMarcasActivas(marcasCount && marcasCount > 0 ? marcasCount : 1); setLoading(false)
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setMarcasActivas(marcasCount && marcasCount > 0 ? marcasCount : 1); setLoading(false)
       }
     }
     load()
@@ -188,13 +192,9 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
 
-  return { ingresos, gastos, gastosPagados, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, marcasActivas, loading }
+  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, marcasActivas, loading }
 }
 
-/**
- * Calcula neto cobrado COMPLETO para un canal:
- *   neto = bruto - (comision%·bruto + fijo€·pedidos + fee_periodo·periodos·marcas) × (1 + IVA)
- */
 export function calcNetoCanal(
   canalKey: 'uber'|'glovo'|'je'|'web'|'directa',
   bruto: number,
