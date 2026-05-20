@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
+import { useConfig } from '@/hooks/useConfig'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
@@ -92,16 +93,21 @@ function barColor(pct: number): string {
   return pct > 0 ? '#1D9E75' : '#E24B4A'
 }
 
-// TODO: sustituir por datos reales de neto cuando estén disponibles en Supabase
-function calcNetoEstimado(bruto: number): number {
-  const COM_MEDIA = 0.327
-  return Math.max(0, bruto * (1 - COM_MEDIA))
-}
-const PCT_NETO_EST = Math.round((1 - 0.327) * 100)
-
 export default function Objetivos() {
   const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
+  const { canales } = useConfig()
+
+  // Calcula comisión media ponderada de canales activos (lee config_canales BBDD, sin hardcode)
+  const COM_MEDIA = useMemo(() => {
+    const activos = canales.filter(c => c.activo && c.comision_pct > 0)
+    if (activos.length === 0) return 0.30
+    const sum = activos.reduce((a, c) => a + (c.comision_pct / 100), 0)
+    return sum / activos.length
+  }, [canales])
+
+  const calcNetoEstimado = useCallback((bruto: number) => Math.max(0, bruto * (1 - COM_MEDIA)), [COM_MEDIA])
+  const PCT_NETO_EST = Math.round((1 - COM_MEDIA) * 100)
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
@@ -276,7 +282,7 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentYear]
   )
-  const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo])
+  const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo, calcNetoEstimado])
 
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
   const sumaMes = useMemo(() => {
@@ -355,7 +361,7 @@ export default function Objetivos() {
 
   const INCUMPLIDO = '#E24B4A'
   const VERDE = '#1D9E75'
-  const KPI_SIZE = 36 // tamaño único para bruto y neto
+  const KPI_SIZE = 36
 
   const inputSelectStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
@@ -468,13 +474,11 @@ export default function Objetivos() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            {/* CARD VENTAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
 
-              {/* Bruto negro + neto verde — MISMO tamaño */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
                   {fmtNumES(ventasPeriodo, 2)}
@@ -483,7 +487,6 @@ export default function Objetivos() {
                   <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: VERDE, lineHeight: 1, letterSpacing: '-0.5px' }}>
                     {fmtNumES(netoEstPeriodo, 2)}
                   </span>
-                  {/* TODO: quitar badge cuando haya neto real en Supabase */}
                   <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
                     NETO EST. {PCT_NETO_EST}%
                   </span>
@@ -499,7 +502,6 @@ export default function Objetivos() {
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
             </div>
 
-            {/* CARD DÍAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>
@@ -584,7 +586,6 @@ export default function Objetivos() {
 
           </div>
 
-          {/* HISTÓRICO — con € */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>
