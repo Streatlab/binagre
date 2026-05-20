@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { calcNetoPorCanal, loadConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
 
 export interface RunningAnualData {
   ingresos: Record<string, Record<number, number>>
@@ -13,19 +14,10 @@ export interface RunningAnualData {
   benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
   comisiones: Record<string, number>
   feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
+  configCanales: Record<string, CanalConfig>
   marcasActivas: number
   loading: boolean
 }
-
-const CANAL_MAP: Record<string, string> = {
-  'Uber Eats': 'uber',
-  'Glovo': 'glovo',
-  'Just Eat': 'je',
-  'Web Propia': 'web',
-  'Venta Directa': 'directa',
-}
-
-const IVA = 0.21
 
 // Keywords (case-insensitive sobre nombre de categoría) que marcan una categoría como fija estimable.
 // Si el mes no tiene factura y es mes pasado/presente, se rellena con el valor del mes anterior.
@@ -61,6 +53,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
   const [comisiones, setComisiones] = useState<Record<string, number>>({})
   const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
+  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasActivas, setMarcasActivas] = useState<number>(1)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
@@ -82,11 +75,9 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const gasMap: Record<string, Record<number, number>> = {}
       ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
 
-      // Categorías PyG (necesario para detectar estimables por nombre)
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const cats = dCat || []
 
-      // PUNTO 18: GASTOS ESTIMADOS (categorías fijas detectadas por nombre, mes sin factura → valor mes anterior)
       const gasEstMap: Record<string, Record<number, boolean>> = {}
       const mesActual = new Date().getMonth() + 1
       const anioActual = new Date().getFullYear()
@@ -127,7 +118,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
-      // PUNTO 17: CASCADA FACTURACION FUTURA → Objetivos > Mismo mes año anterior > Mes anterior
       const facFutMap: RunningAnualData['facturacionFutura'] = {}
       const { data: dObj } = await supabase.from('objetivos').select('mes,facturacion_objetivo').eq('año', año)
       const objMap: Record<number, number> = {}
@@ -160,25 +150,28 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       }
 
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
-      const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct,fijo_eur,coste_fijo,fee_periodo_eur,fee_periodicidad').eq('activo',true)
-      const { count: marcasCount } = await supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activo', true)
+      const cfg = await loadConfigCanales()
+      const { count: marcasCount } = await supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activa', true)
 
+      // Map auxiliar (compat. con consumidores antiguos): comisión decimal por canal y fees
+      const CANAL_BBDD_TO_KEY: Record<string, string> = {
+        'Uber Eats': 'uber', 'Glovo': 'glovo', 'Just Eat': 'je', 'Web Propia': 'web', 'Venta Directa': 'directa',
+      }
       const comMap: Record<string, number> = {}
       const feesMap: RunningAnualData['feesFijos'] = {}
-      ;(dCom || []).forEach((r: any) => {
-        const key = CANAL_MAP[r.canal]
-        if (!key) return
-        const com = Number(r.comision_pct || 0)
-        comMap[key] = com > 1 ? com / 100 : com
+      for (const [canal, c] of Object.entries(cfg)) {
+        const key = CANAL_BBDD_TO_KEY[canal]
+        if (!key) continue
+        comMap[key] = c.comision_pct
         feesMap[key] = {
-          fijoEur: Number(r.fijo_eur || r.coste_fijo || 0),
-          feePeriodoEur: Number(r.fee_periodo_eur || 0),
-          feePeriodicidad: r.fee_periodicidad || 'mensual',
+          fijoEur: c.fijo_eur,
+          feePeriodoEur: c.fee_periodo_eur,
+          feePeriodicidad: c.fee_periodicidad,
         }
-      })
+      }
 
       if (!cancelled) {
-        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setMarcasActivas(marcasCount && marcasCount > 0 ? marcasCount : 1); setLoading(false)
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasCount && marcasCount > 0 ? marcasCount : 1); setLoading(false)
       }
     }
     load()
@@ -192,38 +185,48 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
 
-  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, marcasActivas, loading }
+  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, loading }
 }
 
+/**
+ * calcNetoCanal · DELEGA en la fórmula central calcNetoPorCanal.
+ * Esto asegura que TODO el ERP use la misma fórmula real verificada con facturas.
+ *
+ * @param canalKey      uber | glovo | je | web | directa
+ * @param bruto         Importe bruto vendido
+ * @param pedidos       Número de pedidos
+ * @param _comisionDec  (deprecated, ya no se usa, se lee de config_canales)
+ * @param _fee          (deprecated, ya no se usa, se lee de config_canales)
+ * @param diasPeriodo   Días del periodo (para fees periódicos)
+ * @param marcasActivas Nº marcas activas
+ * @param fechaDesde    Fecha inicio periodo (opcional, mejora cálculo periodos)
+ * @param fechaHasta    Fecha fin periodo (opcional, mejora cálculo periodos)
+ * @param configCanales Cache de config_canales (opcional)
+ */
 export function calcNetoCanal(
   canalKey: 'uber'|'glovo'|'je'|'web'|'directa',
   bruto: number,
   pedidos: number,
-  comisionDec: number,
-  fee: { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string } | undefined,
+  _comisionDec: number,
+  _fee: { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string } | undefined,
   diasPeriodo: number,
   marcasActivas: number,
+  fechaDesde?: Date,
+  fechaHasta?: Date,
+  configCanales?: Record<string, CanalConfig>,
 ): number {
   if (bruto <= 0) return 0
-  const fijoEur = fee?.fijoEur ?? 0
-  const feePeriodoEur = fee?.feePeriodoEur ?? 0
-  const periodicidad = fee?.feePeriodicidad ?? 'mensual'
-
-  let periodos = 1
-  if (feePeriodoEur > 0 && diasPeriodo > 0) {
-    switch (periodicidad) {
-      case 'semanal_por_marca':   periodos = Math.ceil(diasPeriodo / 7); break
-      case 'quincenal_por_marca': periodos = Math.ceil(diasPeriodo / 15); break
-      case 'mensual':             periodos = Math.ceil(diasPeriodo / 30); break
-      default:                    periodos = 1
-    }
+  // Si no nos pasan fechas, construimos rango sintético del tamaño 'diasPeriodo' acabando hoy
+  let fIni = fechaDesde, fFin = fechaHasta
+  if (!fIni || !fFin) {
+    fFin = new Date()
+    fIni = new Date()
+    fIni.setDate(fFin.getDate() - Math.max(1, diasPeriodo - 1))
   }
-
-  const baseComision = (comisionDec * bruto) + (fijoEur * pedidos)
-  const feeTotal = feePeriodoEur > 0 ? feePeriodoEur * periodos * marcasActivas : 0
-  const totalComisionable = baseComision + feeTotal
-  const ivaCom = IVA * totalComisionable
-  return Math.max(0, bruto - totalComisionable - ivaCom)
+  // 'je' en calcNetoPorCanal corresponde a 'just eat' en BBDD via MAP_ID_CANAL
+  const id = canalKey === 'directa' ? 'dir' : canalKey
+  const { neto } = calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales)
+  return neto
 }
 
 export function diasDeMeses(meses: number[], año: number): number {
