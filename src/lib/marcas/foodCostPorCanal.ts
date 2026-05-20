@@ -1,14 +1,24 @@
 /**
- * T-F4-06 — foodCostPorCanal
- * Calcula margen real = PVP - comisión_canal - food_cost por canal.
- * Comisiones leídas de tabla canales (BD), no hardcoded.
+ * foodCostPorCanal · Margen por canal a nivel PLATO INDIVIDUAL
+ * Calcula margen = PVP − comisión canal − food cost por canal.
+ *
+ * Aplicación: análisis ranking platos por margen, MenuEngineering.
+ *
+ * NOTA: A nivel plato individual NO se modela Prime/Promo porque no sabemos si el cliente
+ * final será Prime ni si aplicará promo. Se usa la comisión BASE (sin variaciones), con IVA 21%.
+ * Para nivel plataforma (Panel Global, Running, Facturación) se usa calcNetoPorCanal en
+ * src/lib/panel/calcNetoPlataforma.ts (fórmula completa con Prime/Promo/fees).
+ *
+ * Verificado mayo 2026: fórmulas reales en Notion 366c8b1f-6139-8145-b854-da4b1a107f08
  */
 import { supabase } from '@/lib/supabase'
+
+const IVA_COMISION = 0.21
 
 export interface CanalComision {
   canal: string
   comision_pct: number // fracción 0-1
-  coste_fijo: number   // € por pedido
+  fijo_eur: number     // € por pedido
 }
 
 export interface MargenPorCanal {
@@ -21,10 +31,9 @@ export interface MargenPorCanal {
   estado: 'verde' | 'amarillo' | 'rojo'
 }
 
-// Cache simple para evitar re-fetch en cada llamada
 let _canalesCache: CanalComision[] | null = null
 let _cacheTs = 0
-const CACHE_TTL = 5 * 60 * 1000 // 5 min
+const CACHE_TTL = 5 * 60 * 1000
 
 export async function getCanalesComisiones(): Promise<CanalComision[]> {
   const now = Date.now()
@@ -32,13 +41,14 @@ export async function getCanalesComisiones(): Promise<CanalComision[]> {
 
   const { data } = await supabase
     .from('config_canales')
-    .select('canal, comision_pct, coste_fijo')
+    .select('canal, comision_pct, fijo_eur')
+    .eq('activo', true)
     .order('canal')
 
-  const canales: CanalComision[] = (data ?? []).map((r: { canal: string; comision_pct: number | null; coste_fijo: number | null }) => ({
+  const canales: CanalComision[] = (data ?? []).map((r: { canal: string; comision_pct: number | null; fijo_eur: number | null }) => ({
     canal: r.canal,
     comision_pct: r.comision_pct ?? 0,
-    coste_fijo: r.coste_fijo ?? 0,
+    fijo_eur: r.fijo_eur ?? 0,
   }))
 
   _canalesCache = canales
@@ -46,13 +56,23 @@ export async function getCanalesComisiones(): Promise<CanalComision[]> {
   return canales
 }
 
-/** Margen para un único canal dado PVP y food cost */
+export function invalidarCacheFoodCost() { _canalesCache = null }
+
+/**
+ * Margen para un único canal a nivel plato individual:
+ *   comisión_importe = pvp × comision_pct × 1.21 + fijo_eur × 1.21
+ *   margen           = pvp − comisión_importe − food_cost
+ *
+ * El 1.21 viene del IVA 21% que la plataforma carga sobre su comisión y fees.
+ */
 export function calcularMargenCanal(
   pvp: number,
   foodCost: number,
   canal: CanalComision,
 ): MargenPorCanal {
-  const comision_importe = pvp * canal.comision_pct + canal.coste_fijo
+  const comisionVar = pvp * canal.comision_pct
+  const baseImp = comisionVar + canal.fijo_eur
+  const comision_importe = baseImp * (1 + IVA_COMISION)
   const margen = pvp - comision_importe - foodCost
   const margen_pct = pvp > 0 ? (margen / pvp) * 100 : 0
   const estado: 'verde' | 'amarillo' | 'rojo' =
@@ -60,7 +80,6 @@ export function calcularMargenCanal(
   return { canal: canal.canal, pvp, comision_importe, food_cost: foodCost, margen, margen_pct, estado }
 }
 
-/** Calcula margen para todos los canales en BD */
 export async function marginPorTodosCanales(
   pvp: number,
   foodCost: number,
