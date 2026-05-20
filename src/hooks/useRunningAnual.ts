@@ -31,6 +31,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [comisiones, setComisiones] = useState<Record<string, number>>({})
   const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
   const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -86,7 +87,15 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     }
     load()
     return () => { cancelled = true }
-  }, [año, titularId])
+  }, [año, titularId, tick])
+
+  // Recarga global cuando Configuración guarda cambios en config_canales
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onChange = () => setTick(t => t + 1)
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
 
   return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, comisiones, feesFijos, loading }
 }
