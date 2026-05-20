@@ -24,9 +24,17 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp'
-const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp'
-const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp,.csv,.xlsx,.xls'
+// Extensiones aceptadas. ZIP se descomprime en cliente.
+const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
+const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
+const EXT_ZIP = ['zip']
+const EXT_ACEPTADAS_FACTURAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
+const EXT_ACEPTADAS_EXTRACTOS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
+const EXT_ACEPTADAS_OTROS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
+
+const ACCEPT_FACTURAS = EXT_ACEPTADAS_FACTURAS.map(e => `.${e}`).join(',')
+const ACCEPT_EXTRACTOS = EXT_ACEPTADAS_EXTRACTOS.map(e => `.${e}`).join(',')
+const ACCEPT_OTROS = EXT_ACEPTADAS_OTROS.map(e => `.${e}`).join(',')
 
 const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'historica', 'solo_drive'])
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
@@ -43,35 +51,90 @@ type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
 function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) }
 
-interface BtnSubirSplitProps { label: string; accept: string; onArchivos: (aceptados: File[], totalSeleccionado: number, rechazados: string[]) => void }
-function BtnSubirSplit({ label, accept, onArchivos }: BtnSubirSplitProps) {
+// Cargar JSZip desde CDN (lazy)
+async function cargarJSZip(): Promise<any> {
+  if ((window as any).JSZip) return (window as any).JSZip
+  await new Promise<void>((res, rej) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+    s.onload = () => res()
+    s.onerror = () => rej(new Error('No se pudo cargar JSZip'))
+    document.head.appendChild(s)
+  })
+  return (window as any).JSZip
+}
+
+async function expandirArchivos(files: File[], extensionesValidas: string[]): Promise<{ aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }> {
+  const aceptados: File[] = []
+  const rechazados: string[] = []
+  let expandidosZip = 0
+  const validas = new Set(extensionesValidas.map(e => e.toLowerCase()))
+
+  for (const f of files) {
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+    if (ext === 'zip') {
+      try {
+        const JSZip = await cargarJSZip()
+        const zip = await JSZip.loadAsync(f)
+        for (const path of Object.keys(zip.files)) {
+          const entry = zip.files[path]
+          if (entry.dir) continue
+          const innerName = path.split('/').pop() || path
+          const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
+          if (innerExt === 'zip') {
+            // ZIP anidado: lo dejamos sin recursar para no complicar
+            rechazados.push(`${f.name} → ${innerName} (zip anidado)`)
+            continue
+          }
+          if (!validas.has(innerExt)) {
+            rechazados.push(`${f.name} → ${innerName}`)
+            continue
+          }
+          const blob = await entry.async('blob')
+          const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
+          aceptados.push(innerFile)
+          expandidosZip++
+        }
+      } catch (err: any) {
+        rechazados.push(`${f.name} (zip corrupto: ${err?.message || 'error'})`)
+      }
+    } else if (validas.has(ext)) {
+      aceptados.push(f)
+    } else {
+      rechazados.push(f.name)
+    }
+  }
+
+  return { aceptados, rechazados, expandidosZip, totalOriginal: files.length }
+}
+
+interface BtnSubirSplitProps { label: string; accept: string; extensiones: string[]; onArchivos: (resultado: { aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }) => void; preparando: boolean; setPreparando: (v: boolean) => void }
+function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, setPreparando }: BtnSubirSplitProps) {
   const inputFileRef = useRef<HTMLInputElement>(null)
   const inputFolderRef = useRef<HTMLInputElement>(null)
   const [overL, setOverL] = useState(false)
   const [overR, setOverR] = useState(false)
 
-  const handleFiles = (files: FileList | null) => {
-    if (!files) return
-    const all = Array.from(files)
-    const accepted: File[] = []
-    const rejected: string[] = []
-    const allowed = new Set(accept.split(',').map(a => a.replace('.', '').toLowerCase()))
-    for (const f of all) {
-      const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
-      if (allowed.has(ext)) accepted.push(f)
-      else rejected.push(f.name)
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setPreparando(true)
+    try {
+      const arr = Array.from(files)
+      const resultado = await expandirArchivos(arr, extensiones)
+      onArchivos(resultado)
+    } finally {
+      setPreparando(false)
     }
-    if (all.length > 0) onArchivos(accepted, all.length, rejected)
   }
 
   const halfBase: React.CSSProperties = {
-    flex: 1, padding: '20px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column',
+    flex: 1, padding: '20px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center', userSelect: 'none',
-    transition: 'background 0.15s'
+    transition: 'background 0.15s', opacity: preparando ? 0.6 : 1
   }
 
   return (
-    <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
       <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
       <input
         ref={inputFolderRef}
@@ -85,24 +148,30 @@ function BtnSubirSplit({ label, accept, onArchivos }: BtnSubirSplitProps) {
       />
 
       <div
-        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverL(true) }}
+        onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(true) }}
         onDragLeave={e => { e.stopPropagation(); setOverL(false) }}
-        onDrop={e => { e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => inputFileRef.current?.click()}
+        onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => !preparando && inputFileRef.current?.click()}
         style={{ ...halfBase, background: overL ? '#8f1519' : '#B01D23', borderRight: '1px solid rgba(255,255,255,0.25)' }}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por archivos</div>
       </div>
 
       <div
-        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverR(true) }}
+        onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(true) }}
         onDragLeave={e => { e.stopPropagation(); setOverR(false) }}
-        onDrop={e => { e.preventDefault(); e.stopPropagation(); setOverR(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => inputFolderRef.current?.click()}
+        onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => !preparando && inputFolderRef.current?.click()}
         style={{ ...halfBase, background: overR ? '#8f1519' : '#B01D23' }}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por carpetas</div>
       </div>
+
+      {preparando && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: 14, pointerEvents: 'none' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -134,8 +203,9 @@ export default function Ocr() {
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
   const [exportando, setExportando] = useState(false)
-  const [modalTitular, setModalTitular] = useState<{ archivos: File[]; totalSeleccionado: number; rechazados: string[]; visible: boolean }>({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false })
-  const [modalConfirmarSubida, setModalConfirmarSubida] = useState<{ archivos: File[]; totalSeleccionado: number; rechazados: string[]; visible: boolean; fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' }>({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' })
+  const [preparando, setPreparando] = useState(false)
+  const [modalTitular, setModalTitular] = useState<{ archivos: File[]; totalOriginal: number; rechazados: string[]; expandidosZip: number; visible: boolean }>({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false })
+  const [modalConfirmarSubida, setModalConfirmarSubida] = useState<{ archivos: File[]; totalOriginal: number; rechazados: string[]; expandidosZip: number; visible: boolean; fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' }>({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' })
   const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
   const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
   const [confirmarBorrarLote, setConfirmarBorrarLote] = useState(false)
@@ -211,7 +281,7 @@ export default function Ocr() {
       </div>
       <TabsPastilla tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />
 
-      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" accept={ACCEPT_EXTRACTOS} onArchivos={(aceptados, total, rechazados) => setModalTitular({ archivos: aceptados, totalSeleccionado: total, rechazados, visible: true })} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
+      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" accept={ACCEPT_EXTRACTOS} extensiones={EXT_ACEPTADAS_EXTRACTOS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalTitular({ archivos: r.aceptados, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, visible: true }) }} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
       {tab === 'ventas' && (<VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />)}
 
       {(tab === 'facturas' || tab === 'otros') && (<>
@@ -219,7 +289,7 @@ export default function Ocr() {
           <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados?.conciliadasCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `${agregados.conciliadasPct}% · ${fmtEur(agregados.conciliadasImporte)}` : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div></div>
-          <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} onArchivos={(aceptados, total, rechazados) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: aceptados, totalSeleccionado: total, rechazados, visible: true, fnName: 'ocr-procesar-factura' }) }} />
+          <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} extensiones={tab === 'facturas' ? EXT_ACEPTADAS_FACTURAS : EXT_ACEPTADAS_OTROS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: r.aceptados, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, visible: true, fnName: 'ocr-procesar-factura' }) }} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
@@ -248,7 +318,8 @@ export default function Ocr() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, maxHeight: '85vh', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalSeleccionado}</strong></div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalOriginal}</strong></div>
+            {modalConfirmarSubida.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de ZIPs: <strong>{modalConfirmarSubida.expandidosZip}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalConfirmarSubida.archivos.length}</strong></div>
             {modalConfirmarSubida.rechazados.length > 0 && (
               <>
@@ -267,8 +338,8 @@ export default function Ocr() {
             )}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setModalConfirmarSubida({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-              <button disabled={modalConfirmarSubida.archivos.length === 0} onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalConfirmarSubida.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalConfirmarSubida.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length}</button>
+              <button onClick={() => { setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button disabled={modalConfirmarSubida.archivos.length === 0} onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalConfirmarSubida.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalConfirmarSubida.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length}</button>
             </div>
           </div>
         </div>
@@ -278,17 +349,18 @@ export default function Ocr() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Extracto bancario</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalSeleccionado}</strong></div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalOriginal}</strong></div>
+            {modalTitular.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de ZIPs: <strong>{modalTitular.expandidosZip}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalTitular.archivos.length}</strong></div>
             {modalTitular.rechazados.length > 0 && (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalTitular.rechazados.length}</strong></div>
             )}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
-              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
+              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
+              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
             </div>
-            <button onClick={() => setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={() => setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
           </div>
         </div>
       )}
