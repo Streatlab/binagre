@@ -3,14 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { invalidarCacheConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
-/* ═══════════════════════════════════════════════════════════════
-   TAB CANALES DE VENTA (Integraciones > Canales)
-   Pantalla canónica para configurar comisiones y fees de cada plataforma.
-   Estilo Running (sin amarillo). Datos verificados con facturas reales:
-   - Glovo: 21 pedidos analizados → comisión 30% (bruto-promo) + 0.74€/Prime + 10€/quincena/marca
-   - Uber Eats: 33 pedidos analizados → 30% normal / 33% UberOne (preparado) + 0.82€/pedido con promo
-   - IVA 21% sobre TODO (comisión, fees, tarifa publicitaria)
-   ═══════════════════════════════════════════════════════════════ */
+/* TabCanales · pantalla canónica única para configurar plataformas */
 
 interface Canal {
   id: string
@@ -90,12 +83,10 @@ export default function TabCanales() {
     if (field === 'fee_periodicidad') {
       value = raw
     } else if (raw === '' || raw === '—') {
-      // Si está vacío, lo grabamos como null (para comision_pct_prime principalmente)
       value = null
     } else {
       const num = parseFloat(raw.replace(',', '.'))
       if (isNaN(num) || num < 0) { setEditing(null); setSaving(false); return }
-      // % se guarda como decimal (0–1)
       if (field === 'comision_pct' || field === 'comision_pct_prime' || field === 'margen_obj_pct' || field === 'pct_pedidos_prime_estim' || field === 'pct_pedidos_promo_estim') {
         value = num / 100
       } else {
@@ -131,63 +122,49 @@ export default function TabCanales() {
     }
   }
 
-  // ─── ESTILOS Running ───
+  // ─── ESTILOS: cuerpo y números más grandes para mejor lectura ───
   const card: CSSProperties = {
     background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12,
     overflow: 'hidden',
   }
   const th: CSSProperties = {
-    fontFamily: FONT.heading, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px',
-    textTransform: 'uppercase', color: T.mut, padding: '12px 10px',
+    fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '1.4px',
+    textTransform: 'uppercase', color: T.mut, padding: '14px 12px',
     background: isDark ? '#0a0a0a' : '#faf8f3',
     borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap', textAlign: 'left',
   }
   const thR: CSSProperties = { ...th, textAlign: 'right' }
   const thC: CSSProperties = { ...th, textAlign: 'center' }
   const td: CSSProperties = {
-    padding: '11px 10px', fontFamily: FONT.body, fontSize: 13, color: T.pri,
+    padding: '14px 12px', fontFamily: FONT.body, fontSize: 15, color: T.pri,
     borderBottom: `0.5px solid ${T.brd}`, whiteSpace: 'nowrap',
   }
   const tdR: CSSProperties = { ...td, textAlign: 'right' }
   const tdC: CSSProperties = { ...td, textAlign: 'center' }
+  // Número grande (Oswald 16) — color principal, legible
   const cellEditable: CSSProperties = {
     cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1,
-    fontFamily: FONT.heading, fontSize: 13, color: T.pri,
+    fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri,
+    fontVariantNumeric: 'tabular-nums',
   }
-  const cellEditableSec: CSSProperties = { ...cellEditable, color: T.sec }
+  // Número grande secundario (para fees/tarifas)
+  const cellEditableSec: CSSProperties = { ...cellEditable, color: T.sec, fontWeight: 500 }
   const inp: CSSProperties = {
-    fontFamily: FONT.heading, fontSize: 13, fontWeight: 600,
+    fontFamily: FONT.heading, fontSize: 16, fontWeight: 600,
     background: '#fff', color: '#111',
     border: `1px solid ${T.brd}`, borderRadius: 6,
-    padding: '4px 8px', width: 80, textAlign: 'right',
+    padding: '5px 10px', width: 90, textAlign: 'right',
     outline: 'none',
   }
-  const sel: CSSProperties = { ...inp, width: 160, textAlign: 'left', cursor: 'pointer' }
+  const sel: CSSProperties = { ...inp, width: 170, textAlign: 'left', cursor: 'pointer' }
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando canales…</div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Banner explicativo */}
-      <div style={{
-        fontFamily: FONT.body, fontSize: 12, color: T.sec,
-        background: isDark ? '#1a1a1a' : '#ffffff',
-        padding: '12px 16px', border: `0.5px solid ${T.brd}`, borderRadius: 10,
-        lineHeight: 1.55,
-      }}>
-        <strong style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: T.pri }}>
-          Cómo se aplica:
-        </strong>{' '}
-        Todos los importes se introducen <strong>SIN IVA</strong>. El ERP añade el 21% automáticamente.
-        La <strong>Comisión Prime</strong> sustituye a la normal en pedidos de cliente Prime/Uber One.
-        Los <strong>Fee Prime</strong> y <strong>Fee Promo</strong> se suman como cargo extra por pedido especial.
-        La <strong>Tarifa periódica</strong> se cobra por marca según la periodicidad. Click en cualquier valor para editarlo.
-      </div>
-
-      {/* Tabla principal */}
       <div style={card}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1280 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1320 }}>
             <thead>
               <tr>
                 <th style={th}>Canal</th>
@@ -224,9 +201,8 @@ export default function TabCanales() {
 
                 return (
                   <tr key={c.id} style={{ background: justSaved ? (isDark ? '#1D9E7520' : '#1D9E7515') : 'transparent', transition: 'background 600ms' }}>
-                    <td style={{ ...td, fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}>{c.canal}</td>
+                    <td style={{ ...td, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600 }}>{c.canal}</td>
 
-                    {/* Comisión normal % */}
                     <td style={tdR}>
                       {isComEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal}
@@ -239,7 +215,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Comisión Prime % */}
                     <td style={tdR}>
                       {isComPrimeEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal} placeholder="—"
@@ -252,7 +227,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Fijo €/pedido */}
                     <td style={tdR}>
                       {isFijoEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal}
@@ -265,7 +239,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Fee Prime €/ped */}
                     <td style={tdR}>
                       {isFeePrimeEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal}
@@ -278,7 +251,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Fee Promo €/ped */}
                     <td style={tdR}>
                       {isFeePromoEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal}
@@ -291,7 +263,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Tarifa periódica € */}
                     <td style={tdR}>
                       {isFeePerEdit ? (
                         <input type="number" step="0.01" autoFocus value={editVal}
@@ -304,7 +275,6 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Periodicidad */}
                     <td style={tdC}>
                       {isPerEdit ? (
                         <select autoFocus value={editVal}
@@ -315,13 +285,12 @@ export default function TabCanales() {
                         </select>
                       ) : (
                         <span onClick={() => startEdit(c.id, 'fee_periodicidad', c.fee_periodicidad)}
-                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 13 }}>
                           {PERIODICIDADES.find(o => o.value === c.fee_periodicidad)?.label ?? (c.fee_periodicidad || '—')}
                         </span>
                       )}
                     </td>
 
-                    {/* % pedidos Prime estimado */}
                     <td style={tdR}>
                       {isPctPrimeEdit ? (
                         <input type="number" step="0.5" autoFocus value={editVal}
@@ -331,13 +300,12 @@ export default function TabCanales() {
                           style={inp} />
                       ) : (
                         <span onClick={() => startEdit(c.id, 'pct_pedidos_prime_estim', c.pct_pedidos_prime_estim)}
-                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          style={cellEditableSec}>
                           {c.pct_pedidos_prime_estim == null || Number(c.pct_pedidos_prime_estim) === 0 ? '—' : `${(Number(c.pct_pedidos_prime_estim) * 100).toFixed(1)}%`}
                         </span>
                       )}
                     </td>
 
-                    {/* % pedidos Promo estimado */}
                     <td style={tdR}>
                       {isPctPromoEdit ? (
                         <input type="number" step="0.5" autoFocus value={editVal}
@@ -347,16 +315,14 @@ export default function TabCanales() {
                           style={inp} />
                       ) : (
                         <span onClick={() => startEdit(c.id, 'pct_pedidos_promo_estim', c.pct_pedidos_promo_estim)}
-                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          style={cellEditableSec}>
                           {c.pct_pedidos_promo_estim == null || Number(c.pct_pedidos_promo_estim) === 0 ? '—' : `${(Number(c.pct_pedidos_promo_estim) * 100).toFixed(1)}%`}
                         </span>
                       )}
                     </td>
 
-                    {/* Ciclo de pago (lectura) */}
-                    <td style={{ ...td, fontSize: 11, color: T.mut, whiteSpace: 'normal', maxWidth: 240 }}>{getCiclo(c.canal)}</td>
+                    <td style={{ ...td, fontSize: 12, color: T.mut, whiteSpace: 'normal', maxWidth: 240 }}>{getCiclo(c.canal)}</td>
 
-                    {/* Margen objetivo % */}
                     <td style={tdR}>
                       {isMargenEdit ? (
                         <input type="number" step="0.1" autoFocus value={editVal}
@@ -369,12 +335,11 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    {/* Activo */}
                     <td style={tdC}>
                       <button onClick={() => toggleActivo(c.id, c.activo)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
                         title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
-                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: c.activo ? '#06C167' : '#555' }} />
+                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? '#06C167' : '#555' }} />
                       </button>
                     </td>
                   </tr>
@@ -386,7 +351,7 @@ export default function TabCanales() {
       </div>
 
       <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-        {saving ? 'Guardando…' : err ? <span style={{ color: '#dc2626' }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar. Los cambios se propagan en caliente a Dashboard, Facturación, Running, PE y Objetivos.'}
+        {saving ? 'Guardando…' : err ? <span style={{ color: '#dc2626' }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar.'}
       </div>
     </div>
   )
