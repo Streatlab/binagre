@@ -2,6 +2,18 @@
  * calcNetoPlataforma.ts
  * Cálculo neto cobrado por canal leyendo SIEMPRE de config_canales en Supabase.
  * Suscripción Realtime: cualquier UPDATE en config_canales invalida cache y emite evento.
+ *
+ * FÓRMULA REAL (verificada con facturas Glovo + Uber Eats, 21 + 33 pedidos):
+ *
+ *   Base imponible Glovo = comision_pct × (bruto − promo) + fee_prime_eur × n_prime + fee_periodo × periodos × marcas
+ *   Base imponible Uber  = comision_pct × (bruto − promo) × n_normales/n_total
+ *                        + comision_pct_prime × (bruto − promo) × n_prime/n_total      (cuando Uber One esté activo)
+ *                        + fee_promo_eur × n_promo
+ *                        + fee_periodo × periodos × marcas                              (cuando aplique)
+ *
+ *   Neto = bruto − promo − (Base imponible × 1.21)
+ *
+ * Mientras no haya OCR cargado, usamos % medio de pedidos prime/promo estimado.
  */
 
 import { useEffect, useState } from 'react'
@@ -13,9 +25,14 @@ export interface NetoResult { neto: number; margenPct: number }
 export interface CanalConfig {
   canal: string
   comision_pct: number
+  comision_pct_prime: number | null
   fijo_eur: number
+  fee_prime_eur: number
+  fee_promo_eur: number
   fee_periodo_eur: number
   fee_periodicidad: string
+  pct_pedidos_prime_estim: number   // % medio estimado de pedidos prime/UberOne
+  pct_pedidos_promo_estim: number   // % medio estimado de pedidos con promoción
 }
 
 let cacheConfig: Record<string, CanalConfig> | null = null
@@ -49,17 +66,22 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
   if (cacheConfig) return cacheConfig
   const { data, error } = await supabase
     .from('config_canales')
-    .select('canal, comision_pct, fijo_eur, fee_periodo_eur, fee_periodicidad')
+    .select('canal, comision_pct, comision_pct_prime, fijo_eur, fee_prime_eur, fee_promo_eur, fee_periodo_eur, fee_periodicidad, pct_pedidos_prime_estim, pct_pedidos_promo_estim')
     .eq('activo', true)
   if (error || !data) { cacheConfig = {}; return cacheConfig }
   const out: Record<string, CanalConfig> = {}
-  for (const row of data) {
+  for (const row of data as any[]) {
     out[row.canal] = {
       canal: row.canal,
       comision_pct: Number(row.comision_pct ?? 0),
+      comision_pct_prime: row.comision_pct_prime != null ? Number(row.comision_pct_prime) : null,
       fijo_eur: Number(row.fijo_eur ?? 0),
+      fee_prime_eur: Number(row.fee_prime_eur ?? 0),
+      fee_promo_eur: Number(row.fee_promo_eur ?? 0),
       fee_periodo_eur: Number(row.fee_periodo_eur ?? 0),
       fee_periodicidad: String(row.fee_periodicidad ?? 'mensual'),
+      pct_pedidos_prime_estim: Number(row.pct_pedidos_prime_estim ?? 0),
+      pct_pedidos_promo_estim: Number(row.pct_pedidos_promo_estim ?? 0),
     }
   }
   cacheConfig = out
@@ -107,26 +129,73 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
   }
 }
 
+/**
+ * Cálculo neto plataforma con fórmula real verificada con facturas.
+ *
+ * @param canalId           uber | glovo | je | web | dir
+ * @param bruto             Importe bruto vendido (ventas con IVA del producto)
+ * @param pedidos           Número total de pedidos
+ * @param marcasActivas     Nº marcas activas en esta plataforma (mínimo 1)
+ * @param fechaDesde        Inicio periodo (para fees periódicos)
+ * @param fechaHasta        Fin periodo (para fees periódicos)
+ * @param configOverride    Inyectar config alternativa (testing)
+ * @param promoSubvencionada (opcional) Importe total de promo asumida por partner; si no se conoce, se estima
+ */
 export function calcNetoPorCanal(
   canalId: string, bruto: number, pedidos: number,
   marcasActivas: number = 1,
   fechaDesde?: Date, fechaHasta?: Date,
   configOverride?: Record<string, CanalConfig>,
+  promoSubvencionada?: number,
 ): NetoResult {
   const config = configOverride ?? cacheConfig ?? {}
   const nombreCanal = MAP_ID_CANAL[canalId] ?? canalId
   const cfg = config[nombreCanal]
   if (!cfg) return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
 
-  const baseComision = (cfg.comision_pct * bruto) + (cfg.fijo_eur * pedidos)
+  // Base para comisión = bruto − promoción (lo que el cliente realmente paga)
+  // Si no nos pasan promo, se asume 0 (estimación conservadora)
+  const promo = promoSubvencionada ?? 0
+  const baseCobrado = Math.max(0, bruto - promo)
+
+  // Estimación pedidos prime / promo (con OCR esto se sobrescribe con datos reales)
+  const nPrime = pedidos * cfg.pct_pedidos_prime_estim
+  const nPromo = pedidos * cfg.pct_pedidos_promo_estim
+
+  // Comisión variable: si hay tarifa prime, aplicamos % distinto sobre la fracción Prime
+  let comisionVariable = 0
+  if (cfg.comision_pct_prime != null && cfg.comision_pct_prime > 0) {
+    // Pedidos normales: comision_pct sobre su parte del baseCobrado
+    // Pedidos prime: comision_pct_prime sobre su parte del baseCobrado
+    const baseNormal = baseCobrado * (1 - cfg.pct_pedidos_prime_estim)
+    const basePrime  = baseCobrado * cfg.pct_pedidos_prime_estim
+    comisionVariable = cfg.comision_pct * baseNormal + cfg.comision_pct_prime * basePrime
+  } else {
+    comisionVariable = cfg.comision_pct * baseCobrado
+  }
+
+  // Fijo por pedido (existe en algunos canales como Web Propia 0,50€)
+  const fijoTotal = cfg.fijo_eur * pedidos
+
+  // Fee Prime: 0,74€ por pedido prime (Glovo Prime, hoy)
+  const feePrimeTotal = cfg.fee_prime_eur * nPrime
+
+  // Fee Promo: 0,82€ por pedido con promoción (Uber, offer fee)
+  const feePromoTotal = cfg.fee_promo_eur * nPromo
+
+  // Fee periódico (10€ quincenal Glovo, 2,29€ semanal Uber)
   let feePeriodoTotal = 0
   if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
     const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
     feePeriodoTotal = cfg.fee_periodo_eur * periodos * marcasActivas
   }
-  const totalComisionable = baseComision + feePeriodoTotal
-  const ivaComision = IVA * totalComisionable
-  const neto = Math.max(0, bruto - totalComisionable - ivaComision)
+
+  const baseImponible = comisionVariable + fijoTotal + feePrimeTotal + feePromoTotal + feePeriodoTotal
+  const ivaComision = IVA * baseImponible
+  const totalUber = baseImponible + ivaComision
+
+  // Neto que llega al banco: bruto − promo (descuento al cliente) − total facturado por la plataforma
+  const neto = Math.max(0, bruto - promo - totalUber)
   const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
   return { neto, margenPct }
 }
