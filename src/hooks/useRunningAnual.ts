@@ -1,1 +1,215 @@
-aW1wb3J0IHsgdXNlU3RhdGUsIHVzZUVmZmVjdCB9IGZyb20gJ3JlYWN0JwppbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gJ0AvbGliL3N1cGFiYXNlJwppbXBvcnQgeyByZXBhcnRpckNvYnJvLCB0eXBlIEJydXRvRGlhcmlvLCB0eXBlIENhbmFsS2V5IH0gZnJvbSAnLi9jYXNhckZlY2hhQ29icm8nCgpleHBvcnQgaW50ZXJmYWNlIENlbGRhSW5ncmVzbyB7CiAgaW1wb3J0ZTogbnVtYmVyCiAgZXNFc3RpbWFkbzogYm9vbGVhbgogIG9yaWdlbjogJ2JhbmNvJyB8ICdvY3InIHwgJ2VzdGltYWRvX2JydXRvX3hfY29taXNpb24nCn0KCmV4cG9ydCBpbnRlcmZhY2UgUnVubmluZ0FudWFsRGF0YSB7CiAgaW5ncmVzb3M6IFJlY29yZDxzdHJpbmcsIFJlY29yZDxudW1iZXIsIG51bWJlcj4+CiAgaW5ncmVzb3NQb3JDYW5hbDogUmVjb3JkPENhbmFsS2V5LCBSZWNvcmQ8bnVtYmVyLCBDZWxkYUluZ3Jlc28+PgogIGdhc3RvczogUmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4KICBicnV0b3M6IFJlY29yZDxudW1iZXIsIHsgdWJlcjpudW1iZXI7IGdsb3ZvOm51bWJlcjsgamU6bnVtYmVyOyB3ZWI6bnVtYmVyOyBkaXJlY3RhOm51bWJlcjsgdG90YWw6bnVtYmVyOyBwZWRpZG9zOm51bWJlciB9PgogIGRpYXNPcDogUmVjb3JkPG51bWJlciwgbnVtYmVyPgogIGNhdGVnb3JpYXM6IHsgaWQ6c3RyaW5nOyBub21icmU6c3RyaW5nOyBwYXJlbnRfaWQ6c3RyaW5nfG51bGw7IG5pdmVsOm51bWJlcjsgYmxvcXVlOnN0cmluZzsgb3JkZW46bnVtYmVyIH1bXQogIGJlbmNobWFya3M6IHsgY2F0ZWdvcmlhOnN0cmluZzsgcGN0X21pbjpudW1iZXI7IHBjdF9tYXg6bnVtYmVyIH1bXQogIGNvbWlzaW9uZXM6IFJlY29yZDxzdHJpbmcsIG51bWJlcj4KICBmZWVzRmlqb3M6IFJlY29yZDxzdHJpbmcsIHsgZmlqb0V1cjpudW1iZXI7IGZlZVBlcmlvZG9FdXI6bnVtYmVyOyBmZWVQZXJpb2RpY2lkYWQ6c3RyaW5nIH0+CiAgbG9hZGluZzogYm9vbGVhbgp9Cgpjb25zdCBDQU5BTF9NQVA6IFJlY29yZDxzdHJpbmcsIHN0cmluZz4gPSB7CiAgJ1ViZXIgRWF0cyc6ICd1YmVyJywKICAnR2xvdm8nOiAnZ2xvdm8nLAogICdKdXN0IEVhdCc6ICdqZScsCiAgJ1dlYiBQcm9waWEnOiAnd2ViJywKICAnVmVudGEgRGlyZWN0YSc6ICdkaXJlY3RhJywKfQoKLy8gRGV0ZWN0YSBjYW5hbCBkZSB1biBtb3ZpbWllbnRvIGRlIGNvbmNpbGlhY2nDs24gYSBwYXJ0aXIgZGUgc3UgZGVzY3JpcGNpw7NuL2NvbnRyYXBhcnRlCmZ1bmN0aW9uIGRldGVjdGFyQ2FuYWwocm93OiBhbnkpOiBDYW5hbEtleSB8IG51bGwgewogIGNvbnN0IHR4dCA9IGAke3Jvdy5jb250cmFwYXJ0ZSB8fCAnJ30gJHtyb3cuY29uY2VwdG8gfHwgJyd9ICR7cm93LmRlc2NyaXBjaW9uIHx8ICcnfWAudG9Mb3dlckNhc2UoKQogIGlmICh0eHQuaW5jbHVkZXMoJ3ViZXInKSkgcmV0dXJuICd1YmVyJwogIGlmICh0eHQuaW5jbHVkZXMoJ2dsb3ZvJykpIHJldHVybiAnZ2xvdm8nCiAgaWYgKHR4dC5pbmNsdWRlcygnanVzdCBlYXQnKSB8fCB0eHQuaW5jbHVkZXMoJ2p1c3RlYXQnKSB8fCB0eHQuaW5jbHVkZXMoJ2plICcpKSByZXR1cm4gJ2plJwogIGlmICh0eHQuaW5jbHVkZXMoJ3N0cmlwZScpIHx8IHR4dC5pbmNsdWRlcygncmVkc3lzJykgfHwgdHh0LmluY2x1ZGVzKCdzaG9waWZ5JykpIHJldHVybiAnd2ViJwogIHJldHVybiBudWxsCn0KCmV4cG9ydCBmdW5jdGlvbiB1c2VSdW5uaW5nQW51YWwoYcOxbzogbnVtYmVyLCB0aXR1bGFySWQ6IHN0cmluZ3xudWxsKTogUnVubmluZ0FudWFsRGF0YSB7CiAgY29uc3QgW2luZ3Jlc29zLCBzZXRJbmdyZXNvc10gPSB1c2VTdGF0ZTxSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+Pj4oe30pCiAgY29uc3QgW2luZ3Jlc29zUG9yQ2FuYWwsIHNldEluZ3Jlc29zUG9yQ2FuYWxdID0gdXNlU3RhdGU8UnVubmluZ0FudWFsRGF0YVsnaW5ncmVzb3NQb3JDYW5hbCddPih7CiAgICB1YmVyOiB7fSwgZ2xvdm86IHt9LCBqZToge30sIHdlYjoge30sIGRpcmVjdGE6IHt9LAogIH0pCiAgY29uc3QgW2dhc3Rvcywgc2V0R2FzdG9zXSA9IHVzZVN0YXRlPFJlY29yZDxzdHJpbmcsIFJlY29yZDxudW1iZXIsIG51bWJlcj4+Pih7fSkKICBjb25zdCBbYnJ1dG9zLCBzZXRCcnV0b3NdID0gdXNlU3RhdGU8UnVubmluZ0FudWFsRGF0YVsnYnJ1dG9zJ10+KHt9KQogIGNvbnN0IFtkaWFzT3AsIHNldERpYXNPcF0gPSB1c2VTdGF0ZTxSZWNvcmQ8bnVtYmVyLCBudW1iZXI+Pih7fSkKICBjb25zdCBbY2F0ZWdvcmlhcywgc2V0Q2F0ZWdvcmlhc10gPSB1c2VTdGF0ZTxSdW5uaW5nQW51YWxEYXRhWydjYXRlZ29yaWFzJ10+KFtdKQogIGNvbnN0IFtiZW5jaG1hcmtzLCBzZXRCZW5jaG1hcmtzXSA9IHVzZVN0YXRlPFJ1bm5pbmdBbnVhbERhdGFbJ2JlbmNobWFya3MnXT4oW10pCiAgY29uc3QgW2NvbWlzaW9uZXMsIHNldENvbWlzaW9uZXNdID0gdXNlU3RhdGU8UmVjb3JkPHN0cmluZywgbnVtYmVyPj4oe30pCiAgY29uc3QgW2ZlZXNGaWpvcywgc2V0RmVlc0Zpam9zXSA9IHVzZVN0YXRlPFJ1bm5pbmdBbnVhbERhdGFbJ2ZlZXNGaWpvcyddPih7fSkKICBjb25zdCBbbG9hZGluZywgc2V0TG9hZGluZ10gPSB1c2VTdGF0ZSh0cnVlKQogIGNvbnN0IFt0aWNrLCBzZXRUaWNrXSA9IHVzZVN0YXRlKDApCgogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICBsZXQgY2FuY2VsbGVkID0gZmFsc2UKICAgIGFzeW5jIGZ1bmN0aW9uIGxvYWQoKSB7CiAgICAgIHNldExvYWRpbmcodHJ1ZSkKCiAgICAgIC8vIDEuIElOR1JFU09TIEJBTkNPLiBBbXBsaWFtb3MgKy8tIDYwIGTDrWFzIHBvcnF1ZSBsb3MgY29icm9zIGRlIHZlbnRhcwogICAgICAvLyAgICBkZWwgYcOxbyBwdWVkZW4gY2FlciBmdWVyYSBkZWwgYcOxbyBuYXR1cmFsLgogICAgICBsZXQgcUluZyA9IHN1cGFiYXNlLmZyb20oJ2NvbmNpbGlhY2lvbicpCiAgICAgICAgLnNlbGVjdCgnZmVjaGEsY2F0ZWdvcmlhLGltcG9ydGUsY29udHJhcGFydGUsY29uY2VwdG8sZGVzY3JpcGNpb24nKQogICAgICAgIC5lcSgndGlwbycsJ2luZ3Jlc28nKQogICAgICAgIC5saWtlKCdjYXRlZ29yaWEnLCcxLiUnKQogICAgICAgIC5ndGUoJ2ZlY2hhJyxgJHthw7FvLTF9LTExLTAxYCkKICAgICAgICAubHRlKCdmZWNoYScsYCR7YcOxbysxfS0wMi0yOWApCiAgICAgIGlmICh0aXR1bGFySWQpIHFJbmcgPSBxSW5nLmVxKCd0aXR1bGFyX2lkJywgdGl0dWxhcklkKQogICAgICBjb25zdCB7IGRhdGE6IGRJbmcgfSA9IGF3YWl0IHFJbmcKCiAgICAgIC8vIDIuIEdBU1RPUyAoaW1wdXRhZG9zIGEgZmVjaGEgZGUgcGFnbyByZWFsKQogICAgICBsZXQgcUdhcyA9IHN1cGFiYXNlLmZyb20oJ2dhc3RvcycpLnNlbGVjdCgnZmVjaGEsY2F0ZWdvcmlhX2NvZGlnbyxiYXNlX2ltcG9uaWJsZScpLmd0ZSgnZmVjaGEnLGAke2HDsW99LTAxLTAxYCkubHRlKCdmZWNoYScsYCR7YcOxb30tMTItMzFgKQogICAgICBpZiAodGl0dWxhcklkKSBxR2FzID0gcUdhcy5lcSgndGl0dWxhcl9pZCcsIHRpdHVsYXJJZCkKICAgICAgY29uc3QgeyBkYXRhOiBkR2FzIH0gPSBhd2FpdCBxR2FzCiAgICAgIGNvbnN0IGdhc01hcDogUmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4gPSB7fQogICAgICA7KGRHYXMgfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4geyBjb25zdCBtZXMgPSBuZXcgRGF0ZShyLmZlY2hhKS5nZXRNb250aCgpKzE7IGNvbnN0IGNhdCA9IHIuY2F0ZWdvcmlhX2NvZGlnbzsgaWYgKCFnYXNNYXBbY2F0XSkgZ2FzTWFwW2NhdF0gPSB7fTsgZ2FzTWFwW2NhdF1bbWVzXSA9IChnYXNNYXBbY2F0XVttZXNdfHwwKSArIE1hdGguYWJzKE51bWJlcihyLmJhc2VfaW1wb25pYmxlfHwwKSkgfSkKCiAgICAgIC8vIDMuIEJSVVRPUyBQT1IgRElBCiAgICAgIGxldCBxQnJ1dCA9IHN1cGFiYXNlLmZyb20oJ2ZhY3R1cmFjaW9uX2RpYXJpbycpLnNlbGVjdCgnZmVjaGEsdWJlcl9icnV0byxnbG92b19icnV0byxqZV9icnV0byx3ZWJfYnJ1dG8sZGlyZWN0YV9icnV0byx0b3RhbF9icnV0byx0b3RhbF9wZWRpZG9zJykuZ3RlKCdmZWNoYScsYCR7YcOxb30tMDEtMDFgKS5sdGUoJ2ZlY2hhJyxgJHthw7FvfS0xMi0zMWApCiAgICAgIGlmICh0aXR1bGFySWQpIHFCcnV0ID0gcUJydXQuZXEoJ3RpdHVsYXJfaWQnLCB0aXR1bGFySWQpCiAgICAgIGNvbnN0IHsgZGF0YTogZEJydXQgfSA9IGF3YWl0IHFCcnV0CgogICAgICBjb25zdCBicnV0b3NEaWFyaW9zOiBCcnV0b0RpYXJpb1tdID0gKGRCcnV0IHx8IFtdKS5tYXAoKHI6IGFueSkgPT4gKHsKICAgICAgICBmZWNoYTogci5mZWNoYSwKICAgICAgICB1YmVyX2JydXRvOiBOdW1iZXIoci51YmVyX2JydXRvIHx8IDApLAogICAgICAgIGdsb3ZvX2JydXRvOiBOdW1iZXIoci5nbG92b19icnV0byB8fCAwKSwKICAgICAgICBqZV9icnV0bzogTnVtYmVyKHIuamVfYnJ1dG8gfHwgMCksCiAgICAgICAgd2ViX2JydXRvOiBOdW1iZXIoci53ZWJfYnJ1dG8gfHwgMCksCiAgICAgICAgZGlyZWN0YV9icnV0bzogTnVtYmVyKHIuZGlyZWN0YV9icnV0byB8fCAwKSwKICAgICAgfSkpCgogICAgICBjb25zdCBicnV0TWFwOiBSdW5uaW5nQW51YWxEYXRhWydicnV0b3MnXSA9IHt9CiAgICAgIGNvbnN0IGRpYXNNYXA6IFJlY29yZDxudW1iZXIsIFNldDxzdHJpbmc+PiA9IHt9CiAgICAgIDsoZEJydXQgfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4gewogICAgICAgIGNvbnN0IG1lcyA9IG5ldyBEYXRlKHIuZmVjaGEpLmdldE1vbnRoKCkrMQogICAgICAgIGlmICghYnJ1dE1hcFttZXNdKSBicnV0TWFwW21lc109e3ViZXI6MCxnbG92bzowLGplOjAsd2ViOjAsZGlyZWN0YTowLHRvdGFsOjAscGVkaWRvczowfQogICAgICAgIGJydXRNYXBbbWVzXS51YmVyKz1OdW1iZXIoci51YmVyX2JydXRvfHwwKTsgYnJ1dE1hcFttZXNdLmdsb3ZvKz1OdW1iZXIoci5nbG92b19icnV0b3x8MCk7IGJydXRNYXBbbWVzXS5qZSs9TnVtYmVyKHIuamVfYnJ1dG98fDApOyBicnV0TWFwW21lc10ud2ViKz1OdW1iZXIoci53ZWJfYnJ1dG98fDApOyBicnV0TWFwW21lc10uZGlyZWN0YSs9TnVtYmVyKHIuZGlyZWN0YV9icnV0b3x8MCk7IGJydXRNYXBbbWVzXS50b3RhbCs9TnVtYmVyKHIudG90YWxfYnJ1dG98fDApOyBicnV0TWFwW21lc10ucGVkaWRvcys9TnVtYmVyKHIudG90YWxfcGVkaWRvc3x8MCkKICAgICAgICBpZiAoIWRpYXNNYXBbbWVzXSkgZGlhc01hcFttZXNdID0gbmV3IFNldCgpCiAgICAgICAgZGlhc01hcFttZXNdLmFkZChyLmZlY2hhKQogICAgICB9KQogICAgICBjb25zdCBkT3A6IFJlY29yZDxudW1iZXIsIG51bWJlcj4gPSB7fQogICAgICBmb3IgKGNvbnN0IFttLCBzXSBvZiBPYmplY3QuZW50cmllcyhkaWFzTWFwKSkgZE9wW051bWJlcihtKV0gPSBzLnNpemUKCiAgICAgIC8vIDQuIENPTkZJRwogICAgICBjb25zdCB7IGRhdGE6IGRDYXQgfSA9IGF3YWl0IHN1cGFiYXNlLmZyb20oJ2NhdGVnb3JpYXNfcHlnJykuc2VsZWN0KCdpZCxub21icmUscGFyZW50X2lkLG5pdmVsLGJsb3F1ZSxvcmRlbicpLmVxKCdhY3RpdmEnLHRydWUpLm9yZGVyKCdvcmRlbicpCiAgICAgIGNvbnN0IHsgZGF0YTogZEJlbmNoIH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCdjYXRlZ29yaWFzX3JhbmdvJykuc2VsZWN0KCdjYXRlZ29yaWEscGN0X21pbixwY3RfbWF4JykKICAgICAgY29uc3QgeyBkYXRhOiBkQ29tIH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCdjb25maWdfY2FuYWxlcycpLnNlbGVjdCgnY2FuYWwsY29taXNpb25fcGN0LGZpam9fZXVyLGNvc3RlX2Zpam8sZmVlX3BlcmlvZG9fZXVyLGZlZV9wZXJpb2RpY2lkYWQnKS5lcSgnYWN0aXZvJyx0cnVlKQoKICAgICAgY29uc3QgY29tTWFwOiBSZWNvcmQ8c3RyaW5nLCBudW1iZXI+ID0ge30KICAgICAgY29uc3QgZmVlc01hcDogUnVubmluZ0FudWFsRGF0YVsnZmVlc0Zpam9zJ10gPSB7fQogICAgICA7KGRDb20gfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4gewogICAgICAgIGNvbnN0IGtleSA9IENBTkFMX01BUFtyLmNhbmFsXQogICAgICAgIGlmICgha2V5KSByZXR1cm4KICAgICAgICBjb25zdCBjb20gPSBOdW1iZXIoci5jb21pc2lvbl9wY3QgfHwgMCkKICAgICAgICBjb21NYXBba2V5XSA9IGNvbSA+IDEgPyBjb20gLyAxMDAgOiBjb20KICAgICAgICBmZWVzTWFwW2tleV0gPSB7CiAgICAgICAgICBmaWpvRXVyOiBOdW1iZXIoci5maWpvX2V1ciB8fCByLmNvc3RlX2Zpam8gfHwgMCksCiAgICAgICAgICBmZWVQZXJpb2RvRXVyOiBOdW1iZXIoci5mZWVfcGVyaW9kb19ldXIgfHwgMCksCiAgICAgICAgICBmZWVQZXJpb2RpY2lkYWQ6IHIuZmVlX3BlcmlvZGljaWRhZCB8fCAnbWVuc3VhbCcsCiAgICAgICAgfQogICAgICB9KQoKICAgICAgLy8gNS4gQ0FTQURPIENPQlJPUyDihpIgTUVTIERFIFZFTlRBCiAgICAgIGNvbnN0IGluZ1BvckNhbmFsUmVhbDogUmVjb3JkPENhbmFsS2V5LCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+PiA9IHsKICAgICAgICB1YmVyOiB7fSwgZ2xvdm86IHt9LCBqZToge30sIHdlYjoge30sIGRpcmVjdGE6IHt9LAogICAgICB9CiAgICAgIDsoZEluZyB8fCBbXSkuZm9yRWFjaCgocjogYW55KSA9PiB7CiAgICAgICAgY29uc3QgY2FuYWwgPSBkZXRlY3RhckNhbmFsKHIpCiAgICAgICAgaWYgKCFjYW5hbCkgcmV0dXJuCiAgICAgICAgY29uc3QgaW1wb3J0ZSA9IE51bWJlcihyLmltcG9ydGUgfHwgMCkKICAgICAgICBpZiAoaW1wb3J0ZSA9PT0gMCkgcmV0dXJuCiAgICAgICAgY29uc3QgcmVwYXJ0b3MgPSByZXBhcnRpckNvYnJvKGNhbmFsLCByLmZlY2hhLCBpbXBvcnRlLCBicnV0b3NEaWFyaW9zKQogICAgICAgIGZvciAoY29uc3QgcmVwIG9mIHJlcGFydG9zKSB7CiAgICAgICAgICBpZiAocmVwLmHDsW8gIT09IGHDsW8pIGNvbnRpbnVlCiAgICAgICAgICBpbmdQb3JDYW5hbFJlYWxbY2FuYWxdW3JlcC5tZXNdID0gKGluZ1BvckNhbmFsUmVhbFtjYW5hbF1bcmVwLm1lc10gfHwgMCkgKyByZXAuaW1wb3J0ZQogICAgICAgIH0KICAgICAgfSkKCiAgICAgIC8vIDYuIGluZ3Jlc29zUG9yQ2FuYWw6IHJlYWwgc2kgaGF5IGNvYnJvIGNhc2FkbywgZXN0aW1hZG8gc2kgbm8KICAgICAgY29uc3QgaXBjOiBSdW5uaW5nQW51YWxEYXRhWydpbmdyZXNvc1BvckNhbmFsJ10gPSB7CiAgICAgICAgdWJlcjoge30sIGdsb3ZvOiB7fSwgamU6IHt9LCB3ZWI6IHt9LCBkaXJlY3RhOiB7fSwKICAgICAgfQogICAgICBjb25zdCBjYW5hbGVzOiBDYW5hbEtleVtdID0gWyd1YmVyJywnZ2xvdm8nLCdqZScsJ3dlYicsJ2RpcmVjdGEnXQogICAgICBmb3IgKGxldCBtZXMgPSAxOyBtZXMgPD0gMTI7IG1lcysrKSB7CiAgICAgICAgZm9yIChjb25zdCBjIG9mIGNhbmFsZXMpIHsKICAgICAgICAgIGNvbnN0IHJlYWwgPSBpbmdQb3JDYW5hbFJlYWxbY11bbWVzXSB8fCAwCiAgICAgICAgICBpZiAocmVhbCA+IDApIHsKICAgICAgICAgICAgaXBjW2NdW21lc10gPSB7IGltcG9ydGU6IHJlYWwsIGVzRXN0aW1hZG86IGZhbHNlLCBvcmlnZW46ICdiYW5jbycgfQogICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgY29uc3QgYnJ1dG9DYW5hbCA9IChicnV0TWFwW21lc10/LltjXSkgfHwgMAogICAgICAgICAgICBpZiAoYnJ1dG9DYW5hbCA+IDApIHsKICAgICAgICAgICAgICBjb25zdCBjb20gPSBjb21NYXBbY10gPz8gMAogICAgICAgICAgICAgIGNvbnN0IGVzdGltYWRvID0gYnJ1dG9DYW5hbCAqICgxIC0gY29tKQogICAgICAgICAgICAgIGlwY1tjXVttZXNdID0geyBpbXBvcnRlOiBlc3RpbWFkbywgZXNFc3RpbWFkbzogdHJ1ZSwgb3JpZ2VuOiAnZXN0aW1hZG9fYnJ1dG9feF9jb21pc2lvbicgfQogICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgIGlwY1tjXVttZXNdID0geyBpbXBvcnRlOiAwLCBlc0VzdGltYWRvOiBmYWxzZSwgb3JpZ2VuOiAnYmFuY28nIH0KICAgICAgICAgICAgfQogICAgICAgICAgfQogICAgICAgIH0KICAgICAgfQoKICAgICAgLy8gNy4gaW5ncmVzb3NbY2F0ZWdvcmlhXVttZXNdIGNvbXBhdDogYWxpbWVudGFkbyBwb3IgY29icm9zIGNhc2Fkb3MuCiAgICAgIGNvbnN0IGluZ01hcDogUmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4gPSB7fQogICAgICBmb3IgKGxldCBtZXMgPSAxOyBtZXMgPD0gMTI7IG1lcysrKSB7CiAgICAgICAgY29uc3QgdG90YWxNZXMgPSBjYW5hbGVzLnJlZHVjZSgocywgYykgPT4gcyArIChpcGNbY11bbWVzXT8uaW1wb3J0ZSB8fCAwKSwgMCkKICAgICAgICBpZiAodG90YWxNZXMgPiAwKSB7CiAgICAgICAgICBpZiAoIWluZ01hcFsnMS4xJ10pIGluZ01hcFsnMS4xJ10gPSB7fQogICAgICAgICAgaW5nTWFwWycxLjEnXVttZXNdID0gdG90YWxNZXMKICAgICAgICB9CiAgICAgIH0KCiAgICAgIGlmICghY2FuY2VsbGVkKSB7CiAgICAgICAgc2V0SW5ncmVzb3MoaW5nTWFwKQogICAgICAgIHNldEluZ3Jlc29zUG9yQ2FuYWwoaXBjKQogICAgICAgIHNldEdhc3RvcyhnYXNNYXApCiAgICAgICAgc2V0QnJ1dG9zKGJydXRNYXApCiAgICAgICAgc2V0RGlhc09wKGRPcCkKICAgICAgICBzZXRDYXRlZ29yaWFzKGRDYXR8fFtdKQogICAgICAgIHNldEJlbmNobWFya3MoKGRCZW5jaHx8W10pLm1hcCgoYjphbnkpPT4oey4uLmIscGN0X21pbjpOdW1iZXIoYi5wY3RfbWluKSxwY3RfbWF4Ok51bWJlcihiLnBjdF9tYXgpfSkpKQogICAgICAgIHNldENvbWlzaW9uZXMoY29tTWFwKQogICAgICAgIHNldEZlZXNGaWpvcyhmZWVzTWFwKQogICAgICAgIHNldExvYWRpbmcoZmFsc2UpCiAgICAgIH0KICAgIH0KICAgIGxvYWQoKQogICAgcmV0dXJuICgpID0+IHsgY2FuY2VsbGVkID0gdHJ1ZSB9CiAgfSwgW2HDsW8sIHRpdHVsYXJJZCwgdGlja10pCgogIC8vIFJlY2FyZ2EgZ2xvYmFsIGN1YW5kbyBDb25maWd1cmFjacOzbiBndWFyZGEgY2FtYmlvcyBlbiBjb25maWdfY2FuYWxlcwogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICBpZiAodHlwZW9mIHdpbmRvdyA9PT0gJ3VuZGVmaW5lZCcpIHJldHVybgogICAgY29uc3Qgb25DaGFuZ2UgPSAoKSA9PiBzZXRUaWNrKHQgPT4gdCArIDEpCiAgICB3aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcignY29uZmlnX2NhbmFsZXM6Y2hhbmdlZCcsIG9uQ2hhbmdlKQogICAgcmV0dXJuICgpID0+IHdpbmRvdy5yZW1vdmVFdmVudExpc3RlbmVyKCdjb25maWdfY2FuYWxlczpjaGFuZ2VkJywgb25DaGFuZ2UpCiAgfSwgW10pCgogIHJldHVybiB7IGluZ3Jlc29zLCBpbmdyZXNvc1BvckNhbmFsLCBnYXN0b3MsIGJydXRvcywgZGlhc09wLCBjYXRlZ29yaWFzLCBiZW5jaG1hcmtzLCBjb21pc2lvbmVzLCBmZWVzRmlqb3MsIGxvYWRpbmcgfQp9CgpleHBvcnQgZnVuY3Rpb24gc3VtTWVzZXMobWFwOiBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+LCBtZXNlczogbnVtYmVyW10pOiBudW1iZXIgewogIHJldHVybiBtZXNlcy5yZWR1Y2UoKHMsIG0pID0+IHMgKyAobWFwW21dIHx8IDApLCAwKQp9CgpleHBvcnQgZnVuY3Rpb24gc3VtQ2F0TWVzZXMoZ2FzdG9zOiBSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+PiwgcHJlZml4OiBzdHJpbmcsIG1lc2VzOiBudW1iZXJbXSk6IG51bWJlciB7CiAgbGV0IHRvdGFsID0gMAogIGZvciAoY29uc3QgW2NhdCwgbWVzTWFwXSBvZiBPYmplY3QuZW50cmllcyhnYXN0b3MpKSB7IGlmIChjYXQuc3RhcnRzV2l0aChwcmVmaXgpKSB0b3RhbCArPSBzdW1NZXNlcyhtZXNNYXAsIG1lc2VzKSB9CiAgcmV0dXJuIHRvdGFsCn0KCmV4cG9ydCBmdW5jdGlvbiBmbXROKG46IG51bWJlciB8IHVuZGVmaW5lZCk6IHN0cmluZyB7CiAgaWYgKG4gPT09IHVuZGVmaW5lZCB8fCBuID09PSAwKSByZXR1cm4gJ+KAlCcKICByZXR1cm4gKG4gPCAwID8gJ+KIkicgOiAnJykgKyBNYXRoLnJvdW5kKE1hdGguYWJzKG4pKS50b0xvY2FsZVN0cmluZygnZXMtRVMnKQp9Cg==
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { repartirCobro, type BrutoDiario, type CanalKey } from './casarFechaCobro'
+
+export interface CeldaIngreso {
+  importe: number
+  esEstimado: boolean
+  origen: 'banco' | 'ocr' | 'estimado_bruto_x_comision'
+}
+
+export interface RunningAnualData {
+  ingresos: Record<string, Record<number, number>>
+  ingresosPorCanal: Record<CanalKey, Record<number, CeldaIngreso>>
+  gastos: Record<string, Record<number, number>>
+  brutos: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number; total:number; pedidos:number }>
+  diasOp: Record<number, number>
+  categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
+  benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
+  comisiones: Record<string, number>
+  feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
+  loading: boolean
+}
+
+const CANAL_MAP: Record<string, string> = {
+  'Uber Eats': 'uber',
+  'Glovo': 'glovo',
+  'Just Eat': 'je',
+  'Web Propia': 'web',
+  'Venta Directa': 'directa',
+}
+
+// Detecta canal de un movimiento de conciliacion a partir de su descripcion/contraparte
+function detectarCanal(row: any): CanalKey | null {
+  const txt = `${row.contraparte || ''} ${row.concepto || ''} ${row.descripcion || ''}`.toLowerCase()
+  if (txt.includes('uber')) return 'uber'
+  if (txt.includes('glovo')) return 'glovo'
+  if (txt.includes('just eat') || txt.includes('justeat') || txt.includes('je ')) return 'je'
+  if (txt.includes('stripe') || txt.includes('redsys') || txt.includes('shopify')) return 'web'
+  return null
+}
+
+export function useRunningAnual(anio: number, titularId: string|null): RunningAnualData {
+  const [ingresos, setIngresos] = useState<Record<string, Record<number, number>>>({})
+  const [ingresosPorCanal, setIngresosPorCanal] = useState<RunningAnualData['ingresosPorCanal']>({
+    uber: {}, glovo: {}, je: {}, web: {}, directa: {},
+  })
+  const [gastos, setGastos] = useState<Record<string, Record<number, number>>>({})
+  const [brutos, setBrutos] = useState<RunningAnualData['brutos']>({})
+  const [diasOp, setDiasOp] = useState<Record<number, number>>({})
+  const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
+  const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
+  const [comisiones, setComisiones] = useState<Record<string, number>>({})
+  const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+
+      // 1. INGRESOS BANCO. Ampliamos +/- 60 dias porque los cobros de ventas
+      //    del anio pueden caer fuera del anio natural.
+      let qIng = supabase.from('conciliacion')
+        .select('fecha,categoria,importe,contraparte,concepto,descripcion')
+        .eq('tipo','ingreso')
+        .like('categoria','1.%')
+        .gte('fecha',`${anio-1}-11-01`)
+        .lte('fecha',`${anio+1}-02-29`)
+      if (titularId) qIng = qIng.eq('titular_id', titularId)
+      const { data: dIng } = await qIng
+
+      // 2. GASTOS (imputados a fecha de pago real)
+      let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${anio}-01-01`).lte('fecha',`${anio}-12-31`)
+      if (titularId) qGas = qGas.eq('titular_id', titularId)
+      const { data: dGas } = await qGas
+      const gasMap: Record<string, Record<number, number>> = {}
+      ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
+
+      // 3. BRUTOS POR DIA
+      let qBrut = supabase.from('facturacion_diario').select('fecha,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_bruto,total_pedidos').gte('fecha',`${anio}-01-01`).lte('fecha',`${anio}-12-31`)
+      if (titularId) qBrut = qBrut.eq('titular_id', titularId)
+      const { data: dBrut } = await qBrut
+
+      const brutosDiarios: BrutoDiario[] = (dBrut || []).map((r: any) => ({
+        fecha: r.fecha,
+        uber_bruto: Number(r.uber_bruto || 0),
+        glovo_bruto: Number(r.glovo_bruto || 0),
+        je_bruto: Number(r.je_bruto || 0),
+        web_bruto: Number(r.web_bruto || 0),
+        directa_bruto: Number(r.directa_bruto || 0),
+      }))
+
+      const brutMap: RunningAnualData['brutos'] = {}
+      const diasMap: Record<number, Set<string>> = {}
+      ;(dBrut || []).forEach((r: any) => {
+        const mes = new Date(r.fecha).getMonth()+1
+        if (!brutMap[mes]) brutMap[mes]={uber:0,glovo:0,je:0,web:0,directa:0,total:0,pedidos:0}
+        brutMap[mes].uber+=Number(r.uber_bruto||0); brutMap[mes].glovo+=Number(r.glovo_bruto||0); brutMap[mes].je+=Number(r.je_bruto||0); brutMap[mes].web+=Number(r.web_bruto||0); brutMap[mes].directa+=Number(r.directa_bruto||0); brutMap[mes].total+=Number(r.total_bruto||0); brutMap[mes].pedidos+=Number(r.total_pedidos||0)
+        if (!diasMap[mes]) diasMap[mes] = new Set()
+        diasMap[mes].add(r.fecha)
+      })
+      const dOp: Record<number, number> = {}
+      for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
+
+      // 4. CONFIG
+      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
+      const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
+      const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct,fijo_eur,coste_fijo,fee_periodo_eur,fee_periodicidad').eq('activo',true)
+
+      const comMap: Record<string, number> = {}
+      const feesMap: RunningAnualData['feesFijos'] = {}
+      ;(dCom || []).forEach((r: any) => {
+        const key = CANAL_MAP[r.canal]
+        if (!key) return
+        const com = Number(r.comision_pct || 0)
+        comMap[key] = com > 1 ? com / 100 : com
+        feesMap[key] = {
+          fijoEur: Number(r.fijo_eur || r.coste_fijo || 0),
+          feePeriodoEur: Number(r.fee_periodo_eur || 0),
+          feePeriodicidad: r.fee_periodicidad || 'mensual',
+        }
+      })
+
+      // 5. CASADO COBROS -> MES DE VENTA
+      const ingPorCanalReal: Record<CanalKey, Record<number, number>> = {
+        uber: {}, glovo: {}, je: {}, web: {}, directa: {},
+      }
+      ;(dIng || []).forEach((r: any) => {
+        const canal = detectarCanal(r)
+        if (!canal) return
+        const importe = Number(r.importe || 0)
+        if (importe === 0) return
+        const repartos = repartirCobro(canal, r.fecha, importe, brutosDiarios)
+        for (const rep of repartos) {
+          if (rep.anio !== anio) continue
+          ingPorCanalReal[canal][rep.mes] = (ingPorCanalReal[canal][rep.mes] || 0) + rep.importe
+        }
+      })
+
+      // 6. ingresosPorCanal: real si hay cobro casado, estimado si no
+      const ipc: RunningAnualData['ingresosPorCanal'] = {
+        uber: {}, glovo: {}, je: {}, web: {}, directa: {},
+      }
+      const canales: CanalKey[] = ['uber','glovo','je','web','directa']
+      for (let mes = 1; mes <= 12; mes++) {
+        for (const c of canales) {
+          const real = ingPorCanalReal[c][mes] || 0
+          if (real > 0) {
+            ipc[c][mes] = { importe: real, esEstimado: false, origen: 'banco' }
+          } else {
+            const brutoCanal = (brutMap[mes]?.[c]) || 0
+            if (brutoCanal > 0) {
+              const com = comMap[c] ?? 0
+              const estimado = brutoCanal * (1 - com)
+              ipc[c][mes] = { importe: estimado, esEstimado: true, origen: 'estimado_bruto_x_comision' }
+            } else {
+              ipc[c][mes] = { importe: 0, esEstimado: false, origen: 'banco' }
+            }
+          }
+        }
+      }
+
+      // 7. ingresos[categoria][mes] compat: alimentado por cobros casados.
+      const ingMap: Record<string, Record<number, number>> = {}
+      for (let mes = 1; mes <= 12; mes++) {
+        const totalMes = canales.reduce((s, c) => s + (ipc[c][mes]?.importe || 0), 0)
+        if (totalMes > 0) {
+          if (!ingMap['1.1']) ingMap['1.1'] = {}
+          ingMap['1.1'][mes] = totalMes
+        }
+      }
+
+      if (!cancelled) {
+        setIngresos(ingMap)
+        setIngresosPorCanal(ipc)
+        setGastos(gasMap)
+        setBrutos(brutMap)
+        setDiasOp(dOp)
+        setCategorias(dCat||[])
+        setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)})))
+        setComisiones(comMap)
+        setFeesFijos(feesMap)
+        setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [anio, titularId, tick])
+
+  // Recarga global cuando Configuracion guarda cambios en config_canales
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onChange = () => setTick(t => t + 1)
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
+  return { ingresos, ingresosPorCanal, gastos, brutos, diasOp, categorias, benchmarks, comisiones, feesFijos, loading }
+}
+
+export function sumMeses(map: Record<number, number>, meses: number[]): number {
+  return meses.reduce((s, m) => s + (map[m] || 0), 0)
+}
+
+export function sumCatMeses(gastos: Record<string, Record<number, number>>, prefix: string, meses: number[]): number {
+  let total = 0
+  for (const [cat, mesMap] of Object.entries(gastos)) { if (cat.startsWith(prefix)) total += sumMeses(mesMap, meses) }
+  return total
+}
+
+export function fmtN(n: number | undefined): string {
+  if (n === undefined || n === 0) return '—'
+  return (n < 0 ? '−' : '') + Math.round(Math.abs(n)).toLocaleString('es-ES')
+}
