@@ -117,6 +117,22 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
   return { aceptados, rechazados, expandidosZip: contador.n, totalOriginal: files.length }
 }
 
+// Lee recursivamente una carpeta seleccionada con showDirectoryPicker
+async function leerDirectorioRecursivo(dirHandle: any, files: File[], path: string = '') {
+  for await (const entry of dirHandle.values()) {
+    const entryPath = path ? `${path}/${entry.name}` : entry.name
+    if (entry.kind === 'file') {
+      try {
+        const file = await entry.getFile()
+        const renamed = new File([file], entryPath, { type: file.type })
+        files.push(renamed)
+      } catch {}
+    } else if (entry.kind === 'directory') {
+      await leerDirectorioRecursivo(entry, files, entryPath)
+    }
+  }
+}
+
 interface BtnSubirSplitProps { label: string; accept: string; extensiones: string[]; onArchivos: (resultado: { aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }) => void; preparando: boolean; setPreparando: (v: boolean) => void }
 function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, setPreparando }: BtnSubirSplitProps) {
   const inputFileRef = useRef<HTMLInputElement>(null)
@@ -124,15 +140,64 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
   const [overL, setOverL] = useState(false)
   const [overR, setOverR] = useState(false)
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
+  const handleFiles = async (files: FileList | File[] | null) => {
+    if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return
     setPreparando(true)
     try {
-      const arr = Array.from(files)
+      const arr = Array.isArray(files) ? files : Array.from(files)
       const resultado = await expandirArchivos(arr, extensiones)
       onArchivos(resultado)
     } finally {
       setPreparando(false)
+    }
+  }
+
+  // Click "POR ARCHIVOS": usar File System Access API si está disponible (Chrome/Edge PC),
+  // que abre SIEMPRE el Explorador del SO. Fallback a input type=file clásico.
+  const handleClickArchivos = async () => {
+    if (preparando) return
+    const w = window as any
+    if (typeof w.showOpenFilePicker === 'function') {
+      try {
+        const handles = await w.showOpenFilePicker({
+          multiple: true,
+          excludeAcceptAllOption: false,
+        })
+        const files: File[] = []
+        for (const h of handles) {
+          try { files.push(await h.getFile()) } catch {}
+        }
+        if (files.length > 0) await handleFiles(files)
+      } catch (err: any) {
+        // Usuario canceló o no soportado: fallback al input clásico
+        if (err?.name !== 'AbortError') inputFileRef.current?.click()
+      }
+    } else {
+      inputFileRef.current?.click()
+    }
+  }
+
+  // Click "POR CARPETAS": usar showDirectoryPicker (Chrome/Edge PC),
+  // que abre Explorador del SO en modo carpeta. Fallback a input webkitdirectory.
+  const handleClickCarpetas = async () => {
+    if (preparando) return
+    const w = window as any
+    if (typeof w.showDirectoryPicker === 'function') {
+      try {
+        const dirHandle = await w.showDirectoryPicker({ mode: 'read' })
+        setPreparando(true)
+        try {
+          const files: File[] = []
+          await leerDirectorioRecursivo(dirHandle, files)
+          await handleFiles(files)
+        } finally {
+          setPreparando(false)
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') inputFolderRef.current?.click()
+      }
+    } else {
+      inputFolderRef.current?.click()
     }
   }
 
@@ -160,7 +225,7 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
         onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(true) }}
         onDragLeave={e => { e.stopPropagation(); setOverL(false) }}
         onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => !preparando && inputFileRef.current?.click()}
+        onClick={handleClickArchivos}
         style={{ ...halfBase, background: overL ? '#8f1519' : '#B01D23', borderRight: '1px solid rgba(255,255,255,0.25)' }}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por archivos</div>
@@ -170,7 +235,7 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
         onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(true) }}
         onDragLeave={e => { e.stopPropagation(); setOverR(false) }}
         onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => !preparando && inputFolderRef.current?.click()}
+        onClick={handleClickCarpetas}
         style={{ ...halfBase, background: overR ? '#8f1519' : '#B01D23' }}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por carpetas</div>
