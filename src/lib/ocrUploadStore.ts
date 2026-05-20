@@ -1,5 +1,6 @@
-// ocrUploadStore v22 — persistencia 100% backend + agrupación visual de lotes
-// La BBDD guarda N lotes (técnicamente necesario por tamaño) pero la UI los muestra como UNA sola sesión sumada.
+// ocrUploadStore v23 — persistencia REAL via Storage de Supabase
+// Cada archivo se sube individualmente al bucket ocr-uploads (sin límites de payload).
+// La tabla ocr_sessions sólo guarda metadatos (nombres + paths), no base64.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -33,23 +34,26 @@ export interface OcrSession {
   completadoEn: number | null
   orden: number
   archivoActual?: string | null
-  // Si es una sesión virtual agregada de varios lotes
   grupoId?: string | null
   lotesIds?: string[]
 }
 
 const emitter = new EventTarget()
-let rawSessions: OcrSession[] = []   // lo que viene de BBDD (1 por lote)
-let preparandoLocal: OcrSession[] = [] // sesiones locales mientras se preparan los lotes
+let rawSessions: OcrSession[] = []
+let preparandoLocal: OcrSession[] = []
 let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
 
-const LOTE_MAX_ARCHIVOS = 150
+// Cuantos archivos como máximo metemos en una sesión BBDD.
+// El array es solo paths (~80 chars cada uno), así que cabe perfectamente.
+const SESION_MAX_ARCHIVOS = 500
+// Paralelismo de subidas al storage (varias a la vez para ir más rápido)
+const PARALELO_SUBIDAS = 6
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 
-// === Conversores cliente: .doc/.docx/.xlsx/.html → texto ===
+// === Conversores cliente ===
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 
@@ -142,19 +146,6 @@ async function htmlATexto(file: File | Blob): Promise<string> {
   return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim()
 }
 
-function utf8AB64(s: string): string {
-  return btoa(unescape(encodeURIComponent(s)))
-}
-
-function leerBase64(file: File | Blob): Promise<string> {
-  return new Promise((res, rej) => {
-    const r = new FileReader()
-    r.onload = () => res((r.result as string).split(',')[1])
-    r.onerror = () => rej(new Error('Error leyendo'))
-    r.readAsDataURL(file)
-  })
-}
-
 function getMimeTypeBase(ext: string): string {
   const map: Record<string, string> = {
     pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
@@ -165,34 +156,40 @@ function getMimeTypeBase(ext: string): string {
   return map[ext] ?? 'application/octet-stream'
 }
 
-async function normalizar(file: File): Promise<{ name: string; type: string; base64: string }> {
+/**
+ * Normaliza un archivo y lo devuelve como Blob (no base64).
+ * Para .doc/.docx/.xlsx/.html convertimos a texto plano en cliente.
+ */
+async function normalizar(file: File): Promise<{ name: string; type: string; blob: Blob }> {
   const ext = getExt(file.name)
   if (['xlsx', 'xls'].includes(ext)) {
     const csv = await excelACSV(file)
-    return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', base64: utf8AB64(csv) }
+    return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }) }
   }
   if (ext === 'docx') {
     const t = await docxATexto(file)
-    return { name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', base64: utf8AB64(t) }
+    return { name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
   }
   if (ext === 'doc') {
     const t = await docATexto(file)
-    return { name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', base64: utf8AB64(t) }
+    return { name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
   }
   if (['html', 'htm'].includes(ext)) {
     const t = await htmlATexto(file)
-    return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', base64: utf8AB64(t) }
+    return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
   }
-  if (['csv', 'txt'].includes(ext)) {
-    const t = await file.text()
-    return { name: file.name, type: ext === 'csv' ? 'text/csv' : 'text/plain', base64: utf8AB64(t) }
-  }
-  const base64 = await leerBase64(file)
+  // PDF / imágenes / csv / txt: tal cual
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
-  return { name: file.name, type: t, base64 }
+  return { name: file.name, type: t, blob: file }
 }
 
-// === Persistencia 100% BBDD ===
+function sanitizeForPath(name: string, idx: number): string {
+  // Path en bucket: solo ascii limpio, idx para garantizar único
+  const clean = name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
+  return `${String(idx).padStart(5, '0')}_${clean}`
+}
+
+// === Persistencia ===
 
 function dbToSession(s: any): OcrSession {
   return {
@@ -221,10 +218,6 @@ function dbToSession(s: any): OcrSession {
   }
 }
 
-/**
- * Agrupa lotes con el mismo grupo_id en una sola sesión visual con sumas.
- * Los lotes sin grupo aparecen como antes (1 toast por sesión).
- */
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
   const sueltas: OcrSession[] = []
   const porGrupo: Record<string, OcrSession[]> = {}
@@ -255,9 +248,7 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
     const primerLote = lotes[0]
     return {
       id: `grp_${grupoId}`,
-      total,
-      enviados,
-      ok, pendientes: pend, duplicados: dup, errores: err, achtung: ach, cancelados: can,
+      total, enviados, ok, pendientes: pend, duplicados: dup, errores: err, achtung: ach, cancelados: can,
       achtungMensaje: achtungL?.achtungMensaje || null,
       achtungTipo: achtungL?.achtungTipo || null,
       log: logAcumulado,
@@ -312,7 +303,6 @@ function suscribirRealtime() {
           return
         }
         const next = dbToSession(payload.new)
-        // Si está completada/cancelada/error → la mantenemos un rato y luego se quita
         if (payload.new.estado_cola === 'completada' || payload.new.estado_cola === 'cancelada' || payload.new.estado === 'error') {
           const ya = rawSessions.find(s => s.id === next.id)
           if (ya) {
@@ -321,7 +311,7 @@ function suscribirRealtime() {
             setTimeout(() => {
               rawSessions = rawSessions.filter(s => s.id !== next.id)
               emit()
-            }, 10000)
+            }, 15000)
           }
           return
         }
@@ -336,7 +326,7 @@ function suscribirRealtime() {
 
 function lanzarPoll() {
   if (pollTimer) return
-  pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 4000)
+  pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000)
 }
 
 function inicializar() {
@@ -385,8 +375,18 @@ function quitarPreparando(idLocal: string) {
   emit()
 }
 
+// Sube un archivo al storage. Devuelve el path donde quedó.
+async function subirAlStorage(grupoId: string, idx: number, name: string, type: string, blob: Blob): Promise<string> {
+  const path = `${grupoId}/${sanitizeForPath(name, idx)}`
+  const { error } = await supabase.storage.from('ocr-uploads').upload(path, blob, { contentType: type, upsert: true })
+  if (error) throw new Error(`storage: ${error.message}`)
+  return path
+}
+
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>(snapshot())
+  const [errorVisible, setErrorVisible] = useState<string | null>(null)
+
   useEffect(() => {
     const h = () => setSnap(snapshot())
     emitter.addEventListener('change', h)
@@ -395,36 +395,48 @@ export function useOcrUpload() {
   }, [])
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
+    setErrorVisible(null)
     const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     ponerPreparando(idLocal, files.length, 0, `Preparando 0 de ${files.length}…`)
 
-    // 1) Normalizar todos los archivos en cliente
-    const archivos: any[] = []
+    // 1) Normalizar y subir al storage en paralelo (en bloques de PARALELO_SUBIDAS)
+    type ItemSubido = { name: string; type: string; storagePath: string }
+    const subidos: ItemSubido[] = []
     const fallos: ArchivoLog[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      try {
-        const norm = await normalizar(file)
-        archivos.push(norm)
-      } catch (e: any) {
-        fallos.push({ filename: file.name, status: 'error', detalle: `Conversión: ${e?.message || e}` })
+    let hechos = 0
+
+    for (let inicio = 0; inicio < files.length; inicio += PARALELO_SUBIDAS) {
+      const slice = files.slice(inicio, inicio + PARALELO_SUBIDAS)
+      const promesas = slice.map(async (file, i) => {
+        const idx = inicio + i
+        try {
+          const norm = await normalizar(file)
+          const path = await subirAlStorage(grupoId, idx, norm.name, norm.type, norm.blob)
+          return { ok: true as const, item: { name: norm.name, type: norm.type, storagePath: path } }
+        } catch (e: any) {
+          return { ok: false as const, fallo: { filename: file.name, status: 'error' as const, detalle: e?.message || String(e) } }
+        }
+      })
+      const resultados = await Promise.all(promesas)
+      for (const r of resultados) {
+        if (r.ok) subidos.push(r.item)
+        else fallos.push(r.fallo)
+        hechos++
       }
-      if (i % 10 === 0 || i === files.length - 1) {
-        ponerPreparando(idLocal, files.length, i + 1, `Preparando ${i + 1} de ${files.length}…`)
-      }
+      ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`)
     }
 
-    // 2) Partir en lotes y crear una sesión por lote, todas con el MISMO grupo_id
-    const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    // 2) Partir solo metadatos (sin base64, sólo paths) en sesiones BBDD
+    ponerPreparando(idLocal, files.length, files.length, `Guardando sesión…`)
     const baseOrden = Math.floor(Date.now() / 1000)
-    const totalLotes = Math.max(1, Math.ceil(archivos.length / LOTE_MAX_ARCHIVOS))
+    const totalLotes = Math.max(1, Math.ceil(subidos.length / SESION_MAX_ARCHIVOS))
     const erroresInsert: string[] = []
 
     for (let lote = 0; lote < totalLotes; lote++) {
-      const inicio = lote * LOTE_MAX_ARCHIVOS
-      const fin = Math.min(inicio + LOTE_MAX_ARCHIVOS, archivos.length)
-      const slice = archivos.slice(inicio, fin)
-      ponerPreparando(idLocal, files.length, files.length, `Subiendo lote ${lote + 1} de ${totalLotes}…`)
+      const inicio = lote * SESION_MAX_ARCHIVOS
+      const fin = Math.min(inicio + SESION_MAX_ARCHIVOS, subidos.length)
+      const slice = subidos.slice(inicio, fin)
 
       const id = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
       const logLote = lote === 0 ? fallos : []
@@ -447,7 +459,7 @@ export function useOcrUpload() {
         cancelar_solicitado: false,
         fn_name: fnName,
         titular_id: titular_id || null,
-        archivos_pendientes: slice,
+        archivos_pendientes: slice, // SOLO metadatos {name, type, storagePath}
         estado: 'en_espera',
         estado_cola: 'en_espera',
         orden_cola: baseOrden + lote,
@@ -463,16 +475,16 @@ export function useOcrUpload() {
     quitarPreparando(idLocal)
 
     if (erroresInsert.length > 0) {
-      throw new Error(`No se pudo crear ${erroresInsert.length} lote(s). Primero: ${erroresInsert[0]}`)
+      const msg = `Error guardando sesión: ${erroresInsert[0]}`
+      setErrorVisible(msg)
+      throw new Error(msg)
     }
 
-    // Recargar inmediatamente para que aparezca el toast agrupado sin esperar al poll
     await cargarSesionesActivas()
     lanzarWorker()
   }
 
   async function cancelar(id: string) {
-    // Si es virtual (grupo), cancela todos los lotes; si es real, sólo ese
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
       const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
@@ -516,5 +528,5 @@ export function useOcrUpload() {
     }
   }
 
-  return { sessions: snap, procesar, cancelar, cerrar, ocultar }
+  return { sessions: snap, procesar, cancelar, cerrar, ocultar, errorVisible }
 }
