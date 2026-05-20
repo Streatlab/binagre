@@ -1,7 +1,8 @@
 /**
- * ColFacturacionCanal — Ronda 9
- * R9-07: Bruto en negro #111111 (mismo negro que Card Facturación principal)
- * Mantiene: Web/Directa muestran 0,00 + Glovo border sutil + lectura resumenes_plataforma_marca_mensual
+ * ColFacturacionCanal — fórmula unificada
+ * - Si hay OCR con neto_real_cobrado: usa ese valor (es el real cobrado)
+ * - Si no hay OCR o falta: usa el neto del prop canales (ya calculado con fórmula completa en TabResumen vía calcNetoPorCanal)
+ * - Nunca calcula con fórmula simple (sin fees periódicos)
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -20,41 +21,29 @@ interface DatosCanal {
   neto: number | null
   margenPct: number | null
   sinDatos: boolean
+  fuente: 'ocr_real' | 'calculado' | 'sin_datos'
 }
 
 type CanalId = 'uber' | 'glovo' | 'just_eat' | 'web' | 'directa'
 
-async function calcularDatosCanal(canal: CanalId, mes: number, año: number): Promise<DatosCanal> {
+async function getNetoRealOCR(canal: CanalId, mes: number, año: number): Promise<{ bruto: number; neto: number } | null> {
   const { data, error } = await supabase
     .from('resumenes_plataforma_marca_mensual')
-    .select('bruto, comisiones, fees, cargos_promocion, neto_real_cobrado')
+    .select('bruto, neto_real_cobrado')
     .eq('plataforma', canal)
     .eq('mes', mes)
     .eq('año', año)
 
-  if (error || !data || data.length === 0) {
-    return { bruto: null, neto: null, margenPct: null, sinDatos: true }
-  }
+  if (error || !data || data.length === 0) return null
 
-  type Row = { bruto: number | null; comisiones: number | null; fees: number | null; cargos_promocion: number | null; neto_real_cobrado: number | null }
+  type Row = { bruto: number | null; neto_real_cobrado: number | null }
   const rows = data as Row[]
+  const tieneRealCobrado = rows.some(d => d.neto_real_cobrado !== null && d.neto_real_cobrado !== undefined)
+  if (!tieneRealCobrado) return null
 
   const bruto = rows.reduce((s, d) => s + (d.bruto ?? 0), 0)
-  const tieneRealCobrado = rows.some(d => d.neto_real_cobrado !== null && d.neto_real_cobrado !== undefined)
-
-  let neto: number
-  if (tieneRealCobrado) {
-    neto = rows.reduce((s, d) => s + (d.neto_real_cobrado ?? 0), 0)
-  } else {
-    const comisiones = rows.reduce((s, d) => s + (d.comisiones ?? 0), 0)
-    const fees = rows.reduce((s, d) => s + (d.fees ?? 0), 0)
-    const cargos = rows.reduce((s, d) => s + (d.cargos_promocion ?? 0), 0)
-    const ivaComisiones = (comisiones + fees + cargos) * 0.21
-    neto = bruto - comisiones - fees - cargos - ivaComisiones
-  }
-
-  const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
-  return { bruto, neto, margenPct, sinDatos: false }
+  const neto = rows.reduce((s, d) => s + (d.neto_real_cobrado ?? 0), 0)
+  return { bruto, neto }
 }
 
 const CANAL_MAP: Record<string, CanalId> = {
@@ -68,20 +57,19 @@ const CANAL_MAP: Record<string, CanalId> = {
 export default function ColFacturacionCanal({ canales, mes, año }: Props) {
   const mesActual = mes ?? (new Date().getMonth() + 1)
   const añoActual = año ?? new Date().getFullYear()
-
-  const [datosTabla, setDatosTabla] = useState<Record<string, DatosCanal>>({})
+  const [ocrReales, setOcrReales] = useState<Record<string, { bruto: number; neto: number } | null>>({})
 
   useEffect(() => {
     const canalesIds: Array<CanalId> = ['uber', 'glovo', 'just_eat', 'web', 'directa']
     Promise.all(
       canalesIds.map(async (c) => {
-        const d = await calcularDatosCanal(c, mesActual, añoActual)
-        return [c, d] as [CanalId, DatosCanal]
+        const real = await getNetoRealOCR(c, mesActual, añoActual)
+        return [c, real] as [CanalId, { bruto: number; neto: number } | null]
       })
     ).then(results => {
-      const out: Record<string, DatosCanal> = {}
+      const out: Record<string, { bruto: number; neto: number } | null> = {}
       for (const [k, v] of results) out[k] = v
-      setDatosTabla(out)
+      setOcrReales(out)
     })
   }, [mesActual, añoActual])
 
@@ -89,11 +77,16 @@ export default function ColFacturacionCanal({ canales, mes, año }: Props) {
 
   function getDatos(id: string): DatosCanal {
     const tableKey = CANAL_MAP[id]
-    const td = tableKey ? datosTabla[tableKey] : undefined
-    if (td && !td.sinDatos) return td
+    const ocr = tableKey ? ocrReales[tableKey] : undefined
+    if (ocr) {
+      const margenPct = ocr.bruto > 0 ? (ocr.neto / ocr.bruto) * 100 : 0
+      return { bruto: ocr.bruto, neto: ocr.neto, margenPct, sinDatos: false, fuente: 'ocr_real' }
+    }
     const c = map.get(id as CanalStat['id'])
-    if (c && c.bruto > 0) return { bruto: c.bruto, neto: c.neto, margenPct: c.margen, sinDatos: false }
-    return { bruto: null, neto: null, margenPct: null, sinDatos: true }
+    if (c && c.bruto > 0) {
+      return { bruto: c.bruto, neto: c.neto, margenPct: c.margen, sinDatos: false, fuente: 'calculado' }
+    }
+    return { bruto: null, neto: null, margenPct: null, sinDatos: true, fuente: 'sin_datos' }
   }
 
   const uber  = getDatos('uber')
@@ -183,7 +176,6 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorL
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        {/* R9-07: Bruto en negro #111111 */}
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111111', marginTop: 2 }}>
           {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
         </div>
@@ -215,7 +207,6 @@ function CardCanalMini({ label, bg, border, colorLabel, datos }: Omit<CardCanalP
       padding: '10px 12px',
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-      {/* R9-07: Bruto en negro #111111 también en mini */}
       <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: '#111111', marginTop: 2 }}>
         {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
       </div>
