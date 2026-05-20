@@ -23,6 +23,9 @@
  *   El campo "GastosUsuario" de Just Eat son los gastos de envío que el
  *   cliente paga al hacer el pedido (con IVA 21%). Just Eat los descuenta
  *   antes de aplicar su comisión, porque no son ingreso del restaurante.
+ *
+ *   Referencia canónica: Notion 366c8b1f-6139-8145-b854-da4b1a107f08
+ *   Verificación mayo 2026 · 64 pedidos individuales + 10 facturas reales
  */
 
 import { useEffect, useState } from 'react'
