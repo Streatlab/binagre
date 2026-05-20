@@ -1,19 +1,28 @@
 /**
  * calcNetoPlataforma.ts
- * Cálculo neto cobrado por canal leyendo SIEMPRE de config_canales en Supabase.
- * Suscripción Realtime: cualquier UPDATE en config_canales invalida cache y emite evento.
+ * Cálculo neto cobrado por canal · fórmulas verificadas con facturas reales:
  *
- * FÓRMULA REAL (verificada con facturas Glovo + Uber Eats, 21 + 33 pedidos):
+ *   UBER EATS  (33 pedidos individuales analizados al céntimo):
+ *     Comisión   = 30% × (Ventas − Promo partner)
+ *     Si Prime   = 33% × (Ventas − Promo partner) [se aplicará proximamente]
+ *     Fee Promo  = 0,82€ por pedido con promoción
+ *     Tarifa periódica = 2,29€/semana × marca
+ *     + IVA 21% sobre TODO
  *
- *   Base imponible Glovo = comision_pct × (bruto − promo) + fee_prime_eur × n_prime + fee_periodo × periodos × marcas
- *   Base imponible Uber  = comision_pct × (bruto − promo) × n_normales/n_total
- *                        + comision_pct_prime × (bruto − promo) × n_prime/n_total      (cuando Uber One esté activo)
- *                        + fee_promo_eur × n_promo
- *                        + fee_periodo × periodos × marcas                              (cuando aplique)
+ *   GLOVO  (21 pedidos individuales analizados al céntimo):
+ *     Comisión   = 30% × (Ventas − Promo partner)
+ *     Fee Prime  = 0,74€ por pedido prime
+ *     Tarifa periódica = 10€/quincena × marca
+ *     + IVA 21% sobre TODO
  *
- *   Neto = bruto − promo − (Base imponible × 1.21)
+ *   JUST EAT  (10 facturas analizadas al céntimo, 3 marcas distintas):
+ *     Comisión   = 30% × (Ventas − GastosUsuario × 1,21)
+ *     Gastos Gestión = 0,30€ × pedidos
+ *     + IVA 21% sobre TODO
  *
- * Mientras no haya OCR cargado, usamos % medio de pedidos prime/promo estimado.
+ *   El campo "GastosUsuario" de Just Eat son los gastos de envío que el
+ *   cliente paga al hacer el pedido (con IVA 21%). Just Eat los descuenta
+ *   antes de aplicar su comisión, porque no son ingreso del restaurante.
  */
 
 import { useEffect, useState } from 'react'
@@ -31,8 +40,8 @@ export interface CanalConfig {
   fee_promo_eur: number
   fee_periodo_eur: number
   fee_periodicidad: string
-  pct_pedidos_prime_estim: number   // % medio estimado de pedidos prime/UberOne
-  pct_pedidos_promo_estim: number   // % medio estimado de pedidos con promoción
+  pct_pedidos_prime_estim: number
+  pct_pedidos_promo_estim: number
 }
 
 let cacheConfig: Record<string, CanalConfig> | null = null
@@ -43,7 +52,6 @@ const MAP_ID_CANAL: Record<string, string> = {
   web: 'Web Propia', dir: 'Venta Directa',
 }
 
-/** Inicializa suscripción realtime una sola vez. Cualquier cambio en config_canales recarga cache + emite evento global. */
 function ensureRealtime() {
   if (realtimeInit) return
   realtimeInit = true
@@ -90,16 +98,11 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
 
 export function invalidarCacheConfigCanales() { cacheConfig = null }
 
-/** Recarga config desde BBDD ignorando cache. */
 export async function recargarConfigCanales(): Promise<Record<string, CanalConfig>> {
   cacheConfig = null
   return loadConfigCanales()
 }
 
-/**
- * Hook React: devuelve config_canales y se actualiza automáticamente
- * cuando cambia en BBDD (vía Realtime + evento manual).
- */
 export function useConfigCanales(): Record<string, CanalConfig> {
   const [config, setConfig] = useState<Record<string, CanalConfig>>({})
   useEffect(() => {
@@ -130,16 +133,16 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
 }
 
 /**
- * Cálculo neto plataforma con fórmula real verificada con facturas.
+ * Cálculo neto plataforma con fórmula real verificada.
  *
  * @param canalId           uber | glovo | je | web | dir
  * @param bruto             Importe bruto vendido (ventas con IVA del producto)
  * @param pedidos           Número total de pedidos
- * @param marcasActivas     Nº marcas activas en esta plataforma (mínimo 1)
+ * @param marcasActivas     Nº marcas activas en esta plataforma
  * @param fechaDesde        Inicio periodo (para fees periódicos)
  * @param fechaHasta        Fin periodo (para fees periódicos)
  * @param configOverride    Inyectar config alternativa (testing)
- * @param promoSubvencionada (opcional) Importe total de promo asumida por partner; si no se conoce, se estima
+ * @param promoSubvencionada Importe total de promo asumida por partner (Uber/Glovo) o gastosUsuario (JE)
  */
 export function calcNetoPorCanal(
   canalId: string, bruto: number, pedidos: number,
@@ -153,20 +156,21 @@ export function calcNetoPorCanal(
   const cfg = config[nombreCanal]
   if (!cfg) return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
 
-  // Base para comisión = bruto − promoción (lo que el cliente realmente paga)
-  // Si no nos pasan promo, se asume 0 (estimación conservadora)
   const promo = promoSubvencionada ?? 0
-  const baseCobrado = Math.max(0, bruto - promo)
 
-  // Estimación pedidos prime / promo (con OCR esto se sobrescribe con datos reales)
+  // ─── Factor de descuento sobre la promo según canal ───
+  // Just Eat: gastos de usuario tienen IVA 21% que JE descuenta del bruto antes de aplicar comisión
+  // Uber/Glovo: la promo se descuenta sin IVA (es descuento al precio de venta)
+  const factorPromoIva = canalId === 'je' ? 1.21 : 1.0
+  const baseCobrado = Math.max(0, bruto - promo * factorPromoIva)
+
+  // Estimación pedidos prime / promo
   const nPrime = pedidos * cfg.pct_pedidos_prime_estim
   const nPromo = pedidos * cfg.pct_pedidos_promo_estim
 
-  // Comisión variable: si hay tarifa prime, aplicamos % distinto sobre la fracción Prime
+  // Comisión variable
   let comisionVariable = 0
   if (cfg.comision_pct_prime != null && cfg.comision_pct_prime > 0) {
-    // Pedidos normales: comision_pct sobre su parte del baseCobrado
-    // Pedidos prime: comision_pct_prime sobre su parte del baseCobrado
     const baseNormal = baseCobrado * (1 - cfg.pct_pedidos_prime_estim)
     const basePrime  = baseCobrado * cfg.pct_pedidos_prime_estim
     comisionVariable = cfg.comision_pct * baseNormal + cfg.comision_pct_prime * basePrime
@@ -174,16 +178,10 @@ export function calcNetoPorCanal(
     comisionVariable = cfg.comision_pct * baseCobrado
   }
 
-  // Fijo por pedido (existe en algunos canales como Web Propia 0,50€)
   const fijoTotal = cfg.fijo_eur * pedidos
-
-  // Fee Prime: 0,74€ por pedido prime (Glovo Prime, hoy)
   const feePrimeTotal = cfg.fee_prime_eur * nPrime
-
-  // Fee Promo: 0,82€ por pedido con promoción (Uber, offer fee)
   const feePromoTotal = cfg.fee_promo_eur * nPromo
 
-  // Fee periódico (10€ quincenal Glovo, 2,29€ semanal Uber)
   let feePeriodoTotal = 0
   if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
     const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
@@ -192,10 +190,9 @@ export function calcNetoPorCanal(
 
   const baseImponible = comisionVariable + fijoTotal + feePrimeTotal + feePromoTotal + feePeriodoTotal
   const ivaComision = IVA * baseImponible
-  const totalUber = baseImponible + ivaComision
+  const totalPlataforma = baseImponible + ivaComision
 
-  // Neto que llega al banco: bruto − promo (descuento al cliente) − total facturado por la plataforma
-  const neto = Math.max(0, bruto - promo - totalUber)
+  const neto = Math.max(0, bruto - promo - totalPlataforma)
   const margenPct = bruto > 0 ? (neto / bruto) * 100 : 0
   return { neto, margenPct }
 }
