@@ -47,12 +47,29 @@ export interface CanalConfig {
   pct_pedidos_promo_estim: number
 }
 
+/** Marcas activas reales por canal (leído de marca_plataforma_acceso) */
+export interface MarcasPorCanal {
+  uber: number
+  glovo: number
+  je: number
+  web?: number
+  dir?: number
+}
+
 let cacheConfig: Record<string, CanalConfig> | null = null
+let cacheMarcasPorCanal: MarcasPorCanal | null = null
 let realtimeInit = false
 
 const MAP_ID_CANAL: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat',
   web: 'Web Propia', dir: 'Venta Directa',
+}
+
+// Códigos plataforma en marca_plataforma_acceso → canalId interno
+const MAP_PLAT_ACCESO: Record<string, keyof MarcasPorCanal> = {
+  UE: 'uber',
+  GL: 'glovo',
+  JE: 'je',
 }
 
 function ensureRealtime() {
@@ -67,6 +84,17 @@ function ensureRealtime() {
         await loadConfigCanales()
         window.dispatchEvent(new CustomEvent('config_canales:changed'))
         window.dispatchEvent(new CustomEvent('config_canales_updated'))
+      }
+    )
+    .subscribe()
+  supabase
+    .channel('marca_plataforma_acceso_changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'marca_plataforma_acceso' },
+      async () => {
+        cacheMarcasPorCanal = null
+        await loadMarcasPorCanal()
+        window.dispatchEvent(new CustomEvent('config_canales:changed'))
       }
     )
     .subscribe()
@@ -99,7 +127,32 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
   return cacheConfig
 }
 
-export function invalidarCacheConfigCanales() { cacheConfig = null }
+/**
+ * Carga nº marcas activas por canal desde marca_plataforma_acceso.
+ * Devuelve mínimo 1 marca por canal para evitar fees a 0 si la tabla está vacía.
+ */
+export async function loadMarcasPorCanal(): Promise<MarcasPorCanal> {
+  ensureRealtime()
+  if (cacheMarcasPorCanal) return cacheMarcasPorCanal
+  const out: MarcasPorCanal = { uber: 1, glovo: 1, je: 1, web: 1, dir: 1 }
+  const { data, error } = await supabase
+    .from('marca_plataforma_acceso')
+    .select('plataforma, activo')
+    .eq('activo', true)
+  if (error || !data) { cacheMarcasPorCanal = out; return out }
+  const counter: Record<string, number> = {}
+  for (const row of data as { plataforma: string }[]) {
+    const k = (row.plataforma || '').toUpperCase()
+    counter[k] = (counter[k] ?? 0) + 1
+  }
+  for (const [k, key] of Object.entries(MAP_PLAT_ACCESO)) {
+    if (counter[k]) out[key] = counter[k]
+  }
+  cacheMarcasPorCanal = out
+  return out
+}
+
+export function invalidarCacheConfigCanales() { cacheConfig = null; cacheMarcasPorCanal = null }
 
 export async function recargarConfigCanales(): Promise<Record<string, CanalConfig>> {
   cacheConfig = null
@@ -125,6 +178,24 @@ export function useConfigCanales(): Record<string, CanalConfig> {
   return config
 }
 
+export function useMarcasPorCanal(): MarcasPorCanal {
+  const [marcas, setMarcas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  useEffect(() => {
+    let mounted = true
+    loadMarcasPorCanal().then(m => { if (mounted) setMarcas({ ...m }) })
+    const onChange = () => {
+      cacheMarcasPorCanal = null
+      loadMarcasPorCanal().then(m => { if (mounted) setMarcas({ ...m }) })
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    return () => {
+      mounted = false
+      window.removeEventListener('config_canales:changed', onChange)
+    }
+  }, [])
+  return marcas
+}
+
 function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
   const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
   switch (periodicidad) {
@@ -136,12 +207,33 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
 }
 
 /**
+ * Resuelve cuántas marcas aplicar al fee periódico de un canal concreto.
+ * Acepta:
+ *  - un número (legacy, todas las plataformas usan el mismo)
+ *  - un objeto MarcasPorCanal (preferido, valor específico por canal)
+ *  - undefined (usa cache global cargada con loadMarcasPorCanal, fallback a 1)
+ */
+function resolveMarcas(canalId: string, marcas: number | MarcasPorCanal | undefined): number {
+  if (typeof marcas === 'number') return Math.max(1, marcas)
+  if (marcas && typeof marcas === 'object') {
+    const v = (marcas as any)[canalId]
+    if (typeof v === 'number' && v > 0) return v
+    return 1
+  }
+  if (cacheMarcasPorCanal) {
+    const v = (cacheMarcasPorCanal as any)[canalId]
+    if (typeof v === 'number' && v > 0) return v
+  }
+  return 1
+}
+
+/**
  * Cálculo neto plataforma con fórmula real verificada.
  *
  * @param canalId           uber | glovo | je | web | dir
  * @param bruto             Importe bruto vendido (ventas con IVA del producto)
  * @param pedidos           Número total de pedidos
- * @param marcasActivas     Nº marcas activas en esta plataforma
+ * @param marcasActivas     Nº marcas activas: número global (legacy) o {uber,glovo,je} específico
  * @param fechaDesde        Inicio periodo (para fees periódicos)
  * @param fechaHasta        Fin periodo (para fees periódicos)
  * @param configOverride    Inyectar config alternativa (testing)
@@ -149,7 +241,7 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
  */
 export function calcNetoPorCanal(
   canalId: string, bruto: number, pedidos: number,
-  marcasActivas: number = 1,
+  marcasActivas: number | MarcasPorCanal = 1,
   fechaDesde?: Date, fechaHasta?: Date,
   configOverride?: Record<string, CanalConfig>,
   promoSubvencionada?: number,
@@ -188,7 +280,8 @@ export function calcNetoPorCanal(
   let feePeriodoTotal = 0
   if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
     const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
-    feePeriodoTotal = cfg.fee_periodo_eur * periodos * marcasActivas
+    const nMarcas = resolveMarcas(canalId, marcasActivas)
+    feePeriodoTotal = cfg.fee_periodo_eur * periodos * nMarcas
   }
 
   const baseImponible = comisionVariable + fijoTotal + feePrimeTotal + feePromoTotal + feePeriodoTotal
