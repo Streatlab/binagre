@@ -1,31 +1,40 @@
 /**
- * calcNetoPlataforma.ts
- * Cálculo neto cobrado por canal · fórmulas verificadas con facturas reales:
+ * calcNetoPlataforma.ts · FUNCIÓN CENTRAL ÚNICA del ERP
  *
- *   UBER EATS  (33 pedidos individuales analizados al céntimo):
- *     Comisión   = 30% × (Ventas − Promo partner)
- *     Si Prime   = 33% × (Ventas − Promo partner) [se aplicará proximamente]
- *     Fee Promo  = 0,82€ por pedido con promoción
- *     Tarifa periódica = 2,29€/semana × marca
- *     + IVA 21% sobre TODO
+ * Fuente de verdad: config_canales + marca_plataforma_acceso (Supabase).
+ * Documentación canónica: Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
+ * Procedimiento: Notion 366c8b1f-6139-81c1-8451-fbef75dd3aa2
  *
- *   GLOVO  (21 pedidos individuales analizados al céntimo):
- *     Comisión   = 30% × (Ventas − Promo partner)
- *     Fee Prime  = 0,74€ por pedido prime
- *     Tarifa periódica = 10€/quincena × marca
- *     + IVA 21% sobre TODO
+ * Fórmulas reales verificadas (64 pedidos + 10 facturas, may 2026):
  *
- *   JUST EAT  (10 facturas analizadas al céntimo, 3 marcas distintas):
- *     Comisión   = 30% × (Ventas − GastosUsuario × 1,21)
- *     Gastos Gestión = 0,30€ × pedidos
- *     + IVA 21% sobre TODO
+ *   UBER EATS
+ *     Por pedido:
+ *       Si Uber One        → comisión = 33% × precio
+ *       Si NO Uber One     → comisión = 30% × precio
+ *       Si pedido con promo → +0,82€ extra (sea Prime o no)
+ *     Periodo:
+ *       fee_periódico = 2,29€ × semanas × marcas activas Uber
+ *       IVA 21% sobre TODO
  *
- *   El campo "GastosUsuario" de Just Eat son los gastos de envío que el
- *   cliente paga al hacer el pedido (con IVA 21%). Just Eat los descuenta
- *   antes de aplicar su comisión, porque no son ingreso del restaurante.
+ *   GLOVO
+ *     Por pedido:
+ *       comisión = 30% × precio
+ *       Si cliente Prime → +0,74€ extra
+ *     Periodo:
+ *       fee_periódico = 10€ × quincenas × marcas activas Glovo
+ *       IVA 21% sobre TODO
  *
- *   Referencia canónica: Notion 366c8b1f-6139-8145-b854-da4b1a107f08
- *   Verificación mayo 2026 · 64 pedidos individuales + 10 facturas reales
+ *   JUST EAT
+ *     Por pedido:
+ *       comisión = 30% × (precio − GastosUsuario × 1,21)
+ *       fee_pedido = 0,30€
+ *     IVA 21% sobre TODO
+ *
+ *   WEB PROPIA
+ *     fee_pedido = 0,50€ + IVA21%
+ *
+ *   VENTA DIRECTA
+ *     Sin fees, Neto = Bruto
  */
 
 import { useEffect, useState } from 'react'
@@ -34,6 +43,7 @@ import { supabase } from '@/lib/supabase'
 const IVA = 0.21
 
 export interface NetoResult { neto: number; margenPct: number }
+
 export interface CanalConfig {
   canal: string
   comision_pct: number
@@ -47,13 +57,30 @@ export interface CanalConfig {
   pct_pedidos_promo_estim: number
 }
 
-/** Marcas activas reales por canal (leído de marca_plataforma_acceso) */
+/** Marcas activas reales por canal (de marca_plataforma_acceso) */
 export interface MarcasPorCanal {
   uber: number
   glovo: number
   je: number
   web?: number
   dir?: number
+}
+
+/** Modo de cálculo */
+export type ModoNeto = 'agregado_canal' | 'subset_marca' | 'plato'
+
+export interface OpcionesCalcNeto {
+  /** Modo de cálculo (default agregado_canal) */
+  modo?: ModoNeto
+  /** Fechas del periodo, necesarias para fees periódicos en modo agregado_canal */
+  fechaDesde?: Date
+  fechaHasta?: Date
+  /** Mapa marcas activas por canal: {uber:26, glovo:9, je:8}. Si no se pasa, lee cache. */
+  marcasPorCanal?: MarcasPorCanal | number
+  /** Promo subvencionada por partner (Uber/Glovo) o GastosUsuario (JE) */
+  promoSubvencionada?: number
+  /** Override config para testing */
+  configCanales?: Record<string, CanalConfig>
 }
 
 let cacheConfig: Record<string, CanalConfig> | null = null
@@ -65,7 +92,14 @@ const MAP_ID_CANAL: Record<string, string> = {
   web: 'Web Propia', dir: 'Venta Directa',
 }
 
-// Códigos plataforma en marca_plataforma_acceso → canalId interno
+/** Mapeo plataforma → canalId (alias 'directa' → 'dir' y 'just_eat' → 'je') */
+function normalizarCanalId(id: string): string {
+  const v = (id || '').toLowerCase()
+  if (v === 'directa') return 'dir'
+  if (v === 'just_eat') return 'je'
+  return v
+}
+
 const MAP_PLAT_ACCESO: Record<string, keyof MarcasPorCanal> = {
   UE: 'uber',
   GL: 'glovo',
@@ -129,7 +163,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
 
 /**
  * Carga nº marcas activas por canal desde marca_plataforma_acceso.
- * Devuelve mínimo 1 marca por canal para evitar fees a 0 si la tabla está vacía.
+ * Mínimo 1 por canal para evitar fees = 0 si tabla vacía.
  */
 export async function loadMarcasPorCanal(): Promise<MarcasPorCanal> {
   ensureRealtime()
@@ -152,7 +186,10 @@ export async function loadMarcasPorCanal(): Promise<MarcasPorCanal> {
   return out
 }
 
-export function invalidarCacheConfigCanales() { cacheConfig = null; cacheMarcasPorCanal = null }
+export function invalidarCacheConfigCanales() {
+  cacheConfig = null
+  cacheMarcasPorCanal = null
+}
 
 export async function recargarConfigCanales(): Promise<Record<string, CanalConfig>> {
   cacheConfig = null
@@ -206,13 +243,6 @@ function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Da
   }
 }
 
-/**
- * Resuelve cuántas marcas aplicar al fee periódico de un canal concreto.
- * Acepta:
- *  - un número (legacy, todas las plataformas usan el mismo)
- *  - un objeto MarcasPorCanal (preferido, valor específico por canal)
- *  - undefined (usa cache global cargada con loadMarcasPorCanal, fallback a 1)
- */
 function resolveMarcas(canalId: string, marcas: number | MarcasPorCanal | undefined): number {
   if (typeof marcas === 'number') return Math.max(1, marcas)
   if (marcas && typeof marcas === 'object') {
@@ -228,62 +258,106 @@ function resolveMarcas(canalId: string, marcas: number | MarcasPorCanal | undefi
 }
 
 /**
- * Cálculo neto plataforma con fórmula real verificada.
+ * Cálculo neto por canal · FUNCIÓN CENTRAL ÚNICA del ERP.
  *
- * @param canalId           uber | glovo | je | web | dir
- * @param bruto             Importe bruto vendido (ventas con IVA del producto)
- * @param pedidos           Número total de pedidos
- * @param marcasActivas     Nº marcas activas: número global (legacy) o {uber,glovo,je} específico
- * @param fechaDesde        Inicio periodo (para fees periódicos)
- * @param fechaHasta        Fin periodo (para fees periódicos)
- * @param configOverride    Inyectar config alternativa (testing)
- * @param promoSubvencionada Importe total de promo asumida por partner (Uber/Glovo) o gastosUsuario (JE)
+ * @param canalId  uber | glovo | je | web | dir (alias 'directa' y 'just_eat' aceptados)
+ * @param bruto    Importe bruto del periodo (sumado, con IVA del producto)
+ * @param pedidos  Nº pedidos del periodo
+ * @param opcsOrLegacyMarcas Opciones (preferido) o nº marcas (legacy compat)
+ *
+ * Sobrecarga legacy (mantener compat. con código viejo):
+ *   calcNetoPorCanal(canalId, bruto, pedidos, marcasActivas, fechaDesde, fechaHasta, configCanales, promoSubvencionada)
  */
 export function calcNetoPorCanal(
-  canalId: string, bruto: number, pedidos: number,
-  marcasActivas: number | MarcasPorCanal = 1,
-  fechaDesde?: Date, fechaHasta?: Date,
-  configOverride?: Record<string, CanalConfig>,
-  promoSubvencionada?: number,
+  canalId: string,
+  bruto: number,
+  pedidos: number,
+  opcsOrLegacyMarcas?: OpcionesCalcNeto | number | MarcasPorCanal,
+  fechaDesdeLegacy?: Date,
+  fechaHastaLegacy?: Date,
+  configOverrideLegacy?: Record<string, CanalConfig>,
+  promoSubvencionadaLegacy?: number,
 ): NetoResult {
-  const config = configOverride ?? cacheConfig ?? {}
-  const nombreCanal = MAP_ID_CANAL[canalId] ?? canalId
+  // ─── Normalizar argumentos (soporta API nueva y legacy) ───
+  let opciones: OpcionesCalcNeto
+  if (opcsOrLegacyMarcas && typeof opcsOrLegacyMarcas === 'object' && !Array.isArray(opcsOrLegacyMarcas) && (
+    'modo' in opcsOrLegacyMarcas || 'fechaDesde' in opcsOrLegacyMarcas || 'configCanales' in opcsOrLegacyMarcas
+  )) {
+    // API nueva: opciones objeto
+    opciones = opcsOrLegacyMarcas as OpcionesCalcNeto
+  } else {
+    // API legacy: marcas, fechaDesde, fechaHasta, configCanales, promoSubvencionada
+    opciones = {
+      modo: 'agregado_canal',
+      marcasPorCanal: opcsOrLegacyMarcas as number | MarcasPorCanal | undefined,
+      fechaDesde: fechaDesdeLegacy,
+      fechaHasta: fechaHastaLegacy,
+      configCanales: configOverrideLegacy,
+      promoSubvencionada: promoSubvencionadaLegacy,
+    }
+  }
+
+  const modo: ModoNeto = opciones.modo ?? 'agregado_canal'
+  const config = opciones.configCanales ?? cacheConfig ?? {}
+  const id = normalizarCanalId(canalId)
+  const nombreCanal = MAP_ID_CANAL[id] ?? canalId
   const cfg = config[nombreCanal]
+
+  // Sin config para este canal → devolvemos bruto como neto (no podemos calcular)
   if (!cfg) return { neto: bruto, margenPct: bruto > 0 ? 100 : 0 }
+  if (bruto <= 0) return { neto: 0, margenPct: 0 }
 
-  const promo = promoSubvencionada ?? 0
-
-  // ─── Factor de descuento sobre la promo según canal ───
-  // Just Eat: gastos de usuario tienen IVA 21% que JE descuenta del bruto antes de aplicar comisión
-  // Uber/Glovo: la promo se descuenta sin IVA (es descuento al precio de venta)
-  const factorPromoIva = canalId === 'je' ? 1.21 : 1.0
+  const promo = opciones.promoSubvencionada ?? 0
+  const factorPromoIva = id === 'je' ? 1.21 : 1.0
   const baseCobrado = Math.max(0, bruto - promo * factorPromoIva)
 
-  // Estimación pedidos prime / promo
-  const nPrime = pedidos * cfg.pct_pedidos_prime_estim
-  const nPromo = pedidos * cfg.pct_pedidos_promo_estim
+  // ─── Comisión variable ───
+  const pctPrime = cfg.pct_pedidos_prime_estim
+  const pctPromo = cfg.pct_pedidos_promo_estim
 
-  // Comisión variable
   let comisionVariable = 0
-  if (cfg.comision_pct_prime != null && cfg.comision_pct_prime > 0) {
-    const baseNormal = baseCobrado * (1 - cfg.pct_pedidos_prime_estim)
-    const basePrime  = baseCobrado * cfg.pct_pedidos_prime_estim
+  if (modo === 'plato') {
+    // Nivel plato: comisión base, sin mezcla Prime
+    comisionVariable = cfg.comision_pct * baseCobrado
+  } else if (cfg.comision_pct_prime != null && cfg.comision_pct_prime > 0) {
+    // Uber: mezcla 30%/33% según % Uber One
+    const baseNormal = baseCobrado * (1 - pctPrime)
+    const basePrime  = baseCobrado * pctPrime
     comisionVariable = cfg.comision_pct * baseNormal + cfg.comision_pct_prime * basePrime
   } else {
+    // Glovo/JE/Web: comisión única
     comisionVariable = cfg.comision_pct * baseCobrado
   }
 
+  // ─── Fee fijo por pedido (JE 0,30€, Web 0,50€) ───
   const fijoTotal = cfg.fijo_eur * pedidos
-  const feePrimeTotal = cfg.fee_prime_eur * nPrime
-  const feePromoTotal = cfg.fee_promo_eur * nPromo
 
-  let feePeriodoTotal = 0
-  if (cfg.fee_periodo_eur > 0 && fechaDesde && fechaHasta) {
-    const periodos = calcularPeriodos(cfg.fee_periodicidad, fechaDesde, fechaHasta)
-    const nMarcas = resolveMarcas(canalId, marcasActivas)
-    feePeriodoTotal = cfg.fee_periodo_eur * periodos * nMarcas
+  // ─── Fees variables por pedido (Glovo Prime, Uber promo) ───
+  let feePrimeTotal = 0
+  let feePromoTotal = 0
+  if (modo !== 'plato') {
+    // En nivel plato no modelamos mezcla Prime/Promo
+    const nPrime = pedidos * pctPrime
+    const nPromo = pedidos * pctPromo
+    feePrimeTotal = cfg.fee_prime_eur * nPrime
+    feePromoTotal = cfg.fee_promo_eur * nPromo
   }
 
+  // ─── Fee periódico (solo modo agregado_canal con fechas) ───
+  let feePeriodoTotal = 0
+  if (
+    modo === 'agregado_canal' &&
+    cfg.fee_periodo_eur > 0 &&
+    opciones.fechaDesde &&
+    opciones.fechaHasta
+  ) {
+    const periodos = calcularPeriodos(cfg.fee_periodicidad, opciones.fechaDesde, opciones.fechaHasta)
+    const nMarcas = resolveMarcas(id, opciones.marcasPorCanal)
+    feePeriodoTotal = cfg.fee_periodo_eur * periodos * nMarcas
+  }
+  // En subset_marca y plato: fee periódico NO aplica (se lleva aparte si procede)
+
+  // ─── Base imponible y total ───
   const baseImponible = comisionVariable + fijoTotal + feePrimeTotal + feePromoTotal + feePeriodoTotal
   const ivaComision = IVA * baseImponible
   const totalPlataforma = baseImponible + ivaComision
