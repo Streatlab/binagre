@@ -37,7 +37,7 @@ const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const midRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
-const{ingresos,gastos,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,loading}=useRunningAnual(año,tId)
+const{ingresos,gastos,gastosPagados,gastosEstimados,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,loading}=useRunningAnual(año,tId)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const mid=midRef.current;if(!main||!mid)return
@@ -50,7 +50,8 @@ return()=>{main.removeEventListener('scroll',syncA);mid.removeEventListener('scr
 const reembolsos2xUberMes=useMemo(()=>{const m:Record<number,number>={};for(const r of resumenes){if(r.plataforma==='uber'&&r.reembolsos_2x){m[r.mes]=(m[r.mes]||0)+Number(r.reembolsos_2x||0)}};return m},[resumenes])
 const reembolsos2xMs=(ms:number[])=>ms.reduce((s,m)=>s+(reembolsos2xUberMes[m]||0),0)
 const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
-const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
+// PUNTO 14: gP usa gastosPagados (banco real) si existe, fallback a gastos (factura)
+const gP=(p:string,ms:number[])=>{const pag=sumCatMeses(gastosPagados,p,ms);return pag>0?pag:sumCatMeses(gastos,p,ms)}
 const gT=(ms:number[])=>gP('2.',ms)
 const re=(ms:number[])=>iM(ms)-gT(ms)
 const gB=(g:string)=>{const k=BM[g];return k?benchmarks.find(b=>b.categoria===k):null}
@@ -58,7 +59,9 @@ const tQ=(q:number)=>sQ(p=>({...p,[q]:!p[q]}))
 const gF=(ms:number[])=>gP('2.2',ms)+gP('2.3',ms)
 const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
 const pe=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)
-const fB=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)
+// PUNTO 17: fB usa bruto real + cascada futura
+const fB=(ms:number[])=>ms.reduce((s,m)=>{const real=brutos[m]?.total||0;if(real>0)return s+real;return s+(facturacionFutura[m]?.importe||0)},0)
+const fBisEst=(ms:number[])=>{for(const m of ms){const real=brutos[m]?.total||0;if(real===0&&facturacionFutura[m]?.importe)return true}return false}
 const nE=(ms:number[])=>{
   let s=0
   for(const m of ms){
@@ -97,9 +100,9 @@ const nZ=(c:Col,rz?:boolean):React.CSSProperties=>({fontFamily:FONT.heading,font
 const r1=(bc?:string):React.CSSProperties=>({...t1,background:'#fff',borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:15})
 const rC=(c:Col):React.CSSProperties=>({...td0(c,true)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
-const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip,estFn}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string;estFn?:(ms:number[])=>boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const es=estFn?estFn(c.ms):false;const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily,fontStyle:es?'italic':undefined}}>{pct?fP(v):v?fI(v):'—'}{es&&v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado: bruto × (1 − comisión)">(est.)</span>:null}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c,rz),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c,rz)}/>]})}</>)
+const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip,estFn}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string;estFn?:(ms:number[])=>boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const es=estFn?estFn(c.ms):false;const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily,fontStyle:es?'italic':undefined}}>{pct?fP(v):v?fI(v):'—'}{es&&v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>:null}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c,rz),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c,rz)}/>]})}</>)
 const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=c.isY?20:(c.isQ?17:16);return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:c.isY?700:(c.isQ?600:500)}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
-const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const extra=reembolsos2xMs(c.ms);const v=(rv||e)+extra;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado: bruto × (1 − comisión)">(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
+const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const extra=reembolsos2xMs(c.ms);const v=(rv||e)+extra;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:14,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentro=v>=mn&&v<=max;const cerca=!dentro&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentro?COLORS.ok:(cerca?COLORS.warn:'#E24B4A');const pctBar=Math.min(v,100);return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,display:'flex',overflow:'hidden',marginTop:1}}><div style={{height:5,background:bc,width:`${pctBar}%`,borderRadius:'3px 0 0 3px',transition:'width 0.4s ease'}}/><div style={{height:5,background:'#E24B4A',flex:1,borderRadius:'0 3px 3px 0'}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
 const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const mx=Math.max(...vs.map(v=>Math.abs(v)),1);return<span style={{display:'inline-flex',alignItems:'flex-end',gap:1,height:16,verticalAlign:'middle',marginLeft:6}}>{vs.map((v,i)=><span key={i} style={{width:3,borderRadius:'1px 1px 0 0',height:`${Math.max(Math.abs(v)/mx*16,v?1:0)}px`,background:v>0?COLORS.ok:v<0?COLORS.err:COLORS.brd}}/>)}</span>}
@@ -145,7 +148,7 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tbody>
 {sHBl('Ingresos · Gastos · Resultado','ing',COLORS.redSL)}{rA() as any}
 {bloque.ing&&<>
-<tr {...hv}><td style={{...ingLabel,color:COLORS.sec}}>1.2 Facturación bruta</td><Cells fn={fB} rz/></tr>
+<tr {...hv}><td style={{...ingLabel,color:COLORS.sec}}>1.2 Facturación bruta</td><Cells fn={fB} estFn={fBisEst} rz/></tr>
 <tr><td style={{...ingLabel,color:COLORS.ok}}>1.1 Ingresos netos</td><CI rz/></tr>
 <tr {...hv}><td style={{...r1(),color:COLORS.mut}}><span style={{color:BL,fontWeight:600}}>Pedidos</span> · <span style={{color:COLORS.warn}}>TM Bruto</span> / <span style={{color:COLORS.ok}}>TM Neto</span></td><CTM rz/></tr>
 {sp}
@@ -226,9 +229,8 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1':!p['1']}))}><td style={gR}>{det['1']?'▾':'▸'} 1 · Ingresos por operación</td><Cells fn={iM} estFn={iMisEst}/></tr>
 {det['1']&&<>
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.1 · Ingresos netos por ventas</td><Cells fn={iT}/></tr>
-{ingC.filter(c=>vi(c.nombre)).map(c=>{const b=aB();return<tr key={c.id} style={{background:b}} {...hv}><td style={{...t1,paddingLeft:26}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>})}
-<tr style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:38,color:COLORS.ok+'cc',fontSize:13,fontStyle:'italic'}}>1.1.1.1 · Reembolsos Uber 2x <span style={{fontSize:9,color:COLORS.mut,fontStyle:'normal'}}>(de resúmenes OCR)</span></td><Cells fn={reembolsos2xMs} vc={COLORS.ok}/></tr>
-<tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.2 · Facturación bruta por ventas</td><Cells fn={fB}/></tr>
+{ingC.filter(c=>vi(c.nombre)).map(c=>{const b=aB();const isUber=c.id==='1.1.1'||c.nombre.toLowerCase().includes('uber');return[<tr key={c.id} style={{background:b}} {...hv}><td style={{...t1,paddingLeft:26}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>,isUber?<tr key={c.id+'-r2x'} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:26}}>Reembolsos Uber 2x</td><Cells fn={reembolsos2xMs}/></tr>:null].filter(Boolean)}).flat()}
+<tr style={{background:aB()}}><td style={{...t1,paddingLeft:14,fontWeight:600}}>1.2 · Facturación bruta por ventas</td><Cells fn={fB} estFn={fBisEst}/></tr>
 </>}{sp}
 {grupos.map(g=>{const bn=gB(g.id);const bL=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const sN=cN2.filter(c=>c.parent_id===g.id);const nm=LBL[g.id]||g.nombre;const op=!!det[g.id];return[
 <tr key={`h-${g.id}`} style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,[g.id]:!p[g.id]}))}><td style={gR}>{op?'▾':'▸'} {g.id} · {nm}<span style={{color:COLORS.mut,fontSize:10,fontWeight:400}}>{bL}</span></td><Cells fn={ms=>gP(g.id,ms)} pctFn={ms=>po(gP(g.id,ms),iM(ms))}/></tr>,
