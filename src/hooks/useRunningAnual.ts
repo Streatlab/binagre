@@ -9,6 +9,7 @@ export interface RunningAnualData {
   categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
   benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
   comisiones: Record<string, number>
+  feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
   loading: boolean
 }
 
@@ -28,6 +29,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
   const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
   const [comisiones, setComisiones] = useState<Record<string, number>>({})
+  const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -63,21 +65,30 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
 
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
-      const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct').eq('activo',true)
+      const { data: dCom } = await supabase.from('config_canales').select('canal,comision_pct,fijo_eur,coste_fijo,fee_periodo_eur,fee_periodicidad').eq('activo',true)
 
       const comMap: Record<string, number> = {}
+      const feesMap: RunningAnualData['feesFijos'] = {}
       ;(dCom || []).forEach((r: any) => {
         const key = CANAL_MAP[r.canal]
-        if (key) comMap[key] = Number(r.comision_pct || 0)
+        if (!key) return
+        // BBDD guarda como 0.33, normalizar a decimal puro
+        const com = Number(r.comision_pct || 0)
+        comMap[key] = com > 1 ? com / 100 : com
+        feesMap[key] = {
+          fijoEur: Number(r.fijo_eur || r.coste_fijo || 0),
+          feePeriodoEur: Number(r.fee_periodo_eur || 0),
+          feePeriodicidad: r.fee_periodicidad || 'mensual',
+        }
       })
 
-      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setLoading(false) }
+      if (!cancelled) { setIngresos(ingMap); setGastos(gasMap); setBrutos(brutMap); setDiasOp(dOp); setCategorias(dCat||[]); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setLoading(false) }
     }
     load()
     return () => { cancelled = true }
   }, [año, titularId])
 
-  return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, comisiones, loading }
+  return { ingresos, gastos, brutos, diasOp, categorias, benchmarks, comisiones, feesFijos, loading }
 }
 
 export function sumMeses(map: Record<number, number>, meses: number[]): number {
