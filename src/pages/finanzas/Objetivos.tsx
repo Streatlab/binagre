@@ -3,12 +3,20 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
-import { useConfig } from '@/hooks/useConfig'
+import { useConfig, getCanalComision } from '@/hooks/useConfig'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
 interface ObjetivoPresupuesto { id: string; categoria_codigo: string; anio: number; mes: number; importe: number }
+interface VentaCanal {
+  fecha: string
+  total_bruto: number
+  uber_bruto: number; glovo_bruto: number; je_bruto: number; web_bruto: number; directa_bruto: number
+  uber_pedidos: number; glovo_pedidos: number; je_pedidos: number; web_pedidos: number; directa_pedidos: number
+}
+
+const IVA = 0.21
 
 function getISOWeek(d: Date): { year: number; week: number } {
   const dd = new Date(d)
@@ -36,6 +44,16 @@ function isoWeekFromStr(dateStr: string): { year: number; week: number } {
 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function periodosEnRango(periodicidad: string, desde: Date, hasta: Date): number {
+  const dias = Math.max(1, Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1)
+  switch (periodicidad) {
+    case 'semanal_por_marca': return Math.ceil(dias / 7)
+    case 'quincenal_por_marca': return Math.ceil(dias / 15)
+    case 'mensual': return Math.ceil(dias / 30)
+    default: return 0
+  }
 }
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
@@ -98,16 +116,32 @@ export default function Objetivos() {
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
   const { canales } = useConfig()
 
-  // Calcula comisión media ponderada de canales activos (lee config_canales BBDD, sin hardcode)
-  const COM_MEDIA = useMemo(() => {
-    const activos = canales.filter(c => c.activo && c.comision_pct > 0)
-    if (activos.length === 0) return 0.30
-    const sum = activos.reduce((a, c) => a + (c.comision_pct / 100), 0)
-    return sum / activos.length
+  // Helper: calcula neto con FORMULA COMPLETA (com% + fijo€/ped + fee_periodico + IVA) para un rango
+  const calcNetoCompleto = useCallback((ventasRango: VentaCanal[], desde: Date, hasta: Date): { neto: number; bruto: number } => {
+    let netoTotal = 0, brutoTotal = 0
+    const acum = { uber: {b:0,p:0}, glovo: {b:0,p:0}, je: {b:0,p:0}, web: {b:0,p:0}, directa: {b:0,p:0} }
+    for (const r of ventasRango) {
+      acum.uber.b    += r.uber_bruto    || 0;  acum.uber.p    += r.uber_pedidos    || 0
+      acum.glovo.b   += r.glovo_bruto   || 0;  acum.glovo.p   += r.glovo_pedidos   || 0
+      acum.je.b      += r.je_bruto      || 0;  acum.je.p      += r.je_pedidos      || 0
+      acum.web.b     += r.web_bruto     || 0;  acum.web.p     += r.web_pedidos     || 0
+      acum.directa.b += r.directa_bruto || 0;  acum.directa.p += r.directa_pedidos || 0
+      brutoTotal += r.total_bruto || 0
+    }
+    const MAP: Record<string, string> = { uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web Propia', directa: 'Venta Directa' }
+    for (const k of ['uber','glovo','je','web','directa'] as const) {
+      const a = acum[k]
+      if (a.b <= 0) continue
+      const cfg = getCanalComision(canales, MAP[k])
+      const fijoTotal = cfg.fijoEur * a.p
+      const periodos = cfg.feePeriodoEur > 0 ? periodosEnRango(cfg.feePeriodicidad, desde, hasta) : 0
+      const feePeriodoTotal = cfg.feePeriodoEur * periodos
+      const base = cfg.comisionDec * a.b + fijoTotal + feePeriodoTotal
+      const iva = base * IVA
+      netoTotal += Math.max(0, a.b - base - iva)
+    }
+    return { neto: netoTotal, bruto: brutoTotal }
   }, [canales])
-
-  const calcNetoEstimado = useCallback((bruto: number) => Math.max(0, bruto * (1 - COM_MEDIA)), [COM_MEDIA])
-  const PCT_NETO_EST = Math.round((1 - COM_MEDIA) * 100)
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
@@ -153,7 +187,7 @@ export default function Objetivos() {
   const [editValue, setEditValue] = useState('')
   const [histTipo, setHistTipo] = useState<'dias' | 'semanas' | 'meses' | 'anual'>('semanas')
   const [histAnio, setHistAnio] = useState<number>(hoy.getFullYear())
-  const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
+  const [ventas, setVentas] = useState<VentaCanal[]>([])
   const [loading, setLoading] = useState(true)
   const [presAnio, setPresAnio] = useState(hoy.getFullYear())
   const [presData, setPresData] = useState<ObjetivoPresupuesto[]>([])
@@ -166,11 +200,16 @@ export default function Objetivos() {
     Promise.all([
       supabase.from('objetivos').select('*').in('tipo', ['diario','semanal','mensual','anual']),
       supabase.from('objetivos_dia_semana').select('*').order('dia'),
-      supabase.from('facturacion_diario').select('fecha,total_bruto').order('fecha', { ascending: false }).limit(2000),
+      supabase.from('facturacion_diario').select('fecha,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,uber_pedidos,glovo_pedidos,je_pedidos,web_pedidos,directa_pedidos').order('fecha', { ascending: false }).limit(2000),
     ]).then(([g, d, v]) => {
       if (g.data) setObjetivos(g.data.map((r: any) => ({ tipo: r.tipo, importe: Number(r.importe), id: r.id })))
       if (d.data) setDiasSemana(d.data.map((r: any) => ({ dia: r.dia, importe: Number(r.importe), id: r.id })))
-      if (v.data) setVentas(v.data.map((r: any) => ({ fecha: r.fecha, total_bruto: Number(r.total_bruto) || 0 })))
+      if (v.data) setVentas(v.data.map((r: any) => ({
+        fecha: r.fecha,
+        total_bruto: Number(r.total_bruto) || 0,
+        uber_bruto: Number(r.uber_bruto)||0, glovo_bruto: Number(r.glovo_bruto)||0, je_bruto: Number(r.je_bruto)||0, web_bruto: Number(r.web_bruto)||0, directa_bruto: Number(r.directa_bruto)||0,
+        uber_pedidos: Number(r.uber_pedidos)||0, glovo_pedidos: Number(r.glovo_pedidos)||0, je_pedidos: Number(r.je_pedidos)||0, web_pedidos: Number(r.web_pedidos)||0, directa_pedidos: Number(r.directa_pedidos)||0,
+      })))
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
@@ -250,10 +289,11 @@ export default function Objetivos() {
   const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
   const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
 
-  const ventasPeriodo = useMemo(
-    () => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr).reduce((a, r) => a + r.total_bruto, 0),
-    [ventas, periodoDesdeStr, periodoHastaStr]
-  )
+  const ventasPeriodoArr = useMemo(() => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr), [ventas, periodoDesdeStr, periodoHastaStr])
+  const ventasPeriodo = useMemo(() => ventasPeriodoArr.reduce((a, r) => a + r.total_bruto, 0), [ventasPeriodoArr])
+  const netoEstPeriodo = useMemo(() => calcNetoCompleto(ventasPeriodoArr, periodoDesde, periodoHasta).neto, [ventasPeriodoArr, periodoDesde, periodoHasta, calcNetoCompleto])
+  const PCT_NETO_EST_PERIODO = ventasPeriodo > 0 ? Math.round((netoEstPeriodo / ventasPeriodo) * 100) : 0
+
   const ventasSemana = useMemo(
     () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, weekStart, weekEnd]
@@ -282,7 +322,6 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentYear]
   )
-  const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo, calcNetoEstimado])
 
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
   const sumaMes = useMemo(() => {
@@ -488,7 +527,7 @@ export default function Objetivos() {
                     {fmtNumES(netoEstPeriodo, 2)}
                   </span>
                   <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
-                    NETO EST. {PCT_NETO_EST}%
+                    NETO EST. {PCT_NETO_EST_PERIODO}%
                   </span>
                 </div>
               </div>
