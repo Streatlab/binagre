@@ -1,5 +1,5 @@
 /**
- * Punto de Equilibrio v6 — fallback de neto por canal lee de config_canales (sin hardcode)
+ * Punto de Equilibrio v7 — fallback neto unificado: bruto - (com% + fijo€/ped + fee_periodo) * 1.21
  */
 import { useState, useMemo, useEffect, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +8,7 @@ import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { useRunning } from '@/hooks/useRunning'
-import { useConfig, getComisionesMap } from '@/hooks/useConfig'
+import { useConfig, getCanalComision } from '@/hooks/useConfig'
 import { cardBig, lbl, lblXs, OSWALD, LEXEND, COLOR } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtPct } from '@/lib/format'
 
@@ -17,6 +17,7 @@ const MESES_CORTO=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','
 const GRUPOS_FIJOS=['Equipo','Alquiler','Controlables'] as const
 const GRUPOS_VARIABLES=['Producto'] as const
 const COLOR_GRUPO:Record<string,string>={'Producto':'#F26B1F','Equipo':'#B01D23','Alquiler':'#8b5a9f','Controlables':'#4a90d9'}
+const IVA=0.21
 type Tab='resumen'|'simulador'
 interface CanalDatos{bruto:number;neto:number;margenPct:number;pedidos:number}
 type CanalId='uber'|'glovo'|'just_eat'|'web'|'directa'
@@ -26,12 +27,12 @@ const CANAL_DEF:Array<{id:CanalId;label:string;bg:string;border:string;colorLabe
 {id:'just_eat',label:'JUST EAT',bg:`${COLOR.je}20`,border:COLOR.je,colorLabel:COLOR.jeDark,size:'big'},
 {id:'web',label:'WEB',bg:`${COLOR.webSL}10`,border:`${COLOR.webSL}50`,colorLabel:COLOR.webDark,size:'mini'},
 {id:'directa',label:'DIRECTA',bg:`${COLOR.directa}20`,border:COLOR.directa,colorLabel:COLOR.directaDark,size:'mini'}]
-const ID_TO_KEY:Record<CanalId,string>={uber:'uber',glovo:'glovo',just_eat:'je',web:'web',directa:'directa'}
+const ID_TO_NOMBRE:Record<CanalId,string>={uber:'Uber Eats',glovo:'Glovo',just_eat:'Just Eat',web:'Web Propia',directa:'Venta Directa'}
+function periodosEnRango(periodicidad:string,desde:Date,hasta:Date):number{const dias=Math.max(1,Math.round((hasta.getTime()-desde.getTime())/86400000)+1);switch(periodicidad){case'semanal_por_marca':return Math.ceil(dias/7);case'quincenal_por_marca':return Math.ceil(dias/15);case'mensual':return Math.ceil(dias/30);default:return 0}}
 export default function PuntoEquilibrio(){
 const{T}=useTheme()
 const[tab,setTab]=useState<Tab>('resumen')
 const{canales}=useConfig()
-const comisionesConfig=useMemo(()=>getComisionesMap(canales),[canales])
 const[periodoDesde,setPeriodoDesde]=useState<Date>(()=>{const h=new Date();h.setDate(1);h.setHours(0,0,0,0);return h})
 const[periodoHasta,setPeriodoHasta]=useState<Date>(()=>{const h=new Date();h.setHours(23,59,59,999);return h})
 const[periodoLabel,setPeriodoLabel]=useState('Mes en curso')
@@ -45,7 +46,16 @@ const totalPedidos=useMemo(()=>facturacion.reduce((a,f)=>a+Number((f as any).tot
 const meses=useMemo(()=>{const set=new Set<string>();const cur=new Date(periodo.desde);while(cur<=periodo.hasta){set.add(`${cur.getFullYear()}-${cur.getMonth()+1}`);cur.setDate(cur.getDate()+1)};return Array.from(set).map(s=>{const[y,m]=s.split('-').map(Number);return{anio:y,mes:m}})},[periodo])
 const[resumenes,setResumenes]=useState<Array<{plataforma:string;mes:number;año:number;bruto:number|null;comisiones:number|null;fees:number|null;cargos_promocion:number|null;neto_real_cobrado:number|null}>>([])
 useEffect(()=>{if(meses.length===0)return;let cancel=false;(async()=>{const conditions=meses.map(m=>`and(mes.eq.${m.mes},año.eq.${m.anio})`).join(',');const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('plataforma, mes, año, bruto, comisiones, fees, cargos_promocion, neto_real_cobrado').or(conditions);if(cancel)return;setResumenes((data??[]) as any)})();return()=>{cancel=true}},[meses.map(m=>`${m.anio}-${m.mes}`).join('|')])
-const datosPorCanal=useMemo<Record<CanalId,CanalDatos>>(()=>{const out={} as Record<CanalId,CanalDatos>;const ids:CanalId[]=['uber','glovo','just_eat','web','directa'];for(const c of ids){const filas=resumenes.filter(r=>r.plataforma===c);const brutoFD=brutoPorCanal.bruto[c];const pedFD=brutoPorCanal.pedidos[c];let neto=0;let brutoCalc=0;if(filas.length>0){const tieneReal=filas.some(f=>f.neto_real_cobrado!=null);brutoCalc=filas.reduce((s,f)=>s+(f.bruto??0),0);if(tieneReal){neto=filas.reduce((s,f)=>s+(f.neto_real_cobrado??0),0)}else{const com=filas.reduce((s,f)=>s+(f.comisiones??0),0);const fee=filas.reduce((s,f)=>s+(f.fees??0),0);const car=filas.reduce((s,f)=>s+(f.cargos_promocion??0),0);const ivaCom=(com+fee+car)*0.21;neto=brutoCalc-com-fee-car-ivaCom}}else{const com=comisionesConfig[ID_TO_KEY[c]]??0;neto=brutoFD*(1-com)};const brutoFinal=filas.length>0?brutoCalc:brutoFD;const margenPct=brutoFinal>0?(neto/brutoFinal)*100:0;out[c]={bruto:brutoFinal,neto,margenPct,pedidos:pedFD}};return out},[resumenes,brutoPorCanal,comisionesConfig])
+const datosPorCanal=useMemo<Record<CanalId,CanalDatos>>(()=>{const out={} as Record<CanalId,CanalDatos>;const ids:CanalId[]=['uber','glovo','just_eat','web','directa'];for(const c of ids){const filas=resumenes.filter(r=>r.plataforma===c);const brutoFD=brutoPorCanal.bruto[c];const pedFD=brutoPorCanal.pedidos[c];let neto=0;let brutoCalc=0;if(filas.length>0){const tieneReal=filas.some(f=>f.neto_real_cobrado!=null);brutoCalc=filas.reduce((s,f)=>s+(f.bruto??0),0);if(tieneReal){neto=filas.reduce((s,f)=>s+(f.neto_real_cobrado??0),0)}else{const com=filas.reduce((s,f)=>s+(f.comisiones??0),0);const fee=filas.reduce((s,f)=>s+(f.fees??0),0);const car=filas.reduce((s,f)=>s+(f.cargos_promocion??0),0);const ivaCom=(com+fee+car)*IVA;neto=brutoCalc-com-fee-car-ivaCom}}else{
+  // FALLBACK SIN OCR: formula UNIFICADA completa con fee fijo, fee periodico e IVA
+  const cfg=getCanalComision(canales,ID_TO_NOMBRE[c])
+  const fijoTotal=cfg.fijoEur*pedFD
+  const periodos=cfg.feePeriodoEur>0?periodosEnRango(cfg.feePeriodicidad,periodoDesde,periodoHasta):0
+  const feePeriodoTotal=cfg.feePeriodoEur*periodos
+  const baseComisionable=cfg.comisionDec*brutoFD+fijoTotal+feePeriodoTotal
+  const ivaComision=baseComisionable*IVA
+  neto=Math.max(0,brutoFD-baseComisionable-ivaComision)
+};const brutoFinal=filas.length>0?brutoCalc:brutoFD;const margenPct=brutoFinal>0?(neto/brutoFinal)*100:0;out[c]={bruto:brutoFinal,neto,margenPct,pedidos:pedFD}};return out},[resumenes,brutoPorCanal,canales,periodoDesde,periodoHasta])
 const totalNeto=useMemo(()=>Object.values(datosPorCanal).reduce((a,c)=>a+c.neto,0),[datosPorCanal])
 const margenNetoPct=totalBruto>0?(totalNeto/totalBruto)*100:0
 const gastosPorGrupo=useMemo(()=>{const m:Record<string,number>={};for(const gr of gastos as any[]){const g=gr as{categoria?:string;importe?:number};const grupo=String(g.categoria??'');if(!grupo)continue;const importe=Math.abs(Number(g.importe??0));m[grupo]=(m[grupo]??0)+importe};return m},[gastos])
