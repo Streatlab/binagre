@@ -3,7 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { invalidarCacheConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
-/* TabCanales · pantalla canónica única para configurar plataformas */
+/* TabCanales · pantalla canónica única para configurar plataformas
+   Fórmulas verificadas con facturas reales:
+   - Uber Eats: 33 pedidos individuales analizados al céntimo
+   - Glovo: 21 pedidos individuales analizados al céntimo
+   - Just Eat: 10 facturas (3 marcas distintas) analizadas al céntimo */
 
 interface Canal {
   id: string
@@ -27,12 +31,33 @@ const PERIODICIDADES = [
   { value: 'quincenal_por_marca',  label: 'Quincenal × marca' },
 ]
 
+// Cómo cobra cada plataforma · texto corto para que se entienda de un vistazo
+const COMO_FUNCIONA: Record<string, string> = {
+  'Uber Eats':
+    'Comisión 30% sobre (Ventas − Promo partner). Pedidos Uber One pagarán 33% próximamente. ' +
+    '0,82€ extra por pedido con promoción. Tarifa publicitaria opcional. + IVA 21%. ' +
+    'Factura semanal por marca. Pago lunes siguiente.',
+  'Glovo':
+    'Comisión 30% sobre (Ventas − Promo partner). 0,74€ extra por cada pedido Prime. ' +
+    'Tarifa 10€/quincena por marca. + IVA 21%. ' +
+    'Factura quincenal por marca. Pago 5-7 días después.',
+  'Just Eat':
+    'Comisión 30% sobre (Ventas − GastosUsuario × 1,21). Gastos Usuario = envío que paga ' +
+    'el cliente, JE lo descuenta del bruto. Gestión 0,30€/pedido. Top Rank opcional. + IVA 21%. ' +
+    'Factura quincenal. Pago 5-7 días después.',
+  'Web Propia':
+    'Sin comisión. 0,50€/pedido pasarela de pago aprox. (Stripe/Redsys). + IVA 21%. ' +
+    'Pago directo al instante.',
+  'Venta Directa':
+    'Sin comisión ni fees. Cobro directo en tienda/efectivo. 100% del bruto al restaurante.',
+}
+
 const CICLOS_PAGO: Record<string, string> = {
-  uber:    'Lunes semanal (lun a dom anterior)',
-  glovo:   '1-15 paga día 5 mes sig · 16-fin paga día 20 mes sig',
-  just:    '1-15 paga día 20 mismo mes · 16-fin paga día 5 mes sig',
-  web:     'Pendiente definir',
-  direct:  'Al día',
+  uber:   'Semanal lunes a domingo',
+  glovo:  'Quincenal 1-15 / 16-fin',
+  just:   'Quincenal 1-15 / 16-fin',
+  web:    'Al instante',
+  direct: 'Al día',
 }
 function getCiclo(nombre: string): string {
   const n = (nombre || '').toLowerCase()
@@ -122,10 +147,9 @@ export default function TabCanales() {
     }
   }
 
-  // ─── ESTILOS: cuerpo y números más grandes para mejor lectura ───
+  // ─── Estilos: Running, números grandes legibles ───
   const card: CSSProperties = {
-    background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12,
-    overflow: 'hidden',
+    background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden',
   }
   const th: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '1.4px',
@@ -141,20 +165,17 @@ export default function TabCanales() {
   }
   const tdR: CSSProperties = { ...td, textAlign: 'right' }
   const tdC: CSSProperties = { ...td, textAlign: 'center' }
-  // Número grande (Oswald 16) — color principal, legible
   const cellEditable: CSSProperties = {
     cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1,
     fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: T.pri,
     fontVariantNumeric: 'tabular-nums',
   }
-  // Número grande secundario (para fees/tarifas)
   const cellEditableSec: CSSProperties = { ...cellEditable, color: T.sec, fontWeight: 500 }
   const inp: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 16, fontWeight: 600,
     background: '#fff', color: '#111',
     border: `1px solid ${T.brd}`, borderRadius: 6,
-    padding: '5px 10px', width: 90, textAlign: 'right',
-    outline: 'none',
+    padding: '5px 10px', width: 90, textAlign: 'right', outline: 'none',
   }
   const sel: CSSProperties = { ...inp, width: 170, textAlign: 'left', cursor: 'pointer' }
 
@@ -164,7 +185,7 @@ export default function TabCanales() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={card}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1320 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1480 }}>
             <thead>
               <tr>
                 <th style={th}>Canal</th>
@@ -175,11 +196,11 @@ export default function TabCanales() {
                 <th style={thR}>Fee Promo €/ped</th>
                 <th style={thR}>Tarifa periódica €</th>
                 <th style={thC}>Periodicidad</th>
-                <th style={thR}>% Prime estim.</th>
-                <th style={thR}>% Promo estim.</th>
+                <th style={thR}>% Prime</th>
+                <th style={thR}>% Promo</th>
                 <th style={th}>Ciclo de pago</th>
-                <th style={thR}>Margen obj. %</th>
                 <th style={thC}>Activo</th>
+                <th style={{ ...th, minWidth: 360, maxWidth: 420 }}>Cómo funciona</th>
               </tr>
             </thead>
             <tbody>
@@ -193,7 +214,6 @@ export default function TabCanales() {
                 const isPerEdit       = editing?.id === c.id && editing.field === 'fee_periodicidad'
                 const isPctPrimeEdit  = editing?.id === c.id && editing.field === 'pct_pedidos_prime_estim'
                 const isPctPromoEdit  = editing?.id === c.id && editing.field === 'pct_pedidos_promo_estim'
-                const isMargenEdit    = editing?.id === c.id && editing.field === 'margen_obj_pct'
                 const justSaved = savedId === c.id
 
                 const fmtPct = (n: number | null) => n == null ? '—' : `${(Number(n) * 100).toFixed(2).replace(/\.?0+$/, '')}%`
@@ -321,19 +341,7 @@ export default function TabCanales() {
                       )}
                     </td>
 
-                    <td style={{ ...td, fontSize: 12, color: T.mut, whiteSpace: 'normal', maxWidth: 240 }}>{getCiclo(c.canal)}</td>
-
-                    <td style={tdR}>
-                      {isMargenEdit ? (
-                        <input type="number" step="0.1" autoFocus value={editVal}
-                          onChange={e => setEditVal(e.target.value)}
-                          onBlur={() => guardar(c.id, 'margen_obj_pct', editVal)}
-                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'margen_obj_pct', editVal); if (e.key === 'Escape') setEditing(null) }}
-                          style={inp} />
-                      ) : (
-                        <span onClick={() => startEdit(c.id, 'margen_obj_pct', c.margen_obj_pct)} style={cellEditableSec}>{fmtPct(c.margen_obj_pct)}</span>
-                      )}
-                    </td>
+                    <td style={{ ...td, fontSize: 12, color: T.mut }}>{getCiclo(c.canal)}</td>
 
                     <td style={tdC}>
                       <button onClick={() => toggleActivo(c.id, c.activo)}
@@ -341,6 +349,16 @@ export default function TabCanales() {
                         title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
                         <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? '#06C167' : '#555' }} />
                       </button>
+                    </td>
+
+                    <td style={{
+                      padding: '14px 14px',
+                      fontFamily: FONT.body, fontSize: 12,
+                      color: T.sec, lineHeight: 1.55,
+                      borderBottom: `0.5px solid ${T.brd}`,
+                      whiteSpace: 'normal', minWidth: 360, maxWidth: 420,
+                    }}>
+                      {COMO_FUNCIONA[c.canal] ?? '—'}
                     </td>
                   </tr>
                 )
