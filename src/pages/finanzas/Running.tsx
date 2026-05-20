@@ -16,7 +16,6 @@ const Q_RES=['#e6ddb0','#b4d8ba','#cdb4dc','#e0c4a0']
 const Q_HDR=['#ddd4a0','#a0ccaa','#bea0d0','#d4b490']
 const QCL=['#8a7a20','#1D9E75','#7a40a0','#c07020']
 const CUR_BG='rgba(30,91,204,.20)'
-// Ancho columna izquierda: calculado por palabra más larga
 const W_LABEL=340
 const fI=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'−':'')+Math.round(a).toLocaleString('es-ES',{useGrouping:true})}
 const fD=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'−':'')+a.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:true})}
@@ -82,13 +81,11 @@ const cD=(ms:number[])=>{const i=iM(ms);return i?(gP('2.1',ms)+gP('2.2',ms))/i*1
 const vi=(l:string)=>buscar.length<2||l.toLowerCase().includes(buscar.toLowerCase())
 const rSum=(plat:string,field:keyof ResRow,ms:number[]):number=>{let s=0;for(const r of resumenes){if(r.plataforma===plat&&ms.includes(r.mes)){const v=r[field];if(typeof v==='number')s+=v}};return s}
 type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean;isCur?:boolean}
-// Trimestres SIEMPRE visibles, sin colapso
 const cols=useMemo(()=>{const c:Col[]=[];for(let q=1;q<=4;q++){QM[q].forEach(m=>c.push({label:MN[m-1],ms:[m],isCur:m===cM}));c.push({label:`${q}T`,ms:QM[q],isQ:true,qn:q})};c.push({label:'AÑO',ms:ALL,isY:true});return c},[])
 const vc=cols
 const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
 const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
 const cQ=(c:Col)=>{for(let q=1;q<=4;q++){if(c.isQ&&c.qn===q)return q;if(!c.isQ&&!c.isY&&QM[q].includes(c.ms[0]))return q};return 0}
-// AÑO ya NO tiene bg ni borde rojo: columna normal
 const colBg=(c:Col,resumen?:boolean):string=>{if(c.isCur&&!c.isQ&&!c.isY)return CUR_BG;const q=cQ(c);if(c.isQ&&q)return Q_TOT[q-1];if(c.isY)return'transparent';if(q)return resumen?Q_RES[q-1]:Q_MES[q-1];return'transparent'}
 const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?700:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 4px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',top:0,zIndex:2,userSelect:'none',color:qy?(c.isY?COLORS.mut:QCL[q-1]):(c.isCur?'#fff':COLORS.mut),background:c.isCur&&!qy?BL:(c.isQ&&q?Q_HDR[q-1]:(q?Q_MES[q-1]:COLORS.bg))}}
 const th1:React.CSSProperties={fontFamily:FONT.heading,fontSize:12,fontWeight:600,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',textAlign:'left',padding:'4px 5px',background:COLORS.bg,borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',left:0,top:0,zIndex:6,minWidth:W_LABEL,width:W_LABEL}
@@ -112,13 +109,12 @@ const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
 let ri=0;const aB=()=>{const b=ri%2===0?'#fff':'#f0ede7';ri++;return b};const rA=()=>{ri=0}
 const hv={onMouseEnter:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=`${COLORS.bg}60`},onMouseLeave:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=''}}
 const blToggle=(k:string)=>sBl(p=>({...p,[k]:!p[k]}))
-// Header de sección con fila ENTERA (background sólido en TODA la fila)
-const sectionHeaderRow=(content:React.ReactNode,cl:string,onClick?:()=>void)=><tr style={{cursor:onClick?'pointer':'default',background:COLORS.bg}} onClick={onClick}>
+const sectionRow=(content:React.ReactNode,cl:string,onClick?:()=>void)=><tr style={{cursor:onClick?'pointer':'default',background:COLORS.bg}} onClick={onClick}>
   <td style={{...t1,background:COLORS.bg,fontFamily:FONT.heading,fontSize:13,letterSpacing:'2px',textTransform:'uppercase',color:cl,padding:'8px 5px 3px',borderBottom:`1.5px solid ${cl}40`,borderLeft:`3px solid ${cl}`,fontWeight:700}}>{content}</td>
   {vc.map((c,i)=>[<td key={i} style={{background:COLORS.bg,borderBottom:`1.5px solid ${cl}40`,padding:0}}/>,<td key={`p${i}`} style={{background:COLORS.bg,borderBottom:`1.5px solid ${cl}40`,padding:0}}/>])}
 </tr>
-const sHBl=(l:string,key:string,cl:string)=>sectionHeaderRow(<><span style={{display:'inline-block',width:14,color:COLORS.redSL}}>{bloque[key]?'▾':'▸'}</span> {l}</>,cl,()=>blToggle(key))
-const sH=(l:string,cl:string,x?:React.ReactNode)=>sectionHeaderRow(<>{l}{x}</>,cl)
+const sHBl=(l:string,key:string,cl:string)=>sectionRow(<><span style={{display:'inline-block',width:14,color:COLORS.redSL}}>{bloque[key]?'▾':'▸'}</span> {l}</>,cl,()=>blToggle(key))
+const sH=(l:string,cl:string,x?:React.ReactNode)=>sectionRow(<>{l}{x}</>,cl)
 const gR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:14,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.redSL,fontWeight:600,background:`${COLORS.redSL}06`}
 const tR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.redSL,fontWeight:700,background:`${COLORS.redSL}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const rR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:16,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.ok,fontWeight:700,background:`${COLORS.ok}0C`,borderTop:`2px solid ${COLORS.brd}`}
@@ -126,13 +122,11 @@ const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.b
 const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")",backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const btnSL:React.CSSProperties={padding:'4px 10px',borderRadius:6,border:`1px solid ${COLORS.redSL}`,background:`${COLORS.redSL}10`,fontFamily:FONT.heading,fontSize:11,color:COLORS.redSL,cursor:'pointer',fontWeight:600,letterSpacing:'1px',textTransform:'uppercase'}
-// Header de meses repetible (encima de cada sección)
 const monthHeadersRow=(labelText:string='')=><tr><th style={th1}>{labelText}</th>{vc.map((c,i)=>[<th key={i} style={thC(c)}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 const tW=W_LABEL+vc.reduce((s,c)=>s+(c.isY?110:(c.isQ?110:(95+30))),0)
 const tPO=(k:string)=>sPO(p=>({...p,[k]:!p[k]}))
 const allPlatOpen=platOpen.uber&&platOpen.glovo&&platOpen.je&&platOpen.web
 const togglePlatAll=()=>{const n=!allPlatOpen;sPO({uber:n,glovo:n,je:n,web:n})}
-// Plataforma header con fondo sólido en TODA la fila (incluye sticky)
 const platHeader=(name:string,color:string,key:string)=><tr style={{cursor:'pointer',background:`${color}10`}} onClick={()=>tPO(key)}>
   <td style={{...t1,background:`${color}10`,fontFamily:FONT.heading,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',color:color,padding:'6px 5px 3px',borderLeft:`3px solid ${color}`,fontWeight:700}}>{platOpen[key]?'▾':'▸'} {name}</td>
   {vc.map((c,i)=>[<td key={i} style={{background:`${color}10`,padding:0}}/>,<td key={`p${i}`} style={{background:`${color}10`,padding:0}}/>])}
