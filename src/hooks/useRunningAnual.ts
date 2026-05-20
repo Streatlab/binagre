@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal, loadConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 
 export interface RunningAnualData {
   ingresos: Record<string, Record<number, number>>
@@ -15,7 +15,7 @@ export interface RunningAnualData {
   comisiones: Record<string, number>
   feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
   configCanales: Record<string, CanalConfig>
-  marcasActivas: number
+  marcasActivas: MarcasPorCanal
   loading: boolean
 }
 
@@ -54,7 +54,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [comisiones, setComisiones] = useState<Record<string, number>>({})
   const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
-  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+  const [marcasActivas, setMarcasActivas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
 
@@ -151,7 +151,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
 
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
       const cfg = await loadConfigCanales()
-      const { count: marcasCount } = await supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activa', true)
+      const marcasMap = await loadMarcasPorCanal()
 
       // Map auxiliar (compat. con consumidores antiguos): comisión decimal por canal y fees
       const CANAL_BBDD_TO_KEY: Record<string, string> = {
@@ -171,7 +171,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       }
 
       if (!cancelled) {
-        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasCount && marcasCount > 0 ? marcasCount : 1); setLoading(false)
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setLoading(false)
       }
     }
     load()
@@ -198,7 +198,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
  * @param _comisionDec  (deprecated, ya no se usa, se lee de config_canales)
  * @param _fee          (deprecated, ya no se usa, se lee de config_canales)
  * @param diasPeriodo   Días del periodo (para fees periódicos)
- * @param marcasActivas Nº marcas activas
+ * @param marcasActivas Nº marcas activas: número global o mapa {uber,glovo,je}
  * @param fechaDesde    Fecha inicio periodo (opcional, mejora cálculo periodos)
  * @param fechaHasta    Fecha fin periodo (opcional, mejora cálculo periodos)
  * @param configCanales Cache de config_canales (opcional)
@@ -210,7 +210,7 @@ export function calcNetoCanal(
   _comisionDec: number,
   _fee: { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string } | undefined,
   diasPeriodo: number,
-  marcasActivas: number,
+  marcasActivas: number | MarcasPorCanal,
   fechaDesde?: Date,
   fechaHasta?: Date,
   configCanales?: Record<string, CanalConfig>,
