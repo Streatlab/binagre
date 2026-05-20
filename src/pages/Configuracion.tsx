@@ -26,8 +26,6 @@ const tdCfg = 'px-4 py-2.5 border-b border-[var(--sl-border)] font-sans text-[0.
 
 const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
 
-/* ═══════ MAIN ═══════ */
-
 export default function Configuracion() {
   const [section, setSection] = useState<Section>('plataformas')
   const [refreshKey, setRefreshKey] = useState(0)
@@ -96,8 +94,6 @@ export default function Configuracion() {
   )
 }
 
-/* ═══════ PLATAFORMAS ═══════ */
-
 function SecPlataformas() {
   const [rows, setRows] = useState<Canal[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,6 +137,10 @@ function SecPlataformas() {
     const { error } = await supabase.from('config_canales').upsert(payload, { onConflict: 'canal' })
     setSaving(false)
     if (error) { setErr(error.message); return }
+    // Dispara evento global → Dashboard / Facturación / Running / PE recargan config_canales en caliente
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('config_canales:changed'))
+    }
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2000)
   }
@@ -204,8 +204,6 @@ function SecPlataformas() {
     </div>
   )
 }
-
-/* ═══════ COSTES ═══════ */
 
 function SecCostes() {
   const [estructura, setEstructura] = useState('30')
@@ -276,13 +274,10 @@ function SecCostes() {
         </div>
       </div>
 
-      {/* T-F4-10 — Umbral food cost configurable */}
       <SecFoodCostUmbral />
     </div>
   )
 }
-
-/* ═══════ FOOD COST UMBRAL (T-F4-10) ═══════ */
 
 function SecFoodCostUmbral() {
   const [umbral, setUmbral] = useState('32')
@@ -361,8 +356,6 @@ function SecFoodCostUmbral() {
     </div>
   )
 }
-
-/* ═══════ PROVEEDORES ═══════ */
 
 function SecProveedores({ onRefresh }: { onRefresh: () => void }) {
   const [rows, setRows] = useState<Proveedor[]>([])
@@ -460,13 +453,9 @@ function ProvModal({ existing, onClose, onSaved }: { existing?: Proveedor; onClo
   )
 }
 
-/* ═══════ CATEGORÍAS ═══════ */
-
 function SecCategorias({ onRefresh }: { onRefresh: () => void }) {
   return <EditableList clave="categorias" colLabel="Categoría" placeholder="Nueva categoría…" onRefresh={onRefresh} />
 }
-
-/* ═══════ UNIDADES (3 columnas) ═══════ */
 
 function SecUnidades({ onRefresh }: { onRefresh: () => void }) {
   return (
@@ -477,8 +466,6 @@ function SecUnidades({ onRefresh }: { onRefresh: () => void }) {
     </div>
   )
 }
-
-/* ═══════ EDITABLE LIST (shared for categorías + unidades) ═══════ */
 
 function EditableList({ clave, colLabel, placeholder, onRefresh }: { clave: string; colLabel: string; placeholder: string; onRefresh: () => void }) {
   const [items, setItems] = useState<string[]>([])
@@ -548,8 +535,6 @@ function EditableList({ clave, colLabel, placeholder, onRefresh }: { clave: stri
     </div>
   )
 }
-
-/* ═══════ SHARED ═══════ */
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
