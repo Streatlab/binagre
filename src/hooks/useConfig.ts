@@ -6,6 +6,9 @@ export interface ConfigCanal {
   canal: string
   comision_pct: number
   coste_fijo: number
+  fijo_eur: number
+  fee_periodo_eur: number
+  fee_periodicidad: string
   margen_deseado_pct: number
   activo: boolean
 }
@@ -23,7 +26,7 @@ export interface AppConfig {
   canales: ConfigCanal[]
   proveedores: ConfigProveedor[]
   estructura_pct: number
-  margen_deseado_pct: number // default global (fallback)
+  margen_deseado_pct: number
   categorias: string[]
   unidades: string[]
   unidades_std: string[]
@@ -33,12 +36,13 @@ export interface AppConfig {
   refresh: () => void
 }
 
+// Defaults alineados con BBDD real (solo fallback si query falla)
 const DEFAULT_CANALES: ConfigCanal[] = [
-  { id: '', canal: 'Uber Eats', comision_pct: 30, coste_fijo: 0.82, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Glovo', comision_pct: 30, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Just Eat', comision_pct: 30, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Web Propia', comision_pct: 7, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Venta Directa', comision_pct: 0, coste_fijo: 0, margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Uber Eats', comision_pct: 33, coste_fijo: 0.82, fijo_eur: 0.82, fee_periodo_eur: 2.29, fee_periodicidad: 'semanal_por_marca', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Glovo', comision_pct: 30, coste_fijo: 0.82, fijo_eur: 0.82, fee_periodo_eur: 5.00, fee_periodicidad: 'quincenal_por_marca', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Just Eat', comision_pct: 30, coste_fijo: 0.60, fijo_eur: 0.75, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Web Propia', comision_pct: 0, coste_fijo: 0, fijo_eur: 0.50, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Venta Directa', comision_pct: 0, coste_fijo: 0, fijo_eur: 0, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
 ]
 
 const DEFAULT_PROVEEDORES: ConfigProveedor[] = [
@@ -87,13 +91,21 @@ export function useConfig(): AppConfig {
         if (cancelled) return
 
         if (canalRes.data && canalRes.data.length > 0) {
-          setCanales(canalRes.data.map((c: any) => ({
-            id: c.id, canal: c.canal,
-            comision_pct: c.comision_pct ?? 0,
-            coste_fijo: c.coste_fijo ?? 0,
-            margen_deseado_pct: c.margen_deseado_pct ?? 15,
-            activo: c.activo ?? true,
-          })))
+          setCanales(canalRes.data.map((c: any) => {
+            // comision_pct viene como 0.33 en BBDD, normalizar a 33 (formato %)
+            const com = parseFloat(c.comision_pct ?? 0)
+            const comNorm = com > 1 ? com : com * 100
+            return {
+              id: c.id, canal: c.canal,
+              comision_pct: comNorm,
+              coste_fijo: parseFloat(c.coste_fijo ?? 0),
+              fijo_eur: parseFloat(c.fijo_eur ?? 0),
+              fee_periodo_eur: parseFloat(c.fee_periodo_eur ?? 0),
+              fee_periodicidad: c.fee_periodicidad ?? 'mensual',
+              margen_deseado_pct: parseFloat(c.margen_obj_pct ?? c.margen_deseado_pct ?? 0.15) * (parseFloat(c.margen_obj_pct ?? c.margen_deseado_pct ?? 0.15) > 1 ? 1 : 100),
+              activo: c.activo ?? true,
+            }
+          }))
         }
 
         if (provRes.data && provRes.data.length > 0) {
@@ -131,7 +143,7 @@ export function useConfig(): AppConfig {
           } catch { /* ignore */ }
         }
       } catch (err) {
-        console.warn('useConfig: error cargando config, usando defaults', err)
+        console.warn('useConfig: error cargando, usando defaults', err)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -156,6 +168,45 @@ export function useConfig(): AppConfig {
   }
 }
 
+/**
+ * Helper: dado un canal (texto), devuelve sus comisiones reales de la lista config_canales.
+ * Usar con: const com = getCanalComision(canales, 'Uber Eats')
+ * Devuelve siempre formato decimal (0.33), no porcentaje (33).
+ */
+export function getCanalComision(canales: ConfigCanal[], canalNombre: string): {
+  comisionDec: number
+  fijoEur: number
+  feePeriodoEur: number
+  feePeriodicidad: string
+} {
+  const c = canales.find(x => x.canal.toLowerCase() === canalNombre.toLowerCase())
+  if (!c) return { comisionDec: 0, fijoEur: 0, feePeriodoEur: 0, feePeriodicidad: 'mensual' }
+  return {
+    comisionDec: c.comision_pct / 100,
+    fijoEur: c.fijo_eur || c.coste_fijo || 0,
+    feePeriodoEur: c.fee_periodo_eur || 0,
+    feePeriodicidad: c.fee_periodicidad || 'mensual',
+  }
+}
+
+/**
+ * Helper para hooks que solo necesitan el % comisión por canal abreviado (uber/glovo/je/web/directa).
+ * Devuelve {uber:0.33, glovo:0.30, ...} en decimal.
+ */
+export function getComisionesMap(canales: ConfigCanal[]): Record<string, number> {
+  const map: Record<string, number> = { uber: 0.33, glovo: 0.30, je: 0.30, web: 0, directa: 0 }
+  for (const c of canales) {
+    const dec = c.comision_pct / 100
+    const n = c.canal.toLowerCase()
+    if (n.includes('uber')) map.uber = dec
+    else if (n.includes('glovo')) map.glovo = dec
+    else if (n.includes('just')) map.je = dec
+    else if (n.includes('web')) map.web = dec
+    else if (n.includes('directa')) map.directa = dec
+  }
+  return map
+}
+
 /** Calcula waterfall para un canal concreto. margen_deseado viene del canal (no global) */
 export function calcWaterfall(
   costeRac: number,
@@ -165,7 +216,6 @@ export function calcWaterfall(
   estructuraPct: number,
   margenDeseadoPct: number,
 ) {
-  // Normaliza: acepta tanto 30 (%) como 0.30 (decimal)
   const com = comisionPct > 1 ? comisionPct / 100 : comisionPct
   const estr = estructuraPct > 1 ? estructuraPct / 100 : estructuraPct
   const margenD = margenDeseadoPct > 1 ? margenDeseadoPct / 100 : margenDeseadoPct
@@ -190,13 +240,11 @@ export function calcWaterfall(
   const pctMargenR = neto > 0 ? (margenR / neto) * 100 : 0
   const pctMargenC = neto > 0 ? (margenC / neto) * 100 : 0
 
-  // IVA neto = (PVP - PVP×comision%×1.21)/1.1 × 0.10 - PVP×comision%×0.21
   const ivaNeto = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 - pvp * com * 0.21 : 0
   const provIva = pvp * com * 0.21
   const ivaRepercutido = pvp > 0 ? ((pvp - pvp * com * 1.21) / 1.1) * 0.1 : 0
   const ivaSoportado = provIva
 
-  // Margen deseado en € (objetivo): pvp × margenD (mismo target para Real y Cash)
   const margenDeseadoR = pvp * margenD
   const margenDeseadoC = pvp * margenD
 
