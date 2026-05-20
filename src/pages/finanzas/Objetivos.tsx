@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
-import { useConfig, getCanalComision } from '@/hooks/useConfig'
+import { useConfig } from '@/hooks/useConfig'
+import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
@@ -15,8 +16,6 @@ interface VentaCanal {
   uber_bruto: number; glovo_bruto: number; je_bruto: number; web_bruto: number; directa_bruto: number
   uber_pedidos: number; glovo_pedidos: number; je_pedidos: number; web_pedidos: number; directa_pedidos: number
 }
-
-const IVA = 0.21
 
 function getISOWeek(d: Date): { year: number; week: number } {
   const dd = new Date(d)
@@ -44,16 +43,6 @@ function isoWeekFromStr(dateStr: string): { year: number; week: number } {
 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function periodosEnRango(periodicidad: string, desde: Date, hasta: Date): number {
-  const dias = Math.max(1, Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1)
-  switch (periodicidad) {
-    case 'semanal_por_marca': return Math.ceil(dias / 7)
-    case 'quincenal_por_marca': return Math.ceil(dias / 15)
-    case 'mensual': return Math.ceil(dias / 30)
-    default: return 0
-  }
 }
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
@@ -116,32 +105,41 @@ export default function Objetivos() {
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
   const { canales } = useConfig()
 
-  // Helper: calcula neto con FORMULA COMPLETA (com% + fijo€/ped + fee_periodico + IVA) para un rango
+  // Estado config canales + marcas por canal cargado de Supabase
+  const [cfgCanalesReal, setCfgCanalesReal] = useState<Record<string, CanalConfigCentral>>({})
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  useEffect(() => {
+    loadConfigCanales().then(setCfgCanalesReal)
+    loadMarcasPorCanal().then(setMarcasPorCanal)
+    const onChange = () => {
+      loadConfigCanales().then(setCfgCanalesReal)
+      loadMarcasPorCanal().then(setMarcasPorCanal)
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
+  // Helper: calcula neto delegando en calcNetoPorCanal central (fórmula real verificada)
+  // Incluye: Uber 30%/33% Prime + fee_promo 0,82€ + 2,29€/sem/marca. Glovo 30% + fee_prime 0,74€ + 10€/quincena/marca. JE 30% + 0,30€/ped. IVA 21% sobre todo.
   const calcNetoCompleto = useCallback((ventasRango: VentaCanal[], desde: Date, hasta: Date): { neto: number; bruto: number } => {
     let netoTotal = 0, brutoTotal = 0
-    const acum = { uber: {b:0,p:0}, glovo: {b:0,p:0}, je: {b:0,p:0}, web: {b:0,p:0}, directa: {b:0,p:0} }
+    const acum = { uber: {b:0,p:0}, glovo: {b:0,p:0}, je: {b:0,p:0}, web: {b:0,p:0}, dir: {b:0,p:0} }
     for (const r of ventasRango) {
-      acum.uber.b    += r.uber_bruto    || 0;  acum.uber.p    += r.uber_pedidos    || 0
-      acum.glovo.b   += r.glovo_bruto   || 0;  acum.glovo.p   += r.glovo_pedidos   || 0
-      acum.je.b      += r.je_bruto      || 0;  acum.je.p      += r.je_pedidos      || 0
-      acum.web.b     += r.web_bruto     || 0;  acum.web.p     += r.web_pedidos     || 0
-      acum.directa.b += r.directa_bruto || 0;  acum.directa.p += r.directa_pedidos || 0
+      acum.uber.b  += r.uber_bruto    || 0;  acum.uber.p  += r.uber_pedidos    || 0
+      acum.glovo.b += r.glovo_bruto   || 0;  acum.glovo.p += r.glovo_pedidos   || 0
+      acum.je.b    += r.je_bruto      || 0;  acum.je.p    += r.je_pedidos      || 0
+      acum.web.b   += r.web_bruto     || 0;  acum.web.p   += r.web_pedidos     || 0
+      acum.dir.b   += r.directa_bruto || 0;  acum.dir.p   += r.directa_pedidos || 0
       brutoTotal += r.total_bruto || 0
     }
-    const MAP: Record<string, string> = { uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web Propia', directa: 'Venta Directa' }
-    for (const k of ['uber','glovo','je','web','directa'] as const) {
+    for (const k of ['uber','glovo','je','web','dir'] as const) {
       const a = acum[k]
       if (a.b <= 0) continue
-      const cfg = getCanalComision(canales, MAP[k])
-      const fijoTotal = cfg.fijoEur * a.p
-      const periodos = cfg.feePeriodoEur > 0 ? periodosEnRango(cfg.feePeriodicidad, desde, hasta) : 0
-      const feePeriodoTotal = cfg.feePeriodoEur * periodos
-      const base = cfg.comisionDec * a.b + fijoTotal + feePeriodoTotal
-      const iva = base * IVA
-      netoTotal += Math.max(0, a.b - base - iva)
+      const { neto } = calcNetoPorCanal(k, a.b, a.p, marcasPorCanal, desde, hasta, cfgCanalesReal)
+      netoTotal += neto
     }
     return { neto: netoTotal, bruto: brutoTotal }
-  }, [canales])
+  }, [cfgCanalesReal, marcasPorCanal])
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
