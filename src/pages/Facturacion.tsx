@@ -9,7 +9,7 @@ import {
   COLORS, FONT, CARDS, LAYOUT, TABS_PILL,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
@@ -160,14 +160,14 @@ export default function Facturacion() {
   const [periodoDesde, setPeriodoDesde] = useState<Date>(()=>{ const h=new Date();h.setDate(1);h.setHours(0,0,0,0);return h })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(()=>{ const h=new Date();h.setHours(23,59,59,999);return h })
   const [configCanales, setConfigCanales] = useState<Record<string, ConfigCanalRow>>({})
-  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
   useEffect(()=>{
     loadConfigCanales().then(setConfigCanales)
-    supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activo', true)
-      .then(({ count })=>{ if(count && count > 0) setMarcasActivas(count) })
+    loadMarcasPorCanal().then(setMarcasPorCanal)
     const onCfgChange = () => {
       recargarConfigCanales().then(setConfigCanales)
+      loadMarcasPorCanal().then(setMarcasPorCanal)
       setRefreshKey(k=>k+1)
     }
     window.addEventListener('config_canales:changed', onCfgChange)
@@ -210,8 +210,8 @@ export default function Facturacion() {
       { id:'web',   bruto:totals.web_bruto,     pedidos:totals.web_pedidos },
       { id:'dir',   bruto:totals.directa_bruto, pedidos:totals.directa_pedidos },
     ]
-    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasActivas, periodoDesde, periodoHasta, configCanales).neto, 0)
-  },[totals, marcasActivas, periodoDesde, periodoHasta, configCanales])
+    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasPorCanal, periodoDesde, periodoHasta, configCanales).neto, 0)
+  },[totals, marcasPorCanal, periodoDesde, periodoHasta, configCanales])
   const tm = totals.total_pedidos>0?totals.total_bruto/totals.total_pedidos:0
   const tmNeto = totals.total_pedidos>0?netoEstimado/totals.total_pedidos:0
   const mediadiaria = dias>0?totals.total_bruto/dias:0
