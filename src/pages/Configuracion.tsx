@@ -1,10 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
+import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
 
 /* ═══════ TYPES ═══════ */
 
 interface Proveedor { id: string; abv: string; nombre_completo: string; categoria: string | null; marca_asociada?: string | null; activo: boolean }
-interface Canal { id: string; canal: string; comision_pct: number | null; coste_fijo: number | null; margen_deseado_pct?: number | null; activo?: boolean }
+interface Canal {
+  id: string
+  canal: string
+  comision_pct: number | null
+  comision_pct_prime: number | null
+  fijo_eur: number | null
+  coste_fijo: number | null
+  fee_prime_eur: number | null
+  fee_promo_eur: number | null
+  fee_periodo_eur: number | null
+  fee_periodicidad: string | null
+  margen_deseado_pct?: number | null
+  activo?: boolean
+}
 
 type Section = 'plataformas' | 'costes' | 'proveedores' | 'categorias' | 'unidades'
 
@@ -17,7 +31,6 @@ const SECTIONS: { key: Section; label: string }[] = [
 ]
 
 const inputCls = 'w-full bg-[var(--sl-app)] border border-[var(--sl-border)] rounded-md px-3 py-2 text-sm text-[var(--sl-text-primary)] focus:outline-none focus:border-accent font-sans'
-const inputSmCls = 'w-24 bg-[var(--sl-app)] border border-[var(--sl-border)] rounded px-2 py-1 text-sm text-[var(--sl-text-primary)] text-right font-sans'
 const btnPrimary = 'px-4 py-2 bg-accent text-black text-sm font-semibold rounded-md hover:brightness-110 transition font-ui uppercase tracking-wider'
 const btnSecondary = 'px-4 py-2 text-sm text-[var(--sl-text-secondary)] border border-[var(--sl-border)] rounded-md hover:text-[var(--sl-text-primary)] hover:border-[#555] transition font-sans'
 const thCfg = 'px-4 py-3 text-left text-[10px] uppercase tracking-[1.5px] text-[var(--sl-text-muted)] font-semibold bg-[var(--sl-thead)] border-b border-[var(--sl-border)] font-ui'
@@ -25,6 +38,12 @@ const rowCls = (idx: number) => idx % 2 === 0 ? 'bg-[var(--sl-card)]' : 'bg-[var
 const tdCfg = 'px-4 py-2.5 border-b border-[var(--sl-border)] font-sans text-[0.82rem] text-[var(--sl-text-primary)]'
 
 const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
+
+const PERIODICIDADES: { value: string; label: string }[] = [
+  { value: 'semanal_por_marca', label: 'Semanal/marca' },
+  { value: 'quincenal_por_marca', label: 'Quincenal/marca' },
+  { value: 'mensual', label: 'Mensual' },
+]
 
 export default function Configuracion() {
   const [section, setSection] = useState<Section>('plataformas')
@@ -94,6 +113,8 @@ export default function Configuracion() {
   )
 }
 
+/* ═══════ PLATAFORMAS · estilo Running ═══════ */
+
 function SecPlataformas() {
   const [rows, setRows] = useState<Canal[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,10 +139,18 @@ function SecPlataformas() {
     return () => { c = true }
   }, [])
 
-  const updateLocal = (id: string, field: string, displayVal: string) => {
-    let numVal = parseFloat(displayVal) || 0
-    if (field === 'comision_pct') numVal = numVal / 100
+  const updateLocal = (id: string, field: keyof Canal, displayVal: string) => {
+    let numVal: number | string | null = parseFloat(displayVal)
+    if (isNaN(numVal as number)) numVal = 0
+    // Para campos % en pantalla guardamos como decimal (0-1)
+    if (field === 'comision_pct' || field === 'comision_pct_prime') {
+      numVal = (numVal as number) / 100
+    }
     setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: numVal } : r))
+  }
+
+  const updatePeriodicidad = (id: string, value: string) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, fee_periodicidad: value } : r))
   }
 
   const handleGuardar = async () => {
@@ -130,14 +159,20 @@ function SecPlataformas() {
       id: r.id,
       canal: r.canal,
       comision_pct: r.comision_pct,
-      coste_fijo: r.coste_fijo,
+      comision_pct_prime: r.comision_pct_prime,
+      fijo_eur: r.fijo_eur,
+      coste_fijo: r.fijo_eur, // mantener sincronizados
+      fee_prime_eur: r.fee_prime_eur,
+      fee_promo_eur: r.fee_promo_eur,
+      fee_periodo_eur: r.fee_periodo_eur,
+      fee_periodicidad: r.fee_periodicidad,
       margen_deseado_pct: r.margen_deseado_pct,
       activo: r.activo ?? true,
     }))
     const { error } = await supabase.from('config_canales').upsert(payload, { onConflict: 'canal' })
     setSaving(false)
     if (error) { setErr(error.message); return }
-    // Dispara evento global → Dashboard / Facturación / Running / PE recargan config_canales en caliente
+    // Dispara evento global → Dashboard / Facturación / Running / PE recargan en caliente
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('config_canales:changed'))
     }
@@ -147,59 +182,175 @@ function SecPlataformas() {
 
   if (loading) return <Loader />
 
+  // ─── ESTILOS estilo Running ───
+  const card: CSSProperties = { ...CARDS.std, padding: 0, overflow: 'hidden' }
+  const tableSty: CSSProperties = { width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 1100 }
+  const th: CSSProperties = {
+    fontFamily: FONT.heading,
+    fontSize: 11,
+    fontWeight: 500,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    color: COLORS.mut,
+    padding: '10px 10px',
+    background: COLORS.bg,
+    borderBottom: `1px solid ${COLORS.brd}`,
+    whiteSpace: 'nowrap',
+    textAlign: 'left',
+  }
+  const thR: CSSProperties = { ...th, textAlign: 'right' }
+  const thC: CSSProperties = { ...th, textAlign: 'center' }
+  const tdSty: CSSProperties = {
+    padding: '8px 10px',
+    fontSize: 13,
+    fontFamily: FONT.body,
+    color: COLORS.sec,
+    borderBottom: `0.5px solid ${COLORS.brd}`,
+    whiteSpace: 'nowrap',
+    verticalAlign: 'middle',
+  }
+  const tdRight: CSSProperties = { ...tdSty, textAlign: 'right' }
+  const inp: CSSProperties = {
+    width: 80,
+    background: '#fff',
+    border: `0.5px solid ${COLORS.brd}`,
+    borderRadius: 6,
+    padding: '5px 8px',
+    fontFamily: FONT.heading,
+    fontSize: 13,
+    color: COLORS.pri,
+    textAlign: 'right',
+    outline: 'none',
+  }
+  const sel: CSSProperties = {
+    ...inp,
+    width: 150,
+    textAlign: 'left',
+    cursor: 'pointer',
+    appearance: 'auto' as const,
+  }
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+
   return (
-    <div className="space-y-3">
-      <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCfg}>Canal</th>
-              <th className={thCfg + ' text-right'}>Comisión %</th>
-              <th className={thCfg + ' text-right'}>Coste Fijo €</th>
-              <th className={thCfg + ' text-right'}>Margen deseado %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, idx) => (
-              <tr key={r.id} className={rowCls(idx)}>
-                <td className={tdCfg + ' text-[var(--sl-text-primary)] font-medium'}>{r.canal}</td>
-                <td className={tdCfg + ' text-right'}>
-                  <input type="number" step="0.1" defaultValue={Math.round((r.comision_pct ?? 0) * 100 * 10) / 10}
-                    onBlur={e => updateLocal(r.id, 'comision_pct', e.target.value)} className={inputSmCls} />
-                </td>
-                <td className={tdCfg + ' text-right'}>
-                  <input type="number" step="0.01" defaultValue={r.coste_fijo ?? 0}
-                    onBlur={e => updateLocal(r.id, 'coste_fijo', e.target.value)} className={inputSmCls} />
-                </td>
-                <td className={tdCfg + ' text-right'}>
-                  <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
-                    onBlur={e => updateLocal(r.id, 'margen_deseado_pct', e.target.value)} className={inputSmCls} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{
+        fontFamily: FONT.body, fontSize: 12, color: COLORS.mut,
+        background: '#fff', padding: '10px 14px',
+        border: `0.5px solid ${COLORS.brd}`, borderRadius: 10,
+      }}>
+        <strong style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.sec }}>Cómo se aplica:</strong>{' '}
+        Todos los importes se introducen SIN IVA. El ERP añade el 21% automáticamente.
+        La <strong>Comisión Prime</strong> sustituye a la normal en pedidos de cliente Prime/Uber One.
+        Los <strong>Fee Prime</strong> y <strong>Fee Promo</strong> se suman como cargo extra por pedido especial.
+        La <strong>Tarifa periódica</strong> se cobra por marca según la periodicidad indicada.
       </div>
-      <div className="flex items-center gap-3">
+
+      <div style={card}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableSty}>
+            <thead>
+              <tr>
+                <th style={th}>Canal</th>
+                <th style={thR}>Comisión normal %</th>
+                <th style={thR}>Comisión Prime %</th>
+                <th style={thR}>Fijo €/pedido</th>
+                <th style={thR}>Fee Prime €/ped</th>
+                <th style={thR}>Fee Promo €/ped</th>
+                <th style={thR}>Tarifa periódica €</th>
+                <th style={thC}>Periodicidad</th>
+                <th style={thR}>Margen objetivo %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => {
+                const bg = idx % 2 === 0 ? '#fff' : '#f5f3ef'
+                const comNorm = Math.round((Number(r.comision_pct ?? 0)) * 100 * 100) / 100
+                const comPrime = r.comision_pct_prime != null
+                  ? Math.round(Number(r.comision_pct_prime) * 100 * 100) / 100
+                  : ''
+                return (
+                  <tr key={r.id} style={{ background: bg }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${COLORS.bg}80` }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = bg }}>
+                    <td style={{ ...tdSty, fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: COLORS.pri }}>{r.canal}</td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01" defaultValue={comNorm}
+                        onBlur={e => updateLocal(r.id, 'comision_pct', e.target.value)} style={inp} />
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01"
+                        defaultValue={comPrime === '' ? '' : comPrime}
+                        placeholder="—"
+                        onBlur={e => {
+                          if (e.target.value === '' || e.target.value === '0') {
+                            setRows(prev => prev.map(x => x.id === r.id ? { ...x, comision_pct_prime: null } : x))
+                          } else {
+                            updateLocal(r.id, 'comision_pct_prime', e.target.value)
+                          }
+                        }}
+                        style={inp} />
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01" defaultValue={r.fijo_eur ?? 0}
+                        onBlur={e => updateLocal(r.id, 'fijo_eur', e.target.value)} style={inp} />
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01" defaultValue={r.fee_prime_eur ?? 0}
+                        onBlur={e => updateLocal(r.id, 'fee_prime_eur', e.target.value)} style={inp} />
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01" defaultValue={r.fee_promo_eur ?? 0}
+                        onBlur={e => updateLocal(r.id, 'fee_promo_eur', e.target.value)} style={inp} />
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.01" defaultValue={r.fee_periodo_eur ?? 0}
+                        onBlur={e => updateLocal(r.id, 'fee_periodo_eur', e.target.value)} style={inp} />
+                    </td>
+                    <td style={{ ...tdSty, textAlign: 'center' }}>
+                      <select value={r.fee_periodicidad ?? 'mensual'}
+                        onChange={e => updatePeriodicidad(r.id, e.target.value)} style={sel}>
+                        {PERIODICIDADES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                      </select>
+                    </td>
+                    <td style={tdRight}>
+                      <input type="number" step="0.1" defaultValue={r.margen_deseado_pct ?? 15}
+                        onBlur={e => updateLocal(r.id, 'margen_deseado_pct', e.target.value)} style={inp} />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
           onClick={handleGuardar}
           disabled={saving}
           style={{
-            background: guardado ? '#16a34a' : '#B01D23',
+            background: guardado ? '#16a34a' : COLORS.redSL,
             color: '#fff',
             border: 'none',
             padding: '10px 24px',
-            borderRadius: '5px',
-            fontFamily: 'Oswald, sans-serif',
-            fontSize: '.78rem',
-            letterSpacing: '1px',
+            borderRadius: 6,
+            fontFamily: FONT.heading,
+            fontSize: 12,
+            letterSpacing: '1.5px',
+            textTransform: 'uppercase',
             cursor: saving ? 'default' : 'pointer',
             opacity: saving ? 0.5 : 1,
           }}
         >
           {saving ? 'GUARDANDO…' : guardado ? 'GUARDADO ✓' : 'GUARDAR'}
         </button>
-        {err && <span className="text-xs text-[#dc2626]">{err}</span>}
+        {err && <span style={{ color: COLORS.err, fontSize: 12, fontFamily: FONT.body }}>{err}</span>}
+        {!isMobile && (
+          <span style={{ marginLeft: 'auto', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>
+            Los cambios se propagan en caliente a Dashboard, Facturación, Running, PE y Objetivos al guardar.
+          </span>
+        )}
       </div>
     </div>
   )
