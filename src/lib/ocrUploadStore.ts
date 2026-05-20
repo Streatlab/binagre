@@ -1,4 +1,5 @@
-// ocrUploadStore v20 — persistencia 100% backend (ocr_sessions) + worker en edge function
+// ocrUploadStore v21 — persistencia 100% backend (ocr_sessions) + worker en edge function
+// Partición en lotes de 150 archivos para no exceder el límite de tamaño de Supabase
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -39,6 +40,10 @@ let sessions: OcrSession[] = []
 let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
+
+// Tamaño máximo aproximado por insert. Postgres acepta JSONB grande pero PostgREST
+// pasa por un límite de payload (varios MB). 150 archivos x ~150KB base64 = ~22MB, da margen.
+const LOTE_MAX_ARCHIVOS = 150
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 
@@ -108,14 +113,12 @@ async function docxATexto(file: File | Blob): Promise<string> {
 }
 
 async function docATexto(file: File | Blob): Promise<string> {
-  // .doc viejo (binario) — mammoth NO lo soporta. Extraemos texto crudo legible.
   const buf = await file.arrayBuffer()
   const bytes = new Uint8Array(buf)
   let texto = ''
   let buffer = ''
   for (let i = 0; i < bytes.length; i++) {
     const b = bytes[i]
-    // ASCII imprimible + saltos
     if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9) {
       buffer += String.fromCharCode(b)
     } else {
@@ -124,7 +127,6 @@ async function docATexto(file: File | Blob): Promise<string> {
     }
   }
   if (buffer.length >= 4) texto += buffer
-  // Limpiar caracteres de control y dejar texto razonable
   texto = texto.replace(/[\x00-\x1F\x7F]+/g, ' ').replace(/\s+/g, ' ').trim()
   return texto
 }
@@ -161,18 +163,8 @@ function getMimeTypeBase(ext: string): string {
   return map[ext] ?? 'application/octet-stream'
 }
 
-/**
- * Normaliza un archivo a algo que la edge function pueda procesar:
- * - PDF/imagen: se queda igual (base64)
- * - xlsx/xls: convertido a CSV en cliente
- * - docx: extraído a texto plano
- * - doc (binario viejo): extracción de texto crudo legible
- * - html/htm: extracción de texto plano
- * - csv/txt: texto plano
- */
 async function normalizar(file: File): Promise<{ name: string; type: string; base64: string }> {
   const ext = getExt(file.name)
-
   if (['xlsx', 'xls'].includes(ext)) {
     const csv = await excelACSV(file)
     return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', base64: utf8AB64(csv) }
@@ -193,7 +185,6 @@ async function normalizar(file: File): Promise<{ name: string; type: string; bas
     const t = await file.text()
     return { name: file.name, type: ext === 'csv' ? 'text/csv' : 'text/plain', base64: utf8AB64(t) }
   }
-  // PDF/imagen: como vienen
   const base64 = await leerBase64(file)
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
   return { name: file.name, type: t, base64 }
@@ -257,7 +248,6 @@ function suscribirRealtime() {
           return
         }
         const next = dbToSession(payload.new)
-        // Si está completada/cancelada/error → mantenemos 10s para que se vea el resultado, luego desaparece
         if (payload.new.estado_cola === 'completada' || payload.new.estado_cola === 'cancelada' || payload.new.estado === 'error') {
           const ya = sessions.find(s => s.id === next.id)
           if (ya) {
@@ -280,7 +270,6 @@ function suscribirRealtime() {
 }
 
 function lanzarPoll() {
-  // Polling de respaldo cada 4s por si Realtime falla
   if (pollTimer) return
   pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 4000)
 }
@@ -301,6 +290,39 @@ async function lanzarWorker() {
   } catch {}
 }
 
+// Sesión local "preparando" que se muestra mientras normalizamos los archivos
+// y vamos subiendo lotes a BBDD. Después de creada en BBDD, desaparece la local
+// y aparecen las reales (vía Realtime).
+function ponerPreparando(idLocal: string, total: number, hechos: number) {
+  const ya = sessions.find(s => s.id === idLocal)
+  const ses: OcrSession = {
+    id: idLocal,
+    total,
+    enviados: hechos,
+    ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0,
+    achtungMensaje: null, achtungTipo: null,
+    log: [],
+    visible: true,
+    procesando: true,
+    cancelado: false,
+    fnName: null,
+    titular_id: null,
+    archivosPendientes: [],
+    creadoEn: ya?.creadoEn ?? Date.now(),
+    completadoEn: null,
+    orden: 0,
+    archivoActual: hechos < total ? `Preparando ${hechos} de ${total}…` : 'Subiendo a servidor…',
+  }
+  if (ya) sessions = sessions.map(s => s.id === idLocal ? ses : s)
+  else sessions = [...sessions, ses]
+  emit()
+}
+
+function quitarPreparando(idLocal: string) {
+  sessions = sessions.filter(s => s.id !== idLocal)
+  emit()
+}
+
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
   useEffect(() => {
@@ -311,50 +333,75 @@ export function useOcrUpload() {
   }, [])
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
-    // Normalizar todos los archivos en cliente (xlsx→csv, docx→txt, doc→txt, html→txt)
+    const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    ponerPreparando(idLocal, files.length, 0)
+
+    // 1) Normalizar todos los archivos en cliente (visible: "Preparando X/Y")
     const archivos: any[] = []
     const fallos: ArchivoLog[] = []
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       try {
         const norm = await normalizar(file)
         archivos.push(norm)
       } catch (e: any) {
         fallos.push({ filename: file.name, status: 'error', detalle: `Conversión: ${e?.message || e}` })
       }
+      if (i % 10 === 0 || i === files.length - 1) ponerPreparando(idLocal, files.length, i + 1)
     }
 
-    const id = `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const orden = Math.floor(Date.now() / 1000)
+    // 2) Partir en lotes y crear una sesión por lote
+    ponerPreparando(idLocal, files.length, files.length)
+    const baseOrden = Math.floor(Date.now() / 1000)
+    const totalLotes = Math.max(1, Math.ceil(archivos.length / LOTE_MAX_ARCHIVOS))
+    const erroresInsert: string[] = []
 
-    const { error } = await supabase.from('ocr_sessions').insert({
-      id,
-      total: files.length,
-      enviados: fallos.length,
-      ok: 0,
-      pendientes: 0,
-      duplicados: 0,
-      errores: fallos.length,
-      achtung: 0,
-      cancelados: 0,
-      achtung_mensaje: null,
-      achtung_tipo: null,
-      log: fallos,
-      visible: true,
-      cancelar_solicitado: false,
-      fn_name: fnName,
-      titular_id: titular_id || null,
-      archivos_pendientes: archivos,
-      estado: 'en_espera',
-      estado_cola: 'en_espera',
-      orden_cola: orden,
-      creado_en: new Date().toISOString(),
-    })
-    if (error) {
-      // Si falla la inserción (límite tamaño u otro), informar
-      throw new Error(`No se pudo crear la sesión: ${error.message}`)
+    for (let lote = 0; lote < totalLotes; lote++) {
+      const inicio = lote * LOTE_MAX_ARCHIVOS
+      const fin = Math.min(inicio + LOTE_MAX_ARCHIVOS, archivos.length)
+      const slice = archivos.slice(inicio, fin)
+
+      const id = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
+      // Solo en el primer lote ponemos los fallos de conversión, para no duplicarlos
+      const logLote = lote === 0 ? fallos : []
+      const erroresLote = lote === 0 ? fallos.length : 0
+
+      const { error } = await supabase.from('ocr_sessions').insert({
+        id,
+        total: slice.length + (lote === 0 ? fallos.length : 0),
+        enviados: erroresLote,
+        ok: 0,
+        pendientes: 0,
+        duplicados: 0,
+        errores: erroresLote,
+        achtung: 0,
+        cancelados: 0,
+        achtung_mensaje: null,
+        achtung_tipo: null,
+        log: logLote,
+        visible: true,
+        cancelar_solicitado: false,
+        fn_name: fnName,
+        titular_id: titular_id || null,
+        archivos_pendientes: slice,
+        estado: 'en_espera',
+        estado_cola: 'en_espera',
+        orden_cola: baseOrden + lote,
+        creado_en: new Date().toISOString(),
+      })
+
+      if (error) {
+        erroresInsert.push(`Lote ${lote + 1}/${totalLotes}: ${error.message}`)
+      }
     }
 
-    // Lanzar worker (no esperamos respuesta — se ejecuta en background del edge)
+    quitarPreparando(idLocal)
+
+    if (erroresInsert.length > 0) {
+      throw new Error(`No se pudo crear ${erroresInsert.length} lote(s). Primero: ${erroresInsert[0]}`)
+    }
+
+    // 3) Lanzar el worker (procesa el primer lote y al terminar dispara el siguiente)
     lanzarWorker()
   }
 
