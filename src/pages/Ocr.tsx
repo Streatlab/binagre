@@ -24,7 +24,7 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// Extensiones aceptadas. ZIP se descomprime en cliente.
+// Extensiones aceptadas. ZIP se descomprime en cliente (incl. anidados).
 const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
 const EXT_ZIP = ['zip']
@@ -64,40 +64,49 @@ async function cargarJSZip(): Promise<any> {
   return (window as any).JSZip
 }
 
+const MAX_NIVEL_ZIP = 5
+
+async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, validas: Set<string>, aceptados: File[], rechazados: string[], contador: { n: number }, nivel: number) {
+  if (nivel > MAX_NIVEL_ZIP) {
+    rechazados.push(`${nombreOrigen} (ZIP demasiado anidado, nivel > ${MAX_NIVEL_ZIP})`)
+    return
+  }
+  try {
+    const JSZip = await cargarJSZip()
+    const zip = await JSZip.loadAsync(f)
+    for (const path of Object.keys(zip.files)) {
+      const entry = zip.files[path]
+      if (entry.dir) continue
+      const innerName = path.split('/').pop() || path
+      const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
+      const blob = await entry.async('blob')
+      if (innerExt === 'zip') {
+        await expandirZipRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, nivel + 1)
+        continue
+      }
+      if (!validas.has(innerExt)) {
+        rechazados.push(`${nombreOrigen} → ${innerName}`)
+        continue
+      }
+      const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
+      aceptados.push(innerFile)
+      contador.n++
+    }
+  } catch (err: any) {
+    rechazados.push(`${nombreOrigen} (zip corrupto: ${err?.message || 'error'})`)
+  }
+}
+
 async function expandirArchivos(files: File[], extensionesValidas: string[]): Promise<{ aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }> {
   const aceptados: File[] = []
   const rechazados: string[] = []
-  let expandidosZip = 0
+  const contador = { n: 0 }
   const validas = new Set(extensionesValidas.map(e => e.toLowerCase()))
 
   for (const f of files) {
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
     if (ext === 'zip') {
-      try {
-        const JSZip = await cargarJSZip()
-        const zip = await JSZip.loadAsync(f)
-        for (const path of Object.keys(zip.files)) {
-          const entry = zip.files[path]
-          if (entry.dir) continue
-          const innerName = path.split('/').pop() || path
-          const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
-          if (innerExt === 'zip') {
-            // ZIP anidado: lo dejamos sin recursar para no complicar
-            rechazados.push(`${f.name} → ${innerName} (zip anidado)`)
-            continue
-          }
-          if (!validas.has(innerExt)) {
-            rechazados.push(`${f.name} → ${innerName}`)
-            continue
-          }
-          const blob = await entry.async('blob')
-          const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
-          aceptados.push(innerFile)
-          expandidosZip++
-        }
-      } catch (err: any) {
-        rechazados.push(`${f.name} (zip corrupto: ${err?.message || 'error'})`)
-      }
+      await expandirZipRecursivo(f, f.name, validas, aceptados, rechazados, contador, 1)
     } else if (validas.has(ext)) {
       aceptados.push(f)
     } else {
@@ -105,7 +114,7 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
     }
   }
 
-  return { aceptados, rechazados, expandidosZip, totalOriginal: files.length }
+  return { aceptados, rechazados, expandidosZip: contador.n, totalOriginal: files.length }
 }
 
 interface BtnSubirSplitProps { label: string; accept: string; extensiones: string[]; onArchivos: (resultado: { aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }) => void; preparando: boolean; setPreparando: (v: boolean) => void }
