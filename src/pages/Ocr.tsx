@@ -43,12 +43,12 @@ type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
 function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) }
 
-interface BtnSubirProps { label: string; sublabel: string; accept: string; onArchivos: (files: File[]) => void }
-function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
+interface BtnSubirSplitProps { label: string; sublabel: string; accept: string; onArchivos: (files: File[]) => void }
+function BtnSubirSplit({ label, sublabel, accept, onArchivos }: BtnSubirSplitProps) {
   const inputFileRef = useRef<HTMLInputElement>(null)
   const inputFolderRef = useRef<HTMLInputElement>(null)
-  const [over, setOver] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [overL, setOverL] = useState(false)
+  const [overR, setOverR] = useState(false)
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return
@@ -59,56 +59,49 @@ function BtnSubir({ label, sublabel, accept, onArchivos }: BtnSubirProps) {
     if (arr.length > 0) onArchivos(arr)
   }
 
+  const halfBase: React.CSSProperties = {
+    flex: 1, padding: '18px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center', gap: 6, userSelect: 'none',
+    transition: 'background 0.15s, border 0.15s'
+  }
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden' }}>
+      <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
+      <input
+        ref={inputFolderRef}
+        type="file"
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }}
+      />
+
       <div
-        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOver(true) }}
-        onDragLeave={e => { e.stopPropagation(); setOver(false) }}
-        onDrop={e => { e.preventDefault(); e.stopPropagation(); setOver(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => setMenuOpen(v => !v)}
-        style={{ background: over ? '#8f1519' : '#B01D23', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: over ? '2px dashed rgba(255,255,255,0.6)' : '2px solid transparent', transition: 'background 0.15s, border 0.15s', userSelect: 'none' }}
+        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverL(true) }}
+        onDragLeave={e => { e.stopPropagation(); setOverL(false) }}
+        onDrop={e => { e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => inputFileRef.current?.click()}
+        style={{ ...halfBase, background: overL ? '#8f1519' : '#B01D23', borderRight: '1px solid rgba(255,255,255,0.25)' }}
       >
-        <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
-        <input
-          ref={inputFolderRef}
-          type="file"
-          // @ts-ignore - atributos no estándar pero soportados
-          webkitdirectory=""
-          directory=""
-          multiple
-          style={{ display: 'none' }}
-          onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }}
-        />
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{over ? <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></> : <path d="M12 19V5M5 12l7-7 7 7"/>}</svg>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center' }}>{over ? 'Suelta aquí' : label}</div>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{sublabel}</div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>{label}<br/>por archivos</div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{sublabel}</div>
       </div>
 
-      {menuOpen && (
-        <>
-          <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 10, boxShadow: '0 8px 20px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 51 }}>
-            <button
-              onClick={() => { setMenuOpen(false); inputFileRef.current?.click() }}
-              style={{ width: '100%', padding: '12px 14px', background: '#fff', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '0.5px solid #ebe8e2' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f5f3ef')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B01D23" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Seleccionar archivos
-            </button>
-            <button
-              onClick={() => { setMenuOpen(false); inputFolderRef.current?.click() }}
-              style={{ width: '100%', padding: '12px 14px', background: '#fff', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', display: 'flex', alignItems: 'center', gap: 10 }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f5f3ef')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B01D23" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              Seleccionar carpeta entera
-            </button>
-          </div>
-        </>
-      )}
+      <div
+        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverR(true) }}
+        onDragLeave={e => { e.stopPropagation(); setOverR(false) }}
+        onDrop={e => { e.preventDefault(); e.stopPropagation(); setOverR(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => inputFolderRef.current?.click()}
+        style={{ ...halfBase, background: overR ? '#8f1519' : '#B01D23' }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>{label}<br/>por carpetas</div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Incluye subcarpetas</div>
+      </div>
     </div>
   )
 }
@@ -216,7 +209,7 @@ export default function Ocr() {
       </div>
       <TabsPastilla tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />
 
-      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubir label="Subir extractos" sublabel="CSV · Excel · PDF · Imagen" accept={ACCEPT_EXTRACTOS} onArchivos={(files) => setModalTitular({ archivos: files, visible: true })} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
+      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" sublabel="CSV · Excel · PDF · Imagen" accept={ACCEPT_EXTRACTOS} onArchivos={(files) => setModalTitular({ archivos: files, visible: true })} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
       {tab === 'ventas' && (<VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />)}
 
       {(tab === 'facturas' || tab === 'otros') && (<>
@@ -224,7 +217,7 @@ export default function Ocr() {
           <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados?.conciliadasCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `${agregados.conciliadasPct}% · ${fmtEur(agregados.conciliadasImporte)}` : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div></div>
-          <BtnSubir label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} sublabel="PDF · Imagen · Carpeta" accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} onArchivos={(files) => setModalConfirmarSubida({ archivos: files, visible: true, fnName: 'ocr-procesar-factura' })} />
+          <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} sublabel="PDF · Imagen" accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} onArchivos={(files) => setModalConfirmarSubida({ archivos: files, visible: true, fnName: 'ocr-procesar-factura' })} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
