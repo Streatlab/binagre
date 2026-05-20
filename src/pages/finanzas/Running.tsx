@@ -30,6 +30,7 @@ const[qO,sQ]=useState<Record<number,boolean>>(()=>{const q=Math.ceil(cM/3);retur
 const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
 const[aO,sAO]=useState(true)
 const[dPlat,sDP]=useState(true)
+const[platOpen,sPO]=useState<Record<string,boolean>>({uber:true,glovo:true,je:true,web:true})
 const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const midRef=useRef<HTMLDivElement>(null)
@@ -96,12 +97,14 @@ const gR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:14,letterSp
 const tR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:15,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.redSL,fontWeight:700,background:`${COLORS.redSL}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const rR:React.CSSProperties={...t1,fontFamily:FONT.heading,fontSize:16,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.ok,fontWeight:700,background:`${COLORS.ok}0C`,borderTop:`2px solid ${COLORS.brd}`}
 const sp=<tr><td colSpan={99} style={{height:5,border:'none',background:COLORS.bg,padding:0}}/></tr>
-const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
+const pS:React.CSSProperties={...TABS_PILL.inactive,appearance:'none' as const,paddingRight:22,backgroundImage:`url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a8090' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 6px center',cursor:'pointer'}
 const rRow=(cl:string):React.CSSProperties=>({...r1(COLORS.ok),fontSize:14,color:cl,fontWeight:700,fontFamily:FONT.heading,textTransform:'uppercase',letterSpacing:'1px'})
 const detHeaders=<tr><th style={th1}>Categoría</th>{vc.map((c,i)=>[<th key={i} style={thC(c)} onClick={c.qn?()=>tQ(c.qn!):undefined}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr>
 const tW=2200
-const platHeader=(name:string,color:string)=><tr><td colSpan={99} style={{...t1,background:`${color}10`,fontFamily:FONT.heading,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',color:color,padding:'6px 5px 3px',borderLeft:`3px solid ${color}`,fontWeight:700}}>{name}</td></tr>
+const tPO=(k:string)=>sPO(p=>({...p,[k]:!p[k]}))
+const platHeader=(name:string,color:string,key:string)=><tr style={{cursor:'pointer'}} onClick={()=>tPO(key)}><td colSpan={99} style={{...t1,background:`${color}10`,fontFamily:FONT.heading,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',color:color,padding:'6px 5px 3px',borderLeft:`3px solid ${color}`,fontWeight:700}}>{platOpen[key]?'▾':'▸'} {name}</td></tr>
 const platRow=(label:string,plat:string,field:keyof ResRow,negative?:boolean,color?:string)=><tr {...hv}><td style={{...t1,paddingLeft:14,fontSize:13,color:color||COLORS.mut}}>{label}</td>{vc.map((c,i)=>{const v=rSum(plat,field,c.ms);const st=td0(c);return[<td key={i} style={{...st,color:color||(negative?COLORS.err:COLORS.sec),fontFamily:v?FONT.heading:st.fontFamily,...(v?nZ(c):{})}}>{v?(negative?'−':'')+fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+const platNet=(name:string,plat:string)=><tr><td style={{...t1,paddingLeft:14,fontWeight:700,fontFamily:FONT.heading,fontSize:14,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real cobrado {name}</td>{vc.map((c,i)=>{const v=rSum(plat,'neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
 return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:6}}>
 <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>RUNNING {año}</h2>
@@ -147,7 +150,8 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr><td colSpan={99} style={{height:14,border:'none',background:COLORS.bg,padding:0}}/></tr>
 {sH('Desglose cobros por plataforma · informativo',COLORS.mut,<span style={{marginLeft:8,fontSize:10,color:COLORS.mut+'90',fontWeight:400,textTransform:'none',letterSpacing:0,cursor:'pointer'}} onClick={()=>sDP(p=>!p)}>{dPlat?'▾ ocultar':'▸ mostrar'}</span>)}
 {dPlat&&<>
-{platHeader('Uber Eats','#1D9E75')}
+{platHeader('Uber Eats','#1D9E75','uber')}
+{platOpen.uber&&<>
 {platRow('Bruto pagado por cliente','uber','bruto')}
 {platRow('Comisión Uber + IVA','uber','comisiones',true)}
 {platRow('Tasa semanal mantenimiento + IVA','uber','tasa_mantenimiento',true)}
@@ -155,28 +159,35 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 {platRow('Reembolsos a clientes','uber','reembolsos_clientes',true)}
 {platRow('Ads','uber','ads',true)}
 {platRow('Reembolsos cobrados 2x (extra)','uber','reembolsos_2x',false,COLORS.ok)}
-<tr><td style={{...t1,paddingLeft:14,fontWeight:700,fontFamily:FONT.heading,fontSize:14,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real cobrado Uber</td>{vc.map((c,i)=>{const v=rSum('uber','neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+{platNet('Uber','uber')}
+</>}
 {sp}
-{platHeader('Glovo','#FFC244')}
+{platHeader('Glovo','#FFC244','glovo')}
+{platOpen.glovo&&<>
 {platRow('Bruto pagado por cliente','glovo','bruto')}
 {platRow('Comisión Glovo + IVA','glovo','comisiones',true)}
 {platRow('Fees + IVA','glovo','fees',true)}
 {platRow('Cargos promoción','glovo','cargos_promocion',true)}
 {platRow('Ads','glovo','ads',true)}
-<tr><td style={{...t1,paddingLeft:14,fontWeight:700,fontFamily:FONT.heading,fontSize:14,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real cobrado Glovo</td>{vc.map((c,i)=>{const v=rSum('glovo','neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+{platNet('Glovo','glovo')}
+</>}
 {sp}
-{platHeader('Just Eat','#FF8000')}
+{platHeader('Just Eat','#FF8000','je')}
+{platOpen.je&&<>
 {platRow('Bruto pagado por cliente','just_eat','bruto')}
 {platRow('Comisión Just Eat + IVA','just_eat','comisiones',true)}
 {platRow('Coste gestión/pedido + IVA','just_eat','coste_gestion_je',true)}
 {platRow('Fees + IVA','just_eat','fees',true)}
 {platRow('Ads','just_eat','ads',true)}
-<tr><td style={{...t1,paddingLeft:14,fontWeight:700,fontFamily:FONT.heading,fontSize:14,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real cobrado Just Eat</td>{vc.map((c,i)=>{const v=rSum('just_eat','neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+{platNet('Just Eat','just_eat')}
+</>}
 {sp}
-{platHeader('Tienda online','#1E5BCC')}
+{platHeader('Tienda online','#1E5BCC','web')}
+{platOpen.web&&<>
 {platRow('Bruto pagado por cliente','web','bruto')}
 {platRow('Comisión pasarela pago','web','comisiones',true)}
-<tr><td style={{...t1,paddingLeft:14,fontWeight:700,fontFamily:FONT.heading,fontSize:14,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real cobrado Tienda online</td>{vc.map((c,i)=>{const v=rSum('web','neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+{platNet('Tienda online','web')}
+</>}
 </>}
 <tr><td colSpan={99} style={{height:14,border:'none',background:COLORS.bg,padding:0}}/></tr>
 {sH('Detalle por categoría',COLORS.mut)}{rA() as any}
