@@ -8,7 +8,6 @@ import Escandallo from '@/pages/Escandallo'
 import Facturacion from '@/pages/Facturacion'
 import Conciliacion from '@/pages/Conciliacion'
 import POS from '@/pages/POS'
-import Configuracion from '@/pages/Configuracion'
 import Placeholder from '@/pages/Placeholder'
 
 import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
@@ -28,7 +27,6 @@ import TabUnidades from '@/pages/configuracion/compras/TabUnidades'
 
 import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 import CategoriasFinancierasPage from '@/pages/configuracion/categorias/CategoriasPage'
-import PlataformasPage from '@/pages/configuracion/plataformas/PlataformasPage'
 import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
@@ -121,7 +119,8 @@ function AppRoutes() {
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
         <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
-        <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+        {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
+        <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 
         <Route path="configuracion/integraciones" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
@@ -145,7 +144,8 @@ function AppRoutes() {
 
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
         <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
-        <Route path="configuracion/plataformas" element={<ProtectedRoute solo={['admin']}><PlataformasPage /></ProtectedRoute>} />
+        {/* Pantalla PlataformasPage eliminada · redirige a la canónica TabCanales dentro de Integraciones */}
+        <Route path="configuracion/plataformas" element={<Navigate to="/configuracion/integraciones/canales" replace />} />
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
