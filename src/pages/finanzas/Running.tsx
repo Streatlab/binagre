@@ -1,5 +1,5 @@
 import{useState,useMemo,useRef,useEffect}from'react'
-import{useRunningAnual,sumMeses,sumCatMeses}from'@/hooks/useRunningAnual'
+import{useRunningAnual,sumMeses,sumCatMeses,calcNetoCanal,diasDeMeses}from'@/hooks/useRunningAnual'
 import{useTitular}from'@/contexts/TitularContext'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
 import{supabase}from'@/lib/supabase'
@@ -35,7 +35,7 @@ const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const midRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
-const{ingresos,ingresosPorCanal,gastos,brutos,categorias,benchmarks,loading}=useRunningAnual(año,tId)
+const{ingresos,gastos,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,loading}=useRunningAnual(año,tId)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const mid=midRef.current;if(!main||!mid)return
@@ -55,8 +55,21 @@ const gF=(ms:number[])=>gP('2.2',ms)+gP('2.3',ms)
 const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
 const pe=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)
 const fB=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.total||0),0)
-// nE: usa ingresosPorCanal del hook (que ya aplica formula COMPLETA con fee fijo, fee periodico e IVA)
-const nE=(ms:number[])=>{let s=0;const canales=['uber','glovo','je','web','directa'] as const;for(const m of ms){for(const c of canales){s+=ingresosPorCanal[c]?.[m]?.importe||0}};return s}
+// FÓRMULA UNIFICADA: neto = bruto - (com·bruto + fijo·ped + fee·periodos·marcas) × 1.21
+// Aplicada canal por canal y mes a mes
+const nE=(ms:number[])=>{
+  let s=0
+  for(const m of ms){
+    const b=brutos[m];const p=pedidosCanal[m];if(!b||!p)continue
+    const dias=new Date(año,m,0).getDate()
+    s+=calcNetoCanal('uber',b.uber,p.uber,comisiones.uber||0,feesFijos.uber,dias,marcasActivas)
+    s+=calcNetoCanal('glovo',b.glovo,p.glovo,comisiones.glovo||0,feesFijos.glovo,dias,marcasActivas)
+    s+=calcNetoCanal('je',b.je,p.je,comisiones.je||0,feesFijos.je,dias,marcasActivas)
+    s+=calcNetoCanal('web',b.web,p.web,comisiones.web||0,feesFijos.web,dias,marcasActivas)
+    s+=calcNetoCanal('directa',b.directa,p.directa,comisiones.directa||0,feesFijos.directa,dias,marcasActivas)
+  }
+  return s
+}
 const iM=(ms:number[])=>{const r=iT(ms);return r||nE(ms)}
 const mB=(ms:number[])=>iM(ms)-gP('2.1',ms)
 const tB=(ms:number[])=>{const p=pe(ms);return p?fB(ms)/p:0}
