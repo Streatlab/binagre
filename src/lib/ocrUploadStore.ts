@@ -1,6 +1,6 @@
-// ocrUploadStore v21 — persistencia 100% backend (ocr_sessions) + worker en edge function
-// Partición en lotes de 150 archivos para no exceder el límite de tamaño de Supabase
-import { useEffect, useRef, useState } from 'react'
+// ocrUploadStore v22 — persistencia 100% backend + agrupación visual de lotes
+// La BBDD guarda N lotes (técnicamente necesario por tamaño) pero la UI los muestra como UNA sola sesión sumada.
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
@@ -33,16 +33,18 @@ export interface OcrSession {
   completadoEn: number | null
   orden: number
   archivoActual?: string | null
+  // Si es una sesión virtual agregada de varios lotes
+  grupoId?: string | null
+  lotesIds?: string[]
 }
 
 const emitter = new EventTarget()
-let sessions: OcrSession[] = []
+let rawSessions: OcrSession[] = []   // lo que viene de BBDD (1 por lote)
+let preparandoLocal: OcrSession[] = [] // sesiones locales mientras se preparan los lotes
 let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
 
-// Tamaño máximo aproximado por insert. Postgres acepta JSONB grande pero PostgREST
-// pasa por un límite de payload (varios MB). 150 archivos x ~150KB base64 = ~22MB, da margen.
 const LOTE_MAX_ARCHIVOS = 150
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
@@ -215,7 +217,69 @@ function dbToSession(s: any): OcrSession {
     creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(),
     completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null,
     orden: s.orden_cola || 0,
+    grupoId: s.grupo_id || null,
   }
+}
+
+/**
+ * Agrupa lotes con el mismo grupo_id en una sola sesión visual con sumas.
+ * Los lotes sin grupo aparecen como antes (1 toast por sesión).
+ */
+function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
+  const sueltas: OcrSession[] = []
+  const porGrupo: Record<string, OcrSession[]> = {}
+  for (const s of raw) {
+    if (s.grupoId) {
+      if (!porGrupo[s.grupoId]) porGrupo[s.grupoId] = []
+      porGrupo[s.grupoId].push(s)
+    } else {
+      sueltas.push(s)
+    }
+  }
+  const agregadas: OcrSession[] = Object.entries(porGrupo).map(([grupoId, lotes]) => {
+    lotes.sort((a, b) => a.orden - b.orden)
+    const algunoProcesando = lotes.some(l => l.procesando)
+    const todosCompletados = lotes.every(l => !l.procesando && !l.cancelado)
+    const todosCancelados = lotes.every(l => l.cancelado)
+    const achtungL = lotes.find(l => l.achtungMensaje)
+    const total = lotes.reduce((acc, l) => acc + l.total, 0)
+    const enviados = lotes.reduce((acc, l) => acc + l.enviados, 0)
+    const ok = lotes.reduce((acc, l) => acc + l.ok, 0)
+    const dup = lotes.reduce((acc, l) => acc + l.duplicados, 0)
+    const pend = lotes.reduce((acc, l) => acc + l.pendientes, 0)
+    const err = lotes.reduce((acc, l) => acc + l.errores, 0)
+    const ach = lotes.reduce((acc, l) => acc + l.achtung, 0)
+    const can = lotes.reduce((acc, l) => acc + l.cancelados, 0)
+    const logAcumulado: ArchivoLog[] = []
+    for (const l of lotes) logAcumulado.push(...(l.log || []))
+    const primerLote = lotes[0]
+    return {
+      id: `grp_${grupoId}`,
+      total,
+      enviados,
+      ok, pendientes: pend, duplicados: dup, errores: err, achtung: ach, cancelados: can,
+      achtungMensaje: achtungL?.achtungMensaje || null,
+      achtungTipo: achtungL?.achtungTipo || null,
+      log: logAcumulado,
+      visible: lotes.some(l => l.visible),
+      procesando: algunoProcesando,
+      cancelado: todosCancelados,
+      fnName: primerLote.fnName,
+      titular_id: primerLote.titular_id,
+      archivosPendientes: [],
+      creadoEn: Math.min(...lotes.map(l => l.creadoEn)),
+      completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null,
+      orden: primerLote.orden,
+      archivoActual: algunoProcesando ? `Procesando ${enviados} de ${total}…` : null,
+      grupoId,
+      lotesIds: lotes.map(l => l.id),
+    }
+  })
+  return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
+}
+
+function snapshot(): OcrSession[] {
+  return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)]
 }
 
 async function cargarSesionesActivas() {
@@ -223,13 +287,13 @@ async function cargarSesionesActivas() {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase
       .from('ocr_sessions')
-      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes')
+      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id')
       .gte('creado_en', cutoff)
       .eq('visible', true)
       .in('estado_cola', ['en_espera', 'procesando'])
       .order('orden_cola', { ascending: true })
     if (error) return
-    sessions = (data || []).map(dbToSession)
+    rawSessions = (data || []).map(dbToSession)
     emit()
   } catch {}
 }
@@ -243,26 +307,27 @@ function suscribirRealtime() {
         const row = payload.new || payload.old
         if (!row) return
         if (payload.eventType === 'DELETE') {
-          sessions = sessions.filter(s => s.id !== row.id)
+          rawSessions = rawSessions.filter(s => s.id !== row.id)
           emit()
           return
         }
         const next = dbToSession(payload.new)
+        // Si está completada/cancelada/error → la mantenemos un rato y luego se quita
         if (payload.new.estado_cola === 'completada' || payload.new.estado_cola === 'cancelada' || payload.new.estado === 'error') {
-          const ya = sessions.find(s => s.id === next.id)
+          const ya = rawSessions.find(s => s.id === next.id)
           if (ya) {
-            sessions = sessions.map(s => s.id === next.id ? { ...next, procesando: false } : s)
+            rawSessions = rawSessions.map(s => s.id === next.id ? { ...next, procesando: false } : s)
             emit()
             setTimeout(() => {
-              sessions = sessions.filter(s => s.id !== next.id)
+              rawSessions = rawSessions.filter(s => s.id !== next.id)
               emit()
             }, 10000)
           }
           return
         }
-        const existe = sessions.find(s => s.id === next.id)
-        if (existe) sessions = sessions.map(s => s.id === next.id ? next : s)
-        else sessions = [...sessions, next]
+        const existe = rawSessions.find(s => s.id === next.id)
+        if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s)
+        else rawSessions = [...rawSessions, next]
         emit()
       })
       .subscribe()
@@ -290,11 +355,8 @@ async function lanzarWorker() {
   } catch {}
 }
 
-// Sesión local "preparando" que se muestra mientras normalizamos los archivos
-// y vamos subiendo lotes a BBDD. Después de creada en BBDD, desaparece la local
-// y aparecen las reales (vía Realtime).
-function ponerPreparando(idLocal: string, total: number, hechos: number) {
-  const ya = sessions.find(s => s.id === idLocal)
+function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string) {
+  const ya = preparandoLocal.find(s => s.id === idLocal)
   const ses: OcrSession = {
     id: idLocal,
     total,
@@ -311,22 +373,22 @@ function ponerPreparando(idLocal: string, total: number, hechos: number) {
     creadoEn: ya?.creadoEn ?? Date.now(),
     completadoEn: null,
     orden: 0,
-    archivoActual: hechos < total ? `Preparando ${hechos} de ${total}…` : 'Subiendo a servidor…',
+    archivoActual: mensaje,
   }
-  if (ya) sessions = sessions.map(s => s.id === idLocal ? ses : s)
-  else sessions = [...sessions, ses]
+  if (ya) preparandoLocal = preparandoLocal.map(s => s.id === idLocal ? ses : s)
+  else preparandoLocal = [...preparandoLocal, ses]
   emit()
 }
 
 function quitarPreparando(idLocal: string) {
-  sessions = sessions.filter(s => s.id !== idLocal)
+  preparandoLocal = preparandoLocal.filter(s => s.id !== idLocal)
   emit()
 }
 
 export function useOcrUpload() {
-  const [snap, setSnap] = useState<OcrSession[]>([...sessions])
+  const [snap, setSnap] = useState<OcrSession[]>(snapshot())
   useEffect(() => {
-    const h = () => setSnap([...sessions])
+    const h = () => setSnap(snapshot())
     emitter.addEventListener('change', h)
     inicializar()
     return () => emitter.removeEventListener('change', h)
@@ -334,9 +396,9 @@ export function useOcrUpload() {
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
     const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    ponerPreparando(idLocal, files.length, 0)
+    ponerPreparando(idLocal, files.length, 0, `Preparando 0 de ${files.length}…`)
 
-    // 1) Normalizar todos los archivos en cliente (visible: "Preparando X/Y")
+    // 1) Normalizar todos los archivos en cliente
     const archivos: any[] = []
     const fallos: ArchivoLog[] = []
     for (let i = 0; i < files.length; i++) {
@@ -347,11 +409,13 @@ export function useOcrUpload() {
       } catch (e: any) {
         fallos.push({ filename: file.name, status: 'error', detalle: `Conversión: ${e?.message || e}` })
       }
-      if (i % 10 === 0 || i === files.length - 1) ponerPreparando(idLocal, files.length, i + 1)
+      if (i % 10 === 0 || i === files.length - 1) {
+        ponerPreparando(idLocal, files.length, i + 1, `Preparando ${i + 1} de ${files.length}…`)
+      }
     }
 
-    // 2) Partir en lotes y crear una sesión por lote
-    ponerPreparando(idLocal, files.length, files.length)
+    // 2) Partir en lotes y crear una sesión por lote, todas con el MISMO grupo_id
+    const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const baseOrden = Math.floor(Date.now() / 1000)
     const totalLotes = Math.max(1, Math.ceil(archivos.length / LOTE_MAX_ARCHIVOS))
     const erroresInsert: string[] = []
@@ -360,9 +424,9 @@ export function useOcrUpload() {
       const inicio = lote * LOTE_MAX_ARCHIVOS
       const fin = Math.min(inicio + LOTE_MAX_ARCHIVOS, archivos.length)
       const slice = archivos.slice(inicio, fin)
+      ponerPreparando(idLocal, files.length, files.length, `Subiendo lote ${lote + 1} de ${totalLotes}…`)
 
       const id = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
-      // Solo en el primer lote ponemos los fallos de conversión, para no duplicarlos
       const logLote = lote === 0 ? fallos : []
       const erroresLote = lote === 0 ? fallos.length : 0
 
@@ -388,6 +452,7 @@ export function useOcrUpload() {
         estado_cola: 'en_espera',
         orden_cola: baseOrden + lote,
         creado_en: new Date().toISOString(),
+        grupo_id: grupoId,
       })
 
       if (error) {
@@ -401,24 +466,54 @@ export function useOcrUpload() {
       throw new Error(`No se pudo crear ${erroresInsert.length} lote(s). Primero: ${erroresInsert[0]}`)
     }
 
-    // 3) Lanzar el worker (procesa el primer lote y al terminar dispara el siguiente)
+    // Recargar inmediatamente para que aparezca el toast agrupado sin esperar al poll
+    await cargarSesionesActivas()
     lanzarWorker()
   }
 
   async function cancelar(id: string) {
-    await supabase.from('ocr_sessions').update({ cancelar_solicitado: true }).eq('id', id)
+    // Si es virtual (grupo), cancela todos los lotes; si es real, sólo ese
+    if (id.startsWith('grp_')) {
+      const grupoId = id.slice(4)
+      const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
+      if (lotesIds.length > 0) {
+        await supabase.from('ocr_sessions').update({ cancelar_solicitado: true }).in('id', lotesIds)
+      }
+    } else {
+      await supabase.from('ocr_sessions').update({ cancelar_solicitado: true }).eq('id', id)
+    }
   }
 
   async function cerrar(id: string) {
-    sessions = sessions.filter(s => s.id !== id)
-    emit()
-    await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    if (id.startsWith('grp_')) {
+      const grupoId = id.slice(4)
+      const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
+      rawSessions = rawSessions.filter(s => s.grupoId !== grupoId)
+      emit()
+      if (lotesIds.length > 0) {
+        await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds)
+      }
+    } else {
+      rawSessions = rawSessions.filter(s => s.id !== id)
+      emit()
+      await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    }
   }
 
   async function ocultar(id: string) {
-    sessions = sessions.map(s => s.id === id ? { ...s, visible: false } : s)
-    emit()
-    await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    if (id.startsWith('grp_')) {
+      const grupoId = id.slice(4)
+      const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
+      rawSessions = rawSessions.map(s => s.grupoId === grupoId ? { ...s, visible: false } : s)
+      emit()
+      if (lotesIds.length > 0) {
+        await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds)
+      }
+    } else {
+      rawSessions = rawSessions.map(s => s.id === id ? { ...s, visible: false } : s)
+      emit()
+      await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    }
   }
 
   return { sessions: snap, procesar, cancelar, cerrar, ocultar }
