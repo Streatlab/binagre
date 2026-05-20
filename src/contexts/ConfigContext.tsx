@@ -2,7 +2,13 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { supabase } from '@/lib/supabase'
 
 /* ═══════════════════════════════════════════════════════════
-   TYPES
+   ConfigContext: proveedor global de listas de marcas, categorías y canales activos.
+
+   NOTA: Las comisiones REALES por canal se gestionan vía calcNetoPlataforma.ts
+   (función calcNetoPorCanal y hook useConfigCanales). Este contexto solo expone
+   la lista plana de canales activos para checks de UI ("¿hay canal Glovo activo?").
+
+   Verificado mayo 2026: fórmulas reales en Notion 366c8b1f-6139-8145-b854-da4b1a107f08
    ═══════════════════════════════════════════════════════════ */
 
 export interface MarcaConfig {
@@ -23,9 +29,10 @@ export interface CategoriaConfig {
 
 export interface CanalConfig {
   id: string
-  nombre: string
+  canal: string
   comision_pct: number | null
-  comision_fija: number | null
+  fijo_eur: number | null
+  fee_periodo_eur: number | null
   activo: boolean
 }
 
@@ -49,10 +56,6 @@ export function useConfig(): ConfigCtx {
   return useContext(ConfigContext)
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PROVIDER
-   ═══════════════════════════════════════════════════════════ */
-
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [marcasActivas, setMarcasActivas] = useState<MarcaConfig[]>([])
   const [categoriasActivas, setCategoriasActivas] = useState<CategoriaConfig[]>([])
@@ -64,7 +67,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     const [marcasRes, catRes, canalesRes] = await Promise.allSettled([
       supabase.from('marcas').select('id,nombre,activa,estado,margen_objetivo_pct').order('nombre'),
       supabase.from('categorias_maestras').select('codigo,nombre,grupo,activa,signo').order('orden_grupo').order('orden_sub'),
-      supabase.from('config_canales').select('id,nombre,comision_pct,comision_fija,activo').order('nombre'),
+      // Columnas reales de config_canales (verificadas mayo 2026): canal, comision_pct, fijo_eur, fee_periodo_eur, activo
+      supabase.from('config_canales').select('id,canal,comision_pct,fijo_eur,fee_periodo_eur,activo').order('canal'),
     ])
 
     if (marcasRes.status === 'fulfilled' && marcasRes.value.data) {
