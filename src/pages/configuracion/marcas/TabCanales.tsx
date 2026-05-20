@@ -1,276 +1,393 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, cardStyle, kpiLabelStyle, kpiValueStyle, dividerStyle, FONT, CANALES } from '@/styles/tokens'
-import { rangoPeriodo } from '@/lib/dateRange'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
-import { InlineEdit } from '@/components/configuracion/InlineEdit'
+import { useTheme, FONT } from '@/styles/tokens'
+import { invalidarCacheConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
-interface ConfigCanal {
+/* ═══════════════════════════════════════════════════════════════
+   TAB CANALES DE VENTA (Integraciones > Canales)
+   Pantalla canónica para configurar comisiones y fees de cada plataforma.
+   Estilo Running (sin amarillo). Datos verificados con facturas reales:
+   - Glovo: 21 pedidos analizados → comisión 30% (bruto-promo) + 0.74€/Prime + 10€/quincena/marca
+   - Uber Eats: 33 pedidos analizados → 30% normal / 33% UberOne (preparado) + 0.82€/pedido con promo
+   - IVA 21% sobre TODO (comisión, fees, tarifa publicitaria)
+   ═══════════════════════════════════════════════════════════════ */
+
+interface Canal {
   id: string
   canal: string
-  comision_pct: number
-  coste_fijo: number
-  margen_obj_pct: number
+  comision_pct: number | null
+  comision_pct_prime: number | null
+  fijo_eur: number | null
+  fee_prime_eur: number | null
+  fee_promo_eur: number | null
+  fee_periodo_eur: number | null
+  fee_periodicidad: string | null
+  pct_pedidos_prime_estim: number | null
+  pct_pedidos_promo_estim: number | null
+  margen_obj_pct: number | null
   activo: boolean
 }
 
-type Platform = 'UE' | 'GL' | 'JE'
+const PERIODICIDADES = [
+  { value: 'mensual',              label: 'Mensual' },
+  { value: 'semanal_por_marca',    label: 'Semanal × marca' },
+  { value: 'quincenal_por_marca',  label: 'Quincenal × marca' },
+]
 
-const LABEL: Record<Platform, string> = { UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat' }
-
-function colorPorNombre(n: string): string {
-  const s = n.toLowerCase()
-  if (s.includes('uber')) return CANALES.find(c => c.id === 'uber')?.color ?? '#06C167'
-  if (s.includes('glovo')) return CANALES.find(c => c.id === 'glovo')?.color ?? '#e8f442'
-  if (s.includes('just')) return CANALES.find(c => c.id === 'je')?.color ?? '#f5a623'
-  if (s.includes('web') || s.includes('rushour')) return CANALES.find(c => c.id === 'web')?.color ?? '#B01D23'
-  return CANALES.find(c => c.id === 'dir')?.color ?? '#66aaff'
+const CICLOS_PAGO: Record<string, string> = {
+  uber:    'Lunes semanal (lun a dom anterior)',
+  glovo:   '1-15 paga día 5 mes sig · 16-fin paga día 20 mes sig',
+  just:    '1-15 paga día 20 mismo mes · 16-fin paga día 5 mes sig',
+  web:     'Pendiente definir',
+  direct:  'Al día',
+}
+function getCiclo(nombre: string): string {
+  const n = (nombre || '').toLowerCase()
+  if (n.includes('uber')) return CICLOS_PAGO.uber
+  if (n.includes('glovo')) return CICLOS_PAGO.glovo
+  if (n.includes('just') || n.includes('eat')) return CICLOS_PAGO.just
+  if (n.includes('web')) return CICLOS_PAGO.web
+  if (n.includes('direct')) return CICLOS_PAGO.direct
+  return '—'
 }
 
-function matchCanal(c: ConfigCanal, key: Platform): boolean {
-  const s = c.canal.toLowerCase()
-  if (key === 'UE') return s.includes('uber')
-  if (key === 'GL') return s.includes('glovo')
-  return s.includes('just')
-}
+const CANAL_ORDER = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa']
 
-function fmtPct(n: number): string {
-  if (!Number.isFinite(n)) return '—'
-  return n.toFixed(2).replace('.', ',') + '%'
-}
-
-function colorPlat(key: Platform, isDark: boolean): string {
-  if (key === 'UE') return CANALES.find(c => c.id === 'uber')!.color
-  if (key === 'JE') return CANALES.find(c => c.id === 'je')!.color
-  // Glovo tiene texto específico según tema
-  return isDark ? '#e8f442' : '#8a7800'
-}
+type EditField = 'comision_pct' | 'comision_pct_prime' | 'fijo_eur' | 'fee_prime_eur' | 'fee_promo_eur' | 'fee_periodo_eur' | 'fee_periodicidad' | 'pct_pedidos_prime_estim' | 'pct_pedidos_promo_estim' | 'margen_obj_pct'
 
 export default function TabCanales() {
   const { T, isDark } = useTheme()
-  const [canales, setCanales] = useState<ConfigCanal[]>([])
-  const [tms, setTms] = useState<Record<Platform, number>>({ UE: 0, GL: 0, JE: 0 })
+  const [rows, setRows] = useState<Canal[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<{ id: string; field: EditField } | null>(null)
+  const [editVal, setEditVal] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
 
-  async function refetch() {
-    const [cRes, fRes] = await Promise.all([
-      supabase.from('config_canales').select('*').order('comision_pct', { ascending: false }),
-      supabase.from('v_facturacion_marca').select('*').gte('fecha', rangoPeriodo('30d')[0]).lte('fecha', rangoPeriodo('30d')[1]),
-    ])
-    if (cRes.error) throw cRes.error
-    if (fRes.error) throw fRes.error
+  const load = async () => {
+    setLoading(true)
+    const { data, error } = await supabase.from('config_canales').select('*')
+    if (error) { setErr(error.message); setLoading(false); return }
+    const sorted = ((data as Canal[]) ?? []).sort((a, b) => {
+      const ia = CANAL_ORDER.indexOf(a.canal); const ib = CANAL_ORDER.indexOf(b.canal)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
+    setRows(sorted)
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
 
-    setCanales(((cRes.data ?? []) as unknown as ConfigCanal[]).map(c => ({
-      ...c,
-      comision_pct: Number(c.comision_pct) || 0,
-      coste_fijo: Number(c.coste_fijo) || 0,
-      margen_obj_pct: Number(c.margen_obj_pct) || 0,
-    })))
-
-    const fact = (fRes.data ?? []) as any[]
-    const sum = (k: string) => fact.reduce((a, x) => a + Number(x[k] ?? 0), 0)
-    const pedidos = fact.reduce((a, x) => a + Number(x.total_pedidos ?? 0), 0)
-    const ventas = { UE: sum('ue_bruto'), GL: sum('gl_bruto'), JE: sum('je_bruto') }
-    const totalVentas = ventas.UE + ventas.GL + ventas.JE
-    const TM_FALLBACK = 20
-    const next: Record<Platform, number> = { UE: TM_FALLBACK, GL: TM_FALLBACK, JE: TM_FALLBACK }
-    if (totalVentas > 0 && pedidos > 0) {
-      const pedUE = pedidos * (ventas.UE / totalVentas)
-      const pedGL = pedidos * (ventas.GL / totalVentas)
-      const pedJE = pedidos * (ventas.JE / totalVentas)
-      if (pedUE > 0) next.UE = ventas.UE / pedUE
-      if (pedGL > 0) next.GL = ventas.GL / pedGL
-      if (pedJE > 0) next.JE = ventas.JE / pedJE
-    }
-    setTms(next)
+  const notificarCambio = () => {
+    invalidarCacheConfigCanales()
+    window.dispatchEvent(new CustomEvent('config_canales:changed'))
+    window.dispatchEvent(new CustomEvent('config_canales_updated'))
   }
 
-  useEffect(() => {
-    (async () => {
-      try { await refetch() }
-      catch (e: any) { setError(e?.message ?? 'Error') }
-      finally { setLoading(false) }
-    })()
-  }, [])
-
-  async function update(id: string, campo: string, valor: number) {
-    const { error } = await supabase.from('config_canales').update({ [campo]: valor }).eq('id', id)
-    if (error) { setError(error.message); return }
-    await refetch()
+  const guardar = async (id: string, field: EditField, raw: string) => {
+    setSaving(true); setErr(null)
+    let value: any
+    if (field === 'fee_periodicidad') {
+      value = raw
+    } else if (raw === '' || raw === '—') {
+      // Si está vacío, lo grabamos como null (para comision_pct_prime principalmente)
+      value = null
+    } else {
+      const num = parseFloat(raw.replace(',', '.'))
+      if (isNaN(num) || num < 0) { setEditing(null); setSaving(false); return }
+      // % se guarda como decimal (0–1)
+      if (field === 'comision_pct' || field === 'comision_pct_prime' || field === 'margen_obj_pct' || field === 'pct_pedidos_prime_estim' || field === 'pct_pedidos_promo_estim') {
+        value = num / 100
+      } else {
+        value = num
+      }
+    }
+    const { error } = await supabase.from('config_canales').update({ [field]: value }).eq('id', id)
+    setSaving(false)
+    if (error) { setErr(error.message); return }
+    setEditing(null)
+    setSavedId(id)
+    setTimeout(() => setSavedId(null), 1500)
+    await load()
+    notificarCambio()
   }
 
-  const comisionNeta = useMemo<Record<Platform, number>>(() => {
-    // comision_pct se almacena en decimal (0.30 = 30%). Devolvemos % (× 100).
-    const calc = (k: Platform): number => {
-      const c = canales.find(x => matchCanal(x, k))
-      if (!c) return NaN
-      const tm = tms[k]
-      if (tm <= 0) return c.comision_pct * 100
-      return (c.comision_pct + c.coste_fijo / tm) * 100
-    }
-    return { UE: calc('UE'), GL: calc('GL'), JE: calc('JE') }
-  }, [canales, tms])
+  const toggleActivo = async (id: string, activo: boolean) => {
+    await supabase.from('config_canales').update({ activo: !activo }).eq('id', id)
+    await load()
+    notificarCambio()
+  }
 
-  const mejorCanal: Platform = useMemo(() => {
-    const vals: [Platform, number][] = [
-      ['UE', comisionNeta.UE], ['GL', comisionNeta.GL], ['JE', comisionNeta.JE],
-    ]
-    return vals.filter(([, v]) => Number.isFinite(v)).sort((a, b) => a[1] - b[1])[0]?.[0] ?? 'UE'
-  }, [comisionNeta])
+  const startEdit = (id: string, field: EditField, current: any) => {
+    setEditing({ id, field })
+    if (field === 'fee_periodicidad') {
+      setEditVal(current ?? 'mensual')
+    } else if (current == null) {
+      setEditVal('')
+    } else if (field === 'comision_pct' || field === 'comision_pct_prime' || field === 'margen_obj_pct' || field === 'pct_pedidos_prime_estim' || field === 'pct_pedidos_promo_estim') {
+      setEditVal(String(Math.round(Number(current) * 10000) / 100))
+    } else {
+      setEditVal(String(current))
+    }
+  }
+
+  // ─── ESTILOS Running ───
+  const card: CSSProperties = {
+    background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12,
+    overflow: 'hidden',
+  }
+  const th: CSSProperties = {
+    fontFamily: FONT.heading, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px',
+    textTransform: 'uppercase', color: T.mut, padding: '12px 10px',
+    background: isDark ? '#0a0a0a' : '#faf8f3',
+    borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap', textAlign: 'left',
+  }
+  const thR: CSSProperties = { ...th, textAlign: 'right' }
+  const thC: CSSProperties = { ...th, textAlign: 'center' }
+  const td: CSSProperties = {
+    padding: '11px 10px', fontFamily: FONT.body, fontSize: 13, color: T.pri,
+    borderBottom: `0.5px solid ${T.brd}`, whiteSpace: 'nowrap',
+  }
+  const tdR: CSSProperties = { ...td, textAlign: 'right' }
+  const tdC: CSSProperties = { ...td, textAlign: 'center' }
+  const cellEditable: CSSProperties = {
+    cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1,
+    fontFamily: FONT.heading, fontSize: 13, color: T.pri,
+  }
+  const cellEditableSec: CSSProperties = { ...cellEditable, color: T.sec }
+  const inp: CSSProperties = {
+    fontFamily: FONT.heading, fontSize: 13, fontWeight: 600,
+    background: '#fff', color: '#111',
+    border: `1px solid ${T.brd}`, borderRadius: 6,
+    padding: '4px 8px', width: 80, textAlign: 'right',
+    outline: 'none',
+  }
+  const sel: CSSProperties = { ...inp, width: 160, textAlign: 'left', cursor: 'pointer' }
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando canales…</div>
-  if (error) {
-    return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
-        {error}
-      </div>
-    )
-  }
-
-  const margenNetoMejor = 100 - (comisionNeta[mejorCanal] ?? 0)
-
-  const th: React.CSSProperties = {
-    padding: '12px 16px',
-    fontFamily: FONT.heading,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '1.3px',
-    color: T.mut,
-    fontWeight: 500,
-    background: T.bg,
-    borderBottom: `1px solid ${T.brd}`,
-    textAlign: 'left',
-  }
-  const thNum: React.CSSProperties = { ...th, textAlign: 'right' }
-  const td: React.CSSProperties = { padding: '12px 16px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
-
-  // Semáforo comisión neta (en %): verde ≤30, naranja ≤35, rojo >35
-  const colorComision = (pct: number): string => {
-    if (!Number.isFinite(pct)) return T.mut
-    if (pct <= 30) return isDark ? '#5DCAA5' : '#1D9E75'
-    if (pct <= 35) return isDark ? '#F5C36B' : '#BA7517'
-    return isDark ? '#F09595' : '#A32D2D'
-  }
 
   return (
-    <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 22 }}>
-        <div style={cardStyle(T)}>
-          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Comisión óptima neta</div>
-          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 10 }}>
-            real sobre ticket medio últimos 30 días
-          </div>
-          <div style={dividerStyle(T)} />
-          {(['UE', 'GL', 'JE'] as const).map((k, idx, arr) => (
-            <div
-              key={k}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '7px 0',
-                borderBottom: idx < arr.length - 1 ? `0.5px solid ${T.brd}` : 'none',
-              }}
-            >
-              <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{LABEL[k]}</span>
-              <span
-                style={{
-                  fontFamily: FONT.heading,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: colorComision(comisionNeta[k]),
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {fmtPct(comisionNeta[k])}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div style={cardStyle(T)}>
-          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Mejor margen plataforma</div>
-          <div
-            style={{
-              fontFamily: FONT.heading,
-              fontSize: 64,
-              fontWeight: 500,
-              color: T.pri,
-              lineHeight: 1,
-              letterSpacing: '-0.02em',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {fmtPct(margenNetoMejor)}
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 14, color: colorPlat(mejorCanal, isDark), marginTop: 8, fontWeight: 500 }}>
-            {LABEL[mejorCanal]}
-          </div>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Banner explicativo */}
+      <div style={{
+        fontFamily: FONT.body, fontSize: 12, color: T.sec,
+        background: isDark ? '#1a1a1a' : '#ffffff',
+        padding: '12px 16px', border: `0.5px solid ${T.brd}`, borderRadius: 10,
+        lineHeight: 1.55,
+      }}>
+        <strong style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: T.pri }}>
+          Cómo se aplica:
+        </strong>{' '}
+        Todos los importes se introducen <strong>SIN IVA</strong>. El ERP añade el 21% automáticamente.
+        La <strong>Comisión Prime</strong> sustituye a la normal en pedidos de cliente Prime/Uber One.
+        Los <strong>Fee Prime</strong> y <strong>Fee Promo</strong> se suman como cargo extra por pedido especial.
+        La <strong>Tarifa periódica</strong> se cobra por marca según la periodicidad. Click en cualquier valor para editarlo.
       </div>
 
-      <ConfigGroupCard title="Canales de venta" subtitle={`${canales.length}`}>
+      {/* Tabla principal */}
+      <div style={card}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1280 }}>
             <thead>
               <tr>
                 <th style={th}>Canal</th>
-                <th style={thNum}>Comisión</th>
-                <th style={thNum}>Coste fijo</th>
-                <th style={thNum}>Margen deseado</th>
+                <th style={thR}>Comisión %</th>
+                <th style={thR}>Comisión Prime %</th>
+                <th style={thR}>Fijo €/ped</th>
+                <th style={thR}>Fee Prime €/ped</th>
+                <th style={thR}>Fee Promo €/ped</th>
+                <th style={thR}>Tarifa periódica €</th>
+                <th style={thC}>Periodicidad</th>
+                <th style={thR}>% Prime estim.</th>
+                <th style={thR}>% Promo estim.</th>
+                <th style={th}>Ciclo de pago</th>
+                <th style={thR}>Margen obj. %</th>
+                <th style={thC}>Activo</th>
               </tr>
             </thead>
             <tbody>
-              {canales.map(c => (
-                <tr key={c.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
-                  <td style={{ ...td, fontWeight: 600 }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        background: colorPorNombre(c.canal),
-                        marginRight: 10,
-                        verticalAlign: 'middle',
-                      }}
-                    />
-                    {c.canal}
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }}>
-                    <InlineEdit
-                      value={c.comision_pct * 100}
-                      type="percent" align="right" min={0} max={100} step={0.01}
-                      onSubmit={(v) => {
-                        const n = typeof v === 'number' ? v : parseFloat(String(v))
-                        return update(c.id, 'comision_pct', Number.isFinite(n) ? n / 100 : 0)
-                      }}
-                    />
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }}>
-                    <InlineEdit
-                      value={c.coste_fijo}
-                      type="currency" align="right" min={0} step={0.01}
-                      onSubmit={(v) => update(c.id, 'coste_fijo', typeof v === 'number' ? v : parseFloat(String(v)))}
-                    />
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }}>
-                    <InlineEdit
-                      value={c.margen_obj_pct * 100}
-                      type="percent" align="right" min={0} max={100} step={0.01}
-                      onSubmit={(v) => {
-                        const n = typeof v === 'number' ? v : parseFloat(String(v))
-                        return update(c.id, 'margen_obj_pct', Number.isFinite(n) ? n / 100 : 0)
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {rows.map((c) => {
+                const isComEdit       = editing?.id === c.id && editing.field === 'comision_pct'
+                const isComPrimeEdit  = editing?.id === c.id && editing.field === 'comision_pct_prime'
+                const isFijoEdit      = editing?.id === c.id && editing.field === 'fijo_eur'
+                const isFeePrimeEdit  = editing?.id === c.id && editing.field === 'fee_prime_eur'
+                const isFeePromoEdit  = editing?.id === c.id && editing.field === 'fee_promo_eur'
+                const isFeePerEdit    = editing?.id === c.id && editing.field === 'fee_periodo_eur'
+                const isPerEdit       = editing?.id === c.id && editing.field === 'fee_periodicidad'
+                const isPctPrimeEdit  = editing?.id === c.id && editing.field === 'pct_pedidos_prime_estim'
+                const isPctPromoEdit  = editing?.id === c.id && editing.field === 'pct_pedidos_promo_estim'
+                const isMargenEdit    = editing?.id === c.id && editing.field === 'margen_obj_pct'
+                const justSaved = savedId === c.id
+
+                const fmtPct = (n: number | null) => n == null ? '—' : `${(Number(n) * 100).toFixed(2).replace(/\.?0+$/, '')}%`
+                const fmtEur = (n: number | null) => n == null || Number(n) === 0 ? '—' : `${Number(n).toFixed(2)}€`
+
+                return (
+                  <tr key={c.id} style={{ background: justSaved ? (isDark ? '#1D9E7520' : '#1D9E7515') : 'transparent', transition: 'background 600ms' }}>
+                    <td style={{ ...td, fontFamily: FONT.heading, fontSize: 14, fontWeight: 600 }}>{c.canal}</td>
+
+                    {/* Comisión normal % */}
+                    <td style={tdR}>
+                      {isComEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'comision_pct', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'comision_pct', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'comision_pct', c.comision_pct)} style={cellEditable}>{fmtPct(c.comision_pct)}</span>
+                      )}
+                    </td>
+
+                    {/* Comisión Prime % */}
+                    <td style={tdR}>
+                      {isComPrimeEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal} placeholder="—"
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'comision_pct_prime', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'comision_pct_prime', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'comision_pct_prime', c.comision_pct_prime)} style={cellEditableSec}>{fmtPct(c.comision_pct_prime)}</span>
+                      )}
+                    </td>
+
+                    {/* Fijo €/pedido */}
+                    <td style={tdR}>
+                      {isFijoEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'fijo_eur', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'fijo_eur', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'fijo_eur', c.fijo_eur)} style={cellEditableSec}>{fmtEur(c.fijo_eur)}</span>
+                      )}
+                    </td>
+
+                    {/* Fee Prime €/ped */}
+                    <td style={tdR}>
+                      {isFeePrimeEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'fee_prime_eur', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'fee_prime_eur', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'fee_prime_eur', c.fee_prime_eur)} style={cellEditableSec}>{fmtEur(c.fee_prime_eur)}</span>
+                      )}
+                    </td>
+
+                    {/* Fee Promo €/ped */}
+                    <td style={tdR}>
+                      {isFeePromoEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'fee_promo_eur', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'fee_promo_eur', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'fee_promo_eur', c.fee_promo_eur)} style={cellEditableSec}>{fmtEur(c.fee_promo_eur)}</span>
+                      )}
+                    </td>
+
+                    {/* Tarifa periódica € */}
+                    <td style={tdR}>
+                      {isFeePerEdit ? (
+                        <input type="number" step="0.01" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'fee_periodo_eur', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'fee_periodo_eur', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'fee_periodo_eur', c.fee_periodo_eur)} style={cellEditableSec}>{fmtEur(c.fee_periodo_eur)}</span>
+                      )}
+                    </td>
+
+                    {/* Periodicidad */}
+                    <td style={tdC}>
+                      {isPerEdit ? (
+                        <select autoFocus value={editVal}
+                          onChange={e => { setEditVal(e.target.value); guardar(c.id, 'fee_periodicidad', e.target.value) }}
+                          onBlur={() => setEditing(null)}
+                          style={sel}>
+                          {PERIODICIDADES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'fee_periodicidad', c.fee_periodicidad)}
+                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          {PERIODICIDADES.find(o => o.value === c.fee_periodicidad)?.label ?? (c.fee_periodicidad || '—')}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* % pedidos Prime estimado */}
+                    <td style={tdR}>
+                      {isPctPrimeEdit ? (
+                        <input type="number" step="0.5" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'pct_pedidos_prime_estim', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'pct_pedidos_prime_estim', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'pct_pedidos_prime_estim', c.pct_pedidos_prime_estim)}
+                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          {c.pct_pedidos_prime_estim == null || Number(c.pct_pedidos_prime_estim) === 0 ? '—' : `${(Number(c.pct_pedidos_prime_estim) * 100).toFixed(1)}%`}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* % pedidos Promo estimado */}
+                    <td style={tdR}>
+                      {isPctPromoEdit ? (
+                        <input type="number" step="0.5" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'pct_pedidos_promo_estim', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'pct_pedidos_promo_estim', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'pct_pedidos_promo_estim', c.pct_pedidos_promo_estim)}
+                          style={{ ...cellEditableSec, fontFamily: FONT.body, fontSize: 12 }}>
+                          {c.pct_pedidos_promo_estim == null || Number(c.pct_pedidos_promo_estim) === 0 ? '—' : `${(Number(c.pct_pedidos_promo_estim) * 100).toFixed(1)}%`}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Ciclo de pago (lectura) */}
+                    <td style={{ ...td, fontSize: 11, color: T.mut, whiteSpace: 'normal', maxWidth: 240 }}>{getCiclo(c.canal)}</td>
+
+                    {/* Margen objetivo % */}
+                    <td style={tdR}>
+                      {isMargenEdit ? (
+                        <input type="number" step="0.1" autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => guardar(c.id, 'margen_obj_pct', editVal)}
+                          onKeyDown={e => { if (e.key === 'Enter') guardar(c.id, 'margen_obj_pct', editVal); if (e.key === 'Escape') setEditing(null) }}
+                          style={inp} />
+                      ) : (
+                        <span onClick={() => startEdit(c.id, 'margen_obj_pct', c.margen_obj_pct)} style={cellEditableSec}>{fmtPct(c.margen_obj_pct)}</span>
+                      )}
+                    </td>
+
+                    {/* Activo */}
+                    <td style={tdC}>
+                      <button onClick={() => toggleActivo(c.id, c.activo)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                        title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
+                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: c.activo ? '#06C167' : '#555' }} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
-      </ConfigGroupCard>
-    </>
+      </div>
+
+      <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+        {saving ? 'Guardando…' : err ? <span style={{ color: '#dc2626' }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar. Los cambios se propagan en caliente a Dashboard, Facturación, Running, PE y Objetivos.'}
+      </div>
+    </div>
   )
 }
