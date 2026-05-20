@@ -23,7 +23,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/lib/format'
 import { COLORS, FONT, OSWALD, LEXEND, card, lbl } from '@/components/panel/resumen/tokens'
-import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, useConfigCanales, useMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 
 /* ─── helpers fecha ─────────────────────────────── */
 function toStr(d: Date): string {
@@ -265,7 +265,7 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
   const [liqJE, setLiqJE]             = useState<Map<string, number>>(new Map())
 
   const configCanales = useConfigCanales()
-  const marcasActivasNum = useMemo(() => marcas.filter(m => m.activa).length || 1, [marcas])
+  const marcasPorCanal = useMarcasPorCanal()
 
   const rangoCmp = useMemo(() => calcularRangoComparado(fechaDesde, fechaHasta, compare),
     [fechaDesde, fechaHasta, compare])
@@ -407,12 +407,12 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
     const netoCan: Record<string, number> = {}
     for (const c of CANALES_DEF) {
       const { bruto: b, pedidos } = pCan[c.id]
-      const { neto } = calcNetoPorCanal(c.id, b, pedidos, marcasActivasNum, fechaDesde, fechaHasta, configCanales)
+      const { neto } = calcNetoPorCanal(c.id, b, pedidos, marcasPorCanal, fechaDesde, fechaHasta, configCanales)
       netoCan[c.id] = neto
     }
     const netoEstimado = Object.values(netoCan).reduce((a, n) => a + n, 0)
     return { bruto, netoEstimado, pCan, netoCan, pMarca, pHeatmap, porFecha }
-  }, [rows, canalesFiltro, marcasActivasNum, fechaDesde, fechaHasta, configCanales])
+  }, [rows, canalesFiltro, marcasPorCanal, fechaDesde, fechaHasta, configCanales])
 
   /* ─── agregados período comparado ─────────────── */
   const aggCmp = useMemo(() => {
