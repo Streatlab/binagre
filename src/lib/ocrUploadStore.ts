@@ -1,5 +1,4 @@
-// ocrUploadStore v17 — v16 + persistencia cross-device por BBDD
-// Lee ocr_jobs al arrancar + Realtime sync para mostrar progreso desde cualquier dispositivo
+// ocrUploadStore v18 — fix toasts zombi al F5 + persistencia cross-device por BBDD
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -33,7 +32,7 @@ export interface OcrSession {
   completadoEn: number | null
   orden: number
   dbJobId?: string
-  remoto?: boolean // true si la sesión viene de otro dispositivo (solo lectura)
+  remoto?: boolean
 }
 
 const STORAGE_KEY = 'ocr_sessions_v4'
@@ -51,7 +50,7 @@ function loadSessions(): OcrSession[] {
     const arr: OcrSession[] = JSON.parse(raw)
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     return arr
-      .filter(s => s.creadoEn > cutoff && s.visible)
+      .filter(s => s.creadoEn > cutoff && s.visible && s.procesando) // solo procesando — cancelados/completados NO sobreviven al F5
       .map((s, i) => ({
         ...s,
         completadoEn: s.completadoEn ?? null,
@@ -72,7 +71,6 @@ const autoCerrarTimers = new Map<string, number>()
 let ordenCounter = sessions.reduce((m, s) => Math.max(m, s.orden ?? 0), 0)
 
 function persist() {
-  // Solo persistir sesiones locales (no las remotas, que vienen de BBDD)
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.filter(s => !s.remoto))) } catch {}
 }
 function emit() { persist(); emitter.dispatchEvent(new CustomEvent('change')) }
@@ -122,7 +120,6 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// ========== BBDD sync ==========
 const RUBEN_ID_DEFAULT = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 
 async function crearJobEnDB(tipo: string, total: number, titularId: string | null): Promise<string | null> {
@@ -161,8 +158,6 @@ async function cancelarJobDB(jobId: string) {
   } catch {}
 }
 
-// ========== Cross-device: lectura de jobs activos al arrancar ==========
-
 function dbJobToSession(j: any): OcrSession {
   const total = j.archivos_total || 0
   const procesados = j.archivos_procesados || 0
@@ -197,20 +192,20 @@ function dbJobToSession(j: any): OcrSession {
 
 async function cargarJobsRemotos() {
   try {
-    const cutoffISO = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+    // Solo jobs VIVOS: estado=procesando con heartbeat reciente (<5min). Cancelados/completados NO se cargan.
+    const heartbeatISO = new Date(Date.now() - 5 * 60 * 1000).toISOString()
     const { data, error } = await supabase
       .from('ocr_jobs')
-      .select('id, tipo, estado, archivos_total, archivos_procesados, archivos_error, archivo_actual, titular_id, created_at, completed_at')
-      .or(`estado.eq.procesando,and(completed_at.gte.${cutoffISO})`)
+      .select('id, tipo, estado, archivos_total, archivos_procesados, archivos_error, archivo_actual, titular_id, created_at, completed_at, updated_at')
+      .eq('estado', 'procesando')
+      .gte('updated_at', heartbeatISO)
       .order('created_at', { ascending: false })
       .limit(20)
     if (error || !data) return
-    // IDs de jobs locales ya en sessions (para no duplicar)
     const localesDbIds = new Set(sessions.filter(s => !s.remoto && s.dbJobId).map(s => s.dbJobId))
     const remotas = data
       .filter(j => !localesDbIds.has(j.id))
       .map(dbJobToSession)
-    // Mantener locales, reemplazar remotas
     const locales = sessions.filter(s => !s.remoto)
     sessions = [...locales, ...remotas]
     emit()
@@ -225,10 +220,15 @@ function suscribirRealtime() {
         const j = payload.new || payload.old
         if (!j) return
         const remoteId = `remote_${j.id}`
-        // Si tenemos esa sesión como local (mismo dbJobId), no la sobreescribimos con la remota
         const esLocal = sessions.some(s => !s.remoto && s.dbJobId === j.id)
         if (esLocal) return
         if (payload.eventType === 'DELETE') {
+          sessions = sessions.filter(s => s.id !== remoteId)
+          emit()
+          return
+        }
+        // Si el job pasa a cancelado/completado/error, lo quitamos del UI (no mostramos jobs muertos)
+        if (payload.new && payload.new.estado !== 'procesando') {
           sessions = sessions.filter(s => s.id !== remoteId)
           emit()
           return
@@ -246,8 +246,6 @@ function suscribirRealtime() {
     return ch
   } catch { return null }
 }
-
-// ========== Helpers ==========
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 function esTextoPlano(name: string, type: string) {
@@ -337,7 +335,7 @@ async function runSession(id: string) {
     while (true) {
       const ses = sessions.find(s => s.id === id)
       if (!ses) break
-      if (ses.remoto) break // Las sesiones remotas no se procesan localmente
+      if (ses.remoto) break
 
       if (cancelacionesActivas.has(id)) {
         const sesCan = sessions.find(s => s.id === id)
@@ -404,7 +402,6 @@ async function runSession(id: string) {
 
       updateSession(id, patch)
 
-      // Sync a BBDD (fire-and-forget)
       const sesSync = sessions.find(x => x.id === id)
       if (sesSync?.dbJobId) {
         actualizarJobDB(sesSync.dbJobId, {
@@ -500,7 +497,6 @@ export function useOcrUpload() {
   function cancelar(id: string) {
     const ses = sessions.find(s => s.id === id)
     if (ses?.remoto) {
-      // Sesión remota: solo cancelar en BBDD, no procesamos localmente
       if (ses.dbJobId) cancelarJobDB(ses.dbJobId)
       sessions = sessions.filter(s => s.id !== id)
       emit()
