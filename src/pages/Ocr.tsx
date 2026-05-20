@@ -24,9 +24,9 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp'
-const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp'
-const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls'
+const ACCEPT_FACTURAS = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp'
+const ACCEPT_EXTRACTOS = '.csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp'
+const ACCEPT_OTROS = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.tif,.tiff,.gif,.bmp,.csv,.xlsx,.xls'
 
 const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'historica', 'solo_drive'])
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
@@ -43,7 +43,7 @@ type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
 function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) }
 
-interface BtnSubirSplitProps { label: string; accept: string; onArchivos: (files: File[]) => void }
+interface BtnSubirSplitProps { label: string; accept: string; onArchivos: (aceptados: File[], totalSeleccionado: number, rechazados: string[]) => void }
 function BtnSubirSplit({ label, accept, onArchivos }: BtnSubirSplitProps) {
   const inputFileRef = useRef<HTMLInputElement>(null)
   const inputFolderRef = useRef<HTMLInputElement>(null)
@@ -52,11 +52,16 @@ function BtnSubirSplit({ label, accept, onArchivos }: BtnSubirSplitProps) {
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return
-    const arr = Array.from(files).filter(f => {
+    const all = Array.from(files)
+    const accepted: File[] = []
+    const rejected: string[] = []
+    const allowed = new Set(accept.split(',').map(a => a.replace('.', '').toLowerCase()))
+    for (const f of all) {
       const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
-      return accept.split(',').some(a => a.replace('.', '') === ext)
-    })
-    if (arr.length > 0) onArchivos(arr)
+      if (allowed.has(ext)) accepted.push(f)
+      else rejected.push(f.name)
+    }
+    if (all.length > 0) onArchivos(accepted, all.length, rejected)
   }
 
   const halfBase: React.CSSProperties = {
@@ -129,12 +134,13 @@ export default function Ocr() {
   const [categoriasPyg, setCategoriasPyg] = useState<CatPyg[]>([])
   const [titulares, setTitulares] = useState<Titular[]>([])
   const [exportando, setExportando] = useState(false)
-  const [modalTitular, setModalTitular] = useState<{ archivos: File[]; visible: boolean }>({ archivos: [], visible: false })
-  const [modalConfirmarSubida, setModalConfirmarSubida] = useState<{ archivos: File[]; visible: boolean; fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' }>({ archivos: [], visible: false, fnName: 'ocr-procesar-factura' })
+  const [modalTitular, setModalTitular] = useState<{ archivos: File[]; totalSeleccionado: number; rechazados: string[]; visible: boolean }>({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false })
+  const [modalConfirmarSubida, setModalConfirmarSubida] = useState<{ archivos: File[]; totalSeleccionado: number; rechazados: string[]; visible: boolean; fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' }>({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' })
   const [facturaEditando, setFacturaEditando] = useState<Factura | null>(null)
   const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
   const [confirmarBorrarLote, setConfirmarBorrarLote] = useState(false)
   const [borrandoLote, setBorrandoLote] = useState(false)
+  const [verRechazados, setVerRechazados] = useState(false)
 
   const { sessions, procesar } = useOcrUpload()
 
@@ -205,7 +211,7 @@ export default function Ocr() {
       </div>
       <TabsPastilla tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />
 
-      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" accept={ACCEPT_EXTRACTOS} onArchivos={(files) => setModalTitular({ archivos: files, visible: true })} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
+      {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" accept={ACCEPT_EXTRACTOS} onArchivos={(aceptados, total, rechazados) => setModalTitular({ archivos: aceptados, totalSeleccionado: total, rechazados, visible: true })} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
       {tab === 'ventas' && (<VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />)}
 
       {(tab === 'facturas' || tab === 'otros') && (<>
@@ -213,7 +219,7 @@ export default function Ocr() {
           <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados?.conciliadasCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `${agregados.conciliadasPct}% · ${fmtEur(agregados.conciliadasImporte)}` : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div></div>
-          <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} onArchivos={(files) => setModalConfirmarSubida({ archivos: files, visible: true, fnName: 'ocr-procesar-factura' })} />
+          <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} onArchivos={(aceptados, total, rechazados) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: aceptados, totalSeleccionado: total, rechazados, visible: true, fnName: 'ocr-procesar-factura' }) }} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
@@ -238,9 +244,54 @@ export default function Ocr() {
         )}
       </>)}
 
-      {modalConfirmarSubida.visible && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}><div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 340, maxWidth: 420, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 8 }}>Confirmar subida</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 6 }}>Has seleccionado <strong>{modalConfirmarSubida.archivos.length}</strong> archivo{modalConfirmarSubida.archivos.length !== 1 ? 's' : ''}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div><div style={{ display: 'flex', gap: 10 }}><button onClick={() => setModalConfirmarSubida({ archivos: [], visible: false, fnName: 'ocr-procesar-factura' })} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button><button onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], visible: false, fnName: 'ocr-procesar-factura' }); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length} archivo{modalConfirmarSubida.archivos.length !== 1 ? 's' : ''}</button></div></div></div>)}
+      {modalConfirmarSubida.visible && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, maxHeight: '85vh', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalSeleccionado}</strong></div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalConfirmarSubida.archivos.length}</strong></div>
+            {modalConfirmarSubida.rechazados.length > 0 && (
+              <>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>
+                  Rechazados: <strong>{modalConfirmarSubida.rechazados.length}</strong>{' '}
+                  <button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                    {verRechazados ? 'ocultar' : 'ver lista'}
+                  </button>
+                </div>
+                {verRechazados && (
+                  <div style={{ background: '#fff5f5', border: '0.5px solid #E24B4A50', borderRadius: 8, padding: '10px 12px', maxHeight: 200, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>
+                    {modalConfirmarSubida.rechazados.map((n, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{n}</div>)}
+                  </div>
+                )}
+              </>
+            )}
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setModalConfirmarSubida({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button disabled={modalConfirmarSubida.archivos.length === 0} onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalConfirmarSubida.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalConfirmarSubida.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {modalTitular.visible && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}><div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 340, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 8 }}>Extracto bancario</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 6 }}>¿De quién es este extracto?</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginBottom: 18 }}>{modalTitular.archivos.length} archivo{modalTitular.archivos.length !== 1 ? 's' : ''} seleccionado{modalTitular.archivos.length !== 1 ? 's' : ''}</div><div style={{ display: 'flex', gap: 10 }}><button onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Rubén</button><button onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Emilio</button></div><button onClick={() => setModalTitular({ archivos: [], visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button></div></div>)}
+      {modalTitular.visible && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Extracto bancario</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalSeleccionado}</strong></div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalTitular.archivos.length}</strong></div>
+            {modalTitular.rechazados.length > 0 && (
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalTitular.rechazados.length}</strong></div>
+            )}
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
+              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
+            </div>
+            <button onClick={() => setModalTitular({ archivos: [], totalSeleccionado: 0, rechazados: [], visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+          </div>
+        </div>
+      )}
 
       {facturaEditando && (<ModalDetalleFactura factura={facturaEditando as any} categoriasPyg={categoriasPyg} onClose={() => setFacturaEditando(null)} onSaved={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} onDeleted={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} />)}
     </div>
