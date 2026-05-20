@@ -35,17 +35,18 @@ const[dPlat,sDP]=useState(true)
 const[platOpen,sPO]=useState<Record<string,boolean>>({uber:true,glovo:true,je:true,web:true})
 const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
-const midRef=useRef<HTMLDivElement>(null)
+const topRef=useRef<HTMLDivElement>(null)
 const tId=filtro==='unificado'?null:filtro
 const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,loading}=useRunningAnual(año,tId)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
+// Scroll sync REAL bidireccional entre barra superior y tabla
 useEffect(()=>{
-const main=mainRef.current;const mid=midRef.current;if(!main||!mid)return
-let lock=false
-const syncA=()=>{if(lock)return;lock=true;mid.scrollLeft=main.scrollLeft;lock=false}
-const syncB=()=>{if(lock)return;lock=true;main.scrollLeft=mid.scrollLeft;lock=false}
-main.addEventListener('scroll',syncA);mid.addEventListener('scroll',syncB)
-return()=>{main.removeEventListener('scroll',syncA);mid.removeEventListener('scroll',syncB)}
+const main=mainRef.current;const top=topRef.current;if(!main||!top)return
+let src:HTMLDivElement|null=null
+const syncTop=()=>{if(src&&src!==main)return;src=main;top.scrollLeft=main.scrollLeft;requestAnimationFrame(()=>{src=null})}
+const syncMain=()=>{if(src&&src!==top)return;src=top;main.scrollLeft=top.scrollLeft;requestAnimationFrame(()=>{src=null})}
+main.addEventListener('scroll',syncTop);top.addEventListener('scroll',syncMain)
+return()=>{main.removeEventListener('scroll',syncTop);top.removeEventListener('scroll',syncMain)}
 },[])
 const reembolsos2xUberMes=useMemo(()=>{const m:Record<number,number>={};for(const r of resumenes){if(r.plataforma==='uber'&&r.reembolsos_2x){m[r.mes]=(m[r.mes]||0)+Number(r.reembolsos_2x||0)}};return m},[resumenes])
 const reembolsos2xMs=(ms:number[])=>ms.reduce((s,m)=>s+(reembolsos2xUberMes[m]||0),0)
@@ -144,9 +145,9 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <span style={{color:COLORS.brd}}>|</span>
 <div style={{...TABS_PILL.container}}>{[{id:null as string|null,label:'Todos'},...titulares.map(t=>({id:t.id as string|null,label:t.nombre}))].map(t=><button key={t.id||'all'} style={(t.id===tId||(t.id===null&&!tId))?TABS_PILL.active:TABS_PILL.inactive} onClick={()=>{}}>{t.label}</button>)}</div>
 </div></div>
-<div ref={midRef} style={{position:'sticky',top:'50vh',zIndex:20,overflowX:'auto',overflowY:'hidden',height:14,background:'rgba(245,243,239,.9)',borderRadius:7,border:`1px solid ${COLORS.brd}40`,marginBottom:-14}}><div style={{width:tW,height:1}}/></div>
-<div style={{...CARDS.std,padding:0,overflow:'visible'}}>
-<div ref={mainRef} style={{overflowX:'auto',width:'100%'}}>
+<div ref={topRef} style={{overflowX:'scroll',overflowY:'hidden',height:16,background:'rgba(245,243,239,.9)',borderRadius:7,border:`1px solid ${COLORS.brd}40`,marginBottom:8}}><div style={{width:tW,height:1}}/></div>
+<div style={{...CARDS.std,padding:0,overflow:'hidden'}}>
+<div ref={mainRef} style={{overflowX:'auto',overflowY:'visible',width:'100%'}}>
 <table style={{width:tW,borderCollapse:'separate',borderSpacing:0,minWidth:tW}}>
 <thead><tr><th style={th1}>PyG <button onClick={togglePyGAll} style={{...btnSL,marginLeft:8}}>{allBl?'▴ Colapsar todo':'▾ Expandir todo'}</button></th>{vc.map((c,i)=>[<th key={i} style={thC(c)}>{c.label}</th>,<th key={`p${i}`} style={thP(c)}>%</th>])}</tr></thead>
 <tbody>
