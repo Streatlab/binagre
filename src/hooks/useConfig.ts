@@ -36,13 +36,14 @@ export interface AppConfig {
   refresh: () => void
 }
 
-// Defaults alineados con BBDD real (solo fallback si query falla)
+// Defaults SOLO usados si la query a BBDD falla. Valores reales verificados con facturas mayo 2026.
+// Fuente: Notion 366c8b1f-6139-8145-b854-da4b1a107f08
 const DEFAULT_CANALES: ConfigCanal[] = [
-  { id: '', canal: 'Uber Eats', comision_pct: 33, coste_fijo: 0.82, fijo_eur: 0.82, fee_periodo_eur: 2.29, fee_periodicidad: 'semanal_por_marca', margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Glovo', comision_pct: 30, coste_fijo: 0.82, fijo_eur: 0.82, fee_periodo_eur: 5.00, fee_periodicidad: 'quincenal_por_marca', margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Just Eat', comision_pct: 30, coste_fijo: 0.60, fijo_eur: 0.75, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Web Propia', comision_pct: 0, coste_fijo: 0, fijo_eur: 0.50, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
-  { id: '', canal: 'Venta Directa', comision_pct: 0, coste_fijo: 0, fijo_eur: 0, fee_periodo_eur: 0, fee_periodicidad: 'mensual', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Uber Eats',     comision_pct: 30, coste_fijo: 0,    fijo_eur: 0,    fee_periodo_eur: 2.29, fee_periodicidad: 'semanal_por_marca',   margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Glovo',         comision_pct: 30, coste_fijo: 0,    fijo_eur: 0,    fee_periodo_eur: 10,   fee_periodicidad: 'quincenal_por_marca', margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Just Eat',      comision_pct: 30, coste_fijo: 0.30, fijo_eur: 0.30, fee_periodo_eur: 0,    fee_periodicidad: 'mensual',             margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Web Propia',    comision_pct: 0,  coste_fijo: 0,    fijo_eur: 0.50, fee_periodo_eur: 0,    fee_periodicidad: 'mensual',             margen_deseado_pct: 15, activo: true },
+  { id: '', canal: 'Venta Directa', comision_pct: 0,  coste_fijo: 0,    fijo_eur: 0,    fee_periodo_eur: 0,    fee_periodicidad: 'mensual',             margen_deseado_pct: 15, activo: true },
 ]
 
 const DEFAULT_PROVEEDORES: ConfigProveedor[] = [
@@ -92,13 +93,13 @@ export function useConfig(): AppConfig {
 
         if (canalRes.data && canalRes.data.length > 0) {
           setCanales(canalRes.data.map((c: any) => {
-            // comision_pct viene como 0.33 en BBDD, normalizar a 33 (formato %)
+            // comision_pct viene como 0.30 en BBDD, normalizar a 30 (formato %)
             const com = parseFloat(c.comision_pct ?? 0)
             const comNorm = com > 1 ? com : com * 100
             return {
               id: c.id, canal: c.canal,
               comision_pct: comNorm,
-              coste_fijo: parseFloat(c.coste_fijo ?? 0),
+              coste_fijo: parseFloat(c.fijo_eur ?? c.coste_fijo ?? 0),
               fijo_eur: parseFloat(c.fijo_eur ?? 0),
               fee_periodo_eur: parseFloat(c.fee_periodo_eur ?? 0),
               fee_periodicidad: c.fee_periodicidad ?? 'mensual',
@@ -151,7 +152,6 @@ export function useConfig(): AppConfig {
     return () => { cancelled = true }
   }, [tick])
 
-  // Escucha cambios globales (cuando Rubén guarda en Configuración → dispara recarga aquí también)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const onChange = () => setTick(t => t + 1)
@@ -178,7 +178,7 @@ export function useConfig(): AppConfig {
 
 /**
  * Helper: dado un canal (texto), devuelve sus comisiones reales de la lista config_canales.
- * Devuelve siempre formato decimal (0.33), no porcentaje (33).
+ * Devuelve siempre formato decimal (0.30), no porcentaje (30).
  */
 export function getCanalComision(canales: ConfigCanal[], canalNombre: string): {
   comisionDec: number
@@ -198,10 +198,10 @@ export function getCanalComision(canales: ConfigCanal[], canalNombre: string): {
 
 /**
  * Helper para hooks que solo necesitan el % comisión por canal abreviado (uber/glovo/je/web/directa).
- * Devuelve {uber:0.33, glovo:0.30, ...} en decimal.
+ * Devuelve {uber:0.30, glovo:0.30, je:0.30, web:0, directa:0} en decimal.
  */
 export function getComisionesMap(canales: ConfigCanal[]): Record<string, number> {
-  const map: Record<string, number> = { uber: 0.33, glovo: 0.30, je: 0.30, web: 0, directa: 0 }
+  const map: Record<string, number> = { uber: 0.30, glovo: 0.30, je: 0.30, web: 0, directa: 0 }
   for (const c of canales) {
     const dec = c.comision_pct / 100
     const n = c.canal.toLowerCase()
@@ -214,7 +214,16 @@ export function getComisionesMap(canales: ConfigCanal[]): Record<string, number>
   return map
 }
 
-/** Calcula waterfall para un canal concreto. margen_deseado viene del canal (no global) */
+/**
+ * Calcula waterfall (PVP recomendado y margen) para UN PLATO.
+ * Aplicación: Escandallo, simulador pricing.
+ *
+ * NOTA: Esta función trabaja a nivel PLATO INDIVIDUAL. Para nivel plataforma (Panel Global,
+ * Running, Facturación) se usa calcNetoPorCanal en src/lib/panel/calcNetoPlataforma.ts.
+ *
+ * Aquí no modelamos Prime/Promo porque a nivel plato no sabemos si el cliente final será Prime
+ * o si aplicará promo. La comisión que se usa es la BASE del canal (sin variaciones).
+ */
 export function calcWaterfall(
   costeRac: number,
   pvp: number,
