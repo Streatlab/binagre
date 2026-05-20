@@ -151,6 +151,14 @@ export function useConfig(): AppConfig {
     return () => { cancelled = true }
   }, [tick])
 
+  // Escucha cambios globales (cuando Rubén guarda en Configuración → dispara recarga aquí también)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onChange = () => setTick(t => t + 1)
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
   const refresh = useCallback(() => setTick(t => t + 1), [])
 
   return {
@@ -170,7 +178,6 @@ export function useConfig(): AppConfig {
 
 /**
  * Helper: dado un canal (texto), devuelve sus comisiones reales de la lista config_canales.
- * Usar con: const com = getCanalComision(canales, 'Uber Eats')
  * Devuelve siempre formato decimal (0.33), no porcentaje (33).
  */
 export function getCanalComision(canales: ConfigCanal[], canalNombre: string): {
