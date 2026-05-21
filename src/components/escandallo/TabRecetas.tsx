@@ -1,31 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Receta } from './types'
-import { fmtEurES, fmtES, fmtDateES, n, ESTRUCTURA_PCT } from './types'
+import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, groupStyle, cardStyle, semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { useConfig } from '@/hooks/useConfig'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
 
 /** Margen% Uber a nivel plato vía calcNetoPorCanal central (modo 'plato'):
  *  margen = (neto_plato − coste_rac − estructura) / neto_plato × 100
  *  neto_plato sale de config_canales Uber Eats (mayo 2026: 30% × pvp + IVA).
+ *  estructura sale de parametros_escandallo (gestionado en Configuración > Compras).
  *  Referencia fórmula: Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
  */
-function margenUber(r: Receta, configCanales: Record<string, any>): number {
+function margenUber(r: Receta, configCanales: Record<string, any>, estructuraPct: number): number {
   const pvp = n(r.pvp_uber)
   if (pvp <= 0) return 0
   // Modo plato: aplica comisión + fijo + IVA, sin Prime/Promo/fee periódico
   const { neto } = calcNetoPorCanal('uber', pvp, 1, { modo: 'plato', configCanales })
   if (neto <= 0) return 0
-  const estructura = ESTRUCTURA_PCT * neto
+  const estr = estructuraPct > 1 ? estructuraPct / 100 : estructuraPct
+  const estructura = estr * neto
   return ((neto - n(r.coste_rac) - estructura) / neto) * 100
 }
 
 export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
   const configCanales = useConfigCanales()
+  const { estructura_pct } = useConfig()
   const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
@@ -120,7 +124,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
               </thead>
               <tbody>
                 {filtered.map(r => {
-                  const m = margenUber(r, configCanales)
+                  const m = margenUber(r, configCanales, estructura_pct)
                   const hasPvp = n(r.pvp_uber) > 0
                   const col = semaforoColor(m)
                   return (
