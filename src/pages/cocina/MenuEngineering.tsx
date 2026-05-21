@@ -13,6 +13,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { useTheme, cardStyle, FONT } from '@/styles/tokens'
+import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
 /* MenuEngineering · matriz Kasavana & Smith.
    Comisiones leídas de config_canales (verificadas mayo 2026).
@@ -111,31 +112,15 @@ const QUAD_ACTION: Record<PlotPoint['cuadrante'], string> = {
   perro:    'Eliminar de carta o rediseñar',
 }
 
-// UI canales (display): mapeo a nombre BBDD para mirar comisión
+// UI canales → canalId central (calcNetoPorCanal usa 'uber','glovo','je','web','dir')
 const CANALES_LIST = ['Uber', 'Glovo', 'JustEat', 'Web', 'Directa']
-const CANAL_UI_TO_BBDD: Record<string, string> = {
-  Uber: 'Uber Eats',
-  Glovo: 'Glovo',
-  JustEat: 'Just Eat',
-  Web: 'Web Propia',
-  Directa: 'Venta Directa',
+const CANAL_UI_TO_ID: Record<string, string> = {
+  Uber: 'uber',
+  Glovo: 'glovo',
+  JustEat: 'je',
+  Web: 'web',
+  Directa: 'dir',
 }
-
-interface CanalCost {
-  comision_pct: number  // 0-1
-  fijo_eur: number      // € por pedido
-}
-
-// Defaults solo si BBDD falla (verificados mayo 2026)
-const CANAL_DEFAULT: Record<string, CanalCost> = {
-  Uber:    { comision_pct: 0.30, fijo_eur: 0 },
-  Glovo:   { comision_pct: 0.30, fijo_eur: 0 },
-  JustEat: { comision_pct: 0.30, fijo_eur: 0.30 },
-  Web:     { comision_pct: 0,    fijo_eur: 0.50 },
-  Directa: { comision_pct: 0,    fijo_eur: 0 },
-}
-
-const IVA_COMISION = 0.21
 
 const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 'semana',       label: 'Semana actual' },
@@ -178,7 +163,7 @@ export default function MenuEngineering() {
   const [cartaPlatos, setCartaPlatos] = useState<CartaPlato[]>([])
   const [foodCosts, setFoodCosts] = useState<Map<string, number>>(new Map())
   const [pedidosConteo, setPedidosConteo] = useState<PedidoConteo[]>([])
-  const [canalCosts, setCanalCosts] = useState<Map<string, CanalCost>>(new Map(Object.entries(CANAL_DEFAULT)))
+  const configCanales = useConfigCanales()
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [sinFoodCost, setSinFoodCost] = useState(0)
@@ -234,28 +219,6 @@ export default function MenuEngineering() {
       setPedidosConteo([])
     }
 
-    // Comisiones desde config_canales (columnas reales)
-    try {
-      const { data: canales } = await supabase
-        .from('config_canales')
-        .select('canal,comision_pct,fijo_eur')
-        .eq('activo', true)
-      if (canales) {
-        const cm = new Map<string, CanalCost>(Object.entries(CANAL_DEFAULT))
-        for (const c of canales as { canal: string; comision_pct: number | null; fijo_eur: number | null }[]) {
-          // Buscar la key UI que mapea a este canal BBDD
-          const uiKey = Object.entries(CANAL_UI_TO_BBDD).find(([, bbdd]) => bbdd === c.canal)?.[0]
-          if (uiKey) {
-            cm.set(uiKey, {
-              comision_pct: Number(c.comision_pct ?? 0),
-              fijo_eur: Number(c.fijo_eur ?? 0),
-            })
-          }
-        }
-        setCanalCosts(cm)
-      }
-    } catch { /* usa defaults */ }
-
     setLoading(false)
   }, [periodo])
 
@@ -277,17 +240,8 @@ export default function MenuEngineering() {
 
     if (platosFiltrados.length === 0) return { points: [], medX: 50, medY: 0 }
 
-    // Media de comisión Y fijo de canales seleccionados
-    let comisionMedia = 0, fijoMedio = 0
-    if (canalesSelec.length > 0) {
-      for (const c of canalesSelec) {
-        const cc = canalCosts.get(c) ?? CANAL_DEFAULT[c]
-        comisionMedia += cc.comision_pct
-        fijoMedio += cc.fijo_eur
-      }
-      comisionMedia /= canalesSelec.length
-      fijoMedio /= canalesSelec.length
-    }
+    // Canales seleccionados → ids centrales (usados luego con calcNetoPorCanal modo plato)
+    const canalesIds = canalesSelec.map(c => CANAL_UI_TO_ID[c]).filter(Boolean)
 
     const totalPedidos = pedidosConteo.reduce((s, p) => s + p.count, 0)
     const pedidosMap = new Map(pedidosConteo.map(p => [p.plato, p.count]))
@@ -310,10 +264,16 @@ export default function MenuEngineering() {
       }
 
       const pvp = Number(plato.pvp)
-      // Margen nivel plato: pvp − (comisión×pvp + fijo)×1.21 − food_cost
-      const comisionBaseImp = pvp * comisionMedia + fijoMedio
-      const comisionConIva = comisionBaseImp * (1 + IVA_COMISION)
-      const margen = pvp - comisionConIva - foodCostReceta
+      // Neto del plato = media de neto en cada canal seleccionado (calcNetoPorCanal modo plato)
+      let netoPlato = pvp  // default si no hay canales
+      if (canalesIds.length > 0) {
+        let sumNeto = 0
+        for (const id of canalesIds) {
+          sumNeto += calcNetoPorCanal(id, pvp, 1, { modo: 'plato', configCanales }).neto
+        }
+        netoPlato = sumNeto / canalesIds.length
+      }
+      const margen = netoPlato - foodCostReceta
       const margenPct = pvp > 0 ? margen / pvp : 0
 
       let pop = 0
@@ -357,7 +317,7 @@ export default function MenuEngineering() {
     }
 
     return { points: pts, medX: mX, medY: mY }
-  }, [cartaPlatos, marcasSelec, canalesSelec, foodCosts, pedidosConteo, canalCosts])
+  }, [cartaPlatos, marcasSelec, canalesSelec, foodCosts, pedidosConteo, configCanales])
 
   const porCuadrante = useMemo(() => {
     const map: Record<PlotPoint['cuadrante'], PlotPoint[]> = { estrella: [], vaca: [], dilema: [], perro: [] }
