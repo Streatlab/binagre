@@ -121,22 +121,11 @@ export interface RecetaLinea {
   eur_ud_neta: number
 }
 
-/* ── Canales ── */
+/* ── Canales (solo tipo, valores reales viven en config_canales Supabase) ── */
 
 export type CanalKey = 'pvp_uber' | 'pvp_glovo' | 'pvp_je' | 'pvp_web' | 'pvp_directa'
 
-export interface Canal { key: CanalKey; label: string; comision: number }
-
-export const CANALES: Canal[] = [
-  { key: 'pvp_uber', label: 'Uber Eats', comision: 0.30 },
-  { key: 'pvp_glovo', label: 'Glovo', comision: 0.30 },
-  { key: 'pvp_je', label: 'Just Eat', comision: 0.30 },
-  { key: 'pvp_web', label: 'Web', comision: 0.07 },
-  { key: 'pvp_directa', label: 'Directa', comision: 0 },
-]
-
-export const ESTRUCTURA_PCT = 0.30
-export const MARGEN_DESEADO = 0.15
+export interface Canal { key: CanalKey; label: string }
 
 export const UNIDADES = ['gr.', 'Kg.', 'ml.', 'L.', 'ud.', 'Ud.', 'Ración']
 
