@@ -93,7 +93,6 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/configuracion/integraciones',    label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/plataformas',      label: 'Plataformas',          emoji: '📡', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
     ],
@@ -127,7 +126,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Evaluaciones',                 emoji: '⭐' },
   { label: 'Llamados Atención',            emoji: '⚠️' },
   { label: 'Beneficios Antigüedad',        emoji: '🎁' },
-  { label: 'Celebraciones',                emoji: '🎉' },
+  { label: 'Celebraciones',               emoji: '🎉' },
   { label: 'Onboarding Digital',           emoji: '🚀' },
   { label: 'Mis Ventas / Mis Metas',       emoji: '🏅' },
   { label: 'Calendario',                   emoji: '📅' },
