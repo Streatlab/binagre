@@ -142,7 +142,16 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
   return (
     <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
       <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
-      <input ref={inputFolderRef} type="file" /* @ts-ignore */ webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }} />
+      <input
+        ref={inputFolderRef}
+        type="file"
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }}
+      />
       <div onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(true) }} onDragLeave={e => { e.stopPropagation(); setOverL(false) }} onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }} onClick={handleClickArchivos} style={{ ...halfBase, background: overL ? '#8f1519' : '#B01D23', borderRight: '1px solid rgba(255,255,255,0.25)' }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por archivos</div>
       </div>
