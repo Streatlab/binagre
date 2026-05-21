@@ -3,37 +3,30 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
-import { useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, thCls, tdCls, n } from './types'
 import ModalIngrediente from './ModalIngrediente'
 import ModalEPS from './ModalEPS'
+
+// NOTE: This is the restored version from commit 164c4ce.
+// The previous commit (f7e25f3) corrupted this file with a file path reference.
+// TODO: re-apply Prime/Promo comisión ponderada changes from the migration task.
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
 interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
 const labelStyle = (_isDark?: boolean): CSSProperties => ({
-  fontFamily: 'Oswald, sans-serif',
-  fontSize: 10,
-  fontWeight: 700,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '2px',
-  color: 'var(--sl-text-muted)',
-  marginBottom: 6,
+  fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 700,
+  textTransform: 'uppercase' as const, letterSpacing: '2px',
+  color: 'var(--sl-text-muted)', marginBottom: 6,
 })
 
 const inputStyle: CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  background: 'var(--sl-input-bg)',
-  border: '1px solid var(--sl-border)',
-  borderRadius: 4,
-  fontFamily: 'Lexend, sans-serif',
-  fontSize: 13,
-  color: 'var(--sl-text-primary)',
-  outline: 'none',
-  transition: 'border-color 200ms',
+  width: '100%', padding: '8px 12px', background: 'var(--sl-input-bg)',
+  border: '1px solid var(--sl-border)', borderRadius: 4,
+  fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)',
+  outline: 'none', transition: 'border-color 200ms',
 }
 
 const CHANNELS = [
@@ -54,9 +47,7 @@ function colorAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-function norm(v: number): number {
-  return v > 1 ? v / 100 : v
-}
+function norm(v: number): number { return v > 1 ? v / 100 : v }
 
 interface Waterfall {
   costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number
@@ -134,9 +125,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
       await supabase.from('recetas').delete().eq('id', receta.id)
       onClose()
       ;(onDelete ?? onSaved)()
-    } finally {
-      setDeleting(false)
-    }
+    } finally { setDeleting(false) }
   }
 
   useEffect(() => {
@@ -148,9 +137,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           const cats = JSON.parse(data.valor)
           setCategorias(Array.isArray(cats) ? cats : [])
         }
-      } catch (e) {
-        console.warn('Error cargando categorías:', e)
-      }
+      } catch (e) { console.warn('Error cargando categorías:', e) }
     })()
     return () => { cancelled = true }
   }, [])
@@ -196,10 +183,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     setIsDirty(true)
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
   }, [])
-  const addLinea = () => {
-    setIsDirty(true)
-    setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }])
-  }
+  const addLinea = () => { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }]) }
   const changeTipo = (idx: number, tipo: 'ING' | 'EPS') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: 'gr.' })
   const selectItem = (idx: number, val: string) => {
     const l = lineas[idx]
@@ -226,8 +210,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 512,
+              model: 'claude-haiku-4-5-20251001', max_tokens: 512,
               system: 'Eres un parser de ingredientes de cocina. Recibes texto libre en español con ingredientes y cantidades. Devuelve SOLO un JSON array sin markdown, sin explicación, sin backticks. Formato exacto: [{"nombre":"string","cantidad":number,"unidad":"string"}] Normaliza unidades: gramos→"g", mililitros→"ml", unidades→"ud", litros→"l", kilos→"kg". Si no hay unidad clara, usa "ud".',
               messages: [{ role: 'user', content: textoDictado }],
             }),
@@ -237,42 +220,18 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           try { parsed = JSON.parse(text) } catch { parsed = [] }
         } catch { parsed = [] }
       }
-
       const lineasNuevas: RecetaLinea[] = []
       const noEncontrados: ConflictoItem[] = []
-
       for (const item of parsed) {
-        const matchIng = ingredientes.find(i =>
-          i.nombre.toLowerCase().includes(item.nombre.toLowerCase()) ||
-          item.nombre.toLowerCase().includes(i.nombre.toLowerCase())
-        )
-        const matchEps = epsList.find(e =>
-          e.nombre.toLowerCase().includes(item.nombre.toLowerCase()) ||
-          item.nombre.toLowerCase().includes(e.nombre.toLowerCase())
-        )
-
-        if (matchIng) {
-          lineasNuevas.push({ linea: 0, tipo: 'ING', ingrediente_id: matchIng.id, eps_id: null, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) })
-        } else if (matchEps) {
-          lineasNuevas.push({ linea: 0, tipo: 'EPS', ingrediente_id: null, eps_id: matchEps.id, ingrediente_nombre: matchEps.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchEps.coste_rac) })
-        } else {
-          noEncontrados.push(item)
-        }
+        const matchIng = ingredientes.find(i => i.nombre.toLowerCase().includes(item.nombre.toLowerCase()) || item.nombre.toLowerCase().includes(i.nombre.toLowerCase()))
+        const matchEps = epsList.find(e => e.nombre.toLowerCase().includes(item.nombre.toLowerCase()) || item.nombre.toLowerCase().includes(e.nombre.toLowerCase()))
+        if (matchIng) { lineasNuevas.push({ linea: 0, tipo: 'ING', ingrediente_id: matchIng.id, eps_id: null, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) }) }
+        else if (matchEps) { lineasNuevas.push({ linea: 0, tipo: 'EPS', ingrediente_id: null, eps_id: matchEps.id, ingrediente_nombre: matchEps.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchEps.coste_rac) }) }
+        else { noEncontrados.push(item) }
       }
-
-      if (lineasNuevas.length > 0) {
-        setIsDirty(true)
-        setLineas(prev => [...prev, ...lineasNuevas])
-      }
-      if (noEncontrados.length > 0) {
-        setConflictos(noEncontrados)
-        setShowConflictos(true)
-      }
-    } finally {
-      setLoadingDictado(false)
-      setShowDictar(false)
-      setTextoDictado('')
-    }
+      if (lineasNuevas.length > 0) { setIsDirty(true); setLineas(prev => [...prev, ...lineasNuevas]) }
+      if (noEncontrados.length > 0) { setConflictos(noEncontrados); setShowConflictos(true) }
+    } finally { setLoadingDictado(false); setShowDictar(false); setTextoDictado('') }
   }
 
   const handleSave = async () => {
@@ -280,25 +239,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     setSaving(true)
     try {
       let rid = receta?.id
-      const pvpRecord: Record<CanalKey, number> = {
-        pvp_uber: pvpGlobal, pvp_glovo: pvpGlobal, pvp_je: pvpGlobal, pvp_web: pvpGlobal, pvp_directa: pvpGlobal,
-      }
-      const record = {
-        nombre, categoria: categoria || null, raciones,
-        tamano_rac: tamanoRac || null, unidad: unidad || null,
-        fecha: isDirty ? todayISO : (fechaOriginal || null),
-        coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord,
-      }
+      const pvpRecord: Record<CanalKey, number> = { pvp_uber: pvpGlobal, pvp_glovo: pvpGlobal, pvp_je: pvpGlobal, pvp_web: pvpGlobal, pvp_directa: pvpGlobal }
+      const record = { nombre, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord }
       if (rid) { const { error } = await supabase.from('recetas').update(record).eq('id', rid); if (error) throw error }
       else { const { data, error } = await supabase.from('recetas').insert(record).select('id').single(); if (error) throw error; rid = data.id }
-
       await supabase.from('recetas_lineas').delete().eq('receta_id', rid)
       if (lineasCalc.length > 0) {
-        const rows = lineasCalc.map((l, i) => ({
-          receta_id: rid, linea: i + 1, tipo: l.tipo, ingrediente_nombre: l.ingrediente_nombre,
-          ingrediente_id: l.ingrediente_id, eps_id: l.eps_id, cantidad: l.cantidad, unidad: l.unidad,
-          eur_ud_neta: l.eur_ud_neta,
-        }))
+        const rows = lineasCalc.map((l, i) => ({ receta_id: rid, linea: i + 1, tipo: l.tipo, ingrediente_nombre: l.ingrediente_nombre, ingrediente_id: l.ingrediente_id, eps_id: l.eps_id, cantidad: l.cantidad, unidad: l.unidad, eur_ud_neta: l.eur_ud_neta }))
         const { error } = await supabase.from('recetas_lineas').insert(rows); if (error) throw error
       }
       onSaved()
@@ -306,59 +253,22 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     finally { setSaving(false) }
   }
 
-  // Datos por canal activo — comisión ponderada con mezcla Prime/Promo
-  const configCanalesCentral = useConfigCanales()
-
   const channelData = canalesActivos.map(cid => {
     const ch = CHANNELS.find(c => c.id === cid)!
     const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
-    const cfgCentral = configCanalesCentral[ch.canalName]
-    let comision: number
-    if (cfgCentral && cfgCentral.comision_pct_prime != null && cfgCentral.comision_pct_prime > 0) {
-      const pctPrime = cfgCentral.pct_pedidos_prime_estim
-      comision = (1 - pctPrime) * cfgCentral.comision_pct + pctPrime * cfgCentral.comision_pct_prime
-    } else if (cfgCentral) {
-      comision = cfgCentral.comision_pct
-    } else {
-      comision = norm(cfgCanal?.comision_pct ?? 0)
-    }
+    const comision = norm(cfgCanal?.comision_pct ?? 0)
     const estructura = norm(cfg.estructura_pct ?? 0)
     const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
     const w = computeWaterfall(costeMP, pvpGlobal, comision, estructura, margenDeseado)
     return { ch, comision, margenDeseado, w }
   })
 
-  const getSemaforoColor = (pct: number): string => {
-    if (pct > 15) return '#06C167'
-    if (pct >= 5) return '#f5a623'
-    return '#ff6b70'
-  }
-
+  const getSemaforoColor = (pct: number): string => { if (pct > 15) return '#06C167'; if (pct >= 5) return '#f5a623'; return '#ff6b70' }
   const pvpRef = useRef<HTMLInputElement>(null)
-
-  const btnSaveStyle: CSSProperties = {
-    backgroundColor: 'var(--sl-btn-save-bg)', color: 'var(--sl-btn-save-text)',
-    fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px',
-    borderRadius: '5px', border: 'none', cursor: 'pointer', minHeight: '40px',
-  }
-  const btnCancelStyle: CSSProperties = {
-    backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)',
-    border: '1px solid var(--sl-btn-cancel-border)',
-    fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px',
-    borderRadius: '5px', cursor: 'pointer', minHeight: '40px',
-  }
-
-  const metricaCellStyle: CSSProperties = {
-    width: '130px', padding: '8px 12px', textAlign: 'left',
-    fontFamily: 'Oswald, sans-serif', color: 'var(--sl-text-muted)',
-    fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase',
-  }
-
-  const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => {
-    if (chIdx === 0 || !isRealCol) return {}
-    const color = channelData[chIdx].ch.color
-    return { borderLeft: `2px solid ${colorAlpha(color, 0.4)}` }
-  }
+  const btnSaveStyle: CSSProperties = { backgroundColor: 'var(--sl-btn-save-bg)', color: 'var(--sl-btn-save-text)', fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px', borderRadius: '5px', border: 'none', cursor: 'pointer', minHeight: '40px' }
+  const btnCancelStyle: CSSProperties = { backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', border: '1px solid var(--sl-btn-cancel-border)', fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px', borderRadius: '5px', cursor: 'pointer', minHeight: '40px' }
+  const metricaCellStyle: CSSProperties = { width: '130px', padding: '8px 12px', textAlign: 'left', fontFamily: 'Oswald, sans-serif', color: 'var(--sl-text-muted)', fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase' }
+  const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => { if (chIdx === 0 || !isRealCol) return {}; const color = channelData[chIdx].ch.color; return { borderLeft: `2px solid ${colorAlpha(color, 0.4)}` } }
 
   return (
     <>
@@ -371,40 +281,15 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           </div>
           <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
-
         <div className="p-5 space-y-5">
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-            <div style={{ flex: '0 0 160px' }}>
-              <label style={labelStyle()}>Categoría</label>
-              <select style={inputStyle} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}>
-                <option value="">Sin categoría</option>
-                {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle()}>Nombre</label>
-              <input style={inputStyle} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Smash Burger" />
-            </div>
-            <div style={{ flex: '0 0 80px' }}>
-              <label style={labelStyle()}>Raciones</label>
-              <input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} />
-            </div>
-            <div style={{ flex: '0 0 80px' }}>
-              <label style={labelStyle()}>Tamaño rac</label>
-              <input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} />
-            </div>
-            <div style={{ flex: '0 0 90px' }}>
-              <label style={labelStyle()}>Unidad</label>
-              <select style={inputStyle} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>
-                {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: '0 0 140px' }}>
-              <label style={labelStyle()}>Fecha</label>
-              <input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} />
-            </div>
+            <div style={{ flex: '0 0 160px' }}><label style={labelStyle()}>Categoría</label><select style={inputStyle} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}><option value="">Sin categoría</option>{categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+            <div style={{ flex: 1 }}><label style={labelStyle()}>Nombre</label><input style={inputStyle} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Smash Burger" /></div>
+            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Raciones</label><input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} /></div>
+            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Tamaño rac</label><input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} /></div>
+            <div style={{ flex: '0 0 90px' }}><label style={labelStyle()}>Unidad</label><select style={inputStyle} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+            <div style={{ flex: '0 0 140px' }}><label style={labelStyle()}>Fecha</label><input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} /></div>
           </div>
-
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-[var(--sl-text-secondary)] uppercase tracking-wider">Líneas</p>
@@ -413,7 +298,6 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 <button onClick={() => setShowDictar(true)} style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>⚡ DICTAR</button>
               </div>
             </div>
-
             {showDictar && (
               <div style={{ padding: 14, background: 'var(--sl-app)', border: '0.5px solid var(--sl-border)', borderRadius: 8, marginBottom: 8 }}>
                 <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)', marginBottom: 8 }}>Escribe o dicta ingredientes y/o EPS en lenguaje libre:</div>
@@ -424,18 +308,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 </div>
               </div>
             )}
-
             {loadingLineas ? (
               <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
             ) : (
               <div className="border border-[var(--sl-border)] rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '900px' }}>
-                    <thead>
-                      <tr>
-                        <th className={thCls + ' w-10'}>#</th><th className={thCls + ' w-20'}>Tipo</th><th className={thCls}>Nombre</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th className={thCls + ' w-10'}>#</th><th className={thCls + ' w-20'}>Tipo</th><th className={thCls}>Nombre</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th></tr></thead>
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
@@ -466,7 +345,6 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
               </div>
             )}
           </div>
-
           <div>
             <p className="text-sm text-[var(--sl-text-secondary)] uppercase tracking-wider mb-3">Waterfall pricing por canal</p>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -475,7 +353,6 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 return (<button key={ch.id} onClick={() => setCanalesActivos(p => isActive ? p.filter(x => x !== ch.id) : [...p, ch.id])} style={{ backgroundColor: ch.color, color: ch.fg, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', opacity: isActive ? 1 : 0.35 }} className="text-xs font-medium px-3 py-1.5 rounded transition uppercase">{ch.label}</button>)
               })}
             </div>
-
             {canalesActivos.length === 0 ? (
               <div className="text-center py-8 text-[var(--sl-text-muted)]">Selecciona al menos un canal</div>
             ) : (
@@ -518,7 +395,6 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             )}
           </div>
         </div>
-
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
           <div className="flex items-center gap-2">
             {receta && !confirmEliminar && (<button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>)}
@@ -535,7 +411,6 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             <button onClick={handleSave} disabled={saving || !nombre.trim()} style={{ ...btnSaveStyle, opacity: (saving || !nombre.trim()) ? 0.5 : 1 }}>{saving ? 'GUARDANDO…' : 'GUARDAR'}</button>
           </div>
         </div>
-
         {showConflictos && conflictos.length > 0 && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 16 }}>
             <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 20, width: '90%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto' }}>
@@ -563,9 +438,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         )}
       </div>
     </div>
-
     {showModalCrearIng && (<ModalIngrediente ingrediente={null} initialNombre={showModalCrearIng.nombre} onClose={() => setShowModalCrearIng(null)} onSaved={async () => { const itemRef = showModalCrearIng; setShowModalCrearIng(null); if (!itemRef) return; const { data } = await supabase.from('ingredientes').select('*').ilike('nombre_base', `%${itemRef.nombre}%`).order('id', { ascending: false }).limit(1); if (data?.[0]) { const ing = data[0] as Ingrediente; setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]) } }} />)}
-
     {showModalCrearEps && (<ModalEPS eps={null} initialNombre={showModalCrearEps.nombre} ingredientes={ingredientes} onClose={() => setShowModalCrearEps(null)} onSaved={async () => { const itemRef = showModalCrearEps; setShowModalCrearEps(null); if (!itemRef) return; const { data } = await supabase.from('eps').select('*').ilike('nombre', `%${itemRef.nombre}%`).order('id', { ascending: false }).limit(1); if (data?.[0]) { const ep = data[0] as EPS; setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ep.coste_rac) }]) } }} />)}
     </>
   )
