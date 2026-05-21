@@ -144,8 +144,6 @@ function AppRoutes() {
 
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
         <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
-        {/* Pantalla PlataformasPage eliminada · redirige a la canónica TabCanales dentro de Integraciones */}
-        <Route path="configuracion/plataformas" element={<Navigate to="/configuracion/integraciones/canales" replace />} />
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
