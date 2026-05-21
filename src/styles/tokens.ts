@@ -188,29 +188,23 @@ export function semaforoColor(pct: number): string {
    CANALES
    ═══════════════════════════════════════════════════════════ */
 
+// Solo metadata visual de canales. Fórmulas y comisiones reales viven en
+// @/lib/panel/calcNetoPlataforma (config_canales Supabase). Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
 export interface CanalConfig {
   id: string
   label: string
   color: string
   pedKey: string
   bruKey: string
-  comisionPct: number
-  comisionFijo: number
 }
 
 export const CANALES: CanalConfig[] = [
-  { id:'uber',  label:'Uber Eats', color:'#06C167', pedKey:'uber_pedidos',    bruKey:'uber_bruto',    comisionPct:0.30, comisionFijo:0.82 },
-  { id:'glovo', label:'Glovo',     color:'#e8f442', pedKey:'glovo_pedidos',   bruKey:'glovo_bruto',   comisionPct:0.25, comisionFijo:0.75 },
-  { id:'je',    label:'Just Eat',  color:'#f5a623', pedKey:'je_pedidos',      bruKey:'je_bruto',      comisionPct:0.20, comisionFijo:0.75 },
-  { id:'web',   label:'Web',       color:'#B01D23', pedKey:'web_pedidos',     bruKey:'web_bruto',     comisionPct:0.07, comisionFijo:0.50 },
-  { id:'dir',   label:'Directa',   color:'#66aaff', pedKey:'directa_pedidos', bruKey:'directa_bruto', comisionPct:0.00, comisionFijo:0.00 },
+  { id:'uber',  label:'Uber Eats', color:'#06C167', pedKey:'uber_pedidos',    bruKey:'uber_bruto'    },
+  { id:'glovo', label:'Glovo',     color:'#e8f442', pedKey:'glovo_pedidos',   bruKey:'glovo_bruto'   },
+  { id:'je',    label:'Just Eat',  color:'#f5a623', pedKey:'je_pedidos',      bruKey:'je_bruto'      },
+  { id:'web',   label:'Web',       color:'#B01D23', pedKey:'web_pedidos',     bruKey:'web_bruto'     },
+  { id:'dir',   label:'Directa',   color:'#66aaff', pedKey:'directa_pedidos', bruKey:'directa_bruto' },
 ]
-
-export function calcNeto(bruto: number, pedidos: number, canal: Pick<CanalConfig, 'comisionPct' | 'comisionFijo'>): number {
-  const comisionTotal = bruto * canal.comisionPct + pedidos * canal.comisionFijo
-  const iva = comisionTotal * 0.21
-  return Math.max(0, bruto - comisionTotal - iva)
-}
 
 /* ═══════════════════════════════════════════════════════════
    MARCAS (mock hasta integrar)
