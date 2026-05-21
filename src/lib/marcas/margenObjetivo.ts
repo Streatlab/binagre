@@ -58,11 +58,11 @@ export function calcularSemaforo(
 
 /** Obtiene datos de todas las marcas: objetivo calculado + real de ventas_plataforma */
 export async function getMargenTodakMarcas(): Promise<MargenMarcaResult[]> {
-  // Marcas activas
+  // Marcas activas — columna real es 'activa' (no 'activo')
   const { data: marcasRows } = await supabase
     .from('marcas')
     .select('nombre')
-    .eq('activo', true)
+    .eq('activa', true)
   const marcas: string[] = (marcasRows ?? []).map((m: { nombre: string }) => m.nombre)
 
   if (!marcas.length) return []
