@@ -4,20 +4,28 @@ import type { Receta } from './types'
 import { fmtEurES, fmtES, fmtDateES, n, ESTRUCTURA_PCT } from './types'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, groupStyle, cardStyle, semaforoColor } from '@/styles/tokens'
+import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
 
-/** Margen% Uber = (PVP/1.1 − coste_rac − estructura(30%) − PVP×0.30) / (PVP/1.1) */
-function margenUber(r: Receta): number {
+/** Margen% Uber a nivel plato vía calcNetoPorCanal central (modo 'plato'):
+ *  margen = (neto_plato − coste_rac − estructura) / neto_plato × 100
+ *  neto_plato sale de config_canales Uber Eats (mayo 2026: 30% × pvp + IVA).
+ *  Referencia fórmula: Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
+ */
+function margenUber(r: Receta, configCanales: Record<string, any>): number {
   const pvp = n(r.pvp_uber)
   if (pvp <= 0) return 0
-  const neto = pvp / 1.1
+  // Modo plato: aplica comisión + fijo + IVA, sin Prime/Promo/fee periódico
+  const { neto } = calcNetoPorCanal('uber', pvp, 1, { modo: 'plato', configCanales })
+  if (neto <= 0) return 0
   const estructura = ESTRUCTURA_PCT * neto
-  return ((neto - n(r.coste_rac) - estructura - pvp * 0.30) / neto) * 100
+  return ((neto - n(r.coste_rac) - estructura) / neto) * 100
 }
 
 export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
+  const configCanales = useConfigCanales()
   const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
@@ -112,7 +120,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
               </thead>
               <tbody>
                 {filtered.map(r => {
-                  const m = margenUber(r)
+                  const m = margenUber(r, configCanales)
                   const hasPvp = n(r.pvp_uber) > 0
                   const col = semaforoColor(m)
                   return (
