@@ -13,6 +13,7 @@ import { useRunning } from '@/hooks/useRunning'
 import { useConfig } from '@/hooks/useConfig'
 import { cardBig, lbl, lblXs, OSWALD, LEXEND, COLOR } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtPct } from '@/lib/format'
+import { calcNetoPorCanal, loadMarcasPorCanal, loadConfigCanales, type MarcasPorCanal, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
 
 const ROJO=COLOR.rojoSL,VERDE=COLOR.verde,AMBAR=COLOR.ambar,ERR=COLOR.rojo
 const MESES_CORTO=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
@@ -31,24 +32,7 @@ const CANAL_DEF:Array<{id:CanalId;label:string;bg:string;border:string;colorLabe
 {id:'directa',label:'DIRECTA',bg:`${COLOR.directa}20`,border:COLOR.directa,colorLabel:COLOR.directaDark,size:'mini'}]
 const CONFIG_KEY:Record<CanalId,string>={uber:'Uber Eats',glovo:'Glovo',just_eat:'Just Eat',web:'Web Propia',directa:'Venta Directa'}
 
-/** Fórmula unificada ERP — misma que useRunningAnual.calcNetoCanal y calcNetoPlataforma.ts */
-function calcNetoCompleto(bruto:number,pedidos:number,com:number,fijoEur:number,feePeriodoEur:number,feePeriodicidad:string,diasPeriodo:number,marcasActivas:number):number{
-  if(bruto<=0)return 0
-  const comDec=com>1?com/100:com
-  let periodos=1
-  if(feePeriodoEur>0&&diasPeriodo>0){
-    switch(feePeriodicidad){
-      case'semanal_por_marca':periodos=Math.ceil(diasPeriodo/7);break
-      case'quincenal_por_marca':periodos=Math.ceil(diasPeriodo/15);break
-      case'mensual':periodos=Math.ceil(diasPeriodo/30);break
-      default:periodos=1
-    }
-  }
-  const baseComision=(comDec*bruto)+(fijoEur*pedidos)
-  const feeTotal=feePeriodoEur>0?feePeriodoEur*periodos*marcasActivas:0
-  const totalCom=baseComision+feeTotal
-  return Math.max(0,bruto-totalCom-(IVA*totalCom))
-}
+// Fórmula migrada a calcNetoPorCanal central (Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91)
 
 export default function PuntoEquilibrio(){
 const{T}=useTheme()
@@ -61,9 +45,9 @@ const periodo=useMemo(()=>({desde:periodoDesde,hasta:periodoHasta,key:'pe',label
 const anio=periodo.desde.getFullYear()
 const{loading,error,gastos,facturacion}=useRunning(periodo,anio,null,null,'sin')
 const{diasOperativosEnRango}=useCalendario()
-const[marcasActivas,setMarcasActivas]=useState<number>(1)
-useEffect(()=>{(async()=>{const{count}=await supabase.from('marcas').select('id',{count:'exact',head:true}).eq('activo',true);setMarcasActivas(count&&count>0?count:1)})()},[])
-const cfgPorCanal=useMemo(()=>{const out:Record<CanalId,{com:number;fijoEur:number;feePeriodoEur:number;feePeriodicidad:string}>={uber:{com:0,fijoEur:0,feePeriodoEur:0,feePeriodicidad:'mensual'},glovo:{com:0,fijoEur:0,feePeriodoEur:0,feePeriodicidad:'mensual'},just_eat:{com:0,fijoEur:0,feePeriodoEur:0,feePeriodicidad:'mensual'},web:{com:0,fijoEur:0,feePeriodoEur:0,feePeriodicidad:'mensual'},directa:{com:0,fijoEur:0,feePeriodoEur:0,feePeriodicidad:'mensual'}};const ids:CanalId[]=['uber','glovo','just_eat','web','directa'];for(const id of ids){const row=(canales||[]).find((c:any)=>c.canal===CONFIG_KEY[id]);if(row){out[id]={com:Number(row.comision_pct||0),fijoEur:Number(row.fijo_eur||row.coste_fijo||0),feePeriodoEur:Number(row.fee_periodo_eur||0),feePeriodicidad:String(row.fee_periodicidad||'mensual')}}};return out},[canales])
+const[marcasPorCanal,setMarcasPorCanal]=useState<MarcasPorCanal>({uber:1,glovo:1,je:1,web:1,dir:1})
+const[configCanales,setConfigCanales]=useState<Record<string,CanalConfig>>({})
+useEffect(()=>{loadMarcasPorCanal().then(setMarcasPorCanal);loadConfigCanales().then(setConfigCanales)},[])
 const brutoPorCanal=useMemo(()=>{const m:Record<CanalId,number>={uber:0,glovo:0,just_eat:0,web:0,directa:0};const ped:Record<CanalId,number>={uber:0,glovo:0,just_eat:0,web:0,directa:0};for(const fr of facturacion as any[]){const f=fr as Record<string,number|null|undefined>;m.uber+=Number(f.uber_bruto||0);m.glovo+=Number(f.glovo_bruto||0);m.just_eat+=Number(f.je_bruto||0);m.web+=Number(f.web_bruto||0);m.directa+=Number(f.directa_bruto||0);ped.uber+=Number(f.uber_pedidos||0);ped.glovo+=Number(f.glovo_pedidos||0);ped.just_eat+=Number(f.je_pedidos||0);ped.web+=Number(f.web_pedidos||0);ped.directa+=Number(f.directa_pedidos||0)};return{bruto:m,pedidos:ped}},[facturacion])
 const totalBruto=useMemo(()=>Object.values(brutoPorCanal.bruto).reduce((a,v)=>a+v,0),[brutoPorCanal])
 const totalPedidos=useMemo(()=>facturacion.reduce((a,f)=>a+Number((f as any).total_pedidos||0),0),[facturacion])
@@ -71,8 +55,8 @@ const diasPeriodo=useMemo(()=>{const ms=periodo.hasta.getTime()-periodo.desde.ge
 const meses=useMemo(()=>{const set=new Set<string>();const cur=new Date(periodo.desde);while(cur<=periodo.hasta){set.add(`${cur.getFullYear()}-${cur.getMonth()+1}`);cur.setDate(cur.getDate()+1)};return Array.from(set).map(s=>{const[y,m]=s.split('-').map(Number);return{anio:y,mes:m}})},[periodo])
 const[resumenes,setResumenes]=useState<Array<{plataforma:string;mes:number;año:number;bruto:number|null;neto_real_cobrado:number|null}>>([])
 useEffect(()=>{if(meses.length===0)return;let cancel=false;(async()=>{const conditions=meses.map(m=>`and(mes.eq.${m.mes},año.eq.${m.anio})`).join(',');const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('plataforma, mes, año, bruto, neto_real_cobrado').or(conditions);if(cancel)return;setResumenes((data??[]) as any)})();return()=>{cancel=true}},[meses.map(m=>`${m.anio}-${m.mes}`).join('|')])
-// FÓRMULA UNIFICADA: si hay neto_real_cobrado en BBDD (OCR), úsalo; si no, fórmula completa
-const datosPorCanal=useMemo<Record<CanalId,CanalDatos>>(()=>{const out={} as Record<CanalId,CanalDatos>;const ids:CanalId[]=['uber','glovo','just_eat','web','directa'];for(const c of ids){const filas=resumenes.filter(r=>r.plataforma===c);const brutoFD=brutoPorCanal.bruto[c];const pedFD=brutoPorCanal.pedidos[c];const cfg=cfgPorCanal[c];let neto=0;let brutoCalc=0;const tieneReal=filas.length>0&&filas.some(f=>f.neto_real_cobrado!=null);if(tieneReal){brutoCalc=filas.reduce((s,f)=>s+(f.bruto??0),0);neto=filas.reduce((s,f)=>s+(f.neto_real_cobrado??0),0)}else{neto=calcNetoCompleto(brutoFD,pedFD,cfg.com,cfg.fijoEur,cfg.feePeriodoEur,cfg.feePeriodicidad,diasPeriodo,marcasActivas)};const brutoFinal=tieneReal?brutoCalc:brutoFD;const margenPct=brutoFinal>0?(neto/brutoFinal)*100:0;out[c]={bruto:brutoFinal,neto,margenPct,pedidos:pedFD}};return out},[resumenes,brutoPorCanal,cfgPorCanal,diasPeriodo,marcasActivas])
+// FÓRMULA UNIFICADA: si hay neto_real_cobrado en BBDD (OCR), úsalo; si no, calcNetoPorCanal central
+const datosPorCanal=useMemo<Record<CanalId,CanalDatos>>(()=>{const out={} as Record<CanalId,CanalDatos>;const ids:CanalId[]=['uber','glovo','just_eat','web','directa'];const mapCanal:Record<CanalId,string>={uber:'uber',glovo:'glovo',just_eat:'je',web:'web',directa:'dir'};for(const c of ids){const filas=resumenes.filter(r=>r.plataforma===c);const brutoFD=brutoPorCanal.bruto[c];const pedFD=brutoPorCanal.pedidos[c];let neto=0;let brutoCalc=0;const tieneReal=filas.length>0&&filas.some(f=>f.neto_real_cobrado!=null);if(tieneReal){brutoCalc=filas.reduce((s,f)=>s+(f.bruto??0),0);neto=filas.reduce((s,f)=>s+(f.neto_real_cobrado??0),0)}else{neto=calcNetoPorCanal(mapCanal[c],brutoFD,pedFD,marcasPorCanal,periodo.desde,periodo.hasta,configCanales).neto};const brutoFinal=tieneReal?brutoCalc:brutoFD;const margenPct=brutoFinal>0?(neto/brutoFinal)*100:0;out[c]={bruto:brutoFinal,neto,margenPct,pedidos:pedFD}};return out},[resumenes,brutoPorCanal,marcasPorCanal,periodo.desde,periodo.hasta,configCanales])
 const totalNeto=useMemo(()=>Object.values(datosPorCanal).reduce((a,c)=>a+c.neto,0),[datosPorCanal])
 const margenNetoPct=totalBruto>0?(totalNeto/totalBruto)*100:0
 const gastosPorGrupo=useMemo(()=>{const m:Record<string,number>={};for(const gr of gastos as any[]){const g=gr as{categoria?:string;importe?:number};const grupo=String(g.categoria??'');if(!grupo)continue;const importe=Math.abs(Number(g.importe??0));m[grupo]=(m[grupo]??0)+importe};return m},[gastos])
