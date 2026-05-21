@@ -16,11 +16,11 @@ export interface RunningAnualData {
   feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
   configCanales: Record<string, CanalConfig>
   marcasActivas: MarcasPorCanal
+  // Objetivo facturación por mes — calculado con la misma lógica del módulo Objetivos
+  objetivosMensuales: Record<number, number>
   loading: boolean
 }
 
-// Keywords (case-insensitive sobre nombre de categoría) que marcan una categoría como fija estimable.
-// Si el mes no tiene factura y es mes pasado/presente, se rellena con el valor del mes anterior.
 const KW_ESTIMABLES: string[] = [
   'sueldo','salario','nomina','nómina',
   'autonomo','autónomo','cuota ss','seguridad social',
@@ -55,6 +55,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasActivas, setMarcasActivas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [objetivosMensuales, setObjetivosMensuales] = useState<Record<number, number>>({})
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
 
@@ -68,7 +69,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const ingMap: Record<string, Record<number, number>> = {}
       ;(dIng || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!ingMap[cat]) ingMap[cat] = {}; ingMap[cat][mes] = (ingMap[cat][mes]||0) + Number(r.importe||0) })
 
-      // GASTOS = SIEMPRE por factura (tabla gastos, base_imponible). NUNCA por banco.
       let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
       if (titularId) qGas = qGas.eq('titular_id', titularId)
       const { data: dGas } = await qGas
@@ -118,10 +118,26 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
+      // OBJETIVOS — calculados igual que el módulo Objetivos
+      // 1. Leer objetivos_dia_semana (7 filas L-D) → suma = objetivo semanal
+      // 2. Para cada mes: objetivo = (semanal / 7) × días del mes
+      // 3. Si hay fila tipo=mensual editada manualmente, esa gana sobre la calculada
+      const { data: dDias } = await supabase.from('objetivos_dia_semana').select('dia,importe').order('dia')
+      const { data: dObjGen } = await supabase.from('objetivos').select('tipo,importe').in('tipo', ['semanal','mensual','anual'])
+      const sumaSemanal = (dDias || []).reduce((a:number, r:any) => a + Number(r.importe || 0), 0)
+      const objSemanalManual = Number((dObjGen || []).find((r:any) => r.tipo === 'semanal')?.importe || 0)
+      const objMensualManual = Number((dObjGen || []).find((r:any) => r.tipo === 'mensual')?.importe || 0)
+      const semanalEfectivo = objSemanalManual > 0 ? objSemanalManual : sumaSemanal
+      const objMesMap: Record<number, number> = {}
+      for (let m = 1; m <= 12; m++) {
+        const diasMes = new Date(año, m, 0).getDate()
+        const calc = semanalEfectivo > 0 ? Math.round((semanalEfectivo / 7) * diasMes) : 0
+        // Si el objetivo mensual manual está editado, lo usamos sólo en el mes actual (es global, no por mes)
+        objMesMap[m] = (objMensualManual > 0 && m === mesActual && año === anioActual) ? objMensualManual : calc
+      }
+
+      // FACTURACIÓN FUTURA — cascada: objetivo mes > año anterior > mes anterior
       const facFutMap: RunningAnualData['facturacionFutura'] = {}
-      const { data: dObj } = await supabase.from('objetivos').select('mes,facturacion_objetivo').eq('año', año)
-      const objMap: Record<number, number> = {}
-      ;(dObj || []).forEach((r: any) => { if (r.mes && r.facturacion_objetivo) objMap[r.mes] = Number(r.facturacion_objetivo || 0) })
       let qBrutPrev = supabase.from('facturacion_diario').select('fecha,total_bruto').gte('fecha',`${año-1}-01-01`).lte('fecha',`${año-1}-12-31`)
       if (titularId) qBrutPrev = qBrutPrev.eq('titular_id', titularId)
       const { data: dBrutPrev } = await qBrutPrev
@@ -131,8 +147,8 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
         const brutoReal = brutMap[mes]?.total || 0
         const esFuturo = año > anioActual || (año === anioActual && mes > mesActual)
         if (brutoReal === 0 && esFuturo) {
-          if (objMap[mes] && objMap[mes] > 0) {
-            facFutMap[mes] = { importe: objMap[mes], origen: 'objetivo' }
+          if (objMesMap[mes] && objMesMap[mes] > 0) {
+            facFutMap[mes] = { importe: objMesMap[mes], origen: 'objetivo' }
           } else if (brutPrevMap[mes] && brutPrevMap[mes] > 0) {
             facFutMap[mes] = { importe: brutPrevMap[mes], origen: 'anyo_anterior' }
           } else {
@@ -153,7 +169,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const cfg = await loadConfigCanales()
       const marcasMap = await loadMarcasPorCanal()
 
-      // Map auxiliar (compat. con consumidores antiguos): comisión decimal por canal y fees
       const CANAL_BBDD_TO_KEY: Record<string, string> = {
         'Uber Eats': 'uber', 'Glovo': 'glovo', 'Just Eat': 'je', 'Web Propia': 'web', 'Venta Directa': 'directa',
       }
@@ -171,7 +186,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       }
 
       if (!cancelled) {
-        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setLoading(false)
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setObjetivosMensuales(objMesMap); setLoading(false)
       }
     }
     load()
@@ -182,27 +197,16 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     if (typeof window === 'undefined') return
     const onChange = () => setTick(t => t + 1)
     window.addEventListener('config_canales:changed', onChange)
-    return () => window.removeEventListener('config_canales:changed', onChange)
+    window.addEventListener('objetivos:changed', onChange)
+    return () => {
+      window.removeEventListener('config_canales:changed', onChange)
+      window.removeEventListener('objetivos:changed', onChange)
+    }
   }, [])
 
-  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, loading }
+  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, objetivosMensuales, loading }
 }
 
-/**
- * calcNetoCanal · DELEGA en la fórmula central calcNetoPorCanal.
- * Esto asegura que TODO el ERP use la misma fórmula real verificada con facturas.
- *
- * @param canalKey      uber | glovo | je | web | directa
- * @param bruto         Importe bruto vendido
- * @param pedidos       Número de pedidos
- * @param _comisionDec  (deprecated, ya no se usa, se lee de config_canales)
- * @param _fee          (deprecated, ya no se usa, se lee de config_canales)
- * @param diasPeriodo   Días del periodo (para fees periódicos)
- * @param marcasActivas Nº marcas activas: número global o mapa {uber,glovo,je}
- * @param fechaDesde    Fecha inicio periodo (opcional, mejora cálculo periodos)
- * @param fechaHasta    Fecha fin periodo (opcional, mejora cálculo periodos)
- * @param configCanales Cache de config_canales (opcional)
- */
 export function calcNetoCanal(
   canalKey: 'uber'|'glovo'|'je'|'web'|'directa',
   bruto: number,
@@ -216,14 +220,12 @@ export function calcNetoCanal(
   configCanales?: Record<string, CanalConfig>,
 ): number {
   if (bruto <= 0) return 0
-  // Si no nos pasan fechas, construimos rango sintético del tamaño 'diasPeriodo' acabando hoy
   let fIni = fechaDesde, fFin = fechaHasta
   if (!fIni || !fFin) {
     fFin = new Date()
     fIni = new Date()
     fIni.setDate(fFin.getDate() - Math.max(1, diasPeriodo - 1))
   }
-  // 'je' en calcNetoPorCanal corresponde a 'just eat' en BBDD via MAP_ID_CANAL
   const id = canalKey === 'directa' ? 'dir' : canalKey
   const { neto } = calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales)
   return neto
