@@ -12,9 +12,9 @@ type DriveExtracted = {
   carpeta_titular?: string
 }
 
-// 11/05/26: raíz Drive definitiva = "00 SISTEMA STREAT LAB > 05 OPERACIONES"
-// Bajo esta raíz se crea RUBÉN/EMILIO > AÑO > TRIMESTRE > MES > PROVEEDORES|PLATAFORMAS
-const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNl8JxGGuv8MXloUCJ3_evd7H'
+// ROOT: "00 SISTEMA STREAT LAB > 05 OPERACIONES"
+// Verificado en Drive: ID correcto con I mayúscula (NI8)
+const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNI8JxGGuv8MXloUCJ3_evd7H'
 const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
 
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
@@ -109,7 +109,12 @@ export async function subirArchivoADrive(
   const tri = trimestre(fecha)
   const mes = MESES[fecha.getMonth()]
   const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
-  const carpetaTitular = extracted.carpeta_titular || 'SIN_TITULAR'
+  // Normalizar titular: sin tildes, mayúsculas (RUBEN no RUBÉN)
+  const rawTitular = extracted.carpeta_titular || 'SIN_TITULAR'
+  const carpetaTitular = rawTitular
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
 
   const anclaId: string | null = ROOT_FOLDER_ID || null
   let folderId: string
