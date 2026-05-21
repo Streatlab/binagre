@@ -1,6 +1,5 @@
 import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses,calcNetoCanal}from'@/hooks/useRunningAnual'
-import{useTitular}from'@/contexts/TitularContext'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
 import{supabase}from'@/lib/supabase'
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -22,9 +21,10 @@ const fD=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'�
 const fP=(v:number)=>v?`${v.toFixed(1)}%`:'—'
 const po=(p:number,t:number)=>t?(p/t)*100:0
 const DESV_PCT=5
+// Semáforo del módulo Objetivos: verde ≥50%, amarillo 25-50%, rojo <25%
+const semColor=(pct:number):string=>{if(pct>=50)return COLORS.ok;if(pct>=25)return'#f5a623';return'#E24B4A'}
 type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;ads:number;neto_cobrado:number;reembolsos_clientes?:number;tasa_mantenimiento?:number;tasa_uber_one?:number;coste_gestion_je?:number;reembolsos_2x?:number}
 export default function Running(){
-const{filtro,titulares}=useTitular()
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
 const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
@@ -36,8 +36,8 @@ const[platOpen,sPO]=useState<Record<string,boolean>>({uber:true,glovo:true,je:tr
 const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const topRef=useRef<HTMLDivElement>(null)
-const tId=filtro==='unificado'?null:filtro
-const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,loading}=useRunningAnual(año,tId)
+// Streat Lab unificado: nunca filtramos por titular
+const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,objetivosMensuales,loading}=useRunningAnual(año,null)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const top=topRef.current;if(!main||!top)return
@@ -59,6 +59,9 @@ const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
 const pe=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)
 const fB=(ms:number[])=>ms.reduce((s,m)=>{const real=brutos[m]?.total||0;if(real>0)return s+real;return s+(facturacionFutura[m]?.importe||0)},0)
 const fBisEst=(ms:number[])=>{for(const m of ms){const real=brutos[m]?.total||0;if(real===0&&facturacionFutura[m]?.importe)return true}return false}
+// Objetivo facturación: suma de los meses del periodo
+const objFact=(ms:number[])=>ms.reduce((s,m)=>s+(objetivosMensuales[m]||0),0)
+const objCumplPct=(ms:number[])=>{const obj=objFact(ms);if(!obj)return 0;return Math.min((fB(ms)/obj)*100,100)}
 const nE=(ms:number[])=>{
   let s=0
   for(const m of ms){
@@ -86,23 +89,21 @@ const vc=cols
 const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
 const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
 const cQ=(c:Col)=>{for(let q=1;q<=4;q++){if(c.isQ&&c.qn===q)return q;if(!c.isQ&&!c.isY&&QM[q].includes(c.ms[0]))return q};return 0}
-// AÑO sin colores, igual que mes normal
 const colBg=(c:Col,resumen?:boolean):string=>{if(c.isCur&&!c.isQ&&!c.isY)return CUR_BG;const q=cQ(c);if(c.isQ&&q)return Q_TOT[q-1];if(c.isY)return'#fafafa';if(q)return resumen?Q_RES[q-1]:Q_MES[q-1];return'transparent'}
 const thC=(c:Col):React.CSSProperties=>{const q=cQ(c);const qy=c.isQ||c.isY;return{fontFamily:FONT.heading,fontSize:12,fontWeight:qy?700:(c.isCur?700:500),letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'4px 4px',borderBottom:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',userSelect:'none',color:qy?(c.isY?COLORS.mut:QCL[q-1]):(c.isCur?'#fff':COLORS.mut),background:c.isCur&&!qy?BL:(c.isQ&&q?Q_HDR[q-1]:(c.isY?'#f0ede7':(q?Q_MES[q-1]:COLORS.bg)))}}
-// SOMBRA derecha visible para separar la columna sticky
 const STICKY_SHADOW='4px 0 8px -2px rgba(0,0,0,.08)'
 const th1:React.CSSProperties={fontFamily:FONT.heading,fontSize:12,fontWeight:600,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',textAlign:'left',padding:'4px 8px',background:'#fff',borderBottom:`1px solid ${COLORS.brd}`,borderRight:`1px solid ${COLORS.brd}`,whiteSpace:'nowrap',position:'sticky',left:0,zIndex:6,minWidth:W_LABEL,width:W_LABEL,boxShadow:STICKY_SHADOW}
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,color:c.isCur?'rgba(255,255,255,.7)':(COLORS.mut+'70'),minWidth:28,padding:'4px 1px',position:'static',boxShadow:'none',borderRight:'none'})
 const td0=(c:Col,resumen?:boolean):React.CSSProperties=>{const qy=c.isQ||c.isY;return{padding:'1px 4px',fontSize:15,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:qy?600:(c.isCur?500:400),background:colBg(c,resumen)}}
-// t1 SIEMPRE con fondo SÓLIDO BLANCO obligatorio + sombra derecha para evitar solapamiento
 const t1:React.CSSProperties={padding:'1px 8px',fontSize:14,fontFamily:FONT.body,color:COLORS.sec,borderBottom:`0.5px solid ${COLORS.brd}18`,borderRight:`1px solid ${COLORS.brd}30`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:5,verticalAlign:'middle',background:'#fff',minWidth:W_LABEL,width:W_LABEL,boxShadow:STICKY_SHADOW}
 const tdP=(c:Col,resumen?:boolean):React.CSSProperties=>({...td0(c,resumen),fontSize:12,color:COLORS.mut+'90',padding:'1px 1px',minWidth:28})
-// Tamaños UNIFORMES (AÑO igual que resto)
 const nZ=(_c:Col,rz?:boolean):React.CSSProperties=>({fontFamily:FONT.heading,fontSize:rz?16:15,fontWeight:600,letterSpacing:'0.3px'})
 const r1=(bc?:string):React.CSSProperties=>({...t1,background:'#fff',borderLeft:`3px solid ${bc||COLORS.redSL}`,fontSize:14})
 const rC=(c:Col):React.CSSProperties=>({...td0(c,true)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:14,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
 const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip,estFn}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string;estFn?:(ms:number[])=>boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const es=estFn?estFn(c.ms):false;const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily,fontStyle:es?'italic':undefined}}>{pct?fP(v):v?fI(v):'—'}{es&&v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>:null}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c,rz),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c,rz)}/>]})}</>)
+// Celda objetivo facturación CON BARRA + semáforo verde≥50% / amarillo 25-50% / rojo<25%
+const CellsObj=()=>(<>{vc.map((c,i)=>{const obj=objFact(c.ms);const real=fB(c.ms);const pct=obj?(real/obj)*100:0;const pctCap=Math.min(pct,100);const col=semColor(pct);const st=td0(c,true);return[<td key={i} style={{...st,...nZ(c,true)}}>{obj?<div style={{display:'flex',flexDirection:'column',gap:2}}><span style={{color:COLORS.sec,fontWeight:600}}>{fI(obj)}</span><div style={{width:'100%',height:4,borderRadius:2,display:'flex',overflow:'hidden'}}><div style={{height:4,background:col,width:`${pctCap}%`,transition:'width 0.4s ease'}}/><div style={{height:4,background:'#E24B4A',flex:1}}/></div></div>:'—'}</td>,<td key={`p${i}`} style={{...tdP(c,true),color:obj?col:undefined,fontWeight:600,fontSize:11}}>{obj?`${Math.round(pct)}%`:'—'}</td>]})}</>)
 const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=14;return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:600}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const extra=reembolsos2xMs(c.ms);const v=(rv||e)+extra;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:13,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
@@ -114,7 +115,6 @@ const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
 let ri=0;const aB=()=>{const b=ri%2===0?'#fff':'#f0ede7';ri++;return b};const rA=()=>{ri=0}
 const hv={onMouseEnter:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=`${COLORS.bg}60`},onMouseLeave:(e:React.MouseEvent<HTMLTableRowElement>)=>{e.currentTarget.style.background=''}}
 const blToggle=(k:string)=>sBl(p=>({...p,[k]:!p[k]}))
-// header section: t1 sticky con fondo sólido propio + resto fila también pintada
 const sectionRow=(content:React.ReactNode,cl:string,onClick?:()=>void)=>{const bg=COLORS.bg;return<tr style={{cursor:onClick?'pointer':'default'}} onClick={onClick}>
   <td style={{...t1,background:bg,fontFamily:FONT.heading,fontSize:13,letterSpacing:'2px',textTransform:'uppercase',color:cl,padding:'8px 8px 3px',borderBottom:`1.5px solid ${cl}40`,borderLeft:`3px solid ${cl}`,fontWeight:700}}>{content}</td>
   {vc.map((c,i)=>[<td key={i} style={{background:bg,borderBottom:`1.5px solid ${cl}40`,padding:0}}/>,<td key={`p${i}`} style={{background:bg,borderBottom:`1.5px solid ${cl}40`,padding:0}}/>])}
@@ -147,8 +147,6 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <div style={{display:'flex',gap:4,alignItems:'center'}}>
 <input placeholder="🔍 Buscar..." value={buscar} onChange={e=>sBu(e.target.value)} style={{padding:'5px 10px',borderRadius:8,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontFamily:FONT.body,fontSize:12,color:COLORS.pri,width:140,outline:'none'}}/>
 <div style={{...TABS_PILL.container}}><select value={año} onChange={e=>sA(Number(e.target.value))} style={pS}>{[2026,2025,2024].map(a=><option key={a} value={a}>{a}</option>)}</select></div>
-<span style={{color:COLORS.brd}}>|</span>
-<div style={{...TABS_PILL.container}}>{[{id:null as string|null,label:'Todos'},...titulares.map(t=>({id:t.id as string|null,label:t.nombre}))].map(t=><button key={t.id||'all'} style={(t.id===tId||(t.id===null&&!tId))?TABS_PILL.active:TABS_PILL.inactive} onClick={()=>{}}>{t.label}</button>)}</div>
 </div></div>
 <div ref={topRef} style={{overflowX:'scroll',overflowY:'hidden',height:14,background:'#e8e5df',borderRadius:7,border:`1px solid ${COLORS.brd}`,marginBottom:6}}><div style={{width:tW,height:1}}/></div>
 <div style={{...CARDS.std,padding:0,overflow:'hidden'}}>
@@ -159,6 +157,7 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 {sHBl('Ingresos · Gastos · Resultado','ing',COLORS.redSL)}{rA() as any}
 {bloque.ing&&<>
 <tr {...hv}><td style={{...ingLabel,color:COLORS.sec}}>Facturación bruta</td><Cells fn={fB} estFn={fBisEst} rz/></tr>
+<tr {...hv}><td style={{...ingLabel,color:COLORS.mut,fontSize:13}}>Objetivo facturación</td><CellsObj/></tr>
 <tr><td style={{...ingLabel,color:COLORS.ok}}>Ingresos netos</td><CI rz/></tr>
 <tr {...hv}><td style={{...r1(),color:COLORS.mut,fontSize:12}}><span style={{color:BL,fontWeight:600}}>Pedidos</span> · <span style={{color:COLORS.warn}}>TM Bruto</span> / <span style={{color:COLORS.ok}}>TM Neto</span></td><CTM rz/></tr>
 {sp}
