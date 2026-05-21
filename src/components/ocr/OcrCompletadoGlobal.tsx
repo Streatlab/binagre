@@ -1,13 +1,12 @@
-// OcrCompletadoGlobal — mini-notificación fuera de /ocr al completarse un proceso
+// OcrCompletadoGlobal v2 — mini-notificación fuera de /ocr al completarse un proceso
+// Hace su propia query ligera cada 5s buscando sesiones completadas recientes.
 // Se auto-oculta a los 20s. NO muestra progreso ni detalle, solo aviso de completado.
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useOcrUpload } from '@/lib/ocrUploadStore'
-import type { OcrSession } from '@/lib/ocrUploadStore'
+import { supabase } from '@/lib/supabase'
 
 interface Notif {
   id: string
-  total: number
   ok: number
   errores: number
   ts: number
@@ -16,35 +15,36 @@ interface Notif {
 export default function OcrCompletadoGlobal() {
   const { pathname } = useLocation()
   const esOcr = pathname === '/ocr'
-  const { sessions } = useOcrUpload()
   const [notifs, setNotifs] = useState<Notif[]>([])
-  const prevProcessing = useRef<Set<string>>(new Set())
+  const vistasRef = useRef<Set<string>>(new Set())
 
-  // Detectar sesiones que pasan de procesando → completada
-  useEffect(() => {
-    const currentProcessing = new Set(sessions.filter(s => s.procesando).map(s => s.id))
-    const justFinished: OcrSession[] = []
-    prevProcessing.current.forEach(id => {
-      if (!currentProcessing.has(id)) {
-        const s = sessions.find(ss => ss.id === id)
-        if (s && !s.cancelado) justFinished.push(s)
+  const checkCompletadas = useCallback(async () => {
+    if (esOcr) return
+    try {
+      const cutoff = new Date(Date.now() - 30000).toISOString()
+      const { data } = await supabase
+        .from('ocr_sessions')
+        .select('id,ok,errores,completado_en')
+        .eq('estado_cola', 'completada')
+        .gte('completado_en', cutoff)
+        .limit(10)
+      if (!data) return
+      const nuevas: Notif[] = []
+      for (const s of data) {
+        if (vistasRef.current.has(s.id)) continue
+        vistasRef.current.add(s.id)
+        nuevas.push({ id: s.id, ok: s.ok || 0, errores: s.errores || 0, ts: Date.now() })
       }
-    })
-    prevProcessing.current = currentProcessing
+      if (nuevas.length > 0) setNotifs(prev => [...prev, ...nuevas])
+    } catch {}
+  }, [esOcr])
 
-    if (justFinished.length > 0) {
-      setNotifs(prev => [
-        ...prev,
-        ...justFinished.map(s => ({
-          id: s.id,
-          total: s.total,
-          ok: s.ok,
-          errores: s.errores,
-          ts: Date.now(),
-        })),
-      ])
-    }
-  }, [sessions])
+  useEffect(() => {
+    if (esOcr) return
+    checkCompletadas()
+    const timer = setInterval(checkCompletadas, 5000)
+    return () => clearInterval(timer)
+  }, [esOcr, checkCompletadas])
 
   // Auto-borrar a los 20s
   useEffect(() => {
@@ -55,7 +55,6 @@ export default function OcrCompletadoGlobal() {
     return () => clearInterval(timer)
   }, [notifs.length])
 
-  // No mostrar nada si estamos en /ocr (ahí está el toast completo)
   if (esOcr) return null
   if (notifs.length === 0) return null
 
