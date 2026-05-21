@@ -16,7 +16,6 @@ export interface RunningAnualData {
   feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
   configCanales: Record<string, CanalConfig>
   marcasActivas: MarcasPorCanal
-  // Objetivo facturación por mes — calculado con la misma lógica del módulo Objetivos
   objetivosMensuales: Record<number, number>
   loading: boolean
 }
@@ -63,17 +62,32 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     let cancelled = false
     async function load() {
       setLoading(true)
-      let qIng = supabase.from('conciliacion').select('fecha,categoria,importe').eq('tipo','ingreso').like('categoria','1.%').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
-      if (titularId) qIng = qIng.eq('titular_id', titularId)
-      const { data: dIng } = await qIng
-      const ingMap: Record<string, Record<number, number>> = {}
-      ;(dIng || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!ingMap[cat]) ingMap[cat] = {}; ingMap[cat][mes] = (ingMap[cat][mes]||0) + Number(r.importe||0) })
 
-      let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
-      if (titularId) qGas = qGas.eq('titular_id', titularId)
-      const { data: dGas } = await qGas
+      // === RUNNING MENSUAL: lectura única desde la vista v_running_mensual ===
+      // Solo cuando NO hay filtro por titular (vista no soporta titularId).
+      // Si hay titularId, fallback a queries individuales.
+      const ingMap: Record<string, Record<number, number>> = {}
       const gasMap: Record<string, Record<number, number>> = {}
-      ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
+
+      if (!titularId) {
+        const { data: dView } = await supabase.from('v_running_mensual').select('mes,codigo,tipo,total').eq('año', año)
+        ;(dView || []).forEach((r: any) => {
+          const map = r.tipo === 'ingreso' ? ingMap : gasMap
+          if (!map[r.codigo]) map[r.codigo] = {}
+          map[r.codigo][r.mes] = (map[r.codigo][r.mes] || 0) + Number(r.total || 0)
+        })
+      } else {
+        // Fallback con filtro por titular: queries individuales
+        let qIng = supabase.from('conciliacion').select('fecha,categoria,importe').eq('tipo','ingreso').like('categoria','1.%').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
+        qIng = qIng.eq('titular_id', titularId)
+        const { data: dIng } = await qIng
+        ;(dIng || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!ingMap[cat]) ingMap[cat] = {}; ingMap[cat][mes] = (ingMap[cat][mes]||0) + Number(r.importe||0) })
+
+        let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
+        qGas = qGas.eq('titular_id', titularId)
+        const { data: dGas } = await qGas
+        ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
+      }
 
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const cats = dCat || []
@@ -118,10 +132,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
-      // OBJETIVOS — calculados igual que el módulo Objetivos
-      // 1. Leer objetivos_dia_semana (7 filas L-D) → suma = objetivo semanal
-      // 2. Para cada mes: objetivo = (semanal / 7) × días del mes
-      // 3. Si hay fila tipo=mensual editada manualmente, esa gana sobre la calculada
       const { data: dDias } = await supabase.from('objetivos_dia_semana').select('dia,importe').order('dia')
       const { data: dObjGen } = await supabase.from('objetivos').select('tipo,importe').in('tipo', ['semanal','mensual','anual'])
       const sumaSemanal = (dDias || []).reduce((a:number, r:any) => a + Number(r.importe || 0), 0)
@@ -132,11 +142,9 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       for (let m = 1; m <= 12; m++) {
         const diasMes = new Date(año, m, 0).getDate()
         const calc = semanalEfectivo > 0 ? Math.round((semanalEfectivo / 7) * diasMes) : 0
-        // Si el objetivo mensual manual está editado, lo usamos sólo en el mes actual (es global, no por mes)
         objMesMap[m] = (objMensualManual > 0 && m === mesActual && año === anioActual) ? objMensualManual : calc
       }
 
-      // FACTURACIÓN FUTURA — cascada: objetivo mes > año anterior > mes anterior
       const facFutMap: RunningAnualData['facturacionFutura'] = {}
       let qBrutPrev = supabase.from('facturacion_diario').select('fecha,total_bruto').gte('fecha',`${año-1}-01-01`).lte('fecha',`${año-1}-12-31`)
       if (titularId) qBrutPrev = qBrutPrev.eq('titular_id', titularId)
