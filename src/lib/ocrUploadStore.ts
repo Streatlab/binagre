@@ -1,10 +1,11 @@
-// ocrUploadStore v25 — patrón "sesión primero, archivos después"
+// ocrUploadStore v26 — toast 20s + auto-relanzamiento worker
 // 1) Crear sesión BBDD inmediatamente con total=N, vacía
 // 2) Lanzar worker YA (procesa archivos según vayan llegando)
 // 3) Subir archivos al Storage uno por uno con paralelismo
 // 4) Tras CADA archivo subido OK, UPDATE incremental añadiéndolo a la cola BBDD
 // 5) Si navegador se cierra a mitad → el worker ya procesa lo subido + lo persistido
 // 6) Cancelar funciona: marca cancelar_solicitado=true → worker para tras archivo en curso
+// 7) Poll cada 3s relanza worker si hay sesiones en_espera (auto-recovery si muere por timeout)
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -54,6 +55,7 @@ let cancelacionesLocales: Set<string> = new Set()
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 4
+const TOAST_COMPLETADO_MS = 20000
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 
@@ -279,6 +281,9 @@ async function cargarSesionesActivas() {
       .order('orden_cola', { ascending: true })
     if (error) return
     rawSessions = (data || []).map(dbToSession)
+    // Auto-relanzar worker si hay sesiones en_espera con archivos pendientes
+    const hayPendientes = rawSessions.some(s => s.procesando && s.archivosPendientes.length > 0 && !s.cancelado)
+    if (hayPendientes) lanzarWorker()
     emit()
   } catch {}
 }
@@ -305,7 +310,7 @@ function suscribirRealtime() {
             setTimeout(() => {
               rawSessions = rawSessions.filter(s => s.id !== next.id)
               emit()
-            }, 15000)
+            }, TOAST_COMPLETADO_MS)
           }
           return
         }
