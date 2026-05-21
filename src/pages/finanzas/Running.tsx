@@ -1,5 +1,6 @@
 import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses,calcNetoCanal}from'@/hooks/useRunningAnual'
+import{calcDesglosePorCanal,type DesgloseCanal}from'@/lib/panel/calcNetoPlataforma'
 import{COLORS,FONT,CARDS,TABS_PILL}from'@/components/panel/resumen/tokens'
 import{supabase}from'@/lib/supabase'
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -21,9 +22,8 @@ const fD=(n:number):string=>{if(!n)return'—';const a=Math.abs(n);return(n<0?'�
 const fP=(v:number)=>v?`${v.toFixed(1)}%`:'—'
 const po=(p:number,t:number)=>t?(p/t)*100:0
 const DESV_PCT=5
-// Semáforo del módulo Objetivos: verde ≥50%, amarillo 25-50%, rojo <25%
 const semColor=(pct:number):string=>{if(pct>=50)return COLORS.ok;if(pct>=25)return'#f5a623';return'#E24B4A'}
-type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;ads:number;neto_cobrado:number;reembolsos_clientes?:number;tasa_mantenimiento?:number;tasa_uber_one?:number;coste_gestion_je?:number;reembolsos_2x?:number}
+type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;neto_real_cobrado:number;pedidos?:number;pedidos_prime?:number;pedidos_promo?:number}
 export default function Running(){
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
@@ -36,7 +36,6 @@ const[platOpen,sPO]=useState<Record<string,boolean>>({uber:true,glovo:true,je:tr
 const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const topRef=useRef<HTMLDivElement>(null)
-// Streat Lab unificado: nunca filtramos por titular
 const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,objetivosMensuales,loading}=useRunningAnual(año,null)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
 useEffect(()=>{
@@ -47,8 +46,33 @@ const syncMain=()=>{if(src&&src!==top)return;src=top;main.scrollLeft=top.scrollL
 main.addEventListener('scroll',syncTop);top.addEventListener('scroll',syncMain)
 return()=>{main.removeEventListener('scroll',syncTop);top.removeEventListener('scroll',syncMain)}
 },[])
-const reembolsos2xUberMes=useMemo(()=>{const m:Record<number,number>={};for(const r of resumenes){if(r.plataforma==='uber'&&r.reembolsos_2x){m[r.mes]=(m[r.mes]||0)+Number(r.reembolsos_2x||0)}};return m},[resumenes])
-const reembolsos2xMs=(ms:number[])=>ms.reduce((s,m)=>s+(reembolsos2xUberMes[m]||0),0)
+
+// === DESGLOSE PLATAFORMA: calcula componentes estimados con calcDesglosePorCanal ===
+// Cachea desglose por (canal, mes) para evitar recalcular. Datos reales OCR sobreescriben estimados.
+const desgloseCache=useMemo(()=>{
+  const cache:Record<string,DesgloseCanal>={}
+  for(let m=1;m<=12;m++){
+    const b=brutos[m];const p=pedidosCanal[m];if(!b||!p)continue
+    const fIni=new Date(año,m-1,1);const fFin=new Date(año,m,0)
+    cache[`uber-${m}`]=calcDesglosePorCanal('uber',b.uber,p.uber,marcasActivas,fIni,fFin)
+    cache[`glovo-${m}`]=calcDesglosePorCanal('glovo',b.glovo,p.glovo,marcasActivas,fIni,fFin)
+    cache[`je-${m}`]=calcDesglosePorCanal('je',b.je,p.je,marcasActivas,fIni,fFin)
+    cache[`web-${m}`]=calcDesglosePorCanal('web',b.web,p.web,marcasActivas,fIni,fFin)
+  }
+  return cache
+},[brutos,pedidosCanal,marcasActivas,año])
+
+// Helper: suma componente de desglose en los meses dados
+const sumDesg=(canal:string,campo:keyof DesgloseCanal,ms:number[]):number=>ms.reduce((s,m)=>{const d=desgloseCache[`${canal}-${m}`];return s+(d?Number(d[campo]||0):0)},0)
+
+// Helper: prefiere dato real OCR (resumenes_plataforma_marca_mensual) si existe, fallback a estimación
+const rSumOrEst=(plat:string,fieldReal:keyof ResRow,canalEst:string,campoEst:keyof DesgloseCanal,ms:number[]):{val:number;esEst:boolean}=>{
+  let real=0;let hayReal=false
+  for(const r of resumenes){if(r.plataforma===plat&&ms.includes(r.mes)){const v=r[fieldReal];if(typeof v==='number'&&v>0){real+=v;hayReal=true}}}
+  if(hayReal)return{val:real,esEst:false}
+  return{val:sumDesg(canalEst,campoEst,ms),esEst:true}
+}
+
 const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
 const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
 const gT=(ms:number[])=>gP('2.',ms)
@@ -59,9 +83,7 @@ const gV=(ms:number[])=>gP('2.1',ms)+gP('2.4',ms)
 const pe=(ms:number[])=>ms.reduce((s,m)=>s+(brutos[m]?.pedidos||0),0)
 const fB=(ms:number[])=>ms.reduce((s,m)=>{const real=brutos[m]?.total||0;if(real>0)return s+real;return s+(facturacionFutura[m]?.importe||0)},0)
 const fBisEst=(ms:number[])=>{for(const m of ms){const real=brutos[m]?.total||0;if(real===0&&facturacionFutura[m]?.importe)return true}return false}
-// Objetivo facturación: suma de los meses del periodo
 const objFact=(ms:number[])=>ms.reduce((s,m)=>s+(objetivosMensuales[m]||0),0)
-const objCumplPct=(ms:number[])=>{const obj=objFact(ms);if(!obj)return 0;return Math.min((fB(ms)/obj)*100,100)}
 const nE=(ms:number[])=>{
   let s=0
   for(const m of ms){
@@ -75,14 +97,13 @@ const nE=(ms:number[])=>{
   }
   return s
 }
-const iM=(ms:number[])=>{const r=iT(ms);const base=r||nE(ms);return base+reembolsos2xMs(ms)}
+const iM=(ms:number[])=>{const r=iT(ms);return r||nE(ms)}
 const iMisEst=(ms:number[])=>iT(ms)===0&&nE(ms)>0
 const mB=(ms:number[])=>iM(ms)-gP('2.1',ms)
 const tB=(ms:number[])=>{const p=pe(ms);return p?fB(ms)/p:0}
 const tN=(ms:number[])=>{const p=pe(ms);return p?iM(ms)/p:0}
 const cD=(ms:number[])=>{const i=iM(ms);return i?(gP('2.1',ms)+gP('2.2',ms))/i*100:0}
 const vi=(l:string)=>buscar.length<2||l.toLowerCase().includes(buscar.toLowerCase())
-const rSum=(plat:string,field:keyof ResRow,ms:number[]):number=>{let s=0;for(const r of resumenes){if(r.plataforma===plat&&ms.includes(r.mes)){const v=r[field];if(typeof v==='number')s+=v}};return s}
 type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean;isCur?:boolean}
 const cols=useMemo(()=>{const c:Col[]=[];for(let q=1;q<=4;q++){QM[q].forEach(m=>c.push({label:MN[m-1],ms:[m],isCur:m===cM}));c.push({label:`${q}T`,ms:QM[q],isQ:true,qn:q})};c.push({label:'AÑO',ms:ALL,isY:true});return c},[])
 const vc=cols
@@ -102,10 +123,9 @@ const r1=(bc?:string):React.CSSProperties=>({...t1,background:'#fff',borderLeft:
 const rC=(c:Col):React.CSSProperties=>({...td0(c,true)})
 const ingLabel:React.CSSProperties={...r1(),fontFamily:FONT.heading,fontSize:14,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
 const Cells=({fn,sign,pct,pctFn,alertMax,vc:vcl,rz,tip,estFn}:{fn:(ms:number[])=>number;sign?:boolean;pct?:boolean;pctFn?:(ms:number[])=>number;alertMax?:number;vc?:string;rz?:boolean;tip?:string;estFn?:(ms:number[])=>boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const cl=vcl||(sign?(v>0?COLORS.ok:v<0?COLORS.err:COLORS.mut):undefined);const st=rz?rC(c):td0(c);const es=estFn?estFn(c.ms):false;const vt=<td key={i} style={{...st,color:cl||st.color,...(v&&!pct?nZ(c,rz):{}),fontFamily:v&&!pct?FONT.heading:st.fontFamily,fontStyle:es?'italic':undefined}}>{pct?fP(v):v?fI(v):'—'}{es&&v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>:null}</td>;if(pctFn){const pv=pctFn(c.ms);const ov=alertMax&&pv>alertMax;return[vt,<td key={`p${i}`} style={{...tdP(c,rz),color:ov?COLORS.err:undefined,fontWeight:ov?600:undefined}} title={tip}>{pv?(ov?<span style={{display:'inline-flex',alignItems:'center',gap:1}}><span style={{fontSize:11}}>⚠</span>{pv.toFixed(1)}%</span>:`${pv.toFixed(1)}%`):'—'}</td>]}return[vt,<td key={`p${i}`} style={tdP(c,rz)}/>]})}</>)
-// Celda objetivo facturación CON BARRA + semáforo verde≥50% / amarillo 25-50% / rojo<25%
 const CellsObj=()=>(<>{vc.map((c,i)=>{const obj=objFact(c.ms);const real=fB(c.ms);const pct=obj?(real/obj)*100:0;const pctCap=Math.min(pct,100);const col=semColor(pct);const st=td0(c,true);return[<td key={i} style={{...st,...nZ(c,true)}}>{obj?<div style={{display:'flex',flexDirection:'column',gap:2}}><span style={{color:COLORS.sec,fontWeight:600}}>{fI(obj)}</span><div style={{width:'100%',height:4,borderRadius:2,display:'flex',overflow:'hidden'}}><div style={{height:4,background:col,width:`${pctCap}%`,transition:'width 0.4s ease'}}/><div style={{height:4,background:'#E24B4A',flex:1}}/></div></div>:'—'}</td>,<td key={`p${i}`} style={{...tdP(c,true),color:obj?col:undefined,fontWeight:600,fontSize:11}}>{obj?`${Math.round(pct)}%`:'—'}</td>]})}</>)
 const CTM=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const p=pe(c.ms);const tb=tB(c.ms);const tn=tN(c.ms);const st=r?rC(c):td0(c);const sz=14;return[<td key={i} style={{...st,fontFamily:FONT.heading,fontSize:sz,fontWeight:600}}>{p?<><span style={{color:BL}}>{fI(p)}</span>{' '}<span style={{color:COLORS.warn,fontSize:sz}}>{fD(tb)}</span><span style={{color:COLORS.mut,fontSize:sz-4}}>/</span><span style={{color:COLORS.ok,fontSize:sz}}>{fD(tn)}</span></>:'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
-const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const extra=reembolsos2xMs(c.ms);const v=(rv||e)+extra;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
+const CI=({rz:r}:{rz?:boolean})=>(<>{vc.map((c,i)=>{const rv=iT(c.ms);const e=nE(c.ms);const v=rv||e;const es=!rv&&e>0;const st=r?rC(c):td0(c);return[<td key={i} style={{...st,...nZ(c,r),color:COLORS.ok,fontStyle:es?'italic':undefined}}>{v?fI(v):'—'}{es&&<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CR=({fn,rz:r}:{fn:(ms:number[])=>number;rz?:boolean})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const st=r?rC(c):td0(c);return[<td key={i} style={{...st,fontSize:13,color:COLORS.mut,fontStyle:'italic',fontFamily:FONT.heading}}>{v?fD(v):'—'}</td>,<td key={`p${i}`} style={tdP(c,r)}/>]})}</>)
 const CB=({fn,max,min}:{fn:(ms:number[])=>number;max:number;min?:number})=>(<>{vc.map((c,i)=>{const v=fn(c.ms);const mn=min||0;const dentro=v>=mn&&v<=max;const cerca=!dentro&&(v>=mn-DESV_PCT&&v<=max+DESV_PCT);const bc=dentro?COLORS.ok:(cerca?COLORS.warn:'#E24B4A');const pctBar=Math.min(v,100);return[<td key={i} style={{...td0(c),...nZ(c),color:bc}}>{v?fP(v):'—'}<div style={{width:'100%',height:5,borderRadius:3,display:'flex',overflow:'hidden',marginTop:1}}><div style={{height:5,background:bc,width:`${pctBar}%`,borderRadius:'3px 0 0 3px',transition:'width 0.4s ease'}}/><div style={{height:5,background:'#E24B4A',flex:1,borderRadius:'0 3px 3px 0'}}/></div></td>,<td key={`p${i}`} style={tdP(c)}/>]})}</>)
 const Sp=({fn}:{fn:(ms:number[])=>number})=>{const vs=ALL.map(m=>fn([m]));const mx=Math.max(...vs.map(v=>Math.abs(v)),1);return<span style={{display:'inline-flex',alignItems:'flex-end',gap:1,height:16,verticalAlign:'middle',marginLeft:6}}>{vs.map((v,i)=><span key={i} style={{width:3,borderRadius:'1px 1px 0 0',height:`${Math.max(Math.abs(v)/mx*16,v?1:0)}px`,background:v>0?COLORS.ok:v<0?COLORS.err:COLORS.brd}}/>)}</span>}
@@ -137,8 +157,19 @@ const platHeader=(name:string,color:string,key:string)=>{const bg=`${color}10`;r
   <td style={{...t1,background:bg,fontFamily:FONT.heading,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',color:color,padding:'6px 8px 3px',borderLeft:`3px solid ${color}`,fontWeight:700}}>{platOpen[key]?'▾':'▸'} {name}</td>
   {vc.map((c,i)=>[<td key={i} style={{background:bg,padding:0}}/>,<td key={`p${i}`} style={{background:bg,padding:0}}/>])}
 </tr>}
-const platRow=(label:string,plat:string,field:keyof ResRow,negative?:boolean,color?:string)=><tr {...hv}><td style={{...t1,paddingLeft:18,fontSize:12,color:color||COLORS.mut}}>{label}</td>{vc.map((c,i)=>{const v=rSum(plat,field,c.ms);const st=td0(c);return[<td key={i} style={{...st,color:color||(negative?COLORS.err:COLORS.sec),fontFamily:v?FONT.heading:st.fontFamily,...(v?nZ(c):{})}}>{v?(negative?'−':'')+fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
-const platNet=(name:string,plat:string)=><tr><td style={{...t1,paddingLeft:18,fontWeight:700,fontFamily:FONT.heading,fontSize:13,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto real {name}</td>{vc.map((c,i)=>{const v=rSum(plat,'neto_cobrado',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+
+// Línea desglose: muestra dato real si hay OCR, sino el estimado calculado con fórmula canónica
+const platRowEst=(label:string,canalEst:string,campoEst:keyof DesgloseCanal,negative:boolean=true)=><tr {...hv}><td style={{...t1,paddingLeft:18,fontSize:12,color:COLORS.mut}}>{label}</td>{vc.map((c,i)=>{const v=sumDesg(canalEst,campoEst,c.ms);const st=td0(c);return[<td key={i} style={{...st,color:negative?COLORS.err:COLORS.sec,fontFamily:v?FONT.heading:st.fontFamily,fontStyle:v?'italic':undefined,...(v?nZ(c):{})}}>{v?(negative?'−':'')+fI(v):'—'}{v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>:null}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+
+// Línea bruto: real desde facturacion_diario
+const platRowBruto=(plat:'uber'|'glovo'|'je'|'web')=><tr {...hv}><td style={{...t1,paddingLeft:18,fontSize:12,color:COLORS.mut}}>Bruto pagado por cliente</td>{vc.map((c,i)=>{const v=c.ms.reduce((s,m)=>s+(brutos[m]?.[plat]||0),0);const st=td0(c);return[<td key={i} style={{...st,fontFamily:v?FONT.heading:st.fontFamily,...(v?nZ(c):{})}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+
+// Línea neto estimado plataforma: bruto − todos los componentes
+const platRowNetoEst=(name:string,canal:string)=><tr><td style={{...t1,paddingLeft:18,fontWeight:700,fontFamily:FONT.heading,fontSize:13,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px',borderTop:`1px solid ${COLORS.brd}`}}>= Neto estimado {name}</td>{vc.map((c,i)=>{const v=sumDesg(canal,'neto',c.ms);const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:COLORS.ok,fontStyle:'italic'}}>{v?fI(v):'—'}{v?<span style={{fontSize:9,color:COLORS.mut,marginLeft:2,fontStyle:'normal',fontFamily:FONT.body}} title="Estimado">(est.)</span>:null}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+
+// Línea neto real cobrado: solo desde conciliación OCR
+const platRowNetoReal=(name:string,plat:string)=><tr><td style={{...t1,paddingLeft:18,fontWeight:700,fontFamily:FONT.heading,fontSize:13,color:COLORS.ok,textTransform:'uppercase',letterSpacing:'1px'}}>= Neto real cobrado {name}</td>{vc.map((c,i)=>{let v=0;for(const r of resumenes){if(r.plataforma===plat&&c.ms.includes(r.mes)){v+=Number(r.neto_real_cobrado||0)}}const st=td0(c);return[<td key={i} style={{...st,...nZ(c),color:v?COLORS.ok:COLORS.mut}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP(c)}/>]})}</tr>
+
 const togglePyGAll=()=>{const n=!allBl;sBl({ing:n,dist:n,ratios:n});sAllBl(n)}
 const toggleDetAll=()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}
 return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}>
@@ -196,41 +227,39 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 {dPlat&&<>
 {platHeader('Uber Eats','#1D9E75','uber')}
 {platOpen.uber&&<>
-{platRow('Bruto pagado por cliente','uber','bruto')}
-{platRow('Comisión Uber + IVA','uber','comisiones',true)}
-{platRow('Tasa semanal mant. + IVA','uber','tasa_mantenimiento',true)}
-{platRow('Tasa Uber One/pedido + IVA','uber','tasa_uber_one',true)}
-{platRow('Reembolsos a clientes','uber','reembolsos_clientes',true)}
-{platRow('Ads','uber','ads',true)}
-{platRow('Reembolsos cobrados 2x','uber','reembolsos_2x',false,COLORS.ok)}
-{platNet('Uber','uber')}
+{platRowBruto('uber')}
+{platRowEst('Comisión Uber + IVA (30/33%)','uber','comisionConIva')}
+{platRowEst('Tasa Uber One/pedido + IVA (0,82€ × promo)','uber','feePromoConIva')}
+{platRowEst('Tasa semanal mant. + IVA (2,29€/sem × marcas)','uber','feePeriodicoConIva')}
+{platRowNetoEst('Uber','uber')}
+{platRowNetoReal('Uber','uber')}
 </>}
 {sp}
 {platHeader('Glovo','#FFC244','glovo')}
 {platOpen.glovo&&<>
-{platRow('Bruto pagado por cliente','glovo','bruto')}
-{platRow('Comisión Glovo + IVA','glovo','comisiones',true)}
-{platRow('Fees + IVA','glovo','fees',true)}
-{platRow('Cargos promoción','glovo','cargos_promocion',true)}
-{platRow('Ads','glovo','ads',true)}
-{platNet('Glovo','glovo')}
+{platRowBruto('glovo')}
+{platRowEst('Comisión Glovo + IVA (30%)','glovo','comisionConIva')}
+{platRowEst('Fee Prime + IVA (0,74€ × prime)','glovo','feePrimeConIva')}
+{platRowEst('Cuota quincenal + IVA (10€ × marcas)','glovo','feePeriodicoConIva')}
+{platRowNetoEst('Glovo','glovo')}
+{platRowNetoReal('Glovo','glovo')}
 </>}
 {sp}
 {platHeader('Just Eat','#FF8000','je')}
 {platOpen.je&&<>
-{platRow('Bruto pagado por cliente','just_eat','bruto')}
-{platRow('Comisión Just Eat + IVA','just_eat','comisiones',true)}
-{platRow('Coste gestión/pedido + IVA','just_eat','coste_gestion_je',true)}
-{platRow('Fees + IVA','just_eat','fees',true)}
-{platRow('Ads','just_eat','ads',true)}
-{platNet('Just Eat','just_eat')}
+{platRowBruto('je')}
+{platRowEst('Comisión Just Eat + IVA (30%)','je','comisionConIva')}
+{platRowEst('Coste gestión/pedido + IVA (0,30€)','je','fijoPedidoConIva')}
+{platRowNetoEst('Just Eat','je')}
+{platRowNetoReal('Just Eat','just_eat')}
 </>}
 {sp}
 {platHeader('Tienda online','#1E5BCC','web')}
 {platOpen.web&&<>
-{platRow('Bruto pagado por cliente','web','bruto')}
-{platRow('Comisión pasarela pago','web','comisiones',true)}
-{platNet('Tienda online','web')}
+{platRowBruto('web')}
+{platRowEst('Pasarela pago + IVA (0,50€/pedido)','web','fijoPedidoConIva')}
+{platRowNetoEst('Tienda online','web')}
+{platRowNetoReal('Tienda online','web')}
 </>}
 </>}
 <tr><td colSpan={99} style={{height:14,border:'none',background:COLORS.bg,padding:0}}/></tr>
@@ -239,7 +268,7 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr style={{cursor:'pointer'}} onClick={()=>sD(p=>({...p,'1':!p['1']}))}><td style={gR}>{det['1']?'▾':'▸'} 1 · Ingresos por operación</td><Cells fn={iM} estFn={iMisEst}/></tr>
 {det['1']&&<>
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:18,fontWeight:600,fontSize:13}}>1.1 · Ingresos netos por ventas</td><Cells fn={iT}/></tr>
-{ingC.filter(c=>vi(c.nombre)).map(c=>{const b=aB();const isUber=c.id==='1.1.1'||c.nombre.toLowerCase().includes('uber');return[<tr key={c.id} style={{background:b}} {...hv}><td style={{...t1,paddingLeft:30,fontSize:13}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>,isUber?<tr key={c.id+'-r2x'} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:46,color:COLORS.mut,fontSize:12}}>1.1.1.1 · Reembolsos Uber 2x</td><Cells fn={reembolsos2xMs}/></tr>:null].filter(Boolean)}).flat()}
+{ingC.filter(c=>vi(c.nombre)).map(c=>{const b=aB();return<tr key={c.id} style={{background:b}} {...hv}><td style={{...t1,paddingLeft:30,fontSize:13}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(ingresos[c.id]||{},ms)} pctFn={ms=>po(sumMeses(ingresos[c.id]||{},ms),iM(ms))}/></tr>})}
 <tr style={{background:aB()}}><td style={{...t1,paddingLeft:18,fontWeight:600,fontSize:13}}>1.2 · Facturación bruta por ventas</td><Cells fn={fB} estFn={fBisEst}/></tr>
 </>}{sp}
 {grupos.map(g=>{const bn=gB(g.id);const bL=bn?` (${bn.pct_min}-${bn.pct_max}%)`:'';const sN=cN2.filter(c=>c.parent_id===g.id);const nm=LBL[g.id]||g.nombre;const op=!!det[g.id];return[
