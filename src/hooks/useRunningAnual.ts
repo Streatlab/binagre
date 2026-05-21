@@ -20,10 +20,22 @@ export interface RunningAnualData {
   loading: boolean
 }
 
-// Categorías estimables = todas las que están bajo "Fijos Equipo" (2.21) y "Alquiler e inmueble" (2.31)
-// Estos son los grupos donde el gasto se repite mes a mes (sueldos, SS, autónomos, alquiler, seguros, IRPF...)
+// Lista explícita de categorías estimables (gastos fijos que se repiten mes a mes)
+const CATEGORIAS_ESTIMABLES = new Set<string>([
+  // Equipo
+  '2.21.1','2.21.2','2.21.3','2.21.4','2.21.5','2.21.6','2.21.7','2.21.10','2.21.11','2.21.12',
+  // Local
+  '2.31.1','2.31.2','2.31.3',
+  // Internet
+  '2.42.1','2.42.2','2.42.3',
+  // Integraciones
+  '2.43.2','2.43.3','2.43.4',
+  // Suministros (todos)
+  '2.44.1','2.44.2','2.44.3','2.44.4',
+])
+
 function esCategoriaFijaEstimable(catId: string): boolean {
-  return catId.startsWith('2.21.') || catId.startsWith('2.31.')
+  return CATEGORIAS_ESTIMABLES.has(catId)
 }
 
 export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
@@ -74,37 +86,23 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const cats = dCat || []
 
-      // === GASTOS FIJOS ESTIMABLES ===
-      // Para TODA categoría bajo 2.21 (Fijos Equipo) o 2.31 (Alquiler/Inmueble):
-      // Si el mes no tiene factura → coger el último mes con factura (pasado o presente) y replicar.
-      // Aplica tanto a meses pasados sin factura como a meses futuros del año.
+      // === GASTOS FIJOS ESTIMABLES (lista explícita) ===
       const gasEstMap: Record<string, Record<number, boolean>> = {}
-      const mesActual = new Date().getMonth() + 1
-      const anioActual = new Date().getFullYear()
-      const codigosFijos = cats.filter((c:any) => esCategoriaFijaEstimable(c.id)).map((c:any) => c.id)
-      for (const cat of codigosFijos) {
+      for (const cat of Array.from(CATEGORIAS_ESTIMABLES)) {
         if (!gasMap[cat]) gasMap[cat] = {}
         if (!gasEstMap[cat]) gasEstMap[cat] = {}
-        // Encontrar el último importe real conocido (recorrer hacia atrás desde mes 12)
+        // Forward fill: replicar último importe real hacia delante
         let ultimoImporte = 0
         for (let mes = 1; mes <= 12; mes++) {
           const valorReal = gasMap[cat][mes] || 0
           if (valorReal > 0) {
-            ultimoImporte = valorReal // Actualizamos el "último visto"
-          } else {
-            // Si no hay factura para este mes:
-            // - Si es año pasado entero: estimar con último importe conocido
-            // - Si es año actual y mes <= mes actual: estimar con último importe conocido
-            // - Si es año actual y mes > mes actual: estimar con último importe conocido (proyección a futuro)
-            // - Si es año futuro: estimar con último importe conocido
-            const debeEstimar = año < anioActual || año === anioActual || año > anioActual
-            if (debeEstimar && ultimoImporte > 0) {
-              gasMap[cat][mes] = ultimoImporte
-              gasEstMap[cat][mes] = true
-            }
+            ultimoImporte = valorReal
+          } else if (ultimoImporte > 0) {
+            gasMap[cat][mes] = ultimoImporte
+            gasEstMap[cat][mes] = true
           }
         }
-        // Segunda pasada: si los primeros meses del año están vacíos, mirar el primer mes con dato y replicar hacia atrás
+        // Backward fill: si los primeros meses están vacíos, replicar el primer importe real
         let primerImporte = 0
         for (let mes = 1; mes <= 12; mes++) {
           if (gasMap[cat][mes] && gasMap[cat][mes] > 0 && !gasEstMap[cat][mes]) {
@@ -140,6 +138,8 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
+      const mesActual = new Date().getMonth() + 1
+      const anioActual = new Date().getFullYear()
       const { data: dDias } = await supabase.from('objetivos_dia_semana').select('dia,importe').order('dia')
       const { data: dObjGen } = await supabase.from('objetivos').select('tipo,importe').in('tipo', ['semanal','mensual','anual'])
       const sumaSemanal = (dDias || []).reduce((a:number, r:any) => a + Number(r.importe || 0), 0)
