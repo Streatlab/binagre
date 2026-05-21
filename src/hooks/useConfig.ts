@@ -197,24 +197,6 @@ export function getCanalComision(canales: ConfigCanal[], canalNombre: string): {
 }
 
 /**
- * Helper para hooks que solo necesitan el % comisión por canal abreviado (uber/glovo/je/web/directa).
- * Devuelve {uber:0.30, glovo:0.30, je:0.30, web:0, directa:0} en decimal.
- */
-export function getComisionesMap(canales: ConfigCanal[]): Record<string, number> {
-  const map: Record<string, number> = { uber: 0.30, glovo: 0.30, je: 0.30, web: 0, directa: 0 }
-  for (const c of canales) {
-    const dec = c.comision_pct / 100
-    const n = c.canal.toLowerCase()
-    if (n.includes('uber')) map.uber = dec
-    else if (n.includes('glovo')) map.glovo = dec
-    else if (n.includes('just')) map.je = dec
-    else if (n.includes('web')) map.web = dec
-    else if (n.includes('directa')) map.directa = dec
-  }
-  return map
-}
-
-/**
  * Calcula waterfall (PVP recomendado y margen) para UN PLATO.
  * Aplicación: Escandallo, simulador pricing.
  *
