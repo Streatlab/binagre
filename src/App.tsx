@@ -39,7 +39,7 @@ import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
 import MockupLymon from '@/pages/mockups/MockupLymon'
-import Ocr from '@/pages/Ocr'
+import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
 import Carta from '@/pages/Carta'
@@ -162,7 +162,7 @@ function AppRoutes() {
         <Route path="mockup" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
-        <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
+        <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 
         <Route path="informes" element={<ProtectedRoute solo={['admin']}><InformesPanel /></ProtectedRoute>} />
