@@ -20,24 +20,10 @@ export interface RunningAnualData {
   loading: boolean
 }
 
-const KW_ESTIMABLES: string[] = [
-  'sueldo','salario','nomina','nómina',
-  'autonomo','autónomo','cuota ss','seguridad social',
-  'alquiler','irpf','retencion alquiler','retención alquiler',
-  'seguro local','seguro responsabilidad',
-  'hosting','dominio',
-  'sinqro','rushour',
-  'gestoria','gestoría','asesoria','asesoría',
-  'electricidad','luz',
-  'gas',
-  'agua',
-  'telefono','teléfono','internet'
-]
-
-function esCategoriaEstimable(nombre: string): boolean {
-  if (!nombre) return false
-  const n = nombre.toLowerCase()
-  return KW_ESTIMABLES.some(kw => n.includes(kw))
+// Categorías estimables = todas las que están bajo "Fijos Equipo" (2.21) y "Alquiler e inmueble" (2.31)
+// Estos son los grupos donde el gasto se repite mes a mes (sueldos, SS, autónomos, alquiler, seguros, IRPF...)
+function esCategoriaFijaEstimable(catId: string): boolean {
+  return catId.startsWith('2.21.') || catId.startsWith('2.31.')
 }
 
 export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
@@ -63,9 +49,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     async function load() {
       setLoading(true)
 
-      // === RUNNING MENSUAL: lectura única desde la vista v_running_mensual ===
-      // Solo cuando NO hay filtro por titular (vista no soporta titularId).
-      // Si hay titularId, fallback a queries individuales.
       const ingMap: Record<string, Record<number, number>> = {}
       const gasMap: Record<string, Record<number, number>> = {}
 
@@ -77,7 +60,6 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
           map[r.codigo][r.mes] = (map[r.codigo][r.mes] || 0) + Number(r.total || 0)
         })
       } else {
-        // Fallback con filtro por titular: queries individuales
         let qIng = supabase.from('conciliacion').select('fecha,categoria,importe').eq('tipo','ingreso').like('categoria','1.%').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
         qIng = qIng.eq('titular_id', titularId)
         const { data: dIng } = await qIng
@@ -92,23 +74,49 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
       const cats = dCat || []
 
+      // === GASTOS FIJOS ESTIMABLES ===
+      // Para TODA categoría bajo 2.21 (Fijos Equipo) o 2.31 (Alquiler/Inmueble):
+      // Si el mes no tiene factura → coger el último mes con factura (pasado o presente) y replicar.
+      // Aplica tanto a meses pasados sin factura como a meses futuros del año.
       const gasEstMap: Record<string, Record<number, boolean>> = {}
       const mesActual = new Date().getMonth() + 1
       const anioActual = new Date().getFullYear()
-      const codigosEstimables = cats.filter((c:any) => esCategoriaEstimable(c.nombre)).map((c:any) => c.id)
-      for (const cat of codigosEstimables) {
+      const codigosFijos = cats.filter((c:any) => esCategoriaFijaEstimable(c.id)).map((c:any) => c.id)
+      for (const cat of codigosFijos) {
         if (!gasMap[cat]) gasMap[cat] = {}
         if (!gasEstMap[cat]) gasEstMap[cat] = {}
+        // Encontrar el último importe real conocido (recorrer hacia atrás desde mes 12)
+        let ultimoImporte = 0
         for (let mes = 1; mes <= 12; mes++) {
-          const sinFactura = !gasMap[cat][mes] || gasMap[cat][mes] === 0
-          const esMesElegible = año < anioActual || (año === anioActual && mes <= mesActual)
-          if (sinFactura && esMesElegible) {
-            for (let mPrev = mes - 1; mPrev >= 1; mPrev--) {
-              if (gasMap[cat][mPrev] && gasMap[cat][mPrev] > 0) {
-                gasMap[cat][mes] = gasMap[cat][mPrev]
-                gasEstMap[cat][mes] = true
-                break
-              }
+          const valorReal = gasMap[cat][mes] || 0
+          if (valorReal > 0) {
+            ultimoImporte = valorReal // Actualizamos el "último visto"
+          } else {
+            // Si no hay factura para este mes:
+            // - Si es año pasado entero: estimar con último importe conocido
+            // - Si es año actual y mes <= mes actual: estimar con último importe conocido
+            // - Si es año actual y mes > mes actual: estimar con último importe conocido (proyección a futuro)
+            // - Si es año futuro: estimar con último importe conocido
+            const debeEstimar = año < anioActual || año === anioActual || año > anioActual
+            if (debeEstimar && ultimoImporte > 0) {
+              gasMap[cat][mes] = ultimoImporte
+              gasEstMap[cat][mes] = true
+            }
+          }
+        }
+        // Segunda pasada: si los primeros meses del año están vacíos, mirar el primer mes con dato y replicar hacia atrás
+        let primerImporte = 0
+        for (let mes = 1; mes <= 12; mes++) {
+          if (gasMap[cat][mes] && gasMap[cat][mes] > 0 && !gasEstMap[cat][mes]) {
+            primerImporte = gasMap[cat][mes]
+            break
+          }
+        }
+        if (primerImporte > 0) {
+          for (let mes = 1; mes <= 12; mes++) {
+            if (!gasMap[cat][mes] || gasMap[cat][mes] === 0) {
+              gasMap[cat][mes] = primerImporte
+              gasEstMap[cat][mes] = true
             }
           }
         }
