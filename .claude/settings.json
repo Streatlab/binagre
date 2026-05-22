@@ -1,12 +1,17 @@
 {
-  "model": "sonnet",
-  "env": {
-    "MAX_THINKING_TOKENS": "10000",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
+    ]
   },
-  "hooks": {
-    "PreToolUse": ".claude/hooks/pre-tool-use.sh",
-    "PostToolUse": ".claude/hooks/post-tool-use.sh",
-    "SubagentStop": ".claude/hooks/subagent-stop.sh"
+  "worktree": {
+    "baseRef": "head"
   }
 }
