@@ -1,9 +1,8 @@
-// ocrUploadStore v27 — RAR support + cancelar no borra lo procesado
-// Cambios vs v26:
-// - RAR: se sube tal cual al Storage (edge function lo descomprime server-side)
-// - Cancelar: marca cancelar_solicitado + vacía cola, pero visible=true + estado_cola='cancelada'
-//   → toast muestra resumen 20s y luego desaparece (no oculta inmediatamente)
-//   → lo ya procesado (facturas + Drive) permanece intacto
+// ocrUploadStore v28 — retry automático subida (3 intentos, backoff exponencial)
+// Cambios vs v27:
+// - conReintentos(): 3 intentos con espera 2s/4s/8s para errores de red/timeout
+// - NO reintenta errores permanentes: tamaño excedido, Object not found
+// - subirAlStorage y procesarUno usan conReintentos automáticamente
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -54,10 +53,49 @@ let cancelacionesLocales: Set<string> = new Set()
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 4
 const TOAST_COMPLETADO_MS = 20000
+const RETRY_MAX = 3
+const RETRY_BASE_MS = 2000
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
+
+// --- RETRY ---
+// Errores permanentes que no mejoran reintentando
+const ERRORES_PERMANENTES = [
+  'exceeded the maximum allowed size',
+  'Object not found',
+  'Bucket not found',
+  'duplicate',
+  'ya existe',
+]
+
+function esErrorPermanente(msg: string): boolean {
+  return ERRORES_PERMANENTES.some(p => msg.includes(p))
+}
+
+function esperar(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+async function conReintentos<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let ultimo: any
+  for (let intento = 0; intento < RETRY_MAX; intento++) {
+    try {
+      return await fn()
+    } catch (e: any) {
+      ultimo = e
+      const msg = e?.message || String(e)
+      if (esErrorPermanente(msg)) throw e
+      if (intento < RETRY_MAX - 1) {
+        const wait = RETRY_BASE_MS * Math.pow(2, intento) // 2s, 4s, 8s
+        console.warn(`[OCR retry] ${label} intento ${intento + 1}/${RETRY_MAX} falló: ${msg}. Reintentando en ${wait}ms…`)
+        await esperar(wait)
+      }
+    }
+  }
+  throw ultimo
+}
 
 async function cargarSheetJS(): Promise<any> {
   if ((window as any).XLSX) return (window as any).XLSX
@@ -370,9 +408,11 @@ function quitarPreparando(idLocal: string) {
 
 async function subirAlStorage(grupoId: string, idx: number, name: string, type: string, blob: Blob): Promise<string> {
   const path = `${grupoId}/${sanitizeForPath(name, idx)}`
-  const { error } = await supabase.storage.from('ocr-uploads').upload(path, blob, { contentType: type, upsert: true })
-  if (error) throw new Error(`storage: ${error.message}`)
-  return path
+  return conReintentos(async () => {
+    const { error } = await supabase.storage.from('ocr-uploads').upload(path, blob, { contentType: type, upsert: true })
+    if (error) throw new Error(`storage: ${error.message}`)
+    return path
+  }, `upload ${name}`)
 }
 
 async function crearSesionBBDD(
@@ -392,21 +432,23 @@ async function crearSesionBBDD(
 }
 
 async function añadirArchivoASesion(sesionId: string, archivo: any): Promise<string | null> {
-  const { data: ses, error: errR } = await supabase
-    .from('ocr_sessions')
-    .select('archivos_pendientes,cancelar_solicitado')
-    .eq('id', sesionId)
-    .maybeSingle()
-  if (errR || !ses) return errR?.message || 'sesión no encontrada'
-  if (ses.cancelar_solicitado) return 'cancelada'
-  const actuales = (ses.archivos_pendientes as any[]) || []
-  const nuevos = [...actuales, archivo]
-  const { error } = await supabase
-    .from('ocr_sessions')
-    .update({ archivos_pendientes: nuevos })
-    .eq('id', sesionId)
-  if (error) return error.message
-  return null
+  return conReintentos(async () => {
+    const { data: ses, error: errR } = await supabase
+      .from('ocr_sessions')
+      .select('archivos_pendientes,cancelar_solicitado')
+      .eq('id', sesionId)
+      .maybeSingle()
+    if (errR || !ses) throw new Error(errR?.message || 'sesión no encontrada')
+    if (ses.cancelar_solicitado) return 'cancelada'
+    const actuales = (ses.archivos_pendientes as any[]) || []
+    const nuevos = [...actuales, archivo]
+    const { error } = await supabase
+      .from('ocr_sessions')
+      .update({ archivos_pendientes: nuevos })
+      .eq('id', sesionId)
+    if (error) throw new Error(error.message)
+    return null
+  }, `addFile ${archivo.name}`)
 }
 
 async function añadirErrorASesion(sesionId: string, filename: string, detalle: string) {
@@ -506,18 +548,14 @@ export function useOcrUpload() {
     lanzarWorker()
   }
 
-  // CANCELAR: para el proceso de ahí en adelante. Lo ya procesado se queda intacto.
-  // Toast permanece visible 20s mostrando resumen (via realtime handler de estado_cola='cancelada')
   async function cancelar(id: string) {
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
       cancelacionesLocales.add(grupoId)
-      // Solo marca cancelar + vacía cola. visible=true para que el toast muestre resumen 20s
       await supabase
         .from('ocr_sessions')
         .update({ cancelar_solicitado: true, archivos_pendientes: [], estado: 'cancelada', estado_cola: 'cancelada' })
         .eq('grupo_id', grupoId)
-      // El realtime handler detectará estado_cola='cancelada' y auto-ocultará tras 20s
     } else {
       await supabase
         .from('ocr_sessions')
