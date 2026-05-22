@@ -92,6 +92,7 @@ import PanelResenas from '@/pages/clientes/PanelResenas'
 import PosVentas from '@/pages/integraciones/PosVentas'
 
 import InformesPanel from '@/pages/informes/InformesPanel'
+import ImportarVentas from '@/pages/ImportarVentas'
 import Destinatarios from '@/pages/informes/Destinatarios'
 import Historial from '@/pages/informes/Historial'
 import ConfiguracionInformes from '@/pages/informes/ConfiguracionInformes'
@@ -161,6 +162,7 @@ function AppRoutes() {
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
+        <Route path="importar-ventas" element={<ProtectedRoute solo={['admin']}><ImportarVentas /></ProtectedRoute>} />
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 
         <Route path="informes" element={<ProtectedRoute solo={['admin']}><InformesPanel /></ProtectedRoute>} />
