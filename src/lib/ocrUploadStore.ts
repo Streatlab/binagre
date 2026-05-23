@@ -1,9 +1,9 @@
-// ocrUploadStore v30 — retry ilimitado + sin TUS + RAR/7z ya nunca llegan aquí
-// Cambios vs v29:
-// - Sin TUS (RAR se descomprime en Ocr.tsx antes de llegar aquí)
-// - Retry ilimitado con backoff capped a 30s (nunca se rinde, solo cancela el usuario)
-// - normalizar() ya no acepta RAR/7z como blob (son error si llegan)
-// - ERRORES_PERMANENTES reducidos al mínimo real
+// ocrUploadStore v31 — RAR/7z server-side via ocr-expandir-archivo
+// ZIP se sigue descomprimiendo en browser (ya funciona bien)
+// RAR y 7z: se suben enteros al Storage con retry ilimitado
+// → luego se llama a ocr-expandir-archivo que los descomprime en Deno server-side
+// → esa edge function llama a ocr-procesar-factura por cada archivo interno
+// → también con retry ilimitado dentro de la edge function
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -40,7 +40,6 @@ export interface OcrSession {
   archivoActual?: string | null
   grupoId?: string | null
   lotesIds?: string[]
-  subiendoAStorage?: number | null
 }
 
 const emitter = new EventTarget()
@@ -55,28 +54,18 @@ const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 4
 const TOAST_COMPLETADO_MS = 20000
 
-// Retry ilimitado — solo para si el usuario cancela
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
 
-// Solo errores que NUNCA van a mejorar reintentando
-const ERRORES_PERMANENTES = [
-  'Bucket not found',
-  'ya existe',
-]
+const EXTS_COMPRIMIDOS_SERVER = new Set(['rar', '7z']) // descomprimir server-side
+
+const ERRORES_PERMANENTES = ['Bucket not found', 'ya existe']
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
+function esErrorPermanente(msg: string): boolean { return ERRORES_PERMANENTES.some(p => msg.includes(p)) }
+function esperar(ms: number): Promise<void> { return new Promise(r => setTimeout(r, ms)) }
 
-function esErrorPermanente(msg: string): boolean {
-  return ERRORES_PERMANENTES.some(p => msg.includes(p))
-}
-
-function esperar(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms))
-}
-
-// Retry ilimitado con backoff capped — para solo si cancelado() devuelve true
 async function conReintentos<T>(
   fn: () => Promise<T>,
   label: string,
@@ -183,8 +172,7 @@ async function htmlATexto(file: File | Blob): Promise<string> {
   const html = await file.text()
   const div = document.createElement('div')
   div.innerHTML = html
-  const scripts = div.querySelectorAll('script,style,noscript')
-  scripts.forEach(s => s.remove())
+  div.querySelectorAll('script,style,noscript').forEach(s => s.remove())
   return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim()
 }
 
@@ -194,6 +182,7 @@ function getMimeTypeBase(ext: string): string {
     webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
     tif: 'image/tiff', tiff: 'image/tiff', gif: 'image/gif', bmp: 'image/bmp',
     csv: 'text/csv', txt: 'text/plain',
+    rar: 'application/x-rar-compressed', '7z': 'application/x-7z-compressed',
   }
   return map[ext] ?? 'application/octet-stream'
 }
@@ -216,8 +205,8 @@ async function normalizar(file: File): Promise<{ name: string; type: string; blo
     const t = await htmlATexto(file)
     return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
   }
-  // RAR/7z/ZIP nunca deben llegar aquí — se descomprimen en Ocr.tsx antes
-  // Si llegan es un bug, igual los subimos como están para no perderlos
+  // RAR/7z: se suben tal cual — se descomprimirán server-side
+  // ZIP: ya se descomprimió en Ocr.tsx antes de llegar aquí
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
   return { name: file.name, type: t, blob: file }
 }
@@ -229,28 +218,18 @@ function sanitizeForPath(name: string, idx: number): string {
 
 function dbToSession(s: any): OcrSession {
   return {
-    id: s.id,
-    total: s.total || 0,
-    enviados: s.enviados || 0,
-    ok: s.ok || 0,
-    pendientes: s.pendientes || 0,
-    duplicados: s.duplicados || 0,
-    errores: s.errores || 0,
-    achtung: s.achtung || 0,
-    cancelados: s.cancelados || 0,
-    achtungMensaje: s.achtung_mensaje || null,
-    achtungTipo: s.achtung_tipo || null,
-    log: (s.log as any[]) || [],
-    visible: s.visible !== false,
+    id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0,
+    pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0,
+    achtung: s.achtung || 0, cancelados: s.cancelados || 0,
+    achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null,
+    log: (s.log as any[]) || [], visible: s.visible !== false,
     procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera',
     cancelado: s.estado === 'cancelada' || s.cancelar_solicitado,
-    fnName: s.fn_name || null,
-    titular_id: s.titular_id || null,
+    fnName: s.fn_name || null, titular_id: s.titular_id || null,
     archivosPendientes: (s.archivos_pendientes as any[]) || [],
     creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(),
     completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null,
-    orden: s.orden_cola || 0,
-    grupoId: s.grupo_id || null,
+    orden: s.orden_cola || 0, grupoId: s.grupo_id || null,
   }
 }
 
@@ -258,12 +237,8 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
   const sueltas: OcrSession[] = []
   const porGrupo: Record<string, OcrSession[]> = {}
   for (const s of raw) {
-    if (s.grupoId) {
-      if (!porGrupo[s.grupoId]) porGrupo[s.grupoId] = []
-      porGrupo[s.grupoId].push(s)
-    } else {
-      sueltas.push(s)
-    }
+    if (s.grupoId) { if (!porGrupo[s.grupoId]) porGrupo[s.grupoId] = []; porGrupo[s.grupoId].push(s) }
+    else sueltas.push(s)
   }
   const agregadas: OcrSession[] = Object.entries(porGrupo).map(([grupoId, lotes]) => {
     lotes.sort((a, b) => a.orden - b.orden)
@@ -273,56 +248,39 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
     const achtungL = lotes.find(l => l.achtungMensaje)
     const total = lotes.reduce((acc, l) => acc + l.total, 0)
     const enviados = lotes.reduce((acc, l) => acc + l.enviados, 0)
-    const ok = lotes.reduce((acc, l) => acc + l.ok, 0)
-    const dup = lotes.reduce((acc, l) => acc + l.duplicados, 0)
-    const pend = lotes.reduce((acc, l) => acc + l.pendientes, 0)
-    const err = lotes.reduce((acc, l) => acc + l.errores, 0)
-    const ach = lotes.reduce((acc, l) => acc + l.achtung, 0)
-    const can = lotes.reduce((acc, l) => acc + l.cancelados, 0)
     const logAcumulado: ArchivoLog[] = []
     for (const l of lotes) logAcumulado.push(...(l.log || []))
     const primerLote = lotes[0]
     return {
-      id: `grp_${grupoId}`,
-      total, enviados, ok, pendientes: pend, duplicados: dup, errores: err, achtung: ach, cancelados: can,
-      achtungMensaje: achtungL?.achtungMensaje || null,
-      achtungTipo: achtungL?.achtungTipo || null,
-      log: logAcumulado,
-      visible: lotes.some(l => l.visible),
-      procesando: algunoProcesando,
-      cancelado: todosCancelados,
-      fnName: primerLote.fnName,
-      titular_id: primerLote.titular_id,
-      archivosPendientes: [],
+      id: `grp_${grupoId}`, total, enviados,
+      ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0),
+      duplicados: lotes.reduce((a, l) => a + l.duplicados, 0), errores: lotes.reduce((a, l) => a + l.errores, 0),
+      achtung: lotes.reduce((a, l) => a + l.achtung, 0), cancelados: lotes.reduce((a, l) => a + l.cancelados, 0),
+      achtungMensaje: achtungL?.achtungMensaje || null, achtungTipo: achtungL?.achtungTipo || null,
+      log: logAcumulado, visible: lotes.some(l => l.visible),
+      procesando: algunoProcesando, cancelado: todosCancelados,
+      fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [],
       creadoEn: Math.min(...lotes.map(l => l.creadoEn)),
       completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null,
       orden: primerLote.orden,
       archivoActual: algunoProcesando ? `Procesando ${enviados} de ${total}…` : null,
-      grupoId,
-      lotesIds: lotes.map(l => l.id),
+      grupoId, lotesIds: lotes.map(l => l.id),
     }
   })
   return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
 }
 
-function snapshot(): OcrSession[] {
-  return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)]
-}
+function snapshot(): OcrSession[] { return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)] }
 
 async function cargarSesionesActivas() {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { data, error } = await supabase
-      .from('ocr_sessions')
+    const { data, error } = await supabase.from('ocr_sessions')
       .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id')
-      .gte('creado_en', cutoff)
-      .eq('visible', true)
-      .in('estado_cola', ['en_espera', 'procesando'])
-      .order('orden_cola', { ascending: true })
+      .gte('creado_en', cutoff).eq('visible', true).in('estado_cola', ['en_espera', 'procesando']).order('orden_cola', { ascending: true })
     if (error) return
     rawSessions = (data || []).map(dbToSession)
-    const hayPendientes = rawSessions.some(s => s.procesando && s.archivosPendientes.length > 0 && !s.cancelado)
-    if (hayPendientes) lanzarWorker()
+    if (rawSessions.some(s => s.procesando && s.archivosPendientes.length > 0 && !s.cancelado)) lanzarWorker()
     emit()
   } catch {}
 }
@@ -330,26 +288,18 @@ async function cargarSesionesActivas() {
 function suscribirRealtime() {
   try {
     if (realtimeChannel) return
-    realtimeChannel = supabase
-      .channel('ocr_sessions_live')
+    realtimeChannel = supabase.channel('ocr_sessions_live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ocr_sessions' }, (payload: any) => {
         const row = payload.new || payload.old
         if (!row) return
-        if (payload.eventType === 'DELETE') {
-          rawSessions = rawSessions.filter(s => s.id !== row.id)
-          emit()
-          return
-        }
+        if (payload.eventType === 'DELETE') { rawSessions = rawSessions.filter(s => s.id !== row.id); emit(); return }
         const next = dbToSession(payload.new)
-        if (payload.new.estado_cola === 'completada' || payload.new.estado_cola === 'cancelada' || payload.new.estado === 'error') {
+        if (['completada', 'cancelada'].includes(payload.new.estado_cola) || payload.new.estado === 'error') {
           const ya = rawSessions.find(s => s.id === next.id)
           if (ya) {
             rawSessions = rawSessions.map(s => s.id === next.id ? { ...next, procesando: false } : s)
             emit()
-            setTimeout(() => {
-              rawSessions = rawSessions.filter(s => s.id !== next.id)
-              emit()
-            }, TOAST_COMPLETADO_MS)
+            setTimeout(() => { rawSessions = rawSessions.filter(s => s.id !== next.id); emit() }, TOAST_COMPLETADO_MS)
           }
           return
         }
@@ -357,8 +307,7 @@ function suscribirRealtime() {
         if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s)
         else rawSessions = [...rawSessions, next]
         emit()
-      })
-      .subscribe()
+      }).subscribe()
   } catch {}
 }
 
@@ -378,9 +327,7 @@ function inicializar() {
 if (typeof window !== 'undefined') inicializar()
 
 async function lanzarWorker() {
-  try {
-    await supabase.functions.invoke('ocr-procesar-sesion', { body: {} })
-  } catch {}
+  try { await supabase.functions.invoke('ocr-procesar-sesion', { body: {} }) } catch {}
 }
 
 function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string) {
@@ -416,6 +363,23 @@ async function subirAlStorage(
   }, `upload ${name}`, cancelado)
 }
 
+// Llamar a ocr-expandir-archivo con retry ilimitado para comprimidos server-side
+async function expandirServerSide(
+  storagePath: string,
+  fnName: string,
+  titular_id: string | null,
+  cancelado: () => boolean,
+): Promise<void> {
+  await conReintentos(async () => {
+    if (cancelado()) throw new Error('cancelado')
+    const { error, data } = await supabase.functions.invoke('ocr-expandir-archivo', {
+      body: { storagePath, fnName, titular_id },
+    })
+    if (error) throw new Error(error.message || String(error))
+    if (data?.error) throw new Error(data.error)
+  }, `expandir server-side ${storagePath}`, cancelado)
+}
+
 async function crearSesionBBDD(
   sesionId: string, grupoId: string, total: number,
   fnName: string, titular_id: string | null, ordenCola: number,
@@ -432,40 +396,25 @@ async function crearSesionBBDD(
   return null
 }
 
-async function añadirArchivoASesion(
-  sesionId: string, archivo: any, cancelado: () => boolean,
-): Promise<string | null> {
+async function añadirArchivoASesion(sesionId: string, archivo: any, cancelado: () => boolean): Promise<string | null> {
   return conReintentos(async () => {
     if (cancelado()) return 'cancelada'
-    const { data: ses, error: errR } = await supabase
-      .from('ocr_sessions')
-      .select('archivos_pendientes,cancelar_solicitado')
-      .eq('id', sesionId)
-      .maybeSingle()
+    const { data: ses, error: errR } = await supabase.from('ocr_sessions')
+      .select('archivos_pendientes,cancelar_solicitado').eq('id', sesionId).maybeSingle()
     if (errR || !ses) throw new Error(errR?.message || 'sesión no encontrada')
     if (ses.cancelar_solicitado) return 'cancelada'
-    const actuales = (ses.archivos_pendientes as any[]) || []
-    const nuevos = [...actuales, archivo]
-    const { error } = await supabase
-      .from('ocr_sessions')
-      .update({ archivos_pendientes: nuevos })
-      .eq('id', sesionId)
+    const nuevos = [...((ses.archivos_pendientes as any[]) || []), archivo]
+    const { error } = await supabase.from('ocr_sessions').update({ archivos_pendientes: nuevos }).eq('id', sesionId)
     if (error) throw new Error(error.message)
     return null
   }, `addFile ${archivo.name}`, cancelado)
 }
 
 async function añadirErrorASesion(sesionId: string, filename: string, detalle: string) {
-  const { data: ses } = await supabase
-    .from('ocr_sessions')
-    .select('log,errores,enviados')
-    .eq('id', sesionId)
-    .maybeSingle()
+  const { data: ses } = await supabase.from('ocr_sessions').select('log,errores,enviados').eq('id', sesionId).maybeSingle()
   if (!ses) return
   const log = [...((ses.log as any[]) || []), { filename, status: 'error', detalle: `subida: ${detalle}` }]
-  await supabase.from('ocr_sessions').update({
-    log, errores: (ses.errores || 0) + 1, enviados: (ses.enviados || 0) + 1,
-  }).eq('id', sesionId)
+  await supabase.from('ocr_sessions').update({ log, errores: (ses.errores || 0) + 1, enviados: (ses.enviados || 0) + 1 }).eq('id', sesionId)
 }
 
 export function useOcrUpload() {
@@ -499,10 +448,9 @@ export function useOcrUpload() {
       const sesionId = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
       const err = await crearSesionBBDD(sesionId, grupoId, fin - ini, fnName, titular_id, baseOrden + lote)
       if (err) {
-        const msg = `Error creando sesión BBDD lote ${lote + 1}: ${err}`
-        setErrorVisible(msg)
+        setErrorVisible(`Error creando sesión: ${err}`)
         quitarPreparando(idLocal)
-        throw new Error(msg)
+        return
       }
       sesionesCreadas.push({ id: sesionId, rangoIni: ini, rangoFin: fin })
     }
@@ -517,13 +465,27 @@ export function useOcrUpload() {
     async function procesarUno(file: File, idxGlobal: number) {
       if (cancelado()) return
       const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
+      const ext = getExt(file.name)
+
       try {
-        const norm = await normalizar(file)
-        const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
-        const errAdd = await añadirArchivoASesion(ses.id, { name: norm.name, type: norm.type, storagePath: path }, cancelado)
-        if (errAdd === 'cancelada') return
-        if (errAdd) { await añadirErrorASesion(ses.id, file.name, errAdd); fallosSubida++ }
-        else { subidos++ }
+        if (EXTS_COMPRIMIDOS_SERVER.has(ext)) {
+          // RAR/7z: subir entero al Storage con retry ilimitado
+          const mimeType = getMimeTypeBase(ext)
+          const path = await subirAlStorage(grupoId, idxGlobal, file.name, mimeType, file, cancelado)
+          if (cancelado()) return
+          // Llamar a edge function que descomprime server-side (también con retry ilimitado)
+          await expandirServerSide(path, fnName, titular_id, cancelado)
+          // Marcar como ok en sesión (la edge function ya proceso los archivos internos directamente)
+          subidos++
+        } else {
+          // Archivo normal: normalizar y subir
+          const norm = await normalizar(file)
+          const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
+          const errAdd = await añadirArchivoASesion(ses.id, { name: norm.name, type: norm.type, storagePath: path }, cancelado)
+          if (errAdd === 'cancelada') return
+          if (errAdd) { await añadirErrorASesion(ses.id, file.name, errAdd); fallosSubida++ }
+          else subidos++
+        }
       } catch (e: any) {
         const msg = e?.message || String(e)
         if (msg === 'cancelado') return
@@ -547,8 +509,7 @@ export function useOcrUpload() {
       }
     }
 
-    const workers = Array.from({ length: PARALELO_SUBIDAS }, () => workerLocal())
-    await Promise.all(workers)
+    await Promise.all(Array.from({ length: PARALELO_SUBIDAS }, () => workerLocal()))
     quitarPreparando(idLocal)
     await cargarSesionesActivas()
     lanzarWorker()
@@ -558,15 +519,9 @@ export function useOcrUpload() {
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
       cancelacionesLocales.add(grupoId)
-      await supabase
-        .from('ocr_sessions')
-        .update({ cancelar_solicitado: true, archivos_pendientes: [], estado: 'cancelada', estado_cola: 'cancelada' })
-        .eq('grupo_id', grupoId)
+      await supabase.from('ocr_sessions').update({ cancelar_solicitado: true, archivos_pendientes: [], estado: 'cancelada', estado_cola: 'cancelada' }).eq('grupo_id', grupoId)
     } else {
-      await supabase
-        .from('ocr_sessions')
-        .update({ cancelar_solicitado: true, archivos_pendientes: [], estado: 'cancelada', estado_cola: 'cancelada' })
-        .eq('id', id)
+      await supabase.from('ocr_sessions').update({ cancelar_solicitado: true, archivos_pendientes: [], estado: 'cancelada', estado_cola: 'cancelada' }).eq('id', id)
     }
   }
 
@@ -574,12 +529,10 @@ export function useOcrUpload() {
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
       const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
-      rawSessions = rawSessions.filter(s => s.grupoId !== grupoId)
-      emit()
+      rawSessions = rawSessions.filter(s => s.grupoId !== grupoId); emit()
       if (lotesIds.length > 0) await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds)
     } else {
-      rawSessions = rawSessions.filter(s => s.id !== id)
-      emit()
+      rawSessions = rawSessions.filter(s => s.id !== id); emit()
       await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
     }
   }
@@ -588,12 +541,10 @@ export function useOcrUpload() {
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
       const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
-      rawSessions = rawSessions.map(s => s.grupoId === grupoId ? { ...s, visible: false } : s)
-      emit()
+      rawSessions = rawSessions.map(s => s.grupoId === grupoId ? { ...s, visible: false } : s); emit()
       if (lotesIds.length > 0) await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds)
     } else {
-      rawSessions = rawSessions.map(s => s.id === id ? { ...s, visible: false } : s)
-      emit()
+      rawSessions = rawSessions.map(s => s.id === id ? { ...s, visible: false } : s); emit()
       await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
     }
   }
