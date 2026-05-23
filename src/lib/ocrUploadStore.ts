@@ -1,10 +1,9 @@
-// ocrUploadStore v29 — resumable upload TUS para archivos grandes
-// Cambios vs v28:
-// - Archivos >6MB usan TUS (resumable upload por trozos de 6MB)
-// - Archivos ≤6MB usan upload normal (más rápido)
-// - Retry 3 intentos con backoff para AMBOS modos
-// - Object not found ya NO es error permanente (es transitorio, se reintenta)
-// - Bucket limit subido a 200MB en Supabase
+// ocrUploadStore v30 — retry ilimitado + sin TUS + RAR/7z ya nunca llegan aquí
+// Cambios vs v29:
+// - Sin TUS (RAR se descomprime en Ocr.tsx antes de llegar aquí)
+// - Retry ilimitado con backoff capped a 30s (nunca se rinde, solo cancela el usuario)
+// - normalizar() ya no acepta RAR/7z como blob (son error si llegan)
+// - ERRORES_PERMANENTES reducidos al mínimo real
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -55,25 +54,19 @@ let cancelacionesLocales: Set<string> = new Set()
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 4
 const TOAST_COMPLETADO_MS = 20000
-const RETRY_MAX = 3
+
+// Retry ilimitado — solo para si el usuario cancela
 const RETRY_BASE_MS = 2000
-const TUS_CHUNK_SIZE = 6 * 1024 * 1024 // 6MB
-const TUS_THRESHOLD = 6 * 1024 * 1024  // Archivos >6MB usan TUS
+const RETRY_CAP_MS = 30000
 
-const SUPABASE_URL = 'https://eryauogxcpbgdryeimdq.supabase.co'
-const SUPABASE_STORAGE_URL = 'https://eryauogxcpbgdryeimdq.storage.supabase.co'
-const BUCKET_NAME = 'ocr-uploads'
-
-function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
-
-function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
-
-// --- RETRY ---
+// Solo errores que NUNCA van a mejorar reintentando
 const ERRORES_PERMANENTES = [
   'Bucket not found',
-  'duplicate',
   'ya existe',
 ]
+
+function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
+function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 
 function esErrorPermanente(msg: string): boolean {
   return ERRORES_PERMANENTES.some(p => msg.includes(p))
@@ -83,97 +76,27 @@ function esperar(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms))
 }
 
-async function conReintentos<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  let ultimo: any
-  for (let intento = 0; intento < RETRY_MAX; intento++) {
+// Retry ilimitado con backoff capped — para solo si cancelado() devuelve true
+async function conReintentos<T>(
+  fn: () => Promise<T>,
+  label: string,
+  cancelado: () => boolean,
+): Promise<T> {
+  let intento = 0
+  while (true) {
+    if (cancelado()) throw new Error('cancelado')
     try {
       return await fn()
     } catch (e: any) {
-      ultimo = e
       const msg = e?.message || String(e)
+      if (msg === 'cancelado') throw e
       if (esErrorPermanente(msg)) throw e
-      if (intento < RETRY_MAX - 1) {
-        const wait = RETRY_BASE_MS * Math.pow(2, intento)
-        console.warn(`[OCR retry] ${label} intento ${intento + 1}/${RETRY_MAX} falló: ${msg}. Reintentando en ${wait}ms…`)
-        await esperar(wait)
-      }
+      const wait = Math.min(RETRY_BASE_MS * Math.pow(2, Math.min(intento, 10)), RETRY_CAP_MS)
+      console.warn(`[OCR retry] ${label} intento ${intento + 1} falló: ${msg}. Reintentando en ${wait}ms…`)
+      await esperar(wait)
+      intento++
     }
   }
-  throw ultimo
-}
-
-// --- TUS RESUMABLE UPLOAD ---
-async function getAccessToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession()
-  return data?.session?.access_token || ''
-}
-
-async function subirConTUS(path: string, blob: Blob, contentType: string): Promise<void> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const token = await getAccessToken()
-      const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyeWF1b2d4Y3BiZ2RyeWVpbWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNjc4NjksImV4cCI6MjA5MTg0Mzg2OX0.HpbtG_ejP4nR7oE6u9NALOaKiOsoQS85ImY5A-Uhqzg'
-      const endpoint = `${SUPABASE_STORAGE_URL}/storage/v1/upload/resumable`
-
-      // Step 1: CREATE upload
-      const createResp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token || anonKey}`,
-          'apikey': anonKey,
-          'Upload-Length': String(blob.size),
-          'Upload-Metadata': [
-            `bucketName ${btoa(BUCKET_NAME)}`,
-            `objectName ${btoa(path)}`,
-            `contentType ${btoa(contentType)}`,
-            `cacheControl ${btoa('3600')}`,
-          ].join(','),
-          'x-upsert': 'true',
-          'Tus-Resumable': '1.0.0',
-        },
-      })
-
-      if (!createResp.ok) {
-        const txt = await createResp.text().catch(() => '')
-        throw new Error(`TUS create failed (${createResp.status}): ${txt}`)
-      }
-
-      const uploadUrl = createResp.headers.get('Location')
-      if (!uploadUrl) throw new Error('TUS create: no Location header')
-
-      // Step 2: PATCH chunks
-      let offset = 0
-      const totalSize = blob.size
-      while (offset < totalSize) {
-        const end = Math.min(offset + TUS_CHUNK_SIZE, totalSize)
-        const chunk = blob.slice(offset, end)
-
-        const patchResp = await fetch(uploadUrl, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token || anonKey}`,
-            'apikey': anonKey,
-            'Upload-Offset': String(offset),
-            'Content-Type': 'application/offset+octet-stream',
-            'Tus-Resumable': '1.0.0',
-          },
-          body: chunk,
-        })
-
-        if (!patchResp.ok) {
-          const txt = await patchResp.text().catch(() => '')
-          throw new Error(`TUS patch failed at offset ${offset} (${patchResp.status}): ${txt}`)
-        }
-
-        const newOffset = patchResp.headers.get('Upload-Offset')
-        offset = newOffset ? parseInt(newOffset, 10) : end
-      }
-
-      resolve()
-    } catch (e) {
-      reject(e)
-    }
-  })
 }
 
 async function cargarSheetJS(): Promise<any> {
@@ -271,8 +194,6 @@ function getMimeTypeBase(ext: string): string {
     webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
     tif: 'image/tiff', tiff: 'image/tiff', gif: 'image/gif', bmp: 'image/bmp',
     csv: 'text/csv', txt: 'text/plain',
-    rar: 'application/x-rar-compressed', '7z': 'application/x-7z-compressed',
-    zip: 'application/zip',
   }
   return map[ext] ?? 'application/octet-stream'
 }
@@ -295,10 +216,8 @@ async function normalizar(file: File): Promise<{ name: string; type: string; blo
     const t = await htmlATexto(file)
     return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
   }
-  if (['rar', '7z', 'zip'].includes(ext)) {
-    const t = getMimeTypeBase(ext)
-    return { name: file.name, type: t, blob: file }
-  }
+  // RAR/7z/ZIP nunca deben llegar aquí — se descomprimen en Ocr.tsx antes
+  // Si llegan es un bug, igual los subimos como están para no perderlos
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
   return { name: file.name, type: t, blob: file }
 }
@@ -484,20 +403,17 @@ function quitarPreparando(idLocal: string) {
   emit()
 }
 
-async function subirAlStorage(grupoId: string, idx: number, name: string, type: string, blob: Blob): Promise<string> {
+async function subirAlStorage(
+  grupoId: string, idx: number, name: string, type: string, blob: Blob,
+  cancelado: () => boolean,
+): Promise<string> {
   const path = `${grupoId}/${sanitizeForPath(name, idx)}`
   return conReintentos(async () => {
-    if (blob.size > TUS_THRESHOLD) {
-      // Archivo grande → TUS resumable upload (trozos de 6MB)
-      console.log(`[OCR] ${name} (${(blob.size / 1024 / 1024).toFixed(1)}MB) → TUS resumable`)
-      await subirConTUS(path, blob, type)
-    } else {
-      // Archivo pequeño → upload normal
-      const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { contentType: type, upsert: true })
-      if (error) throw new Error(`storage: ${error.message}`)
-    }
+    if (cancelado()) throw new Error('cancelado')
+    const { error } = await supabase.storage.from('ocr-uploads').upload(path, blob, { contentType: type, upsert: true })
+    if (error) throw new Error(`storage: ${error.message}`)
     return path
-  }, `upload ${name}`)
+  }, `upload ${name}`, cancelado)
 }
 
 async function crearSesionBBDD(
@@ -516,8 +432,11 @@ async function crearSesionBBDD(
   return null
 }
 
-async function añadirArchivoASesion(sesionId: string, archivo: any): Promise<string | null> {
+async function añadirArchivoASesion(
+  sesionId: string, archivo: any, cancelado: () => boolean,
+): Promise<string | null> {
   return conReintentos(async () => {
+    if (cancelado()) return 'cancelada'
     const { data: ses, error: errR } = await supabase
       .from('ocr_sessions')
       .select('archivos_pendientes,cancelar_solicitado')
@@ -533,7 +452,7 @@ async function añadirArchivoASesion(sesionId: string, archivo: any): Promise<st
       .eq('id', sesionId)
     if (error) throw new Error(error.message)
     return null
-  }, `addFile ${archivo.name}`)
+  }, `addFile ${archivo.name}`, cancelado)
 }
 
 async function añadirErrorASesion(sesionId: string, filename: string, detalle: string) {
@@ -600,13 +519,15 @@ export function useOcrUpload() {
       const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
       try {
         const norm = await normalizar(file)
-        const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob)
-        const errAdd = await añadirArchivoASesion(ses.id, { name: norm.name, type: norm.type, storagePath: path })
+        const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
+        const errAdd = await añadirArchivoASesion(ses.id, { name: norm.name, type: norm.type, storagePath: path }, cancelado)
         if (errAdd === 'cancelada') return
         if (errAdd) { await añadirErrorASesion(ses.id, file.name, errAdd); fallosSubida++ }
         else { subidos++ }
       } catch (e: any) {
-        await añadirErrorASesion(ses.id, file.name, e?.message || String(e))
+        const msg = e?.message || String(e)
+        if (msg === 'cancelado') return
+        await añadirErrorASesion(ses.id, file.name, msg)
         fallosSubida++
       }
     }
