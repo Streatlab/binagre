@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { expandirRarRecursivo } from '@/lib/rarExtractor'
 import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
@@ -24,13 +25,13 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// Extensiones aceptadas. ZIP se descomprime en cliente (incl. anidados). RAR y 7z se suben tal cual.
+// ZIP y RAR se descomprimen en browser. 7z: mensaje manual.
 const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
-const EXT_ZIP = ['zip', 'rar', '7z']
-const EXT_ACEPTADAS_FACTURAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
-const EXT_ACEPTADAS_EXTRACTOS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
-const EXT_ACEPTADAS_OTROS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_ZIP]
+const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
+const EXT_ACEPTADAS_FACTURAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
+const EXT_ACEPTADAS_EXTRACTOS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
+const EXT_ACEPTADAS_OTROS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
 
 const ACCEPT_FACTURAS = EXT_ACEPTADAS_FACTURAS.map(e => `.${e}`).join(',')
 const ACCEPT_EXTRACTOS = EXT_ACEPTADAS_EXTRACTOS.map(e => `.${e}`).join(',')
@@ -77,6 +78,7 @@ async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, valida
       const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
       const blob = await entry.async('blob')
       if (innerExt === 'zip') { await expandirZipRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, nivel + 1); continue }
+      if (innerExt === 'rar') { await expandirRarRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo); continue }
       if (!validas.has(innerExt)) { rechazados.push(`${nombreOrigen} → ${innerName}`); continue }
       const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
       aceptados.push(innerFile)
@@ -88,9 +90,12 @@ async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, valida
 async function expandirArchivos(files: File[], extensionesValidas: string[]): Promise<{ aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }> {
   const aceptados: File[] = [], rechazados: string[] = [], contador = { n: 0 }
   const validas = new Set(extensionesValidas.map(e => e.toLowerCase()))
+  const validasSinComp = new Set([...validas].filter(e => !['zip','rar','7z'].includes(e)))
   for (const f of files) {
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
-    if (ext === 'zip') { await expandirZipRecursivo(f, f.name, validas, aceptados, rechazados, contador, 1) }
+    if (ext === 'zip') { await expandirZipRecursivo(f, f.name, validasSinComp, aceptados, rechazados, contador, 1) }
+    else if (ext === 'rar') { await expandirRarRecursivo(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo) }
+    else if (ext === '7z') { rechazados.push(`${f.name} (7z: descomprime manualmente con WinRAR y sube los PDFs sueltos)`) }
     else if (validas.has(ext)) { aceptados.push(f) }
     else { rechazados.push(f.name) }
   }
@@ -306,7 +311,7 @@ export default function Ocr() {
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, maxHeight: '85vh', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalOriginal}</strong></div>
-            {modalConfirmarSubida.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de ZIPs: <strong>{modalConfirmarSubida.expandidosZip}</strong></div>)}
+            {modalConfirmarSubida.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalConfirmarSubida.expandidosZip}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalConfirmarSubida.archivos.length}</strong></div>
             {modalConfirmarSubida.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalConfirmarSubida.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '0.5px solid #E24B4A50', borderRadius: 8, padding: '10px 12px', maxHeight: 200, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalConfirmarSubida.rechazados.map((n, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{n}</div>)}</div>)}</>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div>
@@ -323,7 +328,7 @@ export default function Ocr() {
           <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Extracto bancario</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalOriginal}</strong></div>
-            {modalTitular.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de ZIPs: <strong>{modalTitular.expandidosZip}</strong></div>)}
+            {modalTitular.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalTitular.expandidosZip}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalTitular.archivos.length}</strong></div>
             {modalTitular.rechazados.length > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalTitular.rechazados.length}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
