@@ -23,20 +23,20 @@ export async function expandirRarRecursivo(
       const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
       if (innerExt === 'rar') {
         await expandirRarRecursivo(
-          new Blob([file.extraction]), `${nombreOrigen} → ${innerName}`,
+          new Blob([file.extraction as unknown as ArrayBuffer]), `${nombreOrigen} → ${innerName}`,
           validas, aceptados, rechazados, contador, expandirZip,
         )
         continue
       }
       if (innerExt === 'zip') {
         await expandirZip(
-          new Blob([file.extraction]), `${nombreOrigen} → ${innerName}`,
+          new Blob([file.extraction as unknown as ArrayBuffer]), `${nombreOrigen} → ${innerName}`,
           validas, aceptados, rechazados, contador, 1,
         )
         continue
       }
       if (!validas.has(innerExt)) { rechazados.push(`${nombreOrigen} → ${innerName}`); continue }
-      aceptados.push(new File([file.extraction], innerName, { type: 'application/octet-stream' }))
+      aceptados.push(new File([file.extraction as unknown as ArrayBuffer], innerName, { type: 'application/octet-stream' }))
       contador.n++
     }
   } catch (err: any) {
