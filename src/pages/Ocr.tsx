@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { expandirRarRecursivo } from '@/lib/rarExtractor'
+import { expandirRar, expandir7z } from '@/lib/archiveExtractor'
 import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
@@ -25,7 +25,7 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// ZIP y RAR se descomprimen en browser. 7z: mensaje manual.
+// ZIP, RAR y 7z se descomprimen en browser. Nunca hay que descomprimir manualmente.
 const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
 const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
@@ -78,7 +78,8 @@ async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, valida
       const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
       const blob = await entry.async('blob')
       if (innerExt === 'zip') { await expandirZipRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, nivel + 1); continue }
-      if (innerExt === 'rar') { await expandirRarRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo); continue }
+      if (innerExt === 'rar') { await expandirRar(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo); continue }
+      if (innerExt === '7z') { await expandir7z(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo, expandirRar); continue }
       if (!validas.has(innerExt)) { rechazados.push(`${nombreOrigen} → ${innerName}`); continue }
       const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
       aceptados.push(innerFile)
@@ -94,8 +95,8 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
   for (const f of files) {
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
     if (ext === 'zip') { await expandirZipRecursivo(f, f.name, validasSinComp, aceptados, rechazados, contador, 1) }
-    else if (ext === 'rar') { await expandirRarRecursivo(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo) }
-    else if (ext === '7z') { rechazados.push(`${f.name} (7z: descomprime manualmente con WinRAR y sube los PDFs sueltos)`) }
+    else if (ext === 'rar') { await expandirRar(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo) }
+    else if (ext === '7z') { await expandir7z(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo, expandirRar) }
     else if (validas.has(ext)) { aceptados.push(f) }
     else { rechazados.push(f.name) }
   }
