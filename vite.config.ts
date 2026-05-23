@@ -10,10 +10,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    exclude: ['node-unrar-js'],
+  },
   build: {
     rollupOptions: {
       output: {
-        // Forzar hash único por build — 12/05/2026
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
       },
