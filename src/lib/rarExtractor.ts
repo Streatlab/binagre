@@ -1,5 +1,4 @@
 // rarExtractor.ts — descomprimir RAR en browser usando node-unrar-js (WASM)
-// Llamado desde Ocr.tsx igual que expandirZipRecursivo
 
 import { createExtractorFromData } from 'node-unrar-js'
 
@@ -21,22 +20,27 @@ export async function expandirRarRecursivo(
       if (file.fileHeader.flags.directory) continue
       const innerName = (file.fileHeader.name || '').split(/[/\\]/).pop() || file.fileHeader.name
       const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
+      // Copiar a ArrayBuffer limpio para evitar error TS Uint8Array<ArrayBufferLike>
+      const raw = file.extraction.buffer.slice(
+        file.extraction.byteOffset,
+        file.extraction.byteOffset + file.extraction.byteLength,
+      ) as ArrayBuffer
       if (innerExt === 'rar') {
         await expandirRarRecursivo(
-          new Blob([file.extraction as unknown as ArrayBuffer]), `${nombreOrigen} → ${innerName}`,
+          new Blob([raw]), `${nombreOrigen} → ${innerName}`,
           validas, aceptados, rechazados, contador, expandirZip,
         )
         continue
       }
       if (innerExt === 'zip') {
         await expandirZip(
-          new Blob([file.extraction as unknown as ArrayBuffer]), `${nombreOrigen} → ${innerName}`,
+          new Blob([raw]), `${nombreOrigen} → ${innerName}`,
           validas, aceptados, rechazados, contador, 1,
         )
         continue
       }
       if (!validas.has(innerExt)) { rechazados.push(`${nombreOrigen} → ${innerName}`); continue }
-      aceptados.push(new File([file.extraction as unknown as ArrayBuffer], innerName, { type: 'application/octet-stream' }))
+      aceptados.push(new File([raw], innerName, { type: 'application/octet-stream' }))
       contador.n++
     }
   } catch (err: any) {
