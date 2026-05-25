@@ -56,7 +56,7 @@ export default function TabMarcas() {
   const [search, setSearch] = useState('')
   const [platsSel, setPlatsSel] = useState<CanalAbv[]>([])
   const [marcasSel, setMarcasSel] = useState<string[]>([])
-  const [periodo] = useState<Periodo>('mes')
+  const [periodo] = useState<Periodo>('mes_curso')
   const [incArchivadas, setIncArchivadas] = useState(false)
 
   const [editing, setEditing] = useState<MarcaRow | null>(null)
@@ -99,7 +99,7 @@ export default function TabMarcas() {
         .from('tipos_cocina').select('id, nombre').order('nombre')
       setTiposCocina((tcs ?? []) as TipoCocina[])
 
-      const { desde, hasta } = rangoPeriodo(periodo)
+      const [desde, hasta] = rangoPeriodo(periodo)
       const { data: fact } = await supabase
         .from('facturacion_diario')
         .select('marca_id, total_bruto, total_pedidos')
@@ -107,7 +107,11 @@ export default function TabMarcas() {
         .not('marca_id', 'is', null)
       const map = new Map<string, FacturacionMarcaAgregada>()
       for (const f of (fact ?? []) as any[]) {
-        const cur = map.get(f.marca_id) ?? { marca_id: f.marca_id, total_bruto: 0, total_pedidos: 0 }
+        const cur: FacturacionMarcaAgregada = map.get(f.marca_id) ?? {
+          marca_id: f.marca_id, marca_nombre: '', total_bruto: 0, total_pedidos: 0,
+          ue_bruto: 0, gl_bruto: 0, je_bruto: 0, web_bruto: 0, dir_bruto: 0,
+          ue_pedidos: 0, gl_pedidos: 0, je_pedidos: 0,
+        }
         cur.total_bruto += Number(f.total_bruto || 0)
         cur.total_pedidos += Number(f.total_pedidos || 0)
         map.set(f.marca_id, cur)
@@ -377,7 +381,7 @@ export default function TabMarcas() {
             { value: 'JE', label: 'Just Eat' }, { value: 'WEB', label: 'Web' }, { value: 'DIR', label: 'Directa' },
           ]}
           selected={platsSel}
-          onChange={setPlatsSel}
+          onChange={setPlatsSel as (v: string[]) => void}
         />
 
         <MultiSelectDropdown
