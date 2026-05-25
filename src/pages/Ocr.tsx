@@ -1,6 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+<![CDATA[import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { expandirRar, expandir7z } from '@/lib/archiveExtractor'
 import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
@@ -25,7 +24,7 @@ const DEFAULT_PAGE_SIZE: PageSize = 100
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
-// ZIP, RAR y 7z se descomprimen en browser. Nunca hay que descomprimir manualmente.
+// ZIP se descomprime en browser. RAR y 7z se suben enteros → server-side via edge function.
 const EXT_PDF_IMG = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_OFFICE = ['doc', 'docx', 'xls', 'xlsx', 'csv', 'html', 'htm', 'txt']
 const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
@@ -54,20 +53,14 @@ function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.es
 
 async function cargarJSZip(): Promise<any> {
   if ((window as any).JSZip) return (window as any).JSZip
-  await new Promise<void>((res, rej) => {
-    const s = document.createElement('script')
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
-    s.onload = () => res()
-    s.onerror = () => rej(new Error('No se pudo cargar JSZip'))
-    document.head.appendChild(s)
-  })
+  await new Promise<void>((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = () => res(); s.onerror = () => rej(new Error('No se pudo cargar JSZip')); document.head.appendChild(s) })
   return (window as any).JSZip
 }
 
 const MAX_NIVEL_ZIP = 5
 
 async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, validas: Set<string>, aceptados: File[], rechazados: string[], contador: { n: number }, nivel: number) {
-  if (nivel > MAX_NIVEL_ZIP) { rechazados.push(`${nombreOrigen} (ZIP demasiado anidado, nivel > ${MAX_NIVEL_ZIP})`); return }
+  if (nivel > MAX_NIVEL_ZIP) { rechazados.push(`${nombreOrigen} (ZIP demasiado anidado)`); return }
   try {
     const JSZip = await cargarJSZip()
     const zip = await JSZip.loadAsync(f)
@@ -78,11 +71,10 @@ async function expandirZipRecursivo(f: File | Blob, nombreOrigen: string, valida
       const innerExt = innerName.split('.').pop()?.toLowerCase() ?? ''
       const blob = await entry.async('blob')
       if (innerExt === 'zip') { await expandirZipRecursivo(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, nivel + 1); continue }
-      if (innerExt === 'rar') { await expandirRar(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo); continue }
-      if (innerExt === '7z') { await expandir7z(blob, `${nombreOrigen} → ${innerName}`, validas, aceptados, rechazados, contador, expandirZipRecursivo, expandirRar); continue }
+      // RAR/7z dentro de ZIP: pasar como archivo normal → store los manda server-side
+      if (innerExt === 'rar' || innerExt === '7z') { aceptados.push(new File([blob], innerName, { type: 'application/octet-stream' })); contador.n++; continue }
       if (!validas.has(innerExt)) { rechazados.push(`${nombreOrigen} → ${innerName}`); continue }
-      const innerFile = new File([blob], innerName, { type: blob.type || 'application/octet-stream' })
-      aceptados.push(innerFile)
+      aceptados.push(new File([blob], innerName, { type: blob.type || 'application/octet-stream' }))
       contador.n++
     }
   } catch (err: any) { rechazados.push(`${nombreOrigen} (zip corrupto: ${err?.message || 'error'})`) }
@@ -95,8 +87,8 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
   for (const f of files) {
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
     if (ext === 'zip') { await expandirZipRecursivo(f, f.name, validasSinComp, aceptados, rechazados, contador, 1) }
-    else if (ext === 'rar') { await expandirRar(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo) }
-    else if (ext === '7z') { await expandir7z(f, f.name, validasSinComp, aceptados, rechazados, contador, expandirZipRecursivo, expandirRar) }
+    // RAR/7z: pasan directo al store que los sube y llama ocr-expandir-archivo server-side
+    else if (ext === 'rar' || ext === '7z') { aceptados.push(f) }
     else if (validas.has(ext)) { aceptados.push(f) }
     else { rechazados.push(f.name) }
   }
@@ -117,47 +109,14 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
   const inputFolderRef = useRef<HTMLInputElement>(null)
   const [overL, setOverL] = useState(false)
   const [overR, setOverR] = useState(false)
-
-  const handleFiles = async (files: FileList | File[] | null) => {
-    if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return
-    setPreparando(true)
-    try { const arr = Array.isArray(files) ? files : Array.from(files); const resultado = await expandirArchivos(arr, extensiones); onArchivos(resultado) }
-    finally { setPreparando(false) }
-  }
-
-  const handleClickArchivos = async () => {
-    if (preparando) return
-    const w = window as any
-    if (typeof w.showOpenFilePicker === 'function') {
-      try { const handles = await w.showOpenFilePicker({ multiple: true, excludeAcceptAllOption: false }); const files: File[] = []; for (const h of handles) { try { files.push(await h.getFile()) } catch {} }; if (files.length > 0) await handleFiles(files) }
-      catch (err: any) { if (err?.name !== 'AbortError') inputFileRef.current?.click() }
-    } else { inputFileRef.current?.click() }
-  }
-
-  const handleClickCarpetas = async () => {
-    if (preparando) return
-    const w = window as any
-    if (typeof w.showDirectoryPicker === 'function') {
-      try { const dirHandle = await w.showDirectoryPicker({ mode: 'read' }); setPreparando(true); try { const files: File[] = []; await leerDirectorioRecursivo(dirHandle, files); await handleFiles(files) } finally { setPreparando(false) } }
-      catch (err: any) { if (err?.name !== 'AbortError') inputFolderRef.current?.click() }
-    } else { inputFolderRef.current?.click() }
-  }
-
+  const handleFiles = async (files: FileList | File[] | null) => { if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return; setPreparando(true); try { const arr = Array.isArray(files) ? files : Array.from(files); const resultado = await expandirArchivos(arr, extensiones); onArchivos(resultado) } finally { setPreparando(false) } }
+  const handleClickArchivos = async () => { if (preparando) return; const w = window as any; if (typeof w.showOpenFilePicker === 'function') { try { const handles = await w.showOpenFilePicker({ multiple: true, excludeAcceptAllOption: false }); const files: File[] = []; for (const h of handles) { try { files.push(await h.getFile()) } catch {} }; if (files.length > 0) await handleFiles(files) } catch (err: any) { if (err?.name !== 'AbortError') inputFileRef.current?.click() } } else { inputFileRef.current?.click() } }
+  const handleClickCarpetas = async () => { if (preparando) return; const w = window as any; if (typeof w.showDirectoryPicker === 'function') { try { const dirHandle = await w.showDirectoryPicker({ mode: 'read' }); setPreparando(true); try { const files: File[] = []; await leerDirectorioRecursivo(dirHandle, files); await handleFiles(files) } finally { setPreparando(false) } } catch (err: any) { if (err?.name !== 'AbortError') inputFolderRef.current?.click() } } else { inputFolderRef.current?.click() } }
   const halfBase: React.CSSProperties = { flex: 1, padding: '20px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', userSelect: 'none', transition: 'background 0.15s', opacity: preparando ? 0.6 : 1 }
-
   return (
     <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
       <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
-      <input
-        ref={inputFolderRef}
-        type="file"
-        // @ts-ignore
-        webkitdirectory=""
-        directory=""
-        multiple
-        style={{ display: 'none' }}
-        onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }}
-      />
+      <input ref={inputFolderRef} type="file" /* @ts-ignore */ webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }} />
       <div onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(true) }} onDragLeave={e => { e.stopPropagation(); setOverL(false) }} onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverL(false); handleFiles(e.dataTransfer.files) }} onClick={handleClickArchivos} style={{ ...halfBase, background: overL ? '#8f1519' : '#B01D23', borderRight: '1px solid rgba(255,255,255,0.25)' }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por archivos</div>
       </div>
@@ -185,7 +144,6 @@ export default function Ocr() {
   const page = parsePage(searchParams.get('page'))
   const pageSize = parsePageSize(searchParams.get('size'))
   const updateUrl = useCallback((next: { page?: number; size?: PageSize }) => { const params = new URLSearchParams(searchParams); if (next.page !== undefined) params.set('page', String(next.page)); if (next.size !== undefined) params.set('size', String(next.size)); setSearchParams(params, { replace: true }) }, [searchParams, setSearchParams])
-
   const [filas, setFilas] = useState<Factura[]>([])
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
@@ -204,79 +162,41 @@ export default function Ocr() {
   const [confirmarBorrarLote, setConfirmarBorrarLote] = useState(false)
   const [borrandoLote, setBorrandoLote] = useState(false)
   const [verRechazados, setVerRechazados] = useState(false)
-
   const { sessions, procesar } = useOcrUpload()
-
   const prevProcessingRef = useRef<Set<string>>(new Set())
   useEffect(() => { const cp = new Set(sessions.filter(s => s.procesando).map(s => s.id)); let t = false; prevProcessingRef.current.forEach(id => { if (!cp.has(id)) t = true }); if (t) setRefreshTick(x => x + 1); prevProcessingRef.current = cp }, [sessions])
-
   useEffect(() => { const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400); return () => clearTimeout(t) }, [busqueda])
   useEffect(() => { Promise.all([supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'), supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden')]).then(([cats, tits]) => { if (!cats.error) setCategoriasPyg(cats.data ?? []); if (!tits.error) setTitulares(tits.data ?? []) }) }, [])
-
   const periodoDesdeStr = fechaDesde.toISOString().slice(0, 10)
   const periodoHastaStr = fechaHasta.toISOString().slice(0, 10)
-
-  const cargarPagina = useCallback(async () => {
-    if (tab === 'extractos' || tab === 'ventas') { setCargando(false); return }
-    const myFetchId = ++fetchIdRef.current; setCargando(true); setErrorCarga(null)
-    const from = (page - 1) * pageSize; const to = from + pageSize - 1
-    const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }
-    const sortField = sortMap[sortColumn] ?? 'fecha_factura'
-    let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr)
-    if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro')
-    if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
-    if (busquedaDebounced) { const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim(); if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`) }
-    if (sortField) q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to); else q = q.order('fecha_factura', { ascending: false }).range(from, to)
-    const { data, error, count } = await q
-    if (myFetchId !== fetchIdRef.current) return
-    if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) }
-    else { const mapped: Factura[] = (data ?? []).map((m: any) => ({ id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '', total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null, pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null, numero_factura: m.numero_factura ?? null, estado: m.estado ?? '', doc_estado: m.doc_estado ?? null, matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0 })); let filtradas = mapped; if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada); else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f)); setFilas(filtradas); setTotal(count ?? 0) }
-    setCargando(false)
-  }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab])
-
+  const cargarPagina = useCallback(async () => { if (tab === 'extractos' || tab === 'ventas') { setCargando(false); return }; const myFetchId = ++fetchIdRef.current; setCargando(true); setErrorCarga(null); const from = (page - 1) * pageSize; const to = from + pageSize - 1; const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }; const sortField = sortMap[sortColumn] ?? 'fecha_factura'; let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr); if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro'); if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro); if (busquedaDebounced) { const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim(); if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`) }; if (sortField) q = q.order(sortField, { ascending: sortDir === 'asc' }).range(from, to); else q = q.order('fecha_factura', { ascending: false }).range(from, to); const { data, error, count } = await q; if (myFetchId !== fetchIdRef.current) return; if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) } else { const mapped: Factura[] = (data ?? []).map((m: any) => ({ id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '', total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null, pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null, numero_factura: m.numero_factura ?? null, estado: m.estado ?? '', doc_estado: m.doc_estado ?? null, matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0 })); let filtradas = mapped; if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada); else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f)); setFilas(filtradas); setTotal(count ?? 0) }; setCargando(false) }, [page, pageSize, sortColumn, sortDir, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab])
   const cargarAgregados = useCallback(async () => { try { const { data, error } = await supabase.from('facturas').select('id, total, estado, tipo').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr).in('tipo', ['proveedor', 'plataforma']); if (error) throw error; let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0, pendientesCount = 0, pendientesImporte = 0; for (const r of data ?? []) { totalCount++; const imp = Number(r.total) || 0; totalImporte += imp; if (ESTADOS_CONCILIADOS.has(r.estado)) { conciliadasCount++; conciliadasImporte += imp } else { pendientesCount++; pendientesImporte += imp } }; setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0, conciliadasImporte, pendientesCount, pendientesImporte }) } catch { setAgregados(null) } }, [periodoDesdeStr, periodoHastaStr, refreshTick])
-
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
   useEffect(() => { if (cargando || total === 0) return; const tp = Math.max(1, Math.ceil(total / pageSize)); if (page > tp) updateUrl({ page: tp }) }, [cargando, total, pageSize, page, updateUrl])
   useEffect(() => { setSeleccionadas(new Set()); setConfirmarBorrarLote(false) }, [page, pageSize, filtroCard, catFiltro, busquedaDebounced, tab])
-
   const onCambiarFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarBusqueda = (v: string) => { setBusqueda(v); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarCatFiltro = (v: string) => { setCatFiltro(v); if (page !== 1) updateUrl({ page: 1 }) }
   function handleSort(col: SortColumn) { if (sortColumn === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortColumn(col); setSortDir('asc') }; if (page !== 1) updateUrl({ page: 1 }) }
-
   const filasVisibles = useMemo(() => filas, [filas])
   const todasSeleccionadas = filasVisibles.length > 0 && filasVisibles.every(f => seleccionadas.has(f.id))
   const algunaSeleccionada = filasVisibles.some(f => seleccionadas.has(f.id))
   function toggleSeleccion(id: string) { setSeleccionadas(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
   function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
-
   async function handleBorrarLote() { if (seleccionadas.size === 0) return; setBorrandoLote(true); try { const ids = Array.from(seleccionadas); const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids); const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]; const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]; if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }; const driveErrors: string[] = []; for (const driveId of driveIds) { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } }; if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} archivo(s) de Drive.`); return }; const { error: errDel } = await supabase.from('facturas').delete().in('id', ids); if (errDel) throw errDel; setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1) } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) } }
-
   function getBadgeCategoria(f: Factura) { if (!f.categoria_factura) return null; const cat = categoriasPyg.find(c => c.id === f.categoria_factura); return cat ? { id: cat.id, nombre: cat.nombre } : { id: f.categoria_factura, nombre: f.categoria_factura } }
-
   const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr); const rows = (data ?? []).map((m: any) => [m.fecha_factura, (m.proveedor_nombre ?? '').replace(/,/g, ' '), (m.nif_emisor ?? '').replace(/,/g, ' '), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No']); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
-
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({ background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s' })
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [{ label: 'Fecha', col: 'fecha', align: 'left' }, { label: 'Contraparte', col: 'contraparte', align: 'left' }, { label: 'NIF', col: 'nif', align: 'left' }, { label: 'Importe', col: 'importe', align: 'right' }, { label: 'Categoría', col: 'categoria', align: 'left' }, { label: 'Doc', col: 'doc', align: 'center' }, { label: 'Estado', col: 'estado', align: 'left' }, { label: 'Titular', col: 'titular', align: 'left' }]
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const TABS = [{ id: 'facturas', label: 'Facturas' }, { id: 'extractos', label: 'Extractos bancarios' }, { id: 'ventas', label: 'Ventas' }, { id: 'otros', label: 'Otros documentos' }]
-
   return (
     <div style={groupStyle(T)}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: '#B01D23', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>OCR</h1>
-          <p style={{ fontFamily: FONT.body, fontSize: 13, color: '#7a8090', marginTop: 4, marginBottom: 0 }}>{periodoLabel}</p>
-        </div>
-        <SelectorFechaUniversal nombreModulo="ocr" defaultOpcion="mes_en_curso" onChange={(desde, hasta, label) => { setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label) }} />
-      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}><div><h1 style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: '#B01D23', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>OCR</h1><p style={{ fontFamily: FONT.body, fontSize: 13, color: '#7a8090', marginTop: 4, marginBottom: 0 }}>{periodoLabel}</p></div><SelectorFechaUniversal nombreModulo="ocr" defaultOpcion="mes_en_curso" onChange={(desde, hasta, label) => { setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label) }} /></div>
       <TabsPastilla tabs={TABS} activeId={tab} onChange={(id) => setTab(id as TabId)} />
-
       {tab === 'extractos' && (<div style={{ marginTop: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}><BtnSubirSplit label="Subir extractos" accept={ACCEPT_EXTRACTOS} extensiones={EXT_ACEPTADAS_EXTRACTOS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalTitular({ archivos: r.aceptados, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, visible: true }) }} /></div><div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}><ExtractosTabla refreshTick={refreshTick} titulares={titulares} /></div></div>)}
       {tab === 'ventas' && (<VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} />)}
-
       {(tab === 'facturas' || tab === 'otros') && (<>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14, marginTop: 14 }}>
           <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
@@ -284,17 +204,9 @@ export default function Ocr() {
           <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div></div>
           <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} extensiones={tab === 'facturas' ? EXT_ACEPTADAS_FACTURAS : EXT_ACEPTADAS_OTROS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: r.aceptados, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, visible: true, fnName: 'ocr-procesar-factura' }) }} />
         </div>
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 240, position: 'relative' }}><input type="text" value={busqueda} onChange={e => onCambiarBusqueda(e.target.value)} placeholder="Buscar contraparte, NIF o número de factura…" style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }} />{busqueda && <button onClick={() => onCambiarBusqueda('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}</div>
-          <select value={catFiltro} onChange={e => onCambiarCatFiltro(e.target.value)} style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}><option value="todas">Categorías</option>{categoriasPyg.filter(c => c.nivel === 3).map(c => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</select>
-          <button onClick={handleExportar} disabled={exportando} style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}>{exportando ? 'Exportando...' : 'Exportar'}</button>
-        </div>
-
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}><div style={{ flex: 1, minWidth: 240, position: 'relative' }}><input type="text" value={busqueda} onChange={e => onCambiarBusqueda(e.target.value)} placeholder="Buscar contraparte, NIF o número de factura…" style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }} />{busqueda && <button onClick={() => onCambiarBusqueda('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}</div><select value={catFiltro} onChange={e => onCambiarCatFiltro(e.target.value)} style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}><option value="todas">Categorías</option>{categoriasPyg.filter(c => c.nivel === 3).map(c => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</select><button onClick={handleExportar} disabled={exportando} style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}>{exportando ? 'Exportando...' : 'Exportar'}</button></div>
         {seleccionadas.size > 0 && (<div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}><span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>{seleccionadas.size} factura{seleccionadas.size > 1 ? 's' : ''} seleccionada{seleccionadas.size > 1 ? 's' : ''}</span><div style={{ flex: 1 }} />{!confirmarBorrarLote ? (<><button onClick={() => setSeleccionadas(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Quitar selección</button><button onClick={() => setConfirmarBorrarLote(true)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>Borrar seleccionadas</button></>) : (<><span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borran las facturas, sus asociaciones y los PDFs en Drive.</span><button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button><button onClick={handleBorrarLote} disabled={borrandoLote} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrandoLote ? 0.6 : 1 }}>{borrandoLote ? 'Borrando…' : 'Sí, borrar'}</button></>)}</div>)}
-
         {errorCarga && (<div style={{ background: '#fff5f5', border: '0.5px solid #B01D23', borderRadius: 8, padding: '10px 14px', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23' }}><span>{errorCarga}</span><button onClick={() => { cargarPagina(); cargarAgregados() }} style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 11, textTransform: 'uppercase', cursor: 'pointer' }}>Reintentar</button></div>)}
-
         {!cargando && total === 0 && !errorCarga ? (<div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay facturas</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Prueba a cambiar el periodo o sube tus primeras facturas</div></div>) : (
           <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
             {cargando ? <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div> : (<div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', minWidth: 940, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}><colgroup><col style={{ width: 40 }} /><col style={{ width: 90 }} /><col /><col style={{ width: '14%' }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /><col style={{ width: 60 }} /><col style={{ width: 130 }} /><col style={{ width: 100 }} /></colgroup><thead><tr><th style={{ padding: '10px 8px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc', textAlign: 'center' }}><input type="checkbox" checked={todasSeleccionadas} ref={el => { if (el) el.indeterminate = !todasSeleccionadas && algunaSeleccionada }} onChange={toggleSeleccionTodas} style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#FF4757' }} /></th>{HEADERS.map(h => { const isActive = sortColumn === h.col; return <th key={h.col} onClick={() => handleSort(h.col)} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align, padding: '10px 16px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>{h.label}{isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th> })}</tr></thead><tbody>
@@ -306,43 +218,10 @@ export default function Ocr() {
           </div>
         )}
       </>)}
-
-      {modalConfirmarSubida.visible && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, maxHeight: '85vh', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalOriginal}</strong></div>
-            {modalConfirmarSubida.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalConfirmarSubida.expandidosZip}</strong></div>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalConfirmarSubida.archivos.length}</strong></div>
-            {modalConfirmarSubida.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalConfirmarSubida.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '0.5px solid #E24B4A50', borderRadius: 8, padding: '10px 12px', maxHeight: 200, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalConfirmarSubida.rechazados.map((n, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{n}</div>)}</div>)}</>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-              <button disabled={modalConfirmarSubida.archivos.length === 0} onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalConfirmarSubida.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalConfirmarSubida.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalTitular.visible && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Extracto bancario</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalOriginal}</strong></div>
-            {modalTitular.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalTitular.expandidosZip}</strong></div>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalTitular.archivos.length}</strong></div>
-            {modalTitular.rechazados.length > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalTitular.rechazados.length}</strong></div>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
-              <button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
-            </div>
-            <button onClick={() => setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
-          </div>
-        </div>
-      )}
-
+      {modalConfirmarSubida.visible && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}><div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, maxHeight: '85vh', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalConfirmarSubida.totalOriginal}</strong></div>{modalConfirmarSubida.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalConfirmarSubida.expandidosZip}</strong></div>)}<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalConfirmarSubida.archivos.length}</strong></div>{modalConfirmarSubida.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalConfirmarSubida.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '0.5px solid #E24B4A50', borderRadius: 8, padding: '10px 12px', maxHeight: 200, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalConfirmarSubida.rechazados.map((n, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{n}</div>)}</div>)}</>)}<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>Se procesarán con OCR y se guardarán en el sistema</div><div style={{ display: 'flex', gap: 10 }}><button onClick={() => { setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button><button disabled={modalConfirmarSubida.archivos.length === 0} onClick={() => { const a = modalConfirmarSubida.archivos; const fn = modalConfirmarSubida.fnName; setModalConfirmarSubida({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false, fnName: 'ocr-procesar-factura' }); setVerRechazados(false); procesar(a, fn, null) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalConfirmarSubida.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalConfirmarSubida.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalConfirmarSubida.archivos.length}</button></div></div></div>)}
+      {modalTitular.visible && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}><div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Extracto bancario</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#111', marginBottom: 4 }}>Seleccionados: <strong>{modalTitular.totalOriginal}</strong></div>{modalTitular.expandidosZip > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1E5BCC', marginBottom: 4 }}>Extraídos de comprimidos: <strong>{modalTitular.expandidosZip}</strong></div>)}<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#1D9E75', marginBottom: 4 }}>Se subirán: <strong>{modalTitular.archivos.length}</strong></div>{modalTitular.rechazados.length > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalTitular.rechazados.length}</strong></div>)}<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div><div style={{ display: 'flex', gap: 10 }}><button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', RUBEN_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button><button disabled={modalTitular.archivos.length === 0} onClick={() => { const a = modalTitular.archivos; setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false }); procesar(a, 'ocr-procesar-extracto', EMILIO_ID) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalTitular.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button></div><button onClick={() => setModalTitular({ archivos: [], totalOriginal: 0, rechazados: [], expandidosZip: 0, visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button></div></div>)}
       {facturaEditando && (<ModalDetalleFactura factura={facturaEditando as any} categoriasPyg={categoriasPyg} onClose={() => setFacturaEditando(null)} onSaved={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} onDeleted={() => { setFacturaEditando(null); setRefreshTick(x => x + 1) }} />)}
     </div>
   )
 }
+]]>
