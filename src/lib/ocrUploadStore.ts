@@ -1,9 +1,7 @@
-// ocrUploadStore v31 — RAR/7z server-side via ocr-expandir-archivo
-// ZIP se sigue descomprimiendo en browser (ya funciona bien)
-// RAR y 7z: se suben enteros al Storage con retry ilimitado
-// → luego se llama a ocr-expandir-archivo que los descomprime en Deno server-side
-// → esa edge function llama a ocr-procesar-factura por cada archivo interno
-// → también con retry ilimitado dentro de la edge function
+// ocrUploadStore v32 — Upload-first: persistencia total en Storage+BBDD
+// Flujo: browser sube TODOS los archivos a Storage → graba lista en ocr_sessions.archivos_pendientes → worker server-side procesa
+// F5 no pierde nada: la cola está en BBDD, los archivos en Storage
+// Multi-dispositivo: cualquier browser ve el progreso via Realtime
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -40,6 +38,9 @@ export interface OcrSession {
   archivoActual?: string | null
   grupoId?: string | null
   lotesIds?: string[]
+  // v32: progreso de subida al Storage (fase staging)
+  subidosStorage?: number
+  totalStorage?: number
 }
 
 const emitter = new EventTarget()
@@ -51,13 +52,11 @@ let pollTimer: number | null = null
 let cancelacionesLocales: Set<string> = new Set()
 
 const SESION_MAX_ARCHIVOS = 500
-const PARALELO_SUBIDAS = 4
+const PARALELO_SUBIDAS = 6
 const TOAST_COMPLETADO_MS = 20000
 
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
-
-const EXTS_COMPRIMIDOS_SERVER = new Set(['rar', '7z']) // descomprimir server-side
 
 const ERRORES_PERMANENTES = ['Bucket not found', 'ya existe']
 
@@ -183,32 +182,39 @@ function getMimeTypeBase(ext: string): string {
     tif: 'image/tiff', tiff: 'image/tiff', gif: 'image/gif', bmp: 'image/bmp',
     csv: 'text/csv', txt: 'text/plain',
     rar: 'application/x-rar-compressed', '7z': 'application/x-7z-compressed',
+    zip: 'application/zip',
   }
   return map[ext] ?? 'application/octet-stream'
 }
 
-async function normalizar(file: File): Promise<{ name: string; type: string; blob: Blob }> {
+// v32: todos los archivos (incluidos RAR/7z/ZIP) se suben al Storage tal cual
+// La normalización (XLSX→CSV, DOCX→TXT) se hace en browser antes de subir
+// RAR/7z/ZIP se suben enteros — el worker server-side los descomprime
+async function normalizar(file: File): Promise<{ name: string; type: string; blob: Blob; esComprimido: boolean }> {
   const ext = getExt(file.name)
+  // Comprimidos: pasar tal cual al Storage, el server los descomprime
+  if (['zip', 'rar', '7z'].includes(ext)) {
+    const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
+    return { name: file.name, type: t, blob: file, esComprimido: true }
+  }
   if (['xlsx', 'xls'].includes(ext)) {
     const csv = await excelACSV(file)
-    return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }) }
+    return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }), esComprimido: false }
   }
   if (ext === 'docx') {
     const t = await docxATexto(file)
-    return { name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
+    return { name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }
   }
   if (ext === 'doc') {
     const t = await docATexto(file)
-    return { name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
+    return { name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }
   }
   if (['html', 'htm'].includes(ext)) {
     const t = await htmlATexto(file)
-    return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }) }
+    return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }
   }
-  // RAR/7z: se suben tal cual — se descomprimirán server-side
-  // ZIP: ya se descomprimió en Ocr.tsx antes de llegar aquí
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
-  return { name: file.name, type: t, blob: file }
+  return { name: file.name, type: t, blob: file, esComprimido: false }
 }
 
 function sanitizeForPath(name: string, idx: number): string {
@@ -223,13 +229,15 @@ function dbToSession(s: any): OcrSession {
     achtung: s.achtung || 0, cancelados: s.cancelados || 0,
     achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null,
     log: (s.log as any[]) || [], visible: s.visible !== false,
-    procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera',
+    procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging',
     cancelado: s.estado === 'cancelada' || s.cancelar_solicitado,
     fnName: s.fn_name || null, titular_id: s.titular_id || null,
     archivosPendientes: (s.archivos_pendientes as any[]) || [],
     creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(),
     completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null,
     orden: s.orden_cola || 0, grupoId: s.grupo_id || null,
+    subidosStorage: s.subidos_storage || 0,
+    totalStorage: s.total_storage || 0,
   }
 }
 
@@ -248,9 +256,20 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
     const achtungL = lotes.find(l => l.achtungMensaje)
     const total = lotes.reduce((acc, l) => acc + l.total, 0)
     const enviados = lotes.reduce((acc, l) => acc + l.enviados, 0)
+    const subidosStorage = lotes.reduce((acc, l) => acc + (l.subidosStorage || 0), 0)
+    const totalStorage = lotes.reduce((acc, l) => acc + (l.totalStorage || 0), 0)
     const logAcumulado: ArchivoLog[] = []
     for (const l of lotes) logAcumulado.push(...(l.log || []))
     const primerLote = lotes[0]
+    // Determinar mensaje de estado
+    let archivoActual: string | null = null
+    if (algunoProcesando) {
+      if (totalStorage > 0 && subidosStorage < totalStorage) {
+        archivoActual = `Subiendo ${subidosStorage} de ${totalStorage} al servidor…`
+      } else {
+        archivoActual = `Procesando ${enviados} de ${total}…`
+      }
+    }
     return {
       id: `grp_${grupoId}`, total, enviados,
       ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0),
@@ -262,9 +281,9 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
       fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [],
       creadoEn: Math.min(...lotes.map(l => l.creadoEn)),
       completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null,
-      orden: primerLote.orden,
-      archivoActual: algunoProcesando ? `Procesando ${enviados} de ${total}…` : null,
+      orden: primerLote.orden, archivoActual,
       grupoId, lotesIds: lotes.map(l => l.id),
+      subidosStorage, totalStorage,
     }
   })
   return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
@@ -276,11 +295,10 @@ async function cargarSesionesActivas() {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase.from('ocr_sessions')
-      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id')
-      .gte('creado_en', cutoff).eq('visible', true).in('estado_cola', ['en_espera', 'procesando']).order('orden_cola', { ascending: true })
+      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
+      .gte('creado_en', cutoff).eq('visible', true).in('estado_cola', ['staging', 'en_espera', 'procesando']).order('orden_cola', { ascending: true })
     if (error) return
     rawSessions = (data || []).map(dbToSession)
-    if (rawSessions.some(s => s.procesando && s.archivosPendientes.length > 0 && !s.cancelado)) lanzarWorker()
     emit()
   } catch {}
 }
@@ -363,58 +381,27 @@ async function subirAlStorage(
   }, `upload ${name}`, cancelado)
 }
 
-// Llamar a ocr-expandir-archivo con retry ilimitado para comprimidos server-side
-async function expandirServerSide(
-  storagePath: string,
-  fnName: string,
-  titular_id: string | null,
-  cancelado: () => boolean,
-): Promise<void> {
-  await conReintentos(async () => {
-    if (cancelado()) throw new Error('cancelado')
-    const { error, data } = await supabase.functions.invoke('ocr-expandir-archivo', {
-      body: { storagePath, fnName, titular_id },
-    })
-    if (error) throw new Error(error.message || String(error))
-    if (data?.error) throw new Error(data.error)
-  }, `expandir server-side ${storagePath}`, cancelado)
-}
-
 async function crearSesionBBDD(
   sesionId: string, grupoId: string, total: number,
   fnName: string, titular_id: string | null, ordenCola: number,
+  totalStorage: number,
 ): Promise<string | null> {
   const { error } = await supabase.from('ocr_sessions').insert({
     id: sesionId, total, enviados: 0, ok: 0, pendientes: 0, duplicados: 0,
     errores: 0, achtung: 0, cancelados: 0, achtung_mensaje: null, achtung_tipo: null,
     log: [], visible: true, cancelar_solicitado: false, fn_name: fnName,
     titular_id: titular_id || null, archivos_pendientes: [],
-    estado: 'procesando', estado_cola: 'en_espera', orden_cola: ordenCola,
+    estado: 'staging', estado_cola: 'staging', orden_cola: ordenCola,
     creado_en: new Date().toISOString(), grupo_id: grupoId,
+    subidos_storage: 0, total_storage: totalStorage,
   })
   if (error) return error.message
   return null
 }
 
-async function añadirArchivoASesion(sesionId: string, archivo: any, cancelado: () => boolean): Promise<string | null> {
-  return conReintentos(async () => {
-    if (cancelado()) return 'cancelada'
-    const { data: ses, error: errR } = await supabase.from('ocr_sessions')
-      .select('archivos_pendientes,cancelar_solicitado').eq('id', sesionId).maybeSingle()
-    if (errR || !ses) throw new Error(errR?.message || 'sesión no encontrada')
-    if (ses.cancelar_solicitado) return 'cancelada'
-    const nuevos = [...((ses.archivos_pendientes as any[]) || []), archivo]
-    const { error } = await supabase.from('ocr_sessions').update({ archivos_pendientes: nuevos }).eq('id', sesionId)
-    if (error) throw new Error(error.message)
-    return null
-  }, `addFile ${archivo.name}`, cancelado)
-}
-
-async function añadirErrorASesion(sesionId: string, filename: string, detalle: string) {
-  const { data: ses } = await supabase.from('ocr_sessions').select('log,errores,enviados').eq('id', sesionId).maybeSingle()
-  if (!ses) return
-  const log = [...((ses.log as any[]) || []), { filename, status: 'error', detalle: `subida: ${detalle}` }]
-  await supabase.from('ocr_sessions').update({ log, errores: (ses.errores || 0) + 1, enviados: (ses.enviados || 0) + 1 }).eq('id', sesionId)
+// v32: actualizar progreso de subida al Storage en BBDD (para que otros dispositivos lo vean)
+async function actualizarProgresoStorage(sesionId: string, subidos: number) {
+  await supabase.from('ocr_sessions').update({ subidos_storage: subidos }).eq('id', sesionId).catch(() => {})
 }
 
 export function useOcrUpload() {
@@ -428,6 +415,11 @@ export function useOcrUpload() {
     return () => emitter.removeEventListener('change', h)
   }, [])
 
+  // v32: UPLOAD-FIRST — todos los archivos se suben al Storage PRIMERO
+  // Luego se graba la lista completa en archivos_pendientes de la sesión
+  // Y se cambia estado_cola a 'en_espera' para que el worker los procese
+  // Si el browser muere a mitad de subida, los archivos ya subidos están en Storage
+  // y la sesión queda en 'staging' — se puede reanudar o limpiar
   async function procesar(
     files: File[],
     fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto',
@@ -440,13 +432,14 @@ export function useOcrUpload() {
     const baseOrden = Math.floor(Date.now() / 1000)
     const sesionesCreadas: { id: string; rangoIni: number; rangoFin: number }[] = []
 
-    ponerPreparando(idLocal, files.length, 0, `Creando sesión…`)
+    ponerPreparando(idLocal, files.length, 0, `Preparando subida…`)
 
+    // Crear sesiones en BBDD en estado 'staging'
     for (let lote = 0; lote < totalLotes; lote++) {
       const ini = lote * SESION_MAX_ARCHIVOS
       const fin = Math.min(ini + SESION_MAX_ARCHIVOS, files.length)
       const sesionId = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
-      const err = await crearSesionBBDD(sesionId, grupoId, fin - ini, fnName, titular_id, baseOrden + lote)
+      const err = await crearSesionBBDD(sesionId, grupoId, fin - ini, fnName, titular_id, baseOrden + lote, fin - ini)
       if (err) {
         setErrorVisible(`Error creando sesión: ${err}`)
         quitarPreparando(idLocal)
@@ -456,60 +449,69 @@ export function useOcrUpload() {
     }
 
     await cargarSesionesActivas()
-    lanzarWorker()
 
+    // FASE 1: Subir TODOS los archivos al Storage
+    const archivosSubidos: { sesionId: string; name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
     let subidos = 0
-    let fallosSubida = 0
+    let fallos = 0
     const cancelado = () => cancelacionesLocales.has(grupoId)
 
-    async function procesarUno(file: File, idxGlobal: number) {
+    async function subirUno(file: File, idxGlobal: number) {
       if (cancelado()) return
       const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
-      const ext = getExt(file.name)
-
       try {
-        if (EXTS_COMPRIMIDOS_SERVER.has(ext)) {
-          // RAR/7z: subir entero al Storage con retry ilimitado
-          const mimeType = getMimeTypeBase(ext)
-          const path = await subirAlStorage(grupoId, idxGlobal, file.name, mimeType, file, cancelado)
-          if (cancelado()) return
-          // Llamar a edge function que descomprime server-side (también con retry ilimitado)
-          await expandirServerSide(path, fnName, titular_id, cancelado)
-          // Marcar como ok en sesión (la edge function ya proceso los archivos internos directamente)
-          subidos++
-        } else {
-          // Archivo normal: normalizar y subir
-          const norm = await normalizar(file)
-          const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
-          const errAdd = await añadirArchivoASesion(ses.id, { name: norm.name, type: norm.type, storagePath: path }, cancelado)
-          if (errAdd === 'cancelada') return
-          if (errAdd) { await añadirErrorASesion(ses.id, file.name, errAdd); fallosSubida++ }
-          else subidos++
-        }
+        const norm = await normalizar(file)
+        const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
+        archivosSubidos.push({ sesionId: ses.id, name: norm.name, type: norm.type, storagePath: path, esComprimido: norm.esComprimido })
+        subidos++
       } catch (e: any) {
         const msg = e?.message || String(e)
-        if (msg === 'cancelado') return
-        await añadirErrorASesion(ses.id, file.name, msg)
-        fallosSubida++
+        if (msg !== 'cancelado') fallos++
+      }
+      const hechos = subidos + fallos
+      ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`)
+      // Actualizar progreso en BBDD cada 10 archivos (para que otros dispositivos lo vean)
+      if (subidos % 10 === 0) {
+        const porSesion: Record<string, number> = {}
+        for (const a of archivosSubidos) { porSesion[a.sesionId] = (porSesion[a.sesionId] || 0) + 1 }
+        for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) }
       }
     }
 
-    ponerPreparando(idLocal, files.length, 0, `Subiendo 0 de ${files.length}…`)
-
     let nextIdx = 0
-    async function workerLocal() {
+    async function workerSubida() {
       while (true) {
         if (cancelado()) return
         const idx = nextIdx++
         if (idx >= files.length) return
-        await procesarUno(files[idx], idx)
-        const hechos = subidos + fallosSubida
-        ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`)
-        if (hechos % 50 === 0) lanzarWorker()
+        await subirUno(files[idx], idx)
       }
     }
 
-    await Promise.all(Array.from({ length: PARALELO_SUBIDAS }, () => workerLocal()))
+    await Promise.all(Array.from({ length: PARALELO_SUBIDAS }, () => workerSubida()))
+
+    if (cancelado()) {
+      quitarPreparando(idLocal)
+      return
+    }
+
+    // FASE 2: Grabar la lista completa en archivos_pendientes de cada sesión
+    // y cambiar estado a 'en_espera' para que el worker arranque
+    for (const ses of sesionesCreadas) {
+      const archivos = archivosSubidos
+        .filter(a => a.sesionId === ses.id)
+        .map(a => ({ name: a.name, type: a.type, storagePath: a.storagePath, esComprimido: a.esComprimido }))
+
+      await supabase.from('ocr_sessions').update({
+        archivos_pendientes: archivos,
+        total: archivos.length,
+        total_storage: archivos.length,
+        subidos_storage: archivos.length,
+        estado: 'procesando',
+        estado_cola: 'en_espera',
+      }).eq('id', ses.id)
+    }
+
     quitarPreparando(idLocal)
     await cargarSesionesActivas()
     lanzarWorker()
