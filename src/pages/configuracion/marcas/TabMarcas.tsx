@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Trash2, Edit3, Power, Search } from 'lucide-react'
+import { Trash2, Edit3, Power } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/lib/format'
 import { rangoPeriodo } from '@/lib/dateRange'
@@ -13,11 +13,8 @@ import {
   sectionLabelStyle,
   useTheme,
   FONT,
-  COLOR,
 } from '@/styles/tokens'
-import { PeriodDropdown } from '@/components/configuracion/PeriodDropdown'
 import { MultiSelectDropdown } from '@/components/configuracion/MultiSelectDropdown'
-import { Ctag } from '@/components/configuracion/Ctag'
 import { StatusTag } from '@/components/configuracion/StatusTag'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
@@ -59,7 +56,7 @@ export default function TabMarcas() {
   const [search, setSearch] = useState('')
   const [platsSel, setPlatsSel] = useState<CanalAbv[]>([])
   const [marcasSel, setMarcasSel] = useState<string[]>([])
-  const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [periodo] = useState<Periodo>('mes')
   const [incArchivadas, setIncArchivadas] = useState(false)
 
   const [editing, setEditing] = useState<MarcaRow | null>(null)
@@ -71,9 +68,7 @@ export default function TabMarcas() {
   const [fCanales, setFCanales] = useState<CanalAbv[]>([])
   const [saving, setSaving] = useState(false)
 
-  // Modal eliminar
   const [delModal, setDelModal] = useState<MarcaRow | null>(null)
-  // Modal rename — detección de existente
   const [renameConflict, setRenameConflict] = useState<{ source: MarcaRow; target: MarcaRow } | null>(null)
 
   async function refetch() {
@@ -122,7 +117,6 @@ export default function TabMarcas() {
   }
   useEffect(() => { refetch() }, [periodo])
 
-  /** Toggle individual de un canal en una marca — guarda en BD y dispara recálculo realtime */
   async function toggleCanal(marca: MarcaRow, canal: CanalAbv) {
     const existente = marca.accesos.find(a => a.plataforma === canal)
     const nuevoEstado = existente ? !existente.activo : true
@@ -140,7 +134,6 @@ export default function TabMarcas() {
     refetch()
   }
 
-  /** Activa/desactiva las 3 plataformas de delivery (UE+GL+JE) de la marca completa */
   async function toggleMarcaCompleta(marca: MarcaRow, activar: boolean) {
     for (const p of ['UE', 'GL', 'JE'] as CanalAbv[]) {
       const ex = marca.accesos.find(a => a.plataforma === p)
@@ -172,27 +165,23 @@ export default function TabMarcas() {
   const pausadas = filtradas.length - activas
 
   const canalStats = useMemo(() => {
-    const stats: Record<string, { id: string; label: string; color: string; bruto: number; nMarcas: number; pct: number }> = {
-      uber:  { id: 'uber',  label: 'Uber Eats',     color: '#0f0f0f', bruto: 0, nMarcas: 0, pct: 0 },
-      glovo: { id: 'glovo', label: 'Glovo',         color: '#FFC107', bruto: 0, nMarcas: 0, pct: 0 },
-      je:    { id: 'je',    label: 'Just Eat',      color: '#F36805', bruto: 0, nMarcas: 0, pct: 0 },
-      web:   { id: 'web',   label: 'Web propia',    color: '#1D9E75', bruto: 0, nMarcas: 0, pct: 0 },
-      dir:   { id: 'dir',   label: 'Directa',       color: '#666',    bruto: 0, nMarcas: 0, pct: 0 },
+    const stats: Record<string, { id: string; label: string; color: string; nMarcas: number }> = {
+      uber:  { id: 'uber',  label: 'Uber Eats',  color: '#0f0f0f', nMarcas: 0 },
+      glovo: { id: 'glovo', label: 'Glovo',      color: '#FFC107', nMarcas: 0 },
+      je:    { id: 'je',    label: 'Just Eat',   color: '#F36805', nMarcas: 0 },
+      web:   { id: 'web',   label: 'Web propia', color: '#1D9E75', nMarcas: 0 },
+      dir:   { id: 'dir',   label: 'Directa',    color: '#666',    nMarcas: 0 },
     }
     for (const m of filtradas) {
-      const f = factMap.get(m.id)
-      const bruto = f?.total_bruto ?? 0
       const canalesActivos = m.accesos.filter(a => a.activo).map(a => a.plataforma)
-      if (canalesActivos.includes('UE'))  { stats.uber.nMarcas++;  stats.uber.bruto  += bruto * 0 }
-      if (canalesActivos.includes('GL'))  { stats.glovo.nMarcas++; stats.glovo.bruto += bruto * 0 }
-      if (canalesActivos.includes('JE'))  { stats.je.nMarcas++;    stats.je.bruto    += bruto * 0 }
-      if (canalesActivos.includes('WEB')) { stats.web.nMarcas++ }
-      if (canalesActivos.includes('DIR')) { stats.dir.nMarcas++ }
+      if (canalesActivos.includes('UE'))  stats.uber.nMarcas++
+      if (canalesActivos.includes('GL'))  stats.glovo.nMarcas++
+      if (canalesActivos.includes('JE'))  stats.je.nMarcas++
+      if (canalesActivos.includes('WEB')) stats.web.nMarcas++
+      if (canalesActivos.includes('DIR')) stats.dir.nMarcas++
     }
-    const totalBrutoCalc = Array.from(factMap.values()).reduce((a, x) => a + x.total_bruto, 0)
-    const arr = Object.values(stats)
-    return arr.map(c => ({ ...c, pct: totalBrutoCalc > 0 ? (c.bruto / totalBrutoCalc) * 100 : 0 }))
-  }, [filtradas, factMap])
+    return Object.values(stats)
+  }, [filtradas])
 
   const totalBruto = Array.from(factMap.values()).reduce((a, x) => a + x.total_bruto, 0)
   const margenes = filtradas.map(m => m.margen_deseado_pct)
@@ -234,7 +223,6 @@ export default function TabMarcas() {
     setSaving(true)
     try {
       const nombre = fNombre.trim()
-      // Detectar conflicto: si nombre existe en otra marca → modal unificar
       if (editing && nombre !== editing.nombre) {
         const conflict = marcas.find(m => m.id !== editing.id && m.nombre.toLowerCase() === nombre.toLowerCase() && !m.archivada_at)
         if (conflict) {
@@ -242,7 +230,6 @@ export default function TabMarcas() {
           setSaving(false)
           return
         }
-        // Sin conflicto: registrar alias para histórico
         await supabase.from('marca_alias').insert({
           marca_id: editing.id,
           nombre_alias: editing.nombre,
@@ -270,26 +257,22 @@ export default function TabMarcas() {
     } catch (e: any) { setError(e?.message ?? 'Error') } finally { setSaving(false) }
   }
 
-  /** Unifica source en target: marca_plataforma_acceso, facturacion_diario, etc. → target, luego elimina source */
   async function handleUnificar() {
     if (!renameConflict) return
     const { source, target } = renameConflict
     setSaving(true)
     try {
-      // Conservar como alias el nombre source
       await supabase.from('marca_alias').insert({
         marca_id: target.id,
         nombre_alias: source.nombre,
         fecha_hasta: new Date().toISOString().slice(0, 10),
       })
-      // Mover datos a target
       await supabase.from('facturacion_diario').update({ marca_id: target.id }).eq('marca_id', source.id)
       await supabase.from('facturas_plataforma_detalle').update({ marca_id: target.id }).eq('marca_id', source.id)
       await supabase.from('uber_liquidaciones').update({ marca_id: target.id }).eq('marca_id', source.id)
       await supabase.from('glovo_liquidaciones').update({ marca_id: target.id }).eq('marca_id', source.id)
       await supabase.from('justeat_liquidaciones').update({ marca_id: target.id }).eq('marca_id', source.id)
       await supabase.from('pe_parametros').update({ marca_id: target.id }).eq('marca_id', source.id)
-      // Borrar source
       await supabase.from('marca_plataforma_acceso').delete().eq('marca_id', source.id)
       await supabase.from('marcas').delete().eq('id', source.id)
       setRenameConflict(null)
@@ -298,7 +281,6 @@ export default function TabMarcas() {
     } catch (e: any) { setError(e?.message ?? 'Error unificando') } finally { setSaving(false) }
   }
 
-  /** Soft delete: archiva (conserva datos) */
   async function handleArchivar(marca: MarcaRow) {
     setSaving(true)
     try {
@@ -306,7 +288,6 @@ export default function TabMarcas() {
         .from('marcas')
         .update({ archivada_at: new Date().toISOString(), estado: 'pausada' })
         .eq('id', marca.id)
-      // Desactivar todos sus canales
       await supabase
         .from('marca_plataforma_acceso')
         .update({ activo: false })
@@ -317,11 +298,9 @@ export default function TabMarcas() {
     } catch (e: any) { setError(e?.message ?? 'Error archivando') } finally { setSaving(false) }
   }
 
-  /** Hard delete: borra todo */
   async function handleBorrarTotal(marca: MarcaRow) {
     setSaving(true)
     try {
-      // Borrar dependencias en orden (FKs)
       await supabase.from('marca_plataforma_acceso').delete().eq('marca_id', marca.id)
       await supabase.from('marca_alias').delete().eq('marca_id', marca.id)
       await supabase.from('facturacion_diario').delete().eq('marca_id', marca.id)
@@ -358,7 +337,6 @@ export default function TabMarcas() {
   const thCenterStyle: React.CSSProperties = { ...thStyle, textAlign: 'center' }
   const tdStyle: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
-  // Pill clicable para activar/desactivar un canal en una marca
   const PillCanal = ({ canal, activo, onClick }: { canal: CanalAbv; activo: boolean; onClick: (e: React.MouseEvent) => void }) => {
     const colors = CANAL_PILL_COLORS[canal]
     return (
@@ -384,10 +362,11 @@ export default function TabMarcas() {
 
   return (
     <>
-      {/* Toolbar */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
         <div style={{ position: 'relative' }}>
-          <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut, pointerEvents: 'none' }} />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut, pointerEvents: 'none' }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar marca..." style={inputSearchStyle} />
         </div>
 
@@ -426,7 +405,6 @@ export default function TabMarcas() {
         </button>
       </div>
 
-      {/* KPIs arriba */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 22 }}>
         <div style={cardStyle(T)}>
           <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Total marcas</div>
@@ -441,8 +419,9 @@ export default function TabMarcas() {
         </div>
 
         <div style={cardStyle(T)}>
-          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Facturación</div>
+          <div style={{ ...kpiLabelStyle(T), marginBottom: 8 }}>Marcas activas por canal</div>
           <div style={{ ...kpiValueStyle(T), marginBottom: 10 }}>{fmtEur(totalBruto)}</div>
+          <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, marginBottom: 10 }}>facturación del mes</div>
           <div style={dividerStyle(T)} />
           {canalStats.filter(c => c.nMarcas > 0).map((c, idx, arr) => (
             <div key={c.id} style={{
@@ -468,19 +447,15 @@ export default function TabMarcas() {
           </div>
           <div style={dividerStyle(T)} />
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut, marginTop: 10 }}>
-            click pill canal → toggle individual · click ⚡ → toggle marca completa
+            click pill canal → toggle individual · click ON/OFF → toggle marca completa
           </div>
         </div>
       </div>
 
-      {/* Tabla Portfolio */}
       <div style={{ ...groupStyle(T), padding: 0, marginBottom: 14, overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>
-            Portfolio de marcas
-            <span style={{ color: T.pri, letterSpacing: '0.04em', textTransform: 'none', marginLeft: 6 }}>
-              · {filtradas.length} marcas
-            </span>
+          <div style={{ ...sectionLabelStyle(T) }}>
+            Portfolio de marcas · {filtradas.length} marcas
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -567,7 +542,6 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* Modal crear/editar */}
       {(editing || creating) && (
         <EditModal
           isOpen
@@ -636,7 +610,6 @@ export default function TabMarcas() {
         </EditModal>
       )}
 
-      {/* Modal eliminar — conservar histórico o borrar */}
       {delModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setDelModal(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480, padding: 0 }} onClick={e => e.stopPropagation()}>
@@ -677,7 +650,6 @@ export default function TabMarcas() {
         </div>
       )}
 
-      {/* Modal conflicto de nombre — unificar o cancelar */}
       {renameConflict && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setRenameConflict(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
