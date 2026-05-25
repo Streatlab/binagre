@@ -36,6 +36,11 @@
  *   VENTA DIRECTA
  *     Sin fees, Neto = Bruto
  *
+ * NOTA PRORRATEO (24 may 2026):
+ *   El fee periódico se prorratea por días reales del rango, NO por
+ *   ciclos completos. Filtrar 1 día de Glovo ya no carga 10€ entero,
+ *   sino 10€/15 ≈ 0,67€/día × marcas. Igual con Uber semanal.
+ *
  * Funciones expuestas:
  *   - calcNetoPorCanal()      → devuelve solo el neto total (para conciliación)
  *   - calcDesglosePorCanal()  → devuelve cada componente desglosado (para Running)
@@ -178,7 +183,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
 export async function loadMarcasPorCanal(): Promise<MarcasPorCanal> {
   ensureRealtime()
   if (cacheMarcasPorCanal) return cacheMarcasPorCanal
-  const out: MarcasPorCanal = { uber: 1, glovo: 1, je: 1, web: 1, dir: 1 }
+  const out: MarcasPorCanal = { uber: 0, glovo: 0, je: 0, web: 1, dir: 1 }
   const { data, error } = await supabase
     .from('marca_plataforma_acceso')
     .select('plataforma, activo')
@@ -226,7 +231,7 @@ export function useConfigCanales(): Record<string, CanalConfig> {
 }
 
 export function useMarcasPorCanal(): MarcasPorCanal {
-  const [marcas, setMarcas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [marcas, setMarcas] = useState<MarcasPorCanal>({ uber: 0, glovo: 0, je: 0, web: 1, dir: 1 })
   useEffect(() => {
     let mounted = true
     loadMarcasPorCanal().then(m => { if (mounted) setMarcas({ ...m }) })
@@ -243,28 +248,33 @@ export function useMarcasPorCanal(): MarcasPorCanal {
   return marcas
 }
 
-function calcularPeriodos(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
+/**
+ * Devuelve el fee periódico PRORRATEADO por días del rango.
+ * Antes devolvía nº ciclos enteros (Math.ceil) → cargaba ciclo entero a 1 día.
+ * Ahora devuelve fracción decimal exacta por día.
+ */
+function calcularPeriodosProrrateados(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
   const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
   switch (periodicidad) {
-    case 'semanal_por_marca':    return Math.ceil(dias / 7)
-    case 'quincenal_por_marca':  return Math.ceil(dias / 15)
-    case 'mensual':              return Math.ceil(dias / 30)
+    case 'semanal_por_marca':    return dias / 7
+    case 'quincenal_por_marca':  return dias / 15
+    case 'mensual':              return dias / 30
     default:                     return 1
   }
 }
 
 function resolveMarcas(canalId: string, marcas: number | MarcasPorCanal | undefined): number {
-  if (typeof marcas === 'number') return Math.max(1, marcas)
+  if (typeof marcas === 'number') return Math.max(0, marcas)
   if (marcas && typeof marcas === 'object') {
     const v = (marcas as any)[canalId]
-    if (typeof v === 'number' && v > 0) return v
-    return 1
+    if (typeof v === 'number' && v >= 0) return v
+    return 0
   }
   if (cacheMarcasPorCanal) {
     const v = (cacheMarcasPorCanal as any)[canalId]
-    if (typeof v === 'number' && v > 0) return v
+    if (typeof v === 'number' && v >= 0) return v
   }
-  return 1
+  return 0
 }
 
 /**
@@ -370,7 +380,8 @@ export function calcDesglosePorCanal(
     feePromoTotal = cfg.fee_promo_eur * nPromo
   }
 
-  // Fee periódico (solo modo agregado_canal con fechas)
+  // Fee periódico PRORRATEADO por días reales del rango
+  // (solo modo agregado_canal con fechas)
   let feePeriodoTotal = 0
   if (
     modo === 'agregado_canal' &&
@@ -378,9 +389,9 @@ export function calcDesglosePorCanal(
     opciones.fechaDesde &&
     opciones.fechaHasta
   ) {
-    const periodos = calcularPeriodos(cfg.fee_periodicidad, opciones.fechaDesde, opciones.fechaHasta)
+    const periodosFraccionales = calcularPeriodosProrrateados(cfg.fee_periodicidad, opciones.fechaDesde, opciones.fechaHasta)
     const nMarcas = resolveMarcas(id, opciones.marcasPorCanal)
-    feePeriodoTotal = cfg.fee_periodo_eur * periodos * nMarcas
+    feePeriodoTotal = cfg.fee_periodo_eur * periodosFraccionales * nMarcas
   }
 
   // Aplicar IVA 21% sobre cada componente
