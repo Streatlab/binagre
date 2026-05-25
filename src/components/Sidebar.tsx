@@ -66,6 +66,7 @@ const SECTIONS: NavSection[] = [
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
       { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/lista-compra',     label: 'Lista de Compra',     emoji: '🛒', perfiles: ['admin', 'cocina'] },
       { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
       { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
@@ -145,7 +146,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Ficha Cliente',                emoji: '👤' },
   { label: 'Envío WhatsApp',               emoji: '💬' },
   { label: 'Envío Email',                  emoji: '📧' },
-  { label: 'Oportunidades',                emoji: '💡' },
+  { label: 'Oportunidades',               emoji: '💡' },
   { label: 'Top Clientes Facturación',     emoji: '🏆' },
   { label: 'Tienda en Línea',              emoji: '🛒' },
   { label: 'Ventas por Hora',              emoji: '🕐' },
