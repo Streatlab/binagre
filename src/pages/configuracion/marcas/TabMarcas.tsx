@@ -138,6 +138,33 @@ export default function TabMarcas() {
     refetch()
   }
 
+  async function toggleMasivo(canales: CanalAbv[], activar: boolean) {
+    const visibles = filtradas.map(m => m.id)
+    if (!visibles.length) return
+    for (const p of canales) {
+      const { data: existentes } = await supabase
+        .from('marca_plataforma_acceso')
+        .select('marca_id')
+        .eq('plataforma', p)
+        .in('marca_id', visibles)
+      const yaExistentes = new Set((existentes ?? []).map((x: any) => x.marca_id))
+      const aInsertar = visibles.filter(id => !yaExistentes.has(id))
+      if (yaExistentes.size > 0) {
+        await supabase
+          .from('marca_plataforma_acceso')
+          .update({ activo: activar })
+          .eq('plataforma', p)
+          .in('marca_id', visibles)
+      }
+      if (activar && aInsertar.length > 0) {
+        await supabase.from('marca_plataforma_acceso').insert(
+          aInsertar.map(mid => ({ marca_id: mid, plataforma: p, activo: true }))
+        )
+      }
+    }
+    refetch()
+  }
+
   async function toggleMarcaCompleta(marca: MarcaRow, activar: boolean) {
     for (const p of ['UE', 'GL', 'JE'] as CanalAbv[]) {
       const ex = marca.accesos.find(a => a.plataforma === p)
@@ -407,6 +434,43 @@ export default function TabMarcas() {
           }}>
           + Nueva marca
         </button>
+      </div>
+
+      {/* Barra de acciones masivas por canal */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, padding: '10px 14px', background: T.group, borderRadius: 10, border: `0.5px solid ${T.brd}` }}>
+        <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, color: T.mut, textTransform: 'uppercase', marginRight: 4 }}>Acciones masivas ({filtradas.length} marcas):</span>
+        {([
+          { label: 'UE',       canales: ['UE'] as CanalAbv[],            color: '#0f0f0f' },
+          { label: 'GL',       canales: ['GL'] as CanalAbv[],            color: '#FFC107' },
+          { label: 'JE',       canales: ['JE'] as CanalAbv[],            color: '#F36805' },
+          { label: 'UE+GL',    canales: ['UE','GL'] as CanalAbv[],       color: '#666' },
+          { label: 'UE+JE',    canales: ['UE','JE'] as CanalAbv[],       color: '#666' },
+          { label: 'GL+JE',    canales: ['GL','JE'] as CanalAbv[],       color: '#666' },
+          { label: 'UE+GL+JE', canales: ['UE','GL','JE'] as CanalAbv[],  color: '#1D9E75' },
+        ]).map(grp => (
+          <div key={grp.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, marginRight: 4 }}>
+            <button onClick={() => toggleMasivo(grp.canales, true)}
+              style={{
+                padding: '5px 8px', borderRadius: '5px 0 0 5px',
+                background: grp.color, color: '#fff',
+                border: `1px solid ${grp.color}`, borderRight: 'none',
+                fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, cursor: 'pointer',
+              }}
+              title={`Activar ${grp.label} en todas las marcas filtradas`}>
+              ON {grp.label}
+            </button>
+            <button onClick={() => toggleMasivo(grp.canales, false)}
+              style={{
+                padding: '5px 8px', borderRadius: '0 5px 5px 0',
+                background: 'transparent', color: T.mut,
+                border: `1px solid ${T.brd}`,
+                fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, cursor: 'pointer',
+              }}
+              title={`Desactivar ${grp.label} en todas las marcas filtradas`}>
+              OFF
+            </button>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 22 }}>
