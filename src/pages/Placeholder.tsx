@@ -21,6 +21,8 @@ const LABELS: Record<string, string> = {
   'bpm': 'BPM / Calidad',
   'reuniones': 'Reuniones Equipo',
   'recetas': 'Recetas Fichas Técnicas',
+  // Cocina
+  'lista-compra': 'Lista de Compra',
   // Equipo
   'empleados': 'Fichas Empleados',
   'evaluaciones': 'Evaluaciones',
@@ -47,6 +49,7 @@ const SECTION_LABELS: Record<string, string> = {
   'analytics': 'Analytics',
   'ops': 'Operaciones',
   'equipo': 'Equipo',
+  'cocina': 'Cocina',
   'clientes': 'Clientes',
   'integraciones': 'Integraciones',
   'finanzas': 'Finanzas',
