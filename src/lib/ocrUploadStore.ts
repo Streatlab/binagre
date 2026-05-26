@@ -1,4 +1,4 @@
-// ocrUploadStore v35 — revert B03 lazy init (causa parpadeo subida)
+// ocrUploadStore v36 — fix .or() syntax (causa 400 ocr_sessions y rompe toast subida)
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -148,13 +148,20 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
 
 function snapshot(): OcrSession[] { return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)] }
 
+// FIX v36: simplificar query — filtra solo por estados activos. Sesiones completadas no se cargan al inicio (no aporta valor y `.or()` con `and()` anidado revienta PostgREST con 400).
 async function cargarSesionesActivas() {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const cutoffCompletada = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { data, error } = await supabase.from('ocr_sessions').select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage').gte('creado_en', cutoff).eq('visible', true).or(`estado_cola.in.(staging,en_espera,procesando),and(estado_cola.eq.completada,completado_en.gte.${cutoffCompletada})`).order('orden_cola', { ascending: true })
-    if (error) return; rawSessions = (data || []).map(dbToSession); emit()
-  } catch {}
+    const { data, error } = await supabase
+      .from('ocr_sessions')
+      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
+      .gte('creado_en', cutoff)
+      .eq('visible', true)
+      .in('estado_cola', ['staging', 'en_espera', 'procesando'])
+      .order('orden_cola', { ascending: true })
+    if (error) { console.warn('[OCR] cargarSesionesActivas error:', error.message); return }
+    rawSessions = (data || []).map(dbToSession); emit()
+  } catch (e: any) { console.warn('[OCR] cargarSesionesActivas excepción:', e?.message || e) }
 }
 
 function suscribirRealtime() {
