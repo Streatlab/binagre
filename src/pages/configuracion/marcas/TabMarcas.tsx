@@ -3,7 +3,7 @@ import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
-import type { CanalAbv, TipoCocina, EstadoMarca } from '@/types/configuracion'
+import type { CanalAbv, EstadoMarca } from '@/types/configuracion'
 
 interface AccesoRow {
   plataforma: CanalAbv
@@ -21,7 +21,7 @@ interface MarcaRow {
 }
 
 const CANAL_PILL_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  UE:  { bg: '#0f0f0f', border: '#0f0f0f', text: '#fff' },
+  UE:  { bg: '#05A357', border: '#05A357', text: '#fff' },
   GL:  { bg: '#FFC107', border: '#FFC107', text: '#111' },
   JE:  { bg: '#F36805', border: '#F36805', text: '#fff' },
   WEB: { bg: '#1D9E75', border: '#1D9E75', text: '#fff' },
@@ -33,7 +33,6 @@ const PLATAFORMAS: CanalAbv[] = ['UE', 'GL', 'JE', 'WEB', 'DIR']
 export default function TabMarcas() {
   const { T, isDark } = useTheme()
   const [marcas, setMarcas] = useState<MarcaRow[]>([])
-  const [tiposCocina, setTiposCocina] = useState<TipoCocina[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,13 +42,12 @@ export default function TabMarcas() {
   const [editing, setEditing] = useState<MarcaRow | null>(null)
   const [creating, setCreating] = useState(false)
   const [fNombre, setFNombre] = useState('')
-  const [fCocina, setFCocina] = useState<string>('')
   const [fEstado, setFEstado] = useState<EstadoMarca>('activa')
-  const [fMargen, setFMargen] = useState('70')
   const [fCanales, setFCanales] = useState<CanalAbv[]>([])
   const [saving, setSaving] = useState(false)
 
   const [delModal, setDelModal] = useState<MarcaRow | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ marca: MarcaRow; mode: 'archive' | 'total' } | null>(null)
   const [renameConflict, setRenameConflict] = useState<{ source: MarcaRow; target: MarcaRow } | null>(null)
 
   async function refetch() {
@@ -75,13 +73,22 @@ export default function TabMarcas() {
         ...m, accesos: accesosByMarca.get(m.id) ?? [],
       }))
       setMarcas(out)
-
-      const { data: tcs } = await supabase
-        .from('tipos_cocina').select('id, nombre').order('nombre')
-      setTiposCocina((tcs ?? []) as TipoCocina[])
     } catch (e: any) { setError(e?.message ?? 'Error') } finally { setLoading(false) }
   }
   useEffect(() => { refetch() }, [])
+
+  // Escape cierra todos los modales
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (saving) return
+        setEditing(null); setCreating(false)
+        setDelModal(null); setConfirmDelete(null); setRenameConflict(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [saving])
 
   async function toggleCanal(marca: MarcaRow, canal: CanalAbv) {
     const existente = marca.accesos.find(a => a.plataforma === canal)
@@ -96,33 +103,6 @@ export default function TabMarcas() {
       await supabase
         .from('marca_plataforma_acceso')
         .insert({ marca_id: marca.id, plataforma: canal, activo: true })
-    }
-    refetch()
-  }
-
-  async function toggleMasivo(canales: CanalAbv[], activar: boolean) {
-    const visibles = filtradas.map(m => m.id)
-    if (!visibles.length) return
-    for (const p of canales) {
-      const { data: existentes } = await supabase
-        .from('marca_plataforma_acceso')
-        .select('marca_id')
-        .eq('plataforma', p)
-        .in('marca_id', visibles)
-      const yaExistentes = new Set((existentes ?? []).map((x: any) => x.marca_id))
-      const aInsertar = visibles.filter(id => !yaExistentes.has(id))
-      if (yaExistentes.size > 0) {
-        await supabase
-          .from('marca_plataforma_acceso')
-          .update({ activo: activar })
-          .eq('plataforma', p)
-          .in('marca_id', visibles)
-      }
-      if (activar && aInsertar.length > 0) {
-        await supabase.from('marca_plataforma_acceso').insert(
-          aInsertar.map(mid => ({ marca_id: mid, plataforma: p, activo: true }))
-        )
-      }
     }
     refetch()
   }
@@ -154,12 +134,12 @@ export default function TabMarcas() {
 
   function openNueva() {
     setCreating(true); setEditing(null)
-    setFNombre(''); setFCocina(''); setFEstado('activa'); setFMargen('70')
+    setFNombre(''); setFEstado('activa')
     setFCanales([])
   }
   function openEdit(m: MarcaRow) {
     setEditing(m); setCreating(false)
-    setFNombre(m.nombre); setFCocina(m.tipo_cocina_id ?? ''); setFEstado(m.estado); setFMargen(String(m.margen_deseado_pct))
+    setFNombre(m.nombre); setFEstado(m.estado)
     setFCanales((m.accesos || []).filter(a => a.activo).map(a => a.plataforma as CanalAbv))
   }
   function close() { setEditing(null); setCreating(false) }
@@ -199,12 +179,7 @@ export default function TabMarcas() {
           nombre_anterior: editing.nombre,
         })
       }
-      const payload = {
-        nombre,
-        tipo_cocina_id: fCocina || null,
-        estado: fEstado,
-        margen_deseado_pct: parseFloat(fMargen.replace(',', '.')) || 70,
-      }
+      const payload = { nombre, estado: fEstado }
       let marcaId: string | undefined = editing?.id
       if (editing) {
         const { error } = await supabase.from('marcas').update(payload).eq('id', editing.id)
@@ -248,7 +223,7 @@ export default function TabMarcas() {
         .from('marca_plataforma_acceso')
         .update({ activo: false })
         .eq('marca_id', marca.id)
-      setDelModal(null)
+      setDelModal(null); setConfirmDelete(null)
       await refetch()
       close()
     } catch (e: any) { setError(e?.message ?? 'Error archivando') } finally { setSaving(false) }
@@ -261,7 +236,7 @@ export default function TabMarcas() {
       await supabase.from('marca_alias').delete().eq('marca_id', marca.id)
       await supabase.from('facturacion_diario').delete().eq('marca_id', marca.id)
       await supabase.from('marcas').delete().eq('id', marca.id)
-      setDelModal(null)
+      setDelModal(null); setConfirmDelete(null)
       await refetch()
       close()
     } catch (e: any) { setError(e?.message ?? 'Error borrando') } finally { setSaving(false) }
@@ -275,12 +250,12 @@ export default function TabMarcas() {
   )
 
   const thStyle: React.CSSProperties = {
-    padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10,
+    padding: '8px 6px', fontFamily: FONT.heading, fontSize: 10,
     textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
     fontWeight: 400, background: T.group, textAlign: 'left',
   }
   const thCenterStyle: React.CSSProperties = { ...thStyle, textAlign: 'center' }
-  const tdStyle: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const tdStyle: React.CSSProperties = { padding: '6px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
   const PillCanal = ({ canal, activo, onClick }: { canal: CanalAbv; activo: boolean; onClick: (e: React.MouseEvent) => void }) => {
     const colors = CANAL_PILL_COLORS[canal]
@@ -289,14 +264,14 @@ export default function TabMarcas() {
         onClick={onClick}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          padding: '4px 9px', minWidth: 38,
+          padding: '3px 8px', minWidth: 36,
           borderRadius: 5, fontFamily: FONT.heading, fontSize: 10, fontWeight: 700,
           letterSpacing: '1px',
           background: activo ? colors.bg : 'transparent',
           color: activo ? colors.text : T.mut,
           border: activo ? `1px solid ${colors.border}` : `1px dashed ${T.brd}`,
           cursor: 'pointer', transition: 'all 120ms',
-          marginRight: 4,
+          marginRight: 3,
         }}
         title={activo ? `${canal} activo · click para desactivar` : `${canal} inactivo · click para activar`}
       >
@@ -307,7 +282,7 @@ export default function TabMarcas() {
 
   return (
     <>
-      {/* Header: buscador + nueva marca */}
+      {/* Header */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ position: 'relative', flex: '0 0 auto' }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut, pointerEvents: 'none' }} />
@@ -341,44 +316,7 @@ export default function TabMarcas() {
         </button>
       </div>
 
-      {/* Barra de acciones masivas */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, padding: '10px 14px', background: T.group, borderRadius: 10, border: `0.5px solid ${T.brd}` }}>
-        <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, color: T.mut, textTransform: 'uppercase', marginRight: 4 }}>Masivo ({filtradas.length}):</span>
-        {([
-          { label: 'UE',       canales: ['UE'] as CanalAbv[],            color: '#0f0f0f' },
-          { label: 'GL',       canales: ['GL'] as CanalAbv[],            color: '#FFC107' },
-          { label: 'JE',       canales: ['JE'] as CanalAbv[],            color: '#F36805' },
-          { label: 'UE+GL',    canales: ['UE','GL'] as CanalAbv[],       color: '#666' },
-          { label: 'UE+JE',    canales: ['UE','JE'] as CanalAbv[],       color: '#666' },
-          { label: 'GL+JE',    canales: ['GL','JE'] as CanalAbv[],       color: '#666' },
-          { label: 'UE+GL+JE', canales: ['UE','GL','JE'] as CanalAbv[],  color: '#1D9E75' },
-        ]).map(grp => (
-          <div key={grp.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 0, marginRight: 4 }}>
-            <button onClick={() => toggleMasivo(grp.canales, true)}
-              style={{
-                padding: '5px 8px', borderRadius: '5px 0 0 5px',
-                background: grp.color, color: grp.label === 'GL' ? '#111' : '#fff',
-                border: `1px solid ${grp.color}`, borderRight: 'none',
-                fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, cursor: 'pointer',
-              }}
-              title={`Activar ${grp.label} en marcas visibles`}>
-              ON {grp.label}
-            </button>
-            <button onClick={() => toggleMasivo(grp.canales, false)}
-              style={{
-                padding: '5px 8px', borderRadius: '0 5px 5px 0',
-                background: 'transparent', color: T.mut,
-                border: `1px solid ${T.brd}`,
-                fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, cursor: 'pointer',
-              }}
-              title={`Desactivar ${grp.label} en marcas visibles`}>
-              OFF
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Tabla limpia */}
+      {/* Tabla */}
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
@@ -386,7 +324,7 @@ export default function TabMarcas() {
               <tr style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                 <th style={thStyle}>Marca</th>
                 <th style={thStyle}>Canales</th>
-                <th style={thCenterStyle}>Toggle marca</th>
+                <th style={thCenterStyle}>Toggle</th>
                 <th style={thCenterStyle}>Acciones</th>
               </tr>
             </thead>
@@ -415,27 +353,27 @@ export default function TabMarcas() {
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleMarcaCompleta(m, !algunoActivo) }}
                         style={{
-                          padding: '5px 12px', borderRadius: 5,
+                          padding: '4px 10px', borderRadius: 5,
                           background: algunoActivo ? '#1D9E75' : T.inp,
                           color: algunoActivo ? '#fff' : T.mut,
                           border: `1px solid ${algunoActivo ? '#1D9E75' : T.brd}`,
                           fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1, cursor: 'pointer', fontWeight: 600,
                         }}
                         title={algunoActivo ? 'Desactivar UE+GL+JE' : 'Activar UE+GL+JE'}>
-                        <Power size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+                        <Power size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
                         {algunoActivo ? 'ON' : 'OFF'}
                       </button>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
                       <button onClick={(e) => { e.stopPropagation(); openEdit(m) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mut, padding: 6, marginRight: 4 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mut, padding: 4, marginRight: 4 }}
                         title="Editar / renombrar">
-                        <Edit3 size={15} />
+                        <Edit3 size={14} />
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); setDelModal(m) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 6 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 4 }}
                         title="Eliminar marca">
-                        <Trash2 size={15} />
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -449,7 +387,7 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* MODAL nueva / editar */}
+      {/* MODAL editar/crear */}
       {(editing || creating) && (
         <EditModal
           title={creating ? 'Nueva marca' : `Editar ${editing?.nombre}`}
@@ -461,18 +399,7 @@ export default function TabMarcas() {
             <input
               value={fNombre} onChange={e => setFNombre(e.target.value)}
               placeholder="Nombre de la marca"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `0.5px solid ${T.brd}`, fontSize: 13, fontFamily: FONT.body, background: T.inp, color: T.pri, outline: 'none' }}
-            />
-          </Field>
-          <Field label="Tipo de cocina">
-            <select value={fCocina} onChange={e => setFCocina(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `0.5px solid ${T.brd}`, fontSize: 13, fontFamily: FONT.body, background: T.inp, color: T.pri, outline: 'none' }}>
-              <option value="">— Sin tipo —</option>
-              {tiposCocina.map(tc => <option key={tc.id} value={tc.id}>{tc.nombre}</option>)}
-            </select>
-          </Field>
-          <Field label="Margen deseado (%)">
-            <input value={fMargen} onChange={e => setFMargen(e.target.value)} type="number" min="0" max="100" step="0.01"
+              autoFocus
               style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `0.5px solid ${T.brd}`, fontSize: 13, fontFamily: FONT.body, background: T.inp, color: T.pri, outline: 'none' }}
             />
           </Field>
@@ -501,8 +428,8 @@ export default function TabMarcas() {
         </EditModal>
       )}
 
-      {/* MODAL eliminar */}
-      {delModal && (
+      {/* MODAL eliminar (paso 1) */}
+      {delModal && !confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setDelModal(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480, padding: 0 }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -513,26 +440,26 @@ export default function TabMarcas() {
               <p style={{ fontSize: 14, color: T.pri, fontFamily: FONT.body, marginTop: 0, marginBottom: 16 }}>
                 ¿Cómo quieres eliminar <strong>{delModal.nombre}</strong>?
               </p>
-              <button onClick={() => handleArchivar(delModal)} disabled={saving}
+              <button onClick={() => setConfirmDelete({ marca: delModal, mode: 'archive' })} disabled={saving}
                 style={{
                   width: '100%', padding: '14px 16px', marginBottom: 10,
                   background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8,
-                  textAlign: 'left', cursor: saving ? 'default' : 'pointer', fontFamily: FONT.body,
+                  textAlign: 'left', cursor: 'pointer', fontFamily: FONT.body,
                 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.pri, marginBottom: 4 }}>📦 Archivar (conservar histórico)</div>
                 <div style={{ fontSize: 11, color: T.mut }}>Marca se oculta pero conserva todos los datos. Recomendado.</div>
               </button>
-              <button onClick={() => handleBorrarTotal(delModal)} disabled={saving}
+              <button onClick={() => setConfirmDelete({ marca: delModal, mode: 'total' })} disabled={saving}
                 style={{
                   width: '100%', padding: '14px 16px',
                   background: 'transparent', border: '1px solid #B01D23', borderRadius: 8,
-                  textAlign: 'left', cursor: saving ? 'default' : 'pointer', fontFamily: FONT.body,
+                  textAlign: 'left', cursor: 'pointer', fontFamily: FONT.body,
                 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#B01D23', marginBottom: 4 }}>🗑 Borrar todo (sin vuelta atrás)</div>
                 <div style={{ fontSize: 11, color: T.mut }}>Elimina marca y TODOS sus datos. Irreversible.</div>
               </button>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-                <button onClick={() => setDelModal(null)} disabled={saving}
+                <button onClick={() => setDelModal(null)}
                   style={{ padding: '8px 16px', background: 'transparent', color: T.mut, border: `0.5px solid ${T.brd}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: FONT.body }}>
                   Cancelar
                 </button>
@@ -542,9 +469,46 @@ export default function TabMarcas() {
         </div>
       )}
 
+      {/* MODAL confirmar (paso 2) */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setConfirmDelete(null)}>
+          <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}` }}>
+              <h3 style={{ fontFamily: FONT.heading, fontSize: 14, margin: 0, color: confirmDelete.mode === 'total' ? '#B01D23' : T.pri, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}>
+                {confirmDelete.mode === 'total' ? '⚠ Confirmar borrado total' : 'Confirmar archivar'}
+              </h3>
+            </div>
+            <div style={{ padding: 20 }}>
+              <p style={{ fontSize: 13, color: T.pri, fontFamily: FONT.body, marginTop: 0, marginBottom: 16, lineHeight: 1.5 }}>
+                {confirmDelete.mode === 'total'
+                  ? <>Vas a borrar <strong>{confirmDelete.marca.nombre}</strong> y todos sus datos sin posibilidad de recuperarlos. ¿Confirmas?</>
+                  : <>Vas a archivar <strong>{confirmDelete.marca.nombre}</strong>. ¿Confirmas?</>}
+              </p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setConfirmDelete(null)} disabled={saving}
+                  style={{ padding: '8px 16px', background: 'transparent', color: T.mut, border: `0.5px solid ${T.brd}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: FONT.body }}>
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => confirmDelete.mode === 'total' ? handleBorrarTotal(confirmDelete.marca) : handleArchivar(confirmDelete.marca)}
+                  disabled={saving}
+                  style={{
+                    padding: '8px 16px',
+                    background: confirmDelete.mode === 'total' ? '#B01D23' : '#1D9E75',
+                    color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                    fontFamily: FONT.heading, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase',
+                  }}>
+                  {saving ? '...' : (confirmDelete.mode === 'total' ? 'Sí, borrar todo' : 'Sí, archivar')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL conflicto rename */}
       {renameConflict && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setRenameConflict(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setRenameConflict(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '16px 20px', borderBottom: `0.5px solid ${T.brd}` }}>
               <h3 style={{ fontFamily: FONT.heading, fontSize: 15, margin: 0, color: T.pri, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}>Nombre ya existe</h3>
