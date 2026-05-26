@@ -1,12 +1,9 @@
+// matching v2 — fixes G01 G02 G03 G05 G08 G09
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ExtractedFactura } from './ocr.js'
 
 const LIMITE_CONCILIACION = '2023-07-01'
-
-// Tolerancia matching factura↔banco (regla 08/05/26: ±0.05€ máximo).
 const TOLERANCIA_IMPORTE = 0.05
-
-// Ventana temporal por defecto (días antes / después fecha factura).
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
 const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = {
@@ -61,23 +58,26 @@ export interface MatchingResult {
 
 /* ═════════════ HELPERS ═════════════ */
 
+// G03: normalizar & → espacio
 export function normalizar(texto: string): string {
   if (!texto) return ''
   return texto
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[,.]/g, ' ')
+    .replace(/[,.&]/g, ' ')
     .replace(/\s+s\s*\.?\s*a\s*\.?(\s|$)/gi, ' ')
     .replace(/\s+s\s*\.?\s*l\s*\.?\s*u?\s*\.?(\s|$)/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
+// G02: escapar backslash
 function escaparLike(s: string): string {
-  return s.replace(/[%_]/g, '\\$&')
+  return s.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&')
 }
 
+// G08: usar 2 primeras palabras combinadas para buscar alias
 export async function obtenerAliasProveedor(
   supabase: SupabaseClient,
   proveedorNombre: string,
@@ -86,12 +86,31 @@ export async function obtenerAliasProveedor(
   if (!normalizado) return []
 
   const palabras = normalizado.split(' ').filter((p) => p.length >= 3)
-  const termino = palabras[0] || normalizado
+  // G08: usar las 2 primeras palabras para búsqueda más precisa
+  const termino = palabras.slice(0, 2).join(' ') || normalizado
 
   const { data: matches } = await supabase
     .from('proveedor_alias')
     .select('proveedor_canonico, alias')
     .or(`alias.ilike.%${escaparLike(termino)}%,proveedor_canonico.ilike.%${escaparLike(termino)}%`)
+
+  // Si no encuentra con 2 palabras, intentar con la primera sola
+  if ((!matches || matches.length === 0) && palabras.length > 1) {
+    const termino1 = palabras[0]
+    const { data: matches1 } = await supabase
+      .from('proveedor_alias')
+      .select('proveedor_canonico, alias')
+      .or(`alias.ilike.%${escaparLike(termino1)}%,proveedor_canonico.ilike.%${escaparLike(termino1)}%`)
+    if (matches1 && matches1.length > 0) {
+      const canonico = matches1[0].proveedor_canonico as string
+      const { data: aliasCompletos } = await supabase
+        .from('proveedor_alias')
+        .select('alias')
+        .eq('proveedor_canonico', canonico)
+      const aliasList = (aliasCompletos || []).map((r) => (r.alias as string).toLowerCase())
+      return aliasList.length > 0 ? aliasList : [normalizado]
+    }
+  }
 
   if (!matches || matches.length === 0) {
     return palabras.length > 0 ? palabras : [normalizado]
@@ -135,9 +154,6 @@ function mesAnterior(fecha: string): { inicio: string; fin: string } {
   }
 }
 
-// FIX 13/05/26: Obtiene la categoría mayoritaria de una lista de matches.
-// Antes se exigía unicas.length === 1, lo que fallaba con Mercadona multi-cargo
-// (8 movimientos con la misma categoría 2.11.1 → devolvía vacío).
 function categoriaMayoritaria(matches: MatchCandidato[]): string | null {
   const categorias = matches
     .map((m) => m.categoria_codigo)
@@ -151,14 +167,11 @@ function categoriaMayoritaria(matches: MatchCandidato[]): string | null {
   return mejor ? mejor[0] : null
 }
 
-// FIX 13/05/26: Fallback a reglas_conciliacion cuando no hay match bancario.
-// Busca por NIF emisor primero, luego por patron (nombre proveedor).
 async function categoriaDesdReglas(
   supabase: SupabaseClient,
   proveedorNombre: string,
   nifEmisor: string | null | undefined,
 ): Promise<{ categoria: string | null; proveedor_canonico: string | null }> {
-  // Paso 1: por NIF emisor (más fiable)
   if (nifEmisor) {
     const { data } = await supabase
       .from('reglas_conciliacion')
@@ -176,7 +189,6 @@ async function categoriaDesdReglas(
     }
   }
 
-  // Paso 2: por patron (nombre proveedor normalizado)
   const norm = normalizar(proveedorNombre)
   const palabras = norm.split(' ').filter((p) => p.length >= 3)
   for (const palabra of palabras) {
@@ -238,6 +250,7 @@ export async function matchFactura(
   }
   else {
     const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre)
+    // G01: pasar titular_id a matchFacturaNormal
     result = await matchFacturaNormal(supabase, factura, alias)
   }
 
@@ -250,9 +263,10 @@ export async function matchFactura(
 
 /* ═════════════ NORMAL ═════════════ */
 
+// G01: filtrar por titular_id
 async function matchFacturaNormal(
   supabase: SupabaseClient,
-  factura: ExtractedFactura & { total: number },
+  factura: ExtractedFactura & { total: number; titular_id?: string | null },
   alias: string[],
 ): Promise<MatchingResult> {
   if (alias.length === 0) {
@@ -271,13 +285,20 @@ async function matchFacturaNormal(
   const fechaMax = new Date(fechaBase)
   fechaMax.setDate(fechaMax.getDate() + ventana.despues)
 
-  const { data: candidatosRaw } = await supabase
+  // G01: filtrar por titular_id si disponible
+  let query = supabase
     .from('conciliacion')
     .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
     .lt('importe', 0)
     .gte('fecha', fechaMin.toISOString().slice(0, 10))
     .lte('fecha', fechaMax.toISOString().slice(0, 10))
     .or(orFilterAlias(alias))
+
+  if (factura.titular_id) {
+    query = query.eq('titular_id', factura.titular_id)
+  }
+
+  const { data: candidatosRaw } = await query
 
   const candidatos: MatchCandidato[] = (candidatosRaw || []).map((c) => ({
     id: c.id as string,
@@ -362,16 +383,13 @@ async function matchFacturaNormal(
   }
 }
 
-/* ═════════════ MERCADONA (mes natural anterior, multi-titular) ═════════════ */
+/* ═════════════ MERCADONA ═════════════ */
 
 async function matchFacturaMercadona(
   supabase: SupabaseClient,
   factura: ExtractedFactura & { total: number; titular_id?: string | null },
 ): Promise<MatchingResult> {
   const { inicio, fin } = mesAnterior(factura.fecha_factura)
-
-  // Todos los alias Mercadona incluyendo Colmena y CC Albufera Plaza.
-  // NO filtrar por titular: la factura puede ser de Rubén pero pagos con tarjeta Emilio y viceversa.
   const alias = ['mercadona', 'cc.albufera', 'albufera plaza', 'mercadona online', 'mercadona colmena']
 
   const { data: movimientosRaw } = await supabase
@@ -441,6 +459,7 @@ async function matchFacturaMercadona(
 
 /* ═════════════ GLOVO / JUST EAT ═════════════ */
 
+// G05: confianza <90 → pendiente_revision
 async function matchFacturaGlovoJustEat(
   supabase: SupabaseClient,
   factura: ExtractedFactura & { total: number },
@@ -484,11 +503,12 @@ async function matchFacturaGlovoJustEat(
     }
   }
 
+  // G05: solo asociar automáticamente si confianza >=90
   return {
-    estado: 'asociada',
+    estado: 'pendiente_revision',
     matches: ingresos,
     confianza: 70,
-    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo`,
+    mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo. Confirma manualmente.`,
   }
 }
 
@@ -586,13 +606,15 @@ function fechaEsHistorica(fecha: string): boolean {
 
 /* ═════════════ PERSISTENCIA ═════════════ */
 
+// G09: preservar matches confirmados manuales
 export async function aplicarMatching(
   supabase: SupabaseClient,
   facturaId: string,
   result: MatchingResult,
   facturaExtra?: { proveedor_nombre?: string; nif_emisor?: string | null },
 ): Promise<void> {
-  await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId)
+  // G09: solo borrar matches NO confirmados manualmente
+  await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId).eq('confirmado_manual', false)
 
   if (result.matches.length > 0) {
     const { data: fac } = await supabase
@@ -601,28 +623,38 @@ export async function aplicarMatching(
       .eq('id', facturaId)
       .maybeSingle()
     const facturaTitular = (fac?.titular_id as string | null) ?? null
-    const filas = result.matches.map((m) => ({
-      factura_id: facturaId,
-      conciliacion_id: m.id,
-      importe_asociado: Math.abs(m.importe),
-      confirmado: result.estado === 'asociada',
-      confianza_match: result.confianza,
-      cruza_cuentas: Boolean(
-        facturaTitular && m.titular_id && m.titular_id !== facturaTitular,
-      ),
-    }))
-    await supabase.from('facturas_gastos').insert(filas)
+
+    // G09: no insertar si ya existe match manual para ese conciliacion_id
+    const { data: manualesExistentes } = await supabase
+      .from('facturas_gastos')
+      .select('conciliacion_id')
+      .eq('factura_id', facturaId)
+      .eq('confirmado_manual', true)
+    const manualesIds = new Set((manualesExistentes || []).map(m => m.conciliacion_id as string))
+
+    const filas = result.matches
+      .filter(m => !manualesIds.has(m.id))
+      .map((m) => ({
+        factura_id: facturaId,
+        conciliacion_id: m.id,
+        importe_asociado: Math.abs(m.importe),
+        confirmado: result.estado === 'asociada',
+        confirmado_manual: false,
+        confianza_match: result.confianza,
+        cruza_cuentas: Boolean(
+          facturaTitular && m.titular_id && m.titular_id !== facturaTitular,
+        ),
+      }))
+    if (filas.length > 0) {
+      await supabase.from('facturas_gastos').insert(filas)
+    }
   }
 
-  // FIX 13/05/26: categoría mayoritaria en vez de exigir única.
-  // Cubre Mercadona multi-cargo (8 movimientos con la misma categoría 2.11.1).
   let categoriaPropagada: string | null = null
   if (result.estado === 'asociada' && result.matches.length > 0) {
     categoriaPropagada = categoriaMayoritaria(result.matches)
   }
 
-  // FIX 13/05/26: fallback a reglas_conciliacion si no hay categoría del banco.
-  // Aplica tanto a 'asociada' sin categoría como a 'sin_match'/'pendiente_revision'.
   if (!categoriaPropagada && facturaExtra?.proveedor_nombre) {
     const fromReglas = await categoriaDesdReglas(
       supabase,
@@ -644,8 +676,6 @@ export async function aplicarMatching(
 
   await supabase.from('facturas').update(updateFactura).eq('id', facturaId)
 
-  // FIX 13/05/26: enlazar TODOS los movimientos en conciliacion.factura_id,
-  // no solo cuando hay 1 match. Mercadona siempre tiene varios.
   if (result.estado === 'asociada' && result.matches.length > 0) {
     const matchIds = result.matches.map((m) => m.id)
     await supabase
