@@ -1,4 +1,4 @@
-// ocrUploadStore v33 — fixes auditoría: A03 A04 A06 A07 A11 A13 A14 A15 B01 B05 B06
+// ocrUploadStore v34 — fixes A09 B03 B15
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -28,16 +28,18 @@ let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
 let cancelacionesLocales: Set<string> = new Set()
+// B03: contador de suscriptores para lazy init/cleanup
+let suscriptores = 0
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 6
 const TOAST_COMPLETADO_MS = 20000
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
-const MAX_REINTENTOS = 10 // A03: cap de reintentos
-const MAX_ARCHIVOS_ZIP = 2000 // A13: límite archivos ZIP
-const MAX_BYTES_ZIP = 200 * 1024 * 1024 // A14: 200MB límite descomprimido
-const MAX_ARCHIVO_MB = 20 // A15: límite tamaño individual
+const MAX_REINTENTOS = 10
+const MAX_ARCHIVOS_ZIP = 2000
+const MAX_BYTES_ZIP = 200 * 1024 * 1024
+const MAX_ARCHIVO_MB = 20
 const ERRORES_PERMANENTES = ['Bucket not found']
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
@@ -45,7 +47,6 @@ function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '
 function esErrorPermanente(msg: string): boolean { return ERRORES_PERMANENTES.some(p => msg.includes(p)) }
 function esperar(ms: number): Promise<void> { return new Promise(r => setTimeout(r, ms)) }
 
-// A03: cap MAX_REINTENTOS
 async function conReintentos<T>(fn: () => Promise<T>, label: string, cancelado: () => boolean): Promise<T> {
   let intento = 0
   while (intento < MAX_REINTENTOS) {
@@ -101,7 +102,7 @@ async function docATexto(file: File | Blob): Promise<string> {
 
 async function htmlATexto(file: File | Blob): Promise<string> {
   const html = await file.text()
-  const parser = new DOMParser() // B11: DOMParser en vez de innerHTML
+  const parser = new DOMParser()
   const doc = parser.parseFromString(html, 'text/html')
   doc.querySelectorAll('script,style,noscript').forEach(s => s.remove())
   return (doc.body?.textContent || '').replace(/\s+/g, ' ').trim()
@@ -125,12 +126,10 @@ async function normalizar(file: File): Promise<{ name: string; type: string; blo
 
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
 
-// B06: cancelado solo por estado, no por cancelar_solicitado
 function dbToSession(s: any): OcrSession {
   return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging', cancelado: s.estado === 'cancelada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0 }
 }
 
-// B05: guard array vacío
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
   const sueltas: OcrSession[] = []; const porGrupo: Record<string, OcrSession[]> = {}
   for (const s of raw) { if (s.grupoId) { if (!porGrupo[s.grupoId]) porGrupo[s.grupoId] = []; porGrupo[s.grupoId].push(s) } else sueltas.push(s) }
@@ -151,7 +150,6 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
 
 function snapshot(): OcrSession[] { return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)] }
 
-// A06/B04: incluir completada con cutoff 1h
 async function cargarSesionesActivas() {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -168,7 +166,6 @@ function suscribirRealtime() {
       const row = payload.new || payload.old; if (!row) return
       if (payload.eventType === 'DELETE') { rawSessions = rawSessions.filter(s => s.id !== row.id); emit(); return }
       const next = dbToSession(payload.new)
-      // A07: solo auto-ocultar si 0 errores y 0 achtung
       if (['completada', 'cancelada'].includes(payload.new.estado_cola) || payload.new.estado === 'error') {
         const ya = rawSessions.find(s => s.id === next.id)
         if (ya) {
@@ -186,11 +183,19 @@ function suscribirRealtime() {
   } catch {}
 }
 
-function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000) }
-function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime(); lanzarPoll() }
-if (typeof window !== 'undefined') inicializar()
+// A09: cleanup poll + realtime
+function desuscribirRealtime() {
+  if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {}; realtimeChannel = null }
+}
+function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
 
-// B01: retry 3 veces + error visible en lanzarWorker
+function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000) }
+
+// B03: lazy init — solo cuando hay suscriptores
+function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime(); lanzarPoll() }
+// B03: cleanup cuando no hay suscriptores
+function desinicializar() { if (!inicializado) return; desuscribirRealtime(); pararPoll(); inicializado = false }
+
 let errorWorkerGlobal: string | null = null
 async function lanzarWorker() {
   for (let i = 0; i < 3; i++) {
@@ -232,12 +237,21 @@ async function actualizarProgresoStorage(sesionId: string, subidos: number) {
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>(snapshot())
   const [errorVisible, setErrorVisible] = useState<string | null>(null)
-  useEffect(() => { const h = () => { setSnap(snapshot()); if (errorWorkerGlobal) setErrorVisible(errorWorkerGlobal) }; emitter.addEventListener('change', h); inicializar(); return () => emitter.removeEventListener('change', h) }, [])
+  // B03: lazy init on mount, cleanup on unmount + A09: cleanup poll
+  useEffect(() => {
+    suscriptores++
+    inicializar()
+    const h = () => { setSnap(snapshot()); if (errorWorkerGlobal) setErrorVisible(errorWorkerGlobal) }
+    emitter.addEventListener('change', h)
+    return () => {
+      emitter.removeEventListener('change', h)
+      suscriptores--
+      if (suscriptores <= 0) { suscriptores = 0; desinicializar() }
+    }
+  }, [])
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
     setErrorVisible(null)
-
-    // A15: rechazar archivos >20MB
     const maxBytes = MAX_ARCHIVO_MB * 1024 * 1024
     const grandesIdx: number[] = []
     for (let i = 0; i < files.length; i++) {
@@ -266,8 +280,6 @@ export function useOcrUpload() {
     await cargarSesionesActivas()
     const archivosSubidos: { sesionId: string; name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
     let subidos = 0; let fallos = 0; const cancelado = () => cancelacionesLocales.has(grupoId)
-
-    // A04: try/catch envolvente en workerSubida
     async function subirUno(file: File, idxGlobal: number) {
       if (cancelado()) return
       const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
@@ -283,7 +295,6 @@ export function useOcrUpload() {
         }
       }
       const hechos = subidos + fallos; ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`)
-      // A11: actualizar progreso también al finalizar (no solo cada 10)
       const porSesion: Record<string, number> = {}; for (const a of archivosSubidos) { porSesion[a.sesionId] = (porSesion[a.sesionId] || 0) + 1 }
       if (subidos % 10 === 0 || hechos === files.length) { for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) } }
     }
@@ -293,7 +304,6 @@ export function useOcrUpload() {
         if (cancelado()) return
         const idx = nextIdx++
         if (idx >= files.length) return
-        // A04: try/catch envolvente — worker no muere si normalizar() falla
         try { await subirUno(files[idx], idx) } catch (e: any) {
           if ((e?.message || String(e)) !== 'cancelado') {
             fallos++
@@ -321,9 +331,18 @@ export function useOcrUpload() {
     else { rawSessions = rawSessions.filter(s => s.id !== id); emit(); await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id) }
   }
 
+  // B15: ocultar limpia cancelacionesLocales del grupo
   async function ocultar(id: string) {
-    if (id.startsWith('grp_')) { const grupoId = id.slice(4); const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id); rawSessions = rawSessions.map(s => s.grupoId === grupoId ? { ...s, visible: false } : s); emit(); if (lotesIds.length > 0) await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds) }
-    else { rawSessions = rawSessions.map(s => s.id === id ? { ...s, visible: false } : s); emit(); await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id) }
+    if (id.startsWith('grp_')) {
+      const grupoId = id.slice(4)
+      cancelacionesLocales.delete(grupoId)
+      const lotesIds = rawSessions.filter(s => s.grupoId === grupoId).map(s => s.id)
+      rawSessions = rawSessions.map(s => s.grupoId === grupoId ? { ...s, visible: false } : s); emit()
+      if (lotesIds.length > 0) await supabase.from('ocr_sessions').update({ visible: false }).in('id', lotesIds)
+    } else {
+      rawSessions = rawSessions.map(s => s.id === id ? { ...s, visible: false } : s); emit()
+      await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id)
+    }
   }
 
   return { sessions: snap, procesar, cancelar, cerrar, ocultar, errorVisible }
