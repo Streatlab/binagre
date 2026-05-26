@@ -1,4 +1,4 @@
-// ocrUploadStore v34 — fixes A09 B03 B15
+// ocrUploadStore v35 — revert B03 lazy init (causa parpadeo subida)
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -28,8 +28,6 @@ let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
 let cancelacionesLocales: Set<string> = new Set()
-// B03: contador de suscriptores para lazy init/cleanup
-let suscriptores = 0
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 6
@@ -183,18 +181,9 @@ function suscribirRealtime() {
   } catch {}
 }
 
-// A09: cleanup poll + realtime
-function desuscribirRealtime() {
-  if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {}; realtimeChannel = null }
-}
-function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
-
 function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000) }
-
-// B03: lazy init — solo cuando hay suscriptores
 function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime(); lanzarPoll() }
-// B03: cleanup cuando no hay suscriptores
-function desinicializar() { if (!inicializado) return; desuscribirRealtime(); pararPoll(); inicializado = false }
+if (typeof window !== 'undefined') inicializar()
 
 let errorWorkerGlobal: string | null = null
 async function lanzarWorker() {
@@ -237,17 +226,11 @@ async function actualizarProgresoStorage(sesionId: string, subidos: number) {
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>(snapshot())
   const [errorVisible, setErrorVisible] = useState<string | null>(null)
-  // B03: lazy init on mount, cleanup on unmount + A09: cleanup poll
   useEffect(() => {
-    suscriptores++
-    inicializar()
     const h = () => { setSnap(snapshot()); if (errorWorkerGlobal) setErrorVisible(errorWorkerGlobal) }
     emitter.addEventListener('change', h)
-    return () => {
-      emitter.removeEventListener('change', h)
-      suscriptores--
-      if (suscriptores <= 0) { suscriptores = 0; desinicializar() }
-    }
+    inicializar()
+    return () => { emitter.removeEventListener('change', h) }
   }, [])
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
@@ -331,7 +314,6 @@ export function useOcrUpload() {
     else { rawSessions = rawSessions.filter(s => s.id !== id); emit(); await supabase.from('ocr_sessions').update({ visible: false }).eq('id', id) }
   }
 
-  // B15: ocultar limpia cancelacionesLocales del grupo
   async function ocultar(id: string) {
     if (id.startsWith('grp_')) {
       const grupoId = id.slice(4)
