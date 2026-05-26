@@ -14,8 +14,6 @@ interface MarcaRow {
   id: string
   nombre: string
   estado: EstadoMarca
-  tipo_cocina_id: string | null
-  margen_deseado_pct: number
   archivada_at: string | null
   accesos: AccesoRow[]
 }
@@ -55,7 +53,7 @@ export default function TabMarcas() {
     try {
       const { data: ms, error: e1 } = await supabase
         .from('marcas')
-        .select('id, nombre, estado, tipo_cocina_id, margen_deseado_pct, archivada_at')
+        .select('id, nombre, estado, archivada_at')
         .order('nombre', { ascending: true })
       if (e1) throw e1
       const ids = (ms ?? []).map((m: any) => m.id)
@@ -77,11 +75,9 @@ export default function TabMarcas() {
   }
   useEffect(() => { refetch() }, [])
 
-  // Escape cierra todos los modales
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (saving) return
+      if (e.key === 'Escape' && !saving) {
         setEditing(null); setCreating(false)
         setDelModal(null); setConfirmDelete(null); setRenameConflict(null)
       }
@@ -250,12 +246,12 @@ export default function TabMarcas() {
   )
 
   const thStyle: React.CSSProperties = {
-    padding: '8px 6px', fontFamily: FONT.heading, fontSize: 10,
+    padding: '14px 16px', fontFamily: FONT.heading, fontSize: 10,
     textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
     fontWeight: 400, background: T.group, textAlign: 'left',
   }
   const thCenterStyle: React.CSSProperties = { ...thStyle, textAlign: 'center' }
-  const tdStyle: React.CSSProperties = { padding: '6px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const tdStyle: React.CSSProperties = { padding: '16px', fontFamily: FONT.body, fontSize: 14, color: T.pri }
 
   const PillCanal = ({ canal, activo, onClick }: { canal: CanalAbv; activo: boolean; onClick: (e: React.MouseEvent) => void }) => {
     const colors = CANAL_PILL_COLORS[canal]
@@ -264,16 +260,16 @@ export default function TabMarcas() {
         onClick={onClick}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          padding: '3px 8px', minWidth: 36,
-          borderRadius: 5, fontFamily: FONT.heading, fontSize: 10, fontWeight: 700,
+          padding: '5px 10px', minWidth: 42,
+          borderRadius: 5, fontFamily: FONT.heading, fontSize: 11, fontWeight: 700,
           letterSpacing: '1px',
           background: activo ? colors.bg : 'transparent',
           color: activo ? colors.text : T.mut,
           border: activo ? `1px solid ${colors.border}` : `1px dashed ${T.brd}`,
           cursor: 'pointer', transition: 'all 120ms',
-          marginRight: 3,
+          marginRight: 4,
         }}
-        title={activo ? `${canal} activo · click para desactivar` : `${canal} inactivo · click para activar`}
+        title={activo ? `${canal} activo` : `${canal} inactivo`}
       >
         {canal}
       </button>
@@ -282,7 +278,6 @@ export default function TabMarcas() {
 
   return (
     <>
-      {/* Header */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ position: 'relative', flex: '0 0 auto' }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut, pointerEvents: 'none' }} />
@@ -316,10 +311,9 @@ export default function TabMarcas() {
         </button>
       </div>
 
-      {/* Tabla */}
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                 <th style={thStyle}>Marca</th>
@@ -353,27 +347,26 @@ export default function TabMarcas() {
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleMarcaCompleta(m, !algunoActivo) }}
                         style={{
-                          padding: '4px 10px', borderRadius: 5,
+                          padding: '6px 14px', borderRadius: 5,
                           background: algunoActivo ? '#1D9E75' : T.inp,
                           color: algunoActivo ? '#fff' : T.mut,
                           border: `1px solid ${algunoActivo ? '#1D9E75' : T.brd}`,
-                          fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1, cursor: 'pointer', fontWeight: 600,
-                        }}
-                        title={algunoActivo ? 'Desactivar UE+GL+JE' : 'Activar UE+GL+JE'}>
-                        <Power size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
+                          fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1, cursor: 'pointer', fontWeight: 600,
+                        }}>
+                        <Power size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
                         {algunoActivo ? 'ON' : 'OFF'}
                       </button>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
                       <button onClick={(e) => { e.stopPropagation(); openEdit(m) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mut, padding: 4, marginRight: 4 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mut, padding: 6, marginRight: 6 }}
                         title="Editar / renombrar">
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); setDelModal(m) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 4 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 6 }}
                         title="Eliminar marca">
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -387,7 +380,6 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* MODAL editar/crear */}
       {(editing || creating) && (
         <EditModal
           title={creating ? 'Nueva marca' : `Editar ${editing?.nombre}`}
@@ -428,7 +420,6 @@ export default function TabMarcas() {
         </EditModal>
       )}
 
-      {/* MODAL eliminar (paso 1) */}
       {delModal && !confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setDelModal(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480, padding: 0 }} onClick={e => e.stopPropagation()}>
@@ -447,7 +438,7 @@ export default function TabMarcas() {
                   textAlign: 'left', cursor: 'pointer', fontFamily: FONT.body,
                 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.pri, marginBottom: 4 }}>📦 Archivar (conservar histórico)</div>
-                <div style={{ fontSize: 11, color: T.mut }}>Marca se oculta pero conserva todos los datos. Recomendado.</div>
+                <div style={{ fontSize: 11, color: T.mut }}>Marca se oculta pero conserva todos los datos.</div>
               </button>
               <button onClick={() => setConfirmDelete({ marca: delModal, mode: 'total' })} disabled={saving}
                 style={{
@@ -469,7 +460,6 @@ export default function TabMarcas() {
         </div>
       )}
 
-      {/* MODAL confirmar (paso 2) */}
       {confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setConfirmDelete(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 440 }} onClick={e => e.stopPropagation()}>
@@ -506,7 +496,6 @@ export default function TabMarcas() {
         </div>
       )}
 
-      {/* MODAL conflicto rename */}
       {renameConflict && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setRenameConflict(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
