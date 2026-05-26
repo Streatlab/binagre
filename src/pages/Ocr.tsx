@@ -96,14 +96,6 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
   return { aceptados, rechazados, expandidosZip: contador.n, totalOriginal: files.length }
 }
 
-async function leerDirectorioRecursivo(dirHandle: any, files: File[], path: string = '') {
-  for await (const entry of dirHandle.values()) {
-    const entryPath = path ? `${path}/${entry.name}` : entry.name
-    if (entry.kind === 'file') { try { const file = await entry.getFile(); files.push(new File([file], entryPath, { type: file.type })) } catch {} }
-    else if (entry.kind === 'directory') { await leerDirectorioRecursivo(entry, files, entryPath) }
-  }
-}
-
 interface BtnSubirSplitProps { label: string; accept: string; extensiones: string[]; onArchivos: (resultado: { aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number }) => void; preparando: boolean; setPreparando: (v: boolean) => void }
 function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, setPreparando }: BtnSubirSplitProps) {
   const inputFileRef = useRef<HTMLInputElement>(null)
@@ -111,8 +103,9 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
   const [overL, setOverL] = useState(false)
   const [overR, setOverR] = useState(false)
   const handleFiles = async (files: FileList | File[] | null) => { if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return; setPreparando(true); try { const arr = Array.isArray(files) ? files : Array.from(files); const resultado = await expandirArchivos(arr, extensiones); onArchivos(resultado) } finally { setPreparando(false) } }
-  const handleClickArchivos = async () => { if (preparando) return; const w = window as any; if (typeof w.showOpenFilePicker === 'function') { try { const handles = await w.showOpenFilePicker({ multiple: true, excludeAcceptAllOption: false }); const files: File[] = []; for (const h of handles) { try { files.push(await h.getFile()) } catch {} }; if (files.length > 0) await handleFiles(files) } catch (err: any) { if (err?.name !== 'AbortError') inputFileRef.current?.click() } } else { inputFileRef.current?.click() } }
-  const handleClickCarpetas = async () => { if (preparando) return; const w = window as any; if (typeof w.showDirectoryPicker === 'function') { try { const dirHandle = await w.showDirectoryPicker({ mode: 'read' }); setPreparando(true); try { const files: File[] = []; await leerDirectorioRecursivo(dirHandle, files); await handleFiles(files) } finally { setPreparando(false) } } catch (err: any) { if (err?.name !== 'AbortError') inputFolderRef.current?.click() } } else { inputFolderRef.current?.click() } }
+  // FIX toast: usar siempre input clasico — showOpenFilePicker/showDirectoryPicker causaban parpadeo sin disparar onChange
+  const handleClickArchivos = () => { if (preparando) return; inputFileRef.current?.click() }
+  const handleClickCarpetas = () => { if (preparando) return; inputFolderRef.current?.click() }
   const halfBase: React.CSSProperties = { flex: 1, padding: '20px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', userSelect: 'none', transition: 'background 0.15s', opacity: preparando ? 0.6 : 1 }
   return (
     <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
@@ -185,16 +178,13 @@ export default function Ocr() {
   const algunaSeleccionada = filasVisibles.some(f => seleccionadas.has(f.id))
   function toggleSeleccion(id: string) { setSeleccionadas(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
   function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
-  // A21/A22: Drive borrado en paralelo (chunks de 5) + tolerante a errores individuales + D08: error visible
   async function handleBorrarLote() { if (seleccionadas.size === 0) return; setBorrandoLote(true); try { const ids = Array.from(seleccionadas); const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids); const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]; const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]; if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }; const driveErrors: string[] = []; const chunks: string[][] = []; for (let i = 0; i < driveIds.length; i += 5) chunks.push(driveIds.slice(i, i + 5)); for (const chunk of chunks) { await Promise.allSettled(chunk.map(async driveId => { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } })) }; if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} de ${driveIds.length} archivo(s) de Drive. Las facturas se borran igualmente.`) }; const { error: errDel } = await supabase.from('facturas').delete().in('id', ids); if (errDel) throw errDel; setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1) } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) } }
   function getBadgeCategoria(f: Factura) { if (!f.categoria_factura) return null; const cat = categoriasPyg.find(c => c.id === f.categoria_factura); return cat ? { id: cat.id, nombre: cat.nombre } : { id: f.categoria_factura, nombre: f.categoria_factura } }
-  // A18: CSV con escape comillas + A19: columna Titular
   const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url, titular_id').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr); const rows = (data ?? []).map((m: any) => { const tit = m.titular_id === RUBEN_ID ? 'Rubén' : m.titular_id === EMILIO_ID ? 'Emilio' : ''; return [m.fecha_factura, csvEscape(m.proveedor_nombre ?? ''), csvEscape(m.nif_emisor ?? ''), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No', tit] }); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc', 'Titular'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({ background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s' })
   const HEADERS: { label: string; col: SortColumn; align: 'left' | 'right' | 'center' }[] = [{ label: 'Fecha', col: 'fecha', align: 'left' }, { label: 'Contraparte', col: 'contraparte', align: 'left' }, { label: 'NIF', col: 'nif', align: 'left' }, { label: 'Importe', col: 'importe', align: 'right' }, { label: 'Categoría', col: 'categoria', align: 'left' }, { label: 'Doc', col: 'doc', align: 'center' }, { label: 'Estado', col: 'estado', align: 'left' }, { label: 'Titular', col: 'titular', align: 'left' }]
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const TABS = [{ id: 'facturas', label: 'Facturas' }, { id: 'extractos', label: 'Extractos bancarios' }, { id: 'ventas', label: 'Ventas' }, { id: 'otros', label: 'Otros documentos' }]
-  // A30: empty state contextual por tab
   const emptyLabel = tab === 'otros' ? 'No hay documentos en este periodo' : 'No hay facturas en este periodo'
   const emptySub = tab === 'otros' ? 'Prueba a cambiar el periodo o sube tus primeros documentos' : 'Prueba a cambiar el periodo o sube tus primeras facturas'
   return (
