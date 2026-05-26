@@ -51,7 +51,7 @@ Reglas:
 - "Glovo App" o "Glovoapp" tipo=plataforma, plataforma=glovo.
 - "Just Eat" tipo=plataforma, plataforma=just_eat.
 - Todos los importes en euros con punto decimal. NO uses coma.
-- confianza entre 0 y 1.
+- confianza entre 0 y 100 (porcentaje entero).
 - nif_cliente: NIF/CIF del CLIENTE (destinatario). Si no aparece null.
 - nif_emisor: NIF/CIF de quien EMITE. Si no aparece null.
 - nombre_cliente: razon social del cliente. Si no aparece null.
@@ -100,14 +100,8 @@ type ContentBlock =
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'text'; text: string }
 
-// Modelo activo en producción a 08/05/2026.
-// Sonnet 4.6: mejor precisión en tickets pequeños y PDFs con datos densos (NIFs, números factura, importes).
-// Cambio 08/05/26: Haiku confundió DNI con número factura en ticket Lidl. Sonnet más fiable.
 const MODELO_OCR_DEFAULT = 'claude-sonnet-4-6'
 
-// Whitelist de modelos conocidos válidos. Si ANTHROPIC_MODEL en env contiene un valor que no está aquí,
-// se ignora y usa el default. Esto evita que un typo (ej: claude-sonnet-4-5-20251022, no existe)
-// rompa todo el OCR.
 const MODELOS_VALIDOS = new Set([
   'claude-haiku-4-5-20251001',
   'claude-sonnet-4-5-20250929',
@@ -115,6 +109,9 @@ const MODELOS_VALIDOS = new Set([
   'claude-opus-4-6',
   'claude-opus-4-7',
 ])
+
+// H04: timeout 25s para no exceder Vercel 30s
+const OCR_TIMEOUT_MS = 25000
 
 function clienteAnthropic(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -125,11 +122,9 @@ function clienteAnthropic(): Anthropic {
 function modeloOcr(): string {
   const env = process.env.ANTHROPIC_MODEL?.trim()
   if (env && MODELOS_VALIDOS.has(env)) return env
-  // Si la variable de entorno está mal puesta o vacía, usamos el default conocido bueno.
   return MODELO_OCR_DEFAULT
 }
 
-// Convierte errores crípticos del SDK Anthropic en mensajes legibles para el toast.
 function errorAnthropicLegible(err: unknown, modelo: string): string {
   const raw = err instanceof Error ? err.message : String(err)
   const txt = raw.toLowerCase()
@@ -148,26 +143,39 @@ function errorAnthropicLegible(err: unknown, modelo: string): string {
   if (txt.includes('overloaded')) {
     return 'API ANTHROPIC SATURADA · Reintenta en unos segundos'
   }
-  if (txt.includes('timeout') || txt.includes('etimedout')) {
+  if (txt.includes('timeout') || txt.includes('etimedout') || txt.includes('aborted')) {
     return 'TIMEOUT · Anthropic tardó demasiado. Reintenta'
   }
-  // Fallback: devolver el raw recortado para que al menos se vea algo útil
   return `ERROR ANTHROPIC: ${raw.slice(0, 200)}`
+}
+
+// H03: normalizar confianza (si <1 → ×100)
+function normalizarConfianza(valor: number | undefined | null): number {
+  if (valor === undefined || valor === null) return 0
+  if (valor > 0 && valor <= 1) return Math.round(valor * 100)
+  return Math.round(valor)
 }
 
 async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> {
   const anthropic = clienteAnthropic()
   const modelo = modeloOcr()
+
+  // H04: AbortController con timeout
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS)
+
   let msg
   try {
     msg = await anthropic.messages.create({
       model: modelo,
-      max_tokens: 2000,
+      max_tokens: 4000, // H02: 2000 → 4000 para facturas con 10+ marcas
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: [{ role: 'user', content: content as any }],
-    })
+    }, { signal: controller.signal })
   } catch (err) {
     throw new Error(errorAnthropicLegible(err, modelo))
+  } finally {
+    clearTimeout(timer)
   }
   const textBlock = msg.content.find((c) => c.type === 'text')
   if (!textBlock || textBlock.type !== 'text') {
@@ -176,19 +184,20 @@ async function llamarClaude(content: ContentBlock[]): Promise<ExtractedFactura> 
   const jsonStr = textBlock.text.replace(/```json|```/g, '').trim()
   try {
     const parsed = JSON.parse(jsonStr) as ExtractedFactura & { tipo: string }
-    // Defensa: si el modelo devuelve "otro" o cualquier otro valor, forzar "proveedor".
-    // Reglas de negocio: toda factura tiene un proveedor que la emite, así que el fallback
-    // siempre es "proveedor" salvo que sea explícitamente plataforma delivery.
     if (parsed.tipo !== 'plataforma') {
       parsed.tipo = 'proveedor'
     }
+    // H03: normalizar confianza
+    parsed.confianza = normalizarConfianza(parsed.confianza)
     return parsed as ExtractedFactura
   } catch (err) {
-    const preview = jsonStr.slice(0, 120)
+    // H06: preview recortada a 60 chars
+    const preview = jsonStr.slice(0, 60)
     throw new Error(`JSON inválido devuelto por modelo (modelo=${modelo}). Preview: ${preview}`)
   }
 }
 
+// H08: separar prompt y contenido en 2 bloques para texto
 export async function extraerDatosDesdeContenido(
   contenido: ContenidoExtraido,
 ): Promise<ExtractedFactura> {
@@ -213,10 +222,9 @@ export async function extraerDatosDesdeContenido(
     content.push({ type: 'text', text: PROMPT_OCR_FACTURA })
   } else {
     const texto = typeof contenido.data === 'string' ? contenido.data : contenido.data.toString('utf-8')
-    content.push({
-      type: 'text',
-      text: `${PROMPT_OCR_FACTURA}\n\n=== CONTENIDO FACTURA ===\n${texto}`,
-    })
+    // H08: prompt y contenido en bloques separados
+    content.push({ type: 'text', text: PROMPT_OCR_FACTURA })
+    content.push({ type: 'text', text: `=== CONTENIDO FACTURA ===\n${texto}` })
   }
 
   return llamarClaude(content)
