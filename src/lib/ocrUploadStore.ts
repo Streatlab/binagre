@@ -1,4 +1,4 @@
-// ocrUploadStore v36 — fix .or() syntax (causa 400 ocr_sessions y rompe toast subida)
+// ocrUploadStore v37 — auto-cierre toast al completar (incluye pendientes)
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -28,15 +28,14 @@ let inicializado = false
 let realtimeChannel: any = null
 let pollTimer: number | null = null
 let cancelacionesLocales: Set<string> = new Set()
+let timersAutoCerrar: Map<string, number> = new Map()
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 6
-const TOAST_COMPLETADO_MS = 20000
+const TOAST_COMPLETADO_MS = 8000
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
 const MAX_REINTENTOS = 10
-const MAX_ARCHIVOS_ZIP = 2000
-const MAX_BYTES_ZIP = 200 * 1024 * 1024
 const MAX_ARCHIVO_MB = 20
 const ERRORES_PERMANENTES = ['Bucket not found']
 
@@ -148,7 +147,17 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
 
 function snapshot(): OcrSession[] { return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)] }
 
-// FIX v36: simplificar query — filtra solo por estados activos. Sesiones completadas no se cargan al inicio (no aporta valor y `.or()` con `and()` anidado revienta PostgREST con 400).
+function programarAutoCerrar(sesionId: string) {
+  if (timersAutoCerrar.has(sesionId)) return
+  const t = window.setTimeout(() => {
+    rawSessions = rawSessions.filter(s => s.id !== sesionId)
+    timersAutoCerrar.delete(sesionId)
+    supabase.from('ocr_sessions').update({ visible: false }).eq('id', sesionId).then(() => {})
+    emit()
+  }, TOAST_COMPLETADO_MS)
+  timersAutoCerrar.set(sesionId, t)
+}
+
 async function cargarSesionesActivas() {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -157,10 +166,17 @@ async function cargarSesionesActivas() {
       .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
       .gte('creado_en', cutoff)
       .eq('visible', true)
-      .in('estado_cola', ['staging', 'en_espera', 'procesando'])
+      .in('estado_cola', ['staging', 'en_espera', 'procesando', 'completada'])
       .order('orden_cola', { ascending: true })
     if (error) { console.warn('[OCR] cargarSesionesActivas error:', error.message); return }
-    rawSessions = (data || []).map(dbToSession); emit()
+    const nuevas = (data || []).map(dbToSession)
+    // Auto-programar cierre para sesiones completadas sin errores/achtung
+    for (const s of nuevas) {
+      if (!s.procesando && !s.cancelado && s.errores === 0 && s.achtung === 0) {
+        programarAutoCerrar(s.id)
+      }
+    }
+    rawSessions = nuevas; emit()
   } catch (e: any) { console.warn('[OCR] cargarSesionesActivas excepción:', e?.message || e) }
 }
 
@@ -171,19 +187,13 @@ function suscribirRealtime() {
       const row = payload.new || payload.old; if (!row) return
       if (payload.eventType === 'DELETE') { rawSessions = rawSessions.filter(s => s.id !== row.id); emit(); return }
       const next = dbToSession(payload.new)
-      if (['completada', 'cancelada'].includes(payload.new.estado_cola) || payload.new.estado === 'error') {
-        const ya = rawSessions.find(s => s.id === next.id)
-        if (ya) {
-          rawSessions = rawSessions.map(s => s.id === next.id ? { ...next, procesando: false } : s); emit()
-          const tieneProblemas = (next.errores > 0 || next.achtung > 0)
-          if (!tieneProblemas) {
-            setTimeout(() => { rawSessions = rawSessions.filter(s => s.id !== next.id); emit() }, TOAST_COMPLETADO_MS)
-          }
-        }
-        return
-      }
       const existe = rawSessions.find(s => s.id === next.id)
-      if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s); else rawSessions = [...rawSessions, next]; emit()
+      if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s); else rawSessions = [...rawSessions, next]
+      // Auto-cierre si completada/cancelada sin problemas
+      if (!next.procesando && !next.cancelado && next.errores === 0 && next.achtung === 0 && next.visible) {
+        programarAutoCerrar(next.id)
+      }
+      emit()
     }).subscribe()
   } catch {}
 }
