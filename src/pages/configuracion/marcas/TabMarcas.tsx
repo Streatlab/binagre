@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, COLORS, CARDS, kpiBig, lblSm, lblXs } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import { COLORS, CARDS, kpiBig, lblSm, lblXs } from '@/components/panel/resumen/tokens'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
-import { calcNetoPorCanal, calcDesglosePorCanal, loadConfigCanales, loadMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
-import { fmtEur } from '@/lib/format'
+import { calcDesglosePorCanal, loadConfigCanales, loadMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import type { CanalAbv, EstadoMarca } from '@/types/configuracion'
 
 interface AccesoRow { plataforma: CanalAbv; activo: boolean; email_acceso?: string | null }
@@ -57,7 +57,6 @@ export default function TabMarcas() {
   const [confirmDelete, setConfirmDelete] = useState<{ marca: MarcaRow; mode: 'archive' | 'total' } | null>(null)
   const [renameConflict, setRenameConflict] = useState<{ source: MarcaRow; target: MarcaRow } | null>(null)
 
-  // Datos cards: totales del mes
   const [totales, setTotales] = useState<Record<string, { bruto: number; pedidos: number }>>({})
   const [desgloseCanal, setDesgloseCanal] = useState<Record<string, any>>({})
 
@@ -83,7 +82,6 @@ export default function TabMarcas() {
       const out: MarcaRow[] = (ms ?? []).map((m: any) => ({ ...m, accesos: accesosByMarca.get(m.id) ?? [] }))
       setMarcas(out)
 
-      // Carga datos cards
       const desde = startMonth(); const hasta = endMonth()
       const { data: fact } = await supabase
         .from('facturacion_diario')
@@ -94,8 +92,8 @@ export default function TabMarcas() {
       for (const c of CANAL_DEFS) tot[c.id] = { bruto: 0, pedidos: 0 }
       for (const r of (fact ?? []) as any[]) {
         for (const c of CANAL_DEFS) {
-          tot[c.id].bruto   += Number(r[c.bru] || 0)
-          tot[c.id].pedidos += Number(r[c.ped] || 0)
+          tot[c.id].bruto   += Number(r[c.bru as keyof typeof r] || 0)
+          tot[c.id].pedidos += Number(r[c.ped as keyof typeof r] || 0)
         }
       }
       setTotales(tot)
@@ -108,7 +106,7 @@ export default function TabMarcas() {
         if (t.bruto > 0) {
           desg[c.id] = calcDesglosePorCanal(c.id, t.bruto, t.pedidos, undefined, desde, hasta)
         } else {
-          desg[c.id] = { neto: 0, comision: 0, feePrime: 0, feePromo: 0, feePeriodo: 0, iva: 0 }
+          desg[c.id] = { neto: 0, comision: 0, feePrime: 0, feePromo: 0, feePeriodo: 0 }
         }
       }
       setDesgloseCanal(desg)
@@ -280,7 +278,6 @@ export default function TabMarcas() {
   const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const pct = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
 
-  // Totales solo plataformas (UE+GL+JE)
   const totalPlat = {
     bruto:   ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.bruto || 0), 0),
     pedidos: ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.pedidos || 0), 0),
@@ -349,10 +346,8 @@ export default function TabMarcas() {
 
   return (
     <>
-      {/* 6 CARDS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
         {CANAL_DEFS.map(cfg => renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 }))}
-        {/* Card consolidada plataformas */}
         <div style={{ ...CARDS.big, padding: '16px 18px', borderTop: `3px solid ${COLORS.redSL}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div style={{ ...lblSm, color: COLORS.redSL }}>Plataformas (UE+GL+JE)</div>
@@ -399,7 +394,6 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* HEADER */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut, pointerEvents: 'none' }} />
@@ -427,7 +421,6 @@ export default function TabMarcas() {
         </button>
       </div>
 
-      {/* TABLA */}
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
@@ -488,7 +481,6 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* MODAL editar/crear */}
       {(editing || creating) && (
         <EditModal
           title={creating ? 'Nueva marca' : `Editar ${editing?.nombre}`}
@@ -520,7 +512,6 @@ export default function TabMarcas() {
         </EditModal>
       )}
 
-      {/* MODAL eliminar */}
       {delModal && !confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 16 }} onClick={() => !saving && setDelModal(null)}>
           <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
