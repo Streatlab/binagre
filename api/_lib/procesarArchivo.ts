@@ -1,4 +1,5 @@
-import { createHash } from 'crypto'
+// procesarArchivo v2 — fixes F01 F02 F04 F05 F06 F07 F11
+import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
 import type { TipoArchivo } from './detectarTipo.js'
@@ -24,19 +25,29 @@ const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
+// F05: regex validación fecha
+const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
 function normalizarNif(nif: string | null | undefined): string | null {
   if (!nif) return null
   const limpio = nif.replace(/[\s\-.]/g, '').toUpperCase()
   return limpio || null
 }
 
+// F04: quitar sufijos societarios para detectar titular
 function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
   titularId: string | null
   carpeta: string
   match: boolean
 } {
   if (!nombreCliente) return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
+  // F04: normalizar quitando sufijos societarios
   const n = nombreCliente.toLowerCase()
+    .replace(/\s*s\.?\s*l\.?\s*u?\.?\s*$/gi, '')
+    .replace(/\s*s\.?\s*a\.?\s*$/gi, '')
+    .replace(/\s*s\.?\s*c\.?\s*$/gi, '')
+    .replace(/\s*c\.?\s*b\.?\s*$/gi, '')
+    .trim()
   if (n.includes('rodriguez vinagre') || n.includes('rodríguez vinagre') ||
       (n.includes('ruben') && n.includes('vinagre')) ||
       (n.includes('rubén') && n.includes('vinagre'))) {
@@ -46,6 +57,16 @@ function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
     return { titularId: EMILIO_ID, carpeta: 'EMILIO', match: true }
   }
   return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
+}
+
+// F05: validar fecha lógica
+function fechaValida(fecha: string | null | undefined): boolean {
+  if (!fecha) return false
+  if (!FECHA_REGEX.test(fecha)) return false
+  const d = new Date(fecha)
+  if (isNaN(d.getTime())) return false
+  const year = d.getFullYear()
+  return year >= 2020 && year <= 2030
 }
 
 export interface ProcesarResultado {
@@ -212,14 +233,22 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // F05: validar fecha antes de insert
+  const fechaFactura = fechaValida(extracted.fecha_factura)
+    ? extracted.fecha_factura
+    : new Date().toISOString().slice(0, 10)
+
+  // F06: número factura con random suffix para unicidad
+  const numFactura = extracted.numero_factura || `SN-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+
   const { data: nueva, error: errInsert } = await supabase
     .from('facturas')
     .insert({
       pdf_original_name: file.nombre,
       pdf_hash: hash,
       proveedor_nombre: extracted.proveedor_nombre,
-      numero_factura: extracted.numero_factura || `SN-${Date.now().toString(36)}`,
-      fecha_factura: extracted.fecha_factura || new Date().toISOString().slice(0, 10),
+      numero_factura: numFactura,
+      fecha_factura: fechaFactura,
       total: extracted.total,
       estado: 'procesando',
     })
@@ -235,18 +264,35 @@ async function procesarContenidoPrincipal(
   }
 
   try {
-    const provQuery = extracted.proveedor_nombre.slice(0, 20)
-    const { data: proveedor } = await supabase
-      .from('proveedores')
-      .select('id')
-      .ilike('nombre', `%${provQuery}%`)
-      .maybeSingle()
+    // F02: buscar por NIF emisor primero, luego nombre completo normalizado
+    const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+    let proveedorId: string | undefined
 
-    if (proveedor?.id) {
+    if (nifEmisorNorm) {
+      const { data: provPorNif } = await supabase
+        .from('proveedores')
+        .select('id')
+        .eq('nif', nifEmisorNorm)
+        .maybeSingle()
+      if (provPorNif?.id) proveedorId = provPorNif.id
+    }
+
+    if (!proveedorId) {
+      // F02: usar nombre completo normalizado, no solo 20 chars
+      const provNombre = extracted.proveedor_nombre.trim()
+      const { data: provPorNombre } = await supabase
+        .from('proveedores')
+        .select('id')
+        .ilike('nombre', `%${provNombre}%`)
+        .maybeSingle()
+      if (provPorNombre?.id) proveedorId = provPorNombre.id
+    }
+
+    if (proveedorId) {
       const { data: duplicadoNum } = await supabase
         .from('facturas')
         .select('id, proveedor_nombre, numero_factura, total')
-        .eq('proveedor_id', proveedor.id)
+        .eq('proveedor_id', proveedorId)
         .eq('numero_factura', extracted.numero_factura)
         .neq('id', nueva.id)
         .maybeSingle()
@@ -259,13 +305,34 @@ async function procesarContenidoPrincipal(
           motivo: 'proveedor+numero',
         }
       }
+
+      // F07: check duplicado por proveedor+fecha+total
+      if (extracted.numero_factura) {
+        const { data: duplicadoTotal } = await supabase
+          .from('facturas')
+          .select('id, proveedor_nombre, numero_factura, total, fecha_factura')
+          .eq('proveedor_id', proveedorId)
+          .eq('fecha_factura', fechaFactura)
+          .neq('id', nueva.id)
+          .maybeSingle()
+        if (duplicadoTotal && Math.abs(Number(duplicadoTotal.total) - extracted.total) <= 0.01) {
+          await supabase.from('facturas').delete().eq('id', nueva.id)
+          return {
+            estado: 'duplicada',
+            archivo: file.nombre,
+            factura_existente: duplicadoTotal as Record<string, unknown>,
+            motivo: 'proveedor+fecha+total',
+          }
+        }
+      }
     }
 
-    let proveedorId = proveedor?.id
     if (!proveedorId && extracted.proveedor_nombre) {
+      const insertData: Record<string, unknown> = { nombre: extracted.proveedor_nombre, activo: true }
+      if (nifEmisorNorm) insertData.nif = nifEmisorNorm
       const { data: nuevoProv } = await supabase
         .from('proveedores')
-        .insert({ nombre: extracted.proveedor_nombre, activo: true })
+        .insert(insertData)
         .select('id')
         .single()
       proveedorId = nuevoProv?.id
@@ -276,7 +343,6 @@ async function procesarContenidoPrincipal(
     let pendienteTitularManual = false
 
     const nifClienteNorm = normalizarNif(extracted.nif_cliente)
-    const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
     const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
 
     if (nifClienteNorm === NIF_RUBEN) {
@@ -310,7 +376,10 @@ async function procesarContenidoPrincipal(
       carpetaTitular = 'RUBÉN'
     }
 
+    // F01: si no detecta titular, fallback a RUBEN y ejecutar matching igualmente
     if (!titularId) {
+      titularId = RUBEN_ID
+      carpetaTitular = 'RUBÉN'
       pendienteTitularManual = true
     }
 
@@ -320,7 +389,7 @@ async function procesarContenidoPrincipal(
         proveedor_id: proveedorId,
         proveedor_nombre: extracted.proveedor_nombre,
         numero_factura: extracted.numero_factura,
-        fecha_factura: extracted.fecha_factura,
+        fecha_factura: fechaFactura,
         es_recapitulativa: extracted.es_recapitulativa,
         periodo_inicio: extracted.periodo_inicio,
         periodo_fin: extracted.periodo_fin,
@@ -343,14 +412,16 @@ async function procesarContenidoPrincipal(
       })
       .eq('id', nueva.id)
 
+    // F11: batch insert plataforma_detalle
     if (extracted.tipo === 'plataforma' && extracted.plataforma_detalle?.length) {
+      const detalleRows = []
       for (const det of extracted.plataforma_detalle) {
         const { data: marca } = await supabase
           .from('marcas')
           .select('id')
           .ilike('nombre', `%${det.marca_nombre}%`)
           .maybeSingle()
-        await supabase.from('facturas_plataforma_detalle').insert({
+        detalleRows.push({
           factura_id: nueva.id,
           marca_id: marca?.id ?? null,
           marca_nombre: det.marca_nombre,
@@ -366,24 +437,32 @@ async function procesarContenidoPrincipal(
           periodo_fin: det.periodo_fin,
         })
       }
+      if (detalleRows.length > 0) {
+        await supabase.from('facturas_plataforma_detalle').insert(detalleRows)
+      }
     }
 
-    if (!pendienteTitularManual) {
-      try {
-        const resultadoMatch = await matchFactura(supabase, {
-          ...extracted,
-          id: nueva.id,
-          total: extracted.total,
-          titular_id: titularId,
-        })
-        // FIX 13/05/26: pasar proveedor_nombre y nif_emisor para fallback a reglas_conciliacion
-        await aplicarMatching(supabase, nueva.id, resultadoMatch, {
-          proveedor_nombre: extracted.proveedor_nombre,
-          nif_emisor: nifEmisorNorm,
-        })
-      } catch (matchErr) {
-        console.error('[procesarArchivo] error en matching:', errMsg(matchErr))
+    // F01: ejecutar matching siempre (incluso con pendienteTitularManual, usando RUBEN como fallback)
+    try {
+      const resultadoMatch = await matchFactura(supabase, {
+        ...extracted,
+        id: nueva.id,
+        total: extracted.total,
+        titular_id: titularId,
+      })
+      await aplicarMatching(supabase, nueva.id, resultadoMatch, {
+        proveedor_nombre: extracted.proveedor_nombre,
+        nif_emisor: nifEmisorNorm,
+      })
+      // Si pendienteTitularManual, forzar estado pendiente_titular_manual tras matching
+      if (pendienteTitularManual) {
+        await supabase
+          .from('facturas')
+          .update({ estado: 'pendiente_titular_manual' })
+          .eq('id', nueva.id)
       }
+    } catch (matchErr) {
+      console.error('[procesarArchivo] error en matching:', errMsg(matchErr))
     }
 
     const ext = extensionDeNombre(file.nombre)
@@ -391,7 +470,7 @@ async function procesarContenidoPrincipal(
       {
         proveedor_nombre: extracted.proveedor_nombre,
         numero_factura: extracted.numero_factura,
-        fecha_factura: extracted.fecha_factura,
+        fecha_factura: fechaFactura,
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
       },
@@ -402,7 +481,7 @@ async function procesarContenidoPrincipal(
       const drive = await subirArchivoADrive(file.buffer, nombreArchivo, {
         proveedor_nombre: extracted.proveedor_nombre,
         numero_factura: extracted.numero_factura,
-        fecha_factura: extracted.fecha_factura,
+        fecha_factura: fechaFactura,
         tipo: extracted.tipo,
         plataforma: extracted.plataforma,
         carpeta_titular: carpetaTitular,
