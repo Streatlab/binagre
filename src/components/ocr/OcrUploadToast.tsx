@@ -1,7 +1,18 @@
-// OcrUploadToast v7 — colores ERP blanco/crema + botón cancelar
-import { useState } from 'react'
+// OcrUploadToast v8 — C02: CSS global, C04: responsive max-width
+import { useState, useEffect } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
+
+// C02: inyectar CSS global una sola vez
+const STYLE_ID = 'ocr-toast-styles'
+function inyectarEstilosGlobales() {
+  if (typeof document === 'undefined') return
+  if (document.getElementById(STYLE_ID)) return
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent = `@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}}`
+  document.head.appendChild(style)
+}
 
 function AchtungBanner({ session }: { session: OcrSession }) {
   if (!session.achtungMensaje) return null
@@ -23,7 +34,6 @@ function AchtungBanner({ session }: { session: OcrSession }) {
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>
         {session.achtungMensaje}
       </div>
-      <style>{`@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}}`}</style>
     </div>
   )
 }
@@ -49,11 +59,13 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
       color: textoPrincipal,
       padding: '14px 18px',
       borderRadius: 12,
-      width: 380,
+      width: '100%', // C04: responsive
+      maxWidth: 380, // C04: max-width en vez de width fijo
       fontFamily: 'Lexend, sans-serif',
       fontSize: 13,
       boxShadow: tieneAchtung ? '0 6px 32px rgba(176, 29, 35, 0.25)' : '0 6px 24px rgba(0,0,0,0.12)',
       border: tieneAchtung ? `1px solid ${bordeColor}` : `0.5px solid ${bordeColor}`,
+      boxSizing: 'border-box' as const,
     }}>
       <AchtungBanner session={session} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -155,10 +167,14 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
 
 export default function OcrUploadToast() {
   const { sessions, cerrar, ocultar, cancelar } = useOcrUpload()
+
+  // C02: inyectar estilos globales una vez
+  useEffect(() => { inyectarEstilosGlobales() }, [])
+
   const visibles = [...sessions.filter(s => s.visible)].sort((a, b) => a.creadoEn - b.creadoEn)
   if (visibles.length === 0) return null
   return (
-    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden', maxWidth: 'calc(100vw - 40px)' }}>
       {visibles.map(s => (
         <SessionToast key={s.id} session={s}
           onCerrar={() => cerrar(s.id)}
