@@ -62,7 +62,7 @@ export default function TabMarcas() {
     setLoading(true); setError(null)
     try {
       const cfg = await loadConfigCanales()
-      setConfig(cfg)
+      setConfig(cfg || {})
       await loadMarcasPorCanal()
 
       const { data: ms, error: e1 } = await supabase
@@ -123,6 +123,7 @@ export default function TabMarcas() {
       setDesgloseCanal(desg)
     } catch (e: any) { setError(e?.message ?? 'Error') } finally { setLoading(false) }
   }
+
   useEffect(() => { refetch() }, [])
 
   useEffect(() => {
@@ -135,6 +136,35 @@ export default function TabMarcas() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [saving])
+
+  // ⚠️ TODOS los hooks ANTES de cualquier return condicional
+  const filtradas = useMemo(() => {
+    let f = marcas
+    if (!incArchivadas) f = f.filter(m => !m.archivada_at)
+    if (search.trim()) f = f.filter(m => m.nombre.toLowerCase().includes(search.toLowerCase()))
+    return f
+  }, [marcas, search, incArchivadas])
+
+  const totalPlat = useMemo(() => ({
+    bruto:    ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.bruto || 0), 0),
+    pedidos:  ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.pedidos || 0), 0),
+    neto:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.neto || 0), 0),
+    comision: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.comisionConIva || 0), 0),
+    feePrime: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePrimeConIva || 0), 0),
+    feePromo: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePromoConIva || 0), 0),
+    feePer:   ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePeriodicoConIva || 0), 0),
+    fijo:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.fijoPedidoConIva || 0), 0),
+    pedPrime: ['uber','glovo','je'].reduce((a,c) => {
+      const d = CANAL_DEFS.find(x => x.id === c)
+      const cf = d ? config[d.cfgName] : null
+      return a + (totales[c]?.pedidos || 0) * (cf?.pct_pedidos_prime_estim || 0)
+    }, 0),
+    pedPromo: ['uber','glovo','je'].reduce((a,c) => {
+      const d = CANAL_DEFS.find(x => x.id === c)
+      const cf = d ? config[d.cfgName] : null
+      return a + (totales[c]?.pedidos || 0) * (cf?.pct_pedidos_promo_estim || 0)
+    }, 0),
+  }), [totales, desgloseCanal, config])
 
   async function toggleCanal(marca: MarcaRow, canal: CanalAbv) {
     const existente = marca.accesos.find(a => a.plataforma === canal)
@@ -158,13 +188,6 @@ export default function TabMarcas() {
     }
     refetch()
   }
-
-  const filtradas = useMemo(() => {
-    let f = marcas
-    if (!incArchivadas) f = f.filter(m => !m.archivada_at)
-    if (search.trim()) f = f.filter(m => m.nombre.toLowerCase().includes(search.toLowerCase()))
-    return f
-  }, [marcas, search, incArchivadas])
 
   function openNueva() { setCreating(true); setEditing(null); setFNombre(''); setFEstado('activa'); setFCanales([]) }
   function openEdit(m: MarcaRow) {
@@ -240,6 +263,11 @@ export default function TabMarcas() {
     } catch (e: any) { setError(e?.message ?? 'Error borrando') } finally { setSaving(false) }
   }
 
+  const fmt = (n: number) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtN = (n: number) => Math.round(n || 0).toLocaleString('es-ES')
+  const pctOf = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
+
+  // ─── Returns condicionales DESPUÉS de todos los hooks ───
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) return <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
 
@@ -256,31 +284,6 @@ export default function TabMarcas() {
       </button>
     )
   }
-
-  const fmt = (n: number) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const fmtN = (n: number) => Math.round(n || 0).toLocaleString('es-ES')
-  const pctOf = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
-
-  const totalPlat = useMemo(() => ({
-    bruto:    ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.bruto || 0), 0),
-    pedidos:  ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.pedidos || 0), 0),
-    neto:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.neto || 0), 0),
-    comision: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.comisionConIva || 0), 0),
-    feePrime: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePrimeConIva || 0), 0),
-    feePromo: ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePromoConIva || 0), 0),
-    feePer:   ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.feePeriodicoConIva || 0), 0),
-    fijo:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.fijoPedidoConIva || 0), 0),
-    pedPrime: ['uber','glovo','je'].reduce((a,c) => {
-      const d = CANAL_DEFS.find(x => x.id === c)
-      const cfg = d ? config[d.cfgName] : null
-      return a + (totales[c]?.pedidos || 0) * (cfg?.pct_pedidos_prime_estim || 0)
-    }, 0),
-    pedPromo: ['uber','glovo','je'].reduce((a,c) => {
-      const d = CANAL_DEFS.find(x => x.id === c)
-      const cfg = d ? config[d.cfgName] : null
-      return a + (totales[c]?.pedidos || 0) * (cfg?.pct_pedidos_promo_estim || 0)
-    }, 0),
-  }), [totales, desgloseCanal, config])
 
   const rangoTxt = rango.desde && rango.hasta
     ? `${rango.desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })} → ${rango.hasta.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })}`
@@ -303,7 +306,6 @@ export default function TabMarcas() {
           </div>
         </div>
         <div style={{ ...lblXs, color: COLORS.mut, marginBottom: 14 }}>% NETO SOBRE BRUTO · HISTÓRICO</div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <div>
             <div style={{ ...kpiSm, fontSize: 22, color: COLORS.pri, lineHeight: 1 }}>{fmt(t.bruto)}</div>
@@ -314,12 +316,10 @@ export default function TabMarcas() {
             <div style={{ ...lblXs, marginTop: 4, color: COLORS.ok }}>NETO €</div>
           </div>
         </div>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, paddingBottom: 10, borderBottom: `0.5px solid ${T.brd}` }}>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>Pedidos</div>
           <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: T.pri }}>{fmtN(t.pedidos)}</div>
         </div>
-
         <div style={{ fontFamily: FONT.body, fontSize: 11.5, color: T.sec, display: 'grid', gap: 4 }}>
           {(d.comisionConIva || 0) > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
