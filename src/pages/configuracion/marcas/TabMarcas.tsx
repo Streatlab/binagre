@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { COLORS, CARDS, kpiSm, lblSm, lblXs, OSWALD } from '@/components/panel/resumen/tokens'
+import { COLORS, CARDS, lblSm, lblXs, OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { calcDesglosePorCanal, loadConfigCanales, loadMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { fmtEur } from '@/lib/format'
 import type { CanalAbv, EstadoMarca } from '@/types/configuracion'
 
 interface AccesoRow { plataforma: CanalAbv; activo: boolean; email_acceso?: string | null }
@@ -26,12 +27,17 @@ const PILL_COLORS: Record<string, { bg: string; text: string }> = {
 const PLATAFORMAS: CanalAbv[] = ['UE', 'GL', 'JE', 'WEB', 'DIR']
 
 const CANAL_DEFS = [
-  { id: 'uber',  abv: 'UE'  as CanalAbv, label: 'Uber Eats',    color: '#06C167', bru: 'uber_bruto',    ped: 'uber_pedidos',    cfgName: 'Uber Eats' },
-  { id: 'glovo', abv: 'GL'  as CanalAbv, label: 'Glovo',        color: '#FFC107', bru: 'glovo_bruto',   ped: 'glovo_pedidos',   cfgName: 'Glovo' },
-  { id: 'je',    abv: 'JE'  as CanalAbv, label: 'Just Eat',     color: '#F36805', bru: 'je_bruto',      ped: 'je_pedidos',      cfgName: 'Just Eat' },
-  { id: 'web',   abv: 'WEB' as CanalAbv, label: 'Web propia',   color: '#B01D23', bru: 'web_bruto',     ped: 'web_pedidos',     cfgName: 'Web Propia' },
-  { id: 'dir',   abv: 'DIR' as CanalAbv, label: 'Directa',      color: '#66aaff', bru: 'directa_bruto', ped: 'directa_pedidos', cfgName: 'Venta Directa' },
+  { id: 'uber',  label: 'Uber Eats',  color: '#06C167', bru: 'uber_bruto',    ped: 'uber_pedidos',    cfgName: 'Uber Eats' },
+  { id: 'glovo', label: 'Glovo',      color: '#FFC107', bru: 'glovo_bruto',   ped: 'glovo_pedidos',   cfgName: 'Glovo' },
+  { id: 'je',    label: 'Just Eat',   color: '#F36805', bru: 'je_bruto',      ped: 'je_pedidos',      cfgName: 'Just Eat' },
+  { id: 'web',   label: 'Web propia', color: '#B01D23', bru: 'web_bruto',     ped: 'web_pedidos',     cfgName: 'Web Propia' },
+  { id: 'dir',   label: 'Directa',    color: '#66aaff', bru: 'directa_bruto', ped: 'directa_pedidos', cfgName: 'Venta Directa' },
 ]
+
+// Colores canónicos panel global Pedidos·TM
+const C_PED   = '#1E5BCC'
+const C_BRUTO = '#F26B1F'
+const C_NETO  = '#1D9E75'
 
 export default function TabMarcas() {
   const { T, isDark } = useTheme()
@@ -84,6 +90,7 @@ export default function TabMarcas() {
       const out: MarcaRow[] = (ms ?? []).map((m: any) => ({ ...m, accesos: accesosByMarca.get(m.id) ?? [] }))
       setMarcas(out)
 
+      // HISTÓRICO COMPLETO sin filtro fecha — fechas reales del periodo desde BD
       const { data: fact } = await supabase
         .from('facturacion_diario')
         .select('fecha,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos')
@@ -113,7 +120,7 @@ export default function TabMarcas() {
         if (t.bruto > 0) {
           try {
             desg[c.id] = calcDesglosePorCanal(c.id, t.bruto, t.pedidos, undefined, desde, hasta)
-          } catch (err) {
+          } catch {
             desg[c.id] = { bruto: 0, comisionConIva: 0, feePromoConIva: 0, feePrimeConIva: 0, feePeriodicoConIva: 0, fijoPedidoConIva: 0, totalDescuentos: 0, neto: t.bruto }
           }
         } else {
@@ -137,7 +144,6 @@ export default function TabMarcas() {
     return () => window.removeEventListener('keydown', onKey)
   }, [saving])
 
-  // ⚠️ TODOS los hooks ANTES de cualquier return condicional
   const filtradas = useMemo(() => {
     let f = marcas
     if (!incArchivadas) f = f.filter(m => !m.archivada_at)
@@ -263,11 +269,9 @@ export default function TabMarcas() {
     } catch (e: any) { setError(e?.message ?? 'Error borrando') } finally { setSaving(false) }
   }
 
-  const fmt = (n: number) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtN = (n: number) => Math.round(n || 0).toLocaleString('es-ES')
   const pctOf = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
 
-  // ─── Returns condicionales DESPUÉS de todos los hooks ───
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) return <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
 
@@ -289,6 +293,20 @@ export default function TabMarcas() {
     ? `${rango.desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })} → ${rango.hasta.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })}`
     : 'sin datos'
 
+  // Línea desglose estilo card panel global
+  const lineaDesglose = (label: string, importe: number, bruto: number, extra?: string) => {
+    if (importe <= 0 && !extra) return null
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', fontFamily: LEXEND }}>
+        <span style={{ color: T.sec }}>{label}{extra && <span style={{ color: T.mut, fontSize: 11 }}> · {extra}</span>}</span>
+        <span style={{ color: T.pri, fontWeight: 500 }}>
+          {fmtEur(importe, { showEuro: true, decimals: 2 })}{' '}
+          <span style={{ color: T.mut, fontWeight: 400 }}>· {pctOf(importe, bruto)}</span>
+        </span>
+      </div>
+    )
+  }
+
   const renderCard = (cfg: typeof CANAL_DEFS[number], d: any, t: { bruto: number; pedidos: number }) => {
     const netoPct = t.bruto > 0 ? (d.neto / t.bruto) * 100 : 0
     const cfgCanal = config[cfg.cfgName]
@@ -297,60 +315,49 @@ export default function TabMarcas() {
     const nPrime = t.pedidos * pctPrime
     const nPromo = t.pedidos * pctPromo
     const tieneDatos = t.bruto > 0
+
     return (
-      <div key={cfg.id} style={{ ...CARDS.big, padding: '20px 22px', borderTop: `3px solid ${cfg.color}` }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ ...lblSm, color: cfg.color, letterSpacing: '1.5px' }}>{cfg.label}</div>
-          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, color: tieneDatos ? cfg.color : COLORS.mut, lineHeight: 1 }}>
+      <div key={cfg.id} style={{ ...CARDS.big, padding: '20px 24px', borderTop: `3px solid ${cfg.color}` }}>
+        {/* Header: nombre canal */}
+        <div style={{ ...lblSm, color: cfg.color, marginBottom: 4 }}>{cfg.label}</div>
+
+        {/* KPI principal: % neto sobre bruto — gigante */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 48, fontWeight: 600, color: tieneDatos ? C_NETO : COLORS.mut, lineHeight: 1 }}>
             {tieneDatos ? netoPct.toFixed(2) + '%' : '—'}
           </div>
+          <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>% NETO SOBRE BRUTO</div>
         </div>
-        <div style={{ ...lblXs, color: COLORS.mut, marginBottom: 14 }}>% NETO SOBRE BRUTO · HISTÓRICO</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+
+        {/* Row 3 KPIs: pedidos · bruto · neto (estilo CardPedidosTM) */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ ...kpiSm, fontSize: 22, color: COLORS.pri, lineHeight: 1 }}>{fmt(t.bruto)}</div>
-            <div style={{ ...lblXs, marginTop: 4 }}>BRUTO €</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_PED, lineHeight: 1 }}>
+              {fmtN(t.pedidos)}
+            </div>
+            <div style={{ ...lblXs, color: C_PED, marginTop: 2 }}>PEDIDOS</div>
           </div>
           <div>
-            <div style={{ ...kpiSm, fontSize: 22, color: COLORS.ok, lineHeight: 1 }}>{fmt(d.neto || 0)}</div>
-            <div style={{ ...lblXs, marginTop: 4, color: COLORS.ok }}>NETO €</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_BRUTO, lineHeight: 1 }}>
+              {fmtEur(t.bruto, { showEuro: true, decimals: 0 })}
+            </div>
+            <div style={{ ...lblXs, color: C_BRUTO, marginTop: 2 }}>BRUTO</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_NETO, lineHeight: 1 }}>
+              {fmtEur(d.neto || 0, { showEuro: true, decimals: 0 })}
+            </div>
+            <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>NETO</div>
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, paddingBottom: 10, borderBottom: `0.5px solid ${T.brd}` }}>
-          <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>Pedidos</div>
-          <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: T.pri }}>{fmtN(t.pedidos)}</div>
-        </div>
-        <div style={{ fontFamily: FONT.body, fontSize: 11.5, color: T.sec, display: 'grid', gap: 4 }}>
-          {(d.comisionConIva || 0) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Comisión</span>
-              <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(d.comisionConIva)} · {pctOf(d.comisionConIva, t.bruto)}</span>
-            </div>
-          )}
-          {(d.feePrimeConIva || 0) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Fee Prime ({fmtN(nPrime)} ped · {(pctPrime*100).toFixed(1)}%)</span>
-              <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(d.feePrimeConIva)} · {pctOf(d.feePrimeConIva, t.bruto)}</span>
-            </div>
-          )}
-          {(d.feePromoConIva || 0) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Fee Promo ({fmtN(nPromo)} ped · {(pctPromo*100).toFixed(1)}%)</span>
-              <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(d.feePromoConIva)} · {pctOf(d.feePromoConIva, t.bruto)}</span>
-            </div>
-          )}
-          {(d.feePeriodicoConIva || 0) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Fee {cfg.id === 'uber' ? 'semanal' : cfg.id === 'glovo' ? 'quincenal' : 'periódico'}</span>
-              <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(d.feePeriodicoConIva)} · {pctOf(d.feePeriodicoConIva, t.bruto)}</span>
-            </div>
-          )}
-          {(d.fijoPedidoConIva || 0) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Fee fijo / pedido</span>
-              <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(d.fijoPedidoConIva)} · {pctOf(d.fijoPedidoConIva, t.bruto)}</span>
-            </div>
-          )}
+
+        {/* Desglose costes */}
+        <div style={{ borderTop: `0.5px solid ${T.brd}`, paddingTop: 10 }}>
+          {lineaDesglose('Comisión plataforma', d.comisionConIva || 0, t.bruto)}
+          {lineaDesglose('Promociones a clientes', d.feePromoConIva || 0, t.bruto, `${fmtN(nPromo)} ped · ${(pctPromo*100).toFixed(0)}%`)}
+          {lineaDesglose(cfg.id === 'glovo' ? 'Cuotas Glovo Prime' : 'Cuotas Uber One', d.feePrimeConIva || 0, t.bruto, `${fmtN(nPrime)} ped · ${(pctPrime*100).toFixed(0)}%`)}
+          {lineaDesglose(cfg.id === 'uber' ? 'Cuota semanal' : cfg.id === 'glovo' ? 'Cuota quincenal' : 'Cuota periódica', d.feePeriodicoConIva || 0, t.bruto)}
+          {lineaDesglose('Tasa por pedido', d.fijoPedidoConIva || 0, t.bruto)}
         </div>
       </div>
     )
@@ -358,63 +365,49 @@ export default function TabMarcas() {
 
   return (
     <>
-      <div style={{ ...lblXs, marginBottom: 10, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt}</div>
+      <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt}</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 22 }}>
         {CANAL_DEFS.map(cfg => renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 }))}
-        <div style={{ ...CARDS.big, padding: '20px 22px', borderTop: `3px solid ${COLORS.redSL}` }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div style={{ ...lblSm, color: COLORS.redSL, letterSpacing: '1.5px' }}>Plataformas UE+GL+JE</div>
-            <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, color: COLORS.redSL, lineHeight: 1 }}>
+
+        {/* Card consolidada plataformas UE+GL+JE */}
+        <div style={{ ...CARDS.big, padding: '20px 24px', borderTop: `3px solid ${COLORS.redSL}` }}>
+          <div style={{ ...lblSm, color: COLORS.redSL, marginBottom: 4 }}>Plataformas UE+GL+JE</div>
+
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: OSWALD, fontSize: 48, fontWeight: 600, color: C_NETO, lineHeight: 1 }}>
               {totalPlat.bruto > 0 ? ((totalPlat.neto / totalPlat.bruto) * 100).toFixed(2) + '%' : '—'}
             </div>
+            <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>% NETO PONDERADO</div>
           </div>
-          <div style={{ ...lblXs, color: COLORS.mut, marginBottom: 14 }}>% NETO PONDERADO · HISTÓRICO</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ ...kpiSm, fontSize: 22, color: COLORS.pri, lineHeight: 1 }}>{fmt(totalPlat.bruto)}</div>
-              <div style={{ ...lblXs, marginTop: 4 }}>BRUTO €</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_PED, lineHeight: 1 }}>
+                {fmtN(totalPlat.pedidos)}
+              </div>
+              <div style={{ ...lblXs, color: C_PED, marginTop: 2 }}>PEDIDOS</div>
             </div>
             <div>
-              <div style={{ ...kpiSm, fontSize: 22, color: COLORS.ok, lineHeight: 1 }}>{fmt(totalPlat.neto)}</div>
-              <div style={{ ...lblXs, marginTop: 4, color: COLORS.ok }}>NETO €</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_BRUTO, lineHeight: 1 }}>
+                {fmtEur(totalPlat.bruto, { showEuro: true, decimals: 0 })}
+              </div>
+              <div style={{ ...lblXs, color: C_BRUTO, marginTop: 2 }}>BRUTO</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: C_NETO, lineHeight: 1 }}>
+                {fmtEur(totalPlat.neto, { showEuro: true, decimals: 0 })}
+              </div>
+              <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>NETO</div>
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, paddingBottom: 10, borderBottom: `0.5px solid ${T.brd}` }}>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>Pedidos totales</div>
-            <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: T.pri }}>{fmtN(totalPlat.pedidos)}</div>
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 11.5, color: T.sec, display: 'grid', gap: 4 }}>
-            {totalPlat.comision > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Comisión total</span>
-                <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(totalPlat.comision)} · {pctOf(totalPlat.comision, totalPlat.bruto)}</span>
-              </div>
-            )}
-            {totalPlat.feePrime > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Fees Prime ({fmtN(totalPlat.pedPrime)} ped)</span>
-                <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(totalPlat.feePrime)} · {pctOf(totalPlat.feePrime, totalPlat.bruto)}</span>
-              </div>
-            )}
-            {totalPlat.feePromo > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Fees Promo ({fmtN(totalPlat.pedPromo)} ped)</span>
-                <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(totalPlat.feePromo)} · {pctOf(totalPlat.feePromo, totalPlat.bruto)}</span>
-              </div>
-            )}
-            {totalPlat.feePer > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Fees periódicos</span>
-                <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(totalPlat.feePer)} · {pctOf(totalPlat.feePer, totalPlat.bruto)}</span>
-              </div>
-            )}
-            {totalPlat.fijo > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Fees fijos</span>
-                <span style={{ color: T.pri, fontWeight: 500 }}>{fmt(totalPlat.fijo)} · {pctOf(totalPlat.fijo, totalPlat.bruto)}</span>
-              </div>
-            )}
+
+          <div style={{ borderTop: `0.5px solid ${T.brd}`, paddingTop: 10 }}>
+            {lineaDesglose('Comisiones total', totalPlat.comision, totalPlat.bruto)}
+            {lineaDesglose('Promociones a clientes', totalPlat.feePromo, totalPlat.bruto, `${fmtN(totalPlat.pedPromo)} ped`)}
+            {lineaDesglose('Cuotas Prime / Uber One', totalPlat.feePrime, totalPlat.bruto, `${fmtN(totalPlat.pedPrime)} ped`)}
+            {lineaDesglose('Cuotas periódicas', totalPlat.feePer, totalPlat.bruto)}
+            {lineaDesglose('Tasas por pedido', totalPlat.fijo, totalPlat.bruto)}
           </div>
         </div>
       </div>
