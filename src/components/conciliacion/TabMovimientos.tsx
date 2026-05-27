@@ -119,7 +119,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         case 'importe':      return row.importe
         case 'categoria':    return row.categoria_id ?? ''
         case 'doc':          return row.doc_estado ?? ''
-        case 'estado':       return calcularEstado(row)
+        case 'estado':       return calcularEstado(row) === 'conciliado' ? 0 : 1
         case 'titular':      return row.titular_id ?? ''
         default:             return ''
       }
@@ -204,13 +204,15 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     estado:      null,
   }
 
+  // Si la ordenación incluye la columna 'estado' (calculada) → cliente completo (sin range)
+  const ordenaEstadoCalculado = ms.sorts.some(s => s.col === 'estado')
+
   const cargarPagina = useCallback(async () => {
     const myFetchId = ++fetchIdRef.current
     setCargando(true)
     setErrorCarga(null)
 
-    const from = (page - 1) * pageSize
-    const to   = from + pageSize - 1
+    const necesitaClienteCompleto = ordenaEstadoCalculado
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
@@ -250,14 +252,19 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
 
     const ordenServidor = ms.toSupabaseOrder(sortMap)
-    if (ordenServidor.length > 0) {
+    if (!necesitaClienteCompleto && ordenServidor.length > 0) {
       for (const { column, ascending } of ordenServidor) {
         q = q.order(column, { ascending })
       }
     } else {
       q = q.order('fecha', { ascending: false })
     }
-    q = q.range(from, to)
+
+    if (!necesitaClienteCompleto) {
+      const from = (page - 1) * pageSize
+      const to   = from + pageSize - 1
+      q = q.range(from, to)
+    }
 
     const { data, error, count } = await q
 
@@ -282,11 +289,20 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         titular_id:  m.titular_id ?? null,
         doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
       }))
-      setFilas(mapped)
-      setTotal(count ?? 0)
+
+      if (necesitaClienteCompleto) {
+        const ordenadas = ms.applySorts(mapped)
+        const totalFiltradas = ordenadas.length
+        const from = (page - 1) * pageSize
+        setFilas(ordenadas.slice(from, from + pageSize))
+        setTotal(totalFiltradas)
+      } else {
+        setFilas(mapped)
+        setTotal(count ?? 0)
+      }
     }
     setCargando(false)
-  }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
+  }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados, ordenaEstadoCalculado])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -396,8 +412,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  // Ordena en cliente las que el servidor no maneja (estado calculado)
-  const filasVisibles = useMemo(() => ms.applySorts(filas), [filas, ms])
+  const filasVisibles = useMemo(() => filas, [filas])
 
   const handleExportar = async () => {
     setExportando(true)
