@@ -11,11 +11,7 @@
  * - clearSorts             → quita todos los criterios
  * - sortIndex/sortDir      → para componente SortableHeader
  * - applySort/applySorts   → ordena en memoria
- * - toSupabaseOrder        → traduce a {field, ascending}[] para query servidor
- *
- * @param storageKey  clave única por tabla (futuro: persistencia URL)
- * @param opts.getValue  (opcional) función global col→valor para applySorts
- * @param opts.maxCriteria  máximo de criterios apilados (default 5)
+ * - toSupabaseOrder        → traduce a {column, ascending}[] para query servidor
  */
 
 import { useState, useCallback, useMemo } from 'react'
@@ -28,23 +24,19 @@ export interface SortCriterion<Col extends string = string> {
 }
 
 export interface UseMultiSortOptions<Row = any, Col extends string = string> {
-  /** opcional: función global col→valor. Si se pasa, applySorts(rows) funciona sin más */
   getValue?: (row: Row, col: Col) => string | number | null | undefined
   maxCriteria?: number
+  defaultSorts?: SortCriterion<Col>[]
 }
 
-/**
- * Hook canónico. Acepta tanto el patrón legacy (con storageKey string) como
- * el patrón nuevo (con options object).
- */
 export function useMultiSort<Row = any, Col extends string = string>(
   arg?: string | UseMultiSortOptions<Row, Col>
 ) {
   const opts: UseMultiSortOptions<Row, Col> = typeof arg === 'string' || arg === undefined
     ? {}
     : arg
-  const { getValue, maxCriteria = 5 } = opts
-  const [sorts, setSorts] = useState<SortCriterion<Col>[]>([])
+  const { getValue, maxCriteria = 5, defaultSorts = [] } = opts
+  const [sorts, setSorts] = useState<SortCriterion<Col>[]>(defaultSorts)
 
   const handleSort = useCallback(
     (col: Col) => {
@@ -83,7 +75,6 @@ export function useMultiSort<Row = any, Col extends string = string>(
     return s ? s.dir : null
   }, [sorts])
 
-  /** Ordena con getValue del hook (modo legacy) */
   const applySorts = useCallback(
     (rows: Row[]): Row[] => {
       if (sorts.length === 0 || !getValue) return rows
@@ -102,7 +93,6 @@ export function useMultiSort<Row = any, Col extends string = string>(
     [sorts, getValue]
   )
 
-  /** Ordena con getters específicos por llamada (patrón nuevo) */
   const applySort = useCallback(
     <T,>(rows: T[], getters: Record<string, (r: T) => any>): T[] => {
       if (sorts.length === 0) return rows
@@ -126,28 +116,35 @@ export function useMultiSort<Row = any, Col extends string = string>(
     [sorts]
   )
 
-  /** Traduce a parámetros Supabase query */
+  /** Traduce a parámetros Supabase query. Devuelve column+ascending (compatible con .order()) */
   const toSupabaseOrder = useCallback(
-    (colToField: Record<string, string | null>): { field: string; ascending: boolean }[] => {
+    (colToField: Record<string, string | null>): { column: string; field: string; ascending: boolean }[] => {
       return sorts
-        .map(s => ({ field: colToField[s.col as string], ascending: s.dir === 'asc' }))
-        .filter(x => x.field !== null && x.field !== undefined) as { field: string; ascending: boolean }[]
+        .map(s => {
+          const field = colToField[s.col as string]
+          if (field === null || field === undefined) return null
+          return { column: field, field, ascending: s.dir === 'asc' }
+        })
+        .filter((x): x is { column: string; field: string; ascending: boolean } => x !== null)
     },
     [sorts]
   )
 
+  const sortsKey = useMemo(() => JSON.stringify(sorts), [sorts])
+
   return useMemo(() => ({
     sorts,
-    handleSort,        // legacy
+    sortsKey,
+    handleSort,
     toggleSort: handleSort,
     clearSorts,
     sortIndicator,
     sortIndex,
     sortDir,
-    applySorts,        // legacy con getValue del hook
-    applySort,         // patrón nuevo con getters explícitos
+    applySorts,
+    applySort,
     toSupabaseOrder,
     hasSort: sorts.length > 0,
     showClearButton: sorts.length > 1,
-  }), [sorts, handleSort, clearSorts, sortIndicator, sortIndex, sortDir, applySorts, applySort, toSupabaseOrder])
+  }), [sorts, sortsKey, handleSort, clearSorts, sortIndicator, sortIndex, sortDir, applySorts, applySort, toSupabaseOrder])
 }
