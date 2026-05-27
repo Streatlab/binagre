@@ -1,8 +1,7 @@
 import { useMultiSort } from '@/hooks/useMultiSort'
+import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 /**
- * GestorDocumental — v15: ZIP via signed URL (descarga directa desde Storage)
- * Fix definitivo: la edge function sube ZIP a Storage y devuelve URL firmada.
- * Cliente recibe JSON con url+filename, dispara <a download>. Sin parsing binario.
+ * GestorDocumental — v16: ordenación canónica multi-criterio
  */
 
 import {
@@ -24,7 +23,6 @@ import { supabase } from '@/lib/supabase'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
-type SortDir = 'asc' | 'desc'
 
 interface Titular { id: string; nombre: string; color: string; carpeta_drive: string | null }
 interface CategoriaPyg { id: string; nivel: number; parent_id: string | null; nombre: string; bloque: string; orden: number }
@@ -164,22 +162,21 @@ export default function GestionFacturas() {
   const [categoriaId, setCategoria] = useState('todas')
   const [driveFiltro, setDriveFiltro] = useState<DriveFiltro>({})
   const [expansionMap, setExpansionMap] = useState<Record<string,boolean>>({})
-  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const { handleSort: multiHandleSort, sortIndicator: sortInd, applySorts: applyFactSorts } = useMultiSort<FacturaRow, SortColumn>({
+  const ms = useMultiSort<FacturaRow, SortColumn>({
     getValue: (row, col) => {
       switch(col) {
         case 'fecha':      return row.fecha_factura ?? ''
-        case 'proveedor':  return row.proveedor_nombre ?? ''
-        case 'nif':        return row.nif_emisor ?? ''
+        case 'proveedor':  return (row.proveedor_nombre || '').toLowerCase()
+        case 'nif':        return (row.nif_emisor || '').toLowerCase()
         case 'importe':    return Number(row.total ?? 0)
         case 'categoria':  return row.categoria_factura ?? ''
-        case 'doc':        return row.pdf_drive_url ? '1' : '0'
+        case 'doc':        return row.pdf_drive_url ? 1 : 0
         case 'estado':     return row.estado ?? ''
         default:           return ''
       }
-    }
+    },
+    defaultSorts: [{ col: 'fecha', dir: 'desc' }],
   })
 
   const [mesesDisp, setMesesDisp] = useState<{valor:string;label:string}[]>([])
@@ -246,12 +243,6 @@ export default function GestionFacturas() {
   const categoriasFlat = useMemo(()=>flattenCategorias(categorias),[categorias])
   const catNombre = useMemo(()=>{const m=new Map<string,string>(); for(const c of categorias) m.set(c.id,c.nombre); return m},[categorias])
 
-  function handleSort(col: SortColumn){
-    multiHandleSort(col)
-    if(sortColumn===col) setSortDir(d=>d==='asc'?'desc':'asc')
-    else{setSortColumn(col);setSortDir('asc')}
-  }
-
   const {desdeStr, hastaStr, mesLabel} = useMemo(()=>{
     if(!mesSeleccionado) return {desdeStr:'',hastaStr:'',mesLabel:''}
     const [y,m] = mesSeleccionado.split('-').map(Number)
@@ -280,23 +271,7 @@ export default function GestionFacturas() {
     return true
   }),[facturas,titularActivo,driveFiltro,categoriaId,busqueda])
 
-  const facturasOrdenadas = useMemo(()=>{
-    const arr=[...facturasFiltradas]; const dv=sortDir==='asc'?1:-1
-    arr.sort((a,b)=>{
-      let va:string|number='',vb:string|number=''
-      switch(sortColumn){
-        case 'fecha':     va=a.fecha_factura??'';vb=b.fecha_factura??'';break
-        case 'proveedor': va=(a.proveedor_nombre||'').toLowerCase();vb=(b.proveedor_nombre||'').toLowerCase();break
-        case 'nif':       va=(a.nif_emisor||'').toLowerCase();vb=(b.nif_emisor||'').toLowerCase();break
-        case 'importe':   va=Number(a.total||0);vb=Number(b.total||0);break
-        case 'categoria': va=a.categoria_factura||'';vb=b.categoria_factura||'';break
-        case 'doc':    va=a.pdf_drive_url?1:0;vb=b.pdf_drive_url?1:0;break
-        case 'estado': va=a.estado||'';vb=b.estado||'';break
-      }
-      return va<vb?-dv:va>vb?dv:0
-    })
-    return applyFactSorts(arr)
-  },[facturasFiltradas,sortColumn,sortDir,applyFactSorts])
+  const facturasOrdenadas = useMemo(()=>ms.applySorts(facturasFiltradas),[facturasFiltradas,ms])
 
   const facturasMes = useMemo(()=>{
     if(!desdeStr||!hastaStr) return [] as FacturaRow[]
@@ -397,6 +372,7 @@ export default function GestionFacturas() {
                   {categoriasFlat.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </div>
+              <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
@@ -423,16 +399,11 @@ export default function GestionFacturas() {
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
                     <thead>
                       <tr>
-                        {HEADERS.map(h=>{
-                          const arrow=sortInd(h.col)
-                          const isActive=arrow!==''
-                          return(
-                            <th key={h.col} onClick={()=>handleSort(h.col)}
-                              style={{fontFamily:FONT.heading,fontSize:10,fontWeight:500,letterSpacing:'2px',color:isActive?COLORS.redSL:COLORS.mut,textTransform:'uppercase',textAlign:h.align,padding:'10px 12px',background:COLORS.group,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>
-                              {h.label}{arrow}
-                            </th>
-                          )
-                        })}
+                        {HEADERS.map(h => (
+                          <SortableHeader key={h.col} col={h.col} label={h.label}
+                            sortIndex={ms.sortIndex(h.col)} sortDir={ms.sortDir(h.col)}
+                            onToggle={ms.toggleSort} align={h.align} />
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
