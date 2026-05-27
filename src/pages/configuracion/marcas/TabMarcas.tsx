@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { COLORS, CARDS, lblSm, lblXs, OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
+import { COLORS, CARDS, lblXs, OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { calcDesglosePorCanal, loadConfigCanales, loadMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { fmtEur } from '@/lib/format'
@@ -37,6 +37,9 @@ const CANAL_DEFS = [
 const C_PED   = '#1E5BCC'
 const C_BRUTO = '#F26B1F'
 const C_NETO  = '#1D9E75'
+
+// Quitar IVA 21%
+const sinIva = (n: number) => (n || 0) / 1.21
 
 export default function TabMarcas() {
   const { T, isDark } = useTheme()
@@ -117,12 +120,29 @@ export default function TabMarcas() {
         const t = tot[c.id]
         if (t.bruto > 0) {
           try {
-            desg[c.id] = calcDesglosePorCanal(c.id, t.bruto, t.pedidos, undefined, desde, hasta)
+            const d = calcDesglosePorCanal(c.id, t.bruto, t.pedidos, undefined, desde, hasta)
+            // Convertir a SIN IVA
+            const comisionSinIva = sinIva(d.comisionConIva)
+            const feePromoSinIva = sinIva(d.feePromoConIva)
+            const feePrimeSinIva = sinIva(d.feePrimeConIva)
+            const feePeriodicoSinIva = sinIva(d.feePeriodicoConIva)
+            const fijoPedidoSinIva = sinIva(d.fijoPedidoConIva)
+            const totalDescuentosSinIva = comisionSinIva + feePromoSinIva + feePrimeSinIva + feePeriodicoSinIva + fijoPedidoSinIva
+            const netoSinIva = Math.max(0, t.bruto - totalDescuentosSinIva)
+            desg[c.id] = {
+              comision: comisionSinIva,
+              feePromo: feePromoSinIva,
+              feePrime: feePrimeSinIva,
+              feePeriodico: feePeriodicoSinIva,
+              fijoPedido: fijoPedidoSinIva,
+              totalDescuentos: totalDescuentosSinIva,
+              neto: netoSinIva,
+            }
           } catch {
-            desg[c.id] = { bruto: 0, comisionConIva: 0, feePromoConIva: 0, feePrimeConIva: 0, feePeriodicoConIva: 0, fijoPedidoConIva: 0, totalDescuentos: 0, neto: t.bruto }
+            desg[c.id] = { comision: 0, feePromo: 0, feePrime: 0, feePeriodico: 0, fijoPedido: 0, totalDescuentos: 0, neto: t.bruto }
           }
         } else {
-          desg[c.id] = { bruto: 0, comisionConIva: 0, feePromoConIva: 0, feePrimeConIva: 0, feePeriodicoConIva: 0, fijoPedidoConIva: 0, totalDescuentos: 0, neto: 0 }
+          desg[c.id] = { comision: 0, feePromo: 0, feePrime: 0, feePeriodico: 0, fijoPedido: 0, totalDescuentos: 0, neto: 0 }
         }
       }
       setDesgloseCanal(desg)
@@ -153,9 +173,9 @@ export default function TabMarcas() {
     bruto:    ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.bruto || 0), 0),
     pedidos:  ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.pedidos || 0), 0),
     neto:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.neto || 0), 0),
-    comisionUE: desgloseCanal.uber?.comisionConIva || 0,
-    comisionGL: desgloseCanal.glovo?.comisionConIva || 0,
-    comisionJE: desgloseCanal.je?.comisionConIva || 0,
+    comisionUE: desgloseCanal.uber?.comision || 0,
+    comisionGL: desgloseCanal.glovo?.comision || 0,
+    comisionJE: desgloseCanal.je?.comision || 0,
     brutoUE: totales.uber?.bruto || 0,
     brutoGL: totales.glovo?.bruto || 0,
     brutoJE: totales.je?.bruto || 0,
@@ -282,7 +302,6 @@ export default function TabMarcas() {
     ? `${rango.desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })} → ${rango.hasta.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })}`
     : 'sin datos'
 
-  // Línea desglose 4 columnas: label | pedidos+% | € | % bruto
   const lineaDesglose = (
     label: string,
     importe: number,
@@ -315,9 +334,9 @@ export default function TabMarcas() {
     const nPromo = t.pedidos * pctPromo
     const brutoNormal = t.bruto * (1 - pctPrime)
     const brutoPrime = t.bruto * pctPrime
-    // Desglosar comisión normal/Prime (sobre bruto pre-IVA, luego × 1,21)
-    const comisionNormalIva = comisionPct * brutoNormal * 1.21
-    const comisionPrimeIva = comisionPctPrime > 0 ? comisionPctPrime * brutoPrime * 1.21 : 0
+    // SIN IVA
+    const comisionNormal = comisionPct * brutoNormal
+    const comisionPrime = comisionPctPrime > 0 ? comisionPctPrime * brutoPrime : 0
     const brutoPromo = t.bruto * pctPromo
     const tieneDatos = t.bruto > 0
 
@@ -331,7 +350,7 @@ export default function TabMarcas() {
           <div style={{ fontFamily: OSWALD, fontSize: 44, fontWeight: 600, color: tieneDatos ? cfg.color : COLORS.mut, lineHeight: 1 }}>
             {tieneDatos ? netoPct.toFixed(2) + '%' : '—'}
           </div>
-          <div style={{ ...lblXs, color: cfg.color, marginTop: 2 }}>% NETO</div>
+          <div style={{ ...lblXs, color: cfg.color, marginTop: 2 }}>% NETO SIN IVA</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -358,23 +377,23 @@ export default function TabMarcas() {
             <>
               {lineaDesglose(
                 `Comisión normal (${(comisionPct*100).toFixed(0)}%)`,
-                comisionNormalIva,
+                comisionNormal,
                 t.bruto,
                 `${fmtN(nNormal)} ped · ${((1-pctPrime)*100).toFixed(0)}%`,
               )}
               {lineaDesglose(
                 `Comisión Uber One (${(comisionPctPrime*100).toFixed(0)}%)`,
-                comisionPrimeIva,
+                comisionPrime,
                 t.bruto,
                 `${fmtN(nPrime)} ped · ${(pctPrime*100).toFixed(0)}%`,
               )}
               {lineaDesglose(
                 'Pedidos promo',
-                d.feePromoConIva || 0,
+                d.feePromo || 0,
                 brutoPromo,
                 `${fmtN(nPromo)} ped · ${(pctPromo*100).toFixed(0)}%`,
               )}
-              {lineaDesglose('Cuota semanal', d.feePeriodicoConIva || 0, t.bruto)}
+              {lineaDesglose('Cuota semanal', d.feePeriodico || 0, t.bruto)}
             </>
           )}
 
@@ -382,30 +401,30 @@ export default function TabMarcas() {
             <>
               {lineaDesglose(
                 `Comisión normal (${(comisionPct*100).toFixed(0)}%)`,
-                (comisionPct * brutoNormal) * 1.21,
+                comisionPct * brutoNormal,
                 t.bruto,
                 `${fmtN(nNormal)} ped · ${((1-pctPrime)*100).toFixed(0)}%`,
               )}
               {lineaDesglose(
                 'Comisión Glovo Prime',
-                d.feePrimeConIva || 0,
+                d.feePrime || 0,
                 t.bruto,
                 `${fmtN(nPrime)} ped · ${(pctPrime*100).toFixed(0)}%`,
               )}
-              {lineaDesglose('Cuota quincenal', d.feePeriodicoConIva || 0, t.bruto)}
+              {lineaDesglose('Cuota quincenal', d.feePeriodico || 0, t.bruto)}
             </>
           )}
 
           {cfg.id === 'je' && tieneDatos && (
             <>
-              {lineaDesglose(`Comisión (${(comisionPct*100).toFixed(0)}%)`, d.comisionConIva || 0, t.bruto)}
-              {lineaDesglose('Tasa por pedido', d.fijoPedidoConIva || 0, t.bruto)}
+              {lineaDesglose(`Comisión (${(comisionPct*100).toFixed(0)}%)`, d.comision || 0, t.bruto)}
+              {lineaDesglose('Tasa por pedido', d.fijoPedido || 0, t.bruto)}
             </>
           )}
 
           {cfg.id === 'web' && tieneDatos && (
             <>
-              {lineaDesglose('Tasa por pedido', d.fijoPedidoConIva || 0, t.bruto)}
+              {lineaDesglose('Tasa por pedido', d.fijoPedido || 0, t.bruto)}
             </>
           )}
 
@@ -419,9 +438,8 @@ export default function TabMarcas() {
 
   return (
     <>
-      <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt}</div>
+      <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt} · TODOS LOS DATOS SIN IVA</div>
 
-      {/* Card consolidada PRIMERO, ancho completo */}
       <div style={{ ...CARDS.big, padding: '18px 22px', marginBottom: 14 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: COLORS.redSL, marginBottom: 2 }}>
           Plataformas UE + GL + JE
@@ -431,7 +449,7 @@ export default function TabMarcas() {
             <div style={{ fontFamily: OSWALD, fontSize: 44, fontWeight: 600, color: COLORS.redSL, lineHeight: 1 }}>
               {totalPlat.bruto > 0 ? ((totalPlat.neto / totalPlat.bruto) * 100).toFixed(2) + '%' : '—'}
             </div>
-            <div style={{ ...lblXs, color: COLORS.redSL, marginTop: 2 }}>% NETO PONDERADO</div>
+            <div style={{ ...lblXs, color: COLORS.redSL, marginTop: 2 }}>% NETO PONDERADO SIN IVA</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <div>
@@ -449,7 +467,6 @@ export default function TabMarcas() {
           </div>
         </div>
 
-        {/* Comisiones por plataforma */}
         <div style={{ borderTop: `0.5px solid ${T.brd}`, paddingTop: 12, marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {[
             { label: 'Comisión Uber', color: '#06C167', importe: totalPlat.comisionUE, bruto: totalPlat.brutoUE },
@@ -465,7 +482,6 @@ export default function TabMarcas() {
         </div>
       </div>
 
-      {/* 5 cards plataformas en 1 línea */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 22 }}>
         {CANAL_DEFS.map(cfg => renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 }))}
       </div>
