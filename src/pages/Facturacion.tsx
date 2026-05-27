@@ -1,18 +1,17 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur } from '@/utils/format'
 import { fmtFechaCorta } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import {
-  COLORS, FONT, CARDS, LAYOUT, TABS_PILL,
+  COLORS, FONT, CARDS,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
-import { useMultiSort } from '@/lib/useMultiSort'
+import { useMultiSort } from '@/hooks/useMultiSort'
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
@@ -39,7 +38,6 @@ interface SemanaGroup extends AggRow { year: number; week: number; periodo: stri
 interface MesGroup extends AggRow { anio: number; mes: number; dias: number; media_diaria: number; vs_anterior: number | null }
 
 type Tab = 'diario' | 'semanas' | 'meses' | 'anual'
-type SortCol = 'fecha' | 'serv' | 'uber' | 'glovo' | 'je' | 'web' | 'dir' | 'total'
 type CanalId = 'uber' | 'glovo' | 'je' | 'web' | 'dir'
 
 const ALL_COLS: { id: CanalId; label: string; ped: keyof AggRow; bru: keyof AggRow; color: string; bg: string }[] = [
