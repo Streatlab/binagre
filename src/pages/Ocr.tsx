@@ -12,7 +12,7 @@ import VentasTab from '@/components/ocr/VentasTab'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { DocBadge } from '@/components/ocr/DocBadgeV2'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
-import { useMultiSort } from '@/lib/useMultiSort'
+import { useMultiSort } from '@/hooks/useMultiSort'
 
 type TabId = 'facturas' | 'extractos' | 'ventas' | 'otros'
 type FiltroCard = 'conciliadas' | 'pendientes' | null
