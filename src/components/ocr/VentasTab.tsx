@@ -1,4 +1,5 @@
 import { useMultiSort } from '@/hooks/useMultiSort'
+import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FONT, useTheme } from '@/styles/tokens'
@@ -26,7 +27,6 @@ interface Titular { id: string; nombre: string }
 interface ImportLog { archivo: string; plataforma: string; nuevas: number; duplicadas: number; actualizadas: number; errores: string[] }
 
 type SortCol = 'fecha' | 'marca' | 'plataforma' | 'bruto' | 'comision' | 'neto' | 'estado' | 'titular'
-type SortDir = 'asc' | 'desc'
 type FiltroCard = 'conciliadas' | 'pendientes' | null
 
 const PAGE_SIZES = [50, 100, 200] as const
@@ -161,13 +161,11 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
   const [filtroPlataforma, setFiltroPlataforma] = useState<string>('todas')
   const [filtroMarca, setFiltroMarca] = useState<string>('todas')
   const [marcas, setMarcas] = useState<string[]>([])
-  const [sortCol, setSortCol] = useState<SortCol>('fecha')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
 
-  const { sorts: ventaSorts, handleSort: multiHandleSort, sortIndicator: sortInd, applySorts: applyVentasSorts } = useMultiSort<Liquidacion, SortCol>({
+  const ms = useMultiSort<Liquidacion, SortCol>({
     getValue: (row, col) => {
       switch(col) {
         case 'fecha':      return row.fecha_deposito
@@ -214,8 +212,8 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     if (filtroCard === 'conciliadas') arr = arr.filter(f => f.estado === 'conciliada')
     if (filtroCard === 'pendientes') arr = arr.filter(f => f.estado !== 'conciliada')
     if (busquedaDebounced) { const q = busquedaDebounced.toLowerCase(); arr = arr.filter(f => f.marca.toLowerCase().includes(q) || f.referencia.toLowerCase().includes(q)) }
-    return applyVentasSorts(arr)
-  }, [todasFilas, filtroPlataforma, filtroMarca, filtroCard, busquedaDebounced, applyVentasSorts])
+    return ms.applySorts(arr)
+  }, [todasFilas, filtroPlataforma, filtroMarca, filtroCard, busquedaDebounced, ms])
 
   const totalPages = Math.max(1, Math.ceil(filasFiltradas.length / pageSize))
   const filasPagina = filasFiltradas.slice((page - 1) * pageSize, page * pageSize)
@@ -233,9 +231,6 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     }
   }, [todasFilas, filtroPlataforma, filtroMarca])
 
-  function handleSort(col: SortCol) {
-    multiHandleSort(col)
-  }
   const onFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); updateUrl({ page: 1 }) }
 
   const handleFile = (plataforma: string) => async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,12 +310,29 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
     setLogs([{ archivo: file.name, plataforma: 'Just Eat', nuevas: 1, duplicadas: 0, actualizadas: 0, errores: conciliado ? [] : ['Creada — sin match en banco aún'] }])
   }
 
-  void T; void uberRef; void glovoRef; void jeRef; void cargando; void subiendo; void marcas; void sortCol; void sortDir; void busqueda; void totalPages; void filasPagina; void agregados; void handleSort; void onFiltroCard; void handleFile; void ventaSorts; void sortInd; void fmtDate; void fmtNumES; void FONT; void titulares; void setSortCol; void setSortDir; void setBusqueda
+  const HEADERS: { label: string; col: SortCol; align: 'left'|'right'|'center' }[] = [
+    { label: 'Fecha', col: 'fecha', align: 'left' },
+    { label: 'Marca', col: 'marca', align: 'left' },
+    { label: 'Plataforma', col: 'plataforma', align: 'left' },
+    { label: 'Bruto', col: 'bruto', align: 'right' },
+    { label: 'Comisión', col: 'comision', align: 'right' },
+    { label: 'Neto', col: 'neto', align: 'right' },
+    { label: 'Estado', col: 'estado', align: 'left' },
+    { label: 'Titular', col: 'titular', align: 'left' },
+  ]
+
+  void T; void uberRef; void glovoRef; void jeRef; void cargando; void marcas; void totalPages; void onFiltroCard; void handleFile; void fmtDate; void fmtNumES; void FONT; void titulares
 
   return (
     <div style={{ padding: 20 }}>
       <div style={{ marginBottom: 16 }}>
         <input type="file" accept=".csv,.pdf,.html,.htm,.doc,.txt" onChange={handleFile('auto')} disabled={subiendo} />
+        <span style={{ marginLeft: 12 }}>
+          <input type="text" placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ padding: '6px 10px', fontSize: 13 }} />
+        </span>
+        <span style={{ marginLeft: 12 }}>
+          <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
+        </span>
       </div>
       {logs.length > 0 && (
         <div style={{ marginBottom: 16, padding: 12, background: '#f5f3ef', borderRadius: 8 }}>
@@ -332,7 +344,40 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           ))}
         </div>
       )}
-      <div style={{ fontSize: 13, color: '#666' }}>
+      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+          <thead>
+            <tr>
+              {HEADERS.map(h => (
+                <SortableHeader key={h.col} col={h.col} label={h.label}
+                  sortIndex={ms.sortIndex(h.col)} sortDir={ms.sortDir(h.col)}
+                  onToggle={ms.toggleSort} align={h.align} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filasPagina.length === 0 ? (
+              <tr><td colSpan={HEADERS.length} style={{ padding: '24px 16px', textAlign: 'center', color: '#7a8090' }}>Sin resultados</td></tr>
+            ) : filasPagina.map((f, idx) => {
+              const isLast = idx === filasPagina.length - 1
+              const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2' }
+              return (
+                <tr key={f.id}>
+                  <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_deposito)}</td>
+                  <td style={{ ...tdBase, color: '#111' }}>{f.marca}</td>
+                  <td style={{ ...tdBase, color: '#3a4050', fontSize: 12, textTransform: 'capitalize' }}>{f.plataforma.replace('_', ' ')}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 13 }}>{fmtNumES(f.ventas_bruto, 2)}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#E24B4A' }}>{fmtNumES(f.comision, 2)}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: '#1D9E75' }}>{fmtNumES(f.pago_neto, 2)}</td>
+                  <td style={{ ...tdBase, fontSize: 12, color: f.estado === 'conciliada' ? '#1D9E75' : '#F26B1F', textTransform: 'capitalize' }}>{f.estado}</td>
+                  <td style={{ ...tdBase, fontSize: 12, color: '#7a8090' }}>{titulares.find(t => t.id === f.titular_id)?.nombre || '—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 13, color: '#666' }}>
         {filasFiltradas.length} liquidaciones · Neto total: {agregados.totalNeto.toFixed(2)}€
       </div>
     </div>
