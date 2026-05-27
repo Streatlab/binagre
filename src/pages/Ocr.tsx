@@ -159,6 +159,7 @@ export default function Ocr() {
   const { sessions, procesar } = useOcrUpload()
   const prevProcessingRef = useRef<Set<string>>(new Set())
   useEffect(() => { const cp = new Set(sessions.filter(s => s.procesando).map(s => s.id)); let t = false; prevProcessingRef.current.forEach(id => { if (!cp.has(id)) t = true }); if (t) setRefreshTick(x => x + 1); prevProcessingRef.current = cp }, [sessions])
+  useEffect(() => { const h = () => setRefreshTick(x => x + 1); window.addEventListener('facturas:changed', h); return () => window.removeEventListener('facturas:changed', h) }, [])
   useEffect(() => { const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400); return () => clearTimeout(t) }, [busqueda])
   useEffect(() => { Promise.all([supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'), supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden')]).then(([cats, tits]) => { if (!cats.error) setCategoriasPyg(cats.data ?? []); if (!tits.error) setTitulares(tits.data ?? []) }) }, [])
   const periodoDesdeStr = fechaDesde.toISOString().slice(0, 10)
