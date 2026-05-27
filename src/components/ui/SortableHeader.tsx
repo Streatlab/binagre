@@ -5,12 +5,12 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { SortDir } from '@/lib/useMultiSort'
 
-interface SortableHeaderProps {
-  col: string
+interface SortableHeaderProps<Col extends string = string> {
+  col: Col
   label: ReactNode
   sortIndex: number       // -1 si no está activa
   sortDir: SortDir | null
-  onToggle: (col: string) => void
+  onToggle: (col: Col) => void
   align?: 'left' | 'right' | 'center'
   style?: CSSProperties
   className?: string
@@ -18,10 +18,10 @@ interface SortableHeaderProps {
   rowSpan?: number
 }
 
-export default function SortableHeader({
+export default function SortableHeader<Col extends string = string>({
   col, label, sortIndex, sortDir, onToggle,
   align = 'left', style, className, colSpan, rowSpan
-}: SortableHeaderProps) {
+}: SortableHeaderProps<Col>) {
   const active = sortIndex >= 0
   const baseStyle: CSSProperties = {
     fontFamily: 'Oswald, sans-serif',
