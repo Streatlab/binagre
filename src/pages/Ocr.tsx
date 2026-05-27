@@ -35,7 +35,9 @@ const ACCEPT_FACTURAS = EXT_ACEPTADAS_FACTURAS.map(e => `.${e}`).join(',')
 const ACCEPT_EXTRACTOS = EXT_ACEPTADAS_EXTRACTOS.map(e => `.${e}`).join(',')
 const ACCEPT_OTROS = EXT_ACEPTADAS_OTROS.map(e => `.${e}`).join(',')
 
-const ESTADOS_CONCILIADOS = new Set(['conciliada', 'asociada', 'solo_drive'])
+// Conciliada = (estado IN conciliada/asociada/solo_drive) o (doc_estado = no_requiere)
+const ESTADOS_CONCILIADOS_RAW = ['conciliada', 'asociada', 'solo_drive']
+const ESTADOS_CONCILIADOS = new Set(ESTADOS_CONCILIADOS_RAW)
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
 
 function parsePageSize(raw: string | null): PageSize { const n = Number(raw); return (PAGE_SIZES as readonly number[]).includes(n) ? (n as PageSize) : DEFAULT_PAGE_SIZE }
@@ -50,7 +52,12 @@ interface Agregados { totalCount: number; totalImporte: number; conciliadasCount
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
 function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
-function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) }
+function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) || f.doc_estado === 'no_requiere' }
+
+// Orden canónico para columna "estado": 'conciliada' (0) → 'pendiente' (1). Asc: conciliadas primero.
+function estadoSortKey(f: Factura): number {
+  return esConciliada(f) ? 0 : 1
+}
 
 async function cargarJSZip(): Promise<any> {
   if ((window as any).JSZip) return (window as any).JSZip
@@ -160,13 +167,150 @@ export default function Ocr() {
   useEffect(() => { Promise.all([supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'), supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden')]).then(([cats, tits]) => { if (!cats.error) setCategoriasPyg(cats.data ?? []); if (!tits.error) setTitulares(tits.data ?? []) }) }, [])
   const periodoDesdeStr = fechaDesde.toISOString().slice(0, 10)
   const periodoHastaStr = fechaHasta.toISOString().slice(0, 10)
-  const cargarPagina = useCallback(async () => { if (tab === 'extractos' || tab === 'ventas') { setCargando(false); return }; const myFetchId = ++fetchIdRef.current; setCargando(true); setErrorCarga(null); const from = (page - 1) * pageSize; const to = from + pageSize - 1; const sortMap: Record<string, string | null> = { fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor', importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url', titular: 'titular_id', estado: 'estado' }; let q: any = supabase.from('facturas').select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' }).gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr); if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma']); else q = q.eq('tipo', 'otro'); if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro); if (busquedaDebounced) { const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim(); if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`) }; const orderList = ms.toSupabaseOrder(sortMap); if (orderList.length > 0) { for (const o of orderList) { q = q.order(o.field, { ascending: o.ascending }) } } else { q = q.order('fecha_factura', { ascending: false }) } q = q.range(from, to); const { data, error, count } = await q; if (myFetchId !== fetchIdRef.current) return; if (error) { setErrorCarga('Error cargando. Intenta de nuevo.'); setFilas([]); setTotal(0) } else { const mapped: Factura[] = (data ?? []).map((m: any) => ({ id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '', total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor', categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null, titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null, pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null, numero_factura: m.numero_factura ?? null, estado: m.estado ?? '', doc_estado: m.doc_estado ?? null, matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0 })); let filtradas = mapped; if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada); else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f)); setFilas(filtradas); setTotal(count ?? 0) }; setCargando(false) }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab])
-  const cargarAgregados = useCallback(async () => { try { const { data, error } = await supabase.from('facturas').select('id, total, estado, tipo').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr).in('tipo', ['proveedor', 'plataforma']); if (error) throw error; let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0, pendientesCount = 0, pendientesImporte = 0; for (const r of data ?? []) { totalCount++; const imp = Number(r.total) || 0; totalImporte += imp; if (ESTADOS_CONCILIADOS.has(r.estado)) { conciliadasCount++; conciliadasImporte += imp } else { pendientesCount++; pendientesImporte += imp } }; setAgregados({ totalCount, totalImporte, conciliadasCount, conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0, conciliadasImporte, pendientesCount, pendientesImporte }) } catch { setAgregados(null) } }, [periodoDesdeStr, periodoHastaStr, refreshTick])
+
+  // Detecta si la ordenación incluye la columna "estado" (calculada, requiere fetch full)
+  const ordenaEstadoCalculado = ms.sorts.some((s: any) => s.col === 'estado')
+  const filtraEstadoCalculado = filtroCard !== null
+
+  const cargarPagina = useCallback(async () => {
+    if (tab === 'extractos' || tab === 'ventas') { setCargando(false); return }
+    const myFetchId = ++fetchIdRef.current
+    setCargando(true); setErrorCarga(null)
+
+    // Si filtra/ordena por estado calculado → trae TODAS las filas del periodo, filtra y ordena en cliente, pagina en cliente
+    const necesitaClienteCompleto = ordenaEstadoCalculado || filtraEstadoCalculado
+
+    const sortMap: Record<string, string | null> = {
+      fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor',
+      importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url',
+      titular: 'titular_id', estado: null,
+    }
+
+    let q: any = supabase.from('facturas')
+      .select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' })
+      .gte('fecha_factura', periodoDesdeStr)
+      .lte('fecha_factura', periodoHastaStr)
+
+    if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
+    else q = q.eq('tipo', 'otro')
+    if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
+    if (busquedaDebounced) {
+      const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
+      if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`)
+    }
+
+    // Orden servidor solo si el primer criterio (más prioritario) tiene mapeo en BD
+    const orderList = ms.toSupabaseOrder(sortMap)
+    if (!necesitaClienteCompleto && orderList.length > 0) {
+      for (const o of orderList) q = q.order(o.field, { ascending: o.ascending })
+    } else if (!necesitaClienteCompleto) {
+      q = q.order('fecha_factura', { ascending: false })
+    } else {
+      // Para cliente completo, traer ordenado por fecha como base estable
+      q = q.order('fecha_factura', { ascending: false })
+    }
+
+    if (!necesitaClienteCompleto) {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+      q = q.range(from, to)
+    }
+    // Si necesitaClienteCompleto: sin range → trae todo el periodo filtrado
+
+    const { data, error, count } = await q
+    if (myFetchId !== fetchIdRef.current) return
+
+    if (error) {
+      setErrorCarga('Error cargando. Intenta de nuevo.')
+      setFilas([]); setTotal(0)
+    } else {
+      const mapped: Factura[] = (data ?? []).map((m: any) => ({
+        id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '',
+        total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor',
+        categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null,
+        titular_id: m.titular_id ?? null, pdf_drive_url: m.pdf_drive_url ?? null,
+        pdf_drive_id: m.pdf_drive_id ?? null, pdf_filename: m.pdf_filename ?? null,
+        numero_factura: m.numero_factura ?? null, estado: m.estado ?? '',
+        doc_estado: m.doc_estado ?? null,
+        matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0
+      }))
+
+      if (necesitaClienteCompleto) {
+        // 1. Filtrar por filtroCard
+        let filtradas = mapped
+        if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada)
+        else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f))
+
+        // 2. Ordenar en cliente con todos los criterios (incluye "estado" calculado)
+        const sortsActivos = ms.sorts
+        if (sortsActivos.length > 0) {
+          filtradas = [...filtradas].sort((a: Factura, b: Factura) => {
+            for (const s of sortsActivos) {
+              let va: any, vb: any
+              switch(s.col) {
+                case 'fecha':       va = a.fecha_factura ?? ''; vb = b.fecha_factura ?? ''; break
+                case 'contraparte': va = (a.proveedor_nombre || '').toLowerCase(); vb = (b.proveedor_nombre || '').toLowerCase(); break
+                case 'nif':         va = (a.nif_emisor || '').toLowerCase(); vb = (b.nif_emisor || '').toLowerCase(); break
+                case 'importe':     va = a.total; vb = b.total; break
+                case 'categoria':   va = a.categoria_factura ?? ''; vb = b.categoria_factura ?? ''; break
+                case 'doc':         va = a.pdf_drive_url ? 1 : 0; vb = b.pdf_drive_url ? 1 : 0; break
+                case 'titular':     va = a.titular_id ?? ''; vb = b.titular_id ?? ''; break
+                case 'estado':      va = estadoSortKey(a); vb = estadoSortKey(b); break
+                default:            va = ''; vb = ''
+              }
+              let cmp = 0
+              if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb
+              else cmp = String(va).localeCompare(String(vb), 'es', { numeric: true })
+              if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp
+            }
+            return 0
+          })
+        }
+
+        // 3. Paginar en cliente
+        const totalFiltradas = filtradas.length
+        const from = (page - 1) * pageSize
+        setFilas(filtradas.slice(from, from + pageSize))
+        setTotal(totalFiltradas)
+      } else {
+        setFilas(mapped)
+        setTotal(count ?? 0)
+      }
+    }
+    setCargando(false)
+  }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
+
+  const cargarAgregados = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('facturas')
+        .select('id, total, estado, doc_estado, tipo')
+        .gte('fecha_factura', periodoDesdeStr)
+        .lte('fecha_factura', periodoHastaStr)
+        .in('tipo', ['proveedor', 'plataforma'])
+      if (error) throw error
+      let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0, pendientesCount = 0, pendientesImporte = 0
+      for (const r of data ?? []) {
+        totalCount++
+        const imp = Number(r.total) || 0
+        totalImporte += imp
+        const esConc = ESTADOS_CONCILIADOS.has(r.estado) || r.doc_estado === 'no_requiere'
+        if (esConc) { conciliadasCount++; conciliadasImporte += imp }
+        else { pendientesCount++; pendientesImporte += imp }
+      }
+      setAgregados({
+        totalCount, totalImporte,
+        conciliadasCount,
+        conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0,
+        conciliadasImporte, pendientesCount, pendientesImporte
+      })
+    } catch { setAgregados(null) }
+  }, [periodoDesdeStr, periodoHastaStr, refreshTick])
+
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
   useEffect(() => { if (cargando || total === 0) return; const tp = Math.max(1, Math.ceil(total / pageSize)); if (page > tp) updateUrl({ page: tp }) }, [cargando, total, pageSize, page, updateUrl])
   useEffect(() => { setSeleccionadas(new Set()); setConfirmarBorrarLote(false) }, [page, pageSize, filtroCard, catFiltro, busquedaDebounced, tab])
-  const sortsKey = ms.sorts.map(s => s.col+':'+s.dir).join(',')
+  const sortsKey = ms.sorts.map((s: any) => s.col+':'+s.dir).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (page !== 1) updateUrl({ page: 1 }) }, [sortsKey])
   const onCambiarFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); if (page !== 1) updateUrl({ page: 1 }) }
