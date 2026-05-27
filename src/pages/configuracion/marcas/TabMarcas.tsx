@@ -34,11 +34,8 @@ const CANAL_DEFS = [
   { id: 'dir',   label: 'Directa',    color: '#66aaff', bru: 'directa_bruto', ped: 'directa_pedidos', cfgName: 'Venta Directa' },
 ]
 
-const C_PED   = '#1E5BCC'
-const C_BRUTO = '#F26B1F'
-const C_NETO  = '#1D9E75'
+const C_PED = '#1E5BCC'
 
-// Quitar IVA 21%
 const sinIva = (n: number) => (n || 0) / 1.21
 
 export default function TabMarcas() {
@@ -121,28 +118,37 @@ export default function TabMarcas() {
         if (t.bruto > 0) {
           try {
             const d = calcDesglosePorCanal(c.id, t.bruto, t.pedidos, undefined, desde, hasta)
-            // Convertir a SIN IVA
-            const comisionSinIva = sinIva(d.comisionConIva)
-            const feePromoSinIva = sinIva(d.feePromoConIva)
-            const feePrimeSinIva = sinIva(d.feePrimeConIva)
-            const feePeriodicoSinIva = sinIva(d.feePeriodicoConIva)
-            const fijoPedidoSinIva = sinIva(d.fijoPedidoConIva)
-            const totalDescuentosSinIva = comisionSinIva + feePromoSinIva + feePrimeSinIva + feePeriodicoSinIva + fijoPedidoSinIva
-            const netoSinIva = Math.max(0, t.bruto - totalDescuentosSinIva)
+            // ConIva = lo que devuelve la fórmula
+            const comisionConIva = d.comisionConIva || 0
+            const feePromoConIva = d.feePromoConIva || 0
+            const feePrimeConIva = d.feePrimeConIva || 0
+            const feePeriodicoConIva = d.feePeriodicoConIva || 0
+            const fijoPedidoConIva = d.fijoPedidoConIva || 0
+            const totalConIva = comisionConIva + feePromoConIva + feePrimeConIva + feePeriodicoConIva + fijoPedidoConIva
+            const netoConIva = Math.max(0, t.bruto - totalConIva)
+            // SinIva
+            const comisionSinIva = sinIva(comisionConIva)
+            const feePromoSinIva = sinIva(feePromoConIva)
+            const feePrimeSinIva = sinIva(feePrimeConIva)
+            const feePeriodicoSinIva = sinIva(feePeriodicoConIva)
+            const fijoPedidoSinIva = sinIva(fijoPedidoConIva)
+            const totalSinIva = comisionSinIva + feePromoSinIva + feePrimeSinIva + feePeriodicoSinIva + fijoPedidoSinIva
+            const netoSinIva = Math.max(0, t.bruto - totalSinIva)
             desg[c.id] = {
-              comision: comisionSinIva,
-              feePromo: feePromoSinIva,
-              feePrime: feePrimeSinIva,
-              feePeriodico: feePeriodicoSinIva,
-              fijoPedido: fijoPedidoSinIva,
-              totalDescuentos: totalDescuentosSinIva,
-              neto: netoSinIva,
+              comisionConIva, feePromoConIva, feePrimeConIva, feePeriodicoConIva, fijoPedidoConIva, netoConIva,
+              comisionSinIva, feePromoSinIva, feePrimeSinIva, feePeriodicoSinIva, fijoPedidoSinIva, netoSinIva,
             }
           } catch {
-            desg[c.id] = { comision: 0, feePromo: 0, feePrime: 0, feePeriodico: 0, fijoPedido: 0, totalDescuentos: 0, neto: t.bruto }
+            desg[c.id] = {
+              comisionConIva: 0, feePromoConIva: 0, feePrimeConIva: 0, feePeriodicoConIva: 0, fijoPedidoConIva: 0, netoConIva: t.bruto,
+              comisionSinIva: 0, feePromoSinIva: 0, feePrimeSinIva: 0, feePeriodicoSinIva: 0, fijoPedidoSinIva: 0, netoSinIva: t.bruto,
+            }
           }
         } else {
-          desg[c.id] = { comision: 0, feePromo: 0, feePrime: 0, feePeriodico: 0, fijoPedido: 0, totalDescuentos: 0, neto: 0 }
+          desg[c.id] = {
+            comisionConIva: 0, feePromoConIva: 0, feePrimeConIva: 0, feePeriodicoConIva: 0, fijoPedidoConIva: 0, netoConIva: 0,
+            comisionSinIva: 0, feePromoSinIva: 0, feePrimeSinIva: 0, feePeriodicoSinIva: 0, fijoPedidoSinIva: 0, netoSinIva: 0,
+          }
         }
       }
       setDesgloseCanal(desg)
@@ -168,18 +174,6 @@ export default function TabMarcas() {
     if (search.trim()) f = f.filter(m => m.nombre.toLowerCase().includes(search.toLowerCase()))
     return f
   }, [marcas, search, incArchivadas])
-
-  const totalPlat = useMemo(() => ({
-    bruto:    ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.bruto || 0), 0),
-    pedidos:  ['uber','glovo','je'].reduce((a,c) => a + (totales[c]?.pedidos || 0), 0),
-    neto:     ['uber','glovo','je'].reduce((a,c) => a + (desgloseCanal[c]?.neto || 0), 0),
-    comisionUE: desgloseCanal.uber?.comision || 0,
-    comisionGL: desgloseCanal.glovo?.comision || 0,
-    comisionJE: desgloseCanal.je?.comision || 0,
-    brutoUE: totales.uber?.bruto || 0,
-    brutoGL: totales.glovo?.bruto || 0,
-    brutoJE: totales.je?.bruto || 0,
-  }), [totales, desgloseCanal])
 
   async function toggleCanal(marca: MarcaRow, canal: CanalAbv) {
     const existente = marca.accesos.find(a => a.plataforma === canal)
@@ -302,28 +296,37 @@ export default function TabMarcas() {
     ? `${rango.desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })} → ${rango.hasta.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })}`
     : 'sin datos'
 
-  const lineaDesglose = (
+  // Línea desglose con CON IVA y SIN IVA
+  const lineaDesgloseDual = (
     label: string,
-    importe: number,
+    importeConIva: number,
+    importeSinIva: number,
     bruto: number,
     pedidosInfo?: string,
   ) => {
-    if (importe <= 0 && !pedidosInfo) return null
+    if (importeConIva <= 0 && !pedidosInfo) return null
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) auto auto', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '4px 0', fontFamily: LEXEND }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) auto auto', gap: 8, alignItems: 'baseline', fontSize: 11.5, padding: '4px 0', fontFamily: LEXEND }}>
         <span style={{ color: T.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {label}
-          {pedidosInfo && <span style={{ color: T.mut, fontSize: 11, marginLeft: 4 }}>{pedidosInfo}</span>}
+          {pedidosInfo && <span style={{ color: T.mut, fontSize: 10.5, marginLeft: 4 }}>{pedidosInfo}</span>}
         </span>
-        <span style={{ color: T.pri, fontWeight: 500, textAlign: 'right' }}>{fmtEur(importe, { showEuro: true, decimals: 0 })}</span>
-        <span style={{ color: T.mut, fontWeight: 400, textAlign: 'right', minWidth: 50 }}>{pctOf(importe, bruto)}</span>
+        <span style={{ color: T.pri, fontWeight: 500, textAlign: 'right' }}>
+          <span title="con IVA">{fmtEur(importeConIva, { showEuro: true, decimals: 0 })}</span>
+          <span style={{ color: T.mut, fontWeight: 400, marginLeft: 6 }} title="sin IVA">/ {fmtEur(importeSinIva, { showEuro: true, decimals: 0 })}</span>
+        </span>
+        <span style={{ color: T.mut, fontWeight: 400, textAlign: 'right', minWidth: 100 }}>
+          {pctOf(importeConIva, bruto)}<span style={{ marginLeft: 4 }}>/{pctOf(importeSinIva, bruto).replace('%','')}</span>
+        </span>
       </div>
     )
   }
 
   const renderCard = (cfg: typeof CANAL_DEFS[number], d: any, t: { bruto: number; pedidos: number }) => {
-    const netoPct = t.bruto > 0 ? (d.neto / t.bruto) * 100 : 0
+    const netoPctConIva = t.bruto > 0 ? (d.netoConIva / t.bruto) * 100 : 0
+    const netoPctSinIva = t.bruto > 0 ? (d.netoSinIva / t.bruto) * 100 : 0
     const tm = t.pedidos > 0 ? t.bruto / t.pedidos : 0
+    const tmSinIva = t.pedidos > 0 ? (t.bruto / 1.21) / t.pedidos : 0
     const cfgCanal = config[cfg.cfgName]
     const pctPrime = cfgCanal?.pct_pedidos_prime_estim || 0
     const pctPromo = cfgCanal?.pct_pedidos_promo_estim || 0
@@ -334,10 +337,11 @@ export default function TabMarcas() {
     const nPromo = t.pedidos * pctPromo
     const brutoNormal = t.bruto * (1 - pctPrime)
     const brutoPrime = t.bruto * pctPrime
-    // SIN IVA
-    const comisionNormal = comisionPct * brutoNormal
-    const comisionPrime = comisionPctPrime > 0 ? comisionPctPrime * brutoPrime : 0
     const brutoPromo = t.bruto * pctPromo
+    const comisionNormalSinIva = comisionPct * brutoNormal
+    const comisionNormalConIva = comisionNormalSinIva * 1.21
+    const comisionPrimeSinIva = comisionPctPrime > 0 ? comisionPctPrime * brutoPrime : 0
+    const comisionPrimeConIva = comisionPrimeSinIva * 1.21
     const tieneDatos = t.bruto > 0
 
     return (
@@ -346,11 +350,22 @@ export default function TabMarcas() {
           {cfg.label}
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 44, fontWeight: 600, color: tieneDatos ? cfg.color : COLORS.mut, lineHeight: 1 }}>
-            {tieneDatos ? netoPct.toFixed(2) + '%' : '—'}
+        {/* % neto: con IVA grande, sin IVA al lado pequeño */}
+        <div style={{ marginBottom: 14, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: OSWALD, fontSize: 40, fontWeight: 600, color: tieneDatos ? cfg.color : COLORS.mut, lineHeight: 1 }}>
+              {tieneDatos ? netoPctConIva.toFixed(2) + '%' : '—'}
+            </div>
+            <div style={{ ...lblXs, color: cfg.color, marginTop: 2 }}>% NETO C/IVA</div>
           </div>
-          <div style={{ ...lblXs, color: cfg.color, marginTop: 2 }}>% NETO SIN IVA</div>
+          {tieneDatos && (
+            <div>
+              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 500, color: T.mut, lineHeight: 1 }}>
+                {netoPctSinIva.toFixed(2) + '%'}
+              </div>
+              <div style={{ ...lblXs, color: T.mut, marginTop: 2 }}>S/IVA</div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -359,72 +374,70 @@ export default function TabMarcas() {
             <div style={{ ...lblXs, color: C_PED, marginTop: 2 }}>PEDIDOS</div>
           </div>
           <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: C_BRUTO, lineHeight: 1 }}>{fmtEur(tm, { showEuro: true, decimals: 2 })}</div>
-            <div style={{ ...lblXs, color: C_BRUTO, marginTop: 2 }}>TM</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: T.pri, lineHeight: 1 }}>
+              {fmtEur(tm, { showEuro: true, decimals: 2 })}
+              <span style={{ fontSize: 13, color: T.mut, marginLeft: 4 }}>/ {fmtEur(tmSinIva, { showEuro: true, decimals: 2 })}</span>
+            </div>
+            <div style={{ ...lblXs, color: T.mut, marginTop: 2 }}>TM c/IVA · s/IVA</div>
           </div>
           <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: C_BRUTO, lineHeight: 1 }}>{fmtEur(t.bruto, { showEuro: true, decimals: 0 })}</div>
-            <div style={{ ...lblXs, color: C_BRUTO, marginTop: 2 }}>BRUTO</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: T.pri, lineHeight: 1 }}>{fmtEur(t.bruto, { showEuro: true, decimals: 0 })}</div>
+            <div style={{ ...lblXs, color: T.mut, marginTop: 2 }}>BRUTO</div>
           </div>
           <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: C_NETO, lineHeight: 1 }}>{fmtEur(d.neto || 0, { showEuro: true, decimals: 0 })}</div>
-            <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>NETO</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 19, fontWeight: 600, color: T.pri, lineHeight: 1 }}>{fmtEur(d.netoConIva || 0, { showEuro: true, decimals: 0 })}</div>
+            <div style={{ ...lblXs, color: T.mut, marginTop: 2 }}>NETO</div>
           </div>
         </div>
 
         <div style={{ borderTop: `0.5px solid ${T.brd}`, paddingTop: 10 }}>
           {cfg.id === 'uber' && tieneDatos && (
             <>
-              {lineaDesglose(
+              {lineaDesgloseDual(
                 `Comisión normal (${(comisionPct*100).toFixed(0)}%)`,
-                comisionNormal,
-                t.bruto,
+                comisionNormalConIva, comisionNormalSinIva, t.bruto,
                 `${fmtN(nNormal)} ped · ${((1-pctPrime)*100).toFixed(0)}%`,
               )}
-              {lineaDesglose(
+              {lineaDesgloseDual(
                 `Comisión Uber One (${(comisionPctPrime*100).toFixed(0)}%)`,
-                comisionPrime,
-                t.bruto,
+                comisionPrimeConIva, comisionPrimeSinIva, t.bruto,
                 `${fmtN(nPrime)} ped · ${(pctPrime*100).toFixed(0)}%`,
               )}
-              {lineaDesglose(
+              {lineaDesgloseDual(
                 'Pedidos promo',
-                d.feePromo || 0,
-                brutoPromo,
+                d.feePromoConIva || 0, d.feePromoSinIva || 0, brutoPromo,
                 `${fmtN(nPromo)} ped · ${(pctPromo*100).toFixed(0)}%`,
               )}
-              {lineaDesglose('Cuota semanal', d.feePeriodico || 0, t.bruto)}
+              {lineaDesgloseDual('Cuota semanal', d.feePeriodicoConIva || 0, d.feePeriodicoSinIva || 0, t.bruto)}
             </>
           )}
 
           {cfg.id === 'glovo' && tieneDatos && (
             <>
-              {lineaDesglose(
+              {lineaDesgloseDual(
                 `Comisión normal (${(comisionPct*100).toFixed(0)}%)`,
-                comisionPct * brutoNormal,
-                t.bruto,
+                comisionPct * brutoNormal * 1.21, comisionPct * brutoNormal, t.bruto,
                 `${fmtN(nNormal)} ped · ${((1-pctPrime)*100).toFixed(0)}%`,
               )}
-              {lineaDesglose(
+              {lineaDesgloseDual(
                 'Comisión Glovo Prime',
-                d.feePrime || 0,
-                t.bruto,
+                d.feePrimeConIva || 0, d.feePrimeSinIva || 0, t.bruto,
                 `${fmtN(nPrime)} ped · ${(pctPrime*100).toFixed(0)}%`,
               )}
-              {lineaDesglose('Cuota quincenal', d.feePeriodico || 0, t.bruto)}
+              {lineaDesgloseDual('Cuota quincenal', d.feePeriodicoConIva || 0, d.feePeriodicoSinIva || 0, t.bruto)}
             </>
           )}
 
           {cfg.id === 'je' && tieneDatos && (
             <>
-              {lineaDesglose(`Comisión (${(comisionPct*100).toFixed(0)}%)`, d.comision || 0, t.bruto)}
-              {lineaDesglose('Tasa por pedido', d.fijoPedido || 0, t.bruto)}
+              {lineaDesgloseDual(`Comisión (${(comisionPct*100).toFixed(0)}%)`, d.comisionConIva || 0, d.comisionSinIva || 0, t.bruto)}
+              {lineaDesgloseDual('Tasa por pedido', d.fijoPedidoConIva || 0, d.fijoPedidoSinIva || 0, t.bruto)}
             </>
           )}
 
           {cfg.id === 'web' && tieneDatos && (
             <>
-              {lineaDesglose('Tasa por pedido', d.fijoPedido || 0, t.bruto)}
+              {lineaDesgloseDual('Tasa por pedido', d.fijoPedidoConIva || 0, d.fijoPedidoSinIva || 0, t.bruto)}
             </>
           )}
 
@@ -436,54 +449,29 @@ export default function TabMarcas() {
     )
   }
 
+  // Cards: 3 plataformas arriba (UE, GL, JE), 2 abajo centradas (WEB, DIR)
+  const top3 = ['uber', 'glovo', 'je']
+  const bottom2 = ['web', 'dir']
+
   return (
     <>
-      <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt} · TODOS LOS DATOS SIN IVA</div>
+      <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt}</div>
 
-      <div style={{ ...CARDS.big, padding: '18px 22px', marginBottom: 14 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: COLORS.redSL, marginBottom: 2 }}>
-          Plataformas UE + GL + JE
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
-          <div>
-            <div style={{ fontFamily: OSWALD, fontSize: 44, fontWeight: 600, color: COLORS.redSL, lineHeight: 1 }}>
-              {totalPlat.bruto > 0 ? ((totalPlat.neto / totalPlat.bruto) * 100).toFixed(2) + '%' : '—'}
-            </div>
-            <div style={{ ...lblXs, color: COLORS.redSL, marginTop: 2 }}>% NETO PONDERADO SIN IVA</div>
-          </div>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: C_PED, lineHeight: 1 }}>{fmtN(totalPlat.pedidos)}</div>
-              <div style={{ ...lblXs, color: C_PED, marginTop: 2 }}>PEDIDOS</div>
-            </div>
-            <div>
-              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: C_BRUTO, lineHeight: 1 }}>{fmtEur(totalPlat.bruto, { showEuro: true, decimals: 0 })}</div>
-              <div style={{ ...lblXs, color: C_BRUTO, marginTop: 2 }}>BRUTO</div>
-            </div>
-            <div>
-              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: C_NETO, lineHeight: 1 }}>{fmtEur(totalPlat.neto, { showEuro: true, decimals: 0 })}</div>
-              <div style={{ ...lblXs, color: C_NETO, marginTop: 2 }}>NETO</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: `0.5px solid ${T.brd}`, paddingTop: 12, marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {[
-            { label: 'Comisión Uber', color: '#06C167', importe: totalPlat.comisionUE, bruto: totalPlat.brutoUE },
-            { label: 'Comisión Glovo', color: '#FFC107', importe: totalPlat.comisionGL, bruto: totalPlat.brutoGL },
-            { label: 'Comisión Just Eat', color: '#F36805', importe: totalPlat.comisionJE, bruto: totalPlat.brutoJE },
-          ].map(c => (
-            <div key={c.label}>
-              <div style={{ ...lblXs, color: c.color, marginBottom: 4 }}>{c.label.toUpperCase()}</div>
-              <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: T.pri }}>{fmtEur(c.importe, { showEuro: true, decimals: 0 })}</div>
-              <div style={{ fontSize: 11, color: T.mut, fontFamily: FONT.body, marginTop: 2 }}>{pctOf(c.importe, c.bruto)} sobre bruto</div>
-            </div>
-          ))}
-        </div>
+      {/* Fila 1: UE, GL, JE */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+        {top3.map(id => {
+          const cfg = CANAL_DEFS.find(c => c.id === id)!
+          return renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 })
+        })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 22 }}>
-        {CANAL_DEFS.map(cfg => renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 }))}
+      {/* Fila 2: WEB, DIR centradas, mismo tamaño que las de arriba */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 22 }}>
+        <div /> {/* hueco izq */}
+        {bottom2.map(id => {
+          const cfg = CANAL_DEFS.find(c => c.id === id)!
+          return renderCard(cfg, desgloseCanal[cfg.id] || {}, totales[cfg.id] || { bruto: 0, pedidos: 0 })
+        })}
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
