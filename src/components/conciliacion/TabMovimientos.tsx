@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllPaginated } from '@/lib/supabasePaginated'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 import { useMultiSort } from '@/hooks/useMultiSort'
+import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import type { Movimiento } from '@/types/conciliacion'
 
 const PAGE_SIZES = [50, 100, 200] as const
@@ -21,8 +22,6 @@ interface FiltrosPersistidos {
   ocultarConciliados?: boolean
   busqueda?: string
   catFiltro?: string
-  sortColumn?: SortColumn
-  sortDir?: SortDir
 }
 
 function loadFiltros(): FiltrosPersistidos {
@@ -38,9 +37,7 @@ function loadFiltros(): FiltrosPersistidos {
 function saveFiltros(f: FiltrosPersistidos) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f))
-  } catch {
-    // swallow
-  }
+  } catch {}
 }
 
 function parsePageSize(raw: string | null | undefined): PageSize {
@@ -75,7 +72,6 @@ type Agregados = {
 }
 
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
-type SortDir = 'asc' | 'desc'
 
 function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
   if (!m.categoria_id) return 'pendiente'
@@ -113,11 +109,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [busqueda, setBusqueda] = useState(persistidos.busqueda ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(persistidos.busqueda ?? '')
   const [catFiltro, setCatFiltro] = useState(persistidos.catFiltro ?? 'todas')
-  const [sortColumn] = useState<SortColumn>(persistidos.sortColumn ?? 'fecha')
-  const [sortDir] = useState<SortDir>(persistidos.sortDir ?? 'desc')
 
-  // Multi-sort: los criterios se mandan al servidor via .order() encadenados
-  const { sorts, handleSort: multiHandleSort, sortIndicator, applySorts } = useMultiSort<Movimiento, SortColumn>({
+  const ms = useMultiSort<Movimiento, SortColumn>({
     getValue: (row, col) => {
       switch (col) {
         case 'fecha':        return row.fecha
@@ -130,7 +123,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         case 'titular':      return row.titular_id ?? ''
         default:             return ''
       }
-    }
+    },
+    defaultSorts: [{ col: 'fecha', dir: 'desc' }],
   })
 
   const [filas, setFilas]           = useState<Movimiento[]>([])
@@ -151,9 +145,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   useEffect(() => {
     saveFiltros({
       page, size: pageSize, filtroCard, filtroTitular, ocultarConciliados,
-      busqueda, catFiltro, sortColumn, sortDir,
+      busqueda, catFiltro,
     })
-  }, [page, pageSize, filtroCard, filtroTitular, ocultarConciliados, busqueda, catFiltro, sortColumn, sortDir])
+  }, [page, pageSize, filtroCard, filtroTitular, ocultarConciliados, busqueda, catFiltro])
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400)
@@ -199,7 +193,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }, [])
 
-  // Mapa col → campo Supabase (null = solo cliente, no se manda al servidor)
   const sortMap: Record<SortColumn, string | null> = {
     fecha:       'fecha',
     concepto:    'concepto',
@@ -208,7 +201,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     categoria:   'categoria',
     doc:         'doc_estado',
     titular:     'titular_id',
-    estado:      null,  // calculado en cliente, no existe en BD
+    estado:      null,
   }
 
   const cargarPagina = useCallback(async () => {
@@ -256,11 +249,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
     }
 
-    // Multi-sort al servidor: encadenar .order() por cada criterio que tenga campo BD
-    const sortsServidor = sorts.filter(s => sortMap[s.col] !== null)
-    if (sortsServidor.length > 0) {
-      for (const { col, dir } of sortsServidor) {
-        q = q.order(sortMap[col]!, { ascending: dir === 'asc' })
+    const ordenServidor = ms.toSupabaseOrder(sortMap)
+    if (ordenServidor.length > 0) {
+      for (const { column, ascending } of ordenServidor) {
+        q = q.order(column, { ascending })
       }
     } else {
       q = q.order('fecha', { ascending: false })
@@ -294,7 +286,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(count ?? 0)
     }
     setCargando(false)
-  }, [page, pageSize, sorts, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
+  }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -358,17 +350,16 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }, [periodoDesdeStr, periodoHastaStr, filtroTitular, titulares, refreshTick])
 
-  // Cuando sorts cambia → forzar recarga (setState async; refreshTick garantiza la query)
   const prevSortsRef = useRef<string>('')
   useEffect(() => {
-    const key = JSON.stringify(sorts)
+    const key = ms.sortsKey
     if (key !== prevSortsRef.current) {
       prevSortsRef.current = key
       if (page !== 1) updateUrl({ page: 1 })
       else setRefreshTick(t => t + 1)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorts])
+  }, [ms.sortsKey])
 
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
@@ -405,13 +396,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  function handleSort(col: SortColumn) {
-    multiHandleSort(col)
-    if (page !== 1) updateUrl({ page: 1 })
-  }
-
-  // Estado se ordena solo en cliente (no existe en BD)
-  const filasVisibles = useMemo(() => applySorts(filas), [filas, applySorts])
+  // Ordena en cliente las que el servidor no maneja (estado calculado)
+  const filasVisibles = useMemo(() => ms.applySorts(filas), [filas, ms])
 
   const handleExportar = async () => {
     setExportando(true)
@@ -623,6 +609,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
           ))}
         </select>
+        <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
         <button
           onClick={handleExportar}
           disabled={exportando}
@@ -683,21 +670,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {HEADERS.map(h => {
-                      const arrow = sortIndicator(h.col)
-                      const isActive = sorts.some(s => s.col === h.col)
-                      return (
-                        <th key={h.col} onClick={() => handleSort(h.col)}
-                          style={{
-                            fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px',
-                            color: isActive ? '#FF4757' : '#7a8090', textTransform: 'uppercase', textAlign: h.align,
-                            padding: '10px 12px', background: '#f5f3ef', borderBottom: '0.5px solid #d0c8bc',
-                            whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
-                          }}>
-                          {h.label}{arrow}
-                        </th>
-                      )
-                    })}
+                    {HEADERS.map(h => (
+                      <SortableHeader key={h.col} col={h.col} label={h.label}
+                        sortIndex={ms.sortIndex(h.col)} sortDir={ms.sortDir(h.col)}
+                        onToggle={ms.toggleSort} align={h.align} />
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
