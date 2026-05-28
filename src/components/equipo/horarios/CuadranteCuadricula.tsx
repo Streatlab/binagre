@@ -6,7 +6,7 @@ import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno,
-  horasSemanaPorEmpleado, descuentoSemanaPorEmpleado,
+  horasSemanaPorEmpleado,
   horasReales, tramosTexto,
   fmtHoras, colorEmpleado,
 } from './utils'
@@ -74,7 +74,6 @@ interface CuadranteProps {
 export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mostrarLeyenda = true }: CuadranteProps) {
   const { T } = useTheme()
   const horasEmp = horasSemanaPorEmpleado(turnos)
-  const descEmp = descuentoSemanaPorEmpleado(turnos)
   const idxEmp = useMemo(() => {
     const m: Record<string, number> = {}
     empleados.forEach((e, i) => { m[e.id] = i })
@@ -111,10 +110,9 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
           {empleadosVisibles.map(emp => {
             const col = colorEmpleado(idxEmp[emp.id] ?? 0)
             const total = horasEmp[emp.id] ?? 0
-            const desc = descEmp[emp.id] ?? 0
             return (
               <FilaEmpleado
-                key={emp.id} emp={emp} col={col} total={total} desc={desc}
+                key={emp.id} emp={emp} col={col} total={total}
                 dias={dias} turnoDe={turnoDe} T={T}
               />
             )
@@ -164,19 +162,17 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
 }
 
 function FilaEmpleado({
-  emp, col, total, desc, dias, turnoDe, T,
+  emp, col, total, dias, turnoDe, T,
 }: {
   emp: Empleado
   col: { bg: string; text: string }
   total: number
-  desc: number
   dias: ReturnType<typeof fechasSemana>
   turnoDe: (id: string, dia: DiaKey) => Turno | undefined
   T: ReturnType<typeof useTheme>['T']
 }) {
   return (
     <>
-      {/* Nombre — sin cargo, más grande */}
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: T.pri, padding: '8px 4px', display: 'flex', alignItems: 'center', letterSpacing: '0.5px' }}>
         {nombrePila(emp.nombre)}
       </div>
@@ -185,23 +181,22 @@ function FilaEmpleado({
         const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 13, fontStyle: 'italic', minHeight: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 12, fontStyle: 'italic', minHeight: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
               Libre
             </div>
           )
         }
         const real = horasReales(t)
         return (
-          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
-            <b style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</b>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700, marginTop: 4 }}>{fmtHoras(real)}</span>
+          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.2, minHeight: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'pre-line', opacity: 0.85 }}>{tramosTexto(t)}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 700, marginTop: 4 }}>{fmtHoras(real)}</span>
           </div>
         )
       })}
 
-      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.25 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 700 }}>{fmtHoras(total)}</span>
-        {desc > 0 && <span style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>−{fmtHoras(desc)} desc</span>}
+      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 700 }}>{fmtHoras(total)}</span>
       </div>
     </>
   )
