@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { type Empleado } from './utils'
+import { type Empleado, lunesDeSemana } from './utils'
 import { PLANTILLAS, type PlantillaId } from './plantillas'
 import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados } from './CuadranteCuadricula'
+import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
 
 export default function TabPlantillas() {
   const { T } = useTheme()
@@ -23,10 +25,12 @@ export default function TabPlantillas() {
     return expandirTurnos(empleados, t)
   }, [plantilla, swap, empleados])
 
-  // Lunes ficticio para mostrar (no se enseñan fechas en plantillas)
-  const lunesFake = useMemo(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); d.setHours(0,0,0,0); return d }, [])
-
+  const lunesFake = useMemo(() => lunesDeSemana(new Date()), [])
   const ids: PlantillaId[] = ['S1', 'S2', 'S3', 'S4', 'S5']
+
+  function actionBtn(): React.CSSProperties {
+    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+  }
 
   return (
     <div>
@@ -46,10 +50,14 @@ export default function TabPlantillas() {
             </button>
           ))}
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.body, fontSize: 12, color: T.sec, cursor: 'pointer' }}>
-          <input type="checkbox" checked={swap} onChange={e => setSwap(e.target.checked)} />
-          Intercambiar Ray ↔ Andrés
-        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.body, fontSize: 12, color: T.sec, cursor: 'pointer' }}>
+            <input type="checkbox" checked={swap} onChange={e => setSwap(e.target.checked)} />
+            Intercambiar Ray ↔ Andrés
+          </label>
+          <button onClick={() => exportarHorarioPDF(empleados, turnos, lunesFake, { abrir: true, titulo: plantilla.nombre })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
+          <button onClick={() => compartirHorarioPDF(empleados, turnos, lunesFake, { titulo: plantilla.nombre })} style={actionBtn()}><Share2 size={14} /> Compartir</button>
+        </div>
       </div>
 
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
@@ -57,9 +65,6 @@ export default function TabPlantillas() {
           {plantilla.nombre}
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4 }}>{plantilla.descripcion}</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 8 }}>
-          Objetivo horas: Ray {plantilla.totales_objetivo.Ray}h · Andrés {plantilla.totales_objetivo['Andrés']}h · Emilio {plantilla.totales_objetivo.Emilio}h · Rubén {plantilla.totales_objetivo['Rubén']}h
-        </div>
       </div>
 
       {loading ? (
