@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { COLORS } from '@/components/panel/resumen/tokens'
+import { useMultiSort } from '@/hooks/useMultiSort'
+import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import {
   DIAS, type DiaKey, type Empleado, type Turno,
   horasTurno, horasSemanaPorEmpleado, lunesDeSemana, fmtRangoSemana, fmtHoras,
 } from './utils'
+
+type Col = 'empleado' | 'total'
 
 export default function TabEstaSemana() {
   const { T, isDark } = useTheme()
@@ -14,6 +18,9 @@ export default function TabEstaSemana() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
   const [lunes, setLunes] = useState<Date>(() => lunesDeSemana(new Date()))
+
+  const { handleSort, clearSorts, sortIndex, sortDir, applySort, showClearButton } =
+    useMultiSort<Empleado, Col>({ defaultSorts: [{ col: 'empleado', dir: 'asc' }] })
 
   useEffect(() => {
     supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo').order('nombre')
@@ -26,8 +33,12 @@ export default function TabEstaSemana() {
   const horasEmp = horasSemanaPorEmpleado(turnos)
   const totalHoras = turnos.reduce((s, t) => s + horasTurno(t.entrada, t.salida), 0)
 
-  const th: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'center', whiteSpace: 'nowrap' }
-  const thL: React.CSSProperties = { ...th, textAlign: 'left', position: 'sticky', left: 0, zIndex: 2 }
+  const empleadosOrden = useMemo(() => applySort(empleados, {
+    empleado: e => e.nombre,
+    total: e => horasEmp[e.id] ?? 0,
+  }), [empleados, horasEmp, applySort])
+
+  const th: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'center', whiteSpace: 'nowrap', borderBottom: `0.5px solid ${T.brd}` }
   const td: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, textAlign: 'center', borderBottom: `1px solid ${T.brd}` }
 
   function celdaTurno(empId: string, dia: DiaKey) {
@@ -54,6 +65,7 @@ export default function TabEstaSemana() {
             style={navBtn(T)}><ChevronRight size={16} /></button>
           <button onClick={() => setLunes(lunesDeSemana(new Date()))}
             style={{ ...navBtn(T), width: 'auto', padding: '0 12px', fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>Hoy</button>
+          <ClearSortButton show={showClearButton} onClear={clearSorts} />
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
           <KpiInline label="Horas totales" value={`${fmtHoras(totalHoras)} h`} T={T} />
@@ -69,16 +81,16 @@ export default function TabEstaSemana() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-                  <th style={thL}>Empleado</th>
+                <tr>
+                  <SortableHeader col="empleado" label="Empleado" sortIndex={sortIndex('empleado')} sortDir={sortDir('empleado')} onToggle={handleSort} />
                   {DIAS.map(d => <th key={d} style={th}>{d}</th>)}
-                  <th style={{ ...th, textAlign: 'right' }}>Total</th>
+                  <SortableHeader col="total" label="Total" sortIndex={sortIndex('total')} sortDir={sortDir('total')} onToggle={handleSort} align="right" />
                 </tr>
               </thead>
               <tbody>
-                {empleados.length === 0 ? (
+                {empleadosOrden.length === 0 ? (
                   <tr><td colSpan={DIAS.length + 2} style={{ ...td, padding: '40px 24px', color: T.mut }}>Sin empleados activos.</td></tr>
-                ) : empleados.map(emp => (
+                ) : empleadosOrden.map(emp => (
                   <tr key={emp.id}>
                     <td style={{ padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600, textAlign: 'left', borderBottom: `1px solid ${T.brd}`, position: 'sticky', left: 0, background: isDark ? T.card : '#fff', zIndex: 1 }}>
                       {emp.nombre}
