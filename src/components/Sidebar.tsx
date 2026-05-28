@@ -57,7 +57,7 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'equipo', emoji: '👥', label: 'Personas', perfiles: ['admin'],
+    key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
       { path: '/equipo',          label: 'Personas', emoji: '👥', perfiles: ['admin'] },
       { path: '/equipo/horarios', label: 'Horarios', emoji: '🗓️', perfiles: ['admin'] },
