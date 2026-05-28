@@ -71,7 +71,7 @@ interface CuadranteProps {
   mostrarLeyenda?: boolean
 }
 
-export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mostrarLeyenda = true }: CuadranteProps) {
+export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {} }: CuadranteProps) {
   const { T } = useTheme()
   const horasEmp = horasSemanaPorEmpleado(turnos)
   const idxEmp = useMemo(() => {
@@ -137,26 +137,6 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
           )}
         </div>
       </div>
-
-      {mostrarLeyenda && empleadosVisibles.length > 0 && (
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
-          {empleadosVisibles.map(emp => {
-            const i = idxEmp[emp.id] ?? 0
-            const col = colorEmpleado(i)
-            return (
-              <span key={emp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: col.bg }} />{nombrePila(emp.nombre)}
-              </span>
-            )
-          })}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: T.group }} />Libre
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: '#fff', border: `2px solid ${FESTIVO_ROJO}` }} />Festivo Madrid
-          </span>
-        </div>
-      )}
     </div>
   )
 }
@@ -181,16 +161,16 @@ function FilaEmpleado({
         const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 12, fontStyle: 'italic', minHeight: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 12, fontStyle: 'italic', minHeight: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
               Libre
             </div>
           )
         }
         const real = horasReales(t)
         return (
-          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.2, minHeight: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
-            <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'pre-line', opacity: 0.85 }}>{tramosTexto(t)}</span>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 700, marginTop: 4 }}>{fmtHoras(real)}</span>
+          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>{fmtHoras(real)}</span>
           </div>
         )
       })}
