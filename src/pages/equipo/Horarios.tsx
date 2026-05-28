@@ -39,4 +39,4 @@ export default function Horarios() {
     </div>
   )
 }
-{/* build trigger: horarios festivos v5 */}
+{/* build trigger: objetivos festivos v6 */}
