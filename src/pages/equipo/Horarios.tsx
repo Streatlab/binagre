@@ -6,9 +6,10 @@ import TabHistorico from '@/components/equipo/horarios/TabHistorico'
 import TabVacaciones from '@/components/equipo/horarios/TabVacaciones'
 import TabReglas from '@/components/equipo/horarios/TabReglas'
 import TabGenerador from '@/components/equipo/horarios/TabGenerador'
+import TabPlantillas from '@/components/equipo/horarios/TabPlantillas'
 import TabResumenHoras from '@/components/equipo/horarios/TabResumenHoras'
 
-type TabId = 'semana' | 'historico' | 'vacaciones' | 'reglas' | 'generador' | 'resumen'
+type TabId = 'semana' | 'historico' | 'vacaciones' | 'reglas' | 'generador' | 'plantillas' | 'resumen'
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'semana',     label: 'Esta semana' },
@@ -16,6 +17,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'vacaciones', label: 'Vacaciones' },
   { id: 'reglas',     label: 'Reglas' },
   { id: 'generador',  label: 'Generador' },
+  { id: 'plantillas', label: 'Plantillas' },
   { id: 'resumen',    label: 'Resumen horas' },
 ]
 
@@ -35,8 +37,8 @@ export default function Horarios() {
       {activeTab === 'vacaciones' && <TabVacaciones />}
       {activeTab === 'reglas'     && <TabReglas />}
       {activeTab === 'generador'  && <TabGenerador />}
+      {activeTab === 'plantillas' && <TabPlantillas />}
       {activeTab === 'resumen'    && <TabResumenHoras />}
     </div>
   )
 }
-{/* build trigger: objetivos festivos v6 */}
