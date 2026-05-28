@@ -12,6 +12,25 @@ import {
 /** Texto de cierre por día (quién cierra a 23:00). Se enchufa con datos reales. */
 type CierrePorDia = Partial<Record<DiaKey, string>>
 
+/** Nombre de pila a partir del nombre completo de la tabla `empleados`. */
+function nombrePila(nombre: string): string {
+  return nombre.trim().split(/\s+/)[0]
+}
+
+/** Orden fijo del cuadrante por nombre de pila. Los no listados van al final. */
+const ORDEN_PILA = ['Ray', 'Andrés', 'Emilio', 'Rubén']
+
+function ordenarEmpleados(emps: Empleado[]): Empleado[] {
+  return [...emps].sort((a, b) => {
+    const ia = ORDEN_PILA.indexOf(nombrePila(a.nombre))
+    const ib = ORDEN_PILA.indexOf(nombrePila(b.nombre))
+    const ra = ia === -1 ? Infinity : ia
+    const rb = ib === -1 ? Infinity : ib
+    if (ra !== rb) return ra - rb
+    return a.nombre.localeCompare(b.nombre, 'es')
+  })
+}
+
 export default function TabEstaSemana() {
   const { T, isDark } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
@@ -22,8 +41,8 @@ export default function TabEstaSemana() {
   const [lunes, setLunes] = useState<Date>(() => lunesDeSemana(new Date()))
 
   useEffect(() => {
-    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo').order('nombre')
-      .then(({ data }) => { setEmpleados((data ?? []) as Empleado[]); setLoading(false) })
+    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo')
+      .then(({ data }) => { setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])); setLoading(false) })
   }, [])
 
   // Turnos, cierre y nota reales se enchufan aquí por semana (tabla `turnos_semana`).
@@ -117,7 +136,7 @@ export default function TabEstaSemana() {
             const col = colorEmpleado(i)
             return (
               <span key={emp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: col.bg }} />{emp.nombre}
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: col.bg }} />{nombrePila(emp.nombre)}
               </span>
             )
           })}
@@ -143,9 +162,9 @@ function FilaEmpleado({
 }) {
   return (
     <>
-      {/* nombre */}
+      {/* nombre (solo nombre de pila) */}
       <div style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 600, color: T.pri, padding: '8px 4px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        {emp.nombre}
+        {nombrePila(emp.nombre)}
         {emp.cargo && <span style={{ fontSize: 9, color: T.mut, fontWeight: 400 }}>{emp.cargo}</span>}
       </div>
 
