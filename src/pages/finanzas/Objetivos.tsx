@@ -6,6 +6,7 @@ import { useCalendario } from '@/contexts/CalendarioContext'
 import { useConfig } from '@/hooks/useConfig'
 import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import { esFestivo as esFestivoMadrid, nombreFestivo } from '@/utils/festivosMadrid'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
@@ -46,12 +47,6 @@ function toDateStr(d: Date): string {
 }
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-
-const FESTIVOS_2026 = [
-  '2026-01-01', '2026-01-06', '2026-03-19', '2026-04-02', '2026-04-03',
-  '2026-05-01', '2026-05-02', '2026-05-15', '2026-07-25', '2026-08-15',
-  '2026-10-12', '2026-11-01', '2026-11-09', '2026-12-08', '2026-12-25',
-]
 
 const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: string; nombre: string }[] }[] = [
   { grupo: 'PRODUCTO', label: 'Producto (COGS)', codigos: [
@@ -95,6 +90,11 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+// Festivo Madrid — amarillo SL sólido + texto oscuro legible
+const FESTIVO_BG = '#e8f442'
+const FESTIVO_BORDE = '#c8d400'
+const FESTIVO_TXT = '#5c5c00'
 
 function barColor(pct: number): string {
   return pct > 0 ? '#1D9E75' : '#E24B4A'
@@ -176,7 +176,7 @@ export default function Objetivos() {
   }, [weekMon])
 
   const esFinde = (dia: number) => dia >= 5
-  const esFestivo = (dia: number) => FESTIVOS_2026.includes(toDateStr(fechaDia(dia)))
+  const esFestivo = (dia: number) => esFestivoMadrid(toDateStr(fechaDia(dia)))
   const esHoyFlag = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
@@ -559,16 +559,18 @@ export default function Objetivos() {
                   const hoyFl = esHoyFlag(dia)
                   const fechaDiaD = fechaDia(dia)
                   const fechaDiaStr = toDateStr(fechaDiaD)
+                  const festNombre = nombreFestivo(fechaDiaStr)
                   const tipoDiaActual = tipoDia(fechaDiaStr)
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
-                  if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
-                  else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
-                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
+                  if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
+                  if (festivo) { rowBg = FESTIVO_BG; rowBorderLeft = `3px solid ${FESTIVO_BORDE}`; diaColor = FESTIVO_TXT }
+                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; if (!festivo) rowBg = '#ffffff15' }
 
                   const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
+                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : T.mut)
                   void esCerrado
 
                   return (
@@ -579,12 +581,13 @@ export default function Objetivos() {
                       borderRadius: hoyFl ? 8 : 0,
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFl ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFl ? 700 : 500 }}>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFl ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
-                          {esCerrado && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
+                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: '#1a1a00', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
+                          {esCerrado && !festivo && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
                           {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
                           {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
                         </div>
@@ -610,7 +613,7 @@ export default function Objetivos() {
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? '#1a1a00' : T.pri, cursor: 'pointer' }}>
                             {fmtNumES(importe, 0)}
                           </span>
                         )}
