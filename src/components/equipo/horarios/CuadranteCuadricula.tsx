@@ -1,6 +1,5 @@
 /**
- * Cuadrante visual común — reutilizado en Esta Semana, Histórico, Plantillas, Generador.
- * Aplica el formato HTML aprobado (HORARIOS__1_.html): colores R/A/U/E, partidos, horas reales, fila Cierra.
+ * Cuadrante visual común — Esta Semana, Histórico, Plantillas, Generador.
  */
 import { useMemo } from 'react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -8,7 +7,7 @@ import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno,
   horasSemanaPorEmpleado, descuentoSemanaPorEmpleado,
-  horasReales, esPartido, tramosTexto,
+  horasReales, tramosTexto,
   fmtHoras, colorEmpleado,
 } from './utils'
 
@@ -44,10 +43,6 @@ export function fechasSemana(lunes: Date) {
   })
 }
 
-/**
- * Convierte plantilla/datos reales (turnos por nombre pila → día → tramos) a array Turno[]
- * usando los IDs de empleados reales de Supabase.
- */
 export function expandirTurnos(
   empleados: Empleado[],
   turnosPorPila: Record<string, Partial<Record<DiaKey, import('./utils').Tramo[]>>>,
@@ -87,9 +82,8 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
   }, [empleados])
   const dias = useMemo(() => fechasSemana(lunes), [lunes])
   const turnoDe = (empId: string, dia: DiaKey) => turnos.find(t => t.empleado_id === empId && t.dia === dia)
-  const cols = `90px repeat(7, minmax(0,1fr)) 86px`
+  const cols = `120px repeat(7, minmax(0,1fr)) 100px`
 
-  // Solo empleados con al menos un turno (para histórico cuando Ray no estaba)
   const empleadosVisibles = useMemo(() =>
     empleados.filter(e => turnos.some(t => t.empleado_id === e.id)),
   [empleados, turnos])
@@ -99,20 +93,20 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
   return (
     <div>
       <div style={{ ...cardStyle(T), padding: 14, overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 780 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 880 }}>
           <div />
           {dias.map(({ dia, num, festivo, festNombre }) => (
             <div key={dia} title={festNombre ?? undefined}
               style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 4, border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: festivo ? FESTIVO_ROJO : T.mut, fontWeight: festivo ? 700 : 500 }}>{dia} {num}</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: festivo ? FESTIVO_ROJO : T.mut, fontWeight: festivo ? 700 : 500 }}>{dia} {num}</div>
               {festivo && (
-                <div style={{ fontFamily: FONT.body, fontSize: 7.5, fontWeight: 600, color: FESTIVO_ROJO, lineHeight: 1.1, marginTop: 1 }}>
+                <div style={{ fontFamily: FONT.body, fontSize: 8, fontWeight: 600, color: FESTIVO_ROJO, lineHeight: 1.1, marginTop: 1 }}>
                   {festNombre}
                 </div>
               )}
             </div>
           ))}
-          <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 2px' }}>Total</div>
+          <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 2px' }}>Total</div>
 
           {empleadosVisibles.map(emp => {
             const col = colorEmpleado(idxEmp[emp.id] ?? 0)
@@ -132,11 +126,11 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
 
           {filaCierre && empleadosVisibles.length > 0 && (
             <>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>
                 Cierra
               </div>
               {dias.map(({ dia }) => (
-                <div key={dia} style={{ fontFamily: FONT.body, fontSize: 9.5, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div key={dia} style={{ fontFamily: FONT.body, fontSize: 11, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {cierres[dia] ?? ''}
                 </div>
               ))}
@@ -152,15 +146,15 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
             const i = idxEmp[emp.id] ?? 0
             const col = colorEmpleado(i)
             return (
-              <span key={emp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+              <span key={emp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
                 <span style={{ width: 10, height: 10, borderRadius: 3, background: col.bg }} />{nombrePila(emp.nombre)}
               </span>
             )
           })}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: T.group }} />Libre
           </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: '#fff', border: `2px solid ${FESTIVO_ROJO}` }} />Festivo Madrid
           </span>
         </div>
@@ -182,33 +176,32 @@ function FilaEmpleado({
 }) {
   return (
     <>
-      <div style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 600, color: T.pri, padding: '8px 4px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      {/* Nombre — sin cargo, más grande */}
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: T.pri, padding: '8px 4px', display: 'flex', alignItems: 'center', letterSpacing: '0.5px' }}>
         {nombrePila(emp.nombre)}
-        {emp.cargo && <span style={{ fontSize: 9, color: T.mut, fontWeight: 400 }}>{emp.cargo}</span>}
       </div>
 
       {dias.map(({ dia, festivo }) => {
         const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 10, fontStyle: 'italic', minHeight: 66, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 13, fontStyle: 'italic', minHeight: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
               Libre
             </div>
           )
         }
         const real = horasReales(t)
-        const tipo = esPartido(t) ? 'partido' : 'corrido'
         return (
-          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '5px 3px', fontSize: 10, textAlign: 'center', lineHeight: 1.3, minHeight: 66, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
-            <b style={{ fontSize: 10, fontWeight: 600, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</b>
-            <span style={{ fontSize: 9, opacity: 0.75, marginTop: 2 }}>{tipo} · {fmtHoras(real)}</span>
+          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            <b style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</b>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700, marginTop: 4 }}>{fmtHoras(real)}</span>
           </div>
         )
       })}
 
-      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.3 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600 }}>{fmtHoras(total)}</span>
-        <span style={{ fontSize: 9, opacity: 0.7, marginTop: 2 }}>{desc > 0 ? `−${fmtHoras(desc)} desc` : 'sin desc'}</span>
+      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.25 }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 700 }}>{fmtHoras(total)}</span>
+        {desc > 0 && <span style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>−{fmtHoras(desc)} desc</span>}
       </div>
     </>
   )
