@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
+import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno,
   horasSemanaPorEmpleado, descuentoSemanaPorEmpleado,
@@ -31,6 +32,20 @@ function ordenarEmpleados(emps: Empleado[]): Empleado[] {
   })
 }
 
+function isoDeFecha(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Día del mes + ISO + festivo, para cada columna de la semana a partir del lunes. */
+function fechasSemana(lunes: Date) {
+  return DIAS.map((dia, i) => {
+    const d = new Date(lunes)
+    d.setDate(d.getDate() + i)
+    const iso = isoDeFecha(d)
+    return { dia, fecha: d, iso, num: d.getDate(), festivo: esFestivo(iso), festNombre: nombreFestivo(iso) }
+  })
+}
+
 export default function TabEstaSemana() {
   const { T, isDark } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
@@ -54,6 +69,8 @@ export default function TabEstaSemana() {
     empleados.forEach((e, i) => { m[e.id] = i })
     return m
   }, [empleados])
+
+  const dias = useMemo(() => fechasSemana(lunes), [lunes])
 
   const turnoDe = (empId: string, dia: DiaKey) =>
     turnos.find(t => t.empleado_id === empId && t.dia === dia)
@@ -81,10 +98,18 @@ export default function TabEstaSemana() {
           <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 780 }}>
-            {/* fila cabecera días */}
+            {/* fila cabecera días: nombre + número de día + festivo */}
             <div />
-            {DIAS.map(d => (
-              <div key={d} style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '6px 2px' }}>{d}</div>
+            {dias.map(({ dia, num, festivo, festNombre }) => (
+              <div key={dia} title={festNombre ?? undefined}
+                style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 4, background: festivo ? '#e8f44218' : 'transparent' }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: festivo ? '#9a9a1e' : T.mut }}>{dia} {num}</div>
+                {festivo && (
+                  <div style={{ fontFamily: FONT.body, fontSize: 7.5, fontWeight: 600, color: '#9a9a1e', lineHeight: 1.1, marginTop: 1 }}>
+                    {festNombre}
+                  </div>
+                )}
+              </div>
             ))}
             <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 2px' }}>Total</div>
 
@@ -100,9 +125,9 @@ export default function TabEstaSemana() {
                   col={col}
                   total={total}
                   desc={desc}
+                  dias={dias}
                   turnoDe={turnoDe}
                   T={T}
-                  isDark={isDark}
                 />
               )
             })}
@@ -117,9 +142,9 @@ export default function TabEstaSemana() {
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>
                   Cierra 23:00
                 </div>
-                {DIAS.map(d => (
-                  <div key={d} style={{ fontFamily: FONT.body, fontSize: 9.5, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {cierre[d] ?? ''}
+                {dias.map(({ dia }) => (
+                  <div key={dia} style={{ fontFamily: FONT.body, fontSize: 9.5, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {cierre[dia] ?? ''}
                   </div>
                 ))}
                 <div />
@@ -143,6 +168,9 @@ export default function TabEstaSemana() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: T.group }} />Libre
           </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: '#e8f44260' }} />Festivo Madrid
+          </span>
         </div>
       )}
     </div>
@@ -150,15 +178,15 @@ export default function TabEstaSemana() {
 }
 
 function FilaEmpleado({
-  emp, col, total, desc, turnoDe, T, isDark,
+  emp, col, total, desc, dias, turnoDe, T,
 }: {
   emp: Empleado
   col: { bg: string; text: string }
   total: number
   desc: number
+  dias: ReturnType<typeof fechasSemana>
   turnoDe: (id: string, dia: DiaKey) => Turno | undefined
   T: ReturnType<typeof useTheme>['T']
-  isDark: boolean
 }) {
   return (
     <>
@@ -169,11 +197,11 @@ function FilaEmpleado({
       </div>
 
       {/* días */}
-      {DIAS.map(d => {
-        const t = turnoDe(emp.id, d)
+      {dias.map(({ dia, festivo }) => {
+        const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={d} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 10, fontStyle: 'italic', minHeight: 66, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div key={dia} style={{ background: festivo ? '#e8f44215' : T.group, color: T.mut, borderRadius: 5, fontSize: 10, fontStyle: 'italic', minHeight: 66, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? '1px solid #e8f44255' : 'none' }}>
               Libre
             </div>
           )
@@ -181,9 +209,10 @@ function FilaEmpleado({
         const real = horasReales(t)
         const tipo = esPartido(t) ? 'partido' : 'corrido'
         return (
-          <div key={d} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '5px 3px', fontSize: 10, textAlign: 'center', lineHeight: 1.3, minHeight: 66, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '5px 3px', fontSize: 10, textAlign: 'center', lineHeight: 1.3, minHeight: 66, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? '2px solid #e8b800' : 'none' }}>
             <b style={{ fontSize: 10, fontWeight: 600, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</b>
             <span style={{ fontSize: 9, opacity: 0.75, marginTop: 2 }}>{tipo} · {fmtHoras(real)}</span>
+            {festivo && <span style={{ fontSize: 8, fontWeight: 700, marginTop: 1 }}>FESTIVO</span>}
           </div>
         )
       })}
