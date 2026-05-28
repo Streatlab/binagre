@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { type Empleado, lunesDeSemana, fmtRangoSemana, numeroSemanaISO } from './utils'
+import { type Empleado, fmtRangoSemana, numeroSemanaISO } from './utils'
 import { PLANTILLAS, type PlantillaId, aplicarPlantilla, PLANNING_2026 } from './plantillas'
 import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados, isoDeFecha } from './CuadranteCuadricula'
+import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
 
-// Reglas resumidas para validar visualmente
 const TOPE_HORAS_COCINERO = 42.5
 const TOPE_HORAS_EMILIO = 30
 
@@ -32,7 +33,6 @@ export default function TabGenerador() {
   }, [])
 
   function generarPropuestas() {
-    // Punto de partida: primera semana sin asignar en PLANNING_2026, o la siguiente al planning
     const ultLunes = PLANNING_2026[PLANNING_2026.length - 1].lunes
     const inicio = new Date(`${ultLunes}T00:00:00`)
     inicio.setDate(inicio.getDate() + 7)
@@ -41,12 +41,8 @@ export default function TabGenerador() {
     const props: PropuestaSemana[] = []
     for (let i = 0; i < numSemanas; i++) {
       const l = new Date(inicio); l.setDate(l.getDate() + 7 * i)
-      // Rotación simple base como muestra el planning existente:
-      // patrón observado: S1 → S2 → S3 → S2(+L+M Ray) → S4 → S4 → S3(swap) → S2(swap)
-      // por simplicidad arrancamos cíclico S1..S5 hasta tener mejor lógica
       const plantillaId = sec[i % sec.length]
-      const swap = false
-      props.push({ lunes: isoDeFecha(l), plantillaId, swap, nota: `Plantilla ${plantillaId} (rotación inicial)` })
+      props.push({ lunes: isoDeFecha(l), plantillaId, swap: false, nota: `Plantilla ${plantillaId} (rotación inicial)` })
     }
     setPropuestas(props)
     setAprobadas({})
@@ -67,9 +63,7 @@ export default function TabGenerador() {
     setPropuestas(prev => prev.map((p, i) => i === idx ? { ...p, swap: !p.swap } : p))
   }
 
-  function aprobar(idx: number) {
-    setAprobadas(prev => ({ ...prev, [idx]: true }))
-  }
+  function aprobar(idx: number) { setAprobadas(prev => ({ ...prev, [idx]: true })) }
 
   function rechazar(idx: number) {
     setPropuestas(prev => prev.filter((_, i) => i !== idx))
@@ -92,6 +86,13 @@ export default function TabGenerador() {
     fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
     textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600,
   })
+  const actionBtn: React.CSSProperties = {
+    height: 30, padding: '0 12px', borderRadius: 8,
+    border: `1px solid #B01D23`, background: '#B01D23', color: '#fff',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+    fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
+    textTransform: 'uppercase', fontWeight: 600,
+  }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
 
@@ -154,7 +155,6 @@ export default function TabGenerador() {
         const p = PLANTILLAS[prop.plantillaId]
         const aprobada = aprobadas[idx] === true
 
-        // validación rápida
         const horasPorEmp: Record<string, number> = {}
         for (const t of turnos) {
           const e = empleados.find(x => x.id === t.empleado_id)
@@ -203,10 +203,12 @@ export default function TabGenerador() {
                   {aprobada ? '✓ Aprobada' : 'Aprobar'}
                 </button>
                 <button onClick={() => rechazar(idx)} style={btnBase()}>✕ Rechazar</button>
+                <button onClick={() => exportarHorarioPDF(empleados, turnos, lunes, { abrir: true })} style={actionBtn}><FileDown size={12} /> Exportar</button>
+                <button onClick={() => compartirHorarioPDF(empleados, turnos, lunes)} style={actionBtn}><Share2 size={12} /> Compartir</button>
               </div>
             </div>
 
-            <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={p.cierres} mostrarLeyenda={false} />
+            <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={p.cierres} />
           </div>
         )
       })}
