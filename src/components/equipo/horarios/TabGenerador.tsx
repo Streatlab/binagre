@@ -1,15 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Wand2, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
-import { COLORS } from '@/components/panel/resumen/tokens'
 import {
   DIAS, type DiaKey, type Empleado, type Turno, REGLAS_DEFAULT, type ReglasHorario,
-  horasTurno, horasSemanaPorEmpleado, lunesDeSemana, fmtRangoSemana, fmtHoras,
+  horasReales, esPartido, tramosTexto,
+  horasSemanaPorEmpleado, lunesDeSemana, fmtRangoSemana, fmtHoras, colorEmpleado,
 } from './utils'
 
+function nombrePila(nombre: string): string {
+  return nombre.trim().split(/\s+/)[0]
+}
+
+const ORDEN_PILA = ['Ray', 'Andrés', 'Emilio', 'Rubén']
+
+function ordenarEmpleados(emps: Empleado[]): Empleado[] {
+  return [...emps].sort((a, b) => {
+    const ia = ORDEN_PILA.indexOf(nombrePila(a.nombre))
+    const ib = ORDEN_PILA.indexOf(nombrePila(b.nombre))
+    const ra = ia === -1 ? Infinity : ia
+    const rb = ib === -1 ? Infinity : ib
+    if (ra !== rb) return ra - rb
+    return a.nombre.localeCompare(b.nombre, 'es')
+  })
+}
+
 export default function TabGenerador() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [propuesta, setPropuesta] = useState<Turno[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,8 +35,8 @@ export default function TabGenerador() {
   const lunes = lunesDeSemana(new Date())
 
   useEffect(() => {
-    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo').order('nombre')
-      .then(({ data }) => { setEmpleados((data ?? []) as Empleado[]); setLoading(false) })
+    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo')
+      .then(({ data }) => { setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])); setLoading(false) })
   }, [])
 
   // Motor real de generación (respetando reglas + vacaciones + cobertura) se enchufa
@@ -31,10 +48,15 @@ export default function TabGenerador() {
 
   const horasEmp = horasSemanaPorEmpleado(propuesta)
   const avisos = empleados.filter(e => (horasEmp[e.id] ?? 0) > reglas.horas_max_semana)
+  const idxEmp = useMemo(() => {
+    const m: Record<string, number> = {}
+    empleados.forEach((e, i) => { m[e.id] = i })
+    return m
+  }, [empleados])
 
   const th: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'center', whiteSpace: 'nowrap' }
   const thL: React.CSSProperties = { ...th, textAlign: 'left' }
-  const td: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, textAlign: 'center', borderBottom: `1px solid ${T.brd}` }
+  const td: React.CSSProperties = { padding: '5px 4px', fontFamily: FONT.body, fontSize: 13, color: T.pri, textAlign: 'center', borderBottom: `1px solid ${T.brd}`, verticalAlign: 'middle' }
 
   return (
     <div>
@@ -71,7 +93,7 @@ export default function TabGenerador() {
           <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
                   <th style={thL}>Empleado</th>
@@ -85,16 +107,23 @@ export default function TabGenerador() {
                 ) : empleados.map(emp => {
                   const total = horasEmp[emp.id] ?? 0
                   const excede = total > reglas.horas_max_semana
+                  const col = colorEmpleado(idxEmp[emp.id] ?? 0)
                   return (
                     <tr key={emp.id}>
-                      <td style={{ padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600, textAlign: 'left', borderBottom: `1px solid ${T.brd}` }}>{emp.nombre}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, fontWeight: 600, textAlign: 'left', borderBottom: `1px solid ${T.brd}` }}>
+                        {nombrePila(emp.nombre)}
+                        {emp.cargo && <div style={{ fontSize: 10, color: T.mut, fontWeight: 400 }}>{emp.cargo}</div>}
+                      </td>
                       {DIAS.map(d => {
                         const t = propuesta.find(x => x.empleado_id === emp.id && x.dia === (d as DiaKey))
                         return <td key={d} style={td}>{t
-                          ? <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 5, background: COLORS.accent + '18', color: COLORS.accent, fontSize: 12, fontWeight: 500 }}>{t.entrada}–{t.salida}</span>
-                          : <span style={{ color: T.mut, fontSize: 12 }}>—</span>}</td>
+                          ? <span style={{ display: 'inline-block', padding: '4px 6px', borderRadius: 5, background: col.bg, color: col.text, fontSize: 10, fontWeight: 500, lineHeight: 1.25 }}>
+                              <span style={{ whiteSpace: 'pre-line' }}>{tramosTexto(t)}</span>
+                              <span style={{ display: 'block', fontSize: 8.5, opacity: 0.7 }}>{esPartido(t) ? 'partido' : 'corrido'} · {fmtHoras(horasReales(t))}</span>
+                            </span>
+                          : <span style={{ color: T.mut, fontSize: 11, fontStyle: 'italic' }}>Libre</span>}</td>
                       })}
-                      <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 600, color: excede ? '#f5a623' : T.pri }}>{fmtHoras(total)} h</td>
+                      <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 600, fontSize: 14, color: excede ? '#f5a623' : T.pri }}>{fmtHoras(total)}</td>
                     </tr>
                   )
                 })}
