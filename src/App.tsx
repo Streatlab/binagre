@@ -56,6 +56,7 @@ import CocinaInventario from '@/pages/CocinaInventario'
 import MenuEngineering from '@/pages/cocina/MenuEngineering'
 import Recetario from '@/pages/cocina/Recetario'
 import RecetaDetalle from '@/pages/cocina/RecetaDetalle'
+import Esquemas from '@/pages/cocina/Esquemas'
 
 import MarketingEmbudo from '@/pages/MarketingEmbudo'
 
@@ -219,6 +220,7 @@ function AppRoutes() {
         <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
         <Route path="cocina/recetario" element={<Recetario />} />
         <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
+        <Route path="cocina/esquemas" element={<Esquemas />} />
 
         <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="ops/:slug" element={<Placeholder />} />
