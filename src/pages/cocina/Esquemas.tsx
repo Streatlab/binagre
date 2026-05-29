@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { LayoutGrid, Mic, Printer, Plus, Trash2, GripVertical, X, Check } from 'lucide-react'
+import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tituloPaginaStyle } from '@/styles/tokens'
 
@@ -14,23 +14,29 @@ interface Esquema {
   orden_gama: number
   lineas: Linea[]
   activo: boolean
+  version: number
+  estado: string
+  archivado_at: string | null
+  updated_at: string
 }
+interface Gama { id: string; nombre: string; orden: number; activo: boolean }
 
-// Detección de acción (micro/freidora/sartén/plancha/horno)
+// Aparatos de cocción para el selector rápido de nubes
+const APARATOS = ['MICRO', 'FREIDORA', 'SARTÉN', 'PLANCHA', 'HORNO'] as const
+
 const ACCION_RE = /\b(MICRO|FREIDORA|SART[ÉE]N|PLANCHA|HORNO|FRE[ÍI]R)\b/i
 function esAccion(texto: string) { return ACCION_RE.test(texto) }
 
-// Normaliza una frase dictada → línea con tipo
+// Normaliza una frase a línea (tiempos y abreviaturas)
 function normalizarLinea(raw: string): Linea {
   let t = raw.trim()
-  // tiempos hablados → formato corto
   t = t.replace(/(\d+(?:[.,]\d+)?)\s*minutos?\s*(de\s*)?(microondas|micro)/i, 'MICRO $1 MIN')
-       .replace(/(microondas|micro)\s*(\d+(?:[.,]\d+)?)\s*minutos?/i, 'MICRO $2 MIN')
-       .replace(/(\d+)\s*minutos?\s*(en\s*)?freidora/i, 'FREIDORA $1 MIN')
-       .replace(/freidora\s*(\d+)\s*minutos?/i, 'FREIDORA $1 MIN')
-       .replace(/(\d+)\s*minutos?\s*(en\s*)?plancha/i, 'PLANCHA $1 MIN')
-       .replace(/(\d+)\s*minutos?\s*(en\s*)?sart[ée]n/i, 'SARTÉN $1 MIN')
-  // abreviaturas habituales
+       .replace(/(microondas|micro)\s*(?:durante\s*)?(\d+(?:[.,]\d+)?)\s*minutos?/i, 'MICRO $2 MIN')
+       .replace(/(\d+)\s*minutos?\s*(en\s*(la\s*)?)?freidora/i, 'FREIDORA $1 MIN')
+       .replace(/freidora\s*(?:durante\s*)?(\d+)\s*minutos?/i, 'FREIDORA $1 MIN')
+       .replace(/(\d+)\s*minutos?\s*(en\s*(la\s*)?)?plancha/i, 'PLANCHA $1 MIN')
+       .replace(/plancha\s*(?:durante\s*)?(\d+)\s*minutos?/i, 'PLANCHA $1 MIN')
+       .replace(/(\d+)\s*minutos?\s*(en\s*(la\s*)?)?sart[ée]n/i, 'SARTÉN $1 MIN')
   t = t.replace(/\bcucharada\s+sopera\b/gi, 'c.s.')
        .replace(/\bcucharadita\s+de\s+caf[ée]\b/gi, 'c.c.')
        .replace(/\bcucharadas?\b/gi, 'c.s.')
@@ -38,22 +44,11 @@ function normalizarLinea(raw: string): Linea {
   return { tipo: esAccion(t) ? 'accion' : 'ing', texto: t.charAt(0).toUpperCase() + t.slice(1) }
 }
 
-// Parser de texto dictado completo → esquema
-function parsearDictado(texto: string): { nombre: string; lineas: Linea[] } {
-  const limpio = texto.replace(/\s+/g, ' ').trim()
-  // nombre: "se llama X" o primera frase antes de coma/punto
-  let nombre = ''
-  const m = limpio.match(/se llama\s+([^,.]+)/i)
-  if (m) nombre = m[1].trim()
-  let cuerpo = limpio
-  if (m) cuerpo = limpio.slice((m.index ?? 0) + m[0].length)
-  else {
-    const corte = limpio.search(/[,.]/)
-    nombre = corte > 0 ? limpio.slice(0, corte).trim() : limpio
-    cuerpo = corte > 0 ? limpio.slice(corte + 1) : ''
-  }
-  const partes = cuerpo.split(/[,.;\n]|\sy\s/).map(s => s.trim()).filter(Boolean)
-  return { nombre: nombre.toUpperCase(), lineas: partes.map(normalizarLinea) }
+// Trocea SOLO los ingredientes (sin intentar adivinar el nombre)
+function trocearIngredientes(texto: string): Linea[] {
+  return texto.replace(/\s+/g, ' ').trim()
+    .split(/[,.;\n]|\sy\s/).map(s => s.trim()).filter(Boolean)
+    .map(normalizarLinea)
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
@@ -61,32 +56,36 @@ function parsearDictado(texto: string): { nombre: string; lineas: Linea[] } {
 export default function Esquemas() {
   const { T, isDark } = useTheme()
   const [esquemas, setEsquemas] = useState<Esquema[]>([])
+  const [gamas, setGamas] = useState<Gama[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [gamaActiva, setGamaActiva] = useState<string>('')
-  const [modalAbierto, setModalAbierto] = useState(false)
+  const [verHistorico, setVerHistorico] = useState(false)
+  const [editando, setEditando] = useState<Esquema | 'nuevo' | null>(null)
+  const [gestorGamas, setGestorGamas] = useState(false)
 
   useEffect(() => { cargar() }, [])
 
   async function cargar() {
     setLoading(true)
-    const { data, error: e } = await supabase
-      .from('esquemas_cocina')
-      .select('id,gama,nombre,orden_gama,lineas,activo')
-      .eq('activo', true)
-      .order('gama')
-      .order('orden_gama')
-    if (e) setError(e.message)
+    const [{ data: esq, error: e1 }, { data: gms }] = await Promise.all([
+      supabase.from('esquemas_cocina').select('*').order('gama').order('orden_gama'),
+      supabase.from('esquemas_gamas').select('*').eq('activo', true).order('orden').order('nombre'),
+    ])
+    if (e1) setError(e1.message)
     else {
-      const list = (data as Esquema[]) ?? []
+      const list = (esq as Esquema[]) ?? []
       setEsquemas(list)
-      if (!gamaActiva && list.length) setGamaActiva(list[0].gama)
+      const gmList = (gms as Gama[]) ?? []
+      setGamas(gmList)
+      if (!gamaActiva && gmList.length) setGamaActiva(gmList[0].nombre)
     }
     setLoading(false)
   }
 
-  const gamas = useMemo(() => [...new Set(esquemas.map(e => e.gama))], [esquemas])
-  const visibles = useMemo(() => esquemas.filter(e => e.gama === gamaActiva), [esquemas, gamaActiva])
+  const visibles = useMemo(() =>
+    esquemas.filter(e => e.gama === gamaActiva && (verHistorico ? e.estado !== 'vigente' : e.estado === 'vigente'))
+    , [esquemas, gamaActiva, verHistorico])
 
   function imprimir() { window.print() }
 
@@ -97,50 +96,75 @@ export default function Esquemas() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <style>{PRINT_CSS}</style>
 
-      {/* HEADER (no imprime) */}
+      {/* HEADER */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <LayoutGrid size={24} color="#B01D23" />
         <div style={tituloPaginaStyle(T)}>Esquemas de cocina</div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Orden de montaje del tapper · arriba → abajo</div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button onClick={() => setModalAbierto(true)} style={btnPrimary}><Mic size={16} /> Dictar plato</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setEditando('nuevo')} style={btnPrimary}><Plus size={16} /> Nuevo plato</button>
+          <button onClick={() => setGestorGamas(true)} style={btnGhost(T)}><Tags size={16} /> Gamas</button>
+          <button onClick={() => setVerHistorico(v => !v)} style={verHistorico ? btnPrimary : btnGhost(T)}><History size={16} /> {verHistorico ? 'Ver vigentes' : 'Histórico'}</button>
           <button onClick={imprimir} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
         </div>
       </div>
 
-      {/* TABS GAMA (no imprime) */}
+      {/* TABS GAMA */}
       <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {gamas.map(g => (
-          <button key={g} onClick={() => setGamaActiva(g)} style={tabStyle(g === gamaActiva, T)}>{g}</button>
+          <button key={g.id} onClick={() => setGamaActiva(g.nombre)} style={tabStyle(g.nombre === gamaActiva, T)}>{g.nombre}</button>
         ))}
       </div>
 
-      {/* TÍTULO IMPRESIÓN (solo imprime) */}
+      {/* TÍTULO IMPRESIÓN */}
       <div className="solo-print" style={{ display: 'none' }}>
-        <div className="print-gama">{gamaActiva}</div>
+        <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
       </div>
 
-      {/* GRID TARJETAS */}
-      <div className="print-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-        {visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onChange={cargar} />)}
+      {/* MAQUETA: masonry por columnas → sin huecos, máximo por hoja */}
+      <div className="print-grid esquemas-masonry">
+        {visibles.length === 0
+          ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
+          : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
       </div>
 
-      {modalAbierto && <ModalDictado T={T} gama={gamaActiva} gamas={gamas} onClose={() => setModalAbierto(false)} onSaved={() => { setModalAbierto(false); cargar() }} />}
+      {editando && (
+        <ModalFicha
+          T={T}
+          esquema={editando === 'nuevo' ? null : editando}
+          gamaDefault={gamaActiva}
+          gamas={gamas}
+          onClose={() => setEditando(null)}
+          onSaved={() => { setEditando(null); cargar() }}
+        />
+      )}
+      {gestorGamas && <ModalGamas T={T} gamas={gamas} onClose={() => setGestorGamas(false)} onSaved={cargar} />}
     </div>
   )
 }
 
-// ─── TARJETA ──────────────────────────────────────────────────────────────────
+// ─── TARJETA (estilo Green uniforme) ───────────────────────────────────────────
 
-function TarjetaEsquema({ esquema: e, T, isDark, onChange }: { esquema: Esquema; T: ReturnType<typeof useTheme>['T']; isDark: boolean; onChange: () => void }) {
-  async function borrar() {
-    if (!confirm(`¿Eliminar "${e.nombre}"?`)) return
-    await supabase.from('esquemas_cocina').update({ activo: false }).eq('id', e.id)
+function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: Esquema; T: ReturnType<typeof useTheme>['T']; isDark: boolean; onEdit: () => void; onChange: () => void }) {
+  async function descatalogar() {
+    if (!confirm(`¿Descatalogar "${e.nombre}"? Pasará al histórico, no se borra.`)) return
+    await supabase.from('esquemas_cocina').update({ estado: 'descatalogado', archivado_at: new Date().toISOString() }).eq('id', e.id)
     onChange()
   }
+  async function restaurar() {
+    await supabase.from('esquemas_cocina').update({ estado: 'vigente', archivado_at: null }).eq('id', e.id)
+    onChange()
+  }
+  const archivado = e.estado !== 'vigente'
+
   return (
-    <div className="print-card" style={{ background: T.card, border: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderRadius: 9, overflow: 'hidden', position: 'relative' }}>
-      <button onClick={borrar} className="no-print" style={{ position: 'absolute', top: 4, right: 4, background: 'none', border: 'none', cursor: 'pointer', color: T.mut, padding: 4 }} title="Eliminar"><Trash2 size={13} /></button>
+    <div className="print-card esquema-card" style={{ background: T.card, border: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderRadius: 9, overflow: 'hidden', position: 'relative', opacity: archivado ? 0.7 : 1 }}>
+      <div className="no-print" style={{ position: 'absolute', top: 3, right: 3, display: 'flex', gap: 2 }}>
+        {!archivado && <button onClick={onEdit} style={iconBtn(T)} title="Editar"><Pencil size={12} /></button>}
+        {!archivado
+          ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
+          : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
+      </div>
       <div className="print-head" style={{ background: isDark ? '#1e2233' : '#1a1a1a', color: '#fff', fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, textAlign: 'center', padding: '8px 6px', letterSpacing: '0.5px' }}>{e.nombre}</div>
       <div style={{ padding: '6px 4px' }}>
         {e.lineas.map((l, i) => l.tipo === 'accion'
@@ -148,48 +172,47 @@ function TarjetaEsquema({ esquema: e, T, isDark, onChange }: { esquema: Esquema;
           : <div key={i} className="print-ing" style={{ fontFamily: FONT.body, fontSize: 15, textAlign: 'center', padding: '1px 0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
         )}
       </div>
+      {archivado && e.archivado_at && (
+        <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, textAlign: 'center', padding: '2px 0 5px' }}>
+          Archivado {new Date(e.archivado_at).toLocaleDateString('es-ES')}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── MODAL DICTADO ──────────────────────────────────────────────────────────────
+// ─── MODAL FICHA (crear / editar · rompecabezas + dictado) ──────────────────────
 
-function ModalDictado({ T, gama, gamas, onClose, onSaved }: { T: ReturnType<typeof useTheme>['T']; gama: string; gamas: string[]; onClose: () => void; onSaved: () => void }) {
-  const [escuchando, setEscuchando] = useState(false)
-  const [texto, setTexto] = useState('')
-  const [nombre, setNombre] = useState('')
-  const [lineas, setLineas] = useState<Linea[]>([])
-  const [gamaSel, setGamaSel] = useState(gama || gamas[0] || '')
+function ModalFicha({ T, esquema, gamaDefault, gamas, onClose, onSaved }: { T: ReturnType<typeof useTheme>['T']; esquema: Esquema | null; gamaDefault: string; gamas: Gama[]; onClose: () => void; onSaved: () => void }) {
+  const edicion = !!esquema
+  const [nombre, setNombre] = useState(esquema?.nombre ?? '')
+  const [gamaSel, setGamaSel] = useState(esquema?.gama ?? gamaDefault ?? gamas[0]?.nombre ?? '')
+  const [lineas, setLineas] = useState<Linea[]>(esquema?.lineas ?? [])
   const [guardando, setGuardando] = useState(false)
+
+  // dictado de ingredientes (paso 2, NO toca el nombre)
+  const [dictado, setDictado] = useState('')
+  const [escuchando, setEscuchando] = useState(false)
   const recRef = useRef<any>(null)
 
   function toggleVoz() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) { alert('Tu navegador no soporta dictado por voz. Escribe el plato manualmente.'); return }
+    if (!SR) { alert('Tu navegador no soporta dictado por voz. Escribe los ingredientes a mano.'); return }
     if (escuchando) { recRef.current?.stop(); setEscuchando(false); return }
     const rec = new SR()
     rec.lang = 'es-ES'; rec.continuous = true; rec.interimResults = true
     rec.onresult = (ev: any) => {
       let full = ''
       for (let i = 0; i < ev.results.length; i++) full += ev.results[i][0].transcript + ' '
-      setTexto(full.trim())
+      setDictado(full.trim())
     }
     rec.onend = () => setEscuchando(false)
     rec.start(); recRef.current = rec; setEscuchando(true)
   }
 
-  function procesar() {
-    const { nombre: n, lineas: l } = parsearDictado(texto)
-    setNombre(n); setLineas(l)
-  }
-
-  async function guardar() {
-    if (!nombre.trim() || !gamaSel) { alert('Falta nombre o gama'); return }
-    setGuardando(true)
-    const { data: max } = await supabase.from('esquemas_cocina').select('orden_gama').eq('gama', gamaSel).order('orden_gama', { ascending: false }).limit(1)
-    const orden = ((max?.[0]?.orden_gama as number) ?? 0) + 1
-    await supabase.from('esquemas_cocina').insert({ gama: gamaSel, nombre: nombre.toUpperCase().trim(), orden_gama: orden, lineas })
-    setGuardando(false); onSaved()
+  function añadirDesdeDictado() {
+    const nuevas = trocearIngredientes(dictado)
+    if (nuevas.length) { setLineas(prev => [...prev, ...nuevas]); setDictado('') }
   }
 
   function editarLinea(i: number, texto: string) { setLineas(prev => prev.map((l, idx) => idx === i ? { ...l, texto } : l)) }
@@ -198,66 +221,157 @@ function ModalDictado({ T, gama, gamas, onClose, onSaved }: { T: ReturnType<type
   function moverLinea(i: number, dir: -1 | 1) {
     setLineas(prev => { const a = [...prev]; const j = i + dir; if (j < 0 || j >= a.length) return prev;[a[i], a[j]] = [a[j], a[i]]; return a })
   }
+  function añadirIng() { setLineas(prev => [...prev, { tipo: 'ing', texto: '' }]) }
+  function añadirNube(aparato: string) { setLineas(prev => [...prev, { tipo: 'accion', texto: `${aparato} ` }]) }
+
+  async function guardar() {
+    if (!nombre.trim() || !gamaSel) { alert('Falta nombre o gama'); return }
+    const limpias = lineas.filter(l => l.texto.trim())
+    setGuardando(true)
+
+    if (edicion && esquema) {
+      // VERSIONADO: archiva la versión actual con fecha, crea la nueva como vigente
+      await supabase.from('esquemas_cocina').update({ estado: 'archivado', activo: false, archivado_at: new Date().toISOString() }).eq('id', esquema.id)
+      await supabase.from('esquemas_cocina').insert({
+        gama: gamaSel, nombre: nombre.toUpperCase().trim(), orden_gama: esquema.orden_gama,
+        lineas: limpias, version: (esquema.version ?? 1) + 1, estado: 'vigente', activo: true,
+      })
+    } else {
+      const { data: max } = await supabase.from('esquemas_cocina').select('orden_gama').eq('gama', gamaSel).order('orden_gama', { ascending: false }).limit(1)
+      const orden = ((max?.[0]?.orden_gama as number) ?? 0) + 1
+      await supabase.from('esquemas_cocina').insert({ gama: gamaSel, nombre: nombre.toUpperCase().trim(), orden_gama: orden, lineas: limpias })
+    }
+    setGuardando(false); onSaved()
+  }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
-      <div onClick={ev => ev.stopPropagation()} style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, width: 560, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }}>
+    <div style={overlay} onClick={onClose}>
+      <div onClick={ev => ev.stopPropagation()} style={{ ...modalBox, background: T.card, border: `0.5px solid ${T.brd}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>Dictar plato</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>{edicion ? 'Editar plato' : 'Nuevo plato'}</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
         </div>
 
-        {/* Gama */}
-        <div style={{ marginBottom: 12 }}>
-          <label style={lblStyle(T)}>Gama</label>
-          <select value={gamaSel} onChange={ev => setGamaSel(ev.target.value)} style={inputStyle(T)}>
-            {gamas.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
+        {edicion && <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 12 }}>Al guardar, la versión actual se archiva en el histórico con su fecha. Esta pasa a ser la vigente.</div>}
+
+        {/* Nombre + gama */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 2 }}>
+            <label style={lblStyle(T)}>Nombre del plato</label>
+            <input value={nombre} onChange={ev => setNombre(ev.target.value)} placeholder="Ej: Pollo karaage limón" style={inputStyle(T)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={lblStyle(T)}>Gama</label>
+            <select value={gamaSel} onChange={ev => setGamaSel(ev.target.value)} style={inputStyle(T)}>
+              {gamas.map(g => <option key={g.id} value={g.nombre}>{g.nombre}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Voz + texto */}
-        <div style={{ marginBottom: 12 }}>
-          <label style={lblStyle(T)}>Dicta o escribe el plato</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <textarea value={texto} onChange={ev => setTexto(ev.target.value)} rows={3} placeholder="Ej: Pollo karaage al limón, tres trozos de pollo crujiente, arroz blanco, tres minutos microondas, salsa de limón, furikake, sésamo"
-              style={{ ...inputStyle(T), resize: 'vertical', flex: 1 }} />
-          </div>
+        {/* LÍNEAS — rompecabezas */}
+        <label style={lblStyle(T)}>Ingredientes y pasos (orden de montaje)</label>
+        <div style={{ marginBottom: 8 }}>
+          {lineas.map((l, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <button onClick={() => moverLinea(i, -1)} style={miniBtn(T)}>▲</button>
+                <button onClick={() => moverLinea(i, 1)} style={miniBtn(T)}>▼</button>
+              </div>
+              <input value={l.texto} onChange={ev => editarLinea(i, ev.target.value)}
+                style={{ ...inputStyle(T), flex: 1, fontWeight: l.tipo === 'accion' ? 700 : 400 }} />
+              <button onClick={() => toggleTipo(i)} title="Ingrediente / Acción"
+                style={{ ...miniBtn(T), background: l.tipo === 'accion' ? '#1a1a1a' : 'transparent', color: l.tipo === 'accion' ? '#fff' : T.sec, padding: '4px 8px', width: 'auto', fontSize: 11 }}>
+                {l.tipo === 'accion' ? 'Nube' : 'Ingr.'}
+              </button>
+              <button onClick={() => borrarLinea(i)} style={{ ...miniBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+
+        {/* Añadir ingrediente / nubes rápidas */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+          <button onClick={añadirIng} style={btnGhost(T)}><Plus size={14} /> Ingrediente</button>
+          {APARATOS.map(a => (
+            <button key={a} onClick={() => añadirNube(a)} style={{ ...btnGhost(T), fontSize: 12 }}>+ {a}</button>
+          ))}
+        </div>
+
+        {/* Dictado SOLO ingredientes */}
+        <div style={{ border: `0.5px dashed ${T.brd}`, borderRadius: 10, padding: 12, marginBottom: 16 }}>
+          <label style={lblStyle(T)}>Dictar ingredientes (se añaden a la lista, no tocan el nombre)</label>
+          <textarea value={dictado} onChange={ev => setDictado(ev.target.value)} rows={2}
+            placeholder="Ej: tres trozos de pollo crujiente, arroz blanco, tres minutos microondas, salsa de limón, furikake"
+            style={{ ...inputStyle(T), resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button onClick={toggleVoz} style={escuchando ? btnPrimary : btnGhost(T)}><Mic size={16} /> {escuchando ? 'Detener' : 'Hablar'}</button>
-            <button onClick={procesar} style={btnGhost(T)}><Check size={16} /> Procesar texto</button>
+            <button onClick={añadirDesdeDictado} style={btnGhost(T)}><Check size={16} /> Añadir a la lista</button>
           </div>
         </div>
 
-        {/* Nombre detectado */}
-        {(nombre || lineas.length > 0) && (
-          <>
-            <div style={{ marginBottom: 12 }}>
-              <label style={lblStyle(T)}>Nombre del plato</label>
-              <input value={nombre} onChange={ev => setNombre(ev.target.value)} style={inputStyle(T)} />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={lblStyle(T)}>Líneas (orden de montaje · pulsa para marcar acción)</label>
-              {lineas.map((l, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <button onClick={() => moverLinea(i, -1)} style={miniBtn(T)}>▲</button>
-                    <button onClick={() => moverLinea(i, 1)} style={miniBtn(T)}>▼</button>
-                  </div>
-                  <input value={l.texto} onChange={ev => editarLinea(i, ev.target.value)} style={{ ...inputStyle(T), flex: 1 }} />
-                  <button onClick={() => toggleTipo(i)} title="Ingrediente / Acción"
-                    style={{ ...miniBtn(T), background: l.tipo === 'accion' ? '#1a1a1a' : 'transparent', color: l.tipo === 'accion' ? '#fff' : T.sec, padding: '4px 8px', width: 'auto', fontSize: 11 }}>
-                    {l.tipo === 'accion' ? 'Acción' : 'Ingr.'}
-                  </button>
-                  <button onClick={() => borrarLinea(i)} style={{ ...miniBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
-                </div>
-              ))}
-              <button onClick={() => setLineas(prev => [...prev, { tipo: 'ing', texto: '' }])} style={{ ...btnGhost(T), marginTop: 6 }}><Plus size={14} /> Añadir línea</button>
-            </div>
-            <button onClick={guardar} disabled={guardando} style={{ ...btnPrimary, width: '100%', justifyContent: 'center', opacity: guardando ? 0.6 : 1 }}>
-              {guardando ? 'Guardando…' : 'Guardar plato'}
-            </button>
-          </>
-        )}
+        <button onClick={guardar} disabled={guardando} style={{ ...btnPrimary, width: '100%', justifyContent: 'center', opacity: guardando ? 0.6 : 1 }}>
+          {guardando ? 'Guardando…' : (edicion ? 'Guardar cambios' : 'Crear plato')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── MODAL GESTOR DE GAMAS ──────────────────────────────────────────────────────
+
+function ModalGamas({ T, gamas, onClose, onSaved }: { T: ReturnType<typeof useTheme>['T']; gamas: Gama[]; onClose: () => void; onSaved: () => void }) {
+  const [nueva, setNueva] = useState('')
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editNombre, setEditNombre] = useState('')
+
+  async function crear() {
+    if (!nueva.trim()) return
+    await supabase.from('esquemas_gamas').insert({ nombre: nueva.trim(), orden: gamas.length })
+    setNueva(''); onSaved()
+  }
+  async function renombrar(g: Gama) {
+    if (!editNombre.trim()) return
+    // renombra la gama y todos sus platos
+    await supabase.from('esquemas_gamas').update({ nombre: editNombre.trim() }).eq('id', g.id)
+    await supabase.from('esquemas_cocina').update({ gama: editNombre.trim() }).eq('gama', g.nombre)
+    setEditId(null); onSaved()
+  }
+  async function eliminar(g: Gama) {
+    if (!confirm(`¿Eliminar la gama "${g.nombre}"? Los platos NO se borran, quedan en histórico.`)) return
+    await supabase.from('esquemas_gamas').update({ activo: false }).eq('id', g.id)
+    await supabase.from('esquemas_cocina').update({ estado: 'descatalogado', archivado_at: new Date().toISOString() }).eq('gama', g.nombre).eq('estado', 'vigente')
+    onSaved()
+  }
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div onClick={ev => ev.stopPropagation()} style={{ ...modalBox, width: 460, background: T.card, border: `0.5px solid ${T.brd}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>Gamas</div>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <input value={nueva} onChange={ev => setNueva(ev.target.value)} placeholder="Nueva gama (ej: Italiana)" style={{ ...inputStyle(T), flex: 1 }} />
+          <button onClick={crear} style={btnPrimary}><Plus size={16} /> Crear</button>
+        </div>
+
+        {gamas.map(g => (
+          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            {editId === g.id ? (
+              <>
+                <input value={editNombre} onChange={ev => setEditNombre(ev.target.value)} style={{ ...inputStyle(T), flex: 1 }} />
+                <button onClick={() => renombrar(g)} style={iconBtn(T)} title="Guardar"><Check size={14} /></button>
+                <button onClick={() => setEditId(null)} style={iconBtn(T)} title="Cancelar"><X size={14} /></button>
+              </>
+            ) : (
+              <>
+                <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 14, color: T.pri }}>{g.nombre}</div>
+                <button onClick={() => { setEditId(g.id); setEditNombre(g.nombre) }} style={iconBtn(T)} title="Renombrar"><Pencil size={13} /></button>
+                <button onClick={() => eliminar(g)} style={{ ...iconBtn(T), color: '#B01D23' }} title="Eliminar"><Trash2 size={13} /></button>
+              </>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -271,9 +385,18 @@ const tabStyle = (active: boolean, T: ReturnType<typeof useTheme>['T']): React.C
 const lblStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'block', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 5 })
 const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
 const miniBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: '2px 5px', width: 24 })
+const iconBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' })
+const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
+const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }
 
-// CSS impresión: A4 vertical, blanco y negro, oculta UI
+// Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: A4 vertical B/N compacto.
 const PRINT_CSS = `
+.esquemas-masonry { column-count: 4; column-gap: 14px; }
+.esquemas-masonry .esquema-card { break-inside: avoid; margin-bottom: 14px; display: inline-block; width: 100%; }
+@media (max-width: 1100px) { .esquemas-masonry { column-count: 3; } }
+@media (max-width: 800px)  { .esquemas-masonry { column-count: 2; } }
+@media (max-width: 520px)  { .esquemas-masonry { column-count: 1; } }
+
 @media print {
   @page { size: A4 portrait; margin: 9mm; }
   body * { visibility: hidden; }
@@ -281,8 +404,8 @@ const PRINT_CSS = `
   .no-print { display: none !important; }
   .solo-print { display: block !important; }
   .print-gama { font-family: Oswald, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #999; text-align: center; margin-bottom: 12px; }
-  .print-grid { position: absolute; left: 0; top: 0; width: 100%; column-count: 3 !important; column-gap: 11px; display: block !important; }
-  .print-card { break-inside: avoid; margin-bottom: 11px; border: 2px solid #1a1a1a !important; }
+  .print-grid { position: absolute; left: 0; top: 0; width: 100%; column-count: 3 !important; column-gap: 11px; }
+  .print-card { break-inside: avoid; margin-bottom: 11px; border: 2px solid #1a1a1a !important; border-radius: 9px; }
   .print-head { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-act { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-ing { color: #1a1a1a !important; }
