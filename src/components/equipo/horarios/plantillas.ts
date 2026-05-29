@@ -4,7 +4,7 @@
  */
 import type { DiaKey, Tramo } from '@/components/equipo/horarios/utils'
 
-export type PlantillaId = 'S1' | 'S2' | 'S3' | 'S4' | 'S5'
+export type PlantillaId = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6'
 
 export interface Plantilla {
   id: PlantillaId
@@ -231,6 +231,47 @@ export const PLANTILLAS: Record<PlantillaId, Plantilla> = {
       Vie: 'And+Ray', 'Sáb': 'And+Rub+E', Dom: 'And+Rub',
     },
     totales_objetivo: { Ray: 40.25, 'Andrés': 42.5, Emilio: 15.5, 'Rubén': 28 },
+  },
+
+  S6: {
+    id: 'S6',
+    nombre: 'Semana 6',
+    descripcion: 'Igual que S5 con Ray y Andrés intercambiados',
+    patron_libranza: { Ray: ['Mié','Jue'], 'Andrés': ['Sáb','Dom'], Emilio: ['Lun','Mar'], 'Rubén': ['Lun','Mar'] },
+    turnos: {
+      Ray: {
+        Lun: [{ entrada:'12:00', salida:'16:00' }, { entrada:'20:00', salida:'23:15' }],
+        Mar: [{ entrada:'13:30', salida:'23:15' }],
+        Vie: [{ entrada:'12:00', salida:'16:00' }, { entrada:'20:00', salida:'23:15' }],
+        'Sáb': [{ entrada:'13:30', salida:'23:15' }],
+        Dom: [{ entrada:'13:30', salida:'23:15' }],
+      },
+      'Andrés': {
+        Lun: [{ entrada:'13:30', salida:'23:15' }],
+        Mar: [{ entrada:'12:00', salida:'16:30' }, { entrada:'20:00', salida:'23:15' }],
+        'Mié': [{ entrada:'12:00', salida:'16:30' }, { entrada:'20:00', salida:'23:15' }],
+        Jue: [{ entrada:'12:00', salida:'16:30' }, { entrada:'20:00', salida:'23:15' }],
+        Vie: [{ entrada:'13:30', salida:'23:15' }],
+      },
+      Emilio: {
+        'Mié': [{ entrada:'13:00', salida:'16:30' }],
+        Jue: [{ entrada:'13:00', salida:'16:30' }],
+        'Sáb': [{ entrada:'13:00', salida:'16:00' }, { entrada:'21:00', salida:'22:30' }],
+        Dom: [{ entrada:'14:00', salida:'16:00' }, { entrada:'20:00', salida:'22:00' }],
+      },
+      'Rubén': {
+        'Mié': [{ entrada:'16:30', salida:'23:00' }],
+        Jue: [{ entrada:'16:30', salida:'23:00' }],
+        'Sáb': [{ entrada:'12:00', salida:'16:30' }, { entrada:'20:00', salida:'23:00' }],
+        Dom: [{ entrada:'12:00', salida:'16:30' }, { entrada:'20:00', salida:'23:00' }],
+      },
+    },
+    cierres: {
+      Lun: 'And+Ray', Mar: 'And+Ray',
+      'Mié': 'And+Rub', Jue: 'And+Rub',
+      Vie: 'And+Ray', 'Sáb': 'Ray+Rub+E', Dom: 'Ray+Rub',
+    },
+    totales_objetivo: { Ray: 42.5, 'Andrés': 40.25, Emilio: 15.5, 'Rubén': 28 },
   },
 }
 
