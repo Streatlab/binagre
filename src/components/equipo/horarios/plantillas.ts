@@ -1,5 +1,5 @@
 /**
- * Plantillas tipo S1-S5 — base sagrada del cuadrante cocina.
+ * Plantillas tipo S1-S6 — base sagrada del cuadrante cocina.
  * DiaKey usa 'Lun'..'Dom' (capitalizado), igual que utils.ts/DIAS.
  */
 import type { DiaKey, Tramo } from '@/components/equipo/horarios/utils'
@@ -195,7 +195,7 @@ export const PLANTILLAS: Record<PlantillaId, Plantilla> = {
   S5: {
     id: 'S5',
     nombre: 'Semana 5',
-    descripcion: 'Como S3 pero Rubén libra el viernes noche (se va con Emilio)',
+    descripcion: 'Ray libra S+D · Andrés libra X+J · Rubén+Emilio libran L+M (Rubén libra viernes noche)',
     patron_libranza: { Ray: ['Sáb','Dom'], 'Andrés': ['Mié','Jue'], Emilio: ['Lun','Mar'], 'Rubén': ['Lun','Mar'] },
     turnos: {
       Ray: {
@@ -236,7 +236,7 @@ export const PLANTILLAS: Record<PlantillaId, Plantilla> = {
   S6: {
     id: 'S6',
     nombre: 'Semana 6',
-    descripcion: 'Igual que S5 con Ray y Andrés intercambiados',
+    descripcion: 'Igual que S5 con Ray y Andrés intercambiados (Andrés libra S+D)',
     patron_libranza: { Ray: ['Mié','Jue'], 'Andrés': ['Sáb','Dom'], Emilio: ['Lun','Mar'], 'Rubén': ['Lun','Mar'] },
     turnos: {
       Ray: {
@@ -300,17 +300,17 @@ export const PLANNING_2026: AsignacionPlanning[] = [
   { semana: 'S22', lunes: '2026-05-25', plantilla: null, swapRayAndres: false, nota: 'Datos reales del Excel (semana actual)' },
   { semana: 'S23', lunes: '2026-06-01', plantilla: 'S2', swapRayAndres: false, finde_medio: 'Andrés' },
   { semana: 'S24', lunes: '2026-06-08', plantilla: 'S1', swapRayAndres: false, finde_medio: 'Ray' },
-  { semana: 'S25', lunes: '2026-06-15', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Ray (1/2)' },
-  { semana: 'S26', lunes: '2026-06-22', plantilla: 'S2', swapRayAndres: false, finde_largo: 'Ray (2/2)', finde_medio: 'Andrés' },
+  { semana: 'S25', lunes: '2026-06-15', plantilla: 'S5', swapRayAndres: false, finde_largo: 'Ray (1/2)' },
+  { semana: 'S26', lunes: '2026-06-22', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Ray (2/2)' },
   { semana: 'S27', lunes: '2026-06-29', plantilla: 'S4', swapRayAndres: false, finde_largo: 'Rubén+Emilio (1/2)' },
-  { semana: 'S28', lunes: '2026-07-06', plantilla: 'S4', swapRayAndres: false, finde_largo: 'Rubén+Emilio (2/2)' },
-  { semana: 'S29', lunes: '2026-07-13', plantilla: 'S3', swapRayAndres: true, finde_largo: 'Andrés (1/2)' },
-  { semana: 'S30', lunes: '2026-07-20', plantilla: 'S2', swapRayAndres: true, finde_largo: 'Andrés (2/2)', finde_medio: 'Ray' },
-  { semana: 'S31', lunes: '2026-07-27', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Ray (1/2)' },
-  { semana: 'S32', lunes: '2026-08-03', plantilla: 'S2', swapRayAndres: false, finde_largo: 'Ray (2/2)', finde_medio: 'Andrés' },
+  { semana: 'S28', lunes: '2026-07-06', plantilla: 'S2', swapRayAndres: false, finde_largo: 'Rubén+Emilio (2/2)' },
+  { semana: 'S29', lunes: '2026-07-13', plantilla: 'S6', swapRayAndres: false, finde_largo: 'Andrés (1/2)' },
+  { semana: 'S30', lunes: '2026-07-20', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Andrés (2/2)' },
+  { semana: 'S31', lunes: '2026-07-27', plantilla: 'S5', swapRayAndres: false, finde_largo: 'Ray (1/2)' },
+  { semana: 'S32', lunes: '2026-08-03', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Ray (2/2)' },
   { semana: 'S33', lunes: '2026-08-10', plantilla: 'S4', swapRayAndres: false, finde_largo: 'Rubén+Emilio (1/2)' },
-  { semana: 'S34', lunes: '2026-08-17', plantilla: 'S4', swapRayAndres: false, finde_largo: 'Rubén+Emilio (2/2)' },
-  { semana: 'S35', lunes: '2026-08-24', plantilla: 'S3', swapRayAndres: true, finde_largo: 'Andrés (1/2)' },
+  { semana: 'S34', lunes: '2026-08-17', plantilla: 'S2', swapRayAndres: false, finde_largo: 'Rubén+Emilio (2/2)' },
+  { semana: 'S35', lunes: '2026-08-24', plantilla: 'S6', swapRayAndres: false, finde_largo: 'Andrés (1/2)' },
 ]
 
 export function getAsignacionPorLunes(lunesISO: string): AsignacionPlanning | null {
