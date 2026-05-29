@@ -62,7 +62,7 @@ export default function TabEstaSemana() {
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
       ) : (
-        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} />
+        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} mostrarCierre={false} />
       )}
     </div>
   )
