@@ -116,16 +116,19 @@ export default function Esquemas() {
         ))}
       </div>
 
-      {/* TÍTULO IMPRESIÓN */}
-      <div className="solo-print" style={{ display: 'none' }}>
-        <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
-      </div>
+      {/* ÁREA DE IMPRESIÓN: título de gama grande arriba + maqueta. Envueltos juntos para que al imprimir el título no quede tapado por la rejilla. */}
+      <div className="print-area">
+        {/* TÍTULO IMPRESIÓN (solo visible al imprimir) */}
+        <div className="solo-print" style={{ display: 'none' }}>
+          <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
+        </div>
 
-      {/* MAQUETA: masonry por columnas → sin huecos, máximo por hoja */}
-      <div className="print-grid esquemas-masonry">
-        {visibles.length === 0
-          ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
-          : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
+        {/* MAQUETA: masonry por columnas → sin huecos, máximo por hoja */}
+        <div className="print-grid esquemas-masonry">
+          {visibles.length === 0
+            ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
+            : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
+        </div>
       </div>
 
       {editando && (
@@ -400,11 +403,12 @@ const PRINT_CSS = `
 @media print {
   @page { size: A4 portrait; margin: 9mm; }
   body * { visibility: hidden; }
-  .print-grid, .print-grid *, .solo-print, .solo-print * { visibility: visible; }
+  .print-area, .print-area * { visibility: visible; }
   .no-print { display: none !important; }
   .solo-print { display: block !important; }
-  .print-gama { font-family: Oswald, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #999; text-align: center; margin-bottom: 12px; }
-  .print-grid { position: absolute; left: 0; top: 0; width: 100%; column-count: 3 !important; column-gap: 11px; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #B01D23; text-align: center; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-grid { column-count: 3 !important; column-gap: 11px; }
   .print-card { break-inside: avoid; margin-bottom: 11px; border: 2px solid #1a1a1a !important; border-radius: 9px; }
   .print-head { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-act { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
