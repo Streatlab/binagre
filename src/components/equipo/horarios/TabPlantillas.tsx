@@ -26,7 +26,7 @@ export default function TabPlantillas() {
   }, [plantilla, swap, empleados])
 
   const lunesFake = useMemo(() => lunesDeSemana(new Date()), [])
-  const ids: PlantillaId[] = ['S1', 'S2', 'S3', 'S4', 'S5']
+  const ids: PlantillaId[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
 
   function actionBtn(): React.CSSProperties {
     return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
