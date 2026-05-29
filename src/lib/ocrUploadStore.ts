@@ -1,4 +1,4 @@
-// ocrUploadStore v37 — auto-cierre toast al completar (incluye pendientes)
+// ocrUploadStore v38 — cards en vivo (dispatch facturas:changed mientras procesa) + anti toast duplicado (oculta sesion BD si grupo en preparando)
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -145,7 +145,11 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
   return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
 }
 
-function snapshot(): OcrSession[] { return [...preparandoLocal, ...colapsarPorGrupo(rawSessions)] }
+function snapshot(): OcrSession[] {
+  const gruposPreparando = new Set(preparandoLocal.map(p => p.grupoId).filter(Boolean))
+  const deBD = colapsarPorGrupo(rawSessions).filter(s => !(s.grupoId && gruposPreparando.has(s.grupoId)))
+  return [...preparandoLocal, ...deBD]
+}
 
 function programarAutoCerrar(sesionId: string) {
   if (timersAutoCerrar.has(sesionId)) return
@@ -177,6 +181,7 @@ async function cargarSesionesActivas() {
       }
     }
     rawSessions = nuevas; emit()
+    if (typeof window !== 'undefined' && nuevas.some(s => s.procesando)) { try { window.dispatchEvent(new Event('facturas:changed')) } catch {} }
   } catch (e: any) { console.warn('[OCR] cargarSesionesActivas excepción:', e?.message || e) }
 }
 
@@ -219,9 +224,9 @@ async function lanzarWorker() {
   }
 }
 
-function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string) {
+function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string, grupoId?: string) {
   const ya = preparandoLocal.find(s => s.id === idLocal)
-  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje }
+  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje, grupoId: grupoId ?? ya?.grupoId ?? null }
   if (ya) preparandoLocal = preparandoLocal.map(s => s.id === idLocal ? ses : s); else preparandoLocal = [...preparandoLocal, ses]; emit()
 }
 function quitarPreparando(idLocal: string) { preparandoLocal = preparandoLocal.filter(s => s.id !== idLocal); emit() }
@@ -269,7 +274,7 @@ export function useOcrUpload() {
     const totalLotes = Math.max(1, Math.ceil(files.length / SESION_MAX_ARCHIVOS))
     const baseOrden = Math.floor(Date.now() / 1000)
     const sesionesCreadas: { id: string; rangoIni: number; rangoFin: number }[] = []
-    ponerPreparando(idLocal, files.length, 0, `Preparando subida…`)
+    ponerPreparando(idLocal, files.length, 0, `Preparando subida…`, grupoId)
     for (let lote = 0; lote < totalLotes; lote++) {
       const ini = lote * SESION_MAX_ARCHIVOS; const fin = Math.min(ini + SESION_MAX_ARCHIVOS, files.length)
       const sesionId = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
@@ -294,7 +299,7 @@ export function useOcrUpload() {
           console.error(`[OCR] Error procesando ${file.name}:`, e?.message || e)
         }
       }
-      const hechos = subidos + fallos; ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`)
+      const hechos = subidos + fallos; ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`, grupoId)
       const porSesion: Record<string, number> = {}; for (const a of archivosSubidos) { porSesion[a.sesionId] = (porSesion[a.sesionId] || 0) + 1 }
       if (subidos % 10 === 0 || hechos === files.length) { for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) } }
     }
