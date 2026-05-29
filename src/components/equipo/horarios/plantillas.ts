@@ -257,8 +257,8 @@ export interface AsignacionPlanning {
 
 export const PLANNING_2026: AsignacionPlanning[] = [
   { semana: 'S22', lunes: '2026-05-25', plantilla: null, swapRayAndres: false, nota: 'Datos reales del Excel (semana actual)' },
-  { semana: 'S23', lunes: '2026-06-01', plantilla: 'S1', swapRayAndres: false, finde_medio: 'Ray' },
-  { semana: 'S24', lunes: '2026-06-08', plantilla: 'S2', swapRayAndres: false, finde_medio: 'Andrés' },
+  { semana: 'S23', lunes: '2026-06-01', plantilla: 'S2', swapRayAndres: false, finde_medio: 'Andrés' },
+  { semana: 'S24', lunes: '2026-06-08', plantilla: 'S1', swapRayAndres: false, finde_medio: 'Ray' },
   { semana: 'S25', lunes: '2026-06-15', plantilla: 'S3', swapRayAndres: false, finde_largo: 'Ray (1/2)' },
   { semana: 'S26', lunes: '2026-06-22', plantilla: 'S2', swapRayAndres: false, finde_largo: 'Ray (2/2)', finde_medio: 'Andrés' },
   { semana: 'S27', lunes: '2026-06-29', plantilla: 'S4', swapRayAndres: false, finde_largo: 'Rubén+Emilio (1/2)' },
