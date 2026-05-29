@@ -72,6 +72,7 @@ const SECTIONS: NavSection[] = [
       { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
       { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/esquemas',         label: 'Esquemas',             emoji: '🗂️', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
