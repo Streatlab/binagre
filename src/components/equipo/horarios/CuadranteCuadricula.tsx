@@ -68,10 +68,11 @@ interface CuadranteProps {
   turnos: Turno[]
   lunes: Date
   cierres?: Partial<Record<DiaKey, string>>
+  mostrarCierre?: boolean
   mostrarLeyenda?: boolean
 }
 
-export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {} }: CuadranteProps) {
+export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mostrarCierre = true }: CuadranteProps) {
   const { T } = useTheme()
   const horasEmp = horasSemanaPorEmpleado(turnos)
   const idxEmp = useMemo(() => {
@@ -87,7 +88,7 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {} }: 
     empleados.filter(e => turnos.some(t => t.empleado_id === e.id)),
   [empleados, turnos])
 
-  const filaCierre = Object.keys(cierres).length > 0
+  const filaCierre = mostrarCierre && Object.keys(cierres).length > 0
 
   return (
     <div>
