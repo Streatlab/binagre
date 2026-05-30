@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import { usePanelGlobalData, fmtEur, fmtPct, fmtNum } from './usePanelGlobalData'
+import { usePanelGlobalData, fmtEur, fmtPct, fmtNum } from './mockups/usePanelGlobalData'
 
 interface MarcaItem { id: string; nombre: string }
 
