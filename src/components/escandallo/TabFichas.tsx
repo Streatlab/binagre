@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Printer, Pencil, AlertTriangle, Link2, Box, Snowflake } from 'lucide-react'
+import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -15,6 +15,33 @@ interface Ficha {
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
 
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
+
+// Resalta en negrita los ingredientes de la ficha dentro del texto de un paso.
+// Busca el nombre completo y también la primera palabra (arroz largo -> "arroz").
+function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string | JSX.Element)[] {
+  const terminos = new Set<string>()
+  ingredientes.forEach(i => {
+    const n = (i.ingrediente || '').trim().toLowerCase()
+    if (!n) return
+    terminos.add(n)
+    const prim = n.split(/\s+/)[0]
+    if (prim.length >= 3) terminos.add(prim)
+  })
+  if (terminos.size === 0) return [texto]
+  // ordena por longitud desc para casar primero el nombre completo
+  const lista = [...terminos].sort((a, b) => b.length - a.length)
+  const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`\\b(${lista.map(escapar).join('|')})\\b`, 'gi')
+  const partes: (string | JSX.Element)[] = []
+  let last = 0, m: RegExpExecArray | null, k = 0
+  while ((m = re.exec(texto)) !== null) {
+    if (m.index > last) partes.push(texto.slice(last, m.index))
+    partes.push(<strong key={k++}>{m[0]}</strong>)
+    last = m.index + m[0].length
+  }
+  if (last < texto.length) partes.push(texto.slice(last))
+  return partes.length ? partes : [texto]
+}
 
 export default function TabFichas({ busqueda }: { busqueda: string }) {
   const [fichas, setFichas] = useState<Ficha[]>([])
@@ -82,7 +109,6 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
   }, [f])
   const hayGrupos = grupos.length > 1
 
-  // Conservación: siempre los 4 métodos. El que no tenga dato => NO.
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
     const raiz: Record<string, string[]> = {
       'Biberón': ['biber'],
@@ -99,7 +125,6 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
     return { texto: 'NO' }
   }
 
-  // QR enlaza directo a ESTA ficha (no al índice)
   const qrData = encodeURIComponent(`https://binagre.vercel.app/escandallo?tab=fichas&ficha=${f.codigo}`)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`
 
@@ -145,7 +170,6 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
                   <tbody>
                     {items.map((i, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                        {/* En pantalla: nombre interno con proveedor (match.nombre). En impresión: nombre limpio. */}
                         <td style={{ padding: '5px 0' }}>
                           <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
                           <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
@@ -179,7 +203,7 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
         <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
           <Lbl>Preparación</Lbl>
           <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13.5, lineHeight: 1.6, listStyleType: 'decimal', listStylePosition: 'outside' }}>
-            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3, display: 'list-item' }}>{p}</li>)}
+            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3, display: 'list-item' }}>{resaltarIngredientes(p, f.ingredientes)}</li>)}
           </ol>
         </div>
 
@@ -194,7 +218,6 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
                   return (
                     <tr key={metodo} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '3px 0' }}>
-                        {metodo === 'Congelación' && <Snowflake size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}
                         {t.especial ? <strong>{t.especial}</strong> : metodo}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: esNo ? 700 : 500, color: esNo ? '#bbb' : '#1a1a1a' }}>{t.texto}</td>
@@ -206,9 +229,9 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
           </div>
           <div style={{ flex: 1, padding: '10px 16px' }}>
             <Lbl><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</Lbl>
-            {(f.alergenos ?? []).length === 0
-              ? <span style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>Ninguno</span>
-              : <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{f.alergenos.map(a => <span key={a} style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>{a}</span>)}</div>}
+            <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+              {(f.alergenos ?? []).length === 0 ? 'Ninguno' : f.alergenos.join(', ')}
+            </div>
           </div>
           <div style={{ width: 90, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
             <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} />
