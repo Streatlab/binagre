@@ -1,4 +1,4 @@
-// procesarArchivo v2 — fixes F01 F02 F04 F05 F06 F07 F11
+// procesarArchivo v3 — retirada regla duplicado proveedor+fecha+total (falsos positivos)
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -306,25 +306,10 @@ async function procesarContenidoPrincipal(
         }
       }
 
-      // F07: check duplicado por proveedor+fecha+total
-      if (extracted.numero_factura) {
-        const { data: duplicadoTotal } = await supabase
-          .from('facturas')
-          .select('id, proveedor_nombre, numero_factura, total, fecha_factura')
-          .eq('proveedor_id', proveedorId)
-          .eq('fecha_factura', fechaFactura)
-          .neq('id', nueva.id)
-          .maybeSingle()
-        if (duplicadoTotal && Math.abs(Number(duplicadoTotal.total) - extracted.total) <= 0.01) {
-          await supabase.from('facturas').delete().eq('id', nueva.id)
-          return {
-            estado: 'duplicada',
-            archivo: file.nombre,
-            factura_existente: duplicadoTotal as Record<string, unknown>,
-            motivo: 'proveedor+fecha+total',
-          }
-        }
-      }
+      // [retirado] La regla proveedor+fecha+total marcaba como duplicadas
+      // facturas legitimas distintas que coincidian en proveedor, fecha e importe
+      // (frecuente: 2 pedidos iguales el mismo dia). Los duplicados reales ya se
+      // cubren por hash de archivo y por proveedor+numero_factura.
     }
 
     if (!proveedorId && extracted.proveedor_nombre) {
