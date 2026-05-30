@@ -1,4 +1,4 @@
-// procesarArchivo v3 — retirada regla duplicado proveedor+fecha+total (falsos positivos)
+// procesarArchivo v4 — ignora archivos no-factura (resumenes ingresos gestoria)
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -146,12 +146,26 @@ async function extraerContenido(
   }
 }
 
+// Archivos que NO son facturas: resumenes de ingresos para gestoria, etc. Se ignoran.
+const PATRONES_NO_FACTURA = [
+  /ingresos?\s*[1-4]\s*t/i,          // "Ingresos 1T 2026"
+  /ingresos?\s*(primer|segundo|tercer|cuarto)\s*trimestre/i,
+  /resumen\s*ingresos?/i,
+  /ingresos?\s*trimestr/i,
+]
+function esNoFactura(nombre: string): boolean {
+  return PATRONES_NO_FACTURA.some(re => re.test(nombre))
+}
+
 async function procesarContenidoPrincipal(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
   contenido: ContenidoExtraido,
   tipo: TipoArchivo,
 ): Promise<ProcesarResultado> {
+  if (esNoFactura(file.nombre)) {
+    return { estado: 'duplicada', archivo: file.nombre, motivo: 'no es factura (resumen de ingresos gestoria) — ignorado' }
+  }
   const hash = createHash('sha256').update(file.buffer).digest('hex')
 
   const { data: existente } = await supabase
