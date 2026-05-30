@@ -1,4 +1,4 @@
-// procesarArchivo v4 — ignora archivos no-factura (resumenes ingresos gestoria)
+// procesarArchivo v5 — lectura barata: reglas (gratis) antes del modelo (de pago)
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -9,9 +9,13 @@ import {
   extraerTexto,
   extraerWord,
   prepararVision,
+  extraerTextoPDF,
+  pdfTieneTexto,
+  extraerPorReglas,
 } from './extractores.js'
 import type { ContenidoExtraido } from './extractores.js'
 import { extraerDatosDesdeContenido } from './ocr.js'
+import type { ExtractedFactura } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive } from './google-drive.js'
 
@@ -131,6 +135,9 @@ async function extraerContenido(
   const mime = file.mimeType || ''
   switch (tipo) {
     case 'pdf':
+      // El PDF se conserva como vision (calidad) para el caso de que las reglas
+      // no resuelvan y haya que mandarlo al modelo. La lectura de texto/reglas
+      // se intenta en procesarContenidoPrincipal.
       return prepararVision(file.buffer, 'application/pdf')
     case 'imagen':
       return prepararVision(file.buffer, mime || 'image/jpeg')
@@ -228,14 +235,36 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  let extracted: Awaited<ReturnType<typeof extraerDatosDesdeContenido>>
-  try {
-    extracted = await extraerDatosDesdeContenido(contenido)
-  } catch (ocrErr) {
-    return {
-      estado: 'error',
-      archivo: file.nombre,
-      error: `OCR falló: ${errMsg(ocrErr)}`,
+  // PASO 1 (gratis): intentar extraer por reglas desde el texto del PDF.
+  // Solo PDF con capa de texto. Plataformas y PDF sin texto devuelven null
+  // y caen al modelo (PASO 2) conservando calidad.
+  let extracted: ExtractedFactura
+  let extractedReglas: ExtractedFactura | null = null
+  let origenLectura: 'reglas' | 'modelo' = 'modelo'
+  if (tipo === 'pdf') {
+    try {
+      const textoPdf = await extraerTextoPDF(file.buffer)
+      if (pdfTieneTexto(textoPdf)) {
+        extractedReglas = extraerPorReglas(textoPdf)
+      }
+    } catch {
+      extractedReglas = null
+    }
+  }
+
+  if (extractedReglas) {
+    extracted = extractedReglas
+    origenLectura = 'reglas'
+  } else {
+    // PASO 2 (de pago): modelo IA como red de seguridad
+    try {
+      extracted = await extraerDatosDesdeContenido(contenido)
+    } catch (ocrErr) {
+      return {
+        estado: 'error',
+        archivo: file.nombre,
+        error: `OCR falló: ${errMsg(ocrErr)}`,
+      }
     }
   }
 
@@ -285,10 +314,15 @@ async function procesarContenidoPrincipal(
     if (nifEmisorNorm) {
       const { data: provPorNif } = await supabase
         .from('proveedores')
-        .select('id')
+        .select('id, nombre')
         .eq('nif', nifEmisorNorm)
         .maybeSingle()
-      if (provPorNif?.id) proveedorId = provPorNif.id
+      if (provPorNif?.id) {
+        proveedorId = provPorNif.id
+        // Diccionario NIF→nombre canónico: si el proveedor ya existe por NIF,
+        // usar su nombre oficial (evita 3 nombres distintos del mismo proveedor).
+        if (provPorNif.nombre) extracted.proveedor_nombre = provPorNif.nombre as string
+      }
     }
 
     if (!proveedorId) {
@@ -406,7 +440,7 @@ async function procesarContenidoPrincipal(
         iva_21: extracted.iva_21,
         total: extracted.total,
         ocr_confianza: extracted.confianza,
-        ocr_raw: extracted,
+        ocr_raw: { ...extracted, origen_lectura: origenLectura },
         ...(pendienteTitularManual ? { estado: 'pendiente_titular_manual' } : {}),
       })
       .eq('id', nueva.id)
