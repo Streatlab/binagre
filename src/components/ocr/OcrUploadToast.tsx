@@ -1,4 +1,4 @@
-// OcrUploadToast v10 — modo mini (pastilla con reloj de arena) <-> completo, util en movil
+// OcrUploadToast v11 — aviso visible durante subida (no cerrar a media subida)
 import { useState, useEffect } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
@@ -34,6 +34,31 @@ function AchtungBanner({ session }: { session: OcrSession }) {
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>
         {session.achtungMensaje}
       </div>
+    </div>
+  )
+}
+
+// Aviso: mientras los archivos suben al servidor (fase frágil en el navegador),
+// NO se debe cerrar ni cambiar de página o se pierden los no subidos.
+function SubiendoBanner({ session }: { session: OcrSession }) {
+  const totalSt = session.totalStorage ?? 0
+  const subidosSt = session.subidosStorage ?? 0
+  const subiendo = session.procesando && totalSt > 0 && subidosSt < totalSt
+  if (!subiendo) return null
+  return (
+    <div style={{
+      background: '#FFF3E0',
+      border: '1px solid #F26B1F',
+      color: '#8a4b00',
+      padding: '10px 12px',
+      borderRadius: 8,
+      marginBottom: 10,
+      fontSize: 11.5,
+      fontFamily: 'Lexend, sans-serif',
+      lineHeight: 1.45,
+      fontWeight: 500,
+    }}>
+      ⚠ Subiendo {subidosSt} de {totalSt} al servidor. No cierres esta ventana ni cambies de página hasta que ponga “Procesando”.
     </div>
   )
 }
@@ -85,6 +110,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
       boxSizing: 'border-box' as const,
     }}>
       <AchtungBanner session={session} />
+      <SubiendoBanner session={session} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{
           fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase',
@@ -212,6 +238,15 @@ export default function OcrUploadToast() {
   useEffect(() => { inyectarEstilosGlobales() }, [])
 
   const visibles = [...sessions.filter(s => s.visible)].sort((a, b) => a.creadoEn - b.creadoEn)
+
+  // Aviso al cerrar/recargar la pestaña si hay una subida en curso (fase frágil).
+  useEffect(() => {
+    const haySubiendo = visibles.some(s => s.procesando && (s.totalStorage ?? 0) > 0 && (s.subidosStorage ?? 0) < (s.totalStorage ?? 0))
+    if (!haySubiendo) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [visibles])
 
   // En movil, la primera vez que aparece un toast procesando, arranca minimizado
   useEffect(() => {
