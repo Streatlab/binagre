@@ -102,10 +102,11 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
               const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
               return (
                 <button key={f.id} onClick={() => setSel(f)}
-                  className={'text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ' +
-                    (sel?.id === f.id ? 'bg-[#1e2233] text-white' : 'text-[var(--sl-text-secondary)] hover:bg-[var(--sl-card)]')}>
-                  <span style={{ fontWeight: 600 }}>{f.codigo}.</span>
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
+                  className={'text-left px-3 py-2 rounded-lg transition flex items-center gap-2 ' +
+                    (sel?.id === f.id ? 'bg-[#ece9e3]' : 'hover:bg-[var(--sl-card)]')}
+                  style={{ color: 'var(--sl-text-primary)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#999', flexShrink: 0 }}>{f.codigo}</span>
+                  <span style={{ flex: 1, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
                   {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
                 </button>
               )
