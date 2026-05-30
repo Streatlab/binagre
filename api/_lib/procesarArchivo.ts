@@ -1,4 +1,4 @@
-// procesarArchivo v5 — lectura barata: reglas (gratis) antes del modelo (de pago)
+// procesarArchivo v6 — nombre proveedor por NIF desde reglas_conciliacion
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -164,6 +164,23 @@ function esNoFactura(nombre: string): boolean {
   return PATRONES_NO_FACTURA.some(re => re.test(nombre))
 }
 
+// Resuelve el nombre del proveedor por NIF desde reglas_conciliacion (Conciliación).
+// Devuelve el nombre canónico aprendido, o null si ese NIF no está aún en Conciliación.
+async function nombrePorNifEnConciliacion(
+  supabase: SupabaseClient,
+  nif: string | null,
+): Promise<string | null> {
+  if (!nif) return null
+  const { data } = await supabase
+    .from('reglas_conciliacion')
+    .select('razon_social')
+    .eq('patron_nif', nif)
+    .not('razon_social', 'is', null)
+    .limit(1)
+    .maybeSingle()
+  return (data?.razon_social as string) || null
+}
+
 async function procesarContenidoPrincipal(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
@@ -268,6 +285,15 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // Las reglas dejan el nombre vacío a propósito → resolverlo por NIF desde
+  // Conciliación. Si ese NIF no está aprendido aún, usar el NIF como nombre
+  // provisional (nunca la cabecera de la factura).
+  if (origenLectura === 'reglas' && !extracted.proveedor_nombre) {
+    const nifLook = normalizarNif(extracted.nif_emisor)
+    const nombreCanon = await nombrePorNifEnConciliacion(supabase, nifLook)
+    extracted.proveedor_nombre = nombreCanon || nifLook || ''
+  }
+
   if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
     return {
       estado: 'error',
@@ -307,26 +333,11 @@ async function procesarContenidoPrincipal(
   }
 
   try {
-    // F02: buscar por NIF emisor primero, luego nombre completo normalizado
+    // F02: buscar proveedor por nombre normalizado (la tabla proveedores no guarda NIF)
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
     let proveedorId: string | undefined
 
-    if (nifEmisorNorm) {
-      const { data: provPorNif } = await supabase
-        .from('proveedores')
-        .select('id, nombre')
-        .eq('nif', nifEmisorNorm)
-        .maybeSingle()
-      if (provPorNif?.id) {
-        proveedorId = provPorNif.id
-        // Diccionario NIF→nombre canónico: si el proveedor ya existe por NIF,
-        // usar su nombre oficial (evita 3 nombres distintos del mismo proveedor).
-        if (provPorNif.nombre) extracted.proveedor_nombre = provPorNif.nombre as string
-      }
-    }
-
-    if (!proveedorId) {
-      // F02: usar nombre completo normalizado, no solo 20 chars
+    {
       const provNombre = extracted.proveedor_nombre.trim()
       const { data: provPorNombre } = await supabase
         .from('proveedores')
@@ -362,7 +373,6 @@ async function procesarContenidoPrincipal(
 
     if (!proveedorId && extracted.proveedor_nombre) {
       const insertData: Record<string, unknown> = { nombre: extracted.proveedor_nombre, activo: true }
-      if (nifEmisorNorm) insertData.nif = nifEmisorNorm
       const { data: nuevoProv } = await supabase
         .from('proveedores')
         .insert(insertData)
