@@ -99,7 +99,8 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
     return { texto: 'NO' }
   }
 
-  const qrData = encodeURIComponent(`https://binagre.vercel.app/escandallo?ficha=${f.codigo}`)
+  // QR enlaza directo a ESTA ficha (no al índice)
+  const qrData = encodeURIComponent(`https://binagre.vercel.app/escandallo?tab=fichas&ficha=${f.codigo}`)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`
 
   function imprimir() { window.print() }
@@ -144,12 +145,16 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
                   <tbody>
                     {items.map((i, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '5px 0' }}>{i.ingrediente}</td>
+                        {/* En pantalla: nombre interno con proveedor (match.nombre). En impresión: nombre limpio. */}
+                        <td style={{ padding: '5px 0' }}>
+                          <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
+                          <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
+                        </td>
                         <td style={{ textAlign: 'right', fontWeight: 500, width: 70 }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
                         <td style={{ textAlign: 'right', color: '#888', width: 95 }}>{i.equivalencia || '—'}</td>
                         <td className="no-print" style={{ textAlign: 'right', width: 90, paddingLeft: 8 }}>
                           {i.match
-                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓</span>
+                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
                             : NO_COSTE(i)
                               ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
                               : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
@@ -207,7 +212,6 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
           </div>
           <div style={{ width: 90, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
             <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} />
-            <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>Ver online</div>
           </div>
         </div>
 
@@ -241,6 +245,8 @@ const PRINT_CSS = `
   body * { visibility: hidden; }
   .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
+  .solo-pantalla { display: none !important; }
+  .solo-print-ing { display: inline !important; }
   .print-ficha { position: absolute; left: 0; top: 0; width: 100%; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
