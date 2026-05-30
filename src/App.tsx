@@ -38,6 +38,7 @@ import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
+import PanelGlobal2 from '@/pages/PanelGlobal2'
 import MockupLymon from '@/pages/mockups/MockupLymon'
 import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
@@ -158,6 +159,7 @@ function AppRoutes() {
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+        <Route path="panel-2" element={<ProtectedRoute solo={['admin']}><PanelGlobal2 /></ProtectedRoute>} />
 
         {/* Mockup único · estilo Lymon */}
         <Route path="mockup" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
