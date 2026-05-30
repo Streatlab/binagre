@@ -89,11 +89,11 @@ export function pdfTieneTexto(texto: string): boolean {
 
 // ──────────────────────────────────────────────────────────────────────────
 // EXTRACTOR POR REGLAS (gratis, sin IA)
-// Saca nif_emisor, total, fecha, numero, tipo/plataforma del texto.
+// Saca nif_emisor, total, fecha, numero del texto.
+// El NOMBRE del proveedor NO se adivina aquí (metía cabeceras basura):
+// lo resuelve procesarArchivo por NIF desde reglas_conciliacion (Conciliación).
 // Devuelve ExtractedFactura SOLO si alcanza el mínimo (nif_emisor + total + fecha).
-// Si no, devuelve null → el flujo llamará al modelo.
-// Las facturas de plataforma (Uber/Glovo/Just Eat) devuelven null a propósito:
-// necesitan desglose por marca, que se resuelve con el modelo.
+// Plataformas (Uber/Glovo/Just Eat) devuelven null: necesitan desglose → modelo.
 // ──────────────────────────────────────────────────────────────────────────
 
 // NIF de clientes conocidos (para distinguir emisor de destinatario)
@@ -206,13 +206,10 @@ export function extraerPorReglas(texto: string): ExtractedFactura | null {
   if (total === null || total <= 0) return null
   if (!esFechaValida(fecha)) return null
 
-  // Proveedor: primera línea no vacía con letras (heurística simple).
-  // El nombre canónico real lo resuelve procesarArchivo por NIF en tabla proveedores.
-  const primeraLinea =
-    texto.split(/\n+/).map((l) => l.trim()).find((l) => /[a-zA-Z]{3,}/.test(l)) || 'PROVEEDOR'
-
+  // proveedor_nombre se deja vacío a propósito: lo rellena procesarArchivo
+  // desde reglas_conciliacion por NIF. Nunca meter texto crudo de la factura.
   return {
-    proveedor_nombre: primeraLinea.slice(0, 80),
+    proveedor_nombre: '',
     numero_factura: buscarNumeroFactura(texto) || '',
     fecha_factura: fecha as string,
     es_recapitulativa: false,
