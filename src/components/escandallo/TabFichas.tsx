@@ -14,6 +14,8 @@ interface Ficha {
 
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
 
+const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
+
 export default function TabFichas({ busqueda }: { busqueda: string }) {
   const [fichas, setFichas] = useState<Ficha[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +82,22 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
   }, [f])
   const hayGrupos = grupos.length > 1
 
+  // Conservación: siempre los 4 métodos, el que no tenga tiempo => NO
+  const conservaMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    ;(f.conservacion ?? []).forEach(c => { m[c.metodo.toLowerCase().replace(/[^a-záéíóúñ]/gi, '').slice(0, 5)] = c.tiempo })
+    return m
+  }, [f])
+  function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
+    const key = metodo.toLowerCase().slice(0, 5)
+    // busca por coincidencia parcial con lo guardado
+    const found = (f.conservacion ?? []).find(c => c.metodo.toLowerCase().includes(metodo.toLowerCase().slice(0, 4)) || (metodo === 'Tapper' && c.metodo.toLowerCase().includes('tapper')))
+    if (found) return { texto: found.tiempo, especial: found.metodo !== metodo ? found.metodo : undefined }
+    return { texto: 'NO' }
+  }
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`https://binagre.vercel.app/escandallo?ficha=${f.codigo}`)}`
+
   function imprimir() { window.print() }
 
   return (
@@ -125,9 +143,9 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
                         <td style={{ padding: '5px 0' }}>{i.ingrediente}</td>
                         <td style={{ textAlign: 'right', fontWeight: 500, width: 70 }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
                         <td style={{ textAlign: 'right', color: '#888', width: 95 }}>{i.equivalencia || '—'}</td>
-                        <td className="no-print" style={{ textAlign: 'right', width: 120, paddingLeft: 8 }}>
+                        <td className="no-print" style={{ textAlign: 'right', width: 90, paddingLeft: 8 }}>
                           {i.match
-                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
+                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓</span>
                             : NO_COSTE(i)
                               ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
                               : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
@@ -151,8 +169,8 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
 
         <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
           <Lbl>Preparación</Lbl>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.55 }}>
-            {f.pasos.map((p, idx) => <li key={idx}>{p}</li>)}
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.6 }}>
+            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3 }}>{p}</li>)}
           </ol>
         </div>
 
@@ -161,14 +179,19 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
             <Lbl><Box size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</Lbl>
             <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
               <tbody>
-                {(f.conservacion ?? []).map((c, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '3px 0', fontWeight: c.metodo === c.metodo.toUpperCase() ? 700 : 400 }}>
-                      {c.metodo.toLowerCase().includes('congel') && <Snowflake size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}{c.metodo}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 500 }}>{c.tiempo}</td>
-                  </tr>
-                ))}
+                {METODOS_CONSERVA.map(metodo => {
+                  const t = tiempoMetodo(metodo)
+                  const esNo = t.texto === 'NO'
+                  return (
+                    <tr key={metodo} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '3px 0' }}>
+                        {metodo === 'Congelación' && <Snowflake size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}
+                        {t.especial ? <strong>{t.especial}</strong> : metodo}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: esNo ? 700 : 500, color: esNo ? '#bbb' : '#1a1a1a' }}>{t.texto}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -178,8 +201,8 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
               ? <span style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>Ninguno</span>
               : <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{f.alergenos.map(a => <span key={a} style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>{a}</span>)}</div>}
           </div>
-          <div style={{ width: 78, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
-            <div style={{ width: 54, height: 54, background: 'repeating-linear-gradient(45deg,#1a1a1a,#1a1a1a 2px,#fff 2px,#fff 4px)', border: '2px solid #1a1a1a' }} />
+          <div style={{ width: 90, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
+            <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} crossOrigin="anonymous" />
             <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>Ver online</div>
           </div>
         </div>
