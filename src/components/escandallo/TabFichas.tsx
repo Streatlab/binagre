@@ -82,21 +82,25 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
   }, [f])
   const hayGrupos = grupos.length > 1
 
-  // Conservación: siempre los 4 métodos, el que no tenga tiempo => NO
-  const conservaMap = useMemo(() => {
-    const m: Record<string, string> = {}
-    ;(f.conservacion ?? []).forEach(c => { m[c.metodo.toLowerCase().replace(/[^a-záéíóúñ]/gi, '').slice(0, 5)] = c.tiempo })
-    return m
-  }, [f])
+  // Conservación: siempre los 4 métodos. El que no tenga dato => NO.
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
-    const key = metodo.toLowerCase().slice(0, 5)
-    // busca por coincidencia parcial con lo guardado
-    const found = (f.conservacion ?? []).find(c => c.metodo.toLowerCase().includes(metodo.toLowerCase().slice(0, 4)) || (metodo === 'Tapper' && c.metodo.toLowerCase().includes('tapper')))
-    if (found) return { texto: found.tiempo, especial: found.metodo !== metodo ? found.metodo : undefined }
+    const raiz: Record<string, string[]> = {
+      'Biberón': ['biber'],
+      'Tapper': ['tapper', 'taper', 'tupper'],
+      'Vacío': ['vacio', 'vacío', 'vac'],
+      'Congelación': ['congel'],
+    }
+    const claves = raiz[metodo] ?? [metodo.toLowerCase().slice(0, 4)]
+    const found = (f.conservacion ?? []).find(c => {
+      const m = c.metodo.toLowerCase()
+      return claves.some(k => m.includes(k))
+    })
+    if (found) return { texto: found.tiempo, especial: found.metodo.toLowerCase() !== metodo.toLowerCase() ? found.metodo : undefined }
     return { texto: 'NO' }
   }
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`https://binagre.vercel.app/escandallo?ficha=${f.codigo}`)}`
+  const qrData = encodeURIComponent(`https://binagre.vercel.app/escandallo?ficha=${f.codigo}`)
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`
 
   function imprimir() { window.print() }
 
@@ -169,8 +173,8 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
 
         <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
           <Lbl>Preparación</Lbl>
-          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.6 }}>
-            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3 }}>{p}</li>)}
+          <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13.5, lineHeight: 1.6, listStyleType: 'decimal', listStylePosition: 'outside' }}>
+            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3, display: 'list-item' }}>{p}</li>)}
           </ol>
         </div>
 
@@ -202,7 +206,7 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
               : <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{f.alergenos.map(a => <span key={a} style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>{a}</span>)}</div>}
           </div>
           <div style={{ width: 90, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
-            <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} crossOrigin="anonymous" />
+            <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} />
             <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>Ver online</div>
           </div>
         </div>
@@ -238,5 +242,8 @@ const PRINT_CSS = `
   .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
   .print-ficha { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
+  .print-ficha ol li { display: list-item !important; }
+  .print-ficha img { display: block !important; }
 }
 `
