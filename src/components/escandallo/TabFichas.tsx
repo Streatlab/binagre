@@ -1,14 +1,18 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FileText, Printer, Mic, Plus, Trash2, X, Check, Pencil, AlertTriangle, Link2 } from 'lucide-react'
+import { Printer, Pencil, AlertTriangle, Link2, Box, Snowflake } from 'lucide-react'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
-interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; match: Match | null }
+interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
+interface Conserva { metodo: string; tiempo: string }
 interface Ficha {
   id: string; tipo: string; codigo: string | null; nombre: string
   raciones: number | null; tiempo_prep: string | null; edicion: number; fecha: string
-  ingredientes: IngLinea[]; pasos: string[]; estado: string
+  ingredientes: IngLinea[]; pasos: string[]; conservacion: Conserva[]; alergenos: string[]
+  foto_url: string | null; estado: string
 }
+
+const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
 
 export default function TabFichas({ busqueda }: { busqueda: string }) {
   const [fichas, setFichas] = useState<Ficha[]>([])
@@ -21,7 +25,7 @@ export default function TabFichas({ busqueda }: { busqueda: string }) {
     const { data } = await supabase.from('fichas_tecnicas').select('*').eq('estado', 'vigente').order('codigo')
     const list = (data as Ficha[]) ?? []
     setFichas(list)
-    if (!sel && list.length) setSel(list[0])
+    setSel(prev => prev ? (list.find(f => f.id === prev.id) ?? list[0] ?? null) : (list[0] ?? null))
     setLoading(false)
   }
 
@@ -33,14 +37,11 @@ export default function TabFichas({ busqueda }: { busqueda: string }) {
 
   return (
     <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
-      {/* Lista lateral */}
       <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)]">Fichas EP / Receta</span>
-        </div>
+        <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">Fichas EP / Receta</span>
         <div className="flex flex-col gap-1">
           {visibles.map(f => {
-            const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && i.ud !== 'cups' && i.ingrediente.toLowerCase() !== 'agua').length
+            const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
             return (
               <button key={f.id} onClick={() => setSel(f)}
                 className={'text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ' +
@@ -53,22 +54,31 @@ export default function TabFichas({ busqueda }: { busqueda: string }) {
           })}
         </div>
       </div>
-
-      {/* Ficha */}
-      {sel ? <FichaDetalle ficha={sel} onChange={cargar} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
+      {sel ? <FichaDetalle ficha={sel} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
     </div>
   )
 }
 
-function FichaDetalle({ ficha: f, onChange }: { ficha: Ficha; onChange: () => void }) {
-  const conPrecio = f.ingredientes.filter(i => i.match)
-  const costeTanda = conPrecio.reduce((s, i) => {
-    const c = parseFloat(i.cant); if (isNaN(c)) return s
-    const factor = i.ud === 'gr' ? c / 1000 : c
-    return s + factor * (i.match?.precio ?? 0)
-  }, 0)
+function costeLinea(i: IngLinea): number {
+  if (!i.match) return 0
+  const c = parseFloat((i.cant || '').replace(',', '.'))
+  if (isNaN(c)) return 0
+  const factor = (i.ud === 'gr' || i.ud === 'g' || i.ud === 'ml') ? c / 1000 : c
+  return factor * i.match.precio
+}
+
+function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
+  const costeTanda = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
   const costeRac = f.raciones ? costeTanda / f.raciones : 0
-  const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && i.ud !== 'cups' && i.ingrediente.toLowerCase() !== 'agua')
+  const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
+  const esReceta = f.tipo === 'receta'
+
+  const grupos = useMemo(() => {
+    const g: Record<number, IngLinea[]> = {}
+    f.ingredientes.forEach(i => { const k = i.grupo ?? 1; (g[k] = g[k] || []).push(i) })
+    return Object.entries(g).sort((a, b) => Number(a[0]) - Number(b[0]))
+  }, [f])
+  const hayGrupos = grupos.length > 1
 
   function imprimir() { window.print() }
 
@@ -76,12 +86,11 @@ function FichaDetalle({ ficha: f, onChange }: { ficha: Ficha; onChange: () => vo
     <div className="flex-1 min-w-0">
       <style>{PRINT_CSS}</style>
 
-      {/* Alerta en directo */}
       {sinEnlazar.length > 0 && (
         <div className="no-print" style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color="#b45309" />
           <div style={{ flex: 1, fontSize: 13, color: '#92400e' }}>
-            <strong>{sinEnlazar.length} ingrediente(s) sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
+            <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
           </div>
           <button style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <Link2 size={13} /> Resolver
@@ -89,81 +98,112 @@ function FichaDetalle({ ficha: f, onChange }: { ficha: Ficha; onChange: () => vo
         </div>
       )}
 
-      <div className="print-ficha" style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
-        {/* Cabecera */}
-        <div className="print-head" style={{ background: '#1e2233', color: '#fff', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#e8f442', letterSpacing: 1 }}>{f.codigo}</span>
-            <span style={{ fontSize: 18, fontWeight: 600 }}>{f.nombre}</span>
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.65 }}>Ed. {f.edicion} · {new Date(f.fecha).toLocaleDateString('es-ES')}{f.tiempo_prep ? ` · ${f.tiempo_prep}` : ''}</div>
+      <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10 }}>
+          <div style={{ fontSize: 21, fontWeight: 500 }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: 12, color: '#666', lineHeight: 1.4 }}>Ed. {f.edicion}<br />{new Date(f.fecha).toLocaleDateString('es-ES')}</div>
         </div>
 
-        <div style={{ padding: '14px 18px' }}>
-          {/* Costes */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            <Kpi label="Coste tanda" val={`${costeTanda.toFixed(2)} €`} />
-            <Kpi label="Raciones" val={f.raciones ?? '—'} />
-            <Kpi label="Coste / ración" val={`${costeRac.toFixed(2)} €`} />
+        <div style={{ display: 'flex', borderBottom: '1px solid #ddd' }}>
+          <Cell label="PREP." val={f.tiempo_prep ?? '—'} />
+          <Cell label="RENDIMIENTO" val={f.raciones ? `${f.raciones} rac.` : '—'} />
+          <Cell label="COSTE TANDA" val={`${costeTanda.toFixed(2)} €`} />
+          <Cell label="€ / RACIÓN" val={`${costeRac.toFixed(2)} €`} last />
+        </div>
+
+        <div style={{ display: 'flex' }}>
+          <div style={{ flex: 1, padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
+            <Lbl>Ingredientes</Lbl>
+            {grupos.map(([gk, items]) => (
+              <div key={gk} style={{ marginBottom: 10 }}>
+                {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+                  <tbody>
+                    {items.map((i, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '5px 0' }}>{i.ingrediente}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 500, width: 70 }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
+                        <td style={{ textAlign: 'right', color: '#888', width: 95 }}>{i.equivalencia || '—'}</td>
+                        <td className="no-print" style={{ textAlign: 'right', width: 120, paddingLeft: 8 }}>
+                          {i.match
+                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
+                            : NO_COSTE(i)
+                              ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
+                              : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
 
-          {/* Ingredientes */}
-          <div style={{ fontSize: 11, color: 'var(--sl-text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Ingredientes</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ color: 'var(--sl-text-muted)', fontSize: 12, textAlign: 'left' }}>
-                <th style={{ padding: '4px 0', fontWeight: 400 }}>Cant.</th>
-                <th style={{ padding: '4px 0', fontWeight: 400 }}>Ud.</th>
-                <th style={{ padding: '4px 0', fontWeight: 400 }}>Ingrediente</th>
-                <th style={{ padding: '4px 0', fontWeight: 400 }}>Equivalencia</th>
-                <th style={{ padding: '4px 0', fontWeight: 400, textAlign: 'right' }} className="no-print">Enlace</th>
-              </tr>
-            </thead>
-            <tbody>
-              {f.ingredientes.map((i, idx) => {
-                const noCoste = i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
-                return (
-                  <tr key={idx} style={{ borderTop: '0.5px solid var(--sl-border)' }}>
-                    <td style={{ padding: '7px 0', fontWeight: 500 }}>{i.cant}</td>
-                    <td>{i.ud}</td>
-                    <td>{i.ingrediente}</td>
-                    <td style={{ color: 'var(--sl-text-muted)' }}>{i.equivalencia || '—'}</td>
-                    <td style={{ textAlign: 'right' }} className="no-print">
-                      {i.match
-                        ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 11, padding: '2px 8px', borderRadius: 99 }}>✓ {i.match.prov} · {i.match.precio.toFixed(2)}€</span>
-                        : noCoste
-                          ? <span style={{ color: 'var(--sl-text-muted)', fontSize: 12 }}>no coste</span>
-                          : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 11, padding: '2px 8px', borderRadius: 99 }}>⚠ sin enlazar</span>}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          {esReceta && (
+            <div className="no-print" style={{ width: 130, borderLeft: '1px solid #ddd', borderBottom: '2px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#bbb' }}>
+              {f.foto_url
+                ? <img src={f.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <><Box size={28} /><span style={{ fontSize: 10, marginTop: 4 }}>Foto</span></>}
+            </div>
+          )}
+        </div>
 
-          {/* Pasos */}
-          <div style={{ fontSize: 11, color: 'var(--sl-text-muted)', textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 6px' }}>Preparación</div>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.7 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
+          <Lbl>Preparación</Lbl>
+          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.55 }}>
             {f.pasos.map((p, idx) => <li key={idx}>{p}</li>)}
           </ol>
+        </div>
 
-          {/* Botones */}
-          <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir / PDF</button>
+        <div style={{ display: 'flex' }}>
+          <div style={{ flex: 1.3, padding: '10px 16px', borderRight: '1px solid #ddd' }}>
+            <Lbl><Box size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</Lbl>
+            <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
+              <tbody>
+                {(f.conservacion ?? []).map((c, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '3px 0', fontWeight: c.metodo === c.metodo.toUpperCase() ? 700 : 400 }}>
+                      {c.metodo.toLowerCase().includes('congel') && <Snowflake size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}{c.metodo}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 500 }}>{c.tiempo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ flex: 1, padding: '10px 16px' }}>
+            <Lbl><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</Lbl>
+            {(f.alergenos ?? []).length === 0
+              ? <span style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>Ninguno</span>
+              : <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{f.alergenos.map(a => <span key={a} style={{ border: '1.5px solid #1a1a1a', borderRadius: 99, padding: '3px 10px', fontSize: 12 }}>{a}</span>)}</div>}
+          </div>
+          <div style={{ width: 78, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
+            <div style={{ width: 54, height: 54, background: 'repeating-linear-gradient(45deg,#1a1a1a,#1a1a1a 2px,#fff 2px,#fff 4px)', border: '2px solid #1a1a1a' }} />
+            <div style={{ fontSize: 9, color: '#888', marginTop: 3 }}>Ver online</div>
           </div>
         </div>
+
+      </div>
+
+      <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir / PDF</button>
+        <button style={btn}><Pencil size={15} /> Editar</button>
       </div>
     </div>
   )
 }
 
-function Kpi({ label, val }: { label: string; val: any }) {
+function Cell({ label, val, last }: { label: string; val: any; last?: boolean }) {
   return (
-    <div style={{ background: 'var(--sl-group, rgba(0,0,0,0.03))', borderRadius: 8, padding: '8px 14px' }}>
-      <div style={{ fontSize: 11, color: 'var(--sl-text-muted)' }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--sl-text-primary)' }}>{val}</div>
+    <div style={{ flex: 1, padding: '8px 12px', textAlign: 'center', borderRight: last ? 'none' : '1px solid #eee' }}>
+      <div style={{ fontSize: 10, color: '#888', letterSpacing: 1 }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 500 }}>{val}</div>
     </div>
   )
+}
+function Lbl({ children }: { children: any }) {
+  return <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>{children}</div>
 }
 
 const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }
@@ -174,7 +214,6 @@ const PRINT_CSS = `
   body * { visibility: hidden; }
   .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
-  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; border: 2px solid #1a1a1a !important; }
-  .print-head { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; }
 }
 `
