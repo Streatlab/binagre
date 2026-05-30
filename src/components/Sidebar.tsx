@@ -96,6 +96,7 @@ const SECTIONS: NavSection[] = [
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
       { path: '/configuracion/integraciones',    label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
+      { path: '/configuracion/reglas',           label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
