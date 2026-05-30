@@ -10,14 +10,13 @@ interface Ficha {
   id: string; tipo: string; codigo: string | null; nombre: string
   raciones: number | null; tiempo_prep: string | null; edicion: number; fecha: string
   ingredientes: IngLinea[]; pasos: string[]; conservacion: Conserva[]; alergenos: string[]
-  foto_url: string | null; estado: string
+  foto_url: string | null; estado: string; gama: string | null
 }
 
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
 
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
 
-// Resalta en negrita los ingredientes de la ficha dentro del texto de un paso.
 function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): React.ReactNode[] {
   const terminos = new Set<string>()
   ingredientes.forEach(i => {
@@ -46,8 +45,9 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [fichas, setFichas] = useState<Ficha[]>([])
   const [loading, setLoading] = useState(true)
   const [sel, setSel] = useState<Ficha | null>(null)
+  const [gamaSel, setGamaSel] = useState<string>('')
 
-  useEffect(() => { cargar() }, [tipo])
+  useEffect(() => { cargar(); setGamaSel('') }, [tipo])
   async function cargar() {
     setLoading(true)
     let q = supabase.from('fichas_tecnicas').select('*').eq('estado', 'vigente')
@@ -59,35 +59,62 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     setLoading(false)
   }
 
+  const gamas = useMemo(() => {
+    const set = new Set<string>()
+    fichas.forEach(f => { if (f.gama) set.add(f.gama) })
+    return [...set].sort()
+  }, [fichas])
+
   const visibles = useMemo(() =>
-    fichas.filter(f => !busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
-    , [fichas, busqueda])
+    fichas.filter(f =>
+      (!gamaSel || f.gama === gamaSel) &&
+      (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase())))
+    , [fichas, busqueda, gamaSel])
 
   if (loading) return <div className="py-10 text-center text-[var(--sl-text-muted)] text-sm">Cargando fichas…</div>
 
-  const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPs' : 'Fichas EP / Receta'
+  const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
+
+  const pill = (active: boolean): React.CSSProperties => ({
+    padding: '4px 11px', borderRadius: 99, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+    border: active ? 'none' : '1px solid var(--sl-border)',
+    background: active ? '#B01D23' : 'transparent',
+    color: active ? '#fff' : 'var(--sl-text-secondary)',
+  })
 
   return (
-    <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
-      <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
-        <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">{etiquetaLista}</span>
-        <div className="flex flex-col gap-1">
-          {visibles.map(f => {
-            const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
-            return (
-              <button key={f.id} onClick={() => setSel(f)}
-                className={'text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ' +
-                  (sel?.id === f.id ? 'bg-[#1e2233] text-white' : 'text-[var(--sl-text-secondary)] hover:bg-[var(--sl-card)]')}>
-                <span style={{ fontWeight: 600 }}>{f.codigo}.</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
-                {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
-              </button>
-            )
-          })}
-          {visibles.length === 0 && <div className="text-[var(--sl-text-muted)] text-xs py-4">Sin fichas todavía.</div>}
+    <div>
+      {/* Filtro por gama */}
+      {gamas.length > 0 && (
+        <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+          <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
+          {gamas.map(g => (
+            <button key={g} onClick={() => setGamaSel(g)} style={pill(gamaSel === g)}>{g}</button>
+          ))}
         </div>
+      )}
+
+      <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
+        <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
+          <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">{etiquetaLista}</span>
+          <div className="flex flex-col gap-1">
+            {visibles.map(f => {
+              const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
+              return (
+                <button key={f.id} onClick={() => setSel(f)}
+                  className={'text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ' +
+                    (sel?.id === f.id ? 'bg-[#1e2233] text-white' : 'text-[var(--sl-text-secondary)] hover:bg-[var(--sl-card)]')}>
+                  <span style={{ fontWeight: 600 }}>{f.codigo}.</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
+                  {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
+                </button>
+              )
+            })}
+            {visibles.length === 0 && <div className="text-[var(--sl-text-muted)] text-xs py-4">Sin fichas todavía.</div>}
+          </div>
+        </div>
+        {sel ? <FichaDetalle ficha={sel} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
       </div>
-      {sel ? <FichaDetalle ficha={sel} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
     </div>
   )
 }
