@@ -77,8 +77,8 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             return (
               <button key={f.id} onClick={() => setSel(f)}
                 className={'text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ' +
-                  (sel?.id === f.id ? 'bg-accent text-[#111]' : 'text-[var(--sl-text-secondary)] hover:bg-[var(--sl-card)]')}>
-                <span className="font-medium" style={{ fontSize: 11, opacity: 0.7 }}>{f.codigo}</span>
+                  (sel?.id === f.id ? 'bg-[#1e2233] text-white' : 'text-[var(--sl-text-secondary)] hover:bg-[var(--sl-card)]')}>
+                <span style={{ fontWeight: 600 }}>{f.codigo}.</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
                 {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
               </button>
