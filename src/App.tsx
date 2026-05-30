@@ -15,6 +15,9 @@ import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 import TabDrive from '@/pages/configuracion/marcas/TabDrive'
 
+import ReglasPage from '@/pages/configuracion/reglas/ReglasPage'
+import TabReglasIngredientes from '@/pages/configuracion/reglas/TabReglasIngredientes'
+
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
 import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
 import BancosYCuentasPage from '@/pages/configuracion/bancos/BancosYCuentasPage'
@@ -56,7 +59,6 @@ import CocinaRecetas from '@/pages/CocinaRecetas'
 import CocinaInventario from '@/pages/CocinaInventario'
 import MenuEngineering from '@/pages/cocina/MenuEngineering'
 import Recetario from '@/pages/cocina/Recetario'
-import RecetaDetalle from '@/pages/cocina/RecetaDetalle'
 import Esquemas from '@/pages/cocina/Esquemas'
 
 import MarketingEmbudo from '@/pages/MarketingEmbudo'
@@ -133,6 +135,11 @@ function AppRoutes() {
         </Route>
         <Route path="configuracion/marcas" element={<Navigate to="/configuracion/integraciones" replace />} />
         <Route path="configuracion/marcas/canales" element={<Navigate to="/configuracion/integraciones/canales" replace />} />
+
+        <Route path="configuracion/reglas" element={<ProtectedRoute solo={['admin']}><ReglasPage /></ProtectedRoute>}>
+          <Route index element={<TabReglasIngredientes />} />
+          <Route path="ingredientes" element={<TabReglasIngredientes />} />
+        </Route>
 
         <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
         <Route path="configuracion/cuentas-bancarias" element={<ProtectedRoute solo={['admin']}><CuentasBancarias /></ProtectedRoute>} />
@@ -221,7 +228,6 @@ function AppRoutes() {
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
         <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
         <Route path="cocina/recetario" element={<Recetario />} />
-        <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
         <Route path="cocina/esquemas" element={<Esquemas />} />
 
         <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
