@@ -1,4 +1,4 @@
-// OcrUploadToast v9 — pausa/reanuda, 'Abortado' solo en fallo real, cierre con confirmacion
+// OcrUploadToast v10 — modo mini (pastilla con reloj de arena) <-> completo, util en movil
 import { useState, useEffect } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
@@ -10,7 +10,7 @@ function inyectarEstilosGlobales() {
   if (document.getElementById(STYLE_ID)) return
   const style = document.createElement('style')
   style.id = STYLE_ID
-  style.textContent = `@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}}`
+  style.textContent = `@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}} @keyframes ocrSpin { from { transform: rotate(0deg);} to { transform: rotate(360deg);}}`
   document.head.appendChild(style)
 }
 
@@ -38,8 +38,23 @@ function AchtungBanner({ session }: { session: OcrSession }) {
   )
 }
 
-function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onReanudar }: {
-  session: OcrSession; onCerrar: () => void; onOcultar: () => void; onCancelar: () => void; onPausar: () => void; onReanudar: () => void
+// Pastilla mini: icono + contador. Toca para expandir al toast completo.
+function MiniToast({ session, onExpandir }: { session: OcrSession; onExpandir: () => void }) {
+  const esAbortReal = !!session.achtungMensaje && (session.achtungTipo === 'creditos' || session.achtungTipo === 'api_key' || session.achtungTipo === 'modelo' || (session.achtungMensaje || '').includes('DRIVE'))
+  const color = session.cancelado ? '#7a8090' : (esAbortReal ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75')))
+  const icono = esAbortReal ? '⚠' : session.cancelado ? '⊘' : session.pausada ? '⏸' : session.procesando ? '⏳' : '✓'
+  const girando = session.procesando && !session.pausada && !esAbortReal
+  return (
+    <button onClick={onExpandir} title="Ver detalle"
+      style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${color}`, borderRadius: 999, padding: '8px 14px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontFamily: 'Oswald, sans-serif' }}>
+      <span style={{ fontSize: 15, color, display: 'inline-block', animation: girando ? 'ocrSpin 1.6s linear infinite' : 'none' }}>{icono}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color, letterSpacing: '0.5px' }}>{session.enviados}/{session.total}</span>
+    </button>
+  )
+}
+
+function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onReanudar, onMini }: {
+  session: OcrSession; onCerrar: () => void; onOcultar: () => void; onCancelar: () => void; onPausar: () => void; onReanudar: () => void; onMini: () => void
 }) {
   const esAbortReal = !!session.achtungMensaje && (session.achtungTipo === 'creditos' || session.achtungTipo === 'api_key' || session.achtungTipo === 'modelo' || (session.achtungMensaje || '').includes('DRIVE'))
   const tieneErroresOAchtung = session.errores > 0 || session.achtung > 0
@@ -116,6 +131,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
               </button>
             </>
           )}
+          <button onClick={onMini} title="Minimizar a icono" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>⌄</button>
           {session.procesando
             ? <button onClick={onOcultar} title="Ocultar (sigue procesando en segundo plano)" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
             : (confirmarCerrar
@@ -187,21 +203,41 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
 
 export default function OcrUploadToast() {
   const { sessions, cerrar, ocultar, cancelar, pausar, reanudar } = useOcrUpload()
+  // ids minimizados a pastilla. Por defecto en movil arranca mini.
+  const esMovil = typeof window !== 'undefined' && window.innerWidth <= 640
+  const [minis, setMinis] = useState<Set<string>>(new Set())
+  const [autoMiniHecho, setAutoMiniHecho] = useState(false)
 
   // C02: inyectar estilos globales una vez
   useEffect(() => { inyectarEstilosGlobales() }, [])
 
   const visibles = [...sessions.filter(s => s.visible)].sort((a, b) => a.creadoEn - b.creadoEn)
+
+  // En movil, la primera vez que aparece un toast procesando, arranca minimizado
+  useEffect(() => {
+    if (esMovil && !autoMiniHecho && visibles.some(s => s.procesando)) {
+      setMinis(new Set(visibles.filter(s => s.procesando).map(s => s.id)))
+      setAutoMiniHecho(true)
+    }
+  }, [esMovil, autoMiniHecho, visibles])
+
+  function toggleMini(id: string, on: boolean) {
+    setMinis(prev => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n })
+  }
+
   if (visibles.length === 0) return null
   return (
     <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden', maxWidth: 'calc(100vw - 40px)' }}>
       {visibles.map(s => (
-        <SessionToast key={s.id} session={s}
-          onCerrar={() => cerrar(s.id)}
-          onOcultar={() => ocultar(s.id)}
-          onCancelar={() => cancelar(s.id)}
-          onPausar={() => pausar(s.id)}
-          onReanudar={() => reanudar(s.id)} />
+        minis.has(s.id)
+          ? <MiniToast key={s.id} session={s} onExpandir={() => toggleMini(s.id, false)} />
+          : <SessionToast key={s.id} session={s}
+              onCerrar={() => cerrar(s.id)}
+              onOcultar={() => ocultar(s.id)}
+              onCancelar={() => cancelar(s.id)}
+              onPausar={() => pausar(s.id)}
+              onReanudar={() => reanudar(s.id)}
+              onMini={() => toggleMini(s.id, true)} />
       ))}
     </div>
   )
