@@ -6,14 +6,13 @@ import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
-import TabFichas from '@/components/escandallo/TabFichas'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 
-type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'fichas'
+type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'indice', label: 'Índice' },
@@ -21,7 +20,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'mermas', label: 'Mermas' },
   { id: 'eps', label: 'EPS' },
   { id: 'recetas', label: 'Recetas' },
-  { id: 'fichas', label: 'Fichas' },
 ]
 
 export default function Escandallo() {
@@ -71,13 +69,6 @@ export default function Escandallo() {
   }
 
   useEffect(() => { fetchData() }, [])
-
-  // Si el QR de una ficha trae ?tab=fichas, abre esa pestaña al cargar
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const t = params.get('tab')
-    if (t && TABS.some(x => x.id === t)) setTab(t as Tab)
-  }, [])
 
   const handleSaved = () => {
     setModalEPS({ open: false, eps: null })
@@ -165,9 +156,6 @@ export default function Escandallo() {
               onSelect={receta => setModalReceta({ open: true, receta })}
               onNew={() => setModalReceta({ open: true, receta: null })}
             />
-          )}
-          {tab === 'fichas' && (
-            <TabFichas busqueda={busqueda} />
           )}
         </>
       )}
