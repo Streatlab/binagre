@@ -100,15 +100,9 @@ type ContentBlock =
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'text'; text: string }
 
-const MODELO_OCR_DEFAULT = 'claude-sonnet-4-6'
-
-const MODELOS_VALIDOS = new Set([
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-5-20250929',
-  'claude-sonnet-4-6',
-  'claude-opus-4-6',
-  'claude-opus-4-7',
-])
+// BLINDAJE COSTE: Haiku es el unico modelo permitido para OCR.
+// No se permite override a Sonnet/Opus por env (evita gasto accidental).
+const MODELO_OCR = 'claude-haiku-4-5-20251001'
 
 // H04: timeout 25s para no exceder Vercel 30s
 const OCR_TIMEOUT_MS = 25000
@@ -120,9 +114,8 @@ function clienteAnthropic(): Anthropic {
 }
 
 function modeloOcr(): string {
-  const env = process.env.ANTHROPIC_MODEL?.trim()
-  if (env && MODELOS_VALIDOS.has(env)) return env
-  return MODELO_OCR_DEFAULT
+  // Forzado a Haiku siempre. Override por env deshabilitado a proposito.
+  return MODELO_OCR
 }
 
 function errorAnthropicLegible(err: unknown, modelo: string): string {
