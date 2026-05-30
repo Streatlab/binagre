@@ -6,12 +6,13 @@ import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
+import TabFichas from '@/components/escandallo/TabFichas'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 
-type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
+type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'fichas'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'indice', label: 'Índice' },
@@ -19,6 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'mermas', label: 'Mermas' },
   { key: 'eps', label: 'EPS' },
   { key: 'recetas', label: 'Recetas' },
+  { key: 'fichas', label: 'Fichas' },
 ]
 
 export default function Escandallo() {
@@ -163,6 +165,9 @@ export default function Escandallo() {
               onSelect={receta => setModalReceta({ open: true, receta })}
               onNew={() => setModalReceta({ open: true, receta: null })}
             />
+          )}
+          {tab === 'fichas' && (
+            <TabFichas busqueda={busqueda} />
           )}
         </>
       )}
