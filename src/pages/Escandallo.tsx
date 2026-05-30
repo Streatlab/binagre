@@ -72,6 +72,13 @@ export default function Escandallo() {
 
   useEffect(() => { fetchData() }, [])
 
+  // Si el QR de una ficha trae ?tab=fichas, abre esa pestaña al cargar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get('tab')
+    if (t && TABS.some(x => x.id === t)) setTab(t as Tab)
+  }, [])
+
   const handleSaved = () => {
     setModalEPS({ open: false, eps: null })
     setModalReceta({ open: false, receta: null })
