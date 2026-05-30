@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 
@@ -17,7 +18,7 @@ const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingredi
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
 
 // Resalta en negrita los ingredientes de la ficha dentro del texto de un paso.
-function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string | JSX.Element)[] {
+function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): React.ReactNode[] {
   const terminos = new Set<string>()
   ingredientes.forEach(i => {
     const n = (i.ingrediente || '').trim().toLowerCase()
@@ -30,7 +31,7 @@ function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string 
   const lista = [...terminos].sort((a, b) => b.length - a.length)
   const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const re = new RegExp(`\\b(${lista.map(escapar).join('|')})\\b`, 'gi')
-  const partes: (string | JSX.Element)[] = []
+  const partes: React.ReactNode[] = []
   let last = 0, m: RegExpExecArray | null, k = 0
   while ((m = re.exec(texto)) !== null) {
     if (m.index > last) partes.push(texto.slice(last, m.index))
