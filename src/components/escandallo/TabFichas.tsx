@@ -17,7 +17,6 @@ const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingredi
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
 
 // Resalta en negrita los ingredientes de la ficha dentro del texto de un paso.
-// Busca el nombre completo y también la primera palabra (arroz largo -> "arroz").
 function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string | JSX.Element)[] {
   const terminos = new Set<string>()
   ingredientes.forEach(i => {
@@ -28,7 +27,6 @@ function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string 
     if (prim.length >= 3) terminos.add(prim)
   })
   if (terminos.size === 0) return [texto]
-  // ordena por longitud desc para casar primero el nombre completo
   const lista = [...terminos].sort((a, b) => b.length - a.length)
   const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const re = new RegExp(`\\b(${lista.map(escapar).join('|')})\\b`, 'gi')
@@ -43,15 +41,17 @@ function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): (string 
   return partes.length ? partes : [texto]
 }
 
-export default function TabFichas({ busqueda }: { busqueda: string }) {
+export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?: 'ep' | 'receta' }) {
   const [fichas, setFichas] = useState<Ficha[]>([])
   const [loading, setLoading] = useState(true)
   const [sel, setSel] = useState<Ficha | null>(null)
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => { cargar() }, [tipo])
   async function cargar() {
     setLoading(true)
-    const { data } = await supabase.from('fichas_tecnicas').select('*').eq('estado', 'vigente').order('codigo')
+    let q = supabase.from('fichas_tecnicas').select('*').eq('estado', 'vigente')
+    if (tipo) q = q.eq('tipo', tipo)
+    const { data } = await q.order('codigo')
     const list = (data as Ficha[]) ?? []
     setFichas(list)
     setSel(prev => prev ? (list.find(f => f.id === prev.id) ?? list[0] ?? null) : (list[0] ?? null))
@@ -64,10 +64,12 @@ export default function TabFichas({ busqueda }: { busqueda: string }) {
 
   if (loading) return <div className="py-10 text-center text-[var(--sl-text-muted)] text-sm">Cargando fichas…</div>
 
+  const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPs' : 'Fichas EP / Receta'
+
   return (
     <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
       <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
-        <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">Fichas EP / Receta</span>
+        <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">{etiquetaLista}</span>
         <div className="flex flex-col gap-1">
           {visibles.map(f => {
             const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
@@ -81,6 +83,7 @@ export default function TabFichas({ busqueda }: { busqueda: string }) {
               </button>
             )
           })}
+          {visibles.length === 0 && <div className="text-[var(--sl-text-muted)] text-xs py-4">Sin fichas todavía.</div>}
         </div>
       </div>
       {sel ? <FichaDetalle ficha={sel} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
