@@ -7,6 +7,7 @@ import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
 import TabFichas from '@/components/escandallo/TabFichas'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
@@ -14,13 +15,13 @@ import ModalMerma from '@/components/escandallo/ModalMerma'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'fichas'
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'indice', label: 'Índice' },
-  { key: 'ingredientes', label: 'Ingredientes' },
-  { key: 'mermas', label: 'Mermas' },
-  { key: 'eps', label: 'EPS' },
-  { key: 'recetas', label: 'Recetas' },
-  { key: 'fichas', label: 'Fichas' },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'indice', label: 'Índice' },
+  { id: 'ingredientes', label: 'Ingredientes' },
+  { id: 'mermas', label: 'Mermas' },
+  { id: 'eps', label: 'EPS' },
+  { id: 'recetas', label: 'Recetas' },
+  { id: 'fichas', label: 'Fichas' },
 ]
 
 export default function Escandallo() {
@@ -85,26 +86,18 @@ export default function Escandallo() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <h2 className="text-2xl font-bold text-[var(--sl-text-primary)] tracking-tight">Escandallo</h2>
+    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>ESCANDALLO</h2>
       </div>
 
-      {/* Subtabs + buscador */}
+      {/* Subtabs estilo Conciliación + buscador */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex gap-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg p-1 flex-wrap">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setBusqueda('') }}
-              className={'px-4 py-1.5 text-sm font-medium rounded-md transition ' +
-                (tab === t.key ? 'bg-accent text-[#111]' : 'text-[var(--sl-text-secondary)] hover:text-[var(--sl-text-primary)]')
-              }
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <TabsPastilla
+          tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
+          activeId={tab}
+          onChange={(id) => { setTab(id as Tab); setBusqueda('') }}
+        />
         <input
           className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
           placeholder="Buscar..."
