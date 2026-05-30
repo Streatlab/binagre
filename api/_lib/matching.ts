@@ -1,4 +1,4 @@
-// matching v3 — D02 G07: import config centralizada
+// matching v4 — pre-jul-2023 -> asociada (conciliada sin banco) en vez de historica
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ExtractedFactura } from './ocr.js'
 import { TOLERANCIA_IMPORTE, LIMITE_CONCILIACION } from './ocr-config.js'
@@ -180,7 +180,7 @@ export async function matchFactura(supabase: SupabaseClient, factura: ExtractedF
 }
 
 async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFactura & { total: number; titular_id?: string | null }, alias: string[]): Promise<MatchingResult> {
-  if (alias.length === 0) return { estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'sin_match', matches: [], confianza: 0, mensaje: `Sin alias para proveedor "${factura.proveedor_nombre}"` }
+  if (alias.length === 0) return fechaEsHistorica(factura.fecha_factura) ? { estado: 'asociada', matches: [], confianza: 100, mensaje: 'Pre 03/07/2023: sin banco, justificante en Drive, dada por conciliada' } : { estado: 'sin_match', matches: [], confianza: 0, mensaje: `Sin alias para proveedor "${factura.proveedor_nombre}"` }
   const ventana = ventanaProveedor(factura.proveedor_nombre)
   const fechaBase = new Date(factura.fecha_factura)
   const fechaMin = new Date(fechaBase); fechaMin.setDate(fechaMin.getDate() - ventana.antes)
@@ -189,7 +189,7 @@ async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFa
   if (factura.titular_id) query = query.eq('titular_id', factura.titular_id)
   const { data: candidatosRaw } = await query
   const candidatos: MatchCandidato[] = (candidatosRaw || []).map((c) => ({ id: c.id as string, fecha: c.fecha as string, concepto: (c.concepto as string) || null, importe: Number(c.importe), proveedor: (c.proveedor as string) || null, titular_id: (c.titular_id as string | null) ?? null, categoria_codigo: (c.categoria as string | null) ?? null }))
-  if (candidatos.length === 0) return { estado: fechaEsHistorica(factura.fecha_factura) ? 'historica' : 'sin_match', matches: [], confianza: 0, mensaje: `No hay movimientos de "${factura.proveedor_nombre}" entre ${fechaMin.toISOString().slice(0, 10)} y ${fechaMax.toISOString().slice(0, 10)}` }
+  if (candidatos.length === 0) return fechaEsHistorica(factura.fecha_factura) ? { estado: 'asociada', matches: [], confianza: 100, mensaje: 'Pre 03/07/2023: sin banco, justificante en Drive, dada por conciliada' } : { estado: 'sin_match', matches: [], confianza: 0, mensaje: `No hay movimientos de "${factura.proveedor_nombre}" entre ${fechaMin.toISOString().slice(0, 10)} y ${fechaMax.toISOString().slice(0, 10)}` }
   const total = Math.abs(factura.total)
   const ids = candidatos.map((c) => c.id)
   let yaAsociadosIds = new Set<string>()
