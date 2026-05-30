@@ -402,6 +402,50 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
+          {/* PANEL GLOBAL 2 — copia real estilo Lymon */}
+          {(!collapsed && perfil === 'admin') && (
+            <NavLink
+              to="/panel-2"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#e8f442'} style={{ flexShrink: 0 }} />
+                  <span>Panel Global 2</span>
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil === 'admin' && (
+            <NavLink
+              to="/panel-2"
+              onClick={onClose}
+              title="Panel Global 2 · estilo Lymon"
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <LayoutDashboard size={20} strokeWidth={1.8} color="#e8f442" />
+            </NavLink>
+          )}
+
           {(!collapsed && perfil === 'admin') && (
             <NavLink
               to="/tareas"
