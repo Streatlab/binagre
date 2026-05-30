@@ -1,4 +1,4 @@
-// ocrUploadStore v38 — cards en vivo (dispatch facturas:changed mientras procesa) + anti toast duplicado (oculta sesion BD si grupo en preparando)
+// ocrUploadStore v39 — pausa/reanuda real de cola + estado pausada en toast
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -13,7 +13,7 @@ export interface OcrSession {
   id: string; total: number; enviados: number; ok: number; pendientes: number
   duplicados: number; errores: number; achtung: number; cancelados: number
   achtungMensaje: string | null; achtungTipo: 'creditos' | 'api_key' | 'modelo' | 'otro' | null
-  log: ArchivoLog[]; visible: boolean; procesando: boolean; cancelado: boolean
+  log: ArchivoLog[]; visible: boolean; procesando: boolean; cancelado: boolean; pausada: boolean
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
   titular_id: string | null; archivosPendientes: any[]; creadoEn: number
   completadoEn: number | null; orden: number; archivoActual?: string | null
@@ -124,7 +124,7 @@ async function normalizar(file: File): Promise<{ name: string; type: string; blo
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
 
 function dbToSession(s: any): OcrSession {
-  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging', cancelado: s.estado === 'cancelada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0 }
+  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0 }
 }
 
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
@@ -133,14 +133,14 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
   const agregadas: OcrSession[] = Object.entries(porGrupo).map(([grupoId, lotes]) => {
     if (lotes.length === 0) return null as any
     lotes.sort((a, b) => a.orden - b.orden)
-    const algunoProcesando = lotes.some(l => l.procesando); const todosCompletados = lotes.every(l => !l.procesando && !l.cancelado); const todosCancelados = lotes.every(l => l.cancelado); const achtungL = lotes.find(l => l.achtungMensaje)
+    const algunoProcesando = lotes.some(l => l.procesando); const algunaPausada = lotes.some(l => l.pausada); const todosCompletados = lotes.every(l => !l.procesando && !l.cancelado); const todosCancelados = lotes.every(l => l.cancelado); const achtungL = lotes.find(l => l.achtungMensaje)
     const total = lotes.reduce((acc, l) => acc + l.total, 0); const enviados = lotes.reduce((acc, l) => acc + l.enviados, 0)
     const subidosStorage = lotes.reduce((acc, l) => acc + (l.subidosStorage || 0), 0); const totalStorage = lotes.reduce((acc, l) => acc + (l.totalStorage || 0), 0)
     const logAcumulado: ArchivoLog[] = []; for (const l of lotes) logAcumulado.push(...(l.log || []))
     const primerLote = lotes[0]
     let archivoActual: string | null = null
-    if (algunoProcesando) { archivoActual = totalStorage > 0 && subidosStorage < totalStorage ? `Subiendo ${subidosStorage} de ${totalStorage} al servidor…` : `Procesando ${enviados} de ${total}…` }
-    return { id: `grp_${grupoId}`, total, enviados, ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0), duplicados: lotes.reduce((a, l) => a + l.duplicados, 0), errores: lotes.reduce((a, l) => a + l.errores, 0), achtung: lotes.reduce((a, l) => a + l.achtung, 0), cancelados: lotes.reduce((a, l) => a + l.cancelados, 0), achtungMensaje: achtungL?.achtungMensaje || null, achtungTipo: achtungL?.achtungTipo || null, log: logAcumulado, visible: lotes.some(l => l.visible), procesando: algunoProcesando, cancelado: todosCancelados, fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [], creadoEn: Math.min(...lotes.map(l => l.creadoEn)), completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null, orden: primerLote.orden, archivoActual, grupoId, lotesIds: lotes.map(l => l.id), subidosStorage, totalStorage }
+    if (algunoProcesando) { archivoActual = algunaPausada ? `Pausado en ${enviados} de ${total}` : (totalStorage > 0 && subidosStorage < totalStorage ? `Subiendo ${subidosStorage} de ${totalStorage} al servidor…` : `Procesando ${enviados} de ${total}…`) }
+    return { id: `grp_${grupoId}`, total, enviados, ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0), duplicados: lotes.reduce((a, l) => a + l.duplicados, 0), errores: lotes.reduce((a, l) => a + l.errores, 0), achtung: lotes.reduce((a, l) => a + l.achtung, 0), cancelados: lotes.reduce((a, l) => a + l.cancelados, 0), achtungMensaje: achtungL?.achtungMensaje || null, achtungTipo: achtungL?.achtungTipo || null, log: logAcumulado, visible: lotes.some(l => l.visible), procesando: algunoProcesando, pausada: algunaPausada, cancelado: todosCancelados, fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [], creadoEn: Math.min(...lotes.map(l => l.creadoEn)), completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null, orden: primerLote.orden, archivoActual, grupoId, lotesIds: lotes.map(l => l.id), subidosStorage, totalStorage }
   }).filter(Boolean)
   return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
 }
@@ -170,7 +170,7 @@ async function cargarSesionesActivas() {
       .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
       .gte('creado_en', cutoff)
       .eq('visible', true)
-      .in('estado_cola', ['staging', 'en_espera', 'procesando', 'completada'])
+      .in('estado_cola', ['staging', 'en_espera', 'procesando', 'completada', 'pausada'])
       .order('orden_cola', { ascending: true })
     if (error) { console.warn('[OCR] cargarSesionesActivas error:', error.message); return }
     const nuevas = (data || []).map(dbToSession)
@@ -226,7 +226,7 @@ async function lanzarWorker() {
 
 function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string, grupoId?: string) {
   const ya = preparandoLocal.find(s => s.id === idLocal)
-  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje, grupoId: grupoId ?? ya?.grupoId ?? null }
+  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, pausada: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje, grupoId: grupoId ?? ya?.grupoId ?? null }
   if (ya) preparandoLocal = preparandoLocal.map(s => s.id === idLocal ? ses : s); else preparandoLocal = [...preparandoLocal, ses]; emit()
 }
 function quitarPreparando(idLocal: string) { preparandoLocal = preparandoLocal.filter(s => s.id !== idLocal); emit() }
@@ -349,5 +349,26 @@ export function useOcrUpload() {
     }
   }
 
-  return { sessions: snap, procesar, cancelar, cerrar, ocultar, errorVisible }
+  async function pausar(id: string) {
+    if (id.startsWith('grp_')) { const grupoId = id.slice(4)
+      // en_espera -> pausada ya; la que procesa se autopausa al siguiente bloque
+      await supabase.from('ocr_sessions').update({ pausar_solicitado: true }).eq('grupo_id', grupoId)
+      await supabase.from('ocr_sessions').update({ estado_cola: 'pausada' }).eq('grupo_id', grupoId).eq('estado_cola', 'en_espera')
+    } else {
+      await supabase.from('ocr_sessions').update({ pausar_solicitado: true }).eq('id', id)
+      await supabase.from('ocr_sessions').update({ estado_cola: 'pausada' }).eq('id', id).eq('estado_cola', 'en_espera')
+    }
+    await cargarSesionesActivas()
+  }
+
+  async function reanudar(id: string) {
+    if (id.startsWith('grp_')) { const grupoId = id.slice(4)
+      await supabase.from('ocr_sessions').update({ pausar_solicitado: false, estado_cola: 'en_espera' }).eq('grupo_id', grupoId).eq('estado_cola', 'pausada')
+    } else {
+      await supabase.from('ocr_sessions').update({ pausar_solicitado: false, estado_cola: 'en_espera' }).eq('id', id).eq('estado_cola', 'pausada')
+    }
+    await cargarSesionesActivas(); lanzarWorker()
+  }
+
+  return { sessions: snap, procesar, cancelar, cerrar, ocultar, pausar, reanudar, errorVisible }
 }
