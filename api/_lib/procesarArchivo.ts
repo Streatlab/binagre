@@ -1,4 +1,4 @@
-// procesarArchivo v7 — registro auditoría 1-a-1 en ocr_auditoria
+// procesarArchivo v8 — auditoría 1-a-1 + plantilla por NIF (0 API)
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -13,7 +13,7 @@ import {
   pdfTieneTexto,
   extraerPorReglas,
 } from './extractores.js'
-import type { ContenidoExtraido } from './extractores.js'
+import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import { extraerDatosDesdeContenido } from './ocr.js'
 import type { ExtractedFactura } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
@@ -210,21 +210,30 @@ function esNoFactura(nombre: string): boolean {
   return PATRONES_NO_FACTURA.some(re => re.test(nombre))
 }
 
-// Resuelve el nombre del proveedor por NIF desde reglas_conciliacion (Conciliación).
-// Devuelve el nombre canónico aprendido, o null si ese NIF no está aún en Conciliación.
-async function nombrePorNifEnConciliacion(
+// Diccionario NIF → {nombre canónico, plantilla de lectura}.
+// Carga toda la tabla de reglas con patron_nif una vez por archivo y la indexa.
+// 0 API: es el "diccionario de NIF contra proveedor" con plantilla por proveedor.
+async function cargarDiccionarioNif(
   supabase: SupabaseClient,
-  nif: string | null,
-): Promise<string | null> {
-  if (!nif) return null
+): Promise<Map<string, { nombre: string | null; plantilla: PlantillaNif }>> {
+  const dic = new Map<string, { nombre: string | null; plantilla: PlantillaNif }>()
   const { data } = await supabase
     .from('reglas_conciliacion')
-    .select('razon_social')
-    .eq('patron_nif', nif)
-    .not('razon_social', 'is', null)
-    .limit(1)
-    .maybeSingle()
-  return (data?.razon_social as string) || null
+    .select('patron_nif, razon_social, plantilla_total_label, plantilla_fecha_formato, plantilla_num_label')
+    .not('patron_nif', 'is', null)
+  for (const row of data || []) {
+    const nif = normalizarNif(row.patron_nif as string)
+    if (!nif || dic.has(nif)) continue
+    dic.set(nif, {
+      nombre: (row.razon_social as string) || null,
+      plantilla: {
+        totalLabel: (row.plantilla_total_label as string) || null,
+        fechaFormato: (row.plantilla_fecha_formato as string) || null,
+        numLabel: (row.plantilla_num_label as string) || null,
+      },
+    })
+  }
+  return dic
 }
 
 async function procesarContenidoPrincipal(
@@ -298,17 +307,21 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // PASO 1 (gratis): intentar extraer por reglas desde el texto del PDF.
-  // Solo PDF con capa de texto. Plataformas y PDF sin texto devuelven null
-  // y caen al modelo (PASO 2) conservando calidad.
+  // PASO 1 (gratis): extraer por reglas desde el texto del PDF, usando la
+  // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
   let origenLectura: 'reglas' | 'modelo' = 'modelo'
+  let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
+
   if (tipo === 'pdf') {
     try {
       const textoPdf = await extraerTextoPDF(file.buffer)
       if (pdfTieneTexto(textoPdf)) {
-        extractedReglas = extraerPorReglas(textoPdf)
+        diccionario = await cargarDiccionarioNif(supabase)
+        // El extractor recibe una función que, dado el NIF emisor, devuelve su
+        // plantilla. Así cada proveedor usa su forma de leer el total/fecha.
+        extractedReglas = extraerPorReglas(textoPdf, (nif) => diccionario?.get(nif)?.plantilla || null)
       }
     } catch {
       extractedReglas = null
@@ -331,12 +344,11 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // Las reglas dejan el nombre vacío a propósito → resolverlo por NIF desde
-  // Conciliación. Si ese NIF no está aprendido aún, usar el NIF como nombre
-  // provisional (nunca la cabecera de la factura).
+  // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
   if (origenLectura === 'reglas' && !extracted.proveedor_nombre) {
     const nifLook = normalizarNif(extracted.nif_emisor)
-    const nombreCanon = await nombrePorNifEnConciliacion(supabase, nifLook)
+    if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
+    const nombreCanon = nifLook ? (diccionario.get(nifLook)?.nombre || null) : null
     extracted.proveedor_nombre = nombreCanon || nifLook || ''
   }
 
