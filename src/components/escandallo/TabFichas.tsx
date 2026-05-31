@@ -218,7 +218,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
   }, [f])
   const hayGrupos = grupos.length > 1
   const totalIng = f.ingredientes.length
-  const colsIng = totalIng > 18 ? 3 : totalIng > 8 ? 2 : 1
+  const colsIng = totalIng >= 28 ? 3 : totalIng >= 14 ? 2 : 1
 
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
     const raiz: Record<string, string[]> = {
@@ -235,7 +235,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
 
   const filaIng = (i: IngLinea, idx: number) => (
     <tr key={idx} className="ficha-tr">
-      <td style={{ padding: '3px 0' }}>
+      <td style={{ padding: '5px 0' }}>
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
@@ -401,9 +401,9 @@ const FICHA_CSS = `
   color: var(--text-primary);
   overflow: hidden;
   display: flex; flex-direction: column;
-  min-height: 920px;
+  min-height: 78vh;
 }
-.sec-prep { flex: 1 1 auto; }
+.sec-prep { flex: 1 1 auto; min-height: 120px; }
 .ficha-head {
   display: flex; align-items: center; gap: 12px;
   padding: 16px 20px;
@@ -452,12 +452,12 @@ const FICHA_CSS = `
   .solo-print-ing { display: inline !important; }
   .print-ficha {
     position: absolute; left: 0; top: 0; width: 100%;
-    height: 265mm; box-sizing: border-box; padding: 6mm;
+    min-height: 245mm; box-sizing: border-box; padding: 6mm;
     display: flex; flex-direction: column;
     background: #fff !important; color: #111 !important;
     border: 1px solid #111 !important; border-radius: 6px !important;
   }
-  .print-ficha .sec-prep { flex: 1 1 auto; }
+  .print-ficha .sec-prep { flex: 1 1 auto; min-height: 60mm; }
   .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
   .print-ficha .ficha-id { background: #111 !important; color: #fff !important; }
   .print-ficha .ficha-title { color: #111 !important; }
