@@ -218,7 +218,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
   }, [f])
   const hayGrupos = grupos.length > 1
   const totalIng = f.ingredientes.length
-  const colsIng = totalIng > 24 ? 3 : totalIng > 12 ? 2 : 1
+  const colsIng = totalIng > 18 ? 3 : totalIng > 8 ? 2 : 1
 
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
     const raiz: Record<string, string[]> = {
@@ -235,7 +235,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
 
   const filaIng = (i: IngLinea, idx: number) => (
     <tr key={idx} className="ficha-tr">
-      <td style={{ padding: '5px 0' }}>
+      <td style={{ padding: '3px 0' }}>
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
@@ -329,10 +329,10 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
           )}
         </div>
 
-        <div className="ficha-section">
+        <div className="ficha-section sec-prep">
           <div className="ficha-seclabel">Preparación</div>
           <ol className="ficha-steps">
-            {f.pasos.map((p, idx) => <li key={idx}>{resaltarIngredientes(p, f.ingredientes)}</li>)}
+            {f.pasos.length ? f.pasos.map((p, idx) => <li key={idx}>{resaltarIngredientes(p, f.ingredientes)}</li>) : <li style={{ listStyle: 'none', marginLeft: -22, color: 'var(--text-muted)' }}>—</li>}
           </ol>
         </div>
 
@@ -400,7 +400,10 @@ const FICHA_CSS = `
   border-radius: 10px;
   color: var(--text-primary);
   overflow: hidden;
+  display: flex; flex-direction: column;
+  min-height: 920px;
 }
+.sec-prep { flex: 1 1 auto; }
 .ficha-head {
   display: flex; align-items: center; gap: 12px;
   padding: 16px 20px;
@@ -431,14 +434,14 @@ const FICHA_CSS = `
 }
 .ficha-grupo { font-family: 'Oswald', sans-serif; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--sl-border-strong); padding-bottom: 2px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
 .ficha-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
-.ficha-table td { padding: 5px 0; border-bottom: 1px solid var(--border-sep); color: var(--text-primary); }
+.ficha-table td { padding: 3px 0; color: var(--text-primary); vertical-align: top; }
 .ficha-equiv { color: var(--text-muted); }
 .ficha-steps { margin: 0; padding-left: 22px; font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.55; list-style-type: decimal; list-style-position: outside; color: var(--text-primary); }
 .ficha-steps li { margin-bottom: 4px; display: list-item; }
 .ficha-alerg-val { font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.5; color: var(--text-primary); }
 .ficha-foto { width: 130px; flex-shrink: 0; margin-left: 16px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--text-muted); overflow: hidden; }
 
-/* ── IMPRESIÓN: papel blanco, márgenes reales, aire interior ── */
+/* ── IMPRESIÓN: papel blanco, márgenes reales, ficha ocupa la hoja ── */
 @media print {
   @page { size: A4 portrait; margin: 16mm; }
   html, body { background: #fff !important; }
@@ -449,10 +452,12 @@ const FICHA_CSS = `
   .solo-print-ing { display: inline !important; }
   .print-ficha {
     position: absolute; left: 0; top: 0; width: 100%;
-    box-sizing: border-box; padding: 6mm;
+    height: 265mm; box-sizing: border-box; padding: 6mm;
+    display: flex; flex-direction: column;
     background: #fff !important; color: #111 !important;
     border: 1px solid #111 !important; border-radius: 6px !important;
   }
+  .print-ficha .sec-prep { flex: 1 1 auto; }
   .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
   .print-ficha .ficha-id { background: #111 !important; color: #fff !important; }
   .print-ficha .ficha-title { color: #111 !important; }
@@ -464,7 +469,7 @@ const FICHA_CSS = `
   .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
   .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
   .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
-  .print-ficha .ficha-table td { color: #111 !important; border-color: #ddd !important; }
+  .print-ficha .ficha-table td { color: #111 !important; }
   .print-ficha .ficha-equiv { color: #777 !important; }
   .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: #111 !important; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
