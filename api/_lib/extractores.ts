@@ -79,8 +79,11 @@ export async function extraerTextoPDF(buffer: Buffer): Promise<string> {
     const { extractText, getDocumentProxy } = await import('unpdf')
     const uint8 = new Uint8Array(buffer)
     const pdf = await getDocumentProxy(uint8)
-    const { text } = await extractText(pdf, { mergePages: true })
-    return (typeof text === 'string' ? text : Array.isArray(text) ? text.join('\n') : '').trim()
+    const out = await extractText(pdf, { mergePages: true })
+    const text: unknown = (out as { text: unknown }).text
+    if (typeof text === 'string') return text.trim()
+    if (Array.isArray(text)) return (text as string[]).join('\n').trim()
+    return ''
   } catch {
     return ''
   }
