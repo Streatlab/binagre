@@ -1,13 +1,13 @@
 /**
  * GET /api/facturas/reproc-cron
  *
- * Cron de reprocesado masivo 0 API. Corre solo en Vercel (sin login del usuario).
- * En cada ejecución coge el job activo de reproc_control, procesa un lote,
- * baja cada PDF de Drive, lo re-pasa por el motor nuevo (reglas + diccionario +
- * match + categoría/contraparte + auditoría 1-a-1) y guarda el informe línea a
- * línea en reproc_informe. Avanza el offset hasta agotar el rango.
+ * Reprocesado masivo 0 API auto-encadenado (sin cron de Vercel).
+ * Coge el job activo de reproc_control, procesa un lote, baja cada PDF de Drive,
+ * lo re-pasa por el motor nuevo (reglas + diccionario + match + categoría/
+ * contraparte + auditoría 1-a-1), guarda el informe línea a línea en
+ * reproc_informe, avanza el offset y se vuelve a llamar a sí mismo hasta acabar.
  *
- * Programado en vercel.json para correr cada minuto mientras haya job activo.
+ * Arranque: una primera llamada GET pone la cadena en marcha.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
@@ -22,11 +22,11 @@ const LOTE = 20
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = req.headers.authorization || ''
   const secret = process.env.CRON_SECRET || ''
+  // Permitir arranque manual sin secret si no hay secret configurado
   if (secret && auth !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  // Job activo (el más antiguo)
   const { data: job } = await supabaseAdmin
     .from('reproc_control')
     .select('*')
@@ -56,7 +56,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message })
 
   if (!facturas || facturas.length === 0) {
-    // Terminado
     await supabaseAdmin.from('reproc_control').update({ activo: false, ultimo_run: new Date().toISOString() }).eq('id', job.id as string)
     return res.status(200).json({ ok: true, job: job.id, mensaje: 'Job completado', offset })
   }
@@ -123,6 +122,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ultimo_run: new Date().toISOString(),
     activo: !terminado,
   }).eq('id', job.id as string)
+
+  // Auto-encadenado: si quedan facturas, dispara el siguiente lote en segundo
+  // plano (fire-and-forget). No depende de cron de Vercel.
+  if (!terminado) {
+    const host = req.headers.host
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+    if (host) {
+      const url = `${proto}://${host}/api/facturas/reproc-cron`
+      const headers: Record<string, string> = {}
+      if (secret) headers.authorization = `Bearer ${secret}`
+      fetch(url, { method: 'GET', headers }).catch(() => {})
+    }
+  }
 
   return res.status(200).json({
     ok: true,
