@@ -144,7 +144,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
       <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
         <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
-          <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">{etiquetaLista}</span>
+          <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.1em' }}>{etiquetaLista}</span>
           <div className="flex flex-col gap-1">
             {fichas.filter(f =>
               (!gamaSel || f.gama === gamaSel) &&
@@ -157,7 +157,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
                     (sel?.id === f.id ? 'bg-[#ece9e3]' : 'hover:bg-[var(--sl-card)]')}
                   style={{ color: 'var(--sl-text-primary)' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#999', flexShrink: 0 }}>{f.codigo}</span>
-                  <span style={{ flex: 1, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</span>
+                  <span style={{ flex: 1, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', fontFamily: 'Lexend, sans-serif' }}>{f.nombre}</span>
                   {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
                 </button>
               )
@@ -234,13 +234,13 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
   function imprimir() { window.print() }
 
   const filaIng = (i: IngLinea, idx: number) => (
-    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-      <td style={{ padding: '4px 0' }}>
+    <tr key={idx} className="ficha-tr">
+      <td style={{ padding: '5px 0' }}>
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
       <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap' }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
-      <td style={{ textAlign: 'right', color: '#888', width: 78, whiteSpace: 'nowrap' }}>{i.equivalencia || '—'}</td>
+      <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
           ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
@@ -253,7 +253,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
 
   return (
     <div className="flex-1 min-w-0">
-      <style>{PRINT_CSS}</style>
+      <style>{FICHA_CSS}</style>
 
       {editando && (
         <ModalEditarFicha
@@ -265,9 +265,8 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
       )}
 
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 12, color: 'var(--sl-text-muted)' }}>Gama:</span>
-        <select value={f.gama ?? ''} onChange={e => cambiarGama(e.target.value)}
-          style={{ background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
+        <span style={{ fontSize: 12, color: 'var(--sl-text-muted)', fontFamily: 'Lexend, sans-serif' }}>Gama:</span>
+        <select value={f.gama ?? ''} onChange={e => cambiarGama(e.target.value)} className="ds-input" style={{ width: 'auto' }}>
           <option value="">— Sin gama —</option>
           {gamasAll.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
@@ -285,35 +284,36 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
         </div>
       )}
 
-      <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a', display: 'flex', flexDirection: 'column' }}>
+      <div className="print-ficha ficha-card">
 
-        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10, flexShrink: 0 }}>
-          <div style={{ fontSize: 21, fontWeight: 500, textTransform: 'uppercase' }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
+        <div className="ficha-head">
+          <span className="ficha-id">{f.codigo}</span>
+          <span className="ficha-title">{f.nombre}</span>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
-          <Cell label="PREP." val={f.tiempo_prep ?? '—'} />
-          <Cell label="RENDIMIENTO" val={f.raciones ? `${f.raciones} rac.` : '—'} />
-          <Cell label="COSTE TANDA" val={`${costeTanda.toFixed(2)} €`} />
-          <Cell label="€ / RACIÓN" val={`${costeRac.toFixed(2)} €`} last />
+        <div className="ficha-meta">
+          <div className="cell"><div className="lbl">Prep.</div><div className="val">{f.tiempo_prep ?? '—'}</div></div>
+          <div className="cell"><div className="lbl">Rendimiento</div><div className="val">{f.raciones ? `${f.raciones} rac.` : '—'}</div></div>
+          <div className="cell"><div className="lbl">Coste tanda</div><div className="val">{costeTanda.toFixed(2)} €</div></div>
+          <div className="cell"><div className="lbl">€ / Ración</div><div className="val">{costeRac.toFixed(2)} €</div></div>
         </div>
 
-        <div style={{ display: 'flex', flexShrink: 0 }}>
-          <div style={{ flex: 1, padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
-            <Lbl>Ingredientes</Lbl>
+        <div className="ficha-section" style={{ display: 'flex' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="ficha-seclabel">Ingredientes</div>
             {colsIng === 1 ? (
               grupos.map(([gk, items]) => (
                 <div key={gk} style={{ marginBottom: 8 }}>
-                  {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}><tbody>{items.map(filaIng)}</tbody></table>
+                  {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
+                  <table className="ficha-table"><tbody>{items.map(filaIng)}</tbody></table>
                 </div>
               ))
             ) : (
               <div style={{ columnCount: colsIng, columnGap: 22 }}>
                 {grupos.map(([gk, items]) => (
                   <div key={gk} style={{ breakInside: 'avoid', marginBottom: 8 }}>
-                    {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><tbody>{items.map(filaIng)}</tbody></table>
+                    {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
+                    <table className="ficha-table"><tbody>{items.map(filaIng)}</tbody></table>
                   </div>
                 ))}
               </div>
@@ -321,7 +321,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
           </div>
 
           {esReceta && (
-            <div className="no-print" style={{ width: 130, borderLeft: '1px solid #ddd', borderBottom: '2px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#bbb' }}>
+            <div className="no-print ficha-foto">
               {f.foto_url
                 ? <img src={f.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <><Box size={28} /><span style={{ fontSize: 10, marginTop: 4 }}>Foto</span></>}
@@ -329,34 +329,34 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
           )}
         </div>
 
-        <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a', flex: 1 }}>
-          <Lbl>Preparación</Lbl>
-          <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13, lineHeight: 1.55, listStyleType: 'decimal', listStylePosition: 'outside' }}>
-            {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3, display: 'list-item' }}>{resaltarIngredientes(p, f.ingredientes)}</li>)}
+        <div className="ficha-section">
+          <div className="ficha-seclabel">Preparación</div>
+          <ol className="ficha-steps">
+            {f.pasos.map((p, idx) => <li key={idx}>{resaltarIngredientes(p, f.ingredientes)}</li>)}
           </ol>
         </div>
 
-        <div style={{ display: 'flex', flexShrink: 0 }}>
-          <div style={{ flex: 1.3, padding: '10px 16px', borderRight: '1px solid #ddd' }}>
-            <Lbl><Box size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</Lbl>
-            <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
+        <div className="ficha-section" style={{ display: 'flex', gap: 24 }}>
+          <div style={{ flex: 1.3 }}>
+            <div className="ficha-seclabel"><Box size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</div>
+            <table className="ficha-table">
               <tbody>
                 {METODOS_CONSERVA.map(metodo => {
                   const t = tiempoMetodo(metodo)
                   const esNo = t.texto === 'NO'
                   return (
-                    <tr key={metodo} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '3px 0' }}>{t.especial ? <strong>{t.especial}</strong> : metodo}</td>
-                      <td style={{ textAlign: 'right', fontWeight: esNo ? 700 : 500, color: esNo ? '#bbb' : '#1a1a1a' }}>{t.texto}</td>
+                    <tr key={metodo} className="ficha-tr">
+                      <td style={{ padding: '4px 0' }}>{t.especial ? <strong>{t.especial}</strong> : metodo}</td>
+                      <td style={{ textAlign: 'right', fontWeight: esNo ? 700 : 500 }} className={esNo ? 'ficha-equiv' : ''}>{t.texto}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
-          <div style={{ flex: 1, padding: '10px 16px' }}>
+          <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Lbl><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</Lbl>
+              <div className="ficha-seclabel" style={{ borderBottom: 'none', marginBottom: 4 }}><AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</div>
               <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Pencil size={11} /> {editAlerg ? 'Guardar' : 'Editar'}
               </button>
@@ -367,14 +367,14 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid #ccc', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : '#666' }}>
+                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
                       {a}
                     </button>
                   )
                 })}
               </div>
             ) : (
-              <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{alergAuto.length === 0 ? 'Ninguno' : alergAuto.join(', ')}</div>
+              <div className="ficha-alerg-val">{alergAuto.length === 0 ? 'Ninguno' : alergAuto.join(', ')}</div>
             )}
           </div>
         </div>
@@ -389,29 +389,82 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
   )
 }
 
-function Cell({ label, val, last }: { label: string; val: any; last?: boolean }) {
-  return (
-    <div style={{ flex: 1, padding: '8px 12px', textAlign: 'center', borderRight: last ? 'none' : '1px solid #eee' }}>
-      <div style={{ fontSize: 10, color: '#888', letterSpacing: 1 }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 500 }}>{val}</div>
-    </div>
-  )
-}
-function Lbl({ children }: { children: any }) {
-  return <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>{children}</div>
-}
+const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
 
-const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }
+const FICHA_CSS = `
+/* ── Ficha EPS/Receta — sistema ds-* (Streat Lab) ── */
+.ficha-card {
+  font-family: 'Lexend', sans-serif;
+  background: var(--sl-card);
+  border: 1px solid var(--sl-border);
+  border-radius: 10px;
+  color: var(--sl-text-primary);
+  overflow: hidden;
+}
+.ficha-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sl-border-strong);
+}
+.ficha-id {
+  background: var(--sl-yellow); color: var(--sl-btn-add-alt-text);
+  font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 12px;
+  padding: 3px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.ficha-title {
+  font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 21px;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--sl-text-primary);
+  line-height: 1.15;
+}
+.ficha-meta { display: flex; border-bottom: 1px solid var(--sl-border); }
+.ficha-meta .cell { flex: 1; padding: 10px 14px; text-align: center; border-right: 1px solid var(--sl-border); }
+.ficha-meta .cell:last-child { border-right: none; }
+.ficha-meta .lbl { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sl-text-muted); }
+.ficha-meta .val { font-family: 'Lexend', sans-serif; font-size: 16px; font-weight: 600; color: var(--sl-text-primary); }
+.ficha-section { padding: 14px 20px; border-bottom: 1px solid var(--sl-border); }
+.ficha-section:last-child { border-bottom: none; }
+.ficha-seclabel {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.14em; color: var(--sl-text-secondary);
+  padding-bottom: 5px; border-bottom: 1px solid var(--sl-border-strong); margin-bottom: 10px;
+}
+.ficha-grupo { font-family: 'Oswald', sans-serif; font-size: 11px; color: var(--sl-text-muted); border-bottom: 1px solid var(--sl-border-strong); padding-bottom: 2px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+.ficha-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
+.ficha-table td { padding: 5px 0; border-bottom: 1px solid var(--sl-border); color: var(--sl-text-primary); }
+.ficha-equiv { color: var(--sl-text-muted); }
+.ficha-steps { margin: 0; padding-left: 22px; font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.55; list-style-type: decimal; list-style-position: outside; }
+.ficha-steps li { margin-bottom: 4px; display: list-item; }
+.ficha-alerg-val { font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.5; color: var(--sl-text-primary); }
+.ficha-foto { width: 130px; flex-shrink: 0; margin-left: 16px; border: 1px solid var(--sl-border); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--sl-text-muted); overflow: hidden; }
 
-const PRINT_CSS = `
+/* ── IMPRESIÓN: papel blanco, márgenes reales, aire interior ── */
 @media print {
-  @page { size: A4 portrait; margin: 18mm; }
+  @page { size: A4 portrait; margin: 16mm; }
+  html, body { background: #fff !important; }
   body * { visibility: hidden; }
   .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
   .solo-pantalla { display: none !important; }
   .solo-print-ing { display: inline !important; }
-  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; height: 261mm; box-sizing: border-box; }
+  .print-ficha {
+    position: absolute; left: 0; top: 0; width: 100%;
+    box-sizing: border-box; padding: 6mm;
+    background: #fff !important; color: #111 !important;
+    border: 1px solid #111 !important; border-radius: 6px !important;
+  }
+  .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-id { background: #111 !important; color: #fff !important; }
+  .print-ficha .ficha-title { color: #111 !important; }
+  .print-ficha .ficha-meta { border-color: #ccc !important; }
+  .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
+  .print-ficha .ficha-meta .lbl { color: #555 !important; }
+  .print-ficha .ficha-meta .val { color: #111 !important; }
+  .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
+  .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
+  .print-ficha .ficha-table td { color: #111 !important; border-color: #ddd !important; }
+  .print-ficha .ficha-equiv { color: #777 !important; }
+  .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: #111 !important; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
 }
