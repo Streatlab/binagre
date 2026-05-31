@@ -13,7 +13,7 @@ interface Ficha {
   foto_url: string | null; estado: string; gama: string | null
 }
 
-const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
+const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || /\bagua\b/.test(i.ingrediente.toLowerCase())
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
 const ALERGENOS_14 = ['Gluten', 'Lácteos', 'Huevo', 'Pescado', 'Crustáceos', 'Moluscos', 'Frutos secos', 'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces']
 
@@ -46,8 +46,8 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [loading, setLoading] = useState(true)
   const [sel, setSel] = useState<Ficha | null>(null)
   const [gamaSel, setGamaSel] = useState<string>('')
-  // mapa nombre_limpio(lower) -> alergenos[] desde tabla ingredientes
   const [alergMap, setAlergMap] = useState<Record<string, string[]>>({})
+  const [gestionGamas, setGestionGamas] = useState(false)
 
   useEffect(() => { cargar(); setGamaSel('') }, [tipo])
   useEffect(() => { cargarAlergenos() }, [])
@@ -81,11 +81,37 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     return [...set].sort()
   }, [fichas])
 
-  const visibles = useMemo(() =>
-    fichas.filter(f =>
-      (!gamaSel || f.gama === gamaSel) &&
-      (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase())))
-    , [fichas, busqueda, gamaSel])
+  // ---- Gestión de gamas (crear / renombrar / eliminar / mover fichas) ----
+  async function crearGama() {
+    const nombre = window.prompt('Nombre de la nueva gama:')?.trim()
+    if (!nombre) return
+    // crea la gama "vacía" asignándola a ninguna ficha todavía; aparecerá al asignar.
+    // Para que se vea aunque esté vacía, la mostramos localmente.
+    setGamaSel(nombre)
+    alert(`Gama "${nombre}" lista. Asigna fichas desde el desplegable de cada ficha.`)
+    setGamaExtra(prev => prev.includes(nombre) ? prev : [...prev, nombre])
+  }
+  const [gamaExtra, setGamaExtra] = useState<string[]>([])
+  const gamasAll = useMemo(() => {
+    const s = new Set<string>([...gamas, ...gamaExtra])
+    return [...s].sort()
+  }, [gamas, gamaExtra])
+
+  async function renombrarGama(g: string) {
+    const nuevo = window.prompt(`Renombrar gama "${g}" a:`, g)?.trim()
+    if (!nuevo || nuevo === g) return
+    await supabase.from('fichas_tecnicas').update({ gama: nuevo }).eq('gama', g).eq('tipo', tipo!)
+    setGamaExtra(prev => prev.map(x => x === g ? nuevo : x))
+    if (gamaSel === g) setGamaSel(nuevo)
+    cargar()
+  }
+  async function eliminarGama(g: string) {
+    if (!confirm(`Eliminar la gama "${g}"? Las fichas quedarán sin gama (no se borran).`)) return
+    await supabase.from('fichas_tecnicas').update({ gama: null }).eq('gama', g).eq('tipo', tipo!)
+    setGamaExtra(prev => prev.filter(x => x !== g))
+    if (gamaSel === g) setGamaSel('')
+    cargar()
+  }
 
   if (loading) return <div className="py-10 text-center text-[var(--sl-text-muted)] text-sm">Cargando fichas…</div>
 
@@ -100,20 +126,34 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
   return (
     <div>
-      {gamas.length > 0 && (
-        <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-          <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
-          {gamas.map(g => (
-            <button key={g} onClick={() => setGamaSel(g)} style={pill(gamaSel === g)}>{g}</button>
-          ))}
-        </div>
-      )}
+      {/* Filtro + gestión de gamas */}
+      <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+        <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
+        {gamasAll.map(g => (
+          <span key={g} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            <button onClick={() => setGamaSel(g)} style={pill(gamaSel === g)}>{g}</button>
+            {gestionGamas && (
+              <>
+                <button onClick={() => renombrarGama(g)} title="Renombrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12, padding: 2 }}><Pencil size={12} /></button>
+                <button onClick={() => eliminarGama(g)} title="Eliminar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', fontSize: 13, padding: 2 }}>×</button>
+              </>
+            )}
+          </span>
+        ))}
+        <button onClick={() => setGestionGamas(v => !v)} style={{ ...pill(false), borderStyle: 'dashed', color: gestionGamas ? '#B01D23' : 'var(--sl-text-muted)' }}>
+          {gestionGamas ? 'Listo' : 'Gestionar gamas'}
+        </button>
+        {gestionGamas && <button onClick={crearGama} style={{ ...pill(false), borderStyle: 'dashed' }}>+ Nueva gama</button>}
+      </div>
 
       <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
         <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
           <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2">{etiquetaLista}</span>
           <div className="flex flex-col gap-1">
-            {visibles.map(f => {
+            {fichas.filter(f =>
+              (!gamaSel || f.gama === gamaSel) &&
+              (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
+            ).map(f => {
               const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
               return (
                 <button key={f.id} onClick={() => setSel(f)}
@@ -126,10 +166,9 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
                 </button>
               )
             })}
-            {visibles.length === 0 && <div className="text-[var(--sl-text-muted)] text-xs py-4">Sin fichas todavía.</div>}
           </div>
         </div>
-        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} onSaved={cargar} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
+        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} gamasAll={gamasAll} onSaved={cargar} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
       </div>
     </div>
   )
@@ -143,13 +182,12 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap: Record<string, string[]>; onSaved: () => void }) {
+function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void }) {
   const costeTanda = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
   const costeRac = f.raciones ? costeTanda / f.raciones : 0
   const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const esReceta = f.tipo === 'receta'
 
-  // Alérgenos calculados desde ingredientes + los guardados manualmente en la ficha
   const alergAuto = useMemo(() => {
     const set = new Set<string>()
     f.ingredientes.forEach(i => {
@@ -168,6 +206,11 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
   async function guardarAlerg() {
     await supabase.from('fichas_tecnicas').update({ alergenos: alergManual }).eq('id', f.id)
     setEditAlerg(false)
+    onSaved()
+  }
+
+  async function cambiarGama(g: string) {
+    await supabase.from('fichas_tecnicas').update({ gama: g || null }).eq('id', f.id)
     onSaved()
   }
 
@@ -215,6 +258,16 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
     <div className="flex-1 min-w-0">
       <style>{PRINT_CSS}</style>
 
+      {/* Selector de gama de esta ficha */}
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--sl-text-muted)' }}>Gama:</span>
+        <select value={f.gama ?? ''} onChange={e => cambiarGama(e.target.value)}
+          style={{ background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
+          <option value="">— Sin gama —</option>
+          {gamasAll.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </div>
+
       {sinEnlazar.length > 0 && (
         <div className="no-print" style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color="#b45309" />
@@ -229,12 +282,10 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
 
       <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a', display: 'flex', flexDirection: 'column' }}>
 
-        {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10, flexShrink: 0 }}>
           <div style={{ fontSize: 21, fontWeight: 500 }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
         </div>
 
-        {/* KPIs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
           <Cell label="PREP." val={f.tiempo_prep ?? '—'} />
           <Cell label="RENDIMIENTO" val={f.raciones ? `${f.raciones} rac.` : '—'} />
@@ -242,7 +293,6 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
           <Cell label="€ / RACIÓN" val={`${costeRac.toFixed(2)} €`} last />
         </div>
 
-        {/* Ingredientes (+ foto en receta) */}
         <div style={{ display: 'flex', flexShrink: 0 }}>
           <div style={{ flex: 1, padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
             <Lbl>Ingredientes</Lbl>
@@ -274,7 +324,6 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
           )}
         </div>
 
-        {/* Preparación (zona elástica para rellenar el A4) */}
         <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a', flex: 1 }}>
           <Lbl>Preparación</Lbl>
           <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13, lineHeight: 1.55, listStyleType: 'decimal', listStylePosition: 'outside' }}>
@@ -282,7 +331,6 @@ function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap:
           </ol>
         </div>
 
-        {/* Conservación + Alérgenos (pie) */}
         <div style={{ display: 'flex', flexShrink: 0 }}>
           <div style={{ flex: 1.3, padding: '10px 16px', borderRight: '1px solid #ddd' }}>
             <Lbl><Box size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</Lbl>
