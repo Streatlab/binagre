@@ -16,6 +16,15 @@ export interface ContenidoExtraido {
   adjuntos?: AdjuntoExtraido[]
 }
 
+// Plantilla de lectura por NIF (viene del diccionario reglas_conciliacion).
+// Permite que cada proveedor "raro" indique de qué etiqueta sacar cada dato.
+// Todos los campos son opcionales: si no hay plantilla, se usa el lector genérico.
+export interface PlantillaNif {
+  totalLabel: string | null   // etiqueta que precede al total (ej: "TOTAL FACTURA")
+  fechaFormato: string | null // 'dmy' | 'ymd' | null (autodetección por defecto)
+  numLabel: string | null     // etiqueta que precede al nº de factura
+}
+
 export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
   const result = await mammoth.extractRawText({ buffer })
   return { tipo: 'texto', data: result.value || '' }
@@ -64,8 +73,6 @@ export function prepararVision(buffer: Buffer, mimeType: string): ContenidoExtra
 
 // ──────────────────────────────────────────────────────────────────────────
 // LECTURA DE TEXTO DE PDF (gratis, sin IA) — unpdf, compatible serverless
-// Devuelve el texto del PDF. Si el PDF es escaneado (sin capa de texto),
-// devuelve cadena corta/vacía y el flujo decide ir a vision (modelo).
 // ──────────────────────────────────────────────────────────────────────────
 export async function extraerTextoPDF(buffer: Buffer): Promise<string> {
   try {
@@ -79,8 +86,6 @@ export async function extraerTextoPDF(buffer: Buffer): Promise<string> {
   }
 }
 
-// Umbral mínimo de caracteres para considerar que el PDF tiene texto real.
-// Por debajo de esto se asume escaneado → vision.
 const MIN_CHARS_TEXTO_PDF = 40
 
 export function pdfTieneTexto(texto: string): boolean {
@@ -90,22 +95,18 @@ export function pdfTieneTexto(texto: string): boolean {
 // ──────────────────────────────────────────────────────────────────────────
 // EXTRACTOR POR REGLAS (gratis, sin IA)
 // Saca nif_emisor, total, fecha, numero del texto. 0 API.
-// El NOMBRE del proveedor NO se adivina aquí (metía cabeceras basura):
-// lo resuelve procesarArchivo por NIF desde reglas_conciliacion (Conciliación).
-// Plataformas (Uber/Glovo/Just Eat) se etiquetan por NIF emisor y se leen por
-// reglas igual que cualquier proveedor (total + fecha + nº). El desglose por
-// marca queda pendiente (no requiere modelo para que el movimiento exista).
+// Si el NIF emisor tiene plantilla en el diccionario, la usa para localizar el
+// total/fecha/nº con la etiqueta concreta de ese proveedor. Si no, lector genérico.
+// Plataformas (Uber/Glovo/Just Eat) se etiquetan por NIF emisor y se leen igual.
 // ──────────────────────────────────────────────────────────────────────────
 
-// NIF de clientes conocidos (para distinguir emisor de destinatario)
 const NIF_CLIENTES = new Set(['21669051S', '53484832B'])
 
-// NIF de plataforma → etiqueta de plataforma (ya NO fuerza el modelo)
 const PLATAFORMA_POR_NIF: Record<string, 'uber' | 'glovo' | 'just_eat'> = {
-  B88515200: 'uber',      // Portier Eats / Uber
-  B67282871: 'glovo',     // Glovo
-  B66598764: 'glovo',     // Glovoapp / Sinqro-Glovo
-  B86008539: 'just_eat',  // Just Eat
+  B88515200: 'uber',
+  B67282871: 'glovo',
+  B66598764: 'glovo',
+  B86008539: 'just_eat',
 }
 
 const NIF_REGEX = /\b([A-Z]\d{7}[0-9A-Z]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b/g
@@ -121,11 +122,9 @@ function buscarNifs(texto: string): string[] {
   return [...out]
 }
 
-// Importe español: 1.234,56 / 1234,56 / 1234.56
 function parseImporte(s: string): number | null {
   let v = s.trim()
   if (v.includes(',') && v.includes('.')) {
-    // formato 1.234,56 → quitar puntos de millar, coma decimal
     v = v.replace(/\./g, '').replace(',', '.')
   } else if (v.includes(',')) {
     v = v.replace(',', '.')
@@ -147,13 +146,34 @@ function importesDeLinea(linea: string): number[] {
   return out
 }
 
-// Total preferente: líneas que indican el importe FINAL a pagar (incluye IVA).
-// Uber: "Importe total a pagar X €" / "TOTAL EUR X". Se prioriza sobre el
-// genérico "total" para no coger el "total neto" (sin IVA) por error.
-function buscarTotal(texto: string): number | null {
+// Escapar texto para usarlo dentro de un regex
+function escRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Total preferente: si la plantilla del NIF trae totalLabel, se busca esa
+// etiqueta exacta primero. Si no, "total a pagar", luego genérico.
+function buscarTotal(texto: string, plantilla?: PlantillaNif | null): number | null {
   const lineas = texto.split(/\n+/)
 
-  // 1) Prioridad: "total a pagar" / "importe total a pagar" / "total amount payable"
+  // 0) Plantilla del proveedor: etiqueta específica
+  if (plantilla?.totalLabel) {
+    const re = new RegExp(escRegex(plantilla.totalLabel), 'i')
+    const propios: number[] = []
+    for (let i = 0; i < lineas.length; i++) {
+      if (re.test(lineas[i])) {
+        const enLinea = importesDeLinea(lineas[i])
+        if (enLinea.length > 0) propios.push(...enLinea)
+        else if (i + 1 < lineas.length) {
+          const sig = importesDeLinea(lineas[i + 1])
+          if (sig.length > 0) propios.push(sig[0])
+        }
+      }
+    }
+    if (propios.length > 0) return Math.max(...propios)
+  }
+
+  // 1) "total a pagar" / "total amount payable"
   const prioridad: number[] = []
   for (const linea of lineas) {
     if (/(importe\s+)?total\s+a\s+pagar|total\s+amount\s+payable/i.test(linea)) {
@@ -162,8 +182,7 @@ function buscarTotal(texto: string): number | null {
   }
   if (prioridad.length > 0) return Math.max(...prioridad)
 
-  // 2) Genérico: cualquier línea con total/importe/a pagar (+ línea siguiente
-  //    si la keyword va a secas, caso PuntoQpack a columnas).
+  // 2) Genérico: total/importe/a pagar (+ línea siguiente si va a secas)
   const candidatos: number[] = []
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i]
@@ -181,20 +200,37 @@ function buscarTotal(texto: string): number | null {
   return Math.max(...candidatos)
 }
 
-function buscarFecha(texto: string): string | null {
-  // yyyy-mm-dd
+function buscarFecha(texto: string, plantilla?: PlantillaNif | null): string | null {
+  const formato = plantilla?.fechaFormato || null
+
+  // Si la plantilla fuerza ymd, intentarlo primero
+  if (formato === 'ymd') {
+    const m = texto.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/)
+    if (m) {
+      const [, y, mo, d] = m
+      return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+    }
+  }
+  // Si la plantilla fuerza dmy, intentarlo primero
+  if (formato === 'dmy') {
+    const m = texto.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)
+    if (m) {
+      const [, d, mo, y] = m
+      return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+    }
+  }
+
+  // Autodetección (orden por defecto)
   let m = texto.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/)
   if (m) {
     const [, y, mo, d] = m
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
   }
-  // dd/mm/yyyy o dd-mm-yyyy o dd.mm.yyyy
   m = texto.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)
   if (m) {
     const [, d, mo, y] = m
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
   }
-  // dd/mm/yy
   m = texto.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/)
   if (m) {
     const [, d, mo, y] = m
@@ -203,8 +239,12 @@ function buscarFecha(texto: string): string | null {
   return null
 }
 
-function buscarNumeroFactura(texto: string): string | null {
-  // Uber/Portier: "Número de factura: UBERESPEATS-..." / "Invoice number: ..."
+function buscarNumeroFactura(texto: string, plantilla?: PlantillaNif | null): string | null {
+  if (plantilla?.numLabel) {
+    const re = new RegExp(`${escRegex(plantilla.numLabel)}\\s*[:#]?\\s*([A-Z0-9][A-Z0-9\\-/]{3,40})`, 'i')
+    const m = texto.match(re)
+    if (m) return m[1].trim()
+  }
   let m = texto.match(/(?:n[úu]mero\s+de\s+factura|invoice\s+number)\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{3,40})/i)
   if (m) return m[1].trim()
   m = texto.match(/(?:factura|invoice|n[ºo.]\s*factura|n[úu]mero)\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{3,30})/i)
@@ -219,32 +259,34 @@ function esFechaValida(f: string | null): boolean {
   return y >= 2020 && y <= 2030
 }
 
-export function extraerPorReglas(texto: string): ExtractedFactura | null {
+// plantillaResolver: función opcional que, dado el NIF emisor, devuelve su
+// plantilla del diccionario (o null). Permite leer cada proveedor a su manera.
+export function extraerPorReglas(
+  texto: string,
+  plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
+): ExtractedFactura | null {
   if (!texto || texto.length < 30) return null
 
   const nifs = buscarNifs(texto)
   if (nifs.length === 0) return null
 
-  // emisor = primer NIF que no sea cliente conocido
   const nifEmisor = nifs.find((n) => !NIF_CLIENTES.has(n)) || null
   const nifCliente = nifs.find((n) => NIF_CLIENTES.has(n)) || null
   if (!nifEmisor) return null
 
-  // Plataforma: se etiqueta por NIF emisor. Ya NO se manda al modelo: se lee
-  // por reglas igual que un proveedor (0 API).
+  const plantilla = plantillaResolver ? plantillaResolver(nifEmisor) : null
+
   const plataforma = PLATAFORMA_POR_NIF[nifEmisor] || null
   const tipo: 'proveedor' | 'plataforma' = plataforma ? 'plataforma' : 'proveedor'
 
-  const total = buscarTotal(texto)
-  const fecha = buscarFecha(texto)
+  const total = buscarTotal(texto, plantilla)
+  const fecha = buscarFecha(texto, plantilla)
   if (total === null || total <= 0) return null
   if (!esFechaValida(fecha)) return null
 
-  // proveedor_nombre se deja vacío a propósito: lo rellena procesarArchivo
-  // desde reglas_conciliacion por NIF. Nunca meter texto crudo de la factura.
   return {
     proveedor_nombre: '',
-    numero_factura: buscarNumeroFactura(texto) || '',
+    numero_factura: buscarNumeroFactura(texto, plantilla) || '',
     fecha_factura: fecha as string,
     es_recapitulativa: false,
     periodo_inicio: null,
