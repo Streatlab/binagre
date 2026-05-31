@@ -38,23 +38,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: lista facturas ────────────────────────────────────────────────
+// La CIFRA total de la card sale de `total` (count exacto del rango): instantáneo
+// y válido aunque haya millones de facturas. La lista de filas se acota con un
+// tope alto de seguridad (paginar en el front cuando el histórico crezca).
 async function listaFacturas(req: VercelRequest, res: VercelResponse) {
   const rango = String(req.query.rango || '30d')
   const desde = calcDesde(rango)
 
-  let q = supabaseAdmin
-    .from('facturas')
-    .select(
-      'id, proveedor_id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, base_4, iva_4, base_10, iva_10, base_21, iva_21, total_base, total_iva, total, pdf_original_name, pdf_drive_id, pdf_drive_url, pdf_hash, estado, error_mensaje, ocr_confianza, mensaje_matching, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, conciliacion(id, fecha, importe, concepto, proveedor))',
-    )
-    .order('fecha_factura', { ascending: false })
-    .limit(5000)
+  // Tope de filas devueltas. Cubre histórico completo (17k+) con margen de años.
+  // Para superar el max-rows por defecto de PostgREST (1000) se hace paginación
+  // interna por bloques hasta completar el rango.
+  const TOPE_FILAS = 100000
+  const BLOQUE = 1000
 
-  if (desde) q = q.gte('fecha_factura', desde)
+  const columnas =
+    'id, proveedor_id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, base_4, iva_4, base_10, iva_10, base_21, iva_21, total_base, total_iva, total, pdf_original_name, pdf_drive_id, pdf_drive_url, pdf_hash, estado, error_mensaje, ocr_confianza, mensaje_matching, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, conciliacion(id, fecha, importe, concepto, proveedor))'
 
-  const { data, error } = await q
-  if (error) return res.status(500).json({ error: error.message })
-  return res.status(200).json({ data: data || [] })
+  const filas: unknown[] = []
+  let total = 0
+  let offset = 0
+
+  while (offset < TOPE_FILAS) {
+    let q = supabaseAdmin
+      .from('facturas')
+      .select(columnas, { count: 'exact' })
+      .order('fecha_factura', { ascending: false })
+      .range(offset, offset + BLOQUE - 1)
+
+    if (desde) q = q.gte('fecha_factura', desde)
+
+    const { data, error, count } = await q
+    if (error) return res.status(500).json({ error: error.message })
+    if (count !== null && count !== undefined) total = count
+
+    const lote = data || []
+    filas.push(...lote)
+    if (lote.length < BLOQUE) break
+    offset += BLOQUE
+  }
+
+  return res.status(200).json({ data: filas, total })
 }
 
 function calcDesde(rango: string): string | null {
