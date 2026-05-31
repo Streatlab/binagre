@@ -1,4 +1,4 @@
-// procesarArchivo v6 — nombre proveedor por NIF desde reglas_conciliacion
+// procesarArchivo v7 — registro auditoría 1-a-1 en ocr_auditoria
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -28,6 +28,9 @@ const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
+// Estados de factura que cuentan como conciliada para la auditoría
+const ESTADOS_CONCILIADA = ['conciliada', 'asociada']
 
 // F05: regex validación fecha
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -89,23 +92,62 @@ export interface ArchivoEntrada {
   mimeType?: string | null
 }
 
+// Registro 1-a-1 en ocr_auditoria. Nunca lanza: un fallo de auditoría no debe
+// tumbar el procesado de la factura.
+async function registrarAuditoria(
+  supabase: SupabaseClient,
+  hashFallback: string,
+  sesionId: string | null | undefined,
+  r: ProcesarResultado,
+): Promise<void> {
+  try {
+    const fac = (r.factura || r.factura_existente) as Record<string, unknown> | undefined
+    const estadoFac = fac?.estado as string | undefined
+    const resultado =
+      r.estado === 'ok' ? 'nueva'
+      : r.estado === 'duplicada' ? 'duplicada'
+      : 'error'
+    const conciliada = estadoFac ? ESTADOS_CONCILIADA.includes(estadoFac) : false
+    const enDrive = !!(fac?.pdf_drive_id)
+    const ocrRaw = fac?.ocr_raw as Record<string, unknown> | undefined
+    const origen = (ocrRaw?.origen_lectura as string) || null
+    const existenteId = (r.factura_existente?.id as string) || null
+    await supabase.from('ocr_auditoria').insert({
+      sesion_id: sesionId ?? null,
+      nombre_archivo: r.archivo,
+      pdf_hash: (fac?.pdf_hash as string) || hashFallback,
+      resultado,
+      origen_lectura: origen,
+      factura_id: (r.factura_id as string) || null,
+      ya_existia_factura_id: existenteId,
+      conciliada,
+      en_drive: enDrive,
+      motivo: r.motivo || r.error || null,
+    })
+  } catch (e) {
+    console.error('[registrarAuditoria]', e instanceof Error ? e.message : String(e))
+  }
+}
+
 export async function procesarArchivo(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
+  sesionId?: string | null,
 ): Promise<ProcesarResultado[]> {
   const tipo = detectarTipoArchivo(file.nombre, file.mimeType)
+  const hashArchivo = createHash('sha256').update(file.buffer).digest('hex')
 
   let contenido: ContenidoExtraido
   try {
     contenido = await extraerContenido(file, tipo)
   } catch (err) {
-    return [
-      {
-        estado: 'error',
-        archivo: file.nombre,
-        error: `Error extrayendo contenido (${tipo}): ${errMsg(err)}`,
-      },
-    ]
+    const resErr: ProcesarResultado = {
+      estado: 'error',
+      archivo: file.nombre,
+      error: `Error extrayendo contenido (${tipo}): ${errMsg(err)}`,
+    }
+    await registrarAuditoria(supabase, hashArchivo, sesionId, resErr)
+    return [resErr]
   }
 
   const principal = await procesarContenidoPrincipal(supabase, file, contenido, tipo)
@@ -115,15 +157,19 @@ export async function procesarArchivo(
     for (const adj of contenido.adjuntos) {
       const tipoAdj = detectarTipoArchivo(adj.name, adj.mimeType)
       if (tipoAdj === 'pdf' || tipoAdj === 'imagen') {
+        // Los adjuntos se auditan dentro de su propia llamada recursiva.
         const sub = await procesarArchivo(supabase, {
           nombre: adj.name,
           buffer: adj.data,
           mimeType: adj.mimeType,
-        })
+        }, sesionId)
         resultados.push(...sub)
       }
     }
   }
+
+  // Auditar el archivo principal (único punto, cubre ok/duplicada/error)
+  await registrarAuditoria(supabase, hashArchivo, sesionId, principal)
 
   return resultados
 }
