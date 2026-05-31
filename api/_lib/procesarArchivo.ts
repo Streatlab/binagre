@@ -1,4 +1,8 @@
-// procesarArchivo v8 — auditoría 1-a-1 + plantilla por NIF (0 API)
+// procesarArchivo v9 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
+// BLINDAJE COSTE: la API de Anthropic SOLO se usa si OCR_PERMITIR_API==='true'.
+// Por defecto está APAGADA: si las reglas no leen una factura, NO se llama a la
+// API. El PDF se guarda igualmente en Drive y la factura queda en estado
+// 'pendiente_lectura_manual' (cuenta como pendiente, nunca como gasto ni parada).
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -23,6 +27,11 @@ export type ProcesarEstado =
   | 'duplicada'
   | 'error'
   | 'ok'
+  | 'lectura_manual'
+
+// BLINDAJE: API apagada por defecto. Para reactivarla (no recomendado) hay que
+// poner la variable de entorno OCR_PERMITIR_API=true en Vercel.
+const OCR_PERMITIR_API = process.env.OCR_PERMITIR_API === 'true'
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -106,6 +115,7 @@ async function registrarAuditoria(
     const resultado =
       r.estado === 'ok' ? 'nueva'
       : r.estado === 'duplicada' ? 'duplicada'
+      : r.estado === 'lectura_manual' ? 'lectura_manual'
       : 'error'
     const conciliada = estadoFac ? ESTADOS_CONCILIADA.includes(estadoFac) : false
     const enDrive = !!(fac?.pdf_drive_id)
@@ -168,7 +178,7 @@ export async function procesarArchivo(
     }
   }
 
-  // Auditar el archivo principal (único punto, cubre ok/duplicada/error)
+  // Auditar el archivo principal (único punto, cubre ok/duplicada/error/lectura_manual)
   await registrarAuditoria(supabase, hashArchivo, sesionId, principal)
 
   return resultados
@@ -234,6 +244,38 @@ async function cargarDiccionarioNif(
     })
   }
   return dic
+}
+
+// Sube el PDF a Drive con un nombre lo más correcto posible y devuelve los datos
+// de Drive. Best-effort: si falla, devuelve null (no rompe el flujo).
+async function guardarEnDriveBestEffort(
+  file: ArchivoEntrada,
+  datos: {
+    proveedor_nombre: string
+    numero_factura: string
+    fecha_factura: string
+    tipo: 'proveedor' | 'plataforma'
+    plataforma: 'uber' | 'glovo' | 'just_eat' | null
+    carpeta_titular: string
+  },
+): Promise<{ id: string; webViewLink: string; nombre: string } | null> {
+  try {
+    const ext = extensionDeNombre(file.nombre)
+    const nombreArchivo = generarNombreArchivo(
+      {
+        proveedor_nombre: datos.proveedor_nombre,
+        numero_factura: datos.numero_factura,
+        fecha_factura: datos.fecha_factura,
+        tipo: datos.tipo,
+        plataforma: datos.plataforma,
+      },
+      ext,
+    )
+    const drive = await subirArchivoADrive(file.buffer, nombreArchivo, datos, ext)
+    return { id: drive.id, webViewLink: drive.webViewLink, nombre: nombreArchivo }
+  } catch {
+    return null
+  }
 }
 
 async function procesarContenidoPrincipal(
@@ -331,8 +373,8 @@ async function procesarContenidoPrincipal(
   if (extractedReglas) {
     extracted = extractedReglas
     origenLectura = 'reglas'
-  } else {
-    // PASO 2 (de pago): modelo IA como red de seguridad
+  } else if (OCR_PERMITIR_API) {
+    // PASO 2 (de pago, SOLO si está explícitamente activado): modelo IA.
     try {
       extracted = await extraerDatosDesdeContenido(contenido)
     } catch (ocrErr) {
@@ -342,6 +384,11 @@ async function procesarContenidoPrincipal(
         error: `OCR falló: ${errMsg(ocrErr)}`,
       }
     }
+  } else {
+    // BLINDAJE 0 API: las reglas no pudieron leer y la API está apagada.
+    // NO se llama al modelo. Se guarda el PDF en Drive como respaldo y se deja
+    // la factura en 'pendiente_lectura_manual'. Nunca se para ni se gasta.
+    return await guardarLecturaManual(supabase, file)
   }
 
   // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
@@ -353,11 +400,8 @@ async function procesarContenidoPrincipal(
   }
 
   if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
-    return {
-      estado: 'error',
-      archivo: file.nombre,
-      error: `OCR devolvió datos vacíos. Proveedor="${extracted.proveedor_nombre || '—'}" total=${extracted.total}. Edita manualmente.`,
-    }
+    // Datos insuficientes: en vez de error seco, guardar como lectura manual.
+    return await guardarLecturaManual(supabase, file)
   }
 
   // F05: validar fecha antes de insert
@@ -642,6 +686,57 @@ async function procesarContenidoPrincipal(
       factura_id: nueva.id,
       error: msg,
     }
+  }
+}
+
+// BLINDAJE 0 API: factura que las reglas no pudieron leer. Se guarda el PDF en
+// Drive (carpeta SIN_TITULAR) para no perderlo y se inserta en BBDD con estado
+// 'pendiente_lectura_manual'. Nunca llama a la API ni para la cola.
+async function guardarLecturaManual(
+  supabase: SupabaseClient,
+  file: ArchivoEntrada,
+): Promise<ProcesarResultado> {
+  const hash = createHash('sha256').update(file.buffer).digest('hex')
+  const hoy = new Date().toISOString().slice(0, 10)
+  const numFactura = `LM-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+
+  // Respaldo en Drive (best-effort, sin titular conocido)
+  const drive = await guardarEnDriveBestEffort(file, {
+    proveedor_nombre: 'PENDIENTE LECTURA MANUAL',
+    numero_factura: numFactura,
+    fecha_factura: hoy,
+    tipo: 'proveedor',
+    plataforma: null,
+    carpeta_titular: 'SIN_TITULAR',
+  })
+
+  const { data: nueva } = await supabase
+    .from('facturas')
+    .insert({
+      pdf_original_name: file.nombre,
+      pdf_hash: hash,
+      proveedor_nombre: 'PENDIENTE LECTURA MANUAL',
+      numero_factura: numFactura,
+      fecha_factura: hoy,
+      total: 0,
+      estado: 'pendiente_lectura_manual',
+      titular_id: RUBEN_ID,
+      pdf_drive_id: drive?.id ?? null,
+      pdf_drive_url: drive?.webViewLink ?? null,
+      pdf_filename: drive?.nombre ?? null,
+      error_mensaje: drive
+        ? 'Sin plantilla para este NIF. Añade la regla y reprocesa (no se gastó API).'
+        : 'Sin plantilla para este NIF y Drive no disponible. Reintenta (no se gastó API).',
+    })
+    .select('*')
+    .maybeSingle()
+
+  return {
+    estado: 'lectura_manual',
+    archivo: file.nombre,
+    factura_id: (nueva?.id as string) || undefined,
+    factura: (nueva as Record<string, unknown>) || undefined,
+    motivo: 'lectura manual: sin plantilla NIF (0€, sin API)',
   }
 }
 
