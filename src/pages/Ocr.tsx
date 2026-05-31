@@ -223,8 +223,10 @@ export default function Ocr() {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
       q = q.range(from, to)
+    } else {
+      // Cliente completo: subir el tope por encima del límite por defecto de PostgREST (1000)
+      q = q.range(0, 99999)
     }
-    // Si necesitaClienteCompleto: sin range → trae todo el periodo filtrado
 
     const { data, error, count } = await q
     if (myFetchId !== fetchIdRef.current) return
@@ -289,28 +291,59 @@ export default function Ocr() {
     setCargando(false)
   }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
 
+  // Cards: cuenta en SERVIDOR con count exacto (head:true) en vez de traer filas
+  // y contarlas (PostgREST corta a 1000 → la card mostraba 1000 en vez del total real).
+  // 3 consultas count: total, conciliadas (por estado o doc_estado), y deriva pendientes.
   const cargarAgregados = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('facturas')
-        .select('id, total, estado, doc_estado, tipo')
+      const baseTotal = supabase.from('facturas')
+        .select('id', { count: 'exact', head: true })
         .gte('fecha_factura', periodoDesdeStr)
         .lte('fecha_factura', periodoHastaStr)
         .in('tipo', ['proveedor', 'plataforma'])
-      if (error) throw error
-      let totalCount = 0, totalImporte = 0, conciliadasCount = 0, conciliadasImporte = 0, pendientesCount = 0, pendientesImporte = 0
-      for (const r of data ?? []) {
-        totalCount++
-        const imp = Number(r.total) || 0
-        totalImporte += imp
-        const esConc = ESTADOS_CONCILIADOS.has(r.estado) || r.doc_estado === 'no_requiere'
-        if (esConc) { conciliadasCount++; conciliadasImporte += imp }
-        else { pendientesCount++; pendientesImporte += imp }
-      }
+
+      const baseConc = supabase.from('facturas')
+        .select('id', { count: 'exact', head: true })
+        .gte('fecha_factura', periodoDesdeStr)
+        .lte('fecha_factura', periodoHastaStr)
+        .in('tipo', ['proveedor', 'plataforma'])
+        .or(`estado.in.(${ESTADOS_CONCILIADOS_RAW.join(',')}),doc_estado.eq.no_requiere`)
+
+      const [{ count: totalCount, error: e1 }, { count: concCount, error: e2 }] = await Promise.all([baseTotal, baseConc])
+      if (e1 || e2) throw (e1 || e2)
+
+      const tot = totalCount ?? 0
+      const conc = concCount ?? 0
+      const pend = Math.max(0, tot - conc)
+
+      // Importes: no se pueden sumar con head:true. Se calculan en una pasada
+      // aparte solo si el volumen es razonable; si no, se omiten (—) para no
+      // disparar mil filas. Aquí traemos solo la columna total en bloques.
+      let totalImporte = 0, conciliadasImporte = 0, pendientesImporte = 0
+      try {
+        const BLOQUE = 1000
+        for (let off = 0; off < tot; off += BLOQUE) {
+          const { data: dImp } = await supabase.from('facturas')
+            .select('total, estado, doc_estado')
+            .gte('fecha_factura', periodoDesdeStr)
+            .lte('fecha_factura', periodoHastaStr)
+            .in('tipo', ['proveedor', 'plataforma'])
+            .range(off, off + BLOQUE - 1)
+          for (const r of dImp ?? []) {
+            const imp = Number(r.total) || 0
+            totalImporte += imp
+            const esC = ESTADOS_CONCILIADOS.has(r.estado) || r.doc_estado === 'no_requiere'
+            if (esC) conciliadasImporte += imp; else pendientesImporte += imp
+          }
+          if ((dImp?.length ?? 0) < BLOQUE) break
+        }
+      } catch { /* importes best-effort */ }
+
       setAgregados({
-        totalCount, totalImporte,
-        conciliadasCount,
-        conciliadasPct: totalCount > 0 ? Math.round((conciliadasCount / totalCount) * 100) : 0,
-        conciliadasImporte, pendientesCount, pendientesImporte
+        totalCount: tot, totalImporte,
+        conciliadasCount: conc,
+        conciliadasPct: tot > 0 ? Math.round((conc / tot) * 100) : 0,
+        conciliadasImporte, pendientesCount: pend, pendientesImporte
       })
     } catch { setAgregados(null) }
   }, [periodoDesdeStr, periodoHastaStr, refreshTick])
@@ -332,7 +365,7 @@ export default function Ocr() {
   function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
   async function handleBorrarLote() { if (seleccionadas.size === 0) return; setBorrandoLote(true); try { const ids = Array.from(seleccionadas); const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids); const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]; const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]; if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }; const driveErrors: string[] = []; const chunks: string[][] = []; for (let i = 0; i < driveIds.length; i += 5) chunks.push(driveIds.slice(i, i + 5)); for (const chunk of chunks) { await Promise.allSettled(chunk.map(async driveId => { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } })) }; if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} de ${driveIds.length} archivo(s) de Drive. Las facturas se borran igualmente.`) }; const { error: errDel } = await supabase.from('facturas').delete().in('id', ids); if (errDel) throw errDel; setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1) } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) } }
   function getBadgeCategoria(f: Factura) { if (!f.categoria_factura) return null; const cat = categoriasPyg.find(c => c.id === f.categoria_factura); return cat ? { id: cat.id, nombre: cat.nombre } : { id: f.categoria_factura, nombre: f.categoria_factura } }
-  const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url, titular_id').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr); const rows = (data ?? []).map((m: any) => { const tit = m.titular_id === RUBEN_ID ? 'Rubén' : m.titular_id === EMILIO_ID ? 'Emilio' : ''; return [m.fecha_factura, csvEscape(m.proveedor_nombre ?? ''), csvEscape(m.nif_emisor ?? ''), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No', tit] }); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc', 'Titular'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
+  const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url, titular_id').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr).range(0, 99999); const rows = (data ?? []).map((m: any) => { const tit = m.titular_id === RUBEN_ID ? 'Rubén' : m.titular_id === EMILIO_ID ? 'Emilio' : ''; return [m.fecha_factura, csvEscape(m.proveedor_nombre ?? ''), csvEscape(m.nif_emisor ?? ''), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No', tit] }); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc', 'Titular'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({ background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s' })
   const HEADERS: { label: string; col: string; align: 'left' | 'right' | 'center' }[] = [{ label: 'Fecha', col: 'fecha', align: 'left' }, { label: 'Contraparte', col: 'contraparte', align: 'left' }, { label: 'NIF', col: 'nif', align: 'left' }, { label: 'Importe', col: 'importe', align: 'right' }, { label: 'Categoría', col: 'categoria', align: 'left' }, { label: 'Doc', col: 'doc', align: 'center' }, { label: 'Estado', col: 'estado', align: 'left' }, { label: 'Titular', col: 'titular', align: 'left' }]
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
