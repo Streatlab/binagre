@@ -29,6 +29,11 @@ import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Ingrediente, Merma } from './types'
 
+const ALERGENOS_14 = [
+  'Gluten', 'Lácteos', 'Huevo', 'Pescado', 'Crustáceos', 'Moluscos', 'Frutos secos',
+  'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
+]
+
 interface Props {
   ingrediente: Ingrediente | null
   initialNombre?: string
@@ -62,10 +67,16 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     activo: ingrediente?.activo ?? true,
     usos: ingrediente?.usos ?? 0,
   })
+  const [alergenos, setAlergenos] = useState<string[]>(
+    Array.isArray((ingrediente as any)?.alergenos) ? (ingrediente as any).alergenos : []
+  )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  const toggleAlergeno = (a: string) =>
+    setAlergenos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])
 
   const handleEliminar = async () => {
     if (!ingrediente) return
@@ -166,6 +177,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
         coste_neto_std: costeNetoStd || null,
         coste_neto_min: costeNetoMin || null,
         activo: f.activo,
+        alergenos: alergenos,
       }
 
       let ingId = ingrediente?.id
@@ -362,6 +374,39 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 <div className="ds-input-calc">{fmtNum(costeNetoMin)}</div>
               </div>
             </div>
+          </div>
+
+          {/* Alérgenos */}
+          <div>
+            <div className="ds-section-label">Alérgenos</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {ALERGENOS_14.map(a => {
+                const on = alergenos.includes(a)
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => toggleAlergeno(a)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 99,
+                      fontFamily: 'Lexend, sans-serif',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      border: on ? 'none' : '1px solid var(--sl-border)',
+                      background: on ? '#B01D23' : 'transparent',
+                      color: on ? '#fff' : 'var(--sl-text-secondary)',
+                      transition: 'all 120ms',
+                    }}
+                  >
+                    {a}
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 8, fontFamily: 'Lexend, sans-serif' }}>
+              Los alérgenos marcados se trasladan automáticamente a toda EPS y receta que use este ingrediente.
+            </p>
           </div>
 
           {err && <p className="text-[#dc2626] text-sm">{err}</p>}
