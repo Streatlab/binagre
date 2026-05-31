@@ -1,4 +1,4 @@
-// google-drive v2 — F10: slug preserva legibilidad con separadores
+// google-drive v3 — + descarga por ID para reprocesador (0 API)
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
@@ -80,7 +80,6 @@ const MESES = [
 ]
 
 // F10: slug preserva espacios como guiones bajos y NO elimina tildes del texto
-// Las tildes se quitan solo para el path/carpeta, no para el nombre legible
 function slug(s: string): string {
   return (s || '')
     .replace(/[^a-zA-Z0-9\u00C0-\u024F\s]+/g, '')
@@ -142,6 +141,17 @@ export async function subirArchivoADrive(
   })
 
   return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
+}
+
+// Descarga el contenido de un archivo de Drive por su ID. Usado por el
+// reprocesador para re-leer PDFs ya subidos sin pedir nada al usuario. 0 API.
+export async function descargarArchivoDeDrive(fileId: string): Promise<Buffer> {
+  const drive = await getDriveGlobal()
+  const res = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    { responseType: 'arraybuffer' },
+  )
+  return Buffer.from(res.data as ArrayBuffer)
 }
 
 export async function subirPdfADrive(
