@@ -294,8 +294,8 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
         <div className="ficha-meta">
           <div className="cell"><div className="lbl">Prep.</div><div className="val">{f.tiempo_prep ?? '—'}</div></div>
           <div className="cell"><div className="lbl">Rendimiento</div><div className="val">{f.raciones ? `${f.raciones} rac.` : '—'}</div></div>
-          <div className="cell"><div className="lbl">Coste tanda</div><div className="val">{costeTanda.toFixed(2)} €</div></div>
-          <div className="cell"><div className="lbl">€ / Ración</div><div className="val">{costeRac.toFixed(2)} €</div></div>
+          <div className="cell"><div className="lbl">Coste tanda</div><div className="val val-calc">{costeTanda.toFixed(2)} €</div></div>
+          <div className="cell"><div className="lbl">€ / Ración</div><div className="val val-calc">{costeRac.toFixed(2)} €</div></div>
         </div>
 
         <div className="ficha-section" style={{ display: 'flex' }}>
@@ -392,13 +392,13 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
 const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
 
 const FICHA_CSS = `
-/* ── Ficha EPS/Receta — sistema ds-* (Streat Lab) ── */
+/* ── Ficha EPS/Receta — misma superficie clara que el modal Ingredientes (--bg-card) ── */
 .ficha-card {
   font-family: 'Lexend', sans-serif;
-  background: var(--sl-card);
-  border: 1px solid var(--sl-border);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--sl-text-primary);
+  color: var(--text-primary);
   overflow: hidden;
 }
 .ficha-head {
@@ -407,35 +407,36 @@ const FICHA_CSS = `
   border-bottom: 1px solid var(--sl-border-strong);
 }
 .ficha-id {
-  background: var(--sl-yellow); color: var(--sl-btn-add-alt-text);
+  background: var(--accent-yellow); color: var(--sl-btn-add-alt-text);
   font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 12px;
   padding: 3px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
 }
 .ficha-title {
   font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 21px;
-  letter-spacing: 0.04em; text-transform: uppercase; color: var(--sl-text-primary);
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary);
   line-height: 1.15;
 }
-.ficha-meta { display: flex; border-bottom: 1px solid var(--sl-border); }
-.ficha-meta .cell { flex: 1; padding: 10px 14px; text-align: center; border-right: 1px solid var(--sl-border); }
+.ficha-meta { display: flex; border-bottom: 1px solid var(--border); }
+.ficha-meta .cell { flex: 1; padding: 10px 14px; text-align: center; border-right: 1px solid var(--border); }
 .ficha-meta .cell:last-child { border-right: none; }
-.ficha-meta .lbl { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sl-text-muted); }
-.ficha-meta .val { font-family: 'Lexend', sans-serif; font-size: 16px; font-weight: 600; color: var(--sl-text-primary); }
-.ficha-section { padding: 14px 20px; border-bottom: 1px solid var(--sl-border); }
+.ficha-meta .lbl { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.ficha-meta .val { font-family: 'Lexend', sans-serif; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.ficha-meta .val-calc { display: inline-block; background: var(--bg-input-calc); border: 1px solid var(--border-calc); color: var(--text-input-calc); border-radius: 6px; padding: 2px 10px; font-size: 14px; margin-top: 2px; }
+.ficha-section { padding: 14px 20px; border-bottom: 1px solid var(--border); }
 .ficha-section:last-child { border-bottom: none; }
 .ficha-seclabel {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.14em; color: var(--sl-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-label-sec);
   padding-bottom: 5px; border-bottom: 1px solid var(--sl-border-strong); margin-bottom: 10px;
 }
-.ficha-grupo { font-family: 'Oswald', sans-serif; font-size: 11px; color: var(--sl-text-muted); border-bottom: 1px solid var(--sl-border-strong); padding-bottom: 2px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+.ficha-grupo { font-family: 'Oswald', sans-serif; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--sl-border-strong); padding-bottom: 2px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
 .ficha-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
-.ficha-table td { padding: 5px 0; border-bottom: 1px solid var(--sl-border); color: var(--sl-text-primary); }
-.ficha-equiv { color: var(--sl-text-muted); }
-.ficha-steps { margin: 0; padding-left: 22px; font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.55; list-style-type: decimal; list-style-position: outside; }
+.ficha-table td { padding: 5px 0; border-bottom: 1px solid var(--border-sep); color: var(--text-primary); }
+.ficha-equiv { color: var(--text-muted); }
+.ficha-steps { margin: 0; padding-left: 22px; font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.55; list-style-type: decimal; list-style-position: outside; color: var(--text-primary); }
 .ficha-steps li { margin-bottom: 4px; display: list-item; }
-.ficha-alerg-val { font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.5; color: var(--sl-text-primary); }
-.ficha-foto { width: 130px; flex-shrink: 0; margin-left: 16px; border: 1px solid var(--sl-border); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--sl-text-muted); overflow: hidden; }
+.ficha-alerg-val { font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.5; color: var(--text-primary); }
+.ficha-foto { width: 130px; flex-shrink: 0; margin-left: 16px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--text-muted); overflow: hidden; }
 
 /* ── IMPRESIÓN: papel blanco, márgenes reales, aire interior ── */
 @media print {
@@ -459,6 +460,7 @@ const FICHA_CSS = `
   .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
   .print-ficha .ficha-meta .lbl { color: #555 !important; }
   .print-ficha .ficha-meta .val { color: #111 !important; }
+  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: #B01D23 !important; color: #111 !important; }
   .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
   .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
   .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
