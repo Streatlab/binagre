@@ -133,17 +133,35 @@ function parseImporte(s: string): number | null {
   return isNaN(n) ? null : n
 }
 
+const RE_IMPORTE = /(\d{1,3}(?:\.\d{3})*(?:,\d{2})|\d+[.,]\d{2})/g
+
+function importesDeLinea(linea: string): number[] {
+  const out: number[] = []
+  let m: RegExpExecArray | null
+  RE_IMPORTE.lastIndex = 0
+  while ((m = RE_IMPORTE.exec(linea)) !== null) {
+    const n = parseImporte(m[1])
+    if (n !== null && n > 0) out.push(n)
+  }
+  return out
+}
+
 function buscarTotal(texto: string): number | null {
   const lineas = texto.split(/\n+/)
   const candidatos: number[] = []
-  const reImporte = /(\d{1,3}(?:\.\d{3})*(?:,\d{2})|\d+[.,]\d{2})/g
-  for (const linea of lineas) {
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i]
     if (/total|importe|a\s*pagar/i.test(linea)) {
-      let m: RegExpExecArray | null
-      reImporte.lastIndex = 0
-      while ((m = reImporte.exec(linea)) !== null) {
-        const n = parseImporte(m[1])
-        if (n !== null && n > 0) candidatos.push(n)
+      const enLinea = importesDeLinea(linea)
+      if (enLinea.length > 0) {
+        candidatos.push(...enLinea)
+      } else if (i + 1 < lineas.length) {
+        // PuntoQpack y similares: "Total" a secas con el importe en la línea
+        // siguiente (maquetación a columnas que unpdf separa). Solo se mira la
+        // línea siguiente cuando la de la keyword no trae importe propio, y se
+        // toma el primer importe para no arrastrar basura.
+        const sig = importesDeLinea(lineas[i + 1])
+        if (sig.length > 0) candidatos.push(sig[0])
       }
     }
   }
