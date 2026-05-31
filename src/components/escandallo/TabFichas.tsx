@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
+import ModalEditarFicha from './ModalEditarFicha'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -14,7 +15,7 @@ interface Ficha {
 }
 
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || /\bagua\b/.test(i.ingrediente.toLowerCase())
-const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
+const METODOS_CONSERVA = ['Tapper', 'Biberón', 'Vacío', 'Congelación']
 const ALERGENOS_14 = ['Gluten', 'Lácteos', 'Huevo', 'Pescado', 'Crustáceos', 'Moluscos', 'Frutos secos', 'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces']
 
 function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): React.ReactNode[] {
@@ -81,22 +82,18 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     return [...set].sort()
   }, [fichas])
 
-  // ---- Gestión de gamas (crear / renombrar / eliminar / mover fichas) ----
-  async function crearGama() {
-    const nombre = window.prompt('Nombre de la nueva gama:')?.trim()
-    if (!nombre) return
-    // crea la gama "vacía" asignándola a ninguna ficha todavía; aparecerá al asignar.
-    // Para que se vea aunque esté vacía, la mostramos localmente.
-    setGamaSel(nombre)
-    alert(`Gama "${nombre}" lista. Asigna fichas desde el desplegable de cada ficha.`)
-    setGamaExtra(prev => prev.includes(nombre) ? prev : [...prev, nombre])
-  }
   const [gamaExtra, setGamaExtra] = useState<string[]>([])
   const gamasAll = useMemo(() => {
     const s = new Set<string>([...gamas, ...gamaExtra])
     return [...s].sort()
   }, [gamas, gamaExtra])
 
+  async function crearGama() {
+    const nombre = window.prompt('Nombre de la nueva gama:')?.trim()
+    if (!nombre) return
+    setGamaSel(nombre)
+    setGamaExtra(prev => prev.includes(nombre) ? prev : [...prev, nombre])
+  }
   async function renombrarGama(g: string) {
     const nuevo = window.prompt(`Renombrar gama "${g}" a:`, g)?.trim()
     if (!nuevo || nuevo === g) return
@@ -126,7 +123,6 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
   return (
     <div>
-      {/* Filtro + gestión de gamas */}
       <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
         <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
         {gamasAll.map(g => (
@@ -187,6 +183,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
   const costeRac = f.raciones ? costeTanda / f.raciones : 0
   const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const esReceta = f.tipo === 'receta'
+  const [editando, setEditando] = useState(false)
 
   const alergAuto = useMemo(() => {
     const set = new Set<string>()
@@ -258,7 +255,15 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
     <div className="flex-1 min-w-0">
       <style>{PRINT_CSS}</style>
 
-      {/* Selector de gama de esta ficha */}
+      {editando && (
+        <ModalEditarFicha
+          ficha={f}
+          gamasAll={gamasAll}
+          onClose={() => setEditando(false)}
+          onSaved={() => { setEditando(false); onSaved() }}
+        />
+      )}
+
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 12, color: 'var(--sl-text-muted)' }}>Gama:</span>
         <select value={f.gama ?? ''} onChange={e => cambiarGama(e.target.value)}
@@ -274,7 +279,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
           <div style={{ flex: 1, fontSize: 13, color: '#92400e' }}>
             <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
           </div>
-          <button style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button onClick={() => setEditando(true)} style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <Link2 size={13} /> Resolver
           </button>
         </div>
@@ -378,7 +383,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
 
       <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir / PDF</button>
-        <button style={btn}><Pencil size={15} /> Editar</button>
+        <button onClick={() => setEditando(true)} style={btn}><Pencil size={15} /> Editar</button>
       </div>
     </div>
   )
