@@ -35,6 +35,11 @@ const ACCEPT_FACTURAS = EXT_ACEPTADAS_FACTURAS.map(e => `.${e}`).join(',')
 const ACCEPT_EXTRACTOS = EXT_ACEPTADAS_EXTRACTOS.map(e => `.${e}`).join(',')
 const ACCEPT_OTROS = EXT_ACEPTADAS_OTROS.map(e => `.${e}`).join(',')
 
+// Detección de navegador móvil. webkitdirectory (selección de carpetas) NO
+// funciona en móvil (iOS Safari / Android no lo soportan). En móvil el botón
+// "por carpetas" se convierte en selección múltiple de archivos (sí soportada).
+const ES_MOVIL = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+
 // Conciliada = (estado IN conciliada/asociada/solo_drive) o (doc_estado = no_requiere)
 const ESTADOS_CONCILIADOS_RAW = ['conciliada', 'asociada', 'solo_drive']
 const ESTADOS_CONCILIADOS = new Set(ESTADOS_CONCILIADOS_RAW)
@@ -109,8 +114,11 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
   const [overR, setOverR] = useState(false)
   const handleFiles = async (files: FileList | File[] | null) => { if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return; setPreparando(true); try { const arr = Array.isArray(files) ? files : Array.from(files); const resultado = await expandirArchivos(arr, extensiones); onArchivos(resultado) } finally { setPreparando(false) } }
   const handleClickArchivos = () => { if (preparando) return; inputFileRef.current?.click() }
-  const handleClickCarpetas = () => { if (preparando) return; inputFolderRef.current?.click() }
+  // En móvil, webkitdirectory no abre nada → usar el input de archivos múltiple.
+  const handleClickCarpetas = () => { if (preparando) return; if (ES_MOVIL) { inputFileRef.current?.click() } else { inputFolderRef.current?.click() } }
   const halfBase: React.CSSProperties = { flex: 1, padding: '20px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', userSelect: 'none', transition: 'background 0.15s', opacity: preparando ? 0.6 : 1 }
+  // Etiqueta del botón derecho: en móvil "varios archivos" (las carpetas no existen en móvil)
+  const labelDerecha = ES_MOVIL ? 'varios archivos' : 'por carpetas'
   return (
     <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
       <input ref={inputFileRef} type="file" multiple accept={accept} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
@@ -119,7 +127,7 @@ function BtnSubirSplit({ label, accept, extensiones, onArchivos, preparando, set
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por archivos</div>
       </div>
       <div onDragOver={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(true) }} onDragLeave={e => { e.stopPropagation(); setOverR(false) }} onDrop={e => { if (preparando) return; e.preventDefault(); e.stopPropagation(); setOverR(false); handleFiles(e.dataTransfer.files) }} onClick={handleClickCarpetas} style={{ ...halfBase, background: overR ? '#8f1519' : '#B01D23' }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>por carpetas</div>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label}<br/>{labelDerecha}</div>
       </div>
       {preparando && (<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: 14, pointerEvents: 'none' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div></div>)}
     </div>
