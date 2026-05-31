@@ -48,7 +48,7 @@ async function listaFacturas(req: VercelRequest, res: VercelResponse) {
       'id, proveedor_id, proveedor_nombre, numero_factura, fecha_factura, es_recapitulativa, periodo_inicio, periodo_fin, tipo, plataforma, base_4, iva_4, base_10, iva_10, base_21, iva_21, total_base, total_iva, total, pdf_original_name, pdf_drive_id, pdf_drive_url, pdf_hash, estado, error_mensaje, ocr_confianza, mensaje_matching, created_at, facturas_gastos(id, conciliacion_id, importe_asociado, confianza_match, confirmado, conciliacion(id, fecha, importe, concepto, proveedor))',
     )
     .order('fecha_factura', { ascending: false })
-    .limit(500)
+    .limit(5000)
 
   if (desde) q = q.gte('fecha_factura', desde)
 
@@ -137,18 +137,21 @@ async function upload(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const body = req.body as { nombre?: string; base64?: string; mimeType?: string | null }
+    const body = req.body as { nombre?: string; base64?: string; mimeType?: string | null; sesionId?: string | null }
     if (!body?.base64 || !body?.nombre) {
       return res.status(400).json({ error: 'Falta base64 o nombre' })
     }
 
     const buffer = Buffer.from(body.base64, 'base64')
+    // sesionId agrupa una tanda de subida en ocr_auditoria. Si el front no lo
+    // manda, se genera uno por archivo (igualmente auditable).
+    const sesionId = body.sesionId || `up-${Date.now().toString(36)}`
 
     const resultados = await procesarArchivo(supabaseAdmin, {
       nombre: body.nombre,
       buffer,
       mimeType: body.mimeType || null,
-    })
+    }, sesionId)
 
     if (resultados.length === 1) {
       return res.status(200).json(resultados[0])
