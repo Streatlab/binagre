@@ -6,16 +6,18 @@
  *   GET  /api/facturas?action=buscar-cargos     → buscar cargos en conciliación
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
+ *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
- * Los archivos originales buscar-cargos.ts, faltantes.ts, limpieza.ts,
- * resubir-drive-masivo.ts y upload.ts han sido eliminados y consolidados aquí.
+ * El reprocesado vive aquí (no en archivo aparte) para no superar el tope de
+ * Serverless Functions del plan. Cada archivo en api/ es una función.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
+import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -29,6 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'buscar-cargos') return buscarCargos(req, res)
   if (action === 'faltantes')     return faltantes(res)
   if (action === 'resubir-drive') return resubirDrive(res)
+  if (action === 'reproc')        return reproc(req, res)
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
 
@@ -152,6 +155,124 @@ async function resubirDrive(res: VercelResponse) {
     pendientes: data || [],
     total: data?.length || 0,
     instrucciones: 'Abre cada factura del listado y usa "Re-subir a Drive" desde el modal (Tab Resumen).',
+  })
+}
+
+// ── Handler: reprocesado masivo 0 API (auto-encadenado) ───────────────────
+// Coge el job activo de reproc_control, procesa un lote, baja cada PDF de Drive,
+// lo re-pasa por el motor nuevo (reglas + diccionario + match + categoría/
+// contraparte + auditoría 1-a-1), guarda informe en reproc_informe, avanza el
+// offset y se vuelve a llamar a sí mismo hasta acabar. Sin cron de Vercel.
+const LOTE_REPROC = 20
+
+async function reproc(req: VercelRequest, res: VercelResponse) {
+  const { data: job } = await supabaseAdmin
+    .from('reproc_control')
+    .select('*')
+    .eq('activo', true)
+    .order('creado', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (!job) return res.status(200).json({ ok: true, mensaje: 'Sin jobs activos' })
+
+  const offset = Number(job.offset_actual || 0)
+  const sesionId = (job.sesion_id as string) || `reproc-${job.id}`
+
+  let q = supabaseAdmin
+    .from('facturas')
+    .select('id, pdf_drive_id, pdf_original_name, proveedor_nombre, fecha_factura, total')
+    .not('pdf_drive_id', 'is', null)
+    .order('fecha_factura', { ascending: true })
+    .range(offset, offset + LOTE_REPROC - 1)
+
+  if (job.desde) q = q.gte('fecha_factura', job.desde as string)
+  if (job.hasta) q = q.lte('fecha_factura', job.hasta as string)
+
+  const { data: facturas, error } = await q
+  if (error) return res.status(500).json({ error: error.message })
+
+  if (!facturas || facturas.length === 0) {
+    await supabaseAdmin.from('reproc_control').update({ activo: false, ultimo_run: new Date().toISOString() }).eq('id', job.id as string)
+    return res.status(200).json({ ok: true, job: job.id, mensaje: 'Job completado', offset })
+  }
+
+  let ok = 0, errores = 0, conciliadas = 0
+  const lineas: Record<string, unknown>[] = []
+
+  for (const f of facturas) {
+    const driveId = f.pdf_drive_id as string
+    const nombre = (f.pdf_original_name as string) || `${f.id}.pdf`
+    try {
+      const buffer = await descargarArchivoDeDrive(driveId)
+      await supabaseAdmin.from('facturas_gastos').delete().eq('factura_id', f.id as string)
+      await supabaseAdmin.from('facturas_plataforma_detalle').delete().eq('factura_id', f.id as string)
+      await supabaseAdmin.from('facturas').delete().eq('id', f.id as string)
+
+      const resultados = await procesarArchivo(supabaseAdmin, { nombre, buffer }, sesionId)
+      const r = resultados[0]
+      const fac = (r.factura || r.factura_existente) as Record<string, unknown> | undefined
+      const estadoFinal = (fac?.estado as string) || null
+      const conc = ['conciliada', 'asociada'].includes(estadoFinal || '')
+      const resultado = r.estado === 'ok' ? 'ok' : r.estado === 'duplicada' ? 'duplicada' : 'error'
+      if (resultado === 'error') errores++; else ok++
+      if (conc) conciliadas++
+      lineas.push({
+        control_id: job.id,
+        factura_id: (r.factura_id as string) || (f.id as string),
+        archivo: nombre,
+        proveedor: (fac?.proveedor_nombre as string) || (f.proveedor_nombre as string) || null,
+        total: fac?.total != null ? Number(fac.total) : (f.total != null ? Number(f.total) : null),
+        resultado,
+        estado_final: estadoFinal,
+        conciliada: conc,
+        en_drive: !!(fac?.pdf_drive_id),
+        motivo: r.motivo || r.error || null,
+      })
+    } catch (e) {
+      errores++
+      lineas.push({
+        control_id: job.id,
+        factura_id: f.id as string,
+        archivo: nombre,
+        proveedor: (f.proveedor_nombre as string) || null,
+        total: f.total != null ? Number(f.total) : null,
+        resultado: 'error',
+        estado_final: null,
+        conciliada: false,
+        en_drive: false,
+        motivo: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
+  if (lineas.length > 0) await supabaseAdmin.from('reproc_informe').insert(lineas)
+
+  const nuevoOffset = offset + facturas.length
+  const terminado = facturas.length < LOTE_REPROC
+  await supabaseAdmin.from('reproc_control').update({
+    offset_actual: nuevoOffset,
+    procesadas: Number(job.procesadas || 0) + facturas.length,
+    ok: Number(job.ok || 0) + ok,
+    errores: Number(job.errores || 0) + errores,
+    conciliadas: Number(job.conciliadas || 0) + conciliadas,
+    ultimo_run: new Date().toISOString(),
+    activo: !terminado,
+  }).eq('id', job.id as string)
+
+  // Auto-encadenado: si quedan, dispara el siguiente lote en segundo plano.
+  if (!terminado) {
+    const host = req.headers.host
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+    if (host) {
+      fetch(`${proto}://${host}/api/facturas?action=reproc`, { method: 'GET' }).catch(() => {})
+    }
+  }
+
+  return res.status(200).json({
+    ok: true, job: job.id, lote: facturas.length,
+    ok_lote: ok, errores_lote: errores, conciliadas_lote: conciliadas,
+    nuevo_offset: nuevoOffset, terminado,
   })
 }
 
