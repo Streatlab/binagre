@@ -112,17 +112,22 @@ const PLATAFORMA_POR_NIF: Record<string, 'uber' | 'glovo' | 'just_eat'> = {
   B86008539: 'just_eat',
 }
 
-const NIF_REGEX = /\b([A-Z]\d{7}[0-9A-Z]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])\b/g
+// Frontera flexible: el NIF puede ir pegado a letras/símbolos (ej "CIF/NIF21669051S"
+// o "NIF:21669051S"). Se exige que NO esté rodeado de dígitos (para no partir
+// números largos) pero sí admite estar pegado a letras. Captura los 3 formatos
+// españoles: empresa (letra+7díg+control), persona (8díg+letra), NIE (XYZ+7díg+letra).
+const NIF_REGEX = /(?<!\d)([A-Z]\d{7}[0-9A-Z]|\d{8}[A-Z]|[XYZ]\d{7}[A-Z])(?!\d)/g
 
 function buscarNifs(texto: string): string[] {
   const t = texto.toUpperCase()
-  const out = new Set<string>()
+  const out: string[] = []
+  const vistos = new Set<string>()
   let m: RegExpExecArray | null
   NIF_REGEX.lastIndex = 0
   while ((m = NIF_REGEX.exec(t)) !== null) {
-    out.add(m[1])
+    if (!vistos.has(m[1])) { vistos.add(m[1]); out.push(m[1]) }
   }
-  return [...out]
+  return out
 }
 
 function parseImporte(s: string): number | null {
@@ -273,8 +278,10 @@ export function extraerPorReglas(
   const nifs = buscarNifs(texto)
   if (nifs.length === 0) return null
 
-  const nifEmisor = nifs.find((n) => !NIF_CLIENTES.has(n)) || null
+  // NIF cliente: prioriza siempre los conocidos (Rubén/Emilio) estén donde estén
+  // en el documento. NIF emisor: el primero que NO sea cliente conocido.
   const nifCliente = nifs.find((n) => NIF_CLIENTES.has(n)) || null
+  const nifEmisor = nifs.find((n) => !NIF_CLIENTES.has(n)) || null
   if (!nifEmisor) return null
 
   const plantilla = plantillaResolver ? plantillaResolver(nifEmisor) : null
