@@ -288,7 +288,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha;
       <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10, flexShrink: 0 }}>
-          <div style={{ fontSize: 21, fontWeight: 500 }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
+          <div style={{ fontSize: 21, fontWeight: 500, textTransform: 'uppercase' }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
         </div>
 
         <div style={{ display: 'flex', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
@@ -405,13 +405,13 @@ const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6
 
 const PRINT_CSS = `
 @media print {
-  @page { size: A4 portrait; margin: 12mm; }
+  @page { size: A4 portrait; margin: 18mm; }
   body * { visibility: hidden; }
   .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
   .solo-pantalla { display: none !important; }
   .solo-print-ing { display: inline !important; }
-  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; height: 273mm; box-sizing: border-box; }
+  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; height: 261mm; box-sizing: border-box; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
 }
