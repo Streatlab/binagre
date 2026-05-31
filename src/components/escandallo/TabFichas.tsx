@@ -14,8 +14,8 @@ interface Ficha {
 }
 
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || i.ingrediente.toLowerCase() === 'agua'
-
 const METODOS_CONSERVA = ['Biberón', 'Tapper', 'Vacío', 'Congelación']
+const ALERGENOS_14 = ['Gluten', 'Lácteos', 'Huevo', 'Pescado', 'Crustáceos', 'Moluscos', 'Frutos secos', 'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces']
 
 function resaltarIngredientes(texto: string, ingredientes: IngLinea[]): React.ReactNode[] {
   const terminos = new Set<string>()
@@ -46,8 +46,24 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [loading, setLoading] = useState(true)
   const [sel, setSel] = useState<Ficha | null>(null)
   const [gamaSel, setGamaSel] = useState<string>('')
+  // mapa nombre_limpio(lower) -> alergenos[] desde tabla ingredientes
+  const [alergMap, setAlergMap] = useState<Record<string, string[]>>({})
 
   useEffect(() => { cargar(); setGamaSel('') }, [tipo])
+  useEffect(() => { cargarAlergenos() }, [])
+
+  async function cargarAlergenos() {
+    const { data } = await supabase.from('ingredientes').select('nombre_base, nombre, alergenos')
+    const map: Record<string, string[]> = {}
+    ;(data ?? []).forEach((r: any) => {
+      const al = Array.isArray(r.alergenos) ? r.alergenos : []
+      if (al.length === 0) return
+      const claves = [r.nombre_base, r.nombre].filter(Boolean).map((s: string) => s.replace(/_[A-Z]+$/, '').trim().toLowerCase())
+      claves.forEach(k => { if (k) map[k] = al })
+    })
+    setAlergMap(map)
+  }
+
   async function cargar() {
     setLoading(true)
     let q = supabase.from('fichas_tecnicas').select('*').eq('estado', 'vigente')
@@ -84,7 +100,6 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
   return (
     <div>
-      {/* Filtro por gama */}
       {gamas.length > 0 && (
         <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
           <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
@@ -114,7 +129,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             {visibles.length === 0 && <div className="text-[var(--sl-text-muted)] text-xs py-4">Sin fichas todavía.</div>}
           </div>
         </div>
-        {sel ? <FichaDetalle ficha={sel} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
+        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} onSaved={cargar} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
       </div>
     </div>
   )
@@ -128,11 +143,33 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
+function FichaDetalle({ ficha: f, alergMap, onSaved }: { ficha: Ficha; alergMap: Record<string, string[]>; onSaved: () => void }) {
   const costeTanda = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
   const costeRac = f.raciones ? costeTanda / f.raciones : 0
   const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const esReceta = f.tipo === 'receta'
+
+  // Alérgenos calculados desde ingredientes + los guardados manualmente en la ficha
+  const alergAuto = useMemo(() => {
+    const set = new Set<string>()
+    f.ingredientes.forEach(i => {
+      const k = (i.ingrediente || '').replace(/_[A-Z]+$/, '').trim().toLowerCase()
+      const al = alergMap[k]
+      if (al) al.forEach(a => set.add(a))
+    })
+    ;(f.alergenos ?? []).forEach(a => set.add(a))
+    return [...set]
+  }, [f, alergMap])
+
+  const [editAlerg, setEditAlerg] = useState(false)
+  const [alergManual, setAlergManual] = useState<string[]>(alergAuto)
+  useEffect(() => { setAlergManual(alergAuto) }, [f.id])
+
+  async function guardarAlerg() {
+    await supabase.from('fichas_tecnicas').update({ alergenos: alergManual }).eq('id', f.id)
+    setEditAlerg(false)
+    onSaved()
+  }
 
   const grupos = useMemo(() => {
     const g: Record<number, IngLinea[]> = {}
@@ -140,27 +177,39 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
     return Object.entries(g).sort((a, b) => Number(a[0]) - Number(b[0]))
   }, [f])
   const hayGrupos = grupos.length > 1
+  const totalIng = f.ingredientes.length
+  const colsIng = totalIng > 24 ? 3 : totalIng > 12 ? 2 : 1
 
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
     const raiz: Record<string, string[]> = {
-      'Biberón': ['biber'],
-      'Tapper': ['tapper', 'taper', 'tupper'],
-      'Vacío': ['vacio', 'vacío', 'vac'],
-      'Congelación': ['congel'],
+      'Biberón': ['biber'], 'Tapper': ['tapper', 'taper', 'tupper'],
+      'Vacío': ['vacio', 'vacío', 'vac'], 'Congelación': ['congel'],
     }
     const claves = raiz[metodo] ?? [metodo.toLowerCase().slice(0, 4)]
-    const found = (f.conservacion ?? []).find(c => {
-      const m = c.metodo.toLowerCase()
-      return claves.some(k => m.includes(k))
-    })
+    const found = (f.conservacion ?? []).find(c => claves.some(k => c.metodo.toLowerCase().includes(k)))
     if (found) return { texto: found.tiempo, especial: found.metodo.toLowerCase() !== metodo.toLowerCase() ? found.metodo : undefined }
     return { texto: 'NO' }
   }
 
-  const qrData = encodeURIComponent(`https://binagre.vercel.app/escandallo?tab=fichas&ficha=${f.codigo}`)
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`
-
   function imprimir() { window.print() }
+
+  const filaIng = (i: IngLinea, idx: number) => (
+    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+      <td style={{ padding: '4px 0' }}>
+        <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
+        <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
+      </td>
+      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap' }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
+      <td style={{ textAlign: 'right', color: '#888', width: 78, whiteSpace: 'nowrap' }}>{i.equivalencia || '—'}</td>
+      <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
+        {i.match
+          ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
+          : NO_COSTE(i)
+            ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
+            : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
+      </td>
+    </tr>
+  )
 
   return (
     <div className="flex-1 min-w-0">
@@ -178,49 +227,42 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
         </div>
       )}
 
-      <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a' }}>
+      <div className="print-ficha" style={{ background: '#fff', border: '1.5px solid #1a1a1a', borderRadius: 10, overflow: 'hidden', color: '#1a1a1a', display: 'flex', flexDirection: 'column' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10 }}>
+        {/* Cabecera */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #1a1a1a', gap: 10, flexShrink: 0 }}>
           <div style={{ fontSize: 21, fontWeight: 500 }}><span style={{ fontWeight: 700 }}>{f.codigo}.</span> {f.nombre}</div>
-          <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: 12, color: '#666', lineHeight: 1.4 }}>Ed. {f.edicion}<br />{new Date(f.fecha).toLocaleDateString('es-ES')}</div>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: '1px solid #ddd' }}>
+        {/* KPIs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
           <Cell label="PREP." val={f.tiempo_prep ?? '—'} />
           <Cell label="RENDIMIENTO" val={f.raciones ? `${f.raciones} rac.` : '—'} />
           <Cell label="COSTE TANDA" val={`${costeTanda.toFixed(2)} €`} />
           <Cell label="€ / RACIÓN" val={`${costeRac.toFixed(2)} €`} last />
         </div>
 
-        <div style={{ display: 'flex' }}>
+        {/* Ingredientes (+ foto en receta) */}
+        <div style={{ display: 'flex', flexShrink: 0 }}>
           <div style={{ flex: 1, padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
             <Lbl>Ingredientes</Lbl>
-            {grupos.map(([gk, items]) => (
-              <div key={gk} style={{ marginBottom: 10 }}>
-                {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-                  <tbody>
-                    {items.map((i, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '5px 0' }}>
-                          <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
-                          <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 500, width: 70 }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
-                        <td style={{ textAlign: 'right', color: '#888', width: 95 }}>{i.equivalencia || '—'}</td>
-                        <td className="no-print" style={{ textAlign: 'right', width: 90, paddingLeft: 8 }}>
-                          {i.match
-                            ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
-                            : NO_COSTE(i)
-                              ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
-                              : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {colsIng === 1 ? (
+              grupos.map(([gk, items]) => (
+                <div key={gk} style={{ marginBottom: 8 }}>
+                  {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}><tbody>{items.map(filaIng)}</tbody></table>
+                </div>
+              ))
+            ) : (
+              <div style={{ columnCount: colsIng, columnGap: 22 }}>
+                {grupos.map(([gk, items]) => (
+                  <div key={gk} style={{ breakInside: 'avoid', marginBottom: 8 }}>
+                    {hayGrupos && <div style={{ fontSize: 11, color: '#888', borderBottom: '1px solid #1a1a1a', paddingBottom: 2, marginBottom: 4 }}>Grupo {gk}</div>}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><tbody>{items.map(filaIng)}</tbody></table>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
           {esReceta && (
@@ -232,14 +274,16 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
           )}
         </div>
 
-        <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a' }}>
+        {/* Preparación (zona elástica para rellenar el A4) */}
+        <div style={{ padding: '12px 16px', borderBottom: '2px solid #1a1a1a', flex: 1 }}>
           <Lbl>Preparación</Lbl>
-          <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13.5, lineHeight: 1.6, listStyleType: 'decimal', listStylePosition: 'outside' }}>
+          <ol style={{ margin: 0, paddingLeft: 22, fontSize: 13, lineHeight: 1.55, listStyleType: 'decimal', listStylePosition: 'outside' }}>
             {f.pasos.map((p, idx) => <li key={idx} style={{ marginBottom: 3, display: 'list-item' }}>{resaltarIngredientes(p, f.ingredientes)}</li>)}
           </ol>
         </div>
 
-        <div style={{ display: 'flex' }}>
+        {/* Conservación + Alérgenos (pie) */}
+        <div style={{ display: 'flex', flexShrink: 0 }}>
           <div style={{ flex: 1.3, padding: '10px 16px', borderRight: '1px solid #ddd' }}>
             <Lbl><Box size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Conservación</Lbl>
             <table style={{ width: '100%', fontSize: 12.5, borderCollapse: 'collapse' }}>
@@ -249,9 +293,7 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
                   const esNo = t.texto === 'NO'
                   return (
                     <tr key={metodo} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '3px 0' }}>
-                        {t.especial ? <strong>{t.especial}</strong> : metodo}
-                      </td>
+                      <td style={{ padding: '3px 0' }}>{t.especial ? <strong>{t.especial}</strong> : metodo}</td>
                       <td style={{ textAlign: 'right', fontWeight: esNo ? 700 : 500, color: esNo ? '#bbb' : '#1a1a1a' }}>{t.texto}</td>
                     </tr>
                   )
@@ -260,13 +302,27 @@ function FichaDetalle({ ficha: f }: { ficha: Ficha }) {
             </table>
           </div>
           <div style={{ flex: 1, padding: '10px 16px' }}>
-            <Lbl><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</Lbl>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-              {(f.alergenos ?? []).length === 0 ? 'Ninguno' : f.alergenos.join(', ')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Lbl><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</Lbl>
+              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <Pencil size={11} /> {editAlerg ? 'Guardar' : 'Editar'}
+              </button>
             </div>
-          </div>
-          <div style={{ width: 90, padding: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #ddd' }}>
-            <img src={qrUrl} alt="QR ficha" width={64} height={64} style={{ display: 'block' }} />
+            {editAlerg ? (
+              <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {ALERGENOS_14.map(a => {
+                  const on = alergManual.includes(a)
+                  return (
+                    <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
+                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid #ccc', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : '#666' }}>
+                      {a}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{alergAuto.length === 0 ? 'Ninguno' : alergAuto.join(', ')}</div>
+            )}
           </div>
         </div>
 
@@ -302,9 +358,8 @@ const PRINT_CSS = `
   .no-print { display: none !important; }
   .solo-pantalla { display: none !important; }
   .solo-print-ing { display: inline !important; }
-  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-ficha { position: absolute; left: 0; top: 0; width: 100%; height: 273mm; box-sizing: border-box; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
-  .print-ficha img { display: block !important; }
 }
 `
