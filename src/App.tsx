@@ -19,6 +19,7 @@ import ReglasPage from '@/pages/configuracion/reglas/ReglasPage'
 import TabReglasIngredientes from '@/pages/configuracion/reglas/TabReglasIngredientes'
 import TabReglasConciliacion from '@/pages/configuracion/reglas/TabReglasConciliacion'
 import TabOcrPlantillas from '@/pages/configuracion/reglas/TabOcrPlantillas'
+import TabCorreoOcr from '@/pages/configuracion/reglas/TabCorreoOcr'
 
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
 import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
@@ -143,6 +144,7 @@ function AppRoutes() {
           <Route path="ingredientes" element={<TabReglasIngredientes />} />
           <Route path="conciliacion" element={<TabReglasConciliacion />} />
           <Route path="plantillas" element={<TabOcrPlantillas />} />
+          <Route path="correo" element={<TabCorreoOcr />} />
         </Route>
 
         <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
