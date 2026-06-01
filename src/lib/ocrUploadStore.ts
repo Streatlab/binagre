@@ -1,4 +1,4 @@
-// ocrUploadStore v39 — pausa/reanuda real de cola + estado pausada en toast
+// ocrUploadStore v40 — toast auto-cierre a 20s + pausa/reanuda real de cola
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -32,7 +32,7 @@ let timersAutoCerrar: Map<string, number> = new Map()
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 6
-const TOAST_COMPLETADO_MS = 8000
+const TOAST_COMPLETADO_MS = 20000
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
 const MAX_REINTENTOS = 10
