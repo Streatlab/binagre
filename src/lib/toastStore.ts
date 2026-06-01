@@ -26,7 +26,8 @@ interface ShowOpts {
 }
 
 const STORAGE_KEY = 'binagre_toasts_v1'
-const MAX_LIFETIME_MS = 5 * 60 * 1000  // 5 minutos máx por toast (success + error)
+const MAX_LIFETIME_MS = 5 * 60 * 1000  // 5 minutos: tope duro para error (no para success)
+const DEFAULT_SUCCESS_MS = 5 * 1000    // success se autocierra en 5s por defecto
 
 let items: ToastItem[] = []
 const listeners = new Set<() => void>()
@@ -87,16 +88,17 @@ function show(status: ToastStatus, message: string, opts: ShowOpts = {}): string
   const now = Date.now()
 
   // Calcular expiresAt:
-  // - loading: nunca expira
-  // - success/error: máx 5 min (o el duration que pase, si menor)
+  // - loading: nunca expira (lo cierra el éxito/error que lo reemplaza)
+  // - success: se autocierra en 5s (o el duration que pase, si lo pasan)
+  // - error: persiste hasta 5 min (o el duration que pase, si menor)
   let expiresAt: number | undefined
-  if (status !== 'loading') {
-    const defaultMs = MAX_LIFETIME_MS
-    const ms = opts.duration ?? defaultMs
+  if (status === 'success') {
+    const ms = opts.duration ?? DEFAULT_SUCCESS_MS
+    if (Number.isFinite(ms)) expiresAt = now + Math.min(ms, MAX_LIFETIME_MS)
+  } else if (status === 'error') {
+    const ms = opts.duration ?? MAX_LIFETIME_MS
     const finalMs = Math.min(ms, MAX_LIFETIME_MS)
-    if (Number.isFinite(finalMs)) {
-      expiresAt = now + finalMs
-    }
+    if (Number.isFinite(finalMs)) expiresAt = now + finalMs
   }
 
   const item: ToastItem = {
