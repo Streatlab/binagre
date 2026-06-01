@@ -1,4 +1,7 @@
-// ocrUploadStore v40 — toast auto-cierre a 20s + pausa/reanuda real de cola
+// ocrUploadStore v41 — toast completado se autocierra SIEMPRE a 20s (haya o no errores).
+// El auto-cierre se programa tanto desde realtime como desde el poll (cada 3s), para
+// que nunca dependa de que llegue el evento realtime. Los errores no se pierden:
+// quedan en su card de pendientes/errores del módulo.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -151,6 +154,8 @@ function snapshot(): OcrSession[] {
   return [...preparandoLocal, ...deBD]
 }
 
+// FIX v41: el toast completado se autocierra SIEMPRE a los 20s, haya o no errores.
+// Los errores no se pierden: siguen en la card de pendientes/errores del módulo.
 function programarAutoCerrar(sesionId: string) {
   if (timersAutoCerrar.has(sesionId)) return
   const t = window.setTimeout(() => {
@@ -160,6 +165,12 @@ function programarAutoCerrar(sesionId: string) {
     emit()
   }, TOAST_COMPLETADO_MS)
   timersAutoCerrar.set(sesionId, t)
+}
+
+// Una sesión está "terminada" cuando ya no procesa y no está cancelada.
+// Se autocierra SIEMPRE (con o sin errores).
+function debeAutoCerrar(s: OcrSession): boolean {
+  return !s.procesando && !s.cancelado && s.visible
 }
 
 async function cargarSesionesActivas() {
@@ -174,11 +185,9 @@ async function cargarSesionesActivas() {
       .order('orden_cola', { ascending: true })
     if (error) { console.warn('[OCR] cargarSesionesActivas error:', error.message); return }
     const nuevas = (data || []).map(dbToSession)
-    // Auto-programar cierre para sesiones completadas sin errores/achtung
+    // FIX v41: programar auto-cierre de TODA sesión terminada (con o sin errores).
     for (const s of nuevas) {
-      if (!s.procesando && !s.cancelado && s.errores === 0 && s.achtung === 0) {
-        programarAutoCerrar(s.id)
-      }
+      if (debeAutoCerrar(s)) programarAutoCerrar(s.id)
     }
     rawSessions = nuevas; emit()
     if (typeof window !== 'undefined' && nuevas.some(s => s.procesando)) { try { window.dispatchEvent(new Event('facturas:changed')) } catch {} }
@@ -194,10 +203,8 @@ function suscribirRealtime() {
       const next = dbToSession(payload.new)
       const existe = rawSessions.find(s => s.id === next.id)
       if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s); else rawSessions = [...rawSessions, next]
-      // Auto-cierre si completada/cancelada sin problemas
-      if (!next.procesando && !next.cancelado && next.errores === 0 && next.achtung === 0 && next.visible) {
-        programarAutoCerrar(next.id)
-      }
+      // FIX v41: auto-cierre SIEMPRE al terminar (con o sin errores).
+      if (debeAutoCerrar(next)) programarAutoCerrar(next.id)
       emit()
     }).subscribe()
   } catch {}
