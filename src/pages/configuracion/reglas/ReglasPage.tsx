@@ -6,6 +6,7 @@ import { ConfigShell } from '@/components/configuracion/ConfigShell'
 const TABS = [
   { id: 'ingredientes', label: 'Normalización ingredientes' },
   { id: 'conciliacion', label: 'OCR / Conciliación' },
+  { id: 'plantillas', label: 'OCR / Plantillas' },
 ]
 
 export default function ReglasPage() {
@@ -13,7 +14,7 @@ export default function ReglasPage() {
   const nav = useNavigate()
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
-  const active = seg === 'conciliacion' ? 'conciliacion' : 'ingredientes'
+  const active = seg === 'conciliacion' ? 'conciliacion' : seg === 'plantillas' ? 'plantillas' : 'ingredientes'
 
   const handleChange = (id: string) => {
     nav(`/configuracion/reglas/${id}`)
