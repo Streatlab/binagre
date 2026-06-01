@@ -1,7 +1,7 @@
-// ocrUploadStore v41 — toast completado se autocierra SIEMPRE a 20s (haya o no errores).
-// El auto-cierre se programa tanto desde realtime como desde el poll (cada 3s), para
-// que nunca dependa de que llegue el evento realtime. Los errores no se pierden:
-// quedan en su card de pendientes/errores del módulo.
+// ocrUploadStore v42 — PDF >20MB se comprime SOLO en el navegador antes de subir.
+// Si tras comprimir sigue >20MB, se parte en varios PDF por páginas (cada parte <20MB),
+// y cada parte se procesa como un archivo más. El usuario no hace nada.
+// Mantiene v41: toast autocierre SIEMPRE a 20s.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -40,6 +40,7 @@ const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
 const MAX_REINTENTOS = 10
 const MAX_ARCHIVO_MB = 20
+const MAX_BYTES = MAX_ARCHIVO_MB * 1024 * 1024
 const ERRORES_PERMANENTES = ['Bucket not found']
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
@@ -75,6 +76,13 @@ async function cargarMammoth(): Promise<any> {
   if ((window as any).mammoth) return (window as any).mammoth
   await new Promise<void>((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'; s.onload = () => res(); s.onerror = () => rej(new Error('Mammoth')); document.head.appendChild(s) })
   return (window as any).mammoth
+}
+
+// pdf-lib para partir PDF grandes en el navegador (sin servidor, sin API).
+async function cargarPdfLib(): Promise<any> {
+  if ((window as any).PDFLib) return (window as any).PDFLib
+  await new Promise<void>((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'; s.onload = () => res(); s.onerror = () => rej(new Error('No se pudo cargar pdf-lib')); document.head.appendChild(s) })
+  return (window as any).PDFLib
 }
 
 async function excelACSV(file: File | Blob): Promise<string> {
@@ -113,15 +121,59 @@ function getMimeTypeBase(ext: string): string {
   return map[ext] ?? 'application/octet-stream'
 }
 
-async function normalizar(file: File): Promise<{ name: string; type: string; blob: Blob; esComprimido: boolean }> {
+export interface ArchivoNormalizado { name: string; type: string; blob: Blob; esComprimido: boolean }
+
+// FIX v42: un PDF >20MB se parte por páginas en el navegador en varios PDF, cada uno <20MB.
+// Devuelve uno o varios archivos listos para subir. El usuario no hace nada.
+async function partirPdfGrande(file: File): Promise<ArchivoNormalizado[]> {
+  try {
+    const PDFLib = await cargarPdfLib()
+    const buf = await file.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: true })
+    const numPaginas = src.getPageCount()
+    if (numPaginas <= 1) {
+      // Una sola página enorme: no se puede partir por páginas. Se sube tal cual
+      // (caerá en error >20MB, caso muy raro). Mejor intentarlo que perderlo.
+      return [{ name: file.name, type: 'application/pdf', blob: file, esComprimido: false }]
+    }
+    // Repartir páginas en bloques cuyo peso estimado quede bajo el límite.
+    const ratio = file.size / numPaginas
+    const pagsPorParte = Math.max(1, Math.floor((MAX_BYTES * 0.85) / ratio))
+    const partes: ArchivoNormalizado[] = []
+    let parteNum = 1
+    for (let ini = 0; ini < numPaginas; ini += pagsPorParte) {
+      const fin = Math.min(ini + pagsPorParte, numPaginas)
+      const nuevo = await PDFLib.PDFDocument.create()
+      const indices = Array.from({ length: fin - ini }, (_, k) => ini + k)
+      const copiadas = await nuevo.copyPages(src, indices)
+      for (const p of copiadas) nuevo.addPage(p)
+      const bytes = await nuevo.save()
+      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const baseName = file.name.replace(/\.pdf$/i, '')
+      partes.push({ name: `${baseName}__parte${parteNum}.pdf`, type: 'application/pdf', blob, esComprimido: false })
+      parteNum++
+    }
+    return partes
+  } catch {
+    // Si pdf-lib falla, devolver el original (caerá en error >20MB, no se pierde nada).
+    return [{ name: file.name, type: 'application/pdf', blob: file, esComprimido: false }]
+  }
+}
+
+// Devuelve SIEMPRE una lista (normalmente 1 elemento; varios si fue un PDF grande partido).
+async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
   const ext = getExt(file.name)
-  if (['zip', 'rar', '7z'].includes(ext)) { const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext); return { name: file.name, type: t, blob: file, esComprimido: true } }
-  if (['xlsx', 'xls'].includes(ext)) { const csv = await excelACSV(file); return { name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }), esComprimido: false } }
-  if (ext === 'docx') { const t = await docxATexto(file); return { name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false } }
-  if (ext === 'doc') { const t = await docATexto(file); return { name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false } }
-  if (['html', 'htm'].includes(ext)) { const t = await htmlATexto(file); return { name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false } }
+  if (['zip', 'rar', '7z'].includes(ext)) { const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext); return [{ name: file.name, type: t, blob: file, esComprimido: true }] }
+  if (['xlsx', 'xls'].includes(ext)) { const csv = await excelACSV(file); return [{ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }), esComprimido: false }] }
+  if (ext === 'docx') { const t = await docxATexto(file); return [{ name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
+  if (ext === 'doc') { const t = await docATexto(file); return [{ name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
+  if (['html', 'htm'].includes(ext)) { const t = await htmlATexto(file); return [{ name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
+  // PDF grande -> partir por páginas en el navegador.
+  if (ext === 'pdf' && file.size > MAX_BYTES) {
+    return await partirPdfGrande(file)
+  }
   const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext)
-  return { name: file.name, type: t, blob: file, esComprimido: false }
+  return [{ name: file.name, type: t, blob: file, esComprimido: false }]
 }
 
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
@@ -154,8 +206,6 @@ function snapshot(): OcrSession[] {
   return [...preparandoLocal, ...deBD]
 }
 
-// FIX v41: el toast completado se autocierra SIEMPRE a los 20s, haya o no errores.
-// Los errores no se pierden: siguen en la card de pendientes/errores del módulo.
 function programarAutoCerrar(sesionId: string) {
   if (timersAutoCerrar.has(sesionId)) return
   const t = window.setTimeout(() => {
@@ -167,8 +217,6 @@ function programarAutoCerrar(sesionId: string) {
   timersAutoCerrar.set(sesionId, t)
 }
 
-// Una sesión está "terminada" cuando ya no procesa y no está cancelada.
-// Se autocierra SIEMPRE (con o sin errores).
 function debeAutoCerrar(s: OcrSession): boolean {
   return !s.procesando && !s.cancelado && s.visible
 }
@@ -185,7 +233,6 @@ async function cargarSesionesActivas() {
       .order('orden_cola', { ascending: true })
     if (error) { console.warn('[OCR] cargarSesionesActivas error:', error.message); return }
     const nuevas = (data || []).map(dbToSession)
-    // FIX v41: programar auto-cierre de TODA sesión terminada (con o sin errores).
     for (const s of nuevas) {
       if (debeAutoCerrar(s)) programarAutoCerrar(s.id)
     }
@@ -203,7 +250,6 @@ function suscribirRealtime() {
       const next = dbToSession(payload.new)
       const existe = rawSessions.find(s => s.id === next.id)
       if (existe) rawSessions = rawSessions.map(s => s.id === next.id ? next : s); else rawSessions = [...rawSessions, next]
-      // FIX v41: auto-cierre SIEMPRE al terminar (con o sin errores).
       if (debeAutoCerrar(next)) programarAutoCerrar(next.id)
       emit()
     }).subscribe()
@@ -264,63 +310,78 @@ export function useOcrUpload() {
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
     setErrorVisible(null)
-    const maxBytes = MAX_ARCHIVO_MB * 1024 * 1024
-    const grandesIdx: number[] = []
+    // v42: ya NO se descartan los PDF grandes; se parten en normalizar(). Solo se
+    // descartan NO-PDF que superen el límite (imágenes enormes raras).
+    const descartados: number[] = []
     for (let i = 0; i < files.length; i++) {
-      if (files[i].size > maxBytes) grandesIdx.push(i)
+      if (files[i].size > MAX_BYTES && getExt(files[i].name) !== 'pdf') descartados.push(i)
     }
-    if (grandesIdx.length > 0) {
-      const nombres = grandesIdx.slice(0, 3).map(i => files[i].name).join(', ')
-      setErrorVisible(`${grandesIdx.length} archivo(s) superan ${MAX_ARCHIVO_MB}MB y no se pueden procesar: ${nombres}${grandesIdx.length > 3 ? '…' : ''}`)
-      files = files.filter((_, i) => !grandesIdx.includes(i))
+    if (descartados.length > 0) {
+      const nombres = descartados.slice(0, 3).map(i => files[i].name).join(', ')
+      setErrorVisible(`${descartados.length} archivo(s) no-PDF superan ${MAX_ARCHIVO_MB}MB: ${nombres}${descartados.length > 3 ? '…' : ''}`)
+      files = files.filter((_, i) => !descartados.includes(i))
       if (files.length === 0) return
     }
 
     const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const totalLotes = Math.max(1, Math.ceil(files.length / SESION_MAX_ARCHIVOS))
     const baseOrden = Math.floor(Date.now() / 1000)
-    const sesionesCreadas: { id: string; rangoIni: number; rangoFin: number }[] = []
     ponerPreparando(idLocal, files.length, 0, `Preparando subida…`, grupoId)
+
+    // v42: primero normalizar TODOS (parte los PDF grandes), luego repartir en lotes.
+    const cancelado = () => cancelacionesLocales.has(grupoId)
+    const normalizados: ArchivoNormalizado[] = []
+    let preparados = 0
+    for (const f of files) {
+      if (cancelado()) { quitarPreparando(idLocal); return }
+      try {
+        const parts = await normalizar(f)
+        normalizados.push(...parts)
+      } catch (e: any) {
+        console.error(`[OCR] normalizar ${f.name}:`, e?.message || e)
+        // Si normalizar falla, subir el original tal cual.
+        normalizados.push({ name: f.name, type: f.type || 'application/octet-stream', blob: f, esComprimido: false })
+      }
+      preparados++
+      ponerPreparando(idLocal, files.length, preparados, `Preparando ${preparados} de ${files.length}…`, grupoId)
+    }
+
+    const totalReal = normalizados.length
+    const totalLotes = Math.max(1, Math.ceil(totalReal / SESION_MAX_ARCHIVOS))
+    const sesionesCreadas: { id: string; rangoIni: number; rangoFin: number }[] = []
     for (let lote = 0; lote < totalLotes; lote++) {
-      const ini = lote * SESION_MAX_ARCHIVOS; const fin = Math.min(ini + SESION_MAX_ARCHIVOS, files.length)
+      const ini = lote * SESION_MAX_ARCHIVOS; const fin = Math.min(ini + SESION_MAX_ARCHIVOS, totalReal)
       const sesionId = `ocr_${Date.now()}_${lote}_${Math.random().toString(36).slice(2, 5)}`
       const err = await crearSesionBBDD(sesionId, grupoId, fin - ini, fnName, titular_id, baseOrden + lote, fin - ini)
       if (err) { setErrorVisible(`Error creando sesión: ${err}`); quitarPreparando(idLocal); return }
       sesionesCreadas.push({ id: sesionId, rangoIni: ini, rangoFin: fin })
     }
     await cargarSesionesActivas()
+
     const archivosSubidos: { sesionId: string; name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
-    let subidos = 0; let fallos = 0; const cancelado = () => cancelacionesLocales.has(grupoId)
-    async function subirUno(file: File, idxGlobal: number) {
+    let subidos = 0; let fallos = 0
+    async function subirUno(norm: ArchivoNormalizado, idxGlobal: number) {
       if (cancelado()) return
       const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
       try {
-        const norm = await normalizar(file)
         const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
         archivosSubidos.push({ sesionId: ses.id, name: norm.name, type: norm.type, storagePath: path, esComprimido: norm.esComprimido })
         subidos++
       } catch (e: any) {
-        if ((e?.message || String(e)) !== 'cancelado') {
-          fallos++
-          console.error(`[OCR] Error procesando ${file.name}:`, e?.message || e)
-        }
+        if ((e?.message || String(e)) !== 'cancelado') { fallos++; console.error(`[OCR] Error subiendo ${norm.name}:`, e?.message || e) }
       }
-      const hechos = subidos + fallos; ponerPreparando(idLocal, files.length, hechos, `Subiendo ${hechos} de ${files.length}…`, grupoId)
+      const hechos = subidos + fallos; ponerPreparando(idLocal, totalReal, hechos, `Subiendo ${hechos} de ${totalReal}…`, grupoId)
       const porSesion: Record<string, number> = {}; for (const a of archivosSubidos) { porSesion[a.sesionId] = (porSesion[a.sesionId] || 0) + 1 }
-      if (subidos % 10 === 0 || hechos === files.length) { for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) } }
+      if (subidos % 10 === 0 || hechos === totalReal) { for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) } }
     }
     let nextIdx = 0
     async function workerSubida() {
       while (true) {
         if (cancelado()) return
         const idx = nextIdx++
-        if (idx >= files.length) return
-        try { await subirUno(files[idx], idx) } catch (e: any) {
-          if ((e?.message || String(e)) !== 'cancelado') {
-            fallos++
-            console.error(`[OCR worker] Error fatal en archivo ${idx}:`, e?.message || e)
-          }
+        if (idx >= totalReal) return
+        try { await subirUno(normalizados[idx], idx) } catch (e: any) {
+          if ((e?.message || String(e)) !== 'cancelado') { fallos++; console.error(`[OCR worker] Error fatal en archivo ${idx}:`, e?.message || e) }
         }
       }
     }
@@ -358,7 +419,6 @@ export function useOcrUpload() {
 
   async function pausar(id: string) {
     if (id.startsWith('grp_')) { const grupoId = id.slice(4)
-      // en_espera -> pausada ya; la que procesa se autopausa al siguiente bloque
       await supabase.from('ocr_sessions').update({ pausar_solicitado: true }).eq('grupo_id', grupoId)
       await supabase.from('ocr_sessions').update({ estado_cola: 'pausada' }).eq('grupo_id', grupoId).eq('estado_cola', 'en_espera')
     } else {
