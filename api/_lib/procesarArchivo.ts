@@ -1,10 +1,11 @@
-// procesarArchivo v10 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
+// procesarArchivo v11 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
 // BLINDAJE COSTE: la API de Anthropic SOLO se usa si OCR_PERMITIR_API==='true'.
 // Por defecto está APAGADA: si las reglas no leen una factura, NO se llama a la
 // API. El PDF se guarda igualmente en Drive y la factura queda en estado
 // 'pendiente_lectura_manual' (cuenta como pendiente, nunca como gasto ni parada).
-// v10: guardarLecturaManual ahora EXTRAE y guarda nif_emisor + proveedor del texto
-// del PDF aunque no haya plantilla, para poder crear la plantilla automáticamente.
+// v11: guardarLecturaManual es IDEMPOTENTE — si el pdf_hash ya existe, NO lanza
+// error (antes el unique index idx_facturas_pdf_hash_unique tiraba el insert y el
+// archivo se perdía). Ahora se trata como duplicada y nunca se pierde.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -394,7 +395,7 @@ async function procesarContenidoPrincipal(
     // NO se llama al modelo. Se guarda el PDF en Drive como respaldo y se deja
     // la factura en 'pendiente_lectura_manual'. Se extrae el NIF emisor del texto
     // (aunque falte el total) para poder crear la plantilla automáticamente.
-    return await guardarLecturaManual(supabase, file, textoPdfCache)
+    return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
   // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
@@ -407,7 +408,7 @@ async function procesarContenidoPrincipal(
 
   if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
     // Datos insuficientes: en vez de error seco, guardar como lectura manual.
-    return await guardarLecturaManual(supabase, file, textoPdfCache)
+    return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
   // F05: validar fecha antes de insert
@@ -433,6 +434,11 @@ async function procesarContenidoPrincipal(
     .single()
 
   if (errInsert || !nueva) {
+    // v11: si el insert choca por hash (otro archivo idéntico ya entró en este
+    // mismo lote entre el SELECT y el INSERT), NO es error: es duplicada.
+    if (errInsert && /pdf_hash/.test(errInsert.message || '')) {
+      return { estado: 'duplicada', archivo: file.nombre, motivo: 'hash duplicado (mismo PDF en el lote)' }
+    }
     return {
       estado: 'error',
       archivo: file.nombre,
@@ -455,28 +461,29 @@ async function procesarContenidoPrincipal(
       if (provPorNombre?.id) proveedorId = provPorNombre.id
     }
 
-    if (proveedorId) {
-      const { data: duplicadoNum } = await supabase
-        .from('facturas')
-        .select('id, proveedor_nombre, numero_factura, total')
-        .eq('proveedor_id', proveedorId)
-        .eq('numero_factura', extracted.numero_factura)
-        .neq('id', nueva.id)
-        .maybeSingle()
-      if (duplicadoNum) {
-        await supabase.from('facturas').delete().eq('id', nueva.id)
-        return {
-          estado: 'duplicada',
-          archivo: file.nombre,
-          factura_existente: duplicadoNum as Record<string, unknown>,
-          motivo: 'proveedor+numero',
+    if (proveedorId && extracted.numero_factura) {
+      // v11: la regla proveedor+numero SOLO marca duplicada si el número de factura
+      // es real (no un SN-/LM- autogenerado). Antes marcaba duplicadas facturas
+      // distintas que compartían número autogenerado y se perdían.
+      const numReal = !/^(SN|LM)-/.test(extracted.numero_factura)
+      if (numReal) {
+        const { data: duplicadoNum } = await supabase
+          .from('facturas')
+          .select('id, proveedor_nombre, numero_factura, total')
+          .eq('proveedor_id', proveedorId)
+          .eq('numero_factura', extracted.numero_factura)
+          .neq('id', nueva.id)
+          .maybeSingle()
+        if (duplicadoNum) {
+          await supabase.from('facturas').delete().eq('id', nueva.id)
+          return {
+            estado: 'duplicada',
+            archivo: file.nombre,
+            factura_existente: duplicadoNum as Record<string, unknown>,
+            motivo: 'proveedor+numero',
+          }
         }
       }
-
-      // [retirado] La regla proveedor+fecha+total marcaba como duplicadas
-      // facturas legitimas distintas que coincidian en proveedor, fecha e importe
-      // (frecuente: 2 pedidos iguales el mismo dia). Los duplicados reales ya se
-      // cubren por hash de archivo y por proveedor+numero_factura.
     }
 
     if (!proveedorId && extracted.proveedor_nombre) {
@@ -698,14 +705,30 @@ async function procesarContenidoPrincipal(
 // BLINDAJE 0 API: factura que las reglas no pudieron leer. Se guarda el PDF en
 // Drive (carpeta SIN_TITULAR) para no perderlo y se inserta en BBDD con estado
 // 'pendiente_lectura_manual'. Nunca llama a la API ni para la cola.
-// v10: extrae nif_emisor del texto del PDF (aunque falte total) y lo guarda, para
-// que el ciclo de creación automática de plantillas pueda identificar el proveedor.
+// v11: IDEMPOTENTE. Recibe el hash ya calculado. Antes de insertar comprueba si
+// el hash ya existe (duplicada) y, si el INSERT choca igualmente por carrera,
+// lo trata como duplicada en vez de lanzar error → ningún archivo se pierde.
 async function guardarLecturaManual(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
+  hash: string,
   textoPdf?: string,
 ): Promise<ProcesarResultado> {
-  const hash = createHash('sha256').update(file.buffer).digest('hex')
+  // Si ya existe una factura con este hash, no se duplica: se devuelve duplicada.
+  const { data: yaExiste } = await supabase
+    .from('facturas')
+    .select('id, proveedor_nombre, estado, pdf_drive_id')
+    .eq('pdf_hash', hash)
+    .maybeSingle()
+  if (yaExiste) {
+    return {
+      estado: 'duplicada',
+      archivo: file.nombre,
+      factura_existente: yaExiste as Record<string, unknown>,
+      motivo: 'ya existe (lectura manual)',
+    }
+  }
+
   const hoy = new Date().toISOString().slice(0, 10)
   const numFactura = `LM-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
 
@@ -732,7 +755,7 @@ async function guardarLecturaManual(
     carpeta_titular: 'SIN_TITULAR',
   })
 
-  const { data: nueva } = await supabase
+  const { data: nueva, error: errLM } = await supabase
     .from('facturas')
     .insert({
       pdf_original_name: file.nombre,
@@ -742,6 +765,7 @@ async function guardarLecturaManual(
       fecha_factura: hoy,
       total: 0,
       estado: 'pendiente_lectura_manual',
+      tipo: 'proveedor',
       titular_id: RUBEN_ID,
       nif_emisor: nifEmisor,
       pdf_drive_id: drive?.id ?? null,
@@ -753,6 +777,15 @@ async function guardarLecturaManual(
     })
     .select('*')
     .maybeSingle()
+
+  // v11: si el insert choca por hash (carrera con otro idéntico del mismo lote),
+  // NO es error: es duplicada. El archivo nunca se pierde.
+  if (errLM) {
+    if (/pdf_hash/.test(errLM.message || '')) {
+      return { estado: 'duplicada', archivo: file.nombre, motivo: 'hash duplicado (mismo PDF en el lote)' }
+    }
+    return { estado: 'error', archivo: file.nombre, error: errLM.message }
+  }
 
   return {
     estado: 'lectura_manual',
