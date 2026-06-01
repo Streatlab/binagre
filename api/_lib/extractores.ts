@@ -130,6 +130,16 @@ function buscarNifs(texto: string): string[] {
   return out
 }
 
+// Saca SOLO el NIF emisor del texto (el primero que no sea cliente conocido),
+// aunque no haya total ni fecha legibles. Se usa en lectura manual para poder
+// identificar el proveedor y crear su plantilla automáticamente.
+export function extraerNifEmisorLibre(texto: string): string | null {
+  if (!texto) return null
+  const nifs = buscarNifs(texto)
+  if (nifs.length === 0) return null
+  return nifs.find((n) => !NIF_CLIENTES.has(n)) || null
+}
+
 function parseImporte(s: string): number | null {
   let v = s.trim()
   if (v.includes(',') && v.includes('.')) {
