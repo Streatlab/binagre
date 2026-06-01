@@ -1,4 +1,4 @@
-// procesarArchivo v11 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
+// procesarArchivo v12 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
 // BLINDAJE COSTE: la API de Anthropic SOLO se usa si OCR_PERMITIR_API==='true'.
 // Por defecto está APAGADA: si las reglas no leen una factura, NO se llama a la
 // API. El PDF se guarda igualmente en Drive y la factura queda en estado
@@ -6,6 +6,9 @@
 // v11: guardarLecturaManual es IDEMPOTENTE — si el pdf_hash ya existe, NO lanza
 // error (antes el unique index idx_facturas_pdf_hash_unique tiraba el insert y el
 // archivo se perdía). Ahora se trata como duplicada y nunca se pierde.
+// v12: RETIRADA la regla dedup proveedor+numero. Generaba falsos positivos
+// (facturas reales distintas con el mismo número, o número mal leído por OCR, se
+// descartaban). El ÚNICO dedup válido es por hash de archivo (mismo PDF exacto).
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -461,30 +464,11 @@ async function procesarContenidoPrincipal(
       if (provPorNombre?.id) proveedorId = provPorNombre.id
     }
 
-    if (proveedorId && extracted.numero_factura) {
-      // v11: la regla proveedor+numero SOLO marca duplicada si el número de factura
-      // es real (no un SN-/LM- autogenerado). Antes marcaba duplicadas facturas
-      // distintas que compartían número autogenerado y se perdían.
-      const numReal = !/^(SN|LM)-/.test(extracted.numero_factura)
-      if (numReal) {
-        const { data: duplicadoNum } = await supabase
-          .from('facturas')
-          .select('id, proveedor_nombre, numero_factura, total')
-          .eq('proveedor_id', proveedorId)
-          .eq('numero_factura', extracted.numero_factura)
-          .neq('id', nueva.id)
-          .maybeSingle()
-        if (duplicadoNum) {
-          await supabase.from('facturas').delete().eq('id', nueva.id)
-          return {
-            estado: 'duplicada',
-            archivo: file.nombre,
-            factura_existente: duplicadoNum as Record<string, unknown>,
-            motivo: 'proveedor+numero',
-          }
-        }
-      }
-    }
+    // v12: RETIRADA la regla dedup proveedor+numero. Generaba falsos positivos:
+    // facturas reales distintas que comparten número (o número mal leído por OCR)
+    // se descartaban y se perdían. El ÚNICO dedup válido es por hash de archivo
+    // (mismo PDF exacto), que ya se aplica al inicio. Dos facturas distintas con
+    // el mismo número pero distinto PDF son dos facturas y deben entrar ambas.
 
     if (!proveedorId && extracted.proveedor_nombre) {
       const insertData: Record<string, unknown> = { nombre: extracted.proveedor_nombre, activo: true }
