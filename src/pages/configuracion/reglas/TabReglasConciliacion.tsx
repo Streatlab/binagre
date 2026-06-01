@@ -13,6 +13,13 @@ interface Regla {
   activa: boolean
 }
 
+// Tras crear/editar una regla, dispara el barrido de re-conciliación para que las
+// facturas pendientes que ahora cuadran con esta regla se concilien solas
+// (autopropaga a pasadas y futuras). Best-effort: no bloquea la UI si falla.
+function reconciliarPendientes() {
+  fetch('/api/facturas?action=reconciliar-pendientes').catch(() => {})
+}
+
 export default function TabReglasConciliacion() {
   const { T } = useTheme()
   const [reglas, setReglas] = useState<Regla[]>([])
@@ -44,6 +51,7 @@ export default function TabReglasConciliacion() {
       borrar: false, prioridad: maxP + 1, activa: true,
     })
     setNPatron(''); setNProv(''); setNCat(''); cargar()
+    reconciliarPendientes()
   }
   async function guardarEdit(id: string) {
     await supabase.from('reglas_conciliacion').update({
@@ -52,10 +60,12 @@ export default function TabReglasConciliacion() {
       categoria_codigo: eCat.trim() || null,
     }).eq('id', id)
     setEditId(null); cargar()
+    reconciliarPendientes()
   }
   async function toggleActiva(id: string, activa: boolean) {
     await supabase.from('reglas_conciliacion').update({ activa: !activa }).eq('id', id)
     cargar()
+    reconciliarPendientes()
   }
   async function borrar(id: string) {
     if (!confirm('¿Eliminar esta regla?')) return
@@ -77,7 +87,7 @@ export default function TabReglasConciliacion() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Cuando un movimiento del banco contiene el texto del patrón, el sistema le asigna automáticamente el proveedor y la categoría indicados. Se usan en OCR y Conciliación.
+        Cuando un movimiento del banco contiene el texto del patrón, el sistema le asigna automáticamente el proveedor y la categoría indicados. Se usan en OCR y Conciliación. Al guardar una regla, las facturas pendientes que ahora cuadran se reconcilian solas.
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
