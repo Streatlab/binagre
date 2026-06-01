@@ -177,6 +177,9 @@ export default function Ocr() {
   useEffect(() => { Promise.all([supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'), supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden')]).then(([cats, tits]) => { if (!cats.error) setCategoriasPyg(cats.data ?? []); if (!tits.error) setTitulares(tits.data ?? []) }) }, [])
   const periodoDesdeStr = fechaDesde.toISOString().slice(0, 10)
   const periodoHastaStr = fechaHasta.toISOString().slice(0, 10)
+  // El "hasta" debe incluir el día completo (las facturas sin leer llevan created_at de
+  // hoy a cualquier hora). Se usa el día siguiente como cota superior exclusiva.
+  const periodoHastaExclusivo = (() => { const d = new Date(fechaHasta); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()
 
   // Detecta si la ordenación incluye la columna "estado" (calculada, requiere fetch full)
   const ordenaEstadoCalculado = ms.sorts.some((s: any) => s.col === 'estado')
@@ -196,10 +199,13 @@ export default function Ocr() {
       titular: 'titular_id', estado: null,
     }
 
+    // El periodo filtra por created_at (fecha de SUBIDA), no por fecha_factura.
+    // Motivo: las facturas sin plantilla no tienen fecha real legible y llevan
+    // fecha_factura = hoy; filtrar por fecha_factura escondía el lote recién subido.
     let q: any = supabase.from('facturas')
       .select('id, fecha_factura, proveedor_nombre, total, tipo, categoria_factura, nif_emisor, titular_id, pdf_drive_url, pdf_drive_id, pdf_filename, numero_factura, estado, doc_estado, facturas_gastos(conciliacion_id)', { count: 'exact' })
-      .gte('fecha_factura', periodoDesdeStr)
-      .lte('fecha_factura', periodoHastaStr)
+      .gte('created_at', periodoDesdeStr)
+      .lt('created_at', periodoHastaExclusivo)
 
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
     else q = q.eq('tipo', 'otro')
@@ -214,10 +220,10 @@ export default function Ocr() {
     if (!necesitaClienteCompleto && orderList.length > 0) {
       for (const o of orderList) q = q.order(o.field, { ascending: o.ascending })
     } else if (!necesitaClienteCompleto) {
-      q = q.order('fecha_factura', { ascending: false })
+      q = q.order('created_at', { ascending: false })
     } else {
-      // Para cliente completo, traer ordenado por fecha como base estable
-      q = q.order('fecha_factura', { ascending: false })
+      // Para cliente completo, traer ordenado por created_at como base estable
+      q = q.order('created_at', { ascending: false })
     }
 
     if (!necesitaClienteCompleto) {
@@ -290,23 +296,23 @@ export default function Ocr() {
       }
     }
     setCargando(false)
-  }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
+  }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
 
   // Cards: cuenta en SERVIDOR con count exacto (head:true) en vez de traer filas
   // y contarlas (PostgREST corta a 1000 → la card mostraba 1000 en vez del total real).
-  // 3 consultas count: total, conciliadas (por estado o doc_estado), y deriva pendientes.
+  // El periodo filtra por created_at (fecha de subida), igual que la tabla.
   const cargarAgregados = useCallback(async () => {
     try {
       const baseTotal = supabase.from('facturas')
         .select('id', { count: 'exact', head: true })
-        .gte('fecha_factura', periodoDesdeStr)
-        .lte('fecha_factura', periodoHastaStr)
+        .gte('created_at', periodoDesdeStr)
+        .lt('created_at', periodoHastaExclusivo)
         .in('tipo', ['proveedor', 'plataforma'])
 
       const baseConc = supabase.from('facturas')
         .select('id', { count: 'exact', head: true })
-        .gte('fecha_factura', periodoDesdeStr)
-        .lte('fecha_factura', periodoHastaStr)
+        .gte('created_at', periodoDesdeStr)
+        .lt('created_at', periodoHastaExclusivo)
         .in('tipo', ['proveedor', 'plataforma'])
         .or(`estado.in.(${ESTADOS_CONCILIADOS_RAW.join(',')}),doc_estado.eq.no_requiere`)
 
@@ -326,8 +332,8 @@ export default function Ocr() {
         for (let off = 0; off < tot; off += BLOQUE) {
           const { data: dImp } = await supabase.from('facturas')
             .select('total, estado, doc_estado')
-            .gte('fecha_factura', periodoDesdeStr)
-            .lte('fecha_factura', periodoHastaStr)
+            .gte('created_at', periodoDesdeStr)
+            .lt('created_at', periodoHastaExclusivo)
             .in('tipo', ['proveedor', 'plataforma'])
             .range(off, off + BLOQUE - 1)
           for (const r of dImp ?? []) {
@@ -347,7 +353,7 @@ export default function Ocr() {
         conciliadasImporte, pendientesCount: pend, pendientesImporte
       })
     } catch { setAgregados(null) }
-  }, [periodoDesdeStr, periodoHastaStr, refreshTick])
+  }, [periodoDesdeStr, periodoHastaExclusivo, refreshTick])
 
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
@@ -366,7 +372,7 @@ export default function Ocr() {
   function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
   async function handleBorrarLote() { if (seleccionadas.size === 0) return; setBorrandoLote(true); try { const ids = Array.from(seleccionadas); const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids); const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]; const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]; if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }; const driveErrors: string[] = []; const chunks: string[][] = []; for (let i = 0; i < driveIds.length; i += 5) chunks.push(driveIds.slice(i, i + 5)); for (const chunk of chunks) { await Promise.allSettled(chunk.map(async driveId => { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } })) }; if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} de ${driveIds.length} archivo(s) de Drive. Las facturas se borran igualmente.`) }; const { error: errDel } = await supabase.from('facturas').delete().in('id', ids); if (errDel) throw errDel; setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1) } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) } }
   function getBadgeCategoria(f: Factura) { if (!f.categoria_factura) return null; const cat = categoriasPyg.find(c => c.id === f.categoria_factura); return cat ? { id: cat.id, nombre: cat.nombre } : { id: f.categoria_factura, nombre: f.categoria_factura } }
-  const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url, titular_id').gte('fecha_factura', periodoDesdeStr).lte('fecha_factura', periodoHastaStr).range(0, 99999); const rows = (data ?? []).map((m: any) => { const tit = m.titular_id === RUBEN_ID ? 'Rubén' : m.titular_id === EMILIO_ID ? 'Emilio' : ''; return [m.fecha_factura, csvEscape(m.proveedor_nombre ?? ''), csvEscape(m.nif_emisor ?? ''), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No', tit] }); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc', 'Titular'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
+  const handleExportar = async () => { setExportando(true); try { const { data } = await supabase.from('facturas').select('fecha_factura, proveedor_nombre, nif_emisor, total, categoria_factura, pdf_drive_url, titular_id').gte('created_at', periodoDesdeStr).lt('created_at', periodoHastaExclusivo).range(0, 99999); const rows = (data ?? []).map((m: any) => { const tit = m.titular_id === RUBEN_ID ? 'Rubén' : m.titular_id === EMILIO_ID ? 'Emilio' : ''; return [m.fecha_factura, csvEscape(m.proveedor_nombre ?? ''), csvEscape(m.nif_emisor ?? ''), m.total, m.categoria_factura ?? '', m.pdf_drive_url ? 'Sí' : 'No', tit] }); const csv = [['Fecha', 'Contraparte', 'NIF', 'Total', 'Categoría', 'Doc', 'Titular'].join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `facturas_${new Date().toISOString().slice(0, 10)}.csv`; a.click() } catch {} finally { setExportando(false) } }
   const cardStyle = (_filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({ background: '#fff', border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s' })
   const HEADERS: { label: string; col: string; align: 'left' | 'right' | 'center' }[] = [{ label: 'Fecha', col: 'fecha', align: 'left' }, { label: 'Contraparte', col: 'contraparte', align: 'left' }, { label: 'NIF', col: 'nif', align: 'left' }, { label: 'Importe', col: 'importe', align: 'right' }, { label: 'Categoría', col: 'categoria', align: 'left' }, { label: 'Doc', col: 'doc', align: 'center' }, { label: 'Estado', col: 'estado', align: 'left' }, { label: 'Titular', col: 'titular', align: 'left' }]
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
