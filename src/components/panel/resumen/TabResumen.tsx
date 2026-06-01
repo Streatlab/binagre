@@ -20,7 +20,6 @@ import CardRatio from './CardRatio'
 import CardPE from './CardPE'
 import CardProvisiones from './CardProvisiones'
 import CardTopVentas from './CardTopVentas'
-import CardFacturasCorreo from './CardFacturasCorreo'
 import type {
   RowFacturacion, CanalStat, ObjetivosVentas, PagoProximoItem,
   TopVentaItem,
@@ -753,7 +752,7 @@ export default function TabResumen({
           items={topItems}
           datosDemo={topDatosDemo}
         />
-        <CardFacturasCorreo />
+        <div />
       </div>
     </div>
   )
