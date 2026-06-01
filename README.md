@@ -2,4 +2,4 @@
 
 ERP web de Binagre / Streat Lab.
 
-<!-- deploy trigger: guardado idempotente OCR v11 -->
+<!-- deploy trigger: dedup solo por hash v12 -->
