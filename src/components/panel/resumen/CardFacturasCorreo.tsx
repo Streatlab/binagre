@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { COLOR, COLORS, LEXEND, OSWALD, card, lblSm, kpiBig } from './tokens'
 
+type Tipo = 'factura' | 'ventas'
+
+interface Props {
+  /** 'factura' filtra el canal de facturas; 'ventas' filtra el de extractos/ventas */
+  tipo: Tipo
+}
+
 interface Stats {
   recibidas: number
   correctas: number
@@ -11,8 +18,16 @@ interface Stats {
 }
 
 const HOY = () => new Date().toISOString().slice(0, 10)
+const FN: Record<Tipo, string> = {
+  factura: 'ocr-procesar-factura',
+  ventas: 'ocr-procesar-extracto',
+}
+const TITULO: Record<Tipo, string> = {
+  factura: 'FACTURAS POR CORREO · HOY',
+  ventas: 'VENTAS POR CORREO · HOY',
+}
 
-export default function CardFacturasCorreo() {
+export default function CardFacturasCorreo({ tipo }: Props) {
   const [s, setS] = useState<Stats | null>(null)
   const [cargando, setCargando] = useState(true)
 
@@ -23,6 +38,7 @@ export default function CardFacturasCorreo() {
       .from('ocr_sessions')
       .select('total, ok, pendientes, duplicados, errores')
       .like('grupo_id', 'g_correo_%')
+      .eq('fn_name', FN[tipo])
       .gte('creado_en', desde)
 
     const recibidas = (ses || []).reduce((a, r) => a + (r.total || 0), 0)
@@ -52,14 +68,15 @@ export default function CardFacturasCorreo() {
     cargar()
     const t = setInterval(cargar, 60_000)
     return () => clearInterval(t)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo])
 
   const buzonOk = s?.buzonConectado ?? false
 
   return (
-    <div style={{ ...card, borderLeft: `3px solid ${COLORS.uber}` }}>
+    <div style={{ ...card, borderLeft: `3px solid ${COLORS.uber}`, marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={lblSm}>FACTURAS POR CORREO · HOY</div>
+        <div style={lblSm}>{TITULO[tipo]}</div>
         <span
           title={s?.ultimoBarrido ? 'Último barrido: ' + new Date(s.ultimoBarrido).toLocaleString('es-ES') : ''}
           style={{
@@ -104,7 +121,7 @@ export default function CardFacturasCorreo() {
 
       {!buzonOk && (
         <div style={{ marginTop: 12, fontFamily: LEXEND, fontSize: 12, color: COLOR.rojo, textAlign: 'center' }}>
-          El buzón no conectó en el último barrido. Puede que falten facturas.
+          El buzón no conectó en el último barrido. Puede que falten {tipo === 'factura' ? 'facturas' : 'ventas'}.
         </div>
       )}
     </div>
