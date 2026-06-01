@@ -7,6 +7,9 @@
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
  *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
+ *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes: reintenta match con
+ *                                                  reglas/plantillas actuales y devuelve informe con
+ *                                                  motivo de cada uno que sigue pendiente
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -18,6 +21,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
 import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
+import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
+import type { ExtractedFactura } from '../_lib/ocr.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -32,6 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'faltantes')     return faltantes(res)
   if (action === 'resubir-drive') return resubirDrive(res)
   if (action === 'reproc')        return reproc(req, res)
+  if (action === 'reconciliar-pendientes') return reconciliarPendientes(req, res)
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
 
@@ -155,6 +161,180 @@ async function resubirDrive(res: VercelResponse) {
     pendientes: data || [],
     total: data?.length || 0,
     instrucciones: 'Abre cada factura del listado y usa "Re-subir a Drive" desde el modal (Tab Resumen).',
+  })
+}
+
+// ── Handler: barrido re-conciliación de pendientes ─────────────────────────
+// Recorre TODAS las facturas que NO están conciliadas, reintenta el matching
+// contra el estado actual de reglas/plantillas/conciliación y devuelve un informe:
+//   - reconciliadas: pasaron a conciliada/asociada en este barrido
+//   - con_regla_sin_match: tienen alias/regla pero el importe/fecha no cuadra
+//     (típico: falta extracto, importe distinto) → motivo del matching
+//   - sin_regla: NO existe alias ni regla ni plantilla → hay que crearla a mano
+//   - sin_plantilla: lectura manual sin plantilla de NIF → hay que crear plantilla
+// LEY 100%: este informe es la verdad. Si sin_regla + sin_plantilla > 0, NO hay
+// conciliación cerrada: cada uno se resuelve creando su regla/plantilla.
+const ESTADOS_CONCILIADA_BARRIDO = ['conciliada', 'asociada', 'solo_drive']
+const ESTADOS_PENDIENTE_MATCH = ['sin_match', 'pendiente_revision', 'pendiente_titular_manual', 'drive_pendiente']
+
+interface InformePendiente {
+  factura_id: string
+  proveedor: string | null
+  nif: string | null
+  total: number | null
+  fecha: string | null
+  archivo: string | null
+  motivo: string
+}
+
+// ¿Existe alias/regla/plantilla que permita localizar este proveedor?
+async function tieneReglaOAlias(proveedorNombre: string | null, nif: string | null): Promise<boolean> {
+  // 1) Plantilla/regla por NIF
+  if (nif) {
+    const { data } = await supabaseAdmin
+      .from('reglas_conciliacion')
+      .select('id')
+      .eq('patron_nif', nif.toUpperCase())
+      .eq('activa', true)
+      .limit(1)
+      .maybeSingle()
+    if (data?.id) return true
+  }
+  // 2) Regla por patrón de texto (palabras del nombre)
+  const norm = normalizar(proveedorNombre || '')
+  const palabras = norm.split(' ').filter((p) => p.length >= 3)
+  for (const palabra of palabras) {
+    const esc = palabra.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&')
+    const { data } = await supabaseAdmin
+      .from('reglas_conciliacion')
+      .select('id')
+      .ilike('patron', `%${esc}%`)
+      .eq('activa', true)
+      .limit(1)
+      .maybeSingle()
+    if (data?.id) return true
+  }
+  // 3) Alias de proveedor
+  if (palabras.length > 0) {
+    const esc = palabras[0].replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&')
+    const { data } = await supabaseAdmin
+      .from('proveedor_alias')
+      .select('id')
+      .or(`alias.ilike.%${esc}%,proveedor_canonico.ilike.%${esc}%`)
+      .limit(1)
+      .maybeSingle()
+    if (data?.id) return true
+  }
+  return false
+}
+
+async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
+  const desde = req.query.desde ? String(req.query.desde) : null
+  const hasta = req.query.hasta ? String(req.query.hasta) : null
+
+  // 1) Cargar todas las pendientes del rango (estados no conciliados)
+  const cols = 'id, proveedor_nombre, total, fecha_factura, tipo, plataforma, es_recapitulativa, periodo_inicio, periodo_fin, nif_emisor, titular_id, numero_factura, estado, pdf_original_name'
+  const pendientes: Record<string, unknown>[] = []
+  const BLOQUE = 1000
+  let off = 0
+  while (true) {
+    let q = supabaseAdmin
+      .from('facturas')
+      .select(cols)
+      .not('estado', 'in', `(${ESTADOS_CONCILIADA_BARRIDO.join(',')})`)
+      .order('fecha_factura', { ascending: true })
+      .range(off, off + BLOQUE - 1)
+    if (desde) q = q.gte('fecha_factura', desde)
+    if (hasta) q = q.lte('fecha_factura', hasta)
+    const { data, error } = await q
+    if (error) return res.status(500).json({ error: error.message })
+    const lote = data || []
+    pendientes.push(...lote)
+    if (lote.length < BLOQUE) break
+    off += BLOQUE
+  }
+
+  let reconciliadas = 0
+  const conReglaSinMatch: InformePendiente[] = []
+  const sinRegla: InformePendiente[] = []
+  const sinPlantilla: InformePendiente[] = []
+
+  for (const f of pendientes) {
+    const estado = String(f.estado || '')
+    const proveedor = (f.proveedor_nombre as string) || null
+    const nif = (f.nif_emisor as string) || null
+    const total = f.total != null ? Number(f.total) : null
+    const fecha = (f.fecha_factura as string) || null
+    const archivo = (f.pdf_original_name as string) || null
+    const base: Omit<InformePendiente, 'motivo'> = { factura_id: f.id as string, proveedor, nif, total, fecha, archivo }
+
+    // Lectura manual: no se puede matchear hasta leer la factura → necesita plantilla por NIF.
+    if (estado === 'pendiente_lectura_manual') {
+      const tienePlantilla = nif
+        ? !!(await supabaseAdmin.from('reglas_conciliacion').select('id').eq('patron_nif', nif.toUpperCase()).eq('activa', true).limit(1).maybeSingle()).data
+        : false
+      if (tienePlantilla) {
+        conReglaSinMatch.push({ ...base, motivo: 'Ya tiene plantilla de NIF: pendiente de reprocesar el PDF (botón Reprocesar).' })
+      } else {
+        sinPlantilla.push({ ...base, motivo: nif ? `Sin plantilla para el NIF ${nif}. Crea la plantilla en Configuración → Reglas → OCR/Plantillas.` : 'Sin NIF legible. Necesita lectura/plantilla manual.' })
+      }
+      continue
+    }
+
+    // Resto de pendientes: reintentar matching con el estado actual.
+    const facturaInput = {
+      proveedor_nombre: proveedor || '',
+      total: total ?? 0,
+      fecha_factura: fecha || new Date().toISOString().slice(0, 10),
+      tipo: (f.tipo as string) || 'proveedor',
+      plataforma: (f.plataforma as string) || null,
+      es_recapitulativa: !!f.es_recapitulativa,
+      periodo_inicio: (f.periodo_inicio as string) || null,
+      periodo_fin: (f.periodo_fin as string) || null,
+      numero_factura: (f.numero_factura as string) || null,
+      nif_emisor: nif,
+      id: f.id as string,
+      titular_id: (f.titular_id as string | null) ?? null,
+    } as unknown as ExtractedFactura & { id: string; total: number; titular_id: string | null }
+
+    let nuevoEstado = estado
+    let mensaje = ''
+    try {
+      const result = await matchFactura(supabaseAdmin, facturaInput)
+      await aplicarMatching(supabaseAdmin, f.id as string, result, { proveedor_nombre: proveedor || undefined, nif_emisor: nif })
+      nuevoEstado = result.estado
+      mensaje = result.mensaje
+    } catch (e) {
+      mensaje = e instanceof Error ? e.message : String(e)
+    }
+
+    if (ESTADOS_CONCILIADA_BARRIDO.includes(nuevoEstado)) {
+      reconciliadas++
+      continue
+    }
+
+    // Sigue pendiente: clasificar por si hay regla/alias o no.
+    const tiene = await tieneReglaOAlias(proveedor, nif)
+    if (tiene) {
+      conReglaSinMatch.push({ ...base, motivo: mensaje || 'Proveedor localizado pero el movimiento bancario no cuadra (importe/fecha o falta extracto).' })
+    } else {
+      sinRegla.push({ ...base, motivo: 'No existe alias/regla/plantilla para este proveedor. Crea la regla en Configuración → Reglas → OCR/Conciliación (o la plantilla por NIF).' })
+    }
+  }
+
+  const totalPendientes = pendientes.length
+  const siguenPendientes = conReglaSinMatch.length + sinRegla.length + sinPlantilla.length
+  const cien = totalPendientes === 0 || siguenPendientes === 0
+
+  return res.status(200).json({
+    ok: true,
+    cien_por_cien: cien,
+    total_pendientes_revisados: totalPendientes,
+    reconciliadas,
+    siguen_pendientes: siguenPendientes,
+    con_regla_sin_match: conReglaSinMatch,
+    sin_regla: sinRegla,
+    sin_plantilla: sinPlantilla,
   })
 }
 
