@@ -1,8 +1,10 @@
-// procesarArchivo v9 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
+// procesarArchivo v10 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
 // BLINDAJE COSTE: la API de Anthropic SOLO se usa si OCR_PERMITIR_API==='true'.
 // Por defecto está APAGADA: si las reglas no leen una factura, NO se llama a la
 // API. El PDF se guarda igualmente en Drive y la factura queda en estado
 // 'pendiente_lectura_manual' (cuenta como pendiente, nunca como gasto ni parada).
+// v10: guardarLecturaManual ahora EXTRAE y guarda nif_emisor + proveedor del texto
+// del PDF aunque no haya plantilla, para poder crear la plantilla automáticamente.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -16,6 +18,7 @@ import {
   extraerTextoPDF,
   pdfTieneTexto,
   extraerPorReglas,
+  extraerNifEmisorLibre,
 } from './extractores.js'
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import { extraerDatosDesdeContenido } from './ocr.js'
@@ -355,10 +358,12 @@ async function procesarContenidoPrincipal(
   let extractedReglas: ExtractedFactura | null = null
   let origenLectura: 'reglas' | 'modelo' = 'modelo'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
+  let textoPdfCache = ''
 
   if (tipo === 'pdf') {
     try {
       const textoPdf = await extraerTextoPDF(file.buffer)
+      textoPdfCache = textoPdf
       if (pdfTieneTexto(textoPdf)) {
         diccionario = await cargarDiccionarioNif(supabase)
         // El extractor recibe una función que, dado el NIF emisor, devuelve su
@@ -387,8 +392,9 @@ async function procesarContenidoPrincipal(
   } else {
     // BLINDAJE 0 API: las reglas no pudieron leer y la API está apagada.
     // NO se llama al modelo. Se guarda el PDF en Drive como respaldo y se deja
-    // la factura en 'pendiente_lectura_manual'. Nunca se para ni se gasta.
-    return await guardarLecturaManual(supabase, file)
+    // la factura en 'pendiente_lectura_manual'. Se extrae el NIF emisor del texto
+    // (aunque falte el total) para poder crear la plantilla automáticamente.
+    return await guardarLecturaManual(supabase, file, textoPdfCache)
   }
 
   // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
@@ -401,7 +407,7 @@ async function procesarContenidoPrincipal(
 
   if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
     // Datos insuficientes: en vez de error seco, guardar como lectura manual.
-    return await guardarLecturaManual(supabase, file)
+    return await guardarLecturaManual(supabase, file, textoPdfCache)
   }
 
   // F05: validar fecha antes de insert
@@ -692,17 +698,33 @@ async function procesarContenidoPrincipal(
 // BLINDAJE 0 API: factura que las reglas no pudieron leer. Se guarda el PDF en
 // Drive (carpeta SIN_TITULAR) para no perderlo y se inserta en BBDD con estado
 // 'pendiente_lectura_manual'. Nunca llama a la API ni para la cola.
+// v10: extrae nif_emisor del texto del PDF (aunque falte total) y lo guarda, para
+// que el ciclo de creación automática de plantillas pueda identificar el proveedor.
 async function guardarLecturaManual(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
+  textoPdf?: string,
 ): Promise<ProcesarResultado> {
   const hash = createHash('sha256').update(file.buffer).digest('hex')
   const hoy = new Date().toISOString().slice(0, 10)
   const numFactura = `LM-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
 
+  // v10: intentar sacar NIF emisor del texto del PDF (sin API). Si lo hay, se
+  // guarda y el proveedor toma el nombre canónico del diccionario si existe.
+  const nifEmisor = textoPdf ? extraerNifEmisorLibre(textoPdf) : null
+  let proveedorNombre = 'PENDIENTE LECTURA MANUAL'
+  if (nifEmisor) {
+    const { data: regla } = await supabase
+      .from('reglas_conciliacion')
+      .select('razon_social')
+      .eq('patron_nif', nifEmisor)
+      .maybeSingle()
+    proveedorNombre = (regla?.razon_social as string) || `NIF ${nifEmisor} (sin plantilla)`
+  }
+
   // Respaldo en Drive (best-effort, sin titular conocido)
   const drive = await guardarEnDriveBestEffort(file, {
-    proveedor_nombre: 'PENDIENTE LECTURA MANUAL',
+    proveedor_nombre: proveedorNombre,
     numero_factura: numFactura,
     fecha_factura: hoy,
     tipo: 'proveedor',
@@ -715,12 +737,13 @@ async function guardarLecturaManual(
     .insert({
       pdf_original_name: file.nombre,
       pdf_hash: hash,
-      proveedor_nombre: 'PENDIENTE LECTURA MANUAL',
+      proveedor_nombre: proveedorNombre,
       numero_factura: numFactura,
       fecha_factura: hoy,
       total: 0,
       estado: 'pendiente_lectura_manual',
       titular_id: RUBEN_ID,
+      nif_emisor: nifEmisor,
       pdf_drive_id: drive?.id ?? null,
       pdf_drive_url: drive?.webViewLink ?? null,
       pdf_filename: drive?.nombre ?? null,
@@ -736,7 +759,9 @@ async function guardarLecturaManual(
     archivo: file.nombre,
     factura_id: (nueva?.id as string) || undefined,
     factura: (nueva as Record<string, unknown>) || undefined,
-    motivo: 'lectura manual: sin plantilla NIF (0€, sin API)',
+    motivo: nifEmisor
+      ? `lectura manual: sin plantilla NIF ${nifEmisor} (0€, sin API)`
+      : 'lectura manual: sin plantilla NIF (0€, sin API)',
   }
 }
 
