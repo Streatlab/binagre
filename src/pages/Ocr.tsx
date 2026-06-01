@@ -142,6 +142,7 @@ export default function Ocr() {
   const [periodoLabel, setPeriodoLabel] = useState('')
   const [tab, setTab] = useState<TabId>('facturas')
   const [filtroCard, setFiltroCard] = useState<FiltroCard>(null)
+  const [soloCorreo, setSoloCorreo] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [catFiltro, setCatFiltro] = useState('todas')
@@ -190,8 +191,16 @@ export default function Ocr() {
     const myFetchId = ++fetchIdRef.current
     setCargando(true); setErrorCarga(null)
 
-    // Si filtra/ordena por estado calculado → trae TODAS las filas del periodo, filtra y ordena en cliente, pagina en cliente
-    const necesitaClienteCompleto = ordenaEstadoCalculado || filtraEstadoCalculado
+    // Si filtra por correo, necesitamos primero los ids de facturas marcadas origen=correo
+    let idsCorreo: string[] | null = null
+    if (soloCorreo) {
+      const { data: oc } = await supabase.from('facturas_origen_correo').select('factura_id')
+      idsCorreo = (oc || []).map((r: any) => r.factura_id)
+      if (idsCorreo.length === 0) { setFilas([]); setTotal(0); setCargando(false); return }
+    }
+
+    // Si filtra/ordena por estado calculado o por correo → trae TODAS las filas del periodo, filtra y ordena en cliente, pagina en cliente
+    const necesitaClienteCompleto = ordenaEstadoCalculado || filtraEstadoCalculado || soloCorreo
 
     const sortMap: Record<string, string | null> = {
       fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor',
@@ -210,6 +219,7 @@ export default function Ocr() {
     if (tab === 'facturas') q = q.in('tipo', ['proveedor', 'plataforma'])
     else q = q.eq('tipo', 'otro')
     if (catFiltro !== 'todas') q = q.eq('categoria_factura', catFiltro)
+    if (idsCorreo) q = q.in('id', idsCorreo)
     if (busquedaDebounced) {
       const safe = busquedaDebounced.replace(/[%_,()]/g, ' ').trim()
       if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`)
@@ -296,7 +306,7 @@ export default function Ocr() {
       }
     }
     setCargando(false)
-  }, [page, pageSize, ms.sorts, filtroCard, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
+  }, [page, pageSize, ms.sorts, filtroCard, soloCorreo, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
 
   // Cards: cuenta en SERVIDOR con count exacto (head:true) en vez de traer filas
   // y contarlas (PostgREST corta a 1000 → la card mostraba 1000 en vez del total real).
@@ -358,11 +368,12 @@ export default function Ocr() {
   useEffect(() => { cargarPagina() }, [cargarPagina])
   useEffect(() => { cargarAgregados() }, [cargarAgregados])
   useEffect(() => { if (cargando || total === 0) return; const tp = Math.max(1, Math.ceil(total / pageSize)); if (page > tp) updateUrl({ page: tp }) }, [cargando, total, pageSize, page, updateUrl])
-  useEffect(() => { setSeleccionadas(new Set()); setConfirmarBorrarLote(false) }, [page, pageSize, filtroCard, catFiltro, busquedaDebounced, tab])
+  useEffect(() => { setSeleccionadas(new Set()); setConfirmarBorrarLote(false) }, [page, pageSize, filtroCard, soloCorreo, catFiltro, busquedaDebounced, tab])
   const sortsKey = ms.sorts.map((s: any) => s.col+':'+s.dir).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (page !== 1) updateUrl({ page: 1 }) }, [sortsKey])
-  const onCambiarFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); if (page !== 1) updateUrl({ page: 1 }) }
+  const onCambiarFiltroCard = (v: FiltroCard) => { setFiltroCard(prev => prev === v ? null : v); setSoloCorreo(false); if (page !== 1) updateUrl({ page: 1 }) }
+  const onToggleSoloCorreo = () => { setSoloCorreo(prev => !prev); setFiltroCard(null); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarBusqueda = (v: string) => { setBusqueda(v); if (page !== 1) updateUrl({ page: 1 }) }
   const onCambiarCatFiltro = (v: string) => { setCatFiltro(v); if (page !== 1) updateUrl({ page: 1 }) }
   const filasVisibles = useMemo(() => filas, [filas])
@@ -387,17 +398,18 @@ export default function Ocr() {
       {tab === 'ventas' && (<div style={{ marginTop: 14 }}><CardFacturasCorreo tipo="ventas" desde={periodoDesdeStr} hasta={periodoHastaStr} /><VentasTab fechaDesde={fechaDesde} fechaHasta={fechaHasta} titulares={titulares} /></div>)}
       {(tab === 'facturas' || tab === 'otros') && (<>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12, marginTop: 14 }}>
-          <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
+          <div onClick={() => onCambiarFiltroCard(null)} style={cardStyle(null, filtroCard === null && !soloCorreo)}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Total facturas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{agregados?.totalCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? fmtEur(agregados.totalImporte) : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('conciliadas')} style={cardStyle('conciliadas', filtroCard === 'conciliadas')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Conciliadas</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>{agregados?.conciliadasCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `${agregados.conciliadasPct}% · ${fmtEur(agregados.conciliadasImporte)}` : '—'}</div></div>
           <div onClick={() => onCambiarFiltroCard('pendientes')} style={cardStyle('pendientes', filtroCard === 'pendientes')}><div style={{ marginBottom: 8 }}><span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span></div><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#F26B1F' }}>{agregados?.pendientesCount ?? '—'}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4 }}>{agregados ? `Faltan datos · ${fmtEur(agregados.pendientesImporte)}` : '—'}</div></div>
           {tab === 'facturas'
-            ? (<CardFacturasCorreo tipo="factura" desde={periodoDesdeStr} hasta={periodoHastaStr} />)
+            ? (<CardFacturasCorreo tipo="factura" desde={periodoDesdeStr} hasta={periodoHastaStr} activa={soloCorreo} onClick={onToggleSoloCorreo} />)
             : (<div />)}
         </div>
         <div style={{ marginBottom: 14 }}>
           <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} extensiones={tab === 'facturas' ? EXT_ACEPTADAS_FACTURAS : EXT_ACEPTADAS_OTROS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: r.aceptados, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, visible: true, fnName: 'ocr-procesar-factura' }) }} />
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}><div style={{ flex: 1, minWidth: 240, position: 'relative' }}><input type="text" value={busqueda} onChange={e => onCambiarBusqueda(e.target.value)} placeholder="Buscar contraparte, NIF o número de factura…" style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }} />{busqueda && <button onClick={() => onCambiarBusqueda('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>}</div><select value={catFiltro} onChange={e => onCambiarCatFiltro(e.target.value)} style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}><option value="todas">Categorías</option>{categoriasPyg.filter(c => c.nivel === 3).map(c => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}</select><ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} /><button onClick={() => setPausarActualizacion(v => !v)} style={{ padding: '10px 18px', borderRadius: 10, border: pausarActualizacion ? '0.5px solid #F26B1F' : '0.5px solid #d0c8bc', background: pausarActualizacion ? '#F26B1F15' : '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: pausarActualizacion ? '#F26B1F' : '#3a4050', cursor: 'pointer', fontWeight: 500 }}>{pausarActualizacion ? '⏸ Actualización pausada' : 'Pausar actualización'}</button><button onClick={handleExportar} disabled={exportando} style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}>{exportando ? 'Exportando...' : 'Exportar'}</button></div>
+        {soloCorreo && (<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}><span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>Mostrando solo facturas entradas por correo</span><div style={{ flex: 1 }} /><button onClick={onToggleSoloCorreo} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Quitar filtro</button></div>)}
         {seleccionadas.size > 0 && (<div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 12, background: '#FF475710', border: '0.5px solid #FF4757', borderRadius: 10 }}><span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23', fontWeight: 500 }}>{seleccionadas.size} factura{seleccionadas.size > 1 ? 's' : ''} seleccionada{seleccionadas.size > 1 ? 's' : ''}</span><div style={{ flex: 1 }} />{!confirmarBorrarLote ? (<><button onClick={() => setSeleccionadas(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Quitar selección</button><button onClick={() => setConfirmarBorrarLote(true)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>Borrar seleccionadas</button></>) : (<><span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro? Se borran las facturas, sus asociaciones y los PDFs en Drive.</span><button onClick={() => setConfirmarBorrarLote(false)} disabled={borrandoLote} style={{ padding: '6px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button><button onClick={handleBorrarLote} disabled={borrandoLote} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrandoLote ? 0.6 : 1 }}>{borrandoLote ? 'Borrando…' : 'Sí, borrar'}</button></>)}</div>)}
         {errorCarga && (<div style={{ background: '#fff5f5', border: '0.5px solid #B01D23', borderRadius: 8, padding: '10px 14px', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#B01D23' }}><span>{errorCarga}</span><button onClick={() => { cargarPagina(); cargarAgregados() }} style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 11, textTransform: 'uppercase', cursor: 'pointer' }}>Reintentar</button></div>)}
         {!cargando && total === 0 && !errorCarga ? (<div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>{emptyLabel}</div><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>{emptySub}</div></div>) : (
