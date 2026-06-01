@@ -25,6 +25,13 @@ const FORMATOS_FECHA = [
   { v: 'ymd', l: 'Año-Mes-Día (2025-12-31)' },
 ]
 
+// Tras crear/editar una plantilla, dispara el barrido de re-conciliación para que
+// las facturas pendientes de este NIF se reprocesen/concilien (autopropaga).
+// Best-effort: no bloquea la UI si falla.
+function reconciliarPendientes() {
+  fetch('/api/facturas?action=reconciliar-pendientes').catch(() => {})
+}
+
 export default function TabOcrPlantillas() {
   const { T } = useTheme()
   const [filas, setFilas] = useState<Plantilla[]>([])
@@ -70,6 +77,7 @@ export default function TabOcrPlantillas() {
       creada_por_usuario: true,
     })
     setNNif(''); setNRazon(''); setNTotal(''); setNNum(''); setNFecha('dmy'); cargar()
+    reconciliarPendientes()
   }
   async function guardarEdit(id: string) {
     await supabase.from('reglas_conciliacion').update({
@@ -80,10 +88,12 @@ export default function TabOcrPlantillas() {
       plantilla_fecha_formato: eFecha,
     }).eq('id', id)
     setEditId(null); cargar()
+    reconciliarPendientes()
   }
   async function toggleActiva(id: string, activa: boolean) {
     await supabase.from('reglas_conciliacion').update({ activa: !activa }).eq('id', id)
     cargar()
+    reconciliarPendientes()
   }
   async function borrar(id: string) {
     if (!confirm('¿Eliminar esta plantilla? El OCR dejará de leer automáticamente las facturas de este proveedor.')) return
@@ -109,7 +119,7 @@ export default function TabOcrPlantillas() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Cada plantilla le dice al lector OCR cómo extraer el total, el número y la fecha de las facturas de un proveedor, identificándolo por su NIF. El procesamiento de facturas lee de aquí: si un proveedor no tiene plantilla, sus facturas quedan «pendientes de plantilla». {filas.length} plantillas activas.
+        Cada plantilla le dice al lector OCR cómo extraer el total, el número y la fecha de las facturas de un proveedor, identificándolo por su NIF. El procesamiento de facturas lee de aquí: si un proveedor no tiene plantilla, sus facturas quedan «pendientes de plantilla». Al guardar una plantilla, las facturas pendientes de ese NIF se reconcilian solas. {filas.length} plantillas activas.
       </div>
 
       <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
