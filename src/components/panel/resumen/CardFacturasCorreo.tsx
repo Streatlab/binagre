@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { COLOR, COLORS, LEXEND, OSWALD, card, lblSm, kpiBig } from './tokens'
 
 type Tipo = 'factura' | 'ventas'
 
 interface Props {
-  /** 'factura' filtra el canal de facturas; 'ventas' filtra el de extractos/ventas */
+  /** 'factura' usa el canal de facturas; 'ventas' el de extractos/ventas */
   tipo: Tipo
 }
 
 interface Stats {
   recibidas: number
   correctas: number
-  conFallo: number   // pendientes + errores + duplicados
+  pendientes: number   // pendientes + errores + duplicados
   buzonConectado: boolean
-  ultimoBarrido: string | null
 }
 
 const HOY = () => new Date().toISOString().slice(0, 10)
@@ -23,16 +21,14 @@ const FN: Record<Tipo, string> = {
   ventas: 'ocr-procesar-extracto',
 }
 const TITULO: Record<Tipo, string> = {
-  factura: 'FACTURAS POR CORREO · HOY',
-  ventas: 'VENTAS POR CORREO · HOY',
+  factura: 'Entradas por correo',
+  ventas: 'Ventas por correo',
 }
 
 export default function CardFacturasCorreo({ tipo }: Props) {
   const [s, setS] = useState<Stats | null>(null)
-  const [cargando, setCargando] = useState(true)
 
   async function cargar() {
-    setCargando(true)
     const desde = HOY() + 'T00:00:00'
     const { data: ses } = await supabase
       .from('ocr_sessions')
@@ -43,25 +39,18 @@ export default function CardFacturasCorreo({ tipo }: Props) {
 
     const recibidas = (ses || []).reduce((a, r) => a + (r.total || 0), 0)
     const correctas = (ses || []).reduce((a, r) => a + (r.ok || 0), 0)
-    const conFallo = (ses || []).reduce(
+    const pendientes = (ses || []).reduce(
       (a, r) => a + (r.pendientes || 0) + (r.errores || 0) + (r.duplicados || 0),
       0,
     )
 
     const { data: estado } = await supabase
       .from('cartero_correo_estado')
-      .select('buzon_conectado, ultimo_barrido')
+      .select('buzon_conectado')
       .eq('id', 1)
       .single()
 
-    setS({
-      recibidas,
-      correctas,
-      conFallo,
-      buzonConectado: estado?.buzon_conectado ?? false,
-      ultimoBarrido: estado?.ultimo_barrido ?? null,
-    })
-    setCargando(false)
+    setS({ recibidas, correctas, pendientes, buzonConectado: estado?.buzon_conectado ?? false })
   }
 
   useEffect(() => {
@@ -71,57 +60,44 @@ export default function CardFacturasCorreo({ tipo }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo])
 
+  const recibidas = s?.recibidas ?? 0
+  const correctas = s?.correctas ?? 0
+  const pendientes = s?.pendientes ?? 0
+  const total = correctas + pendientes
+  const pctOk = total > 0 ? (correctas / total) * 100 : 0
+  const pctPend = total > 0 ? (pendientes / total) * 100 : 0
   const buzonOk = s?.buzonConectado ?? false
 
+  const labelStyle: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }
+  const barLabel: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 3 }
+  const barTrack: React.CSSProperties = { height: 6, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }
+
   return (
-    <div style={{ ...card, borderLeft: `3px solid ${COLORS.uber}`, marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={lblSm}>{TITULO[tipo]}</div>
-        <span
-          title={s?.ultimoBarrido ? 'Último barrido: ' + new Date(s.ultimoBarrido).toLocaleString('es-ES') : ''}
-          style={{
-            background: buzonOk ? COLOR.verde : COLOR.rojo,
-            color: '#fff',
-            fontSize: 10,
-            padding: '2px 8px',
-            borderRadius: 9,
-            fontWeight: 500,
-            fontFamily: OSWALD,
-            letterSpacing: 0.5,
-            textTransform: 'uppercase',
-          }}
-        >
-          {buzonOk ? 'Buzón OK' : 'Buzón caído'}
-        </span>
+    <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <span style={labelStyle}>{TITULO[tipo]}</span>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: buzonOk ? '#1D9E75' : '#E24B4A', flexShrink: 0,
+          marginTop: 2,
+        }} title={buzonOk ? 'Buzón conectado' : 'Buzón caído'} />
       </div>
 
-      <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-        <span style={kpiBig}>{cargando ? '—' : s?.recibidas ?? 0}</span>
-        <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut, marginBottom: 8 }}>recibidas</span>
-      </div>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{recibidas}</div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4, marginBottom: 14 }}>recibidas hoy</div>
 
-      <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
-        <div style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: '#f3faf6', borderRadius: 8 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: COLOR.verde }}>
-            {cargando ? '—' : s?.correctas ?? 0}
-          </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: 1, color: COLOR.textMut, textTransform: 'uppercase' }}>
-            Correctas
-          </div>
-        </div>
-        <div style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: '#fdf3f3', borderRadius: 8 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: COLOR.rojo }}>
-            {cargando ? '—' : s?.conFallo ?? 0}
-          </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: 1, color: COLOR.textMut, textTransform: 'uppercase' }}>
-            Con fallo
-          </div>
-        </div>
+      <div style={{ marginBottom: 10 }}>
+        <div style={barLabel}><span>Correctas</span><span style={{ color: '#1D9E75', fontWeight: 500 }}>{correctas}</span></div>
+        <div style={barTrack}><div style={{ width: `${pctOk}%`, height: '100%', background: '#1D9E75' }} /></div>
+      </div>
+      <div>
+        <div style={barLabel}><span>Pendientes</span><span style={{ color: '#F26B1F', fontWeight: 500 }}>{pendientes}</span></div>
+        <div style={barTrack}><div style={{ width: `${pctPend}%`, height: '100%', background: '#F26B1F' }} /></div>
       </div>
 
       {!buzonOk && (
-        <div style={{ marginTop: 12, fontFamily: LEXEND, fontSize: 12, color: COLOR.rojo, textAlign: 'center' }}>
-          El buzón no conectó en el último barrido. Puede que falten {tipo === 'factura' ? 'facturas' : 'ventas'}.
+        <div style={{ marginTop: 12, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#E24B4A' }}>
+          Buzón no conectado en el último barrido.
         </div>
       )}
     </div>
