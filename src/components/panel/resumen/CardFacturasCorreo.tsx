@@ -9,6 +9,10 @@ interface Props {
   /** rango opcional; si no se pasa, usa HOY */
   desde?: string
   hasta?: string
+  /** marca visual de filtro activo */
+  activa?: boolean
+  /** al pulsar la card (para filtrar la tabla por origen correo) */
+  onClick?: () => void
 }
 
 interface Stats {
@@ -28,12 +32,11 @@ const TITULO: Record<Tipo, string> = {
   ventas: 'Ventas por correo',
 }
 
-export default function CardFacturasCorreo({ tipo, desde, hasta }: Props) {
+export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick }: Props) {
   const [s, setS] = useState<Stats | null>(null)
 
   async function cargar() {
     const d0 = (desde || HOY()) + 'T00:00:00'
-    // hasta inclusivo: día siguiente como cota superior
     const hBase = hasta || HOY()
     const hNext = new Date(hBase); hNext.setDate(hNext.getDate() + 1)
     const d1 = hNext.toISOString().slice(0, 10) + 'T00:00:00'
@@ -79,7 +82,17 @@ export default function CardFacturasCorreo({ tipo, desde, hasta }: Props) {
   const rangoTxt = desde || hasta ? 'en el periodo' : 'recibidas hoy'
 
   return (
-    <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '18px 20px' }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff',
+        border: activa ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
+        borderRadius: 14, padding: '16px 16px',
+        cursor: onClick ? 'pointer' : 'default',
+        boxShadow: activa ? '0 0 0 3px #FF475715' : 'none',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>{TITULO[tipo]}</span>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: buzonOk ? '#1D9E75' : '#E24B4A', flexShrink: 0, marginTop: 2 }} title={buzonOk ? 'Buzón conectado' : 'Buzón caído'} />
