@@ -3,13 +3,17 @@
 // scope gmail.readonly/modify) y devuelve los adjuntos de facturas listos para
 // pasar por el motor de OCR (procesarArchivo).
 //
-// Estrategia de barrido: mensajes con adjunto, no procesados todavía. Para no
-// reprocesar, tras procesar cada mensaje se le pone la etiqueta FACTURA_OCR_OK
-// (se crea si no existe) y se quita UNREAD. Así el barrido es idempotente aunque
-// se lance varias veces.
+// Estrategia de barrido (definida con Rubén):
+//   - SIN LÍMITE: recorre TODO el buzón por páginas hasta vaciarlo (los lunes de
+//     Uber pueden llegar 100-200 facturas; no se deja ninguna).
+//   - NO RELEE lo ya hecho: el filtro excluye lo etiquetado FACTURA_OCR_OK, y
+//     cada mensaje procesado se etiqueta Y se saca de INBOX (equivale a moverlo
+//     a "Procesadas"), así no se vuelve a coger aunque siga en la cuenta.
+//   - NO DUPLICA EN ORIGEN: el motor de facturas deduplica por hash de archivo
+//     (mismo PDF exacto) y marca posible_duplicado lógico (mismo nº+NIF+total),
+//     así un adjunto que llega por Uber y además reenviado no se cuenta dos veces.
 //
-// 0 coste: Gmail API es gratis. El coste (si lo hay) es el del OCR posterior,
-// que solo se invoca si el lector por reglas no resuelve.
+// 0 coste: Gmail API es gratis. El OCR posterior es local (reglas + Tesseract).
 import { google } from 'googleapis'
 import type { OAuth2Client } from 'google-auth-library'
 import { getOAuthClient } from './google-oauth.js'
@@ -24,6 +28,12 @@ export interface AdjuntoCorreo {
 }
 
 const LABEL_OK = 'FACTURA_OCR_OK'
+
+// Tope de seguridad para no exceder el tiempo de la función (maxDuration 300s).
+// Es alto: cubre de sobra un lunes de Uber. Si se alcanzara, el resto se recoge
+// en el siguiente barrido (los ya procesados quedan etiquetados y fuera de INBOX).
+const TOPE_SEGURIDAD_MENSAJES = 1000
+const PAGINA = 100
 
 // Tipos de adjunto que tienen sentido como factura.
 const EXT_FACTURA = /\.(pdf|jpg|jpeg|png|webp|heic|tif|tiff|gif|bmp|eml|doc|docx|xls|xlsx)$/i
@@ -82,31 +92,40 @@ export interface CarteroResultado {
 }
 
 /**
- * Recoge adjuntos de factura del buzón.
+ * Recoge adjuntos de factura del buzón, recorriendo TODO el buzón por páginas.
  * @param query  Filtro Gmail. Por defecto: con adjunto, no etiquetados como OK.
- * @param maxMensajes  Tope por barrido (evita timeouts).
+ * @param _maxIgnorado  Compat: se ignora; el barrido es completo (con tope de seguridad).
  */
 export async function recogerFacturasDelCorreo(
   query = `has:attachment -label:${LABEL_OK}`,
-  maxMensajes = 25,
+  _maxIgnorado?: number,
 ): Promise<CarteroResultado> {
   const auth = (await getOAuthClient()) as OAuth2Client
   const gmail = google.gmail({ version: 'v1', auth })
 
   const labelId = await asegurarLabel(gmail)
 
-  const lista = await gmail.users.messages.list({
-    userId: 'me',
-    q: query,
-    maxResults: maxMensajes,
-  })
+  // 1) Listar TODOS los mensajes que cumplen el filtro, paginando con pageToken.
+  const idsMensajes: string[] = []
+  let pageToken: string | undefined = undefined
+  do {
+    const lista = await gmail.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults: PAGINA,
+      pageToken,
+    })
+    for (const m of lista.data.messages || []) {
+      if (m.id) idsMensajes.push(m.id)
+    }
+    pageToken = lista.data.nextPageToken || undefined
+    if (idsMensajes.length >= TOPE_SEGURIDAD_MENSAJES) break
+  } while (pageToken)
 
-  const mensajes = lista.data.messages || []
+  // 2) Descargar adjuntos de cada mensaje.
   const adjuntos: AdjuntoCorreo[] = []
-
-  for (const m of mensajes) {
-    if (!m.id) continue
-    const full = await gmail.users.messages.get({ userId: 'me', id: m.id, format: 'full' })
+  for (const id of idsMensajes) {
+    const full = await gmail.users.messages.get({ userId: 'me', id, format: 'full' })
     const payload = full.data.payload as GmailPart | undefined
     const headers = (full.data.payload?.headers || []) as { name?: string; value?: string }[]
     const remitente = leerCabecera(headers, 'From')
@@ -120,7 +139,7 @@ export async function recogerFacturasDelCorreo(
       try {
         const att = await gmail.users.messages.attachments.get({
           userId: 'me',
-          messageId: m.id,
+          messageId: id,
           id: p.body.attachmentId,
         })
         const dataB64 = att.data.data
@@ -131,7 +150,7 @@ export async function recogerFacturasDelCorreo(
           nombre: p.filename,
           buffer,
           mimeType: p.mimeType || null,
-          messageId: m.id,
+          messageId: id,
           remitente,
           asunto,
         })
@@ -141,12 +160,14 @@ export async function recogerFacturasDelCorreo(
     }
   }
 
-  return { adjuntos, mensajesRevisados: mensajes.length, labelId, gmail }
+  return { adjuntos, mensajesRevisados: idsMensajes.length, labelId, gmail }
 }
 
 /**
- * Marca un mensaje como procesado: pone la etiqueta OK y quita UNREAD.
- * Best-effort: si falla, no rompe nada (se reintentará en el próximo barrido).
+ * Marca un mensaje como procesado: pone la etiqueta OK y lo saca de INBOX y de
+ * UNREAD (equivale a moverlo a "Procesadas"). Así no se vuelve a barrer aunque
+ * el correo siga en la cuenta. Best-effort: si falla, se reintenta en el próximo
+ * barrido (no queda etiquetado).
  */
 export async function marcarMensajeProcesado(
   gmail: ReturnType<typeof google.gmail>,
@@ -159,7 +180,7 @@ export async function marcarMensajeProcesado(
       id: messageId,
       requestBody: {
         addLabelIds: labelId ? [labelId] : [],
-        removeLabelIds: ['UNREAD'],
+        removeLabelIds: ['UNREAD', 'INBOX'],
       },
     })
   } catch {
