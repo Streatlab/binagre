@@ -36,10 +36,17 @@
  *   VENTA DIRECTA
  *     Sin fees, Neto = Bruto
  *
- * NOTA PRORRATEO (24 may 2026):
- *   El fee periódico se prorratea por días reales del rango, NO por
- *   ciclos completos. Filtrar 1 día de Glovo ya no carga 10€ entero,
- *   sino 10€/15 ≈ 0,67€/día × marcas. Igual con Uber semanal.
+ * NOTA PRORRATEO (02 jun 2026 · corrige bug semana a medio cargar):
+ *   El fee periódico se prorratea por DÍAS CON DATOS REALES, no por días
+ *   del rango. Si el rango es "semana actual" (7 días) pero solo hay 1 día
+ *   metido, antes cargaba el fee de los 7 días sobre la venta de 1 → neto
+ *   hundido. Ahora si pasas diasConDatos, prorratea sobre esos días reales.
+ *   Si no se pasa diasConDatos, cae al comportamiento antiguo (días del rango).
+ *
+ * NOTA MARCAS ACTIVAS:
+ *   El nº de marcas SIEMPRE sale de marca_plataforma_acceso WHERE activo=true.
+ *   Nunca se asume 26. Si una marca se desactiva en Configuración, deja de
+ *   contar para el fee periódico automáticamente.
  *
  * Funciones expuestas:
  *   - calcNetoPorCanal()      → devuelve solo el neto total (para conciliación)
@@ -103,6 +110,12 @@ export interface OpcionesCalcNeto {
   marcasPorCanal?: MarcasPorCanal | number
   promoSubvencionada?: number
   configCanales?: Record<string, CanalConfig>
+  /**
+   * Nº de días con datos reales de facturación en el rango. Si se pasa,
+   * el fee periódico se prorratea sobre estos días en vez de sobre los
+   * días naturales del rango. Evita que una semana a medio cargar hunda el neto.
+   */
+  diasConDatos?: number
 }
 
 let cacheConfig: Record<string, CanalConfig> | null = null
@@ -198,7 +211,7 @@ export async function loadMarcasPorCanal(): Promise<MarcasPorCanal> {
     if (counter[k]) out[key] = counter[k]
   }
   cacheMarcasPorCanal = out
-  return out
+  return cacheMarcasPorCanal
 }
 
 export function invalidarCacheConfigCanales() {
@@ -249,12 +262,22 @@ export function useMarcasPorCanal(): MarcasPorCanal {
 }
 
 /**
- * Devuelve el fee periódico PRORRATEADO por días del rango.
- * Antes devolvía nº ciclos enteros (Math.ceil) → cargaba ciclo entero a 1 día.
- * Ahora devuelve fracción decimal exacta por día.
+ * Devuelve el fee periódico PRORRATEADO.
+ * Si se pasa diasConDatos (días con facturación real en el rango), prorratea
+ * sobre esos días. Si no, usa los días naturales del rango (comportamiento antiguo).
+ * Esto evita que una semana a medio cargar (7 días de rango, 1 con datos)
+ * cargue el fee de toda la semana sobre la venta de un solo día.
  */
-function calcularPeriodosProrrateados(periodicidad: string, fechaDesde: Date, fechaHasta: Date): number {
-  const dias = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
+function calcularPeriodosProrrateados(
+  periodicidad: string,
+  fechaDesde: Date,
+  fechaHasta: Date,
+  diasConDatos?: number,
+): number {
+  const diasRango = Math.max(1, Math.round((fechaHasta.getTime() - fechaDesde.getTime()) / 86400000) + 1)
+  const dias = (typeof diasConDatos === 'number' && diasConDatos > 0)
+    ? Math.min(diasConDatos, diasRango)
+    : diasRango
   switch (periodicidad) {
     case 'semanal_por_marca':    return dias / 7
     case 'quincenal_por_marca':  return dias / 15
@@ -315,7 +338,7 @@ export function calcDesglosePorCanal(
   // Normalizar argumentos
   let opciones: OpcionesCalcNeto
   if (opcsOrLegacyMarcas && typeof opcsOrLegacyMarcas === 'object' && !Array.isArray(opcsOrLegacyMarcas) && (
-    'modo' in opcsOrLegacyMarcas || 'fechaDesde' in opcsOrLegacyMarcas || 'configCanales' in opcsOrLegacyMarcas
+    'modo' in opcsOrLegacyMarcas || 'fechaDesde' in opcsOrLegacyMarcas || 'configCanales' in opcsOrLegacyMarcas || 'diasConDatos' in opcsOrLegacyMarcas
   )) {
     opciones = opcsOrLegacyMarcas as OpcionesCalcNeto
   } else {
@@ -380,8 +403,8 @@ export function calcDesglosePorCanal(
     feePromoTotal = cfg.fee_promo_eur * nPromo
   }
 
-  // Fee periódico PRORRATEADO por días reales del rango
-  // (solo modo agregado_canal con fechas)
+  // Fee periódico PRORRATEADO por días con datos reales (o días del rango si no se pasa)
+  // Marcas SIEMPRE de marca_plataforma_acceso (activas). Nunca se asume 26.
   let feePeriodoTotal = 0
   if (
     modo === 'agregado_canal' &&
@@ -389,7 +412,7 @@ export function calcDesglosePorCanal(
     opciones.fechaDesde &&
     opciones.fechaHasta
   ) {
-    const periodosFraccionales = calcularPeriodosProrrateados(cfg.fee_periodicidad, opciones.fechaDesde, opciones.fechaHasta)
+    const periodosFraccionales = calcularPeriodosProrrateados(cfg.fee_periodicidad, opciones.fechaDesde, opciones.fechaHasta, opciones.diasConDatos)
     const nMarcas = resolveMarcas(id, opciones.marcasPorCanal)
     feePeriodoTotal = cfg.fee_periodo_eur * periodosFraccionales * nMarcas
   }
