@@ -1,4 +1,4 @@
-// OcrConToast v4 — toast único + bump refresh sin desmontar
+// OcrConToast v5 — toast único + bump refresh sin desmontar
 import { useEffect, useState } from 'react'
 import Ocr from '@/pages/Ocr'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
