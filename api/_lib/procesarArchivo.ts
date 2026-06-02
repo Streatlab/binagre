@@ -1,14 +1,14 @@
-// procesarArchivo v12 — auditoría 1-a-1 + plantilla por NIF (0 API por defecto)
-// BLINDAJE COSTE: la API de Anthropic SOLO se usa si OCR_PERMITIR_API==='true'.
-// Por defecto está APAGADA: si las reglas no leen una factura, NO se llama a la
-// API. El PDF se guarda igualmente en Drive y la factura queda en estado
-// 'pendiente_lectura_manual' (cuenta como pendiente, nunca como gasto ni parada).
-// v11: guardarLecturaManual es IDEMPOTENTE — si el pdf_hash ya existe, NO lanza
-// error (antes el unique index idx_facturas_pdf_hash_unique tiraba el insert y el
-// archivo se perdía). Ahora se trata como duplicada y nunca se pierde.
-// v12: RETIRADA la regla dedup proveedor+numero. Generaba falsos positivos
-// (facturas reales distintas con el mismo número, o número mal leído por OCR, se
-// descartaban). El ÚNICO dedup válido es por hash de archivo (mismo PDF exacto).
+// procesarArchivo v13 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
+// COSTE 0 € SIEMPRE. Cero API de pago. La lectura va por dos vías gratis:
+//   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
+//   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
+//      gratis: saca el texto de la imagen y se reintenta la lectura por reglas.
+// Si tras Tesseract sigue sin leerse → lectura manual (PDF guardado en Drive,
+// nunca se pierde). NUNCA se llama a ninguna API de pago.
+// v11: guardarLecturaManual IDEMPOTENTE (dedup por hash, nunca pierde archivo).
+// v12: dedup único válido = hash de archivo (mismo PDF exacto).
+// v13: retirado el lector de pago. Sustituido por Tesseract gratis. Titular sin
+// detectar ya NO se archiva en carpeta de Rubén (va a SIN_TITULAR).
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -25,8 +25,8 @@ import {
   extraerNifEmisorLibre,
 } from './extractores.js'
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
-import { extraerDatosDesdeContenido } from './ocr.js'
 import type { ExtractedFactura } from './ocr.js'
+import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive } from './google-drive.js'
 
@@ -36,9 +36,9 @@ export type ProcesarEstado =
   | 'ok'
   | 'lectura_manual'
 
-// BLINDAJE: API apagada por defecto. Para reactivarla (no recomendado) hay que
-// poner la variable de entorno OCR_PERMITIR_API=true en Vercel.
-const OCR_PERMITIR_API = process.env.OCR_PERMITIR_API === 'true'
+// Kill-switch opcional del OCR gratis (Tesseract). Por defecto ENCENDIDO.
+// Para apagarlo (no recomendado): OCR_DESACTIVAR_TESSERACT=true en Vercel.
+const OCR_TESSERACT_ACTIVO = process.env.OCR_DESACTIVAR_TESSERACT !== 'true'
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -198,9 +198,8 @@ async function extraerContenido(
   const mime = file.mimeType || ''
   switch (tipo) {
     case 'pdf':
-      // El PDF se conserva como vision (calidad) para el caso de que las reglas
-      // no resuelvan y haya que mandarlo al modelo. La lectura de texto/reglas
-      // se intenta en procesarContenidoPrincipal.
+      // El PDF se conserva como vision para poder rasterizarlo con Tesseract si
+      // las reglas no resuelven. La lectura de texto/reglas se intenta primero.
       return prepararVision(file.buffer, 'application/pdf')
     case 'imagen':
       return prepararVision(file.buffer, mime || 'image/jpeg')
@@ -360,7 +359,7 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'modelo' = 'modelo'
+  let origenLectura: 'reglas' | 'ocr_tesseract' = 'reglas'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -370,8 +369,6 @@ async function procesarContenidoPrincipal(
       textoPdfCache = textoPdf
       if (pdfTieneTexto(textoPdf)) {
         diccionario = await cargarDiccionarioNif(supabase)
-        // El extractor recibe una función que, dado el NIF emisor, devuelve su
-        // plantilla. Así cada proveedor usa su forma de leer el total/fecha.
         extractedReglas = extraerPorReglas(textoPdf, (nif) => diccionario?.get(nif)?.plantilla || null)
       }
     } catch {
@@ -379,30 +376,36 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // PASO 2 (gratis): si las reglas no leyeron y es PDF escaneado o imagen/foto,
+  // se pasa por OCR Tesseract (0 €) para sacar el texto y reintentar las reglas.
+  if (!extractedReglas && OCR_TESSERACT_ACTIVO && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const textoOCR = await extraerTextoOCRGratis(file.buffer, tipo)
+      if (textoOCR && textoOCR.replace(/\s/g, '').length >= 30) {
+        // Acumular el texto OCR para el fallback de NIF en lectura manual
+        textoPdfCache = textoPdfCache && textoPdfCache.length > textoOCR.length ? textoPdfCache : textoOCR
+        if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
+        const extractedOCR = extraerPorReglas(textoOCR, (nif) => diccionario?.get(nif)?.plantilla || null)
+        if (extractedOCR) {
+          extractedReglas = extractedOCR
+          origenLectura = 'ocr_tesseract'
+        }
+      }
+    } catch (ocrErr) {
+      console.error('[procesarArchivo] OCR Tesseract no resolvió:', errMsg(ocrErr))
+    }
+  }
+
   if (extractedReglas) {
     extracted = extractedReglas
-    origenLectura = 'reglas'
-  } else if (OCR_PERMITIR_API) {
-    // PASO 2 (de pago, SOLO si está explícitamente activado): modelo IA.
-    try {
-      extracted = await extraerDatosDesdeContenido(contenido)
-    } catch (ocrErr) {
-      return {
-        estado: 'error',
-        archivo: file.nombre,
-        error: `OCR falló: ${errMsg(ocrErr)}`,
-      }
-    }
   } else {
-    // BLINDAJE 0 API: las reglas no pudieron leer y la API está apagada.
-    // NO se llama al modelo. Se guarda el PDF en Drive como respaldo y se deja
-    // la factura en 'pendiente_lectura_manual'. Se extrae el NIF emisor del texto
-    // (aunque falte el total) para poder crear la plantilla automáticamente.
+    // Ni reglas ni Tesseract leyeron. Se guarda el PDF en Drive como respaldo y
+    // la factura queda 'pendiente_lectura_manual'. CERO API de pago.
     return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
   // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
-  if (origenLectura === 'reglas' && !extracted.proveedor_nombre) {
+  if (!extracted.proveedor_nombre) {
     const nifLook = normalizarNif(extracted.nif_emisor)
     if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
     const nombreCanon = nifLook ? (diccionario.get(nifLook)?.nombre || null) : null
@@ -464,11 +467,7 @@ async function procesarContenidoPrincipal(
       if (provPorNombre?.id) proveedorId = provPorNombre.id
     }
 
-    // v12: RETIRADA la regla dedup proveedor+numero. Generaba falsos positivos:
-    // facturas reales distintas que comparten número (o número mal leído por OCR)
-    // se descartaban y se perdían. El ÚNICO dedup válido es por hash de archivo
-    // (mismo PDF exacto), que ya se aplica al inicio. Dos facturas distintas con
-    // el mismo número pero distinto PDF son dos facturas y deben entrar ambas.
+    // v12: dedup único válido = hash de archivo (ya aplicado al inicio).
 
     if (!proveedorId && extracted.proveedor_nombre) {
       const insertData: Record<string, unknown> = { nombre: extracted.proveedor_nombre, activo: true }
@@ -518,10 +517,13 @@ async function procesarContenidoPrincipal(
       carpetaTitular = 'RUBÉN'
     }
 
-    // F01: si no detecta titular, fallback a RUBEN y ejecutar matching igualmente
+    // F01 (v13): si no detecta titular, se usa RUBEN solo como ancla interna para
+    // poder ejecutar el matching, pero el PDF NO se archiva en su carpeta: va a
+    // SIN_TITULAR y queda pendiente_titular_manual (evita colgar a Rubén facturas
+    // que podrían ser de Emilio).
     if (!titularId) {
       titularId = RUBEN_ID
-      carpetaTitular = 'RUBÉN'
+      carpetaTitular = 'SIN_TITULAR'
       pendienteTitularManual = true
     }
 
@@ -584,7 +586,7 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // F01: ejecutar matching siempre (incluso con pendienteTitularManual, usando RUBEN como fallback)
+    // F01: ejecutar matching siempre (incluso con pendienteTitularManual, usando RUBEN como ancla)
     try {
       const resultadoMatch = await matchFactura(supabase, {
         ...extracted,
@@ -686,9 +688,9 @@ async function procesarContenidoPrincipal(
   }
 }
 
-// BLINDAJE 0 API: factura que las reglas no pudieron leer. Se guarda el PDF en
-// Drive (carpeta SIN_TITULAR) para no perderlo y se inserta en BBDD con estado
-// 'pendiente_lectura_manual'. Nunca llama a la API ni para la cola.
+// Factura que ni reglas ni Tesseract pudieron leer. Se guarda el PDF en Drive
+// (carpeta SIN_TITULAR) para no perderlo y se inserta con estado
+// 'pendiente_lectura_manual'. NUNCA llama a API de pago.
 // v11: IDEMPOTENTE. Recibe el hash ya calculado. Antes de insertar comprueba si
 // el hash ya existe (duplicada) y, si el INSERT choca igualmente por carrera,
 // lo trata como duplicada en vez de lanzar error → ningún archivo se pierde.
@@ -716,8 +718,7 @@ async function guardarLecturaManual(
   const hoy = new Date().toISOString().slice(0, 10)
   const numFactura = `LM-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
 
-  // v10: intentar sacar NIF emisor del texto del PDF (sin API). Si lo hay, se
-  // guarda y el proveedor toma el nombre canónico del diccionario si existe.
+  // Intentar sacar NIF emisor del texto (PDF o el que sacó Tesseract). Sin API.
   const nifEmisor = textoPdf ? extraerNifEmisorLibre(textoPdf) : null
   let proveedorNombre = 'PENDIENTE LECTURA MANUAL'
   if (nifEmisor) {
@@ -756,8 +757,8 @@ async function guardarLecturaManual(
       pdf_drive_url: drive?.webViewLink ?? null,
       pdf_filename: drive?.nombre ?? null,
       error_mensaje: drive
-        ? 'Sin plantilla para este NIF. Añade la regla y reprocesa (no se gastó API).'
-        : 'Sin plantilla para este NIF y Drive no disponible. Reintenta (no se gastó API).',
+        ? 'No se pudo leer ni con plantilla ni con OCR. Añade la plantilla del NIF y reprocesa (0 €, sin API).'
+        : 'No se pudo leer y Drive no disponible. Reintenta (0 €, sin API).',
     })
     .select('*')
     .maybeSingle()
@@ -777,8 +778,8 @@ async function guardarLecturaManual(
     factura_id: (nueva?.id as string) || undefined,
     factura: (nueva as Record<string, unknown>) || undefined,
     motivo: nifEmisor
-      ? `lectura manual: sin plantilla NIF ${nifEmisor} (0€, sin API)`
-      : 'lectura manual: sin plantilla NIF (0€, sin API)',
+      ? `lectura manual: sin plantilla NIF ${nifEmisor} (0 €, sin API)`
+      : 'lectura manual: ni reglas ni OCR leyeron (0 €, sin API)',
   }
 }
 
