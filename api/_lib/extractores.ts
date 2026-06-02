@@ -89,6 +89,23 @@ export async function extraerTextoPDF(buffer: Buffer): Promise<string> {
   }
 }
 
+// Igual que extraerTextoPDF pero devuelve el texto SEPARADO por páginas.
+// Se usa para el partido multi-factura cuando cada página es una factura.
+export async function extraerTextoPDFPorPaginas(buffer: Buffer): Promise<string[]> {
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf')
+    const uint8 = new Uint8Array(buffer)
+    const pdf = await getDocumentProxy(uint8)
+    const out = await extractText(pdf, { mergePages: false })
+    const text: unknown = (out as { text: unknown }).text
+    if (Array.isArray(text)) return (text as unknown[]).map((p) => String(p).trim())
+    if (typeof text === 'string') return [text.trim()]
+    return []
+  } catch {
+    return []
+  }
+}
+
 const MIN_CHARS_TEXTO_PDF = 40
 
 export function pdfTieneTexto(texto: string): boolean {
@@ -325,4 +342,106 @@ export function extraerPorReglas(
     total,
     confianza: 92,
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PARTIDO MULTI-FACTURA (gratis, sin IA)
+// Un mismo PDF puede contener VARIAS facturas (caso Rubén: mismo proveedor,
+// varios albaranes/facturas en un documento), o una factura por página.
+// Esta función intenta detectar y separar esos bloques. Es CONSERVADORA:
+//   - Solo parte si encuentra ≥2 facturas válidas y distintas.
+//   - Si encuentra 0 o 1, devuelve [] y el flujo normal sigue leyendo 1 factura
+//     (cero cambio de comportamiento para el PDF de una sola factura).
+// Estrategia en dos pasadas:
+//   A) Por páginas: si el PDF trae varias páginas y cada una da una factura
+//      válida con número/total propios → una factura por página.
+//   B) Por marcadores de "Factura nº" dentro del texto combinado: se corta el
+//      texto en los puntos donde aparece un nuevo número de factura y se lee
+//      cada segmento por separado.
+// Devuelve las facturas válidas (con número distinto). El llamador decide.
+// ──────────────────────────────────────────────────────────────────────────
+
+// Marca de inicio de una factura nueva dentro del texto: "factura nº/n.º/no/número …"
+const RE_INICIO_FACTURA = /(?:factura|invoice)\s*(?:n[ºo.]|n\.?º|n[úu]mero|number|#)?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{2,40})/gi
+
+function dedupeFacturas(facturas: ExtractedFactura[]): ExtractedFactura[] {
+  const vistas = new Set<string>()
+  const out: ExtractedFactura[] = []
+  for (const f of facturas) {
+    // Clave por número + total (mismo número y total = misma factura repetida en el corte).
+    const clave = `${(f.numero_factura || '').toUpperCase()}|${f.total}`
+    if (vistas.has(clave)) continue
+    vistas.add(clave)
+    out.push(f)
+  }
+  return out
+}
+
+// Intenta partir por páginas. Cada página que dé una factura válida cuenta.
+function partirPorPaginas(
+  paginas: string[],
+  plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
+): ExtractedFactura[] {
+  if (paginas.length < 2) return []
+  const out: ExtractedFactura[] = []
+  for (const pag of paginas) {
+    if (!pdfTieneTexto(pag)) continue
+    const f = extraerPorReglas(pag, plantillaResolver)
+    if (f && f.total > 0) out.push(f)
+  }
+  return dedupeFacturas(out)
+}
+
+// Intenta partir por marcadores de número de factura dentro del texto combinado.
+function partirPorMarcadores(
+  texto: string,
+  plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
+): ExtractedFactura[] {
+  // Localizar todas las posiciones donde empieza un "Factura nº ..."
+  const indices: number[] = []
+  let m: RegExpExecArray | null
+  RE_INICIO_FACTURA.lastIndex = 0
+  while ((m = RE_INICIO_FACTURA.exec(texto)) !== null) {
+    indices.push(m.index)
+    if (indices.length > 200) break // tope de seguridad
+  }
+  // Menos de 2 marcadores → no hay multi-factura por esta vía.
+  if (indices.length < 2) return []
+
+  const out: ExtractedFactura[] = []
+  for (let i = 0; i < indices.length; i++) {
+    const ini = indices[i]
+    const fin = i + 1 < indices.length ? indices[i + 1] : texto.length
+    const segmento = texto.slice(ini, fin)
+    if (!pdfTieneTexto(segmento)) continue
+    const f = extraerPorReglas(segmento, plantillaResolver)
+    if (f && f.total > 0) out.push(f)
+  }
+  return dedupeFacturas(out)
+}
+
+// Punto de entrada del partido multi-factura.
+// Devuelve [] si no detecta multi (0 o 1 factura) → el flujo normal sigue igual.
+// Devuelve ≥2 ExtractedFactura si detecta varias facturas distintas en el PDF.
+export function partirEnFacturas(
+  textoCombinado: string,
+  paginas: string[],
+  plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
+): ExtractedFactura[] {
+  // A) Por páginas (una factura por página).
+  const porPaginas = partirPorPaginas(paginas, plantillaResolver)
+  // B) Por marcadores dentro del texto combinado.
+  const porMarcadores = partirPorMarcadores(textoCombinado, plantillaResolver)
+
+  // Elegir la pasada que más facturas distintas válidas haya encontrado.
+  const mejor = porPaginas.length >= porMarcadores.length ? porPaginas : porMarcadores
+
+  // CONSERVADOR: solo se considera multi-factura si hay ≥2 facturas distintas.
+  // Además, deben tener números de factura distintos entre sí (evita partir una
+  // recapitulativa con subtotales repetidos en varias filas).
+  if (mejor.length < 2) return []
+  const numerosDistintos = new Set(mejor.map((f) => (f.numero_factura || '').toUpperCase()).filter(Boolean))
+  if (numerosDistintos.size < 2) return []
+
+  return mejor
 }
