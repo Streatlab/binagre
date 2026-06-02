@@ -17,6 +17,7 @@
     "@napi-rs/canvas": "^0.1.58",
     "@supabase/supabase-js": "^2.103.2",
     "googleapis": "^171.4.0",
+    "imapflow": "^1.0.218",
     "jspdf": "^2.5.2",
     "lucide-react": "^1.14.0",
     "mailparser": "^3.9.8",
