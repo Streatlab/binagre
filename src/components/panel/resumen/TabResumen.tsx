@@ -2,6 +2,8 @@
  * Tab Resumen v3 — Panel Global
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
+ * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo),
+ * no por días del rango, para no hundir el resultado en semanas a medio cargar.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -289,6 +291,12 @@ export default function TabResumen({
       })
   }, [])
 
+  /* ── días con datos reales en el periodo (para prorrateo de fees) ── */
+  const diasConDatosPeriodo = useMemo(
+    () => new Set(rowsPeriodo.filter(r => (r.total_bruto || 0) > 0).map(r => r.fecha)).size,
+    [rowsPeriodo]
+  )
+
   /* ── derivar canalStats del periodo ─────────── */
   const canalStats: CanalStat[] = useMemo(() => {
     const filt = canalesFiltro.length > 0
@@ -306,7 +314,7 @@ export default function TabResumen({
       const pedKey = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
       const bruto = rowsPeriodo.reduce((a, r) => a + (Number(r[brutoKey]) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a, r) => a + (Number(r[pedKey]) || 0), 0)
-      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, marcasPorCanal, fechaDesde, fechaHasta, configCanales)
+      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta, configCanales, diasConDatos: diasConDatosPeriodo })
       return {
         id, label: labels[id], color: colores[id], bruto, neto, pedidos,
         pct: totalBruto > 0 ? (bruto / totalBruto) * 100 : 0,
@@ -314,7 +322,7 @@ export default function TabResumen({
         margen: margenPct,
       }
     })
-  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta])
+  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta, diasConDatosPeriodo])
 
   const ventasPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsPeriodo])
   const pedidosPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsPeriodo])
@@ -456,6 +464,7 @@ export default function TabResumen({
 
     function netoRows(d1: string, d2: string, fIni: Date, fFin: Date): number {
       const rs = rowsAll.filter(r => r.fecha >= d1 && r.fecha <= d2)
+      const diasDatos = new Set(rs.filter(r => (r.total_bruto || 0) > 0).map(r => r.fecha)).size
       const ids: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']
       let n = 0
       for (const id of ids) {
@@ -463,7 +472,7 @@ export default function TabResumen({
         const pk = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
         const bruto = rs.reduce((a, r) => a + (Number(r[bk]) || 0), 0)
         const pedidos = rs.reduce((a, r) => a + (Number(r[pk]) || 0), 0)
-        n += calcNetoPorCanal(id, bruto, pedidos, marcasPorCanal, fIni, fFin, configCanales).neto
+        n += calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: fIni, fechaHasta: fFin, configCanales, diasConDatos: diasDatos }).neto
       }
       return n
     }
