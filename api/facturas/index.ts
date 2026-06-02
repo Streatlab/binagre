@@ -452,6 +452,13 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 // lo re-pasa por el motor nuevo (reglas + diccionario + match + categoría/
 // contraparte + auditoría 1-a-1), guarda informe en reproc_informe, avanza el
 // offset y se vuelve a llamar a sí mismo hasta acabar. Sin cron de Vercel.
+//
+// MODO solo_sin_leer: si el job tiene solo_sin_leer=true, NO recorre todas las
+// facturas con offset; solo coge las que NO tienen importe legible (total 0/null)
+// — las que se quedaron sin leer cuando se acabó la IA de pago — y las relee gratis
+// con Tesseract. Así no se tocan las facturas ya leídas/conciliadas. Para no
+// reintentar indefinidamente las irrecuperables, para cuando `procesadas` alcanza
+// `total_objetivo` (el nº de sin-leer al arrancar el job).
 const LOTE_REPROC = 20
 
 async function reproc(req: VercelRequest, res: VercelResponse) {
@@ -465,6 +472,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
 
   if (!job) return res.status(200).json({ ok: true, mensaje: 'Sin jobs activos' })
 
+  const soloSinLeer = !!job.solo_sin_leer
   const offset = Number(job.offset_actual || 0)
   const sesionId = (job.sesion_id as string) || `reproc-${job.id}`
 
@@ -473,7 +481,14 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     .select('id, pdf_drive_id, pdf_original_name, proveedor_nombre, fecha_factura, total')
     .not('pdf_drive_id', 'is', null)
     .order('fecha_factura', { ascending: true })
-    .range(offset, offset + LOTE_REPROC - 1)
+
+  if (soloSinLeer) {
+    // Solo las sin importe legible. Siempre el primer lote (offset 0): a medida
+    // que se leen bien, salen del conjunto por sí solas.
+    q = q.or('total.is.null,total.eq.0').range(0, LOTE_REPROC - 1)
+  } else {
+    q = q.range(offset, offset + LOTE_REPROC - 1)
+  }
 
   if (job.desde) q = q.gte('fecha_factura', job.desde as string)
   if (job.hasta) q = q.lte('fecha_factura', job.hasta as string)
@@ -538,10 +553,17 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   if (lineas.length > 0) await supabaseAdmin.from('reproc_informe').insert(lineas)
 
   const nuevoOffset = offset + facturas.length
-  const terminado = facturas.length < LOTE_REPROC
+  const procesadasAcum = Number(job.procesadas || 0) + facturas.length
+  // Fin del job:
+  //  - modo normal: cuando un lote viene incompleto (llegó al final del histórico).
+  //  - modo sin-leer: cuando ya se han intentado tantas como había al arrancar
+  //    (total_objetivo), tope anti-bucle para las irrecuperables; o lote incompleto.
+  const objetivo = Number(job.total_objetivo || 0)
+  const terminado = facturas.length < LOTE_REPROC || (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo)
+
   await supabaseAdmin.from('reproc_control').update({
     offset_actual: nuevoOffset,
-    procesadas: Number(job.procesadas || 0) + facturas.length,
+    procesadas: procesadasAcum,
     ok: Number(job.ok || 0) + ok,
     errores: Number(job.errores || 0) + errores,
     conciliadas: Number(job.conciliadas || 0) + conciliadas,
@@ -561,7 +583,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     ok: true, job: job.id, lote: facturas.length,
     ok_lote: ok, errores_lote: errores, conciliadas_lote: conciliadas,
-    nuevo_offset: nuevoOffset, terminado,
+    nuevo_offset: nuevoOffset, terminado, modo: soloSinLeer ? 'solo_sin_leer' : 'completo',
   })
 }
 
