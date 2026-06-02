@@ -13,6 +13,8 @@ interface Props {
   activa?: boolean
   /** al pulsar la card (para filtrar la tabla por origen correo) */
   onClick?: () => void
+  /** tras un barrido manual con éxito, para refrescar la tabla del padre */
+  onBarrido?: () => void
 }
 
 interface Stats {
@@ -28,8 +30,10 @@ const TITULO: Record<Tipo, string> = {
   ventas: 'Ventas por correo',
 }
 
-export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick }: Props) {
+export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick, onBarrido }: Props) {
   const [s, setS] = useState<Stats | null>(null)
+  const [recogiendo, setRecogiendo] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   async function cargar() {
     // FUENTE REAL: facturas marcadas como origen-correo en el periodo. El cartero
@@ -78,6 +82,31 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
     })
   }
 
+  // Barrido manual: trae al instante lo que haya en el buzón (no espera al cron 07:00).
+  async function recogerAhora(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (recogiendo) return
+    setRecogiendo(true)
+    setAviso(null)
+    try {
+      const r = await fetch('/api/facturas?action=cartero')
+      const j = await r.json()
+      if (j.ok) {
+        const n = j.nuevas ?? 0, d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
+        setAviso(`Recogidas: ${n} nuevas · ${d} ya estaban · ${m} a revisar`)
+        await cargar()
+        onBarrido?.()
+      } else {
+        setAviso(j.error || 'No se pudo recoger el correo')
+      }
+    } catch (err: any) {
+      setAviso(err?.message || 'Error de red')
+    } finally {
+      setRecogiendo(false)
+      setTimeout(() => setAviso(null), 6000)
+    }
+  }
+
   useEffect(() => {
     cargar()
     const t = setInterval(cargar, 60_000)
@@ -118,10 +147,26 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
         <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Conciliadas</span><span style={{ color: '#1D9E75', fontWeight: 500 }}>{conciliadas}</span></div>
         <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctOk}%`, height: '100%', background: '#1D9E75' }} /></div>
       </div>
-      <div>
+      <div style={{ marginBottom: 12 }}>
         <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Pendientes</span><span style={{ color: '#F26B1F', fontWeight: 500 }}>{pendientes}</span></div>
         <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctPend}%`, height: '100%', background: '#F26B1F' }} /></div>
       </div>
+
+      <button
+        onClick={recogerAhora}
+        disabled={recogiendo}
+        style={{
+          width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none',
+          background: recogiendo ? '#d0c8bc' : '#B01D23', color: '#fff',
+          fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px',
+          textTransform: 'uppercase', cursor: recogiendo ? 'wait' : 'pointer', fontWeight: 600,
+        }}
+      >
+        {recogiendo ? 'Recogiendo…' : 'Recoger correo ahora'}
+      </button>
+      {aviso && (
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#3a4050', marginTop: 6, lineHeight: 1.3 }}>{aviso}</div>
+      )}
     </div>
   )
 }
