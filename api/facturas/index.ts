@@ -172,7 +172,8 @@ async function resubirDrive(res: VercelResponse) {
 // (contraseña de aplicación) y los pasa por el mismo motor que el botón de subir.
 // Idempotente: cada mensaje procesado con éxito se MUEVE a la carpeta "Procesadas"
 // del propio Gmail, así no se reprocesa. Sin límite (barre todo). 0 €.
-// Uso: GET /api/facturas?action=cartero
+// Marca cada factura como origen-correo (para la card y su filtro) y actualiza el
+// estado del buzón (cartero_correo_estado). Uso: GET /api/facturas?action=cartero
 async function cartero(req: VercelRequest, res: VercelResponse) {
   const sesionId = `cartero-${Date.now().toString(36)}`
 
@@ -184,6 +185,8 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     const ayuda = /auth|login|credenciales|password|invalid/i.test(msg)
       ? 'Revisa la contraseña de aplicación de facturasstreat@gmail.com en la configuración del cartero.'
       : null
+    // Marcar buzón caído para que la card lo refleje.
+    await supabaseAdmin.from('cartero_correo_estado').update({ buzon_conectado: false }).eq('id', 1)
     return res.status(200).json({ ok: false, error: msg, ayuda, procesadas: 0 })
   }
 
@@ -193,6 +196,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
   const resultados: Record<string, unknown>[] = []
   const mensajesConExito = new Set<string>()
   const mensajesConFallo = new Set<string>()
+  const facturasOrigenCorreo = new Set<string>()
 
   for (const adj of adjuntos) {
     try {
@@ -208,6 +212,10 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
         else errores++
         if (r.estado === 'error') mensajesConFallo.add(adj.messageId)
         else mensajesConExito.add(adj.messageId)
+        // Marcar la factura como ORIGEN CORREO (para la card y su filtro).
+        // Incluye duplicadas: la factura existe y también llegó por correo.
+        const fid = (r.factura_id as string) || ((r.factura_existente as Record<string, unknown> | undefined)?.id as string)
+        if (fid && r.estado !== 'error') facturasOrigenCorreo.add(fid)
         resultados.push({
           archivo: adj.nombre,
           remitente: adj.remitente,
@@ -229,6 +237,12 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // Marcar origen-correo (idempotente con upsert por factura_id).
+  if (facturasOrigenCorreo.size > 0) {
+    const filas = [...facturasOrigenCorreo].map((factura_id) => ({ factura_id, marcado_en: new Date().toISOString() }))
+    await supabaseAdmin.from('facturas_origen_correo').upsert(filas, { onConflict: 'factura_id', ignoreDuplicates: true })
+  }
+
   // Mover a "Procesadas" SOLO los mensajes sin ningún fallo (los que fallaron se
   // reintentan en el próximo barrido al seguir en INBOX).
   const moverIds = [...mensajesConExito].filter((id) => !mensajesConFallo.has(id))
@@ -237,6 +251,13 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
   } catch {
     /* best-effort: el cierre de sesión IMAP no debe tumbar la respuesta */
   }
+
+  // Actualizar estado del buzón (conectado + último barrido).
+  await supabaseAdmin.from('cartero_correo_estado').update({
+    buzon_conectado: true,
+    ultimo_barrido: new Date().toISOString(),
+    procesados_hoy: ok + duplicadas + manual,
+  }).eq('id', 1)
 
   return res.status(200).json({
     ok: true,
@@ -247,6 +268,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     duplicadas,
     errores,
     movidos_a_procesadas: moverIds.length,
+    origen_correo_marcadas: facturasOrigenCorreo.size,
     resultados,
   })
 }
