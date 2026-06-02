@@ -1,22 +1,18 @@
-// gmail-cartero.ts — Cartero de facturas por correo.
-// Lee el buzón de la cuenta Google conectada (mismo token OAuth que Drive, con
-// scope gmail.readonly/modify) y devuelve los adjuntos de facturas listos para
-// pasar por el motor de OCR (procesarArchivo).
+// gmail-cartero.ts — Cartero de facturas por correo (IMAP).
+// Lee el buzón facturasstreat@gmail.com por IMAP con contraseña de aplicación
+// (tabla cartero_credenciales). Independiente del conector OAuth de Drive.
 //
-// Estrategia de barrido (definida con Rubén):
-//   - SIN LÍMITE: recorre TODO el buzón por páginas hasta vaciarlo (los lunes de
-//     Uber pueden llegar 100-200 facturas; no se deja ninguna).
-//   - NO RELEE lo ya hecho: el filtro excluye lo etiquetado FACTURA_OCR_OK, y
-//     cada mensaje procesado se etiqueta Y se saca de INBOX (equivale a moverlo
-//     a "Procesadas"), así no se vuelve a coger aunque siga en la cuenta.
+// Estrategia (definida con Rubén):
+//   - SIN LÍMITE: recorre TODO lo no procesado.
+//   - NO RELEE: cada mensaje tratado se marca \Seen y se MUEVE a la carpeta
+//     "Procesadas" del propio Gmail, así nunca se vuelve a coger.
 //   - NO DUPLICA EN ORIGEN: el motor de facturas deduplica por hash de archivo
-//     (mismo PDF exacto) y marca posible_duplicado lógico (mismo nº+NIF+total),
-//     así un adjunto que llega por Uber y además reenviado no se cuenta dos veces.
+//     y marca posible_duplicado lógico (nº+NIF+total) en base de datos.
 //
-// 0 coste: Gmail API es gratis. El OCR posterior es local (reglas + Tesseract).
-import { google } from 'googleapis'
-import type { OAuth2Client } from 'google-auth-library'
-import { getOAuthClient } from './google-oauth.js'
+// 0 coste: IMAP de Gmail es gratis; el OCR posterior es local.
+import { ImapFlow } from 'imapflow'
+import { simpleParser } from 'mailparser'
+import { supabaseAdmin } from './supabase-admin.js'
 
 export interface AdjuntoCorreo {
   nombre: string
@@ -27,163 +23,125 @@ export interface AdjuntoCorreo {
   asunto: string | null
 }
 
-const LABEL_OK = 'FACTURA_OCR_OK'
-
-// Tope de seguridad para no exceder el tiempo de la función (maxDuration 300s).
-// Es alto: cubre de sobra un lunes de Uber. Si se alcanzara, el resto se recoge
-// en el siguiente barrido (los ya procesados quedan etiquetados y fuera de INBOX).
-const TOPE_SEGURIDAD_MENSAJES = 1000
-const PAGINA = 100
-
-// Tipos de adjunto que tienen sentido como factura.
+const CARPETA_PROCESADAS = 'Procesadas'
 const EXT_FACTURA = /\.(pdf|jpg|jpeg|png|webp|heic|tif|tiff|gif|bmp|eml|doc|docx|xls|xlsx)$/i
 const MIME_FACTURA = /^(application\/pdf|image\/|message\/rfc822|application\/vnd|application\/msword)/i
 
 function esAdjuntoFactura(nombre: string, mime: string): boolean {
-  if (EXT_FACTURA.test(nombre)) return true
-  if (MIME_FACTURA.test(mime)) return true
+  if (nombre && EXT_FACTURA.test(nombre)) return true
+  if (mime && MIME_FACTURA.test(mime)) return true
   return false
 }
 
-interface GmailPart {
-  filename?: string
-  mimeType?: string
-  body?: { attachmentId?: string; data?: string; size?: number }
-  parts?: GmailPart[]
-}
-
-// Recorre el árbol de partes y recoge todas las que sean adjuntos de factura.
-function recogerPartes(part: GmailPart | undefined, out: GmailPart[]): void {
-  if (!part) return
-  if (part.filename && part.body?.attachmentId && esAdjuntoFactura(part.filename, part.mimeType || '')) {
-    out.push(part)
+async function cargarCredenciales(): Promise<{ email: string; appPassword: string }> {
+  const { data, error } = await supabaseAdmin
+    .from('cartero_credenciales')
+    .select('email, app_password')
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(`No se pudieron leer las credenciales del cartero: ${error.message}`)
+  if (!data?.email || !data?.app_password) {
+    throw new Error('Faltan credenciales del cartero (email o contraseña de aplicación).')
   }
-  if (part.parts) {
-    for (const p of part.parts) recogerPartes(p, out)
-  }
-}
-
-function leerCabecera(headers: { name?: string; value?: string }[] | undefined, nombre: string): string | null {
-  if (!headers) return null
-  const h = headers.find((x) => (x.name || '').toLowerCase() === nombre.toLowerCase())
-  return h?.value || null
-}
-
-async function asegurarLabel(gmail: ReturnType<typeof google.gmail>): Promise<string | null> {
-  try {
-    const { data } = await gmail.users.labels.list({ userId: 'me' })
-    const existente = (data.labels || []).find((l) => l.name === LABEL_OK)
-    if (existente?.id) return existente.id
-    const creada = await gmail.users.labels.create({
-      userId: 'me',
-      requestBody: { name: LABEL_OK, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
-    })
-    return creada.data.id || null
-  } catch {
-    return null
-  }
+  // La contraseña de aplicación de Google se muestra con espacios; IMAP la quiere sin ellos.
+  return { email: data.email as string, appPassword: (data.app_password as string).replace(/\s+/g, '') }
 }
 
 export interface CarteroResultado {
   adjuntos: AdjuntoCorreo[]
   mensajesRevisados: number
-  labelId: string | null
-  gmail: ReturnType<typeof google.gmail>
+  // En IMAP el "marcar procesado" se hace dentro del barrido (mover a Procesadas).
+  // Estos campos se mantienen por compatibilidad con el handler.
+  labelId: null
+  gmail: null
+  // UIDs procesados con éxito, para moverlos tras el OCR.
+  _mover: (messageIds: string[]) => Promise<void>
 }
 
 /**
- * Recoge adjuntos de factura del buzón, recorriendo TODO el buzón por páginas.
- * @param query  Filtro Gmail. Por defecto: con adjunto, no etiquetados como OK.
- * @param _maxIgnorado  Compat: se ignora; el barrido es completo (con tope de seguridad).
+ * Recoge adjuntos de factura del buzón por IMAP (todo lo no procesado).
+ * Devuelve también un closure `_mover` para archivar los mensajes ya procesados.
  */
 export async function recogerFacturasDelCorreo(
-  query = `has:attachment -label:${LABEL_OK}`,
+  _query?: string,
   _maxIgnorado?: number,
 ): Promise<CarteroResultado> {
-  const auth = (await getOAuthClient()) as OAuth2Client
-  const gmail = google.gmail({ version: 'v1', auth })
+  const { email, appPassword } = await cargarCredenciales()
 
-  const labelId = await asegurarLabel(gmail)
+  const client = new ImapFlow({
+    host: 'imap.gmail.com',
+    port: 993,
+    secure: true,
+    auth: { user: email, pass: appPassword },
+    logger: false,
+  })
 
-  // 1) Listar TODOS los mensajes que cumplen el filtro, paginando con pageToken.
-  const idsMensajes: string[] = []
-  let pageToken: string | undefined = undefined
-  do {
-    const lista = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults: PAGINA,
-      pageToken,
-    })
-    for (const m of lista.data.messages || []) {
-      if (m.id) idsMensajes.push(m.id)
-    }
-    pageToken = lista.data.nextPageToken || undefined
-    if (idsMensajes.length >= TOPE_SEGURIDAD_MENSAJES) break
-  } while (pageToken)
+  await client.connect()
 
-  // 2) Descargar adjuntos de cada mensaje.
+  // Asegurar carpeta Procesadas
+  try { await client.mailboxCreate(CARPETA_PROCESADAS) } catch { /* ya existe */ }
+
   const adjuntos: AdjuntoCorreo[] = []
-  for (const id of idsMensajes) {
-    const full = await gmail.users.messages.get({ userId: 'me', id, format: 'full' })
-    const payload = full.data.payload as GmailPart | undefined
-    const headers = (full.data.payload?.headers || []) as { name?: string; value?: string }[]
-    const remitente = leerCabecera(headers, 'From')
-    const asunto = leerCabecera(headers, 'Subject')
+  const uidConAdjunto: number[] = []
+  let revisados = 0
 
-    const partes: GmailPart[] = []
-    recogerPartes(payload, partes)
-
-    for (const p of partes) {
-      if (!p.body?.attachmentId || !p.filename) continue
+  const lock = await client.getMailboxLock('INBOX')
+  try {
+    // Todo lo de la bandeja de entrada (lo procesado ya no está aquí: se movió).
+    for await (const msg of client.fetch('1:*', { uid: true, source: true, envelope: true })) {
+      revisados++
       try {
-        const att = await gmail.users.messages.attachments.get({
-          userId: 'me',
-          messageId: id,
-          id: p.body.attachmentId,
-        })
-        const dataB64 = att.data.data
-        if (!dataB64) continue
-        // Gmail devuelve base64url
-        const buffer = Buffer.from(dataB64, 'base64url')
-        adjuntos.push({
-          nombre: p.filename,
-          buffer,
-          mimeType: p.mimeType || null,
-          messageId: id,
-          remitente,
-          asunto,
-        })
+        const parsed = await simpleParser(msg.source as Buffer)
+        const remitente = parsed.from?.text || null
+        const asunto = parsed.subject || null
+        let tieneFactura = false
+        for (const att of parsed.attachments || []) {
+          const nombre = att.filename || 'adjunto'
+          const mime = att.contentType || ''
+          if (!esAdjuntoFactura(nombre, mime)) continue
+          tieneFactura = true
+          adjuntos.push({
+            nombre,
+            buffer: att.content as Buffer,
+            mimeType: mime || null,
+            messageId: String(msg.uid),
+            remitente,
+            asunto,
+          })
+        }
+        if (tieneFactura) uidConAdjunto.push(msg.uid)
       } catch {
-        // adjunto que falla: se ignora, el mensaje no se marca OK y se reintenta
+        // mensaje que no parsea: se ignora y se deja en INBOX para reintento
       }
+    }
+  } finally {
+    lock.release()
+  }
+
+  // Closure para mover a Procesadas los UIDs procesados con éxito.
+  const _mover = async (messageIds: string[]): Promise<void> => {
+    const uids = messageIds.map(Number).filter((n) => Number.isFinite(n))
+    if (uids.length === 0) { await client.logout(); return }
+    const lock2 = await client.getMailboxLock('INBOX')
+    try {
+      await client.messageFlagsAdd(uids, ['\\Seen'], { uid: true })
+      await client.messageMove(uids, CARPETA_PROCESADAS, { uid: true })
+    } catch {
+      /* best-effort: si falla, se reintenta en el próximo barrido */
+    } finally {
+      lock2.release()
+      await client.logout()
     }
   }
 
-  return { adjuntos, mensajesRevisados: idsMensajes.length, labelId, gmail }
+  return { adjuntos, mensajesRevisados: revisados, labelId: null, gmail: null, _mover }
 }
 
 /**
- * Marca un mensaje como procesado: pone la etiqueta OK y lo saca de INBOX y de
- * UNREAD (equivale a moverlo a "Procesadas"). Así no se vuelve a barrer aunque
- * el correo siga en la cuenta. Best-effort: si falla, se reintenta en el próximo
- * barrido (no queda etiquetado).
+ * Compat con el handler antiguo (OAuth). En IMAP no se usa: el archivado se hace
+ * con el closure `_mover`. Se deja como no-op para no romper imports.
  */
-export async function marcarMensajeProcesado(
-  gmail: ReturnType<typeof google.gmail>,
-  messageId: string,
-  labelId: string | null,
-): Promise<void> {
-  try {
-    await gmail.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: labelId ? [labelId] : [],
-        removeLabelIds: ['UNREAD', 'INBOX'],
-      },
-    })
-  } catch {
-    /* best-effort */
-  }
+export async function marcarMensajeProcesado(): Promise<void> {
+  /* no-op en IMAP */
 }
