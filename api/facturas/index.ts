@@ -448,18 +448,21 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: reprocesado masivo 0 API (auto-encadenado) ───────────────────
-// Coge el job activo de reproc_control, procesa un lote, baja cada PDF de Drive,
-// lo re-pasa por el motor nuevo (reglas + diccionario + match + categoría/
-// contraparte + auditoría 1-a-1), guarda informe en reproc_informe, avanza el
-// offset y se vuelve a llamar a sí mismo hasta acabar. Sin cron de Vercel.
+// Coge el job activo de reproc_control, procesa un lote PEQUEÑO, baja cada PDF de
+// Drive, lo re-pasa por el motor (reglas + Tesseract + match), guarda informe y
+// AVANZA EL CONTADOR FACTURA A FACTURA (no al final del lote), luego se vuelve a
+// llamar a sí mismo hasta acabar. Sin cron de Vercel.
 //
-// MODO solo_sin_leer: si el job tiene solo_sin_leer=true, NO recorre todas las
-// facturas con offset; solo coge las que NO tienen importe legible (total 0/null)
-// — las que se quedaron sin leer cuando se acabó la IA de pago — y las relee gratis
-// con Tesseract. Así no se tocan las facturas ya leídas/conciliadas. Para no
-// reintentar indefinidamente las irrecuperables, para cuando `procesadas` alcanza
-// `total_objetivo` (el nº de sin-leer al arrancar el job).
-const LOTE_REPROC = 20
+// Por qué lote pequeño + guardado por factura: algunos PDF escaneados tardan mucho
+// en Tesseract. Con lotes grandes la función se quedaba sin tiempo (límite 300 s) y
+// no llegaba a guardar NADA → el contador no avanzaba nunca. Con lote pequeño cada
+// invocación termina holgada, guarda y encadena. Si una factura se atasca, las ya
+// hechas quedan guardadas igual.
+//
+// MODO solo_sin_leer: solo coge facturas sin importe legible (total 0/null), las
+// relee gratis con Tesseract y NO toca las ya leídas/conciliadas. Tope anti-bucle:
+// para cuando `procesadas` alcanza `total_objetivo` (las sin-leer al arrancar).
+const LOTE_REPROC = 4
 
 async function reproc(req: VercelRequest, res: VercelResponse) {
   const { data: job } = await supabaseAdmin
@@ -475,6 +478,9 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   const soloSinLeer = !!job.solo_sin_leer
   const offset = Number(job.offset_actual || 0)
   const sesionId = (job.sesion_id as string) || `reproc-${job.id}`
+
+  // Marcar arranque del lote desde ya (deja constancia aunque luego se corte).
+  await supabaseAdmin.from('reproc_control').update({ ultimo_run: new Date().toISOString() }).eq('id', job.id as string)
 
   let q = supabaseAdmin
     .from('facturas')
@@ -502,11 +508,13 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   }
 
   let ok = 0, errores = 0, conciliadas = 0
-  const lineas: Record<string, unknown>[] = []
+  let procesadasAcum = Number(job.procesadas || 0)
+  const objetivo = Number(job.total_objetivo || 0)
 
   for (const f of facturas) {
     const driveId = f.pdf_drive_id as string
     const nombre = (f.pdf_original_name as string) || `${f.id}.pdf`
+    let lineaInforme: Record<string, unknown>
     try {
       const buffer = await descargarArchivoDeDrive(driveId)
       await supabaseAdmin.from('facturas_gastos').delete().eq('factura_id', f.id as string)
@@ -521,7 +529,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       const resultado = r.estado === 'ok' ? 'ok' : r.estado === 'duplicada' ? 'duplicada' : 'error'
       if (resultado === 'error') errores++; else ok++
       if (conc) conciliadas++
-      lineas.push({
+      lineaInforme = {
         control_id: job.id,
         factura_id: (r.factura_id as string) || (f.id as string),
         archivo: nombre,
@@ -532,10 +540,10 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         conciliada: conc,
         en_drive: !!(fac?.pdf_drive_id),
         motivo: r.motivo || r.error || null,
-      })
+      }
     } catch (e) {
       errores++
-      lineas.push({
+      lineaInforme = {
         control_id: job.id,
         factura_id: f.id as string,
         archivo: nombre,
@@ -546,29 +554,34 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         conciliada: false,
         en_drive: false,
         motivo: e instanceof Error ? e.message : String(e),
-      })
+      }
     }
+
+    // Guardar informe + AVANZAR CONTADOR tras CADA factura (robusto ante cortes).
+    procesadasAcum++
+    await supabaseAdmin.from('reproc_informe').insert(lineaInforme)
+    await supabaseAdmin.from('reproc_control').update({
+      offset_actual: offset + (procesadasAcum - Number(job.procesadas || 0)),
+      procesadas: procesadasAcum,
+      ok: Number(job.ok || 0) + ok,
+      errores: Number(job.errores || 0) + errores,
+      conciliadas: Number(job.conciliadas || 0) + conciliadas,
+      ultimo_run: new Date().toISOString(),
+    }).eq('id', job.id as string)
+
+    // Tope anti-bucle en modo sin-leer: parar al alcanzar el objetivo.
+    if (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo) break
   }
 
-  if (lineas.length > 0) await supabaseAdmin.from('reproc_informe').insert(lineas)
-
   const nuevoOffset = offset + facturas.length
-  const procesadasAcum = Number(job.procesadas || 0) + facturas.length
   // Fin del job:
   //  - modo normal: cuando un lote viene incompleto (llegó al final del histórico).
-  //  - modo sin-leer: cuando ya se han intentado tantas como había al arrancar
-  //    (total_objetivo), tope anti-bucle para las irrecuperables; o lote incompleto.
-  const objetivo = Number(job.total_objetivo || 0)
+  //  - modo sin-leer: cuando ya se han intentado tantas como había al arrancar.
   const terminado = facturas.length < LOTE_REPROC || (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo)
 
   await supabaseAdmin.from('reproc_control').update({
-    offset_actual: nuevoOffset,
-    procesadas: procesadasAcum,
-    ok: Number(job.ok || 0) + ok,
-    errores: Number(job.errores || 0) + errores,
-    conciliadas: Number(job.conciliadas || 0) + conciliadas,
-    ultimo_run: new Date().toISOString(),
     activo: !terminado,
+    ultimo_run: new Date().toISOString(),
   }).eq('id', job.id as string)
 
   // Auto-encadenado: si quedan, dispara el siguiente lote en segundo plano.
