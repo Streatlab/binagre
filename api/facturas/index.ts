@@ -7,6 +7,7 @@
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
  *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
+ *   GET  /api/facturas?action=cartero           → cartero Gmail: recoge facturas del buzón y las procesa
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes: reintenta match con
  *                                                  reglas/plantillas actuales y devuelve informe con
  *                                                  motivo de cada uno que sigue pendiente
@@ -22,6 +23,7 @@ import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
 import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
+import { recogerFacturasDelCorreo, marcarMensajeProcesado } from '../_lib/gmail-cartero.js'
 import type { ExtractedFactura } from '../_lib/ocr.js'
 
 export const config = {
@@ -37,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'faltantes')     return faltantes(res)
   if (action === 'resubir-drive') return resubirDrive(res)
   if (action === 'reproc')        return reproc(req, res)
+  if (action === 'cartero')       return cartero(req, res)
   if (action === 'reconciliar-pendientes') return reconciliarPendientes(req, res)
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
@@ -161,6 +164,90 @@ async function resubirDrive(res: VercelResponse) {
     pendientes: data || [],
     total: data?.length || 0,
     instrucciones: 'Abre cada factura del listado y usa "Re-subir a Drive" desde el modal (Tab Resumen).',
+  })
+}
+
+// ── Handler: cartero Gmail ─────────────────────────────────────────────────
+// Recoge los adjuntos de factura del buzón de la cuenta Google conectada (scope
+// gmail.readonly/modify) y los pasa por el mismo motor que el botón de subir.
+// Idempotente: cada mensaje procesado se etiqueta FACTURA_OCR_OK y se quita
+// UNREAD, así no se reprocesa. 0 € (Gmail es gratis; el OCR posterior también).
+// Uso: GET /api/facturas?action=cartero  (opcional &q=<filtro gmail>&max=25)
+async function cartero(req: VercelRequest, res: VercelResponse) {
+  const query = req.query.q ? String(req.query.q) : undefined
+  const max = req.query.max ? Math.min(Number(req.query.max) || 25, 50) : 25
+  const sesionId = `cartero-${Date.now().toString(36)}`
+
+  let recogida
+  try {
+    recogida = await recogerFacturasDelCorreo(query, max)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Causas típicas: sin scope Gmail todavía (hay que reconectar Google) o Drive no conectado.
+    const ayuda = /insufficient|scope|permission|invalid_grant|no conectado/i.test(msg)
+      ? 'Reconecta Google en Configuración → Integraciones → Drive para conceder el permiso de Gmail.'
+      : null
+    return res.status(200).json({ ok: false, error: msg, ayuda, procesadas: 0 })
+  }
+
+  const { adjuntos, mensajesRevisados, labelId, gmail } = recogida
+
+  let ok = 0, manual = 0, duplicadas = 0, errores = 0
+  const resultados: Record<string, unknown>[] = []
+  const mensajesConExito = new Set<string>()
+  const mensajesConFallo = new Set<string>()
+
+  for (const adj of adjuntos) {
+    try {
+      const procesados = await procesarArchivo(
+        supabaseAdmin,
+        { nombre: adj.nombre, buffer: adj.buffer, mimeType: adj.mimeType },
+        sesionId,
+      )
+      for (const r of procesados) {
+        if (r.estado === 'ok') ok++
+        else if (r.estado === 'lectura_manual') manual++
+        else if (r.estado === 'duplicada') duplicadas++
+        else errores++
+        if (r.estado === 'error') mensajesConFallo.add(adj.messageId)
+        else mensajesConExito.add(adj.messageId)
+        resultados.push({
+          archivo: adj.nombre,
+          remitente: adj.remitente,
+          asunto: adj.asunto,
+          estado: r.estado,
+          motivo: r.motivo || r.error || null,
+        })
+      }
+    } catch (err) {
+      errores++
+      mensajesConFallo.add(adj.messageId)
+      resultados.push({
+        archivo: adj.nombre,
+        remitente: adj.remitente,
+        asunto: adj.asunto,
+        estado: 'error',
+        motivo: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  // Marca como procesado SOLO los mensajes sin ningún fallo (los que fallaron se
+  // reintentan en el próximo barrido al no quedar etiquetados).
+  for (const messageId of mensajesConExito) {
+    if (mensajesConFallo.has(messageId)) continue
+    await marcarMensajeProcesado(gmail, messageId, labelId)
+  }
+
+  return res.status(200).json({
+    ok: true,
+    mensajes_revisados: mensajesRevisados,
+    adjuntos_procesados: adjuntos.length,
+    nuevas: ok,
+    lectura_manual: manual,
+    duplicadas,
+    errores,
+    resultados,
   })
 }
 
