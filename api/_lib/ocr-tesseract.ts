@@ -11,7 +11,6 @@
 // y el flujo de procesarArchivo degrada la factura a lectura manual SIN romperse.
 // El idioma es español (spa). El worker cachea el modelo en /tmp (único FS
 // escribible en serverless).
-import { createRequire } from 'module'
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -21,9 +20,11 @@ const TIMEOUT_OCR_MS = 60000   // tope duro por archivo
 export async function ocrImagen(buffer: Buffer): Promise<string> {
   let worker: { recognize: (img: Buffer) => Promise<{ data: { text: string } }>; terminate: () => Promise<unknown> } | null = null
   try {
-    const { createWorker } = await import('tesseract.js')
+    // import dinámico con cast a any: evita que tsc exija typings de subrutas
+    const tess: any = await import('tesseract.js')
+    const createWorker = tess.createWorker
     // cachePath en /tmp: único directorio escribible en Vercel
-    worker = await createWorker('spa', 1, { cachePath: '/tmp' }) as unknown as typeof worker
+    worker = await createWorker('spa', 1, { cachePath: '/tmp' })
     if (!worker) return ''
     const { data } = await worker.recognize(buffer)
     return (data.text || '').trim()
@@ -38,9 +39,11 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
 // Rasteriza un PDF escaneado a PNG (primeras páginas) y le pasa Tesseract.
 export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
   try {
-    // pdfjs legacy: build de Node, sin DOM
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const { createCanvas } = await import('@napi-rs/canvas')
+    // import dinámico con cast a any: la subruta legacy de pdfjs no expone
+    // typings y romperia `tsc -b`. En runtime resuelve perfectamente.
+    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
+    const canvasMod: any = await import('@napi-rs/canvas')
+    const createCanvas = canvasMod.createCanvas
 
     const uint8 = new Uint8Array(buffer)
     const loadingTask = pdfjs.getDocument({ data: uint8, useSystemFonts: true })
@@ -54,12 +57,7 @@ export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
       const viewport = page.getViewport({ scale: ESCALA_RASTER })
       const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height))
       const ctx = canvas.getContext('2d')
-      // pdfjs espera un CanvasRenderingContext2D compatible; @napi-rs lo es
-      await page.render({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        canvasContext: ctx as any,
-        viewport,
-      }).promise
+      await page.render({ canvasContext: ctx, viewport }).promise
       const png = canvas.toBuffer('image/png')
       const texto = await ocrImagen(png)
       if (texto) textos.push(texto)
@@ -81,6 +79,3 @@ export async function extraerTextoOCRGratis(
   const timeout = new Promise<string>((resolve) => setTimeout(() => resolve(''), TIMEOUT_OCR_MS))
   return Promise.race([tarea, timeout])
 }
-
-// (createRequire reservado por compatibilidad de algunos entornos pdfjs)
-void createRequire
