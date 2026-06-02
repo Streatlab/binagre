@@ -1,4 +1,5 @@
-// procesarArchivo v13 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
+// procesarArchivo v14 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
+//                      + PARTIDO MULTI-FACTURA (varias facturas en un PDF)
 // COSTE 0 € SIEMPRE. Cero API de pago. La lectura va por dos vías gratis:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
@@ -9,6 +10,12 @@
 // v12: dedup único válido = hash de archivo (mismo PDF exacto).
 // v13: retirado el lector de pago. Sustituido por Tesseract gratis. Titular sin
 // detectar ya NO se archiva en carpeta de Rubén (va a SIN_TITULAR).
+// v14: PARTIDO MULTI-FACTURA. Un PDF con varias facturas dentro (mismo proveedor,
+// varios albaranes; o una factura por página) se separa en N facturas. El dedup
+// se mantiene: cada sub-factura usa pdf_hash compuesto = hashArchivo#indice, así
+// re-subir el mismo PDF detecta duplicado y no se pierde ni duplica nada. El PDF
+// físico se sube UNA sola vez a Drive y se comparte el enlace entre las N filas.
+// Si el PDF tiene una sola factura, el comportamiento es idéntico al de v13.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -20,8 +27,10 @@ import {
   extraerWord,
   prepararVision,
   extraerTextoPDF,
+  extraerTextoPDFPorPaginas,
   pdfTieneTexto,
   extraerPorReglas,
+  partirEnFacturas,
   extraerNifEmisorLibre,
 } from './extractores.js'
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
@@ -39,6 +48,10 @@ export type ProcesarEstado =
 // Kill-switch opcional del OCR gratis (Tesseract). Por defecto ENCENDIDO.
 // Para apagarlo (no recomendado): OCR_DESACTIVAR_TESSERACT=true en Vercel.
 const OCR_TESSERACT_ACTIVO = process.env.OCR_DESACTIVAR_TESSERACT !== 'true'
+
+// Kill-switch opcional del partido multi-factura. Por defecto ENCENDIDO.
+// Para apagarlo: OCR_DESACTIVAR_MULTIFACTURA=true en Vercel.
+const MULTIFACTURA_ACTIVO = process.env.OCR_DESACTIVAR_MULTIFACTURA !== 'true'
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -169,7 +182,7 @@ export async function procesarArchivo(
 
   const principal = await procesarContenidoPrincipal(supabase, file, contenido, tipo)
 
-  const resultados: ProcesarResultado[] = [principal]
+  const resultados: ProcesarResultado[] = Array.isArray(principal) ? principal : [principal]
   if (tipo === 'email' && contenido.adjuntos?.length) {
     for (const adj of contenido.adjuntos) {
       const tipoAdj = detectarTipoArchivo(adj.name, adj.mimeType)
@@ -185,8 +198,11 @@ export async function procesarArchivo(
     }
   }
 
-  // Auditar el archivo principal (único punto, cubre ok/duplicada/error/lectura_manual)
-  await registrarAuditoria(supabase, hashArchivo, sesionId, principal)
+  // Auditar el/los resultado(s) principal(es). Cubre ok/duplicada/error/lectura_manual.
+  // En multi-factura se audita cada sub-factura por separado.
+  for (const r of resultados) {
+    await registrarAuditoria(supabase, hashArchivo, sesionId, r)
+  }
 
   return resultados
 }
@@ -284,12 +300,45 @@ async function guardarEnDriveBestEffort(
   }
 }
 
+// Resuelve titular (Rubén/Emilio/otro) a partir de los datos de cliente de una
+// factura extraída. Devuelve ancla interna RUBEN + SIN_TITULAR si no se detecta.
+async function resolverTitular(
+  supabase: SupabaseClient,
+  extracted: ExtractedFactura,
+): Promise<{ titularId: string; carpeta: string; pendienteTitularManual: boolean; nifClienteNorm: string | null }> {
+  const nifClienteNorm = normalizarNif(extracted.nif_cliente)
+  const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
+  let titularId: string | null = null
+  let carpeta = 'SIN_TITULAR'
+
+  if (nifClienteNorm === NIF_RUBEN) {
+    titularId = RUBEN_ID; carpeta = 'RUBÉN'
+  } else if (nifClienteNorm === NIF_EMILIO) {
+    titularId = EMILIO_ID; carpeta = 'EMILIO'
+  } else if (nifClienteNorm) {
+    const { data: titular } = await supabase
+      .from('titulares').select('id, carpeta_drive').eq('nif', nifClienteNorm).maybeSingle()
+    if (titular) { titularId = titular.id as string; carpeta = (titular.carpeta_drive as string) || 'SIN_TITULAR' }
+  }
+  if (!titularId) {
+    const porNombre = detectarTitularPorNombre(nombreCliente)
+    if (porNombre.match) { titularId = porNombre.titularId; carpeta = porNombre.carpeta }
+  }
+  if (!titularId && extracted.tipo === 'plataforma') { titularId = RUBEN_ID; carpeta = 'RUBÉN' }
+
+  if (!titularId) {
+    // Ancla interna para poder ejecutar matching, pero PDF a SIN_TITULAR.
+    return { titularId: RUBEN_ID, carpeta: 'SIN_TITULAR', pendienteTitularManual: true, nifClienteNorm }
+  }
+  return { titularId, carpeta, pendienteTitularManual: false, nifClienteNorm }
+}
+
 async function procesarContenidoPrincipal(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
   contenido: ContenidoExtraido,
   tipo: TipoArchivo,
-): Promise<ProcesarResultado> {
+): Promise<ProcesarResultado | ProcesarResultado[]> {
   if (esNoFactura(file.nombre)) {
     return { estado: 'duplicada', archivo: file.nombre, motivo: 'no es factura (resumen de ingresos gestoria) — ignorado' }
   }
@@ -352,6 +401,39 @@ async function procesarContenidoPrincipal(
       archivo: file.nombre,
       factura_existente: existente as Record<string, unknown>,
       motivo,
+    }
+  }
+
+  // ── PARTIDO MULTI-FACTURA (solo PDF) ─────────────────────────────────────
+  // Antes de la lectura normal de 1 factura, se comprueba si el PDF contiene
+  // VARIAS facturas. Si es así, se procesan todas. Conservador: si detecta 0 o 1,
+  // sigue el flujo normal de abajo sin cambios.
+  if (tipo === 'pdf' && MULTIFACTURA_ACTIVO) {
+    try {
+      // Idempotencia: si este PDF ya se procesó como multi (hay filas con
+      // pdf_hash = hash#...), no se reprocesa.
+      const { data: yaMulti } = await supabase
+        .from('facturas')
+        .select('id')
+        .like('pdf_hash', `${hash}#%`)
+        .limit(1)
+        .maybeSingle()
+      if (yaMulti) {
+        return { estado: 'duplicada', archivo: file.nombre, motivo: 'ya existe (PDF con varias facturas ya procesado)' }
+      }
+
+      const textoCombinado = await extraerTextoPDF(file.buffer)
+      if (pdfTieneTexto(textoCombinado)) {
+        const paginas = await extraerTextoPDFPorPaginas(file.buffer)
+        const diccMulti = await cargarDiccionarioNif(supabase)
+        const facturas = partirEnFacturas(textoCombinado, paginas, (nif) => diccMulti.get(nif)?.plantilla || null)
+        if (facturas.length >= 2) {
+          return await guardarFacturasMulti(supabase, file, hash, facturas, diccMulti)
+        }
+      }
+    } catch (e) {
+      // Si el partido falla por cualquier motivo, se cae al flujo normal de 1 factura.
+      console.error('[procesarArchivo] multi-factura no aplicado:', errMsg(e))
     }
   }
 
@@ -686,6 +768,181 @@ async function procesarContenidoPrincipal(
       error: msg,
     }
   }
+}
+
+// ── Guardado de PDF con VARIAS facturas dentro ─────────────────────────────
+// Recibe las facturas ya extraídas por partirEnFacturas. Sube el PDF físico UNA
+// sola vez a Drive (carpeta del titular de la 1ª factura con titular detectado) y
+// comparte el enlace entre todas. Cada factura se inserta con pdf_hash compuesto
+// = hashArchivo#indice, lo que mantiene el antiduplicado (re-subir el PDF detecta
+// que ya existe) sin colisionar entre sub-facturas. Cada una pasa por matching.
+async function guardarFacturasMulti(
+  supabase: SupabaseClient,
+  file: ArchivoEntrada,
+  hashArchivo: string,
+  facturas: ExtractedFactura[],
+  diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }>,
+): Promise<ProcesarResultado[]> {
+  // Resolver nombre de proveedor por NIF para las que vengan sin nombre.
+  for (const f of facturas) {
+    if (!f.proveedor_nombre) {
+      const nifLook = normalizarNif(f.nif_emisor)
+      const nombreCanon = nifLook ? (diccionario.get(nifLook)?.nombre || null) : null
+      f.proveedor_nombre = nombreCanon || nifLook || 'PROVEEDOR'
+    }
+  }
+
+  // Subir el PDF una sola vez. Carpeta = titular de la primera factura detectable.
+  const ext = extensionDeNombre(file.nombre)
+  const primera = facturas[0]
+  const titPrimeraInfo = await resolverTitular(supabase, primera)
+  const fechaPrimera = fechaValida(primera.fecha_factura) ? primera.fecha_factura : new Date().toISOString().slice(0, 10)
+  const nombreArchivoDrive = generarNombreArchivo({
+    proveedor_nombre: primera.proveedor_nombre,
+    numero_factura: `MULTI-${facturas.length}f`,
+    fecha_factura: fechaPrimera,
+    tipo: primera.tipo,
+    plataforma: primera.plataforma,
+  }, ext)
+  let driveId: string | null = null
+  let driveUrl: string | null = null
+  let driveErrorMsg: string | null = null
+  try {
+    const drive = await subirArchivoADrive(file.buffer, nombreArchivoDrive, {
+      proveedor_nombre: primera.proveedor_nombre,
+      numero_factura: `MULTI-${facturas.length}f`,
+      fecha_factura: fechaPrimera,
+      tipo: primera.tipo,
+      plataforma: primera.plataforma,
+      carpeta_titular: titPrimeraInfo.carpeta,
+    }, ext)
+    driveId = drive.id
+    driveUrl = drive.webViewLink
+  } catch (e) {
+    driveErrorMsg = errMsg(e)
+    if (driveErrorMsg.includes('invalid_client') || driveErrorMsg.includes('invalid_grant')) {
+      driveErrorMsg = 'Drive desconectado · Reconecta Google Drive en Ajustes'
+    }
+  }
+
+  const resultados: ProcesarResultado[] = []
+
+  for (let i = 0; i < facturas.length; i++) {
+    const extracted = facturas[i]
+    const hashSub = `${hashArchivo}#${i}`
+
+    // Idempotencia fina por sub-factura.
+    const { data: yaExisteSub } = await supabase
+      .from('facturas').select('id, estado').eq('pdf_hash', hashSub).maybeSingle()
+    if (yaExisteSub) {
+      resultados.push({ estado: 'duplicada', archivo: file.nombre, factura_existente: yaExisteSub as Record<string, unknown>, motivo: `sub-factura ${i + 1} ya existe` })
+      continue
+    }
+
+    const fechaFactura = fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : new Date().toISOString().slice(0, 10)
+    const numFactura = extracted.numero_factura || `SN-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+    const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+
+    const { data: nueva, error: errInsert } = await supabase
+      .from('facturas')
+      .insert({
+        pdf_original_name: file.nombre,
+        pdf_hash: hashSub,
+        proveedor_nombre: extracted.proveedor_nombre,
+        numero_factura: numFactura,
+        fecha_factura: fechaFactura,
+        total: extracted.total,
+        estado: 'procesando',
+      })
+      .select()
+      .single()
+
+    if (errInsert || !nueva) {
+      if (errInsert && /pdf_hash/.test(errInsert.message || '')) {
+        resultados.push({ estado: 'duplicada', archivo: file.nombre, motivo: `sub-factura ${i + 1} duplicada (hash)` })
+        continue
+      }
+      resultados.push({ estado: 'error', archivo: file.nombre, error: errInsert?.message || `No se pudo crear sub-factura ${i + 1}` })
+      continue
+    }
+
+    try {
+      // Proveedor
+      let proveedorId: string | undefined
+      {
+        const { data: provPorNombre } = await supabase
+          .from('proveedores').select('id').ilike('nombre', `%${extracted.proveedor_nombre.trim()}%`).maybeSingle()
+        if (provPorNombre?.id) proveedorId = provPorNombre.id
+      }
+      if (!proveedorId && extracted.proveedor_nombre) {
+        const { data: nuevoProv } = await supabase
+          .from('proveedores').insert({ nombre: extracted.proveedor_nombre, activo: true }).select('id').single()
+        proveedorId = nuevoProv?.id
+      }
+
+      // Titular
+      const tit = await resolverTitular(supabase, extracted)
+
+      await supabase
+        .from('facturas')
+        .update({
+          proveedor_id: proveedorId,
+          proveedor_nombre: extracted.proveedor_nombre,
+          numero_factura: extracted.numero_factura,
+          fecha_factura: fechaFactura,
+          es_recapitulativa: extracted.es_recapitulativa,
+          periodo_inicio: extracted.periodo_inicio,
+          periodo_fin: extracted.periodo_fin,
+          tipo: extracted.tipo,
+          plataforma: extracted.plataforma,
+          titular_id: tit.titularId,
+          nif_cliente: tit.nifClienteNorm,
+          nif_emisor: nifEmisorNorm,
+          categoria_factura: null,
+          base_4: extracted.base_4, iva_4: extracted.iva_4,
+          base_10: extracted.base_10, iva_10: extracted.iva_10,
+          base_21: extracted.base_21, iva_21: extracted.iva_21,
+          total: extracted.total,
+          ocr_confianza: extracted.confianza,
+          ocr_raw: { ...extracted, origen_lectura: 'reglas', multifactura: true, sub_indice: i, sub_total: facturas.length },
+          pdf_drive_id: driveId,
+          pdf_drive_url: driveUrl,
+          pdf_filename: nombreArchivoDrive,
+          ...(tit.pendienteTitularManual ? { estado: 'pendiente_titular_manual' } : {}),
+        })
+        .eq('id', nueva.id)
+
+      // Matching
+      try {
+        const resultadoMatch = await matchFactura(supabase, { ...extracted, id: nueva.id, total: extracted.total, titular_id: tit.titularId })
+        await aplicarMatching(supabase, nueva.id, resultadoMatch, { proveedor_nombre: extracted.proveedor_nombre, nif_emisor: nifEmisorNorm })
+        if (tit.pendienteTitularManual) {
+          await supabase.from('facturas').update({ estado: 'pendiente_titular_manual' }).eq('id', nueva.id)
+        }
+      } catch (matchErr) {
+        console.error('[guardarFacturasMulti] matching:', errMsg(matchErr))
+      }
+
+      if (driveErrorMsg && !tit.pendienteTitularManual) {
+        await supabase.from('facturas').update({ estado: 'drive_pendiente', error_mensaje: `Drive: ${driveErrorMsg}` }).eq('id', nueva.id)
+      }
+
+      const { data: finalFac } = await supabase.from('facturas').select('*').eq('id', nueva.id).single()
+      resultados.push({
+        estado: 'ok',
+        archivo: file.nombre,
+        factura_id: nueva.id,
+        factura: finalFac as Record<string, unknown>,
+        motivo: `factura ${i + 1} de ${facturas.length} del PDF`,
+      })
+    } catch (e) {
+      const msg = errMsg(e)
+      await supabase.from('facturas').update({ estado: 'error', error_mensaje: msg }).eq('id', nueva.id)
+      resultados.push({ estado: 'error', archivo: file.nombre, factura_id: nueva.id, error: msg })
+    }
+  }
+
+  return resultados
 }
 
 // Factura que ni reglas ni Tesseract pudieron leer. Se guarda el PDF en Drive
