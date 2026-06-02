@@ -7,7 +7,7 @@
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
  *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
- *   GET  /api/facturas?action=cartero           → cartero Gmail: recoge facturas del buzón y las procesa
+ *   GET  /api/facturas?action=cartero           → cartero IMAP: recoge facturas del buzón y las procesa
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes: reintenta match con
  *                                                  reglas/plantillas actuales y devuelve informe con
  *                                                  motivo de cada uno que sigue pendiente
@@ -23,7 +23,7 @@ import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
 import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
-import { recogerFacturasDelCorreo, marcarMensajeProcesado } from '../_lib/gmail-cartero.js'
+import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import type { ExtractedFactura } from '../_lib/ocr.js'
 
 export const config = {
@@ -167,30 +167,27 @@ async function resubirDrive(res: VercelResponse) {
   })
 }
 
-// ── Handler: cartero Gmail ─────────────────────────────────────────────────
-// Recoge los adjuntos de factura del buzón de la cuenta Google conectada (scope
-// gmail.readonly/modify) y los pasa por el mismo motor que el botón de subir.
-// Idempotente: cada mensaje procesado se etiqueta FACTURA_OCR_OK y se quita
-// UNREAD, así no se reprocesa. 0 € (Gmail es gratis; el OCR posterior también).
-// Uso: GET /api/facturas?action=cartero  (opcional &q=<filtro gmail>&max=25)
+// ── Handler: cartero IMAP ──────────────────────────────────────────────────
+// Recoge los adjuntos de factura del buzón facturasstreat@gmail.com por IMAP
+// (contraseña de aplicación) y los pasa por el mismo motor que el botón de subir.
+// Idempotente: cada mensaje procesado con éxito se MUEVE a la carpeta "Procesadas"
+// del propio Gmail, así no se reprocesa. Sin límite (barre todo). 0 €.
+// Uso: GET /api/facturas?action=cartero
 async function cartero(req: VercelRequest, res: VercelResponse) {
-  const query = req.query.q ? String(req.query.q) : undefined
-  const max = req.query.max ? Math.min(Number(req.query.max) || 25, 50) : 25
   const sesionId = `cartero-${Date.now().toString(36)}`
 
   let recogida
   try {
-    recogida = await recogerFacturasDelCorreo(query, max)
+    recogida = await recogerFacturasDelCorreo()
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    // Causas típicas: sin scope Gmail todavía (hay que reconectar Google) o Drive no conectado.
-    const ayuda = /insufficient|scope|permission|invalid_grant|no conectado/i.test(msg)
-      ? 'Reconecta Google en Configuración → Integraciones → Drive para conceder el permiso de Gmail.'
+    const ayuda = /auth|login|credenciales|password|invalid/i.test(msg)
+      ? 'Revisa la contraseña de aplicación de facturasstreat@gmail.com en la configuración del cartero.'
       : null
     return res.status(200).json({ ok: false, error: msg, ayuda, procesadas: 0 })
   }
 
-  const { adjuntos, mensajesRevisados, labelId, gmail } = recogida
+  const { adjuntos, mensajesRevisados, _mover } = recogida
 
   let ok = 0, manual = 0, duplicadas = 0, errores = 0
   const resultados: Record<string, unknown>[] = []
@@ -232,11 +229,13 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Marca como procesado SOLO los mensajes sin ningún fallo (los que fallaron se
-  // reintentan en el próximo barrido al no quedar etiquetados).
-  for (const messageId of mensajesConExito) {
-    if (mensajesConFallo.has(messageId)) continue
-    await marcarMensajeProcesado(gmail, messageId, labelId)
+  // Mover a "Procesadas" SOLO los mensajes sin ningún fallo (los que fallaron se
+  // reintentan en el próximo barrido al seguir en INBOX).
+  const moverIds = [...mensajesConExito].filter((id) => !mensajesConFallo.has(id))
+  try {
+    await _mover(moverIds)
+  } catch {
+    /* best-effort: el cierre de sesión IMAP no debe tumbar la respuesta */
   }
 
   return res.status(200).json({
@@ -247,6 +246,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     lectura_manual: manual,
     duplicadas,
     errores,
+    movidos_a_procesadas: moverIds.length,
     resultados,
   })
 }
