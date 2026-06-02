@@ -18,7 +18,7 @@ Regla absoluta del sistema: **coste OCR = 0 € siempre**. Cero API de pago. Lec
 ### F-01 · Bandeja de posibles duplicados de facturas 🟢
 - **Estado**: el sistema solo deduplica por archivo idéntico (mismo PDF). Riesgo de doble gasto si la misma factura entra como dos PDFs distintos.
 - **Propuesta**: detectar duplicado lógico (mismo nº + NIF + importe) sin borrar nunca; marcar para revisar.
-- **Resolución**: control automático en base de datos (trigger). Aplicado a las 7.161 actuales: 56 marcadas como posible duplicado. Nunca borra.
+- **Resolución**: control automático en base de datos (trigger). Aplicado a las 7.161 actuales: 56 marcadas como posible duplicado. Nunca borra. Quinta card "Duplicados" en OCR con botón "Revisar bandeja". Resolución: botón "Borrar" (si sobra) o "No es duplicado" (si las dos son legítimas → aprende y no vuelve a avisar, vía RPC marcar_no_duplicado + columna duplicado_revisado).
 - **Refix**: ninguno.
 
 ### CARTERO · Lectura del buzón por correo 🟢
@@ -42,10 +42,17 @@ Regla absoluta del sistema: **coste OCR = 0 € siempre**. Cero API de pago. Lec
 
 ## PENDIENTE
 
-### REPROC · Reproceso gratis de las 274 sin leer 🔴
-- **Estado**: 274 facturas con importe 0 / "pendiente lectura manual", de cuando la IA de pago se quedó sin créditos. El PDF está en Drive.
-- **Propuesta**: pasarlas por el lector gratis (reglas + Tesseract) para que entren con datos reales. Endpoint `reproc` ya existe.
-- **Resolución**: —
+### MULTI-FACTURA · Varias facturas / varias páginas en un mismo PDF 🔴 (PRIORIDAD 1)
+- **Estado**: HALLAZGO CLAVE de Rubén (02/06). Muchos PDF contienen VARIAS facturas dentro, y muchos tienen varias páginas. Hoy el motor lee 1 PDF = 1 factura (procesarArchivo + extraerPorReglas), así que coge solo un importe y pierde el resto → causa principal de las ~1.964 facturas sin importe y de descuadres. Son "de todo": (a) varias facturas con su "Factura nº" dentro del mismo PDF, (b) una factura por página, (c) recapitulativas (muchas líneas, un único total = UNA factura).
+- **Riesgo**: el dedup actual es por hash de archivo (1 PDF = 1 hash = 1 factura). Partir un PDF en N facturas rompe esa regla: hay que crear N filas desde el mismo archivo con un identificador por sub-factura (p. ej. hash_archivo + índice/nº interno), manteniendo intacto el antiduplicado. Hacerlo mal duplica o pierde datos contables. NO desplegar a ciegas: requiere un PDF real de muestra y prueba.
+- **Propuesta**: detección automática de los 3 casos. Sobre el texto del PDF (capa de texto o Tesseract): contar ocurrencias de "Factura nº/Nº factura/Albarán"; si hay varias con totales propios → partir en bloques y procesar cada bloque como factura (mismo NIF emisor); si hay una sola con muchas líneas y un total → recapitulativa (1 factura). pdf_hash de sub-factura = sha256(archivo)+sufijo nº interno para no colisionar.
+- **Resolución**: — (pendiente de un PDF de ejemplo de Rubén para fijar el patrón de corte).
+- **Refix**: —
+
+### REPROC · Reproceso gratis de las facturas sin leer 🔴
+- **Estado**: ~1.964 facturas con importe 0/null (todas con PDF en Drive), de cuando la IA de pago se quedó sin créditos. Job de reproceso `solo_sin_leer` creado (relee solo esas con Tesseract, no toca las conciliadas, tope anti-bucle por total_objetivo). Endpoint y job listos.
+- **BLOQUEADO POR**: MULTI-FACTURA. Muchas de esas sin-leer son justo los PDF con varias facturas dentro; conviene releerlas con el motor que las parte bien, NO antes. No lanzar el reproceso hasta resolver multi-factura.
+- **Resolución**: — (job creado, en pausa).
 - **Refix**: —
 
 ### B-01 · Dedup del banco (conciliación) 🔴
