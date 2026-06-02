@@ -41,7 +41,10 @@ const ACCEPT_OTROS = EXT_ACEPTADAS_OTROS.map(e => `.${e}`).join(',')
 // "por carpetas" se convierte en selección múltiple de archivos (sí soportada).
 const ES_MOVIL = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
 
-// Conciliada = (estado IN conciliada/asociada/solo_drive) o (doc_estado = no_requiere)
+// FUENTE ÚNICA DE VERDAD (Bloque 1 auditoría): el estado real de conciliación
+// de cada factura sale de la vista v_estado_factura (derivada del vínculo real
+// factura↔movimiento en facturas_gastos). Estas constantes de banderas sueltas
+// solo se mantienen para el cálculo por-fila heredado; las cards usan la RPC.
 const ESTADOS_CONCILIADOS_RAW = ['conciliada', 'asociada', 'solo_drive']
 const ESTADOS_CONCILIADOS = new Set(ESTADOS_CONCILIADOS_RAW)
 const ESTADOS_SIN_DOC = new Set(['solo_drive'])
@@ -308,61 +311,32 @@ export default function Ocr() {
     setCargando(false)
   }, [page, pageSize, ms.sorts, filtroCard, soloCorreo, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
 
-  // Cards: cuenta en SERVIDOR con count exacto (head:true) en vez de traer filas
-  // y contarlas (PostgREST corta a 1000 → la card mostraba 1000 en vez del total real).
-  // El periodo filtra por created_at (fecha de subida), igual que la tabla.
+  // Cards: FUENTE ÚNICA DE VERDAD. El conteo e importe de conciliadas/pendientes
+  // los calcula 100% en servidor la función ocr_agregados_facturas, que lee la
+  // vista v_estado_factura (estado real = vínculo factura↔movimiento confirmado).
+  // Antes se contaba con las 5 banderas sueltas (estado/doc_estado/...), que daban
+  // cifras distintas en cada pantalla y inflaban el % con 'solo_drive'. Además esto
+  // elimina la suma paginada sin orden estable y el truncado a 100k filas.
   const cargarAgregados = useCallback(async () => {
+    const myFetchId = fetchIdRef.current
     try {
-      const baseTotal = supabase.from('facturas')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', periodoDesdeStr)
-        .lt('created_at', periodoHastaExclusivo)
-        .in('tipo', ['proveedor', 'plataforma'])
-
-      const baseConc = supabase.from('facturas')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', periodoDesdeStr)
-        .lt('created_at', periodoHastaExclusivo)
-        .in('tipo', ['proveedor', 'plataforma'])
-        .or(`estado.in.(${ESTADOS_CONCILIADOS_RAW.join(',')}),doc_estado.eq.no_requiere`)
-
-      const [{ count: totalCount, error: e1 }, { count: concCount, error: e2 }] = await Promise.all([baseTotal, baseConc])
-      if (e1 || e2) throw (e1 || e2)
-
-      const tot = totalCount ?? 0
-      const conc = concCount ?? 0
-      const pend = Math.max(0, tot - conc)
-
-      // Importes: no se pueden sumar con head:true. Se calculan en una pasada
-      // aparte solo si el volumen es razonable; si no, se omiten (—) para no
-      // disparar mil filas. Aquí traemos solo la columna total en bloques.
-      let totalImporte = 0, conciliadasImporte = 0, pendientesImporte = 0
-      try {
-        const BLOQUE = 1000
-        for (let off = 0; off < tot; off += BLOQUE) {
-          const { data: dImp } = await supabase.from('facturas')
-            .select('total, estado, doc_estado')
-            .gte('created_at', periodoDesdeStr)
-            .lt('created_at', periodoHastaExclusivo)
-            .in('tipo', ['proveedor', 'plataforma'])
-            .range(off, off + BLOQUE - 1)
-          for (const r of dImp ?? []) {
-            const imp = Number(r.total) || 0
-            totalImporte += imp
-            const esC = ESTADOS_CONCILIADOS.has(r.estado) || r.doc_estado === 'no_requiere'
-            if (esC) conciliadasImporte += imp; else pendientesImporte += imp
-          }
-          if ((dImp?.length ?? 0) < BLOQUE) break
-        }
-      } catch { /* importes best-effort */ }
-
+      const { data, error } = await supabase.rpc('ocr_agregados_facturas', { p_desde: periodoDesdeStr, p_hasta: periodoHastaExclusivo })
+      if (error) throw error
+      if (myFetchId !== fetchIdRef.current) return
+      const r: any = Array.isArray(data) ? data[0] : data
+      if (!r) { setAgregados(null); return }
+      const tot = Number(r.total_count) || 0
+      const conc = Number(r.conc_count) || 0
       setAgregados({
-        totalCount: tot, totalImporte,
+        totalCount: tot,
+        totalImporte: Number(r.total_importe) || 0,
         conciliadasCount: conc,
         conciliadasPct: tot > 0 ? Math.round((conc / tot) * 100) : 0,
-        conciliadasImporte, pendientesCount: pend, pendientesImporte
+        conciliadasImporte: Number(r.conc_importe) || 0,
+        pendientesCount: Math.max(0, tot - conc),
+        pendientesImporte: Number(r.pend_importe) || 0
       })
-    } catch { setAgregados(null) }
+    } catch { if (myFetchId === fetchIdRef.current) setAgregados(null) }
   }, [periodoDesdeStr, periodoHastaExclusivo, refreshTick])
 
   useEffect(() => { cargarPagina() }, [cargarPagina])
