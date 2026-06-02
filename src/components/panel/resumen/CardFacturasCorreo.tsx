@@ -17,16 +17,12 @@ interface Props {
 
 interface Stats {
   recibidas: number
-  correctas: number
+  conciliadas: number
   pendientes: number
   buzonConectado: boolean
 }
 
 const HOY = () => new Date().toISOString().slice(0, 10)
-const FN: Record<Tipo, string> = {
-  factura: 'ocr-procesar-factura',
-  ventas: 'ocr-procesar-extracto',
-}
 const TITULO: Record<Tipo, string> = {
   factura: 'Por correo',
   ventas: 'Ventas por correo',
@@ -36,33 +32,50 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
   const [s, setS] = useState<Stats | null>(null)
 
   async function cargar() {
-    const d0 = (desde || HOY()) + 'T00:00:00'
+    // FUENTE REAL: facturas marcadas como origen-correo en el periodo. El cartero
+    // IMAP marca cada factura recogida en facturas_origen_correo. Antes esta card
+    // leía de ocr_sessions (grupo g_correo_) que el cartero nuevo ya no escribe:
+    // por eso mostraba un número viejo fijo y no filtraba.
+    const d0 = desde || HOY()
     const hBase = hasta || HOY()
     const hNext = new Date(hBase); hNext.setDate(hNext.getDate() + 1)
-    const d1 = hNext.toISOString().slice(0, 10) + 'T00:00:00'
+    const d1 = hNext.toISOString().slice(0, 10)
 
-    const { data: ses } = await supabase
-      .from('ocr_sessions')
-      .select('total, ok, pendientes, duplicados, errores')
-      .like('grupo_id', 'g_correo_%')
-      .eq('fn_name', FN[tipo])
-      .gte('creado_en', d0)
-      .lt('creado_en', d1)
+    // 1) IDs de facturas origen-correo marcadas en el periodo
+    const { data: oc } = await supabase
+      .from('facturas_origen_correo')
+      .select('factura_id, marcado_en')
+      .gte('marcado_en', d0 + 'T00:00:00')
+      .lt('marcado_en', d1 + 'T00:00:00')
 
-    const recibidas = (ses || []).reduce((a, r) => a + (r.total || 0), 0)
-    const correctas = (ses || []).reduce((a, r) => a + (r.ok || 0), 0)
-    const pendientes = (ses || []).reduce(
-      (a, r) => a + (r.pendientes || 0) + (r.errores || 0) + (r.duplicados || 0),
-      0,
-    )
+    const ids = (oc || []).map((r: any) => r.factura_id)
+    let conciliadas = 0
+    let pendientes = 0
 
-    const { data: estado } = await supabase
+    if (ids.length > 0) {
+      // 2) Estado real de esas facturas desde la fuente única (v_estado_factura)
+      const { data: estados } = await supabase
+        .from('v_estado_factura')
+        .select('factura_id, estado_real')
+        .in('factura_id', ids)
+      for (const e of estados || []) {
+        if ((e as any).estado_real === 'conciliada') conciliadas++
+        else pendientes++
+      }
+    }
+
+    const { data: estadoBuzon } = await supabase
       .from('cartero_correo_estado')
       .select('buzon_conectado')
       .eq('id', 1)
-      .single()
+      .maybeSingle()
 
-    setS({ recibidas, correctas, pendientes, buzonConectado: estado?.buzon_conectado ?? false })
+    setS({
+      recibidas: ids.length,
+      conciliadas,
+      pendientes,
+      buzonConectado: estadoBuzon?.buzon_conectado ?? false,
+    })
   }
 
   useEffect(() => {
@@ -73,10 +86,10 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
   }, [tipo, desde, hasta])
 
   const recibidas = s?.recibidas ?? 0
-  const correctas = s?.correctas ?? 0
+  const conciliadas = s?.conciliadas ?? 0
   const pendientes = s?.pendientes ?? 0
-  const total = correctas + pendientes
-  const pctOk = total > 0 ? (correctas / total) * 100 : 0
+  const total = conciliadas + pendientes
+  const pctOk = total > 0 ? (conciliadas / total) * 100 : 0
   const pctPend = total > 0 ? (pendientes / total) * 100 : 0
   const buzonOk = s?.buzonConectado ?? false
   const rangoTxt = desde || hasta ? 'en el periodo' : 'recibidas hoy'
@@ -102,7 +115,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4, marginBottom: 12 }}>{rangoTxt}</div>
 
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Correctas</span><span style={{ color: '#1D9E75', fontWeight: 500 }}>{correctas}</span></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Conciliadas</span><span style={{ color: '#1D9E75', fontWeight: 500 }}>{conciliadas}</span></div>
         <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctOk}%`, height: '100%', background: '#1D9E75' }} /></div>
       </div>
       <div>
