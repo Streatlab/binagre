@@ -67,12 +67,13 @@ const SECTIONS: NavSection[] = [
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
       { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/lista-compra',     label: 'Lista de Compra',     emoji: '🛒', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/lista-compra',     label: 'Lista de Compra',      emoji: '🛒', perfiles: ['admin', 'cocina'] },
       { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
       { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
       { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/esquemas',         label: 'Esquemas',             emoji: '🗂️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/produccion',       label: 'Lista de Producción',  emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -126,7 +127,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Albaranes',                    emoji: '📄' },
   { label: 'POS',                          emoji: '🖥️' },
   { label: 'Pedidos en Curso',             emoji: '⏳' },
-  { label: 'Producción',                   emoji: '🏭' },
   { label: 'Fichas Empleados',             emoji: '👤' },
   { label: 'Evaluaciones',                 emoji: '⭐' },
   { label: 'Llamados Atención',            emoji: '⚠️' },
