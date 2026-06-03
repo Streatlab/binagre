@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
-import { ClipboardList, Printer, Plus, Trash2, X, Check, Pencil, Refrigerator } from 'lucide-react'
+import { ClipboardList, Printer, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -64,6 +64,18 @@ function paginar(secciones: Seccion[], partidas: Partida[]): BloqueImpresion[][]
   }
   cerrar()
   return paginas
+}
+
+// Agrupa secciones por lado físico de la cámara para los carteles
+function agruparLados(secciones: Seccion[]): { titulo: string; secs: Seccion[] }[] {
+  const izq = secciones.filter(s => s.nombre.toUpperCase().startsWith('IZQUIERDA'))
+  const der = secciones.filter(s => s.nombre.toUpperCase().startsWith('DERECHA'))
+  const otros = secciones.filter(s => !s.nombre.toUpperCase().startsWith('IZQUIERDA') && !s.nombre.toUpperCase().startsWith('DERECHA'))
+  const grupos: { titulo: string; secs: Seccion[] }[] = []
+  if (izq.length) grupos.push({ titulo: 'PARTE IZQUIERDA', secs: izq })
+  if (der.length) grupos.push({ titulo: 'PARTE DERECHA', secs: der })
+  otros.forEach(s => grupos.push({ titulo: s.nombre, secs: [s] }))
+  return grupos
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -232,7 +244,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
       </div>
 
       {/* VISTA IMPRESIÓN paginada */}
-      <div className="vista-impresion">
+      <div className="vista-impresion lista-print">
         {paginas.map((bloques, pi) => (
           <div key={pi} className="hoja" style={{ breakAfter: pi < paginas.length - 1 ? 'page' : 'auto' }}>
             <div className="print-head">
@@ -276,14 +288,16 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
   )
 }
 
-// ─── TAB: ORDENACIÓN DE CÁMARA (carteles A4, uno por balda) ─────────────────────
+// ─── TAB: ORDENACIÓN DE CÁMARA (2 hojas: izquierda / derecha) ──────────────────
 
 function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof useTheme>['T']; secciones: Seccion[]; partidas: Partida[] }) {
+  const grupos = useMemo(() => agruparLados(secciones), [secciones])
+
   return (
     <>
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, maxWidth: 620 }}>
-          Un cartel por balda para pegar en cada puerta de la cámara. Solo los productos, en grande. Al imprimir sale cada balda en su propia hoja A4.
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, maxWidth: 640 }}>
+          Una hoja A4 por lado de la cámara (izquierda / derecha), con todas sus baldas y los productos en grande para pegar en la puerta.
         </div>
         <div style={{ marginLeft: 'auto' }}>
           <button onClick={() => window.print()} style={btnGhost}><Printer size={15} /> Imprimir / PDF</button>
@@ -291,19 +305,25 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
       </div>
 
       <div className="camara-wrap">
-        {secciones.map(sec => {
-          const parts = partidas.filter(p => p.seccion_id === sec.id)
-          if (parts.length === 0) return null
-          const dosCols = parts.length > 9
-          return (
-            <div key={sec.id} className="cartel">
-              <div className="cartel-head">{sec.nombre}</div>
-              <ul className={`cartel-list ${dosCols ? 'cols-2' : ''}`}>
-                {parts.map(p => <li key={p.id} className="cartel-item">{p.nombre}</li>)}
-              </ul>
+        {grupos.map((g, gi) => (
+          <div key={gi} className="hoja-camara" style={{ breakAfter: gi < grupos.length - 1 ? 'page' : 'auto' }}>
+            <div className="camara-lado-head">{g.titulo}</div>
+            <div className="camara-cols" style={{ gridTemplateColumns: `repeat(${g.secs.length}, 1fr)` }}>
+              {g.secs.map(sec => {
+                const parts = partidas.filter(p => p.seccion_id === sec.id)
+                const muchos = parts.length > 14
+                return (
+                  <div key={sec.id} className="camara-balda">
+                    <div className="camara-balda-head">{sec.nombre}</div>
+                    <ul className={`camara-balda-list ${muchos ? 'denso' : ''}`}>
+                      {parts.map(p => <li key={p.id} className="camara-balda-item">{p.nombre}</li>)}
+                    </ul>
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
     </>
   )
@@ -448,25 +468,29 @@ const FICHA_CSS = `
 
 .vista-impresion { display: none; }
 
-/* Carteles cámara — vista pantalla (preview) */
-.camara-wrap { display: flex; flex-direction: column; gap: 20px; }
-.cartel { border: 2px solid #B01D23; border-radius: 12px; overflow: hidden; background: var(--bg-card); }
-.cartel-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; background: #B01D23; padding: 14px 22px; }
-.cartel-list { list-style: none; margin: 0; padding: 18px 22px; }
-.cartel-list.cols-2 { column-count: 2; column-gap: 40px; }
-.cartel-item { font-family: 'Lexend', sans-serif; font-size: 22px; line-height: 1.7; color: var(--text-primary); break-inside: avoid; border-bottom: 1px dashed var(--sl-border); }
+/* Carteles cámara — preview en pantalla */
+.camara-wrap { display: flex; flex-direction: column; gap: 22px; }
+.hoja-camara { border: 2px solid #B01D23; border-radius: 12px; overflow: hidden; background: var(--bg-card); }
+.camara-lado-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.05em; text-transform: uppercase; color: #fff; background: #B01D23; padding: 14px 22px; }
+.camara-cols { display: grid; gap: 0; }
+.camara-balda { border-right: 1px solid var(--sl-border); padding: 0 0 10px 0; }
+.camara-balda:last-child { border-right: none; }
+.camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
+.camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
+.camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 18px; line-height: 1.7; color: var(--text-primary); }
+.camara-balda-list.denso .camara-balda-item { font-size: 15px; line-height: 1.5; }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
+  @page { size: A4 landscape; margin: 16mm; }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body * { visibility: hidden; }
   .vista-impresion, .vista-impresion *, .camara-wrap, .camara-wrap * { visibility: visible; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .vista-pantalla, .no-print { display: none !important; }
 
   /* ---- Lista de producción ---- */
-  .vista-impresion { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #111; font-family: 'Lexend', sans-serif; }
-  @page { size: A4 landscape; margin: 22mm 20mm 22mm 20mm; }
-  .hoja { width: 100%; }
+  .lista-print { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #111; font-family: 'Lexend', sans-serif; }
+  .lista-print .hoja { width: 100%; }
   .print-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #9a3b42; }
   .print-title { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: 0.05em; color: #9a3b42; }
   .print-week { font-family: 'Oswald', sans-serif; font-size: 12px; text-transform: uppercase; color: #555; }
@@ -475,8 +499,6 @@ const FICHA_CSS = `
   .prod-table-print { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 12px; }
   .prod-table-print th, .prod-table-print td { border-right: 1px solid #c9c9c9 !important; border-bottom: 1px solid #c9c9c9 !important; }
   .prod-table-print th.dia-ini, .prod-table-print td.dia-ini { border-left: 2.5px solid #cf7b81 !important; }
-
-  /* Tonos SUAVES para que imprima bien en color y B/N */
   .th-seccion-print { font-family: 'Oswald', sans-serif; font-size: 12.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; text-align: left; color: #8a1a22 !important; background: #f0d8da !important; padding: 5px 8px !important; border: 1px solid #d9b3b6 !important; }
   .prod-table-print .th-partida { background: #f5e2e3 !important; color: #8a1a22 !important; padding: 4px 6px !important; position: static !important; font-size: 10.5px; min-width: 0; }
   .prod-table-print .th-dia { background: #f5e2e3 !important; color: #8a1a22 !important; padding: 3px 2px !important; font-size: 10.5px; }
@@ -489,13 +511,17 @@ const FICHA_CSS = `
   .prod-table-print .td-celda-ssp { background: #f7eeef !important; }
   .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 11px; padding: 0 2px; }
 
-  /* ---- Ordenación de cámara: un cartel por hoja A4 vertical ---- */
+  /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado ---- */
   .camara-wrap { display: block; position: absolute; left: 0; top: 0; width: 100%; }
-  .cartel { page-break-after: always; break-after: page; border: 3px solid #B01D23 !important; border-radius: 10px; margin: 0 0 0 0; min-height: 250mm; }
-  .cartel:last-child { page-break-after: auto; break-after: auto; }
-  .cartel-head { font-size: 40px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 20px 26px !important; }
-  .cartel-list { padding: 26px 30px !important; }
-  .cartel-item { font-size: 30px !important; line-height: 2 !important; color: #111 !important; border-bottom: 1px solid #ccc !important; }
+  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 10px; overflow: hidden; page-break-after: always; break-after: page; height: 178mm; display: flex; flex-direction: column; }
+  .hoja-camara:last-child { page-break-after: auto; break-after: auto; }
+  .camara-lado-head { font-size: 40px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 14px 24px !important; }
+  .camara-cols { display: grid; flex: 1; gap: 0; }
+  .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0 0 6px 0; }
+  .camara-balda:last-child { border-right: none; }
+  .camara-balda-head { font-size: 22px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 8px 14px !important; }
+  .camara-balda-list { padding: 8px 14px !important; }
+  .camara-balda-item { font-size: 22px !important; line-height: 1.75 !important; color: #111 !important; }
+  .camara-balda-list.denso .camara-balda-item { font-size: 16px !important; line-height: 1.55 !important; }
 }
-@media print { @page :first { margin: 22mm 20mm; } }
 `
