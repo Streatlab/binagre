@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FONT, useTheme, groupStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate, fmtNumES } from '@/utils/format'
+import { fechaLocalStr } from '@/utils/fechaLocal'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -195,11 +196,12 @@ export default function Ocr() {
   useEffect(() => { const h = () => { if (!pausarActualizacion) setRefreshTick(x => x + 1) }; window.addEventListener('facturas:changed', h); return () => window.removeEventListener('facturas:changed', h) }, [pausarActualizacion])
   useEffect(() => { const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 400); return () => clearTimeout(t) }, [busqueda])
   useEffect(() => { Promise.all([supabase.from('categorias_pyg').select('id, nombre, nivel, parent_id').eq('activa', true).order('orden'), supabase.from('titulares').select('id, nombre').eq('activo', true).order('orden')]).then(([cats, tits]) => { if (!cats.error) setCategoriasPyg(cats.data ?? []); if (!tits.error) setTitulares(tits.data ?? []) }) }, [])
-  const periodoDesdeStr = fechaDesde.toISOString().slice(0, 10)
-  const periodoHastaStr = fechaHasta.toISOString().slice(0, 10)
+  // F-04/A-01: hora local, no UTC (toISOString desfasa en UTC+1/+2)
+  const periodoDesdeStr = fechaLocalStr(fechaDesde)
+  const periodoHastaStr = fechaLocalStr(fechaHasta)
   // El "hasta" debe incluir el día completo (las facturas sin leer llevan created_at de
   // hoy a cualquier hora). Se usa el día siguiente como cota superior exclusiva.
-  const periodoHastaExclusivo = (() => { const d = new Date(fechaHasta); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()
+  const periodoHastaExclusivo = (() => { const d = new Date(fechaHasta); d.setDate(d.getDate() + 1); return fechaLocalStr(d) })()
 
   // Detecta si la ordenación incluye la columna "estado" (calculada, requiere fetch full)
   const ordenaEstadoCalculado = ms.sorts.some((s: any) => s.col === 'estado')
@@ -404,7 +406,48 @@ export default function Ocr() {
   const algunaSeleccionada = filasVisibles.some(f => seleccionadas.has(f.id))
   function toggleSeleccion(id: string) { setSeleccionadas(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
   function toggleSeleccionTodas() { if (todasSeleccionadas) setSeleccionadas(new Set()); else setSeleccionadas(new Set(filasVisibles.map(f => f.id))) }
-  async function handleBorrarLote() { if (seleccionadas.size === 0) return; setBorrandoLote(true); try { const ids = Array.from(seleccionadas); const { data: facs } = await supabase.from('facturas').select('id, pdf_drive_id, facturas_gastos(conciliacion_id)').in('id', ids); const driveIds = (facs ?? []).map((f: any) => f.pdf_drive_id).filter(Boolean) as string[]; const movIds = (facs ?? []).flatMap((f: any) => (f.facturas_gastos ?? []).map((g: any) => g.conciliacion_id)).filter(Boolean) as string[]; if (movIds.length > 0) { await supabase.from('facturas_gastos').delete().in('factura_id', ids); await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).in('id', movIds) }; const driveErrors: string[] = []; const chunks: string[][] = []; for (let i = 0; i < driveIds.length; i += 5) chunks.push(driveIds.slice(i, i + 5)); for (const chunk of chunks) { await Promise.allSettled(chunk.map(async driveId => { try { await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } }) } catch (e: any) { driveErrors.push(`${driveId}: ${e?.message || 'error'}`) } })) }; if (driveErrors.length > 0) { toast.error(`No se pudieron borrar ${driveErrors.length} de ${driveIds.length} archivo(s) de Drive. Las facturas se borran igualmente.`) }; const { error: errDel } = await supabase.from('facturas').delete().in('id', ids); if (errDel) throw errDel; setSeleccionadas(new Set()); setConfirmarBorrarLote(false); setRefreshTick(x => x + 1) } catch (err: any) { toast.error(err.message || 'Error borrando') } finally { setBorrandoLote(false) } }
+  // A-06/A-07/A-08: borrado atómico vía RPC — borra vínculos, resetea doc_estado
+  // solo en movimientos que quedan SIN ninguna factura, borra las facturas y
+  // devuelve los drive_id para borrar PDFs después.
+  async function handleBorrarLote() {
+    if (seleccionadas.size === 0) return
+    setBorrandoLote(true)
+    try {
+      const ids = Array.from(seleccionadas)
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('borrar_facturas_lote', { p_ids: ids })
+      if (rpcError) throw rpcError
+
+      // La RPC devuelve los drive_ids de los PDFs a borrar en Drive
+      const driveIds = ((rpcData ?? []) as any[])
+        .map((r: any) => (typeof r === 'string' ? r : (r?.drive_id ?? r?.pdf_drive_id ?? null)))
+        .filter(Boolean) as string[]
+
+      const driveErrors: string[] = []
+      const chunks: string[][] = []
+      for (let i = 0; i < driveIds.length; i += 5) chunks.push(driveIds.slice(i, i + 5))
+      for (const chunk of chunks) {
+        await Promise.allSettled(chunk.map(async driveId => {
+          try {
+            await supabase.functions.invoke('drive-borrar-archivo', { body: { drive_file_id: driveId } })
+          } catch (e: any) {
+            driveErrors.push(`${driveId}: ${e?.message || 'error'}`)
+          }
+        }))
+      }
+      if (driveErrors.length > 0) {
+        toast.error(`No se pudieron borrar ${driveErrors.length} de ${driveIds.length} archivo(s) de Drive. Las facturas se borraron igualmente.`)
+      }
+
+      setSeleccionadas(new Set())
+      setConfirmarBorrarLote(false)
+      setRefreshTick(x => x + 1)
+    } catch (err: any) {
+      toast.error(err.message || 'Error borrando')
+    } finally {
+      setBorrandoLote(false)
+    }
+  }
   // "No es duplicado": aprende (no vuelve a marcarlas) y limpia la marca en la
   // factura y en su pareja. Reutiliza el mismo selector que el borrado.
   async function handleNoDuplicado() {
