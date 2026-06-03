@@ -7,10 +7,9 @@
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
  *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
+ *   GET  /api/facturas?action=reasignar-titulares → relee PDFs y asigna titular por NIF (no destructivo)
  *   GET  /api/facturas?action=cartero           → cartero IMAP: recoge facturas del buzón y las procesa
- *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes: reintenta match con
- *                                                  reglas/plantillas actuales y devuelve informe con
- *                                                  motivo de cada uno que sigue pendiente
+ *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -24,11 +23,27 @@ import { procesarArchivo } from '../_lib/procesarArchivo.js'
 import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
+import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
+import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import type { ExtractedFactura } from '../_lib/ocr.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
   maxDuration: 300,
+}
+
+// ── Titular por NIF (Rubén/Emilio) ─────────────────────────────────────────
+const NIF_RUBEN = '21669051S'
+const NIF_EMILIO = '53484832B'
+const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
+const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
+function titularPorNifEnTexto(texto: string | null | undefined): { titularId: string; nif: string } | null {
+  if (!texto) return null
+  const t = texto.replace(/[\s\-.]/g, '').toUpperCase()
+  if (t.includes(NIF_RUBEN)) return { titularId: RUBEN_ID, nif: NIF_RUBEN }
+  if (t.includes(NIF_EMILIO)) return { titularId: EMILIO_ID, nif: NIF_EMILIO }
+  return null
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,6 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'faltantes')     return faltantes(res)
   if (action === 'resubir-drive') return resubirDrive(res)
   if (action === 'reproc')        return reproc(req, res)
+  if (action === 'reasignar-titulares') return reasignarTitulares(req, res)
   if (action === 'cartero')       return cartero(req, res)
   if (action === 'reconciliar-pendientes') return reconciliarPendientes(req, res)
   if (action === 'upload')        return upload(req, res)
@@ -50,16 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: lista facturas ────────────────────────────────────────────────
-// La CIFRA total de la card sale de `total` (count exacto del rango): instantáneo
-// y válido aunque haya millones de facturas. La lista de filas se acota con un
-// tope alto de seguridad (paginar en el front cuando el histórico crezca).
 async function listaFacturas(req: VercelRequest, res: VercelResponse) {
   const rango = String(req.query.rango || '30d')
   const desde = calcDesde(rango)
 
-  // Tope de filas devueltas. Cubre histórico completo (17k+) con margen de años.
-  // Para superar el max-rows por defecto de PostgREST (1000) se hace paginación
-  // interna por bloques hasta completar el rango.
   const TOPE_FILAS = 100000
   const BLOQUE = 1000
 
@@ -167,13 +177,89 @@ async function resubirDrive(res: VercelResponse) {
   })
 }
 
+// ── Handler: reasignar titulares (no destructivo) ──────────────────────────
+// Para las facturas viejas SIN nif_cliente leído (titular puesto por defecto),
+// relee el PDF de Drive, busca el NIF de Rubén/Emilio en el texto y asigna el
+// titular EXACTO. NO toca facturas_gastos ni conciliacion (solo actualiza
+// facturas.titular_id + nif_cliente), por lo que NO dispara el trigger de
+// conciliación ni colisiona con el re-match. Lote pequeño + auto-encadenado.
+// La columna titular_revisado evita reprocesar dos veces y evita bucles: cada
+// factura procesada (se identifique o no) queda marcada y sale del conjunto.
+const LOTE_REASIG_TITULAR = 5
+
+async function reasignarTitulares(req: VercelRequest, res: VercelResponse) {
+  const { data: facturas, error } = await supabaseAdmin
+    .from('facturas')
+    .select('id, pdf_drive_id, pdf_original_name')
+    .not('pdf_drive_id', 'is', null)
+    .is('nif_cliente', null)
+    .eq('titular_revisado', false)
+    .order('fecha_factura', { ascending: true })
+    .limit(LOTE_REASIG_TITULAR)
+
+  if (error) return res.status(500).json({ error: error.message })
+
+  if (!facturas || facturas.length === 0) {
+    const { count: identificadas } = await supabaseAdmin
+      .from('facturas').select('id', { count: 'exact', head: true })
+      .eq('titular_revisado', true).not('nif_cliente', 'is', null)
+    const { count: sinPista } = await supabaseAdmin
+      .from('facturas').select('id', { count: 'exact', head: true })
+      .eq('titular_revisado', true).is('nif_cliente', null)
+    return res.status(200).json({
+      ok: true, terminado: true, mensaje: 'Reasignación de titulares completada',
+      identificadas: identificadas ?? 0, sin_pista: sinPista ?? 0,
+    })
+  }
+
+  let aRuben = 0, aEmilio = 0, sinPista = 0, errores = 0
+
+  for (const f of facturas) {
+    try {
+      const buffer = await descargarArchivoDeDrive(f.pdf_drive_id as string)
+      let texto = ''
+      try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+      if (!pdfTieneTexto(texto)) {
+        try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
+      }
+      const t = titularPorNifEnTexto(texto)
+      if (t) {
+        await supabaseAdmin.from('facturas')
+          .update({ titular_id: t.titularId, nif_cliente: t.nif, titular_revisado: true })
+          .eq('id', f.id as string)
+        if (t.titularId === RUBEN_ID) aRuben++; else aEmilio++
+      } else {
+        // No se ve el NIF (escaneo ilegible): se marca revisada para no buclear.
+        // NO se toca su estado de conciliación ni su titular actual; queda para
+        // la lista de asignación manual (nif_cliente null + titular_revisado true).
+        await supabaseAdmin.from('facturas')
+          .update({ titular_revisado: true })
+          .eq('id', f.id as string)
+        sinPista++
+      }
+    } catch {
+      // Fallo de descarga/lectura: marcar revisada para no bloquear el avance.
+      await supabaseAdmin.from('facturas')
+        .update({ titular_revisado: true })
+        .eq('id', f.id as string)
+      errores++
+    }
+  }
+
+  // Auto-encadenado: dispara el siguiente lote en segundo plano.
+  const host = req.headers.host
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+  if (host) {
+    fetch(`${proto}://${host}/api/facturas?action=reasignar-titulares`, { method: 'GET' }).catch(() => {})
+  }
+
+  return res.status(200).json({
+    ok: true, lote: facturas.length, a_ruben: aRuben, a_emilio: aEmilio,
+    sin_pista: sinPista, errores, terminado: false,
+  })
+}
+
 // ── Handler: cartero IMAP ──────────────────────────────────────────────────
-// Recoge los adjuntos de factura del buzón facturasstreat@gmail.com por IMAP
-// (contraseña de aplicación) y los pasa por el mismo motor que el botón de subir.
-// Idempotente: cada mensaje procesado con éxito se MUEVE a la carpeta "Procesadas"
-// del propio Gmail, así no se reprocesa. Sin límite (barre todo). 0 €.
-// Marca cada factura como origen-correo (para la card y su filtro) y actualiza el
-// estado del buzón (cartero_correo_estado). Uso: GET /api/facturas?action=cartero
 async function cartero(req: VercelRequest, res: VercelResponse) {
   const sesionId = `cartero-${Date.now().toString(36)}`
 
@@ -185,7 +271,6 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     const ayuda = /auth|login|credenciales|password|invalid/i.test(msg)
       ? 'Revisa la contraseña de aplicación de facturasstreat@gmail.com en la configuración del cartero.'
       : null
-    // Marcar buzón caído para que la card lo refleje.
     await supabaseAdmin.from('cartero_correo_estado').update({ buzon_conectado: false }).eq('id', 1)
     return res.status(200).json({ ok: false, error: msg, ayuda, procesadas: 0 })
   }
@@ -212,8 +297,6 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
         else errores++
         if (r.estado === 'error') mensajesConFallo.add(adj.messageId)
         else mensajesConExito.add(adj.messageId)
-        // Marcar la factura como ORIGEN CORREO (para la card y su filtro).
-        // Incluye duplicadas: la factura existe y también llegó por correo.
         const fid = (r.factura_id as string) || ((r.factura_existente as Record<string, unknown> | undefined)?.id as string)
         if (fid && r.estado !== 'error') facturasOrigenCorreo.add(fid)
         resultados.push({
@@ -237,22 +320,18 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Marcar origen-correo (idempotente con upsert por factura_id).
   if (facturasOrigenCorreo.size > 0) {
     const filas = [...facturasOrigenCorreo].map((factura_id) => ({ factura_id, marcado_en: new Date().toISOString() }))
     await supabaseAdmin.from('facturas_origen_correo').upsert(filas, { onConflict: 'factura_id', ignoreDuplicates: true })
   }
 
-  // Mover a "Procesadas" SOLO los mensajes sin ningún fallo (los que fallaron se
-  // reintentan en el próximo barrido al seguir en INBOX).
   const moverIds = [...mensajesConExito].filter((id) => !mensajesConFallo.has(id))
   try {
     await _mover(moverIds)
   } catch {
-    /* best-effort: el cierre de sesión IMAP no debe tumbar la respuesta */
+    /* best-effort */
   }
 
-  // Actualizar estado del buzón (conectado + último barrido).
   await supabaseAdmin.from('cartero_correo_estado').update({
     buzon_conectado: true,
     ultimo_barrido: new Date().toISOString(),
@@ -274,15 +353,6 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: barrido re-conciliación de pendientes ─────────────────────────
-// Recorre TODAS las facturas que NO están conciliadas, reintenta el matching
-// contra el estado actual de reglas/plantillas/conciliación y devuelve un informe:
-//   - reconciliadas: pasaron a conciliada/asociada en este barrido
-//   - con_regla_sin_match: tienen alias/regla pero el importe/fecha no cuadra
-//     (típico: falta extracto, importe distinto) → motivo del matching
-//   - sin_regla: NO existe alias ni regla ni plantilla → hay que crearla a mano
-//   - sin_plantilla: lectura manual sin plantilla de NIF → hay que crear plantilla
-// LEY 100%: este informe es la verdad. Si sin_regla + sin_plantilla > 0, NO hay
-// conciliación cerrada: cada uno se resuelve creando su regla/plantilla.
 const ESTADOS_CONCILIADA_BARRIDO = ['conciliada', 'asociada', 'solo_drive']
 const ESTADOS_PENDIENTE_MATCH = ['sin_match', 'pendiente_revision', 'pendiente_titular_manual', 'drive_pendiente']
 
@@ -296,9 +366,7 @@ interface InformePendiente {
   motivo: string
 }
 
-// ¿Existe alias/regla/plantilla que permita localizar este proveedor?
 async function tieneReglaOAlias(proveedorNombre: string | null, nif: string | null): Promise<boolean> {
-  // 1) Plantilla/regla por NIF
   if (nif) {
     const { data } = await supabaseAdmin
       .from('reglas_conciliacion')
@@ -309,7 +377,6 @@ async function tieneReglaOAlias(proveedorNombre: string | null, nif: string | nu
       .maybeSingle()
     if (data?.id) return true
   }
-  // 2) Regla por patrón de texto (palabras del nombre)
   const norm = normalizar(proveedorNombre || '')
   const palabras = norm.split(' ').filter((p) => p.length >= 3)
   for (const palabra of palabras) {
@@ -323,7 +390,6 @@ async function tieneReglaOAlias(proveedorNombre: string | null, nif: string | nu
       .maybeSingle()
     if (data?.id) return true
   }
-  // 3) Alias de proveedor
   if (palabras.length > 0) {
     const esc = palabras[0].replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&')
     const { data } = await supabaseAdmin
@@ -341,7 +407,6 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
   const desde = req.query.desde ? String(req.query.desde) : null
   const hasta = req.query.hasta ? String(req.query.hasta) : null
 
-  // 1) Cargar todas las pendientes del rango (estados no conciliados)
   const cols = 'id, proveedor_nombre, total, fecha_factura, tipo, plataforma, es_recapitulativa, periodo_inicio, periodo_fin, nif_emisor, titular_id, numero_factura, estado, pdf_original_name'
   const pendientes: Record<string, unknown>[] = []
   const BLOQUE = 1000
@@ -377,7 +442,6 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
     const archivo = (f.pdf_original_name as string) || null
     const base: Omit<InformePendiente, 'motivo'> = { factura_id: f.id as string, proveedor, nif, total, fecha, archivo }
 
-    // Lectura manual: no se puede matchear hasta leer la factura → necesita plantilla por NIF.
     if (estado === 'pendiente_lectura_manual') {
       const tienePlantilla = nif
         ? !!(await supabaseAdmin.from('reglas_conciliacion').select('id').eq('patron_nif', nif.toUpperCase()).eq('activa', true).limit(1).maybeSingle()).data
@@ -390,7 +454,6 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
       continue
     }
 
-    // Resto de pendientes: reintentar matching con el estado actual.
     const facturaInput = {
       proveedor_nombre: proveedor || '',
       total: total ?? 0,
@@ -422,7 +485,6 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
       continue
     }
 
-    // Sigue pendiente: clasificar por si hay regla/alias o no.
     const tiene = await tieneReglaOAlias(proveedor, nif)
     if (tiene) {
       conReglaSinMatch.push({ ...base, motivo: mensaje || 'Proveedor localizado pero el movimiento bancario no cuadra (importe/fecha o falta extracto).' })
@@ -448,27 +510,6 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: reprocesado masivo 0 API (auto-encadenado) ───────────────────
-// Coge el job activo de reproc_control, procesa un lote PEQUEÑO, baja cada PDF de
-// Drive, lo re-pasa por el motor (reglas + Tesseract + match), guarda informe y
-// AVANZA EL CONTADOR FACTURA A FACTURA (no al final del lote), luego se vuelve a
-// llamar a sí mismo hasta acabar. Sin cron de Vercel.
-//
-// SEGURIDAD ANTI-PÉRDIDA (Rubén 03/06/26): para releer un PDF hay que borrar la
-// fila (si no, el motor la detecta como duplicada y no la relee). Para que un
-// fallo de relectura NO pierda la factura, se guarda la fila ORIGINAL completa
-// antes de borrar y, si la relectura NO termina en 'ok'/'duplicada' (error o
-// excepción), se RESTAURA la fila original tal cual. Resultado: relectura buena →
-// se reemplaza; relectura mala → la factura sigue exactamente como estaba.
-//
-// Por qué lote pequeño + guardado por factura: algunos PDF escaneados tardan mucho
-// en Tesseract. Con lotes grandes la función se quedaba sin tiempo (límite 300 s) y
-// no llegaba a guardar NADA → el contador no avanzaba nunca. Con lote pequeño cada
-// invocación termina holgada, guarda y encadena. Si una factura se atasca, las ya
-// hechas quedan guardadas igual.
-//
-// MODO solo_sin_leer: solo coge facturas sin importe legible (total 0/null), las
-// relee gratis con Tesseract y NO toca las ya leídas/conciliadas. Tope anti-bucle:
-// para cuando `procesadas` alcanza `total_objetivo` (las sin-leer al arrancar).
 const LOTE_REPROC = 4
 
 async function reproc(req: VercelRequest, res: VercelResponse) {
@@ -486,10 +527,8 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   const offset = Number(job.offset_actual || 0)
   const sesionId = (job.sesion_id as string) || `reproc-${job.id}`
 
-  // Marcar arranque del lote desde ya (deja constancia aunque luego se corte).
   await supabaseAdmin.from('reproc_control').update({ ultimo_run: new Date().toISOString() }).eq('id', job.id as string)
 
-  // select('*') para poder RESTAURAR la fila íntegra si la relectura falla.
   let q = supabaseAdmin
     .from('facturas')
     .select('*')
@@ -497,8 +536,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     .order('fecha_factura', { ascending: true })
 
   if (soloSinLeer) {
-    // Solo las sin importe legible. Siempre el primer lote (offset 0): a medida
-    // que se leen bien, salen del conjunto por sí solas.
     q = q.or('total.is.null,total.eq.0').range(0, LOTE_REPROC - 1)
   } else {
     q = q.range(offset, offset + LOTE_REPROC - 1)
@@ -522,7 +559,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   for (const f of facturas) {
     const driveId = f.pdf_drive_id as string
     const nombre = (f.pdf_original_name as string) || `${f.id}.pdf`
-    // Copia íntegra de la fila original para poder restaurarla si algo falla.
     const original = { ...(f as Record<string, unknown>) }
     let borrada = false
     let lineaInforme: Record<string, unknown>
@@ -537,7 +573,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       const r = resultados[0]
 
       if (!r || r.estado === 'error') {
-        // Relectura SIN éxito → restaurar la factura original (no se pierde nada).
         await supabaseAdmin.from('facturas').insert(original)
         borrada = false
         errores++
@@ -574,7 +609,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         }
       }
     } catch (e) {
-      // Excepción (p.ej. fallo al bajar de Drive). Si ya se había borrado, restaurar.
       if (borrada) {
         try { await supabaseAdmin.from('facturas').insert(original) } catch { /* noop */ }
       }
@@ -593,7 +627,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Guardar informe + AVANZAR CONTADOR tras CADA factura (robusto ante cortes).
     procesadasAcum++
     await supabaseAdmin.from('reproc_informe').insert(lineaInforme)
     await supabaseAdmin.from('reproc_control').update({
@@ -605,15 +638,10 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       ultimo_run: new Date().toISOString(),
     }).eq('id', job.id as string)
 
-    // Tope anti-bucle en modo sin-leer: parar al alcanzar el objetivo.
     if (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo) break
   }
 
   const nuevoOffset = offset + facturas.length
-  // Fin del job:
-  //  - modo normal: cuando un lote viene incompleto (llegó al final del histórico).
-  //  - modo sin-leer: cuando ya se han intentado tantas como había al arrancar.
-  //    (sin objetivo válido NO se encadena, para no entrar en bucle).
   const terminado =
     facturas.length < LOTE_REPROC ||
     (soloSinLeer && (objetivo <= 0 || procesadasAcum >= objetivo))
@@ -623,7 +651,6 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     ultimo_run: new Date().toISOString(),
   }).eq('id', job.id as string)
 
-  // Auto-encadenado: si quedan, dispara el siguiente lote en segundo plano.
   if (!terminado) {
     const host = req.headers.host
     const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
@@ -650,8 +677,6 @@ async function upload(req: VercelRequest, res: VercelResponse) {
     }
 
     const buffer = Buffer.from(body.base64, 'base64')
-    // sesionId agrupa una tanda de subida en ocr_auditoria. Si el front no lo
-    // manda, se genera uno por archivo (igualmente auditable).
     const sesionId = body.sesionId || `up-${Date.now().toString(36)}`
 
     const resultados = await procesarArchivo(supabaseAdmin, {
