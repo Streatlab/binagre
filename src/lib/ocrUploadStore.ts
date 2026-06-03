@@ -247,7 +247,6 @@ async function cargarSesionesActivas() {
     const interrumpidas = nuevas.filter(s =>
       s.estadoCola === 'staging' &&
       (s.subidosStorage ?? 0) > 0 &&
-      s.archivosPendientes.length === 0 &&
       s.grupoId != null &&
       !preparandoLocal.some(p => p.grupoId === s.grupoId) &&
       ahora - s.creadoEn > 60_000
@@ -329,19 +328,33 @@ async function actualizarArchivosPendientesIncrementales(
   } catch {}
 }
 
-// Intenta reanudar una sesión interrumpida (staging + sin archivos_pendientes + algo subido).
-// Lista el bucket, reconstruye archivos_pendientes, cambia estado a en_espera y lanza worker.
+// Lista TODOS los archivos de un grupo paginando (el bucket devuelve 100 por defecto).
+async function listarTodoElGrupo(grupoId: string): Promise<any[]> {
+  const todos: any[] = []
+  let offset = 0
+  const LIMITE = 1000
+  while (true) {
+    const { data, error } = await supabase.storage
+      .from('ocr-uploads')
+      .list(grupoId, { limit: LIMITE, offset })
+    if (error) throw error
+    if (!data || data.length === 0) break
+    // Solo archivos reales (no subcarpetas): tienen id
+    for (const f of data) { if (f.id && f.name) todos.push(f) }
+    if (data.length < LIMITE) break
+    offset += LIMITE
+  }
+  return todos
+}
+
+// Intenta reanudar una sesión interrumpida (staging + algo subido al Storage + >60s de edad).
+// Lista TODO el bucket paginando, reconstruye archivos_pendientes con los paths reales,
+// y lanza el worker SOLO si hay pendientes. Si hay 0, marca como completada.
 async function intentarReanudarInterrumpida(sesion: OcrSession) {
   const grupoId = sesion.grupoId
   if (!grupoId) return
   try {
-    const { data: ficheros, error } = await supabase.storage
-      .from('ocr-uploads')
-      .list(grupoId, { limit: 1000 })
-    if (error) throw error
-
-    // Solo archivos reales (no subcarpetas): tienen id
-    const archivosEnBucket = (ficheros ?? []).filter((f: any) => f.id && f.name)
+    const archivosEnBucket = await listarTodoElGrupo(grupoId)
 
     if (archivosEnBucket.length === 0) {
       // Nada subido: marcar como cancelada con aviso
@@ -364,15 +377,32 @@ async function intentarReanudarInterrumpida(sesion: OcrSession) {
       esComprimido: false,
     }))
 
+    const nPendientes = archivosPendientes.length
+
+    if (nPendientes === 0) {
+      // Nada pendiente real: marcar como completada sin lanzar worker
+      await supabase.from('ocr_sessions').update({
+        estado: 'completada', estado_cola: 'completada',
+        completado_en: new Date().toISOString(),
+        log: [...(sesion.log || []), {
+          filename: '(reanudado)',
+          status: 'ok',
+          detalle: 'Sesión retomada: ningún archivo pendiente en el servidor. Ya estaba completa.',
+        }],
+      }).eq('id', sesion.id)
+      return
+    }
+
     const logEntry: ArchivoLog = perdidos > 0
-      ? { filename: '(reanudado)', status: 'achtung', detalle: `${archivosEnBucket.length} archivos retomados del servidor. ${perdidos} no llegaron a subirse — arrástralos de nuevo.`, achtungTipo: 'otro' }
-      : { filename: '(reanudado)', status: 'ok', detalle: `Subida retomada: ${archivosEnBucket.length} archivos encontrados en el servidor.` }
+      ? { filename: '(reanudado)', status: 'achtung', detalle: `${nPendientes} archivos retomados del servidor. ${perdidos} no llegaron a subirse — arrástralos de nuevo.`, achtungTipo: 'otro' }
+      : { filename: '(reanudado)', status: 'ok', detalle: `Subida retomada: ${nPendientes} archivos encontrados en el servidor.` }
 
     await supabase.from('ocr_sessions').update({
       archivos_pendientes: archivosPendientes,
-      total: archivosPendientes.length,
-      total_storage: archivosPendientes.length,
-      subidos_storage: archivosPendientes.length,
+      total: nPendientes,
+      total_storage: nPendientes,
+      subidos_storage: nPendientes,
+      enviados: 0,
       estado: 'procesando',
       estado_cola: 'en_espera',
       log: [...(sesion.log || []), logEntry],
