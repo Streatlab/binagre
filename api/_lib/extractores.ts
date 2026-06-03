@@ -129,6 +129,20 @@ const PLATAFORMA_POR_NIF: Record<string, 'uber' | 'glovo' | 'just_eat'> = {
   B86008539: 'just_eat',
 }
 
+// NIFs de plataforma cuyos PDF traen UNA sola factura aunque luego incluyan una
+// tabla de detalle de pedidos (Glovo pág. 2). Estos NUNCA deben pasar por el
+// partido multi-factura: si no, el separador cree que cada línea de pedido es
+// una factura y lee mal (número "courier", importe de la línea "Productos", etc.).
+const NIF_PLATAFORMA_NO_PARTIR = new Set(['B67282871', 'B66598764', 'B88515200', 'B86008539'])
+
+function textoEsPlataformaNoPartir(texto: string): boolean {
+  const t = (texto || '').toUpperCase().replace(/[\s\-.]/g, '')
+  for (const nif of NIF_PLATAFORMA_NO_PARTIR) {
+    if (t.includes(nif)) return true
+  }
+  return false
+}
+
 // Frontera flexible: el NIF puede ir pegado a letras/símbolos (ej "CIF/NIF21669051S"
 // o "NIF:21669051S"). Se exige que NO esté rodeado de dígitos (para no partir
 // números largos) pero sí admite estar pegado a letras. Captura los 3 formatos
@@ -428,6 +442,13 @@ export function partirEnFacturas(
   paginas: string[],
   plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
 ): ExtractedFactura[] {
+  // EXCEPCIÓN PLATAFORMAS: los PDF de Glovo/Uber/Just Eat traen UNA sola factura
+  // aunque incluyan después una tabla de detalle de pedidos (Glovo pág. 2). NUNCA
+  // se parten: si no, el separador cree que cada línea de pedido es una factura y
+  // lee mal (número "courier", importe de la línea "Productos", sin NIF). Se deja
+  // que el flujo normal lea la factura completa (reglas o Mistral).
+  if (textoEsPlataformaNoPartir(textoCombinado)) return []
+
   // A) Por páginas (una factura por página).
   const porPaginas = partirPorPaginas(paginas, plantillaResolver)
   // B) Por marcadores dentro del texto combinado.
