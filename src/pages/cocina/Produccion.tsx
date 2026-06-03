@@ -309,11 +309,11 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
             <div className="camara-cols" style={{ gridTemplateColumns: `repeat(${g.secs.length}, 1fr)` }}>
               {g.secs.map(sec => {
                 const parts = partidas.filter(p => p.seccion_id === sec.id)
-                const muchos = parts.length > 14
+                const muchos = parts.length > 12
                 return (
                   <div key={sec.id} className="camara-balda">
                     <div className="camara-balda-head">{sec.nombre}</div>
-                    <ul className={`camara-balda-list ${muchos ? 'denso' : ''}`}>
+                    <ul className={`camara-balda-list ${muchos ? 'dos-cols' : ''}`}>
                       {parts.map(p => <li key={p.id} className="camara-balda-item">{p.nombre}</li>)}
                     </ul>
                   </div>
@@ -476,11 +476,13 @@ const FICHA_CSS = `
 .camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
 .camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
 .camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 18px; line-height: 1.7; color: var(--text-primary); }
-.camara-balda-list.denso .camara-balda-item { font-size: 15px; line-height: 1.5; }
+.camara-balda-list.dos-cols { column-count: 2; column-gap: 24px; }
+.camara-balda-list.dos-cols .camara-balda-item { break-inside: avoid; }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
-  @page { size: A4 landscape; margin: 26mm; }
+  /* Margen por defecto del navegador (el usuario lo gestiona desde el diálogo de impresión) */
+  @page { size: A4 landscape; }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body * { visibility: hidden; }
   .vista-impresion, .vista-impresion *, .camara-wrap, .camara-wrap * { visibility: visible; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -509,17 +511,19 @@ const FICHA_CSS = `
   .prod-table-print .td-celda-ssp { background: #f7eeef !important; }
   .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 11px; padding: 0 2px; }
 
-  /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado ---- */
+  /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado, ocupando casi todo ---- */
   .camara-wrap { display: block; position: absolute; left: 0; top: 0; width: 100%; }
-  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 10px; overflow: hidden; page-break-after: always; break-after: page; height: 165mm; display: flex; flex-direction: column; }
+  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 8px; overflow: hidden; page-break-after: always; break-after: page; height: 192mm; display: flex; flex-direction: column; }
   .hoja-camara:last-child { page-break-after: auto; break-after: auto; }
-  .camara-lado-head { font-size: 40px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 14px 24px !important; }
-  .camara-cols { display: grid; flex: 1; gap: 0; }
-  .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0 0 6px 0; }
+  .camara-lado-head { font-size: 46px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 14px 24px !important; flex: 0 0 auto; }
+  .camara-cols { display: grid; flex: 1 1 auto; gap: 0; }
+  .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0; display: flex; flex-direction: column; }
   .camara-balda:last-child { border-right: none; }
-  .camara-balda-head { font-size: 22px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 8px 14px !important; }
-  .camara-balda-list { padding: 8px 14px !important; }
-  .camara-balda-item { font-size: 22px !important; line-height: 1.75 !important; color: #111 !important; }
-  .camara-balda-list.denso .camara-balda-item { font-size: 16px !important; line-height: 1.55 !important; }
+  .camara-balda-head { font-size: 24px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 8px 16px !important; flex: 0 0 auto; }
+  .camara-balda-list { padding: 12px 18px !important; flex: 1 1 auto; }
+  .camara-balda-item { font-size: 30px !important; line-height: 1.85 !important; color: #111 !important; }
+  /* baldas con muchos productos → 2 columnas, letra grande igualmente */
+  .camara-balda-list.dos-cols { column-count: 2; column-gap: 18px; padding: 12px 16px !important; }
+  .camara-balda-list.dos-cols .camara-balda-item { font-size: 23px !important; line-height: 1.6 !important; break-inside: avoid; }
 }
 `
