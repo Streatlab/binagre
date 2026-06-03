@@ -1,4 +1,4 @@
-// ocrUploadStore v16b — v16 original restaurado + sync BBDD solo escritura
+// ocrUploadStore v17 — Storage-first + resume interrumpida (no duplicar, no reempezar)
 // Cola estricta + cancelar inmediato + auto-cerrar 20s + localStorage + BBDD background
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -12,6 +12,8 @@ export interface ArchivoLog {
 
 export interface OcrSession {
   id: string
+  grupoId: string           // = id; carpeta en ocr-uploads/{grupoId}/
+  storagePaths: string[]    // filenames subidos al bucket con éxito
   total: number
   enviados: number
   ok: number
@@ -33,9 +35,11 @@ export interface OcrSession {
   completadoEn: number | null
   orden: number
   dbJobId?: string
+  interrumpida?: boolean
 }
 
 const STORAGE_KEY = 'ocr_sessions_v4'
+const BUCKET = 'ocr-uploads'
 const PAUSA_MS = 1500
 const RATE_LIMIT_BACKOFF_MS = 65000
 const MAX_REINTENTOS = 3
@@ -53,6 +57,8 @@ function loadSessions(): OcrSession[] {
       .filter(s => s.creadoEn > cutoff && s.visible)
       .map((s, i) => ({
         ...s,
+        grupoId: s.grupoId || s.id,
+        storagePaths: s.storagePaths || [],
         completadoEn: s.completadoEn ?? null,
         achtung: s.achtung ?? 0,
         cancelados: s.cancelados ?? 0,
@@ -60,6 +66,7 @@ function loadSessions(): OcrSession[] {
         achtungTipo: s.achtungTipo ?? null,
         cancelado: s.cancelado ?? false,
         orden: s.orden ?? i,
+        interrumpida: s.interrumpida ?? false,
       }))
   } catch { return [] }
 }
@@ -129,7 +136,7 @@ async function crearJobEnDB(tipo: string, total: number, titularId: string | nul
   } catch { return null }
 }
 
-async function actualizarJobDB(jobId: string, patch: Record<string, any>) {
+async function actualizarJobDB(jobId: string, patch: Record<string, unknown>) {
   try { await supabase.from('ocr_jobs').update(patch).eq('id', jobId) } catch {}
 }
 
@@ -153,7 +160,46 @@ async function cancelarJobDB(jobId: string) {
   } catch {}
 }
 
-// ========== Helpers ==========
+// ========== Storage helpers ==========
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64)
+  const array = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i)
+  return new Blob([array], { type: mimeType })
+}
+
+async function uploadArchivoAlStorage(grupoId: string, item: { name: string; type: string; base64: string }): Promise<boolean> {
+  try {
+    const blob = base64ToBlob(item.base64, item.type)
+    const path = `${grupoId}/${item.name}`
+    const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
+      contentType: item.type,
+      upsert: true,
+    })
+    return !error
+  } catch { return false }
+}
+
+async function downloadFromStorage(grupoId: string, filename: string): Promise<{ base64: string; type: string } | null> {
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(`${grupoId}/${filename}`)
+    if (error || !data) return null
+    return new Promise(res => {
+      const r = new FileReader()
+      r.onload = () => {
+        const result = r.result as string
+        const comma = result.indexOf(',')
+        const base64 = comma >= 0 ? result.slice(comma + 1) : result
+        res({ base64, type: data.type || 'application/pdf' })
+      }
+      r.onerror = () => res(null)
+      r.readAsDataURL(data)
+    })
+  } catch { return null }
+}
+
+// ========== Helpers de archivos ==========
 
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
 function esTextoPlano(name: string, type: string) {
@@ -211,7 +257,7 @@ function detectarAchtung(d: string) {
   return null
 }
 
-async function invocarOCR(item: any, fnName: string, titular_id: string | null) {
+async function invocarOCR(item: { name: string; type: string; base64: string }, fnName: string, titular_id: string | null) {
   const body: any = fnName === 'ocr-procesar-factura'
     ? { fileBase64: item.base64, filename: item.name, mimeType: item.type }
     : { fileBase64: item.base64, filename: item.name, mimeType: item.type, ...(titular_id ? { titular_id } : {}) }
@@ -234,6 +280,8 @@ async function invocarOCR(item: any, fnName: string, titular_id: string | null) 
   }
   return { status: 'error', detalle: 'Respuesta inesperada' }
 }
+
+// ========== Worker principal ==========
 
 async function runSession(id: string) {
   if (procesandoActualId !== null && procesandoActualId !== id) return
@@ -261,8 +309,29 @@ async function runSession(id: string) {
       }
 
       const [item, ...resto] = ses.archivosPendientes
+
+      // 1. Subir al Storage ANTES de encolar (permite detectar interrupciones)
+      const subido = await uploadArchivoAlStorage(ses.grupoId, item)
+      if (subido) {
+        const sesNowStorage = sessions.find(s => s.id === id)
+        if (sesNowStorage) {
+          updateSession(id, {
+            storagePaths: [...sesNowStorage.storagePaths, item.name],
+          })
+        }
+      }
+
+      // 2. Desencolar del array de pendientes
       updateSession(id, { archivosPendientes: resto })
 
+      if (cancelacionesActivas.has(id)) {
+        sessions = sessions.filter(s => s.id !== id)
+        cancelacionesActivas.delete(id)
+        emit()
+        break
+      }
+
+      // 3. Invocar OCR con reintentos
       let result: any = null
       for (let intento = 0; intento <= MAX_REINTENTOS; intento++) {
         if (cancelacionesActivas.has(id)) break
@@ -309,7 +378,6 @@ async function runSession(id: string) {
 
       updateSession(id, patch)
 
-      // Sync a BBDD (solo escritura, fire-and-forget)
       const sesSync = sessions.find(x => x.id === id)
       if (sesSync?.dbJobId) {
         actualizarJobDB(sesSync.dbJobId, {
@@ -337,7 +405,78 @@ function arrancarSiguienteEnCola() {
   if (cola.length > 0) runSession(cola[0].id)
 }
 
-if (typeof window !== 'undefined') arrancarSiguienteEnCola()
+// ========== Detección y reanudación de sesiones interrumpidas ==========
+// Sesión interrumpida: procesando=true en localStorage pero ningún worker activo.
+// Puede haber archivos en el bucket que fueron subidos pero cuyo OCR no completó.
+
+async function detectarYReanudarInterrumpidas() {
+  // Las sesiones con procesando:true que no están ya corriendo
+  const candidatas = sessions.filter(
+    s => s.procesando && s.grupoId && procesandoActualId !== s.id
+  )
+  if (candidatas.length === 0) return
+
+  for (const ses of candidatas) {
+    // Archivos ya procesados (en log)
+    const procesados = new Set(ses.log.map(l => l.filename))
+    // Archivos aún en cola (tienen base64)
+    const enCola = new Set(ses.archivosPendientes.map(a => a.name))
+
+    // Listar lo que llegó al bucket
+    let storageNames: string[] = []
+    try {
+      const { data } = await supabase.storage.from(BUCKET).list(ses.grupoId)
+      storageNames = (data || []).map(f => f.name)
+    } catch { /* sin Storage → resume clásico desde archivosPendientes */ }
+
+    // Archivos que llegaron al bucket pero no están en el log ni en la cola
+    // → se desencolaron pero el OCR no completó
+    const perdidosEnStorage = storageNames.filter(
+      name => !procesados.has(name) && !enCola.has(name)
+    )
+
+    if (perdidosEnStorage.length === 0) continue
+
+    const reconstruidos: { name: string; type: string; base64: string }[] = []
+    const noRecuperados: string[] = []
+
+    for (const filename of perdidosEnStorage) {
+      const dl = await downloadFromStorage(ses.grupoId, filename)
+      if (dl) {
+        reconstruidos.push({ name: filename, type: dl.type, base64: dl.base64 })
+      } else {
+        noRecuperados.push(filename)
+      }
+    }
+
+    const logExtra: ArchivoLog[] = noRecuperados.map(name => ({
+      filename: name,
+      status: 'error' as const,
+      detalle: 'No recuperado — volver a arrastrar',
+    }))
+
+    const sesActual = sessions.find(s => s.id === ses.id)
+    if (!sesActual) continue
+
+    updateSession(ses.id, {
+      archivosPendientes: [...reconstruidos, ...sesActual.archivosPendientes],
+      log: [...sesActual.log, ...logExtra],
+      errores: sesActual.errores + noRecuperados.length,
+      interrumpida: false,
+    })
+  }
+
+  // Arrancar lo que haya quedado listo
+  arrancarSiguienteEnCola()
+}
+
+// Al cargar: primero intenta arrancar lo que tiene base64, luego recupera del Storage
+if (typeof window !== 'undefined') {
+  arrancarSiguienteEnCola()
+  detectarYReanudarInterrumpidas()
+}
+
+// ========== Hook público ==========
 
 export function useOcrUpload() {
   const [snap, setSnap] = useState<OcrSession[]>([...sessions])
@@ -346,7 +485,11 @@ export function useOcrUpload() {
   useEffect(() => {
     const handler = () => setSnap([...sessions])
     emitter.addEventListener('change', handler)
-    if (!initRef.current) { initRef.current = true; arrancarSiguienteEnCola() }
+    if (!initRef.current) {
+      initRef.current = true
+      arrancarSiguienteEnCola()
+      detectarYReanudarInterrumpidas()
+    }
     return () => emitter.removeEventListener('change', handler)
   }, [])
 
@@ -372,8 +515,11 @@ export function useOcrUpload() {
     const dbJobId = await crearJobEnDB(fnName, files.length, titular_id)
 
     ordenCounter++
+    const nuevoId = `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const nueva: OcrSession = {
-      id: `ocr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: nuevoId,
+      grupoId: nuevoId,
+      storagePaths: [],
       total: files.length, enviados: fallos.length, ok: 0, pendientes: 0, duplicados: 0,
       errores: fallos.length, achtung: 0, cancelados: 0,
       achtungMensaje: null, achtungTipo: null,
@@ -382,6 +528,7 @@ export function useOcrUpload() {
       creadoEn: Date.now(), completadoEn: null,
       orden: ordenCounter,
       dbJobId: dbJobId || undefined,
+      interrumpida: false,
     }
     sessions = [...sessions, nueva]
     emit()
