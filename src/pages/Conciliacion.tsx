@@ -14,6 +14,7 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { normalizarConcepto, matchPatron, inicializarStopwords } from '@/lib/normalizarConcepto'
+import { fechaLocalStr } from '@/utils/fechaLocal'
 
 type PeriodoKey = 'mes' | 'mes_anterior' | 'trimestre' | '30d' | 'personalizado' | string
 
@@ -217,7 +218,7 @@ export default function Conciliacion() {
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:18, flexWrap:'wrap', gap:12 }}>
         <div>
           <h2 style={{ color:'#B01D23', fontFamily:'Oswald, sans-serif', fontSize:22, fontWeight:600, letterSpacing:'3px', margin:0, textTransform:'uppercase' }}>CONCILIACIÓN</h2>
-          <span style={{ fontFamily:'Lexend, sans-serif', fontSize:13, color:'#7a8090', display:'block', marginTop:4 }}>{fmtFechaCorta(periodoDesde.toISOString().slice(0,10))} — {fmtFechaCorta(periodoHasta.toISOString().slice(0,10))}</span>
+          <span style={{ fontFamily:'Lexend, sans-serif', fontSize:13, color:'#7a8090', display:'block', marginTop:4 }}>{fmtFechaCorta(fechaLocalStr(periodoDesde))} — {fmtFechaCorta(fechaLocalStr(periodoHasta))}</span>
         </div>
         <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
           <SelectorFechaUniversal nombreModulo="conciliacion" defaultOpcion="mes_en_curso" onChange={(desde, hasta, label) => { setPeriodoDesde(desde); setPeriodoHasta(hasta); setPeriodoLabelSFU(label) }} />

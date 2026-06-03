@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
+import { fechaLocalStr } from '@/utils/fechaLocal'
 import { supabase } from '@/lib/supabase'
 import { fetchAllPaginated } from '@/lib/supabasePaginated'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
@@ -174,8 +175,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     })
   }, [])
 
-  const periodoDesdeStr = periodoDesde.toISOString().slice(0, 10)
-  const periodoHastaStr = periodoHasta.toISOString().slice(0, 10)
+  // A-01: hora local, no UTC (toISOString desfasa en UTC+1/+2)
+  const periodoDesdeStr = fechaLocalStr(periodoDesde)
+  const periodoHastaStr = fechaLocalStr(periodoHasta)
 
   useEffect(() => {
     let debounce: ReturnType<typeof setTimeout> | null = null
