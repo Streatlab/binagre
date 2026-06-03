@@ -1,6 +1,11 @@
-// procesarArchivo v16 — Mistral SOLO arranca proveedor NUEVO (NIF sin ficha en reglas_conciliacion).
-//                      Si el NIF emisor ya está registrado, NUNCA se vuelve a llamar a Mistral:
-//                      sus facturas se leen por reglas/plantilla; si no, lectura manual. Jamás Mistral 2 veces.
+// procesarArchivo v17 — TITULAR EXACTO POR NIF EN TEXTO (Rubén 03/06/26).
+//                      Toda factura es de Rubén o de Emilio. Se detecta el titular
+//                      buscando su NIF (21669051S / 53484832B) en el texto del
+//                      documento: si aparece uno, el titular es exacto, no estimado.
+//                      Se ELIMINA el default a Rubén: lo que no se detecta queda
+//                      titular NULL + pendiente_titular_manual (nunca colgado a uno).
+// v16 — Mistral SOLO arranca proveedor NUEVO (NIF sin ficha en reglas_conciliacion).
+//                      Si el NIF emisor ya está registrado, NUNCA se vuelve a llamar a Mistral.
 // v15 — + PASO 3 Mistral (red de seguridad de pago tras reglas+Tesseract)
 // v14 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
 //                      + PARTIDO MULTI-FACTURA (varias facturas en un PDF)
@@ -8,21 +13,7 @@
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
 //      gratis: saca el texto de la imagen y se reintenta la lectura por reglas.
-// Mistral es la ÚNICA excepción y SOLO como bootstrap: arranca la plantilla de un
-// proveedor cuyo NIF aún NO está en reglas_conciliacion. Tras leerlo una vez, el NIF
-// queda registrado y Mistral no se vuelve a usar para ese proveedor.
-// Si tras Tesseract sigue sin leerse y el proveedor ya es conocido → lectura manual
-// (PDF guardado en Drive, nunca se pierde).
-// v11: guardarLecturaManual IDEMPOTENTE (dedup por hash, nunca pierde archivo).
-// v12: dedup único válido = hash de archivo (mismo PDF exacto).
-// v13: retirado el lector de pago. Sustituido por Tesseract gratis. Titular sin
-// detectar ya NO se archiva en carpeta de Rubén (va a SIN_TITULAR).
-// v14: PARTIDO MULTI-FACTURA. Un PDF con varias facturas dentro (mismo proveedor,
-// varios albaranes; o una factura por página) se separa en N facturas. El dedup
-// se mantiene: cada sub-factura usa pdf_hash compuesto = hashArchivo#indice, así
-// re-subir el mismo PDF detecta duplicado y no se pierde ni duplica nada. El PDF
-// físico se sube UNA sola vez a Drive y se comparte el enlace entre las N filas.
-// Si el PDF tiene una sola factura, el comportamiento es idéntico al de v13.
+// Mistral es la ÚNICA excepción y SOLO como bootstrap de proveedor nuevo.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -104,6 +95,20 @@ function detectarTitularPorNombre(nombreCliente: string | null | undefined): {
     return { titularId: EMILIO_ID, carpeta: 'EMILIO', match: true }
   }
   return { titularId: null, carpeta: 'SIN_TITULAR', match: false }
+}
+
+// TITULAR EXACTO por NIF en el texto (Rubén 03/06/26). Las facturas de Streat Lab
+// van a nombre de Rubén (21669051S) o de Emilio (53484832B): son los dos ÚNICOS
+// clientes posibles. Si su NIF aparece en el texto del documento, el titular es
+// exacto, no estimado. Devuelve además el NIF para guardarlo como nif_cliente.
+function titularPorNifEnTexto(texto: string | null | undefined): {
+  titularId: string; carpeta: string; nif: string
+} | null {
+  if (!texto) return null
+  const t = texto.replace(/[\s\-.]/g, '').toUpperCase()
+  if (t.includes(NIF_RUBEN)) return { titularId: RUBEN_ID, carpeta: 'RUBÉN', nif: NIF_RUBEN }
+  if (t.includes(NIF_EMILIO)) return { titularId: EMILIO_ID, carpeta: 'EMILIO', nif: NIF_EMILIO }
+  return null
 }
 
 // F05: validar fecha lógica
@@ -311,13 +316,16 @@ async function guardarEnDriveBestEffort(
   }
 }
 
-// Resuelve titular (Rubén/Emilio/otro) a partir de los datos de cliente de una
-// factura extraída. Devuelve ancla interna RUBEN + SIN_TITULAR si no se detecta.
+// Resuelve titular (Rubén/Emilio). Orden: NIF de cliente leído → nombre de cliente
+// → NIF de Rubén/Emilio encontrado en el texto del documento. Si NADA lo
+// identifica, devuelve titular NULL + pendienteTitularManual (NUNCA se cuelga a
+// Rubén por defecto). El matching admite titular NULL sin problema.
 async function resolverTitular(
   supabase: SupabaseClient,
   extracted: ExtractedFactura,
-): Promise<{ titularId: string; carpeta: string; pendienteTitularManual: boolean; nifClienteNorm: string | null }> {
-  const nifClienteNorm = normalizarNif(extracted.nif_cliente)
+  texto?: string | null,
+): Promise<{ titularId: string | null; carpeta: string; pendienteTitularManual: boolean; nifClienteNorm: string | null }> {
+  let nifClienteNorm = normalizarNif(extracted.nif_cliente)
   const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
   let titularId: string | null = null
   let carpeta = 'SIN_TITULAR'
@@ -335,11 +343,18 @@ async function resolverTitular(
     const porNombre = detectarTitularPorNombre(nombreCliente)
     if (porNombre.match) { titularId = porNombre.titularId; carpeta = porNombre.carpeta }
   }
-  if (!titularId && extracted.tipo === 'plataforma') { titularId = RUBEN_ID; carpeta = 'RUBÉN' }
+  if (!titularId) {
+    const porTexto = titularPorNifEnTexto(texto)
+    if (porTexto) {
+      titularId = porTexto.titularId
+      carpeta = porTexto.carpeta
+      if (!nifClienteNorm) nifClienteNorm = porTexto.nif
+    }
+  }
 
   if (!titularId) {
-    // Ancla interna para poder ejecutar matching, pero PDF a SIN_TITULAR.
-    return { titularId: RUBEN_ID, carpeta: 'SIN_TITULAR', pendienteTitularManual: true, nifClienteNorm }
+    // No identificado: titular NULL + pendiente de asignación manual. Sin default.
+    return { titularId: null, carpeta: 'SIN_TITULAR', pendienteTitularManual: true, nifClienteNorm }
   }
   return { titularId, carpeta, pendienteTitularManual: false, nifClienteNorm }
 }
@@ -497,7 +512,7 @@ async function procesarContenidoPrincipal(
         const diccMulti = await cargarDiccionarioNif(supabase)
         const facturas = partirEnFacturas(textoCombinado, paginas, (nif) => diccMulti.get(nif)?.plantilla || null)
         if (facturas.length >= 2) {
-          return await guardarFacturasMulti(supabase, file, hash, facturas, diccMulti)
+          return await guardarFacturasMulti(supabase, file, hash, facturas, diccMulti, textoCombinado)
         }
       }
     } catch (e) {
@@ -551,11 +566,6 @@ async function procesarContenidoPrincipal(
     extracted = extractedReglas
   } else {
     // PASO 3 — BOOTSTRAP MISTRAL (~0,002 €), SOLO PROVEEDOR NUEVO.
-    // Reglas + Tesseract NO leyeron. Mistral SOLO arranca si el NIF emisor del
-    // documento aún NO está en reglas_conciliacion (proveedor nuevo). Si el NIF
-    // ya está registrado, el proveedor ya pasó por bootstrap → NO se llama a
-    // Mistral nunca más: se va a lectura manual. Tras leer un proveedor nuevo se
-    // aprende su NIF para que las siguientes facturas se lean gratis.
     let extractedMistral: ExtractedFactura | null = null
     const nifEmisorTexto = normalizarNif(textoPdfCache ? extraerNifEmisorLibre(textoPdfCache) : null)
     const proveedorYaConocido = await nifYaRegistrado(supabase, nifEmisorTexto)
@@ -575,9 +585,7 @@ async function procesarContenidoPrincipal(
     if (extractedMistral) {
       extracted = extractedMistral
     } else {
-      // Ni reglas, ni Tesseract, ni (cuando aplica) Mistral leyeron, o el proveedor
-      // ya era conocido. Se guarda el PDF en Drive como respaldo y la factura queda
-      // 'pendiente_lectura_manual'. NUNCA se llama a Mistral para proveedor conocido.
+      // Ni reglas, ni Tesseract, ni (cuando aplica) Mistral leyeron. Lectura manual.
       return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
     }
   }
@@ -661,7 +669,7 @@ async function procesarContenidoPrincipal(
     let carpetaTitular = 'SIN_TITULAR'
     let pendienteTitularManual = false
 
-    const nifClienteNorm = normalizarNif(extracted.nif_cliente)
+    let nifClienteNorm = normalizarNif(extracted.nif_cliente)
     const nombreCliente = (extracted as { nombre_cliente?: string | null }).nombre_cliente
 
     if (nifClienteNorm === NIF_RUBEN) {
@@ -690,17 +698,20 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    if (!titularId && extracted.tipo === 'plataforma') {
-      titularId = RUBEN_ID
-      carpetaTitular = 'RUBÉN'
+    // TITULAR EXACTO: buscar el NIF de Rubén/Emilio en el texto del documento.
+    if (!titularId) {
+      const porTexto = titularPorNifEnTexto(textoPdfCache)
+      if (porTexto) {
+        titularId = porTexto.titularId
+        carpetaTitular = porTexto.carpeta
+        if (!nifClienteNorm) nifClienteNorm = porTexto.nif
+      }
     }
 
-    // F01 (v13): si no detecta titular, se usa RUBEN solo como ancla interna para
-    // poder ejecutar el matching, pero el PDF NO se archiva en su carpeta: va a
-    // SIN_TITULAR y queda pendiente_titular_manual (evita colgar a Rubén facturas
-    // que podrían ser de Emilio).
+    // Sin default a Rubén: si NADA identifica al titular, queda NULL +
+    // pendiente_titular_manual. El matching admite titular NULL.
     if (!titularId) {
-      titularId = RUBEN_ID
+      titularId = null
       carpetaTitular = 'SIN_TITULAR'
       pendienteTitularManual = true
     }
@@ -764,7 +775,7 @@ async function procesarContenidoPrincipal(
       }
     }
 
-    // F01: ejecutar matching siempre (incluso con pendienteTitularManual, usando RUBEN como ancla)
+    // F01: ejecutar matching siempre (admite titular NULL: no filtra por titular)
     try {
       const resultadoMatch = await matchFactura(supabase, {
         ...extracted,
@@ -867,17 +878,13 @@ async function procesarContenidoPrincipal(
 }
 
 // ── Guardado de PDF con VARIAS facturas dentro ─────────────────────────────
-// Recibe las facturas ya extraídas por partirEnFacturas. Sube el PDF físico UNA
-// sola vez a Drive (carpeta del titular de la 1ª factura con titular detectado) y
-// comparte el enlace entre todas. Cada factura se inserta con pdf_hash compuesto
-// = hashArchivo#indice, lo que mantiene el antiduplicado (re-subir el PDF detecta
-// que ya existe) sin colisionar entre sub-facturas. Cada una pasa por matching.
 async function guardarFacturasMulti(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
   hashArchivo: string,
   facturas: ExtractedFactura[],
   diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }>,
+  textoCombinado?: string,
 ): Promise<ProcesarResultado[]> {
   // Resolver nombre de proveedor por NIF para las que vengan sin nombre.
   for (const f of facturas) {
@@ -891,7 +898,7 @@ async function guardarFacturasMulti(
   // Subir el PDF una sola vez. Carpeta = titular de la primera factura detectable.
   const ext = extensionDeNombre(file.nombre)
   const primera = facturas[0]
-  const titPrimeraInfo = await resolverTitular(supabase, primera)
+  const titPrimeraInfo = await resolverTitular(supabase, primera, textoCombinado)
   const fechaPrimera = fechaValida(primera.fecha_factura) ? primera.fecha_factura : new Date().toISOString().slice(0, 10)
   const nombreArchivoDrive = generarNombreArchivo({
     proveedor_nombre: primera.proveedor_nombre,
@@ -976,8 +983,8 @@ async function guardarFacturasMulti(
         proveedorId = nuevoProv?.id
       }
 
-      // Titular
-      const tit = await resolverTitular(supabase, extracted)
+      // Titular (admite NULL; sin default a Rubén)
+      const tit = await resolverTitular(supabase, extracted, textoCombinado)
 
       await supabase
         .from('facturas')
@@ -1042,11 +1049,9 @@ async function guardarFacturasMulti(
 }
 
 // Factura que ni reglas ni Tesseract pudieron leer (y, si era proveedor nuevo,
-// tampoco Mistral). Se guarda el PDF en Drive (carpeta SIN_TITULAR) para no
-// perderlo y se inserta con estado 'pendiente_lectura_manual'. NUNCA llama a API.
-// v11: IDEMPOTENTE. Recibe el hash ya calculado. Antes de insertar comprueba si
-// el hash ya existe (duplicada) y, si el INSERT choca igualmente por carrera,
-// lo trata como duplicada en vez de lanzar error → ningún archivo se pierde.
+// tampoco Mistral). Se guarda el PDF en Drive para no perderlo y se inserta con
+// estado 'pendiente_lectura_manual'. NUNCA llama a API. El titular se intenta por
+// el NIF de Rubén/Emilio en el texto; si no aparece, titular NULL (sin default).
 async function guardarLecturaManual(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
@@ -1083,14 +1088,18 @@ async function guardarLecturaManual(
     proveedorNombre = (regla?.razon_social as string) || `NIF ${nifEmisor} (sin plantilla)`
   }
 
-  // Respaldo en Drive (best-effort, sin titular conocido)
+  // Titular exacto por NIF de Rubén/Emilio en el texto (si aparece).
+  const titTexto = titularPorNifEnTexto(textoPdf)
+  const carpetaTitular = titTexto?.carpeta ?? 'SIN_TITULAR'
+
+  // Respaldo en Drive (best-effort)
   const drive = await guardarEnDriveBestEffort(file, {
     proveedor_nombre: proveedorNombre,
     numero_factura: numFactura,
     fecha_factura: hoy,
     tipo: 'proveedor',
     plataforma: null,
-    carpeta_titular: 'SIN_TITULAR',
+    carpeta_titular: carpetaTitular,
   })
 
   const { data: nueva, error: errLM } = await supabase
@@ -1104,7 +1113,8 @@ async function guardarLecturaManual(
       total: 0,
       estado: 'pendiente_lectura_manual',
       tipo: 'proveedor',
-      titular_id: RUBEN_ID,
+      titular_id: titTexto?.titularId ?? null,
+      nif_cliente: titTexto?.nif ?? null,
       nif_emisor: nifEmisor,
       pdf_drive_id: drive?.id ?? null,
       pdf_drive_url: drive?.webViewLink ?? null,
