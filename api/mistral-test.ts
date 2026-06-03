@@ -2,10 +2,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 // Endpoint temporal de diagnóstico. Confirma que la llave de Mistral
 // está bien configurada en el entorno y responde. No expone la clave.
+// Tolera el nombre en mayúsculas o minúsculas.
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
-  const key = process.env.MISTRAL_API_KEY
+  const key =
+    process.env.MISTRAL_API_KEY ||
+    process.env.mistral_api_key ||
+    process.env.Mistral_Api_Key
   if (!key) {
-    return res.status(200).json({ ok: false, paso: 'env', error: 'MISTRAL_API_KEY no encontrada en el entorno' })
+    return res.status(200).json({ ok: false, paso: 'env', error: 'Clave de Mistral no encontrada en el entorno' })
   }
   try {
     const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
