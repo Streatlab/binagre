@@ -45,7 +45,16 @@ export interface ParsedRow {
 
 interface Props {
   onFileLoaded: (rows: ParsedRow[], meta: { fileName: string }) => void
-  importResult?: { insertados: number; duplicados: number; omitidos: number } | null
+  importResult?: {
+    insertados: number
+    // campos nuevos (desglosados)
+    duplicados_bd?: number
+    duplicados_lote?: number
+    descartados?: number
+    // alias de compatibilidad (campos legacy)
+    duplicados?: number
+    omitidos?: number
+  } | null
 }
 
 /* ─────────────────────────  HELPERS  ───────────────────────── */
@@ -283,11 +292,21 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
           </>
         )}
       </div>
-      {importResult != null && (
-        <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec }}>
-          {`✅ ${importResult.insertados} importados, ${importResult.duplicados} duplicados (ya existían), ${importResult.omitidos} omitidos por reglas`}
-        </span>
-      )}
+      {importResult != null && (() => {
+        const { insertados } = importResult
+        const dupBD    = importResult.duplicados_bd    ?? importResult.duplicados ?? 0
+        const dupLote  = importResult.duplicados_lote  ?? 0
+        const desc     = importResult.descartados      ?? importResult.omitidos   ?? 0
+        const tieneDesglose = importResult.duplicados_bd !== undefined
+        return (
+          <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec }}>
+            {tieneDesglose
+              ? `✅ ${insertados} importados · ${dupBD} ya en BD · ${dupLote > 0 ? `${dupLote} dup. en archivo · ` : ''}${desc} descartados por reglas`
+              : `✅ ${insertados} importados, ${dupBD} duplicados (ya existían), ${desc} omitidos por reglas`
+            }
+          </span>
+        )
+      })()}
     </div>
   )
 }

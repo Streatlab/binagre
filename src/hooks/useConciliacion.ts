@@ -4,7 +4,7 @@ import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapp
 import { normalizarConcepto, matchPatron } from '@/lib/normalizarConcepto'
 import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
 import { calcularDedupKey } from '@/lib/normalizar'
-import { cargarReglas, aplicarReglas as aplicarReglasMDim } from '@/lib/aplicarReglas'
+import { cargarReglas, invalidarCacheReglas, aplicarReglas as aplicarReglasMDim } from '@/lib/aplicarReglas'
 import { fetchAllPaginated } from '@/lib/supabasePaginated'
 
 export interface Movimiento {
@@ -94,22 +94,28 @@ export function useConciliacion() {
   async function insertMovimientos(
     rows: Omit<Movimiento, 'id'>[],
     onProgress?: (stage: 'saving' | 'rules', current: number, total: number) => void,
-  ): Promise<{ insertados: number; duplicados: number; omitidos: number }> {
-    if (rows.length === 0) return { insertados: 0, duplicados: 0, omitidos: 0 }
+  ): Promise<{ insertados: number; duplicados_bd: number; duplicados_lote: number; descartados: number; duplicados: number; omitidos: number }> {
+    if (rows.length === 0) return { insertados: 0, duplicados_bd: 0, duplicados_lote: 0, descartados: 0, duplicados: 0, omitidos: 0 }
 
+    // Invalidar caché para no usar reglas obsoletas (B-04)
+    invalidarCacheReglas()
     const [reglasActivas, aliases] = await Promise.all([cargarReglas(), loadAliases()])
 
-    let workRows: Omit<Movimiento, 'id'>[] = rows.map(r => ({
+    const workRows = rows.map(r => ({
       ...r,
       proveedor: r.proveedor && r.proveedor.trim() !== ''
         ? r.proveedor
         : matchProveedor(r.concepto ?? '', aliases),
     }))
 
-    let omitidos = 0
-    const rowsPostReglas: Omit<Movimiento, 'id'>[] = []
-    for (const r of workRows) {
-      const { mov, borrar } = aplicarReglasMDim(
+    // Paso 1: aplicar reglas; los borrados van a la bandeja movimientos_descartados (B-02)
+    let descartados = 0
+    type RowConLinea = Omit<Movimiento, 'id'> & { _line: number }
+    const rowsPostReglas: RowConLinea[] = []
+
+    for (let i = 0; i < workRows.length; i++) {
+      const r = workRows[i]
+      const { mov, borrar, reglaAplicada } = aplicarReglasMDim(
         {
           titular_id: r.titular_id ?? null,
           concepto: r.concepto ?? null,
@@ -122,40 +128,103 @@ export function useConciliacion() {
         reglasActivas,
       )
       if (borrar) {
-        omitidos++
+        descartados++
+        // Guardar en bandeja para revisión en lugar de eliminar
+        const dedupKey = await calcularDedupKey(r.titular_id ?? '', r.fecha ?? '', r.importe, r.concepto ?? '', i)
+        supabase.from('movimientos_descartados').insert({
+          fecha: r.fecha ?? null,
+          concepto: r.concepto ?? null,
+          importe: r.importe,
+          titular_id: r.titular_id ?? null,
+          proveedor: r.proveedor ?? null,
+          ordenante: r.ordenante ?? null,
+          beneficiario: r.beneficiario ?? null,
+          regla_aplicada: reglaAplicada,
+          dedup_key: dedupKey,
+          motivo: 'regla_borrar',
+        }).then(({ error }) => { if (error) console.error('movimientos_descartados:', error.message) })
         continue
       }
       rowsPostReglas.push({
         ...r,
         proveedor: mov.proveedor ?? r.proveedor,
         categoria: mov.categoria ?? r.categoria,
+        _line: i,
       })
     }
 
     onProgress?.('saving', 0, rowsPostReglas.length)
-    const rowsConKey = await Promise.all(rowsPostReglas.map(async r => ({
+
+    // Paso 2: calcular dedup_key con índice de línea (B-01, B-05)
+    const rowsConKey = await Promise.all(rowsPostReglas.map(async ({ _line, ...r }) => ({
       ...r,
-      dedup_key: await calcularDedupKey(
-        r.titular_id ?? '',
-        r.fecha ?? '',
-        r.importe,
-        r.concepto ?? '',
-      ),
+      dedup_key: await calcularDedupKey(r.titular_id ?? '', r.fecha ?? '', r.importe, r.concepto ?? '', _line),
     })))
 
-    const { data, error } = await supabase
-      .from('conciliacion')
-      .upsert(rowsConKey, { ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })
-      .select()
-    if (error) throw error
+    // Paso 3: dedup dentro del mismo lote (B-05)
+    let duplicados_lote = 0
+    const keysetLote = new Set<string>()
+    const rowsLoteUnicos = rowsConKey.filter(r => {
+      if (keysetLote.has(r.dedup_key)) { duplicados_lote++; return false }
+      keysetLote.add(r.dedup_key)
+      return true
+    })
 
-    onProgress?.('saving', rowsConKey.length, rowsConKey.length)
+    // Paso 4: separar filas con/sin titular para dedup correcto (B-03)
+    // PostgreSQL: NULL != NULL en índice único → filas sin titular no se deduplicarán por upsert
+    const rowsConTitular = rowsLoteUnicos.filter(r => r.titular_id != null)
+    const rowsSinTitular = rowsLoteUnicos.filter(r => r.titular_id == null)
 
-    const insertados = data?.length ?? 0
-    const duplicados = rowsConKey.length - insertados
+    let duplicados_bd = 0
+    let insertados = 0
 
+    // Upsert filas CON titular (el índice unique funciona correctamente)
+    if (rowsConTitular.length > 0) {
+      const { data, error } = await supabase
+        .from('conciliacion')
+        .upsert(rowsConTitular, { ignoreDuplicates: true, onConflict: 'titular_id,dedup_key' })
+        .select()
+      if (error) throw error
+      const ins = data?.length ?? 0
+      insertados += ins
+      duplicados_bd += rowsConTitular.length - ins
+    }
+
+    // Insert filas SIN titular con dedup manual contra BD (B-03)
+    if (rowsSinTitular.length > 0) {
+      const keys = rowsSinTitular.map(r => r.dedup_key)
+      const { data: existentes } = await supabase
+        .from('conciliacion')
+        .select('dedup_key')
+        .is('titular_id', null)
+        .in('dedup_key', keys)
+      const existentesSet = new Set((existentes ?? []).map((r: { dedup_key: string }) => r.dedup_key))
+      const sinTitularNuevas = rowsSinTitular.filter(r => {
+        if (existentesSet.has(r.dedup_key)) { duplicados_bd++; return false }
+        return true
+      })
+      if (sinTitularNuevas.length > 0) {
+        const { data, error } = await supabase
+          .from('conciliacion')
+          .insert(sinTitularNuevas)
+          .select()
+        if (error) throw error
+        insertados += data?.length ?? 0
+      }
+    }
+
+    onProgress?.('saving', rowsLoteUnicos.length, rowsLoteUnicos.length)
     refresh()
-    return { insertados, duplicados, omitidos }
+
+    return {
+      insertados,
+      duplicados_bd,
+      duplicados_lote,
+      descartados,
+      // aliases de compatibilidad para código que aún use los nombres viejos
+      duplicados: duplicados_bd + duplicados_lote,
+      omitidos: descartados,
+    }
   }
 
   async function syncGasto(mov: Movimiento, codigo_categoria: string | null, tipo: 'ingreso' | 'gasto' | null): Promise<string | null> {
