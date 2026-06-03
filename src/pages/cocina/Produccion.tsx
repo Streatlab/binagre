@@ -360,7 +360,6 @@ const FICHA_CSS = `
 
 /* Separador GRUESO entre grupos de día: borde izquierdo marcado en la 1ª col de cada día */
 .dia-ini { border-left: 3px solid #B01D23 !important; }
-/* La columna SSP va sombreada para distinguirla rápido del HOY (urgente, en blanco) */
 
 .th-partida {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
