@@ -66,15 +66,13 @@ function paginar(secciones: Seccion[], partidas: Partida[]): BloqueImpresion[][]
   return paginas
 }
 
-// Agrupa secciones por lado físico de la cámara para los carteles
+// Agrupa por lado físico. Solo izquierda y derecha (lo demás no va en los carteles de cámara).
 function agruparLados(secciones: Seccion[]): { titulo: string; secs: Seccion[] }[] {
   const izq = secciones.filter(s => s.nombre.toUpperCase().startsWith('IZQUIERDA'))
   const der = secciones.filter(s => s.nombre.toUpperCase().startsWith('DERECHA'))
-  const otros = secciones.filter(s => !s.nombre.toUpperCase().startsWith('IZQUIERDA') && !s.nombre.toUpperCase().startsWith('DERECHA'))
   const grupos: { titulo: string; secs: Seccion[] }[] = []
   if (izq.length) grupos.push({ titulo: 'PARTE IZQUIERDA', secs: izq })
   if (der.length) grupos.push({ titulo: 'PARTE DERECHA', secs: der })
-  otros.forEach(s => grupos.push({ titulo: s.nombre, secs: [s] }))
   return grupos
 }
 
@@ -482,7 +480,7 @@ const FICHA_CSS = `
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
-  @page { size: A4 landscape; margin: 16mm; }
+  @page { size: A4 landscape; margin: 26mm; }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body * { visibility: hidden; }
   .vista-impresion, .vista-impresion *, .camara-wrap, .camara-wrap * { visibility: visible; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -513,7 +511,7 @@ const FICHA_CSS = `
 
   /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado ---- */
   .camara-wrap { display: block; position: absolute; left: 0; top: 0; width: 100%; }
-  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 10px; overflow: hidden; page-break-after: always; break-after: page; height: 178mm; display: flex; flex-direction: column; }
+  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 10px; overflow: hidden; page-break-after: always; break-after: page; height: 165mm; display: flex; flex-direction: column; }
   .hoja-camara:last-child { page-break-after: auto; break-after: auto; }
   .camara-lado-head { font-size: 40px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 14px 24px !important; }
   .camara-cols { display: grid; flex: 1; gap: 0; }
