@@ -56,12 +56,25 @@ function csvEscape(s: string): string { const v = (s ?? '').replace(/"/g, '""');
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
-interface Factura { id: string; fecha_factura: string; proveedor_nombre: string; total: number; tipo: string; categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null; pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null; numero_factura: string | null; estado: string; doc_estado: string | null; matches_count: number; posible_duplicado: boolean }
+interface Factura { id: string; fecha_factura: string; proveedor_nombre: string; total: number; tipo: string; categoria_factura: string | null; nif_emisor: string | null; titular_id: string | null; pdf_drive_url: string | null; pdf_drive_id: string | null; pdf_filename: string | null; numero_factura: string | null; estado: string; doc_estado: string | null; matches_count: number; posible_duplicado: boolean; estado_real?: 'conciliada' | 'parcial' | 'pendiente' | 'esperando_banco' | null }
 interface Agregados { totalCount: number; totalImporte: number; conciliadasCount: number; conciliadasPct: number; conciliadasImporte: number; pendientesCount: number; pendientesImporte: number }
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
 
-function getEstadoDoc(f: Factura): EstadoDoc { if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'; if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'; return 'pendiente' }
-function esConciliada(f: Factura): boolean { return ESTADOS_CONCILIADOS.has(f.estado) || f.doc_estado === 'no_requiere' }
+function getEstadoDoc(f: Factura): EstadoDoc {
+  if (f.estado_real) {
+    if (f.estado_real === 'conciliada' || f.estado_real === 'parcial') return 'conciliada'
+    if (f.estado_real === 'esperando_banco') return 'pendiente'
+    return 'pendiente'
+  }
+  // fallback legacy
+  if (ESTADOS_SIN_DOC.has(f.estado) || f.doc_estado === 'no_requiere') return 'no_requiere'
+  if (ESTADOS_CONCILIADOS.has(f.estado)) return 'conciliada'
+  return 'pendiente'
+}
+function esConciliada(f: Factura): boolean {
+  if (f.estado_real) return f.estado_real === 'conciliada' || f.estado_real === 'parcial'
+  return ESTADOS_CONCILIADOS.has(f.estado) || f.doc_estado === 'no_requiere'
+}
 
 // Orden canónico para columna "estado": 'conciliada' (0) → 'pendiente' (1). Asc: conciliadas primero.
 function estadoSortKey(f: Factura): number {
@@ -271,7 +284,7 @@ export default function Ocr() {
       setErrorCarga('Error cargando. Intenta de nuevo.')
       setFilas([]); setTotal(0)
     } else {
-      const mapped: Factura[] = (data ?? []).map((m: any) => ({
+      let mapped: Factura[] = (data ?? []).map((m: any) => ({
         id: m.id, fecha_factura: m.fecha_factura, proveedor_nombre: m.proveedor_nombre ?? '',
         total: Number(m.total) || 0, tipo: m.tipo ?? 'proveedor',
         categoria_factura: m.categoria_factura ?? null, nif_emisor: m.nif_emisor ?? null,
@@ -282,6 +295,24 @@ export default function Ocr() {
         posible_duplicado: !!m.posible_duplicado,
         matches_count: Array.isArray(m.facturas_gastos) ? m.facturas_gastos.length : 0
       }))
+
+      // Enriquecer con estado_real desde v_estado_factura por los IDs cargados
+      try {
+        const ids = mapped.map(f => f.id)
+        if (ids.length > 0) {
+          const { data: vEstado } = await supabase
+            .from('v_estado_factura')
+            .select('factura_id, estado_real')
+            .in('factura_id', ids)
+          if (vEstado && vEstado.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const estadoMap = new Map((vEstado as any[]).map(r => [r.factura_id, r.estado_real]))
+            mapped = mapped.map(f => ({ ...f, estado_real: (estadoMap.get(f.id) ?? null) as Factura['estado_real'] }))
+          }
+        }
+      } catch { /* degradación segura: estado_real queda null, usa fallback legacy */ }
+
+      if (myFetchId !== fetchIdRef.current) return
 
       if (necesitaClienteCompleto) {
         // 1. Filtrar por filtroCard
