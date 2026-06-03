@@ -355,11 +355,11 @@ const FICHA_CSS = `
 
 /* Tabla producción */
 .prod-table-wrap { overflow-x: auto; }
-.prod-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
-.prod-table th, .prod-table td { border: 1px solid var(--sl-border-strong); }
+.prod-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Lexend', sans-serif; font-size: 13px; }
+.prod-table th, .prod-table td { border-right: 1px solid var(--sl-border-strong); border-bottom: 1px solid var(--sl-border-strong); }
 
-/* Separador GRUESO entre grupos de día: borde izquierdo marcado en la 1ª col de cada día */
-.dia-ini { border-left: 3px solid #B01D23 !important; }
+/* Separador GRUESO entre grupos de día: borde izquierdo marcado en HOY (1ª col del día) */
+.prod-table th.dia-ini, .prod-table td.dia-ini { border-left: 3px solid #B01D23 !important; }
 
 .th-partida {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
@@ -392,7 +392,9 @@ const FICHA_CSS = `
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
 .td-partida-fin { text-align: right; }
 .td-celda { padding: 2px; }
-.td-celda-ssp { background: rgba(176,29,35,0.05); }
+/* HOY = urgente, fondo claro destacado. SSP = sombreado para diferenciar */
+.td-celda-hoy { background: var(--bg-card); }
+.td-celda-ssp { background: rgba(176,29,35,0.08); }
 .celda-input {
   width: 100%; min-width: 38px; background: transparent; border: none; outline: none;
   font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
@@ -421,8 +423,8 @@ const FICHA_CSS = `
   .print-ficha .ficha-section { border-color: #ccc !important; padding: 3mm 5mm; }
   .print-ficha .prod-table-wrap { overflow: visible !important; }
   .print-ficha .prod-table { font-size: 8px; }
-  .print-ficha .prod-table th, .print-ficha .prod-table td { border: 1px solid #333 !important; }
-  .print-ficha .dia-ini { border-left: 2.5px solid #111 !important; }
+  .print-ficha .prod-table th, .print-ficha .prod-table td { border-right: 1px solid #333 !important; border-bottom: 1px solid #333 !important; }
+  .print-ficha .prod-table th.dia-ini, .print-ficha .prod-table td.dia-ini { border-left: 2.5px solid #111 !important; }
   .print-ficha .th-partida { background: #B01D23 !important; color: #fff !important; padding: 3px 5px !important; position: static !important; }
   .print-ficha .th-dia { background: #B01D23 !important; color: #fff !important; padding: 3px 2px !important; }
   .print-ficha .th-sub-empty { background: #8c161c !important; position: static !important; }
@@ -431,6 +433,7 @@ const FICHA_CSS = `
   .print-ficha .td-seccion { background: #eee !important; color: #B01D23 !important; font-weight: 700; padding: 3px 5px !important; }
   .print-ficha .td-partida { color: #111 !important; background: #fff !important; padding: 2px 5px !important; position: static !important; }
   .print-ficha .td-celda { padding: 1px !important; }
+  .print-ficha .td-celda-hoy { background: #fff !important; }
   .print-ficha .td-celda-ssp { background: #ededed !important; }
   .print-ficha .celda-print { color: #111 !important; font-size: 8px; }
 }
