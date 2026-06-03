@@ -453,6 +453,13 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 // AVANZA EL CONTADOR FACTURA A FACTURA (no al final del lote), luego se vuelve a
 // llamar a sí mismo hasta acabar. Sin cron de Vercel.
 //
+// SEGURIDAD ANTI-PÉRDIDA (Rubén 03/06/26): para releer un PDF hay que borrar la
+// fila (si no, el motor la detecta como duplicada y no la relee). Para que un
+// fallo de relectura NO pierda la factura, se guarda la fila ORIGINAL completa
+// antes de borrar y, si la relectura NO termina en 'ok'/'duplicada' (error o
+// excepción), se RESTAURA la fila original tal cual. Resultado: relectura buena →
+// se reemplaza; relectura mala → la factura sigue exactamente como estaba.
+//
 // Por qué lote pequeño + guardado por factura: algunos PDF escaneados tardan mucho
 // en Tesseract. Con lotes grandes la función se quedaba sin tiempo (límite 300 s) y
 // no llegaba a guardar NADA → el contador no avanzaba nunca. Con lote pequeño cada
@@ -482,9 +489,10 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   // Marcar arranque del lote desde ya (deja constancia aunque luego se corte).
   await supabaseAdmin.from('reproc_control').update({ ultimo_run: new Date().toISOString() }).eq('id', job.id as string)
 
+  // select('*') para poder RESTAURAR la fila íntegra si la relectura falla.
   let q = supabaseAdmin
     .from('facturas')
-    .select('id, pdf_drive_id, pdf_original_name, proveedor_nombre, fecha_factura, total')
+    .select('*')
     .not('pdf_drive_id', 'is', null)
     .order('fecha_factura', { ascending: true })
 
@@ -514,34 +522,62 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   for (const f of facturas) {
     const driveId = f.pdf_drive_id as string
     const nombre = (f.pdf_original_name as string) || `${f.id}.pdf`
+    // Copia íntegra de la fila original para poder restaurarla si algo falla.
+    const original = { ...(f as Record<string, unknown>) }
+    let borrada = false
     let lineaInforme: Record<string, unknown>
     try {
       const buffer = await descargarArchivoDeDrive(driveId)
       await supabaseAdmin.from('facturas_gastos').delete().eq('factura_id', f.id as string)
       await supabaseAdmin.from('facturas_plataforma_detalle').delete().eq('factura_id', f.id as string)
       await supabaseAdmin.from('facturas').delete().eq('id', f.id as string)
+      borrada = true
 
       const resultados = await procesarArchivo(supabaseAdmin, { nombre, buffer }, sesionId)
       const r = resultados[0]
-      const fac = (r.factura || r.factura_existente) as Record<string, unknown> | undefined
-      const estadoFinal = (fac?.estado as string) || null
-      const conc = ['conciliada', 'asociada'].includes(estadoFinal || '')
-      const resultado = r.estado === 'ok' ? 'ok' : r.estado === 'duplicada' ? 'duplicada' : 'error'
-      if (resultado === 'error') errores++; else ok++
-      if (conc) conciliadas++
-      lineaInforme = {
-        control_id: job.id,
-        factura_id: (r.factura_id as string) || (f.id as string),
-        archivo: nombre,
-        proveedor: (fac?.proveedor_nombre as string) || (f.proveedor_nombre as string) || null,
-        total: fac?.total != null ? Number(fac.total) : (f.total != null ? Number(f.total) : null),
-        resultado,
-        estado_final: estadoFinal,
-        conciliada: conc,
-        en_drive: !!(fac?.pdf_drive_id),
-        motivo: r.motivo || r.error || null,
+
+      if (!r || r.estado === 'error') {
+        // Relectura SIN éxito → restaurar la factura original (no se pierde nada).
+        await supabaseAdmin.from('facturas').insert(original)
+        borrada = false
+        errores++
+        lineaInforme = {
+          control_id: job.id,
+          factura_id: f.id as string,
+          archivo: nombre,
+          proveedor: (f.proveedor_nombre as string) || null,
+          total: f.total != null ? Number(f.total) : null,
+          resultado: 'error',
+          estado_final: (original.estado as string) || null,
+          conciliada: false,
+          en_drive: !!driveId,
+          motivo: `${r?.error || 'relectura sin resultado'} · factura original restaurada`,
+        }
+      } else {
+        const fac = (r.factura || r.factura_existente) as Record<string, unknown> | undefined
+        const estadoFinal = (fac?.estado as string) || null
+        const conc = ['conciliada', 'asociada'].includes(estadoFinal || '')
+        const resultado = r.estado === 'duplicada' ? 'duplicada' : 'ok'
+        ok++
+        if (conc) conciliadas++
+        lineaInforme = {
+          control_id: job.id,
+          factura_id: (r.factura_id as string) || (f.id as string),
+          archivo: nombre,
+          proveedor: (fac?.proveedor_nombre as string) || (f.proveedor_nombre as string) || null,
+          total: fac?.total != null ? Number(fac.total) : (f.total != null ? Number(f.total) : null),
+          resultado,
+          estado_final: estadoFinal,
+          conciliada: conc,
+          en_drive: !!(fac?.pdf_drive_id),
+          motivo: r.motivo || null,
+        }
       }
     } catch (e) {
+      // Excepción (p.ej. fallo al bajar de Drive). Si ya se había borrado, restaurar.
+      if (borrada) {
+        try { await supabaseAdmin.from('facturas').insert(original) } catch { /* noop */ }
+      }
       errores++
       lineaInforme = {
         control_id: job.id,
@@ -550,10 +586,10 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         proveedor: (f.proveedor_nombre as string) || null,
         total: f.total != null ? Number(f.total) : null,
         resultado: 'error',
-        estado_final: null,
+        estado_final: (original.estado as string) || null,
         conciliada: false,
         en_drive: false,
-        motivo: e instanceof Error ? e.message : String(e),
+        motivo: `${e instanceof Error ? e.message : String(e)} · factura original restaurada`,
       }
     }
 
@@ -577,7 +613,10 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   // Fin del job:
   //  - modo normal: cuando un lote viene incompleto (llegó al final del histórico).
   //  - modo sin-leer: cuando ya se han intentado tantas como había al arrancar.
-  const terminado = facturas.length < LOTE_REPROC || (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo)
+  //    (sin objetivo válido NO se encadena, para no entrar en bucle).
+  const terminado =
+    facturas.length < LOTE_REPROC ||
+    (soloSinLeer && (objetivo <= 0 || procesadasAcum >= objetivo))
 
   await supabaseAdmin.from('reproc_control').update({
     activo: !terminado,
