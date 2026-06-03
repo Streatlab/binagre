@@ -4,6 +4,7 @@ import { fmtEur, fmtDate } from '@/utils/format'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento } from '@/types/conciliacion'
 import { getNewId } from '@/lib/categoryMapping'
+import { cargarMatchingConfig, ventanaFechas, bandaImporte } from '@/lib/matching'
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
 interface Titular { id: string; nombre: string }
@@ -39,12 +40,10 @@ interface Props {
   onSaved: (m: Movimiento) => void
 }
 
-const MATCH_DAYS_WINDOW = 60
-
+// Calcula diferencia en días usando fechas locales (evita desfase UTC — D-12)
 function diffDias(d1: string, d2: string): number {
-  const a = new Date(d1).getTime()
-  const b = new Date(d2).getTime()
-  return Math.round(Math.abs(a - b) / 86400000)
+  const parse = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).getTime() }
+  return Math.round(Math.abs(parse(d1) - parse(d2)) / 86400000)
 }
 
 export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titulares, onClose, onSaved }: Props) {
@@ -126,9 +125,10 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     const timer = setTimeout(async () => {
       setCargandoCandidatas(true)
       try {
-        const fechaMov = new Date(movimiento.fecha)
-        const desde = new Date(fechaMov.getTime() - MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
-        const hasta = new Date(fechaMov.getTime() + MATCH_DAYS_WINDOW * 86400000).toISOString().slice(0, 10)
+        // Motor único: parámetros desde matching_config según proveedor del movimiento
+        const paramsPara = await cargarMatchingConfig()
+        const params = paramsPara(movimiento.contraparte ?? '')
+        const { desde, hasta } = ventanaFechas(movimiento.fecha, params.ventana_dias)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q: any = supabase
@@ -137,7 +137,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           .gte('fecha_factura', desde)
           .lte('fecha_factura', hasta)
           .order('fecha_factura', { ascending: false })
-          .limit(30)
+          .limit(100) // margen mayor; se recorta a 30 tras ordenar por diff_dias (D-09)
 
         if (movimiento.titular_id) {
           q = q.or(`titular_id.eq.${movimiento.titular_id},titular_id.is.null`)
@@ -147,9 +147,9 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           const safe = busquedaFactura.trim().replace(/[%_,()]/g, ' ')
           q = q.or(`numero_factura.ilike.%${safe}%,proveedor_nombre.ilike.%${safe}%`)
         } else {
-          const min = importeAbs * 0.95
-          const max = importeAbs * 1.05
-          q = q.gte('total', min).lte('total', max)
+          // Banda sobre valor absoluto: cubre ingresos positivos Y abonos negativos (D-02, D-03)
+          const { min, max } = bandaImporte(importeAbs, params.tolerancia_eur)
+          q = q.or(`and(total.gte.${min},total.lte.${max}),and(total.gte.${-max},total.lte.${-min})`)
         }
 
         const { data } = await q
@@ -176,11 +176,13 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             fecha_factura: f.fecha_factura ?? '',
             total: Number(f.total ?? 0),
             pdf_drive_url: f.pdf_drive_url,
-            importe_restante: +(Number(f.total ?? 0) - (asociadoPorFactura[f.id] ?? 0)).toFixed(2),
+            importe_restante: +(Math.abs(Number(f.total ?? 0)) - (asociadoPorFactura[f.id] ?? 0)).toFixed(2),
             diff_dias: diffDias(f.fecha_factura, movimiento.fecha),
           }))
           .filter(f => !facturasAsociadas.some(a => a.factura_id === f.id))
+          .filter(f => f.importe_restante > 0.005) // excluir ya consumidas (D-09)
           .sort((a, b) => a.diff_dias - b.diff_dias)
+          .slice(0, 30) // las 30 más cercanas en fecha (D-09)
 
         setCandidatas(mapped)
       } finally {
@@ -211,7 +213,11 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       return
     }
     if (importe > restante + 0.01) {
-      toast.error(`Importe supera el restante (${fmtEur(restante)})`)
+      toast.error(`Importe supera el restante del movimiento (${fmtEur(restante)})`)
+      return
+    }
+    if (importe > factura.importe_restante + 0.01) {
+      toast.error(`Importe supera el restante de la factura (${fmtEur(factura.importe_restante)})`)
       return
     }
     try {
@@ -442,7 +448,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           {mostrarBuscador && (
             <div style={{ background: '#fafaf7', borderRadius: 8, padding: 12, border: '0.5px solid #d0c8bc' }}>
               <input type="text" value={busquedaFactura} onChange={e => setBusquedaFactura(e.target.value)}
-                placeholder="Buscar factura por nº o proveedor (vacío = match ±60 días + importe ±5%)"
+                placeholder="Buscar factura por nº o proveedor (vacío = match según reglas de proveedor)"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 12, marginBottom: 10, boxSizing: 'border-box', outline: 'none' }} />
 
               {cargandoCandidatas && (
@@ -451,7 +457,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
               {!cargandoCandidatas && candidatas.length === 0 && (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#7a8090' }}>
-                  Sin candidatas en ±60 días.
+                  Sin candidatas en la ventana configurada.
                 </div>
               )}
 
