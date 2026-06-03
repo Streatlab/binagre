@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Printer, Plus, Trash2, X, Check, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+import React from 'react'
+import { ClipboardList, Printer, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -8,8 +9,7 @@ import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActi
 type Dia = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 const DIAS: Dia[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
 const DIAS_LABEL: Record<Dia, string> = {
-  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles',
-  jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo',
+  lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D',
 }
 
 interface CeldaValor { hoy: string; ssp: string }
@@ -37,22 +37,20 @@ function getSemanaLabel(iso: string): string {
   return `Semana ${week} · ${fmt(startOfWeek)}–${fmt(endOfWeek)}`
 }
 
-// ─── COMPONENTE PRINCIPAL (MÓDULO PRODUCCIÓN CON TABS) ─────────────────────────
+// ─── COMPONENTE PRINCIPAL: MÓDULO PRODUCCIÓN ───────────────────────────────────
 
 export default function Produccion() {
   const { T, isDark } = useTheme()
   const [activeTab, setActiveTab] = useState<'lista'>('lista')
-
-  const tabs = [
-    { key: 'lista', label: 'Lista de Producción' },
-  ]
+  const tabs = [{ key: 'lista', label: 'Lista de Producción' }]
 
   return (
     <div style={{ ...groupStyle(T), width: '100%' }}>
-      <style>{PRINT_CSS}</style>
+      <style>{FICHA_CSS}</style>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }} className="no-print">
-        <h1 style={pageTitleStyle(T)}>PRODUCCIÓN</h1>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+        <ClipboardList size={24} color="#B01D23" />
+        <h1 style={{ ...pageTitleStyle(T), margin: 0 }}>PRODUCCIÓN</h1>
       </div>
 
       <div style={tabsContainerStyle()} className="no-print">
@@ -80,10 +78,8 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
 
   const [semanaActual] = useState(() => getSemanaISO(new Date()))
   const [semana, setSemana] = useState(semanaActual)
-
   const [modalSecciones, setModalSecciones] = useState(false)
   const [modalPartidas, setModalPartidas] = useState(false)
-  const [seccionesAbiertas, setSeccionesAbiertas] = useState<Set<string>>(new Set())
 
   useEffect(() => { cargar() }, [semana])
 
@@ -99,7 +95,6 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
       setSecciones((secs as Seccion[]) ?? [])
       setPartidas((parts as Partida[]) ?? [])
       setEntradas((ents as EntradaProduccion[]) ?? [])
-      if (secs?.length) setSeccionesAbiertas(new Set(secs.map((s: Seccion) => s.id)))
     }
     setLoading(false)
   }
@@ -126,15 +121,8 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
     }
   }
 
-  function toggleSeccion(id: string) {
-    setSeccionesAbiertas(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  }
-  function semanaAnterior() {
-    const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() - 7); setSemana(getSemanaISO(d))
-  }
-  function semanaSiguiente() {
-    const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() + 7); setSemana(getSemanaISO(d))
-  }
+  function semanaAnterior() { const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() - 7); setSemana(getSemanaISO(d)) }
+  function semanaSiguiente() { const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() + 7); setSemana(getSemanaISO(d)) }
 
   if (loading) return <div style={{ padding: 24, color: T.sec, fontFamily: FONT.body }}>Cargando producción…</div>
   if (error) return <div style={{ padding: 24, color: '#B01D23', fontFamily: FONT.body }}>Error: {error}</div>
@@ -143,88 +131,87 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
     <>
       {/* Barra de acciones */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <button onClick={semanaAnterior} style={btnGhost(T)}>‹ Anterior</button>
+        <button onClick={semanaAnterior} style={btnGhost}>‹ Anterior</button>
         <div style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, letterSpacing: '0.5px' }}>
           {getSemanaLabel(semana)}
-          {semana === semanaActual && (
-            <span style={{ marginLeft: 8, background: '#B01D23', color: '#fff', borderRadius: 99, fontSize: 10, padding: '2px 8px', fontFamily: FONT.body }}>Esta semana</span>
-          )}
+          {semana === semanaActual && <span style={{ marginLeft: 8, background: '#B01D23', color: '#fff', borderRadius: 99, fontSize: 10, padding: '2px 8px', fontFamily: FONT.body }}>Esta semana</span>}
         </div>
-        <button onClick={semanaSiguiente} style={btnGhost(T)}>Siguiente ›</button>
-        {semana !== semanaActual && <button onClick={() => setSemana(semanaActual)} style={{ ...btnGhost(T), fontSize: 12 }}>Hoy</button>}
+        <button onClick={semanaSiguiente} style={btnGhost}>Siguiente ›</button>
+        {semana !== semanaActual && <button onClick={() => setSemana(semanaActual)} style={{ ...btnGhost, fontSize: 12 }}>Hoy</button>}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setModalSecciones(true)} style={btnGhost(T)}><Plus size={16} /> Secciones</button>
-          <button onClick={() => setModalPartidas(true)} style={btnGhost(T)}><Plus size={16} /> Partidas</button>
-          <button onClick={() => window.print()} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
+          <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
+          <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
+          <button onClick={() => window.print()} style={btnGhost}><Printer size={15} /> Imprimir / PDF</button>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="print-area tabla-scroll" style={{ overflowX: 'auto', background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 13 }}>
-          <thead>
-            <tr>
-              <th style={thPartida(T, isDark)}>Partida</th>
-              {DIAS.map(dia => <th key={dia} colSpan={2} style={thDia(T, isDark)}>{DIAS_LABEL[dia]}</th>)}
-            </tr>
-            <tr>
-              <th style={thSub(T, isDark)} />
-              {DIAS.map(dia => (
-                <>
-                  <th key={`${dia}-hoy`} style={thSubLabel(T, isDark, false)}>HOY</th>
-                  <th key={`${dia}-ssp`} style={thSubLabel(T, isDark, true)}>SSP</th>
-                </>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {secciones.map(sec => {
-              const partsSeccion = partidas.filter(p => p.seccion_id === sec.id)
-              const isOpen = seccionesAbiertas.has(sec.id)
-              return (
-                <>
-                  <tr key={`sec-${sec.id}`} className="fila-seccion" onClick={() => toggleSeccion(sec.id)} style={{ cursor: 'pointer' }}>
-                    <td colSpan={15} style={tdSeccion(T, isDark)}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {isOpen ? <ChevronDown size={14} color="#B01D23" /> : <ChevronRight size={14} color="#B01D23" />}
-                        {sec.nombre}
-                      </span>
-                    </td>
-                  </tr>
-                  {isOpen && partsSeccion.map((part, idx) => (
-                    <tr key={part.id} style={{ background: idx % 2 === 0 ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)') : 'transparent' }}>
-                      <td style={tdPartida(T, isDark)}>{part.nombre}</td>
-                      {DIAS.map(dia => {
-                        const celda = getCelda(part.id, dia)
-                        return (
-                          <>
-                            <td key={`${part.id}-${dia}-hoy`} style={tdCelda(isDark, false)}>
-                              <input value={celda.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} style={inputCelda(T, false)} placeholder="—" />
-                            </td>
-                            <td key={`${part.id}-${dia}-ssp`} style={tdCelda(isDark, true)}>
-                              <input value={celda.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} style={inputCelda(T, true)} placeholder="—" />
-                            </td>
-                          </>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </>
-              )
-            })}
-          </tbody>
-        </table>
-        {secciones.length === 0 && (
-          <div className="no-print" style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
-            Sin secciones. Añade secciones y partidas con los botones de arriba.
-          </div>
-        )}
-      </div>
+      {/* FICHA IMPRIMIBLE — estilo recetario */}
+      <div className="print-ficha ficha-card">
+        <div className="ficha-head">
+          <span className="ficha-id">PROD</span>
+          <span className="ficha-title">Lista de Producción</span>
+          <span className="ficha-week">{getSemanaLabel(semana)}</span>
+        </div>
 
-      {/* Leyenda */}
-      <div className="no-print" style={{ display: 'flex', gap: 16, fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 12 }}>
-        <span><strong style={{ color: T.sec }}>HOY</strong> — Producción urgente</span>
-        <span><strong style={{ color: T.sec }}>SSP</strong> — Si se puede: hoy si hay tiempo, si no mañana</span>
+        <div className="ficha-section" style={{ borderBottom: 'none', paddingBottom: 6 }}>
+          <div className="prod-table-wrap">
+            <table className="prod-table">
+              <thead>
+                <tr>
+                  <th className="th-partida">Partida</th>
+                  {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia">{DIAS_LABEL[dia]}</th>)}
+                </tr>
+                <tr>
+                  <th className="th-sub-empty" />
+                  {DIAS.map(dia => (
+                    <React.Fragment key={dia}>
+                      <th className="th-sub th-sub-hoy">HOY</th>
+                      <th className="th-sub th-sub-ssp">SSP</th>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {secciones.map(sec => {
+                  const partsSeccion = partidas.filter(p => p.seccion_id === sec.id)
+                  return (
+                    <React.Fragment key={sec.id}>
+                      <tr className="fila-seccion">
+                        <td colSpan={15} className="td-seccion">{sec.nombre}</td>
+                      </tr>
+                      {partsSeccion.map(part => (
+                        <tr key={part.id} className="fila-partida">
+                          <td className="td-partida">{part.nombre}</td>
+                          {DIAS.map(dia => {
+                            const c = getCelda(part.id, dia)
+                            return (
+                              <React.Fragment key={dia}>
+                                <td className="td-celda td-celda-hoy">
+                                  <input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" />
+                                  <span className="celda-print">{c.hoy}</span>
+                                </td>
+                                <td className="td-celda td-celda-ssp">
+                                  <input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" />
+                                  <span className="celda-print">{c.ssp}</span>
+                                </td>
+                              </React.Fragment>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            {secciones.length === 0 && <div className="no-print" style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin secciones. Añade con los botones de arriba.</div>}
+          </div>
+
+          <div className="prod-leyenda">
+            <span><strong>HOY</strong> — producción urgente, se hace hoy sí o sí</span>
+            <span><strong>SSP</strong> — si se puede: hoy si hay tiempo, si no mañana</span>
+          </div>
+        </div>
       </div>
 
       {modalSecciones && <ModalGestionSecciones T={T} secciones={secciones} onClose={() => setModalSecciones(false)} onSaved={() => { setModalSecciones(false); cargar() }} />}
@@ -326,39 +313,133 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
   )
 }
 
-// ─── ESTILOS ──────────────────────────────────────────────────────────────────
+// ─── ESTILOS BOTONES / MODALES ─────────────────────────────────────────────────
 
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
-const btnGhost = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' })
+const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
 const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
 const lblStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'block', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 5 })
 const iconBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' })
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
 const modalBox: React.CSSProperties = { borderRadius: 16, width: 560, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }
 
-const thPartida = (T: ReturnType<typeof useTheme>['T'], isDark: boolean): React.CSSProperties => ({ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', textAlign: 'left', padding: '10px 12px', background: isDark ? '#1e2233' : '#1a1a1a', color: '#fff', border: `1px solid ${isDark ? '#2d3454' : '#333'}`, minWidth: 160, position: 'sticky', left: 0, zIndex: 2 })
-const thDia = (T: ReturnType<typeof useTheme>['T'], isDark: boolean): React.CSSProperties => ({ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', padding: '8px 4px', background: isDark ? '#1e2233' : '#1a1a1a', border: `1px solid ${isDark ? '#2d3454' : '#333'}`, minWidth: 100 })
-const thSub = (T: ReturnType<typeof useTheme>['T'], isDark: boolean): React.CSSProperties => ({ background: isDark ? '#1e2233' : '#1a1a1a', border: `1px solid ${isDark ? '#2d3454' : '#333'}`, position: 'sticky', left: 0, zIndex: 2 })
-const thSubLabel = (T: ReturnType<typeof useTheme>['T'], isDark: boolean, isSSP = false): React.CSSProperties => ({ fontFamily: FONT.body, fontSize: 10, color: isSSP ? '#aaa' : '#e8f442', textAlign: 'center', padding: '4px 2px', background: isDark ? (isSSP ? '#16192a' : '#1a1d30') : (isSSP ? '#2a2a2a' : '#222'), border: `1px solid ${isDark ? '#2d3454' : '#333'}`, minWidth: 48 })
-const tdSeccion = (T: ReturnType<typeof useTheme>['T'], isDark: boolean): React.CSSProperties => ({ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 12px', background: isDark ? 'rgba(176,29,35,0.08)' : 'rgba(176,29,35,0.06)', border: `1px solid ${isDark ? '#2d3454' : '#ddd'}`, userSelect: 'none' })
-const tdPartida = (T: ReturnType<typeof useTheme>['T'], isDark: boolean): React.CSSProperties => ({ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '6px 12px', border: `1px solid ${isDark ? '#2d3454' : '#ddd'}`, position: 'sticky', left: 0, zIndex: 1, background: isDark ? T.card : '#fff', whiteSpace: 'nowrap' })
-const tdCelda = (isDark: boolean, isSSP = false): React.CSSProperties => ({ padding: '3px', border: `1px solid ${isDark ? '#2d3454' : '#ddd'}`, background: isSSP ? (isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)') : 'transparent' })
-const inputCelda = (T: ReturnType<typeof useTheme>['T'], isSSP = false): React.CSSProperties => ({ width: '100%', minWidth: 44, background: 'transparent', border: 'none', outline: 'none', fontFamily: FONT.body, fontSize: 13, color: isSSP ? T.sec : T.pri, padding: '4px 6px', textAlign: 'center' })
+// ─── CSS FICHA (mismo lenguaje que Recetario, rojo en vez de amarillo) ─────────
 
-const PRINT_CSS = `
-.tabla-scroll { overflow-x: auto; }
+const FICHA_CSS = `
+/* Tarjeta clara, igual superficie que ficha receta */
+.ficha-card {
+  font-family: 'Lexend', sans-serif;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.ficha-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sl-border-strong);
+}
+.ficha-id {
+  background: #B01D23; color: #fff;
+  font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 12px;
+  padding: 3px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.ficha-title {
+  font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 21px;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary);
+  line-height: 1.15;
+}
+.ficha-week {
+  margin-left: auto; font-family: 'Oswald', sans-serif; font-size: 12px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+}
+.ficha-section { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.ficha-section:last-child { border-bottom: none; }
+
+/* Tabla producción */
+.prod-table-wrap { overflow-x: auto; }
+.prod-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
+.prod-table th, .prod-table td { border: 1px solid var(--sl-border-strong); }
+.th-partida {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase; text-align: left;
+  padding: 8px 10px; background: #B01D23; color: #fff; min-width: 150px;
+  position: sticky; left: 0; z-index: 2;
+}
+.th-dia {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; text-align: center;
+  padding: 7px 4px; background: #B01D23; color: #fff; min-width: 84px;
+}
+.th-sub-empty { background: #8c161c; position: sticky; left: 0; z-index: 2; }
+.th-sub {
+  font-family: 'Oswald', sans-serif; font-size: 9px; font-weight: 600;
+  letter-spacing: 0.06em; text-align: center; padding: 3px 2px; color: #fff;
+  min-width: 42px;
+}
+.th-sub-hoy { background: #8c161c; }
+.th-sub-ssp { background: #6e1116; color: #f0c9cb; }
+.td-seccion {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: #B01D23;
+  padding: 6px 10px; background: rgba(176,29,35,0.07);
+}
+.td-partida {
+  font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
+  padding: 4px 10px; white-space: nowrap;
+  position: sticky; left: 0; z-index: 1; background: var(--bg-card);
+}
+.fila-partida:nth-child(odd) .td-partida { background: var(--bg-card); }
+.td-celda { padding: 2px; }
+.td-celda-ssp { background: rgba(0,0,0,0.02); }
+.celda-input {
+  width: 100%; min-width: 40px; background: transparent; border: none; outline: none;
+  font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
+  padding: 4px 4px; text-align: center;
+}
+.celda-ssp { color: var(--text-muted); }
+.celda-print { display: none; }
+.prod-leyenda {
+  display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px;
+  font-family: 'Lexend', sans-serif; font-size: 11px; color: var(--text-muted);
+}
+.prod-leyenda strong { color: var(--text-label-sec); }
+
+/* ── IMPRESIÓN: A4 horizontal, papel blanco, negro, 5mm márgenes ── */
 @media print {
   @page { size: A4 landscape; margin: 5mm; }
+  html, body { background: #fff !important; }
   body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
+  .print-ficha, .print-ficha * { visibility: visible; }
   .no-print { display: none !important; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; border: none !important; }
-  .tabla-scroll { overflow: visible !important; }
-  table { width: 100%; border-collapse: collapse; font-size: 8px; }
-  th, td { border: 1px solid #333 !important; padding: 3px 4px !important; }
-  th { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .fila-seccion td { background: #eeeeee !important; color: #B01D23 !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  input { border: none !important; background: transparent !important; font-size: 8px; width: 100%; text-align: center; }
-  thead th:first-child, tbody td:first-child { position: static !important; }
+  .celda-input { display: none !important; }
+  .celda-print { display: inline !important; }
+  .print-ficha {
+    position: absolute; left: 0; top: 0; width: 100%;
+    box-sizing: border-box;
+    background: #fff !important; color: #111 !important;
+    border: 1px solid #111 !important; border-radius: 6px !important;
+  }
+  .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-id { background: #B01D23 !important; color: #fff !important; }
+  .print-ficha .ficha-title, .print-ficha .ficha-week { color: #111 !important; }
+  .print-ficha .ficha-section { border-color: #ccc !important; padding: 3mm 5mm; }
+  .print-ficha .prod-table-wrap { overflow: visible !important; }
+  .print-ficha .prod-table { font-size: 8px; }
+  .print-ficha .prod-table th, .print-ficha .prod-table td { border: 1px solid #333 !important; }
+  .print-ficha .th-partida { background: #B01D23 !important; color: #fff !important; padding: 3px 5px !important; position: static !important; }
+  .print-ficha .th-dia { background: #B01D23 !important; color: #fff !important; padding: 3px 2px !important; }
+  .print-ficha .th-sub-empty { background: #8c161c !important; position: static !important; }
+  .print-ficha .th-sub-hoy { background: #8c161c !important; color: #fff !important; }
+  .print-ficha .th-sub-ssp { background: #6e1116 !important; color: #f0c9cb !important; }
+  .print-ficha .td-seccion { background: #eee !important; color: #B01D23 !important; font-weight: 700; padding: 3px 5px !important; }
+  .print-ficha .td-partida { color: #111 !important; background: #fff !important; padding: 2px 5px !important; position: static !important; }
+  .print-ficha .td-celda { padding: 1px !important; }
+  .print-ficha .td-celda-ssp { background: #f7f7f7 !important; }
+  .print-ficha .celda-print { color: #111 !important; font-size: 8px; }
+  .print-ficha .prod-leyenda { color: #555 !important; }
+  .print-ficha .prod-leyenda strong { color: #111 !important; }
 }
 `
