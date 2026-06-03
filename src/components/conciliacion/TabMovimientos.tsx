@@ -73,10 +73,11 @@ type Agregados = {
 
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 
-function calcularEstado(m: Movimiento): 'conciliado' | 'pendiente' {
+function calcularEstado(m: Movimiento): 'conciliado' | 'parcial' | 'pendiente' {
+  if (m.estado_real) return m.estado_real
+  // fallback legacy solo si la RPC no respondió
   if (!m.categoria_id) return 'pendiente'
-  if (m.doc_estado === 'no_requiere') return 'conciliado'
-  if (m.doc_estado === 'tiene') return 'conciliado'
+  if (m.doc_estado === 'tiene' || m.doc_estado === 'no_requiere') return 'conciliado'
   return 'pendiente'
 }
 
@@ -119,7 +120,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         case 'importe':      return row.importe
         case 'categoria':    return row.categoria_id ?? ''
         case 'doc':          return row.doc_estado ?? ''
-        case 'estado':       return calcularEstado(row) === 'conciliado' ? 0 : 1
+        case 'estado':       return calcularEstado(row) === 'conciliado' ? 0 : calcularEstado(row) === 'parcial' ? 1 : 2
         case 'titular':      return row.titular_id ?? ''
         default:             return ''
       }
@@ -132,6 +133,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const [cargando, setCargando]     = useState<boolean>(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const fetchIdRef                  = useRef<number>(0)
+  const estadoRealCacheRef          = useRef<{ key: string; data: Map<string, 'conciliado' | 'parcial' | 'pendiente'> } | null>(null)
 
   const [agregados, setAgregados] = useState<Agregados | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -227,9 +229,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (filtroCard === 'pend_sin_doc') q = q.not('categoria', 'is', null).eq('doc_estado', 'falta')
     if (filtroCard === 'pend_total')   q = q.or('categoria.is.null,doc_estado.eq.falta')
 
-    if (ocultarConciliados && !filtroCard) {
-      q = q.or('categoria.is.null,doc_estado.eq.falta')
-    }
+    // ocultarConciliados se aplica en cliente tras enriquecer con estado_real
 
     if (catFiltro !== 'todas') q = q.eq('categoria', catFiltro)
 
@@ -268,15 +268,13 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
     const { data, error, count } = await q
 
-    if (myFetchId !== fetchIdRef.current) return
-
     if (error) {
       setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
       setFilas([])
       setTotal(0)
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped = (data ?? []).map((m: any): Movimiento => ({
+      let mapped = (data ?? []).map((m: any): Movimiento => ({
         id:          m.id,
         fecha:       m.fecha,
         concepto:    m.concepto,
@@ -289,6 +287,25 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         titular_id:  m.titular_id ?? null,
         doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
       }))
+
+      // Enriquecer con estado_real desde la RPC (una vez por periodo+refreshTick)
+      const cacheKey = `${periodoDesdeStr}|${periodoHastaStr}|${refreshTick}`
+      let estadoRealMap: Map<string, 'conciliado' | 'parcial' | 'pendiente'>
+      if (estadoRealCacheRef.current?.key === cacheKey) {
+        estadoRealMap = estadoRealCacheRef.current.data
+      } else {
+        try {
+          const { data: rpcData } = await supabase.rpc('estado_movimientos_periodo', { p_desde: periodoDesdeStr, p_hasta: periodoHastaStr })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          estadoRealMap = new Map((rpcData ?? []).map((r: any) => [r.movimiento_id, r.estado_real as 'conciliado' | 'parcial' | 'pendiente']))
+          estadoRealCacheRef.current = { key: cacheKey, data: estadoRealMap }
+        } catch {
+          estadoRealMap = new Map()
+        }
+      }
+      mapped = mapped.map((m: Movimiento) => ({ ...m, estado_real: estadoRealMap.get(m.id) ?? null }))
+
+      if (myFetchId !== fetchIdRef.current) return
 
       if (necesitaClienteCompleto) {
         const ordenadas = ms.applySorts(mapped)
@@ -412,7 +429,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  const filasVisibles = useMemo(() => filas, [filas])
+  const filasVisibles = useMemo(() => {
+    if (ocultarConciliados && !filtroCard) {
+      return filas.filter(m => calcularEstado(m) !== 'conciliado')
+    }
+    return filas
+  }, [filas, ocultarConciliados, filtroCard])
 
   const handleExportar = async () => {
     setExportando(true)
@@ -709,7 +731,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     const isEmilio = titNombre.includes('emilio')
 
                     const facturaUrl = (m as unknown as { factura_data?: { pdf_drive_url?: string | null } }).factura_data?.pdf_drive_url ?? null
-                    const tieneDoc = m.doc_estado === 'tiene' || (m.factura_id && facturaUrl)
+                    // Icono doc: basado en estado_real si disponible, fallback a doc_estado legacy
+                    const tieneDoc = m.estado_real
+                      ? (m.estado_real === 'conciliado' || m.estado_real === 'parcial')
+                      : (m.doc_estado === 'tiene' || !!(m.factura_id && facturaUrl))
 
                     const tdDocBase: React.CSSProperties = {
                       padding: 0,
@@ -784,8 +809,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         )}
                         <td style={tdBase}>
                           {estado === 'conciliado' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#1D9E7515', color: '#0F6E56' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#0F6E5615', color: '#0F6E56' }}>
                               Conciliado
+                            </span>
+                          ) : estado === 'parcial' ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>
+                              Parcial
                             </span>
                           ) : (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
