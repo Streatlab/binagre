@@ -9,7 +9,7 @@ import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActi
 type Dia = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 const DIAS: Dia[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
 const DIAS_LABEL: Record<Dia, string> = {
-  lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J', viernes: 'V', sabado: 'S', domingo: 'D',
+  lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo',
 }
 
 interface CeldaValor { hoy: string; ssp: string }
@@ -127,6 +127,29 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
   if (loading) return <div style={{ padding: 24, color: T.sec, fontFamily: FONT.body }}>Cargando producción…</div>
   if (error) return <div style={{ padding: 24, color: '#B01D23', fontFamily: FONT.body }}>Error: {error}</div>
 
+  // Render de una fila de partida (producto al inicio + 7 días [hoy|ssp] + producto al final)
+  const renderFilaPartida = (part: Partida) => (
+    <tr key={part.id} className="fila-partida">
+      <td className="td-partida td-partida-ini">{part.nombre}</td>
+      {DIAS.map(dia => {
+        const c = getCelda(part.id, dia)
+        return (
+          <React.Fragment key={dia}>
+            <td className="td-celda td-celda-hoy dia-ini">
+              <input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" />
+              <span className="celda-print">{c.hoy}</span>
+            </td>
+            <td className="td-celda td-celda-ssp">
+              <input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" />
+              <span className="celda-print">{c.ssp}</span>
+            </td>
+          </React.Fragment>
+        )
+      })}
+      <td className="td-partida td-partida-fin">{part.nombre}</td>
+    </tr>
+  )
+
   return (
     <>
       {/* Barra de acciones */}
@@ -148,7 +171,6 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
       {/* FICHA IMPRIMIBLE — estilo recetario */}
       <div className="print-ficha ficha-card">
         <div className="ficha-head">
-          <span className="ficha-id">PROD</span>
           <span className="ficha-title">Lista de Producción</span>
           <span className="ficha-week">{getSemanaLabel(semana)}</span>
         </div>
@@ -158,17 +180,19 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
             <table className="prod-table">
               <thead>
                 <tr>
-                  <th className="th-partida">Partida</th>
-                  {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia">{DIAS_LABEL[dia]}</th>)}
+                  <th className="th-partida th-partida-ini">Producto</th>
+                  {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia dia-ini">{DIAS_LABEL[dia]}</th>)}
+                  <th className="th-partida th-partida-fin">Producto</th>
                 </tr>
                 <tr>
                   <th className="th-sub-empty" />
                   {DIAS.map(dia => (
                     <React.Fragment key={dia}>
-                      <th className="th-sub th-sub-hoy">HOY</th>
+                      <th className="th-sub th-sub-hoy dia-ini">HOY</th>
                       <th className="th-sub th-sub-ssp">SSP</th>
                     </React.Fragment>
                   ))}
+                  <th className="th-sub-empty" />
                 </tr>
               </thead>
               <tbody>
@@ -177,39 +201,15 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
                   return (
                     <React.Fragment key={sec.id}>
                       <tr className="fila-seccion">
-                        <td colSpan={15} className="td-seccion">{sec.nombre}</td>
+                        <td colSpan={17} className="td-seccion">{sec.nombre}</td>
                       </tr>
-                      {partsSeccion.map(part => (
-                        <tr key={part.id} className="fila-partida">
-                          <td className="td-partida">{part.nombre}</td>
-                          {DIAS.map(dia => {
-                            const c = getCelda(part.id, dia)
-                            return (
-                              <React.Fragment key={dia}>
-                                <td className="td-celda td-celda-hoy">
-                                  <input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" />
-                                  <span className="celda-print">{c.hoy}</span>
-                                </td>
-                                <td className="td-celda td-celda-ssp">
-                                  <input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" />
-                                  <span className="celda-print">{c.ssp}</span>
-                                </td>
-                              </React.Fragment>
-                            )
-                          })}
-                        </tr>
-                      ))}
+                      {partsSeccion.map(renderFilaPartida)}
                     </React.Fragment>
                   )
                 })}
               </tbody>
             </table>
             {secciones.length === 0 && <div className="no-print" style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin secciones. Añade con los botones de arriba.</div>}
-          </div>
-
-          <div className="prod-leyenda">
-            <span><strong>HOY</strong> — producción urgente, se hace hoy sí o sí</span>
-            <span><strong>SSP</strong> — si se puede: hoy si hay tiempo, si no mañana</span>
           </div>
         </div>
       </div>
@@ -341,11 +341,6 @@ const FICHA_CSS = `
   padding: 16px 20px;
   border-bottom: 1px solid var(--sl-border-strong);
 }
-.ficha-id {
-  background: #B01D23; color: #fff;
-  font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 12px;
-  padding: 3px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
-}
 .ficha-title {
   font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 21px;
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary);
@@ -362,22 +357,27 @@ const FICHA_CSS = `
 .prod-table-wrap { overflow-x: auto; }
 .prod-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
 .prod-table th, .prod-table td { border: 1px solid var(--sl-border-strong); }
+
+/* Separador grueso entre grupos de día: borde izquierdo en la 1ª col de cada día */
+.dia-ini { border-left: 2.5px solid var(--text-primary) !important; }
+/* Separador fino HOY|SSP dentro del día = borde normal de la tabla (ya existe) */
+
 .th-partida {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
   letter-spacing: 0.12em; text-transform: uppercase; text-align: left;
-  padding: 8px 10px; background: #B01D23; color: #fff; min-width: 150px;
-  position: sticky; left: 0; z-index: 2;
+  padding: 8px 10px; background: #B01D23; color: #fff; min-width: 140px;
 }
+.th-partida-ini { position: sticky; left: 0; z-index: 2; }
 .th-dia {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
-  letter-spacing: 0.08em; text-transform: uppercase; text-align: center;
-  padding: 7px 4px; background: #B01D23; color: #fff; min-width: 84px;
+  letter-spacing: 0.06em; text-transform: uppercase; text-align: center;
+  padding: 7px 4px; background: #B01D23; color: #fff; min-width: 80px;
 }
-.th-sub-empty { background: #8c161c; position: sticky; left: 0; z-index: 2; }
+.th-sub-empty { background: #8c161c; }
 .th-sub {
   font-family: 'Oswald', sans-serif; font-size: 9px; font-weight: 600;
   letter-spacing: 0.06em; text-align: center; padding: 3px 2px; color: #fff;
-  min-width: 42px;
+  min-width: 40px;
 }
 .th-sub-hoy { background: #8c161c; }
 .th-sub-ssp { background: #6e1116; color: #f0c9cb; }
@@ -388,28 +388,23 @@ const FICHA_CSS = `
 }
 .td-partida {
   font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
-  padding: 4px 10px; white-space: nowrap;
-  position: sticky; left: 0; z-index: 1; background: var(--bg-card);
+  padding: 4px 10px; white-space: nowrap; background: var(--bg-card);
 }
-.fila-partida:nth-child(odd) .td-partida { background: var(--bg-card); }
+.td-partida-ini { position: sticky; left: 0; z-index: 1; }
+.td-partida-fin { text-align: right; }
 .td-celda { padding: 2px; }
 .td-celda-ssp { background: rgba(0,0,0,0.02); }
 .celda-input {
-  width: 100%; min-width: 40px; background: transparent; border: none; outline: none;
+  width: 100%; min-width: 38px; background: transparent; border: none; outline: none;
   font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
   padding: 4px 4px; text-align: center;
 }
 .celda-ssp { color: var(--text-muted); }
 .celda-print { display: none; }
-.prod-leyenda {
-  display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px;
-  font-family: 'Lexend', sans-serif; font-size: 11px; color: var(--text-muted);
-}
-.prod-leyenda strong { color: var(--text-label-sec); }
 
-/* ── IMPRESIÓN: A4 horizontal, papel blanco, negro, 5mm márgenes ── */
+/* ── IMPRESIÓN: A4 horizontal, papel blanco, negro, 10mm márgenes ── */
 @media print {
-  @page { size: A4 landscape; margin: 5mm; }
+  @page { size: A4 landscape; margin: 10mm; }
   html, body { background: #fff !important; }
   body * { visibility: hidden; }
   .print-ficha, .print-ficha * { visibility: visible; }
@@ -423,12 +418,12 @@ const FICHA_CSS = `
     border: 1px solid #111 !important; border-radius: 6px !important;
   }
   .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-id { background: #B01D23 !important; color: #fff !important; }
   .print-ficha .ficha-title, .print-ficha .ficha-week { color: #111 !important; }
   .print-ficha .ficha-section { border-color: #ccc !important; padding: 3mm 5mm; }
   .print-ficha .prod-table-wrap { overflow: visible !important; }
   .print-ficha .prod-table { font-size: 8px; }
   .print-ficha .prod-table th, .print-ficha .prod-table td { border: 1px solid #333 !important; }
+  .print-ficha .dia-ini { border-left: 2px solid #111 !important; }
   .print-ficha .th-partida { background: #B01D23 !important; color: #fff !important; padding: 3px 5px !important; position: static !important; }
   .print-ficha .th-dia { background: #B01D23 !important; color: #fff !important; padding: 3px 2px !important; }
   .print-ficha .th-sub-empty { background: #8c161c !important; position: static !important; }
@@ -439,7 +434,5 @@ const FICHA_CSS = `
   .print-ficha .td-celda { padding: 1px !important; }
   .print-ficha .td-celda-ssp { background: #f7f7f7 !important; }
   .print-ficha .celda-print { color: #111 !important; font-size: 8px; }
-  .print-ficha .prod-leyenda { color: #555 !important; }
-  .print-ficha .prod-leyenda strong { color: #111 !important; }
 }
 `
