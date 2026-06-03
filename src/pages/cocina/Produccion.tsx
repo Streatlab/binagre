@@ -358,9 +358,9 @@ const FICHA_CSS = `
 .prod-table { width: 100%; border-collapse: collapse; font-family: 'Lexend', sans-serif; font-size: 13px; }
 .prod-table th, .prod-table td { border: 1px solid var(--sl-border-strong); }
 
-/* Separador grueso entre grupos de día: borde izquierdo en la 1ª col de cada día */
-.dia-ini { border-left: 2.5px solid var(--text-primary) !important; }
-/* Separador fino HOY|SSP dentro del día = borde normal de la tabla (ya existe) */
+/* Separador GRUESO entre grupos de día: borde izquierdo marcado en la 1ª col de cada día */
+.dia-ini { border-left: 3px solid #B01D23 !important; }
+/* La columna SSP va sombreada para distinguirla rápido del HOY (urgente, en blanco) */
 
 .th-partida {
   font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600;
@@ -393,7 +393,7 @@ const FICHA_CSS = `
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
 .td-partida-fin { text-align: right; }
 .td-celda { padding: 2px; }
-.td-celda-ssp { background: rgba(0,0,0,0.02); }
+.td-celda-ssp { background: rgba(176,29,35,0.05); }
 .celda-input {
   width: 100%; min-width: 38px; background: transparent; border: none; outline: none;
   font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary);
@@ -423,7 +423,7 @@ const FICHA_CSS = `
   .print-ficha .prod-table-wrap { overflow: visible !important; }
   .print-ficha .prod-table { font-size: 8px; }
   .print-ficha .prod-table th, .print-ficha .prod-table td { border: 1px solid #333 !important; }
-  .print-ficha .dia-ini { border-left: 2px solid #111 !important; }
+  .print-ficha .dia-ini { border-left: 2.5px solid #111 !important; }
   .print-ficha .th-partida { background: #B01D23 !important; color: #fff !important; padding: 3px 5px !important; position: static !important; }
   .print-ficha .th-dia { background: #B01D23 !important; color: #fff !important; padding: 3px 2px !important; }
   .print-ficha .th-sub-empty { background: #8c161c !important; position: static !important; }
@@ -432,7 +432,7 @@ const FICHA_CSS = `
   .print-ficha .td-seccion { background: #eee !important; color: #B01D23 !important; font-weight: 700; padding: 3px 5px !important; }
   .print-ficha .td-partida { color: #111 !important; background: #fff !important; padding: 2px 5px !important; position: static !important; }
   .print-ficha .td-celda { padding: 1px !important; }
-  .print-ficha .td-celda-ssp { background: #f7f7f7 !important; }
+  .print-ficha .td-celda-ssp { background: #ededed !important; }
   .print-ficha .celda-print { color: #111 !important; font-size: 8px; }
 }
 `
