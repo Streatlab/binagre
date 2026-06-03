@@ -1,13 +1,18 @@
-// procesarArchivo v16 — Mistral una sola vez por proveedor (NIF en diccionario), sin tope diario
+// procesarArchivo v16 — Mistral SOLO arranca proveedor NUEVO (NIF sin ficha en reglas_conciliacion).
+//                      Si el NIF emisor ya está registrado, NUNCA se vuelve a llamar a Mistral:
+//                      sus facturas se leen por reglas/plantilla; si no, lectura manual. Jamás Mistral 2 veces.
 // v15 — + PASO 3 Mistral (red de seguridad de pago tras reglas+Tesseract)
 // v14 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
 //                      + PARTIDO MULTI-FACTURA (varias facturas en un PDF)
-// COSTE 0 € SIEMPRE. Cero API de pago. La lectura va por dos vías gratis:
+// COSTE 0 € SIEMPRE en lectura recurrente. La lectura va por dos vías gratis:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
 //      gratis: saca el texto de la imagen y se reintenta la lectura por reglas.
-// Si tras Tesseract sigue sin leerse → lectura manual (PDF guardado en Drive,
-// nunca se pierde). NUNCA se llama a ninguna API de pago.
+// Mistral es la ÚNICA excepción y SOLO como bootstrap: arranca la plantilla de un
+// proveedor cuyo NIF aún NO está en reglas_conciliacion. Tras leerlo una vez, el NIF
+// queda registrado y Mistral no se vuelve a usar para ese proveedor.
+// Si tras Tesseract sigue sin leerse y el proveedor ya es conocido → lectura manual
+// (PDF guardado en Drive, nunca se pierde).
 // v11: guardarLecturaManual IDEMPOTENTE (dedup por hash, nunca pierde archivo).
 // v12: dedup único válido = hash de archivo (mismo PDF exacto).
 // v13: retirado el lector de pago. Sustituido por Tesseract gratis. Titular sin
@@ -55,6 +60,9 @@ const OCR_TESSERACT_ACTIVO = process.env.OCR_DESACTIVAR_TESSERACT !== 'true'
 // Kill-switch opcional del partido multi-factura. Por defecto ENCENDIDO.
 // Para apagarlo: OCR_DESACTIVAR_MULTIFACTURA=true en Vercel.
 const MULTIFACTURA_ACTIVO = process.env.OCR_DESACTIVAR_MULTIFACTURA !== 'true'
+
+// Tope diario de lecturas Mistral (bootstrap de proveedores nuevos). Default 200/día.
+const OCR_MISTRAL_LIMITE_DIARIO = Number(process.env.OCR_MISTRAL_LIMITE_DIARIO) || 200
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -336,15 +344,31 @@ async function resolverTitular(
   return { titularId, carpeta, pendienteTitularManual: false, nifClienteNorm }
 }
 
-// ¿Este proveedor YA es conocido? Saca el NIF emisor del texto y mira si ya está
-// en reglas_conciliacion (= ya pasó por Mistral antes / ya tiene plantilla). Si es
-// conocido, NO se vuelve a gastar Mistral con él: Mistral solo se usa una vez por
-// proveedor. Si no se puede extraer el NIF, devuelve false (proveedor desconocido,
-// se permite Mistral). Nunca lanza.
-async function proveedorYaConocido(supabase: SupabaseClient, texto: string): Promise<boolean> {
+// ¿Queda margen dentro del tope diario de lecturas Mistral? Cuenta las filas de
+// ocr_auditoria con origen_lectura='mistral' creadas hoy. Si falla la cuenta,
+// devuelve false (conservador: no gasta).
+async function dentroDelTopeMistral(supabase: SupabaseClient): Promise<boolean> {
   try {
-    const nif = texto ? normalizarNif(extraerNifEmisorLibre(texto)) : null
-    if (!nif) return false
+    const hoy = new Date().toISOString().slice(0, 10)
+    const { count } = await supabase
+      .from('ocr_auditoria')
+      .select('id', { count: 'exact', head: true })
+      .eq('origen_lectura', 'mistral')
+      .gte('created_at', `${hoy}T00:00:00`)
+    return (count ?? 0) < OCR_MISTRAL_LIMITE_DIARIO
+  } catch {
+    return false
+  }
+}
+
+// CANDADO BOOTSTRAP (Rubén 02/06/26): ¿el NIF emisor ya tiene ficha en
+// reglas_conciliacion? Si la tiene, el proveedor YA fue dado de alta (bootstrap
+// hecho) → Mistral NO se vuelve a ejecutar para él NUNCA. Sus facturas se leen
+// por reglas/plantilla; si la plantilla no lee, van a lectura manual, jamás otra
+// vez a Mistral. Si falla la consulta, devuelve true (conservador: NO gasta).
+async function nifYaRegistrado(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
+  if (!nif) return false
+  try {
     const { data } = await supabase
       .from('reglas_conciliacion')
       .select('id')
@@ -352,13 +376,14 @@ async function proveedorYaConocido(supabase: SupabaseClient, texto: string): Pro
       .maybeSingle()
     return !!data
   } catch {
-    return false
+    return true
   }
 }
 
 // Aprende el proveedor por NIF: si Mistral leyó un NIF emisor + razón social que
 // aún no está en reglas_conciliacion, lo inserta. Así la próxima factura del mismo
-// proveedor se resuelve gratis por diccionario. Best-effort: nunca lanza.
+// proveedor se resuelve gratis por diccionario y Mistral no vuelve a usarse.
+// Best-effort: nunca lanza.
 async function aprenderProveedorNif(supabase: SupabaseClient, extracted: ExtractedFactura): Promise<void> {
   try {
     const nif = normalizarNif(extracted.nif_emisor)
@@ -525,14 +550,16 @@ async function procesarContenidoPrincipal(
   if (extractedReglas) {
     extracted = extractedReglas
   } else {
-    // PASO 3 (red de seguridad, ~0,002 €/factura): Mistral. Solo entra cuando
-    // reglas + Tesseract NO leyeron, hay clave y el proveedor NO es conocido aún
-    // (Mistral se usa UNA sola vez por proveedor: si su NIF ya está en el
-    // diccionario reglas_conciliacion, no se vuelve a gastar). Si lee con total →
-    // se usa; si las bases no cuadran, baja confianza a 50 para revisión; aprende
-    // el proveedor por NIF para no volver a usar Mistral con él.
+    // PASO 3 — BOOTSTRAP MISTRAL (~0,002 €), SOLO PROVEEDOR NUEVO.
+    // Reglas + Tesseract NO leyeron. Mistral SOLO arranca si el NIF emisor del
+    // documento aún NO está en reglas_conciliacion (proveedor nuevo). Si el NIF
+    // ya está registrado, el proveedor ya pasó por bootstrap → NO se llama a
+    // Mistral nunca más: se va a lectura manual. Tras leer un proveedor nuevo se
+    // aprende su NIF para que las siguientes facturas se lean gratis.
     let extractedMistral: ExtractedFactura | null = null
-    if (mistralDisponible() && !(await proveedorYaConocido(supabase, textoPdfCache))) {
+    const nifEmisorTexto = normalizarNif(textoPdfCache ? extraerNifEmisorLibre(textoPdfCache) : null)
+    const proveedorYaConocido = await nifYaRegistrado(supabase, nifEmisorTexto)
+    if (mistralDisponible() && !proveedorYaConocido && (await dentroDelTopeMistral(supabase))) {
       try {
         const m = await leerFacturaMistral(contenido)
         if (m && m.total !== undefined && m.total !== null) {
@@ -548,8 +575,9 @@ async function procesarContenidoPrincipal(
     if (extractedMistral) {
       extracted = extractedMistral
     } else {
-      // Ni reglas, ni Tesseract, ni Mistral leyeron. Se guarda el PDF en Drive
-      // como respaldo y la factura queda 'pendiente_lectura_manual'.
+      // Ni reglas, ni Tesseract, ni (cuando aplica) Mistral leyeron, o el proveedor
+      // ya era conocido. Se guarda el PDF en Drive como respaldo y la factura queda
+      // 'pendiente_lectura_manual'. NUNCA se llama a Mistral para proveedor conocido.
       return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
     }
   }
@@ -1013,9 +1041,9 @@ async function guardarFacturasMulti(
   return resultados
 }
 
-// Factura que ni reglas ni Tesseract pudieron leer. Se guarda el PDF en Drive
-// (carpeta SIN_TITULAR) para no perderlo y se inserta con estado
-// 'pendiente_lectura_manual'. NUNCA llama a API de pago.
+// Factura que ni reglas ni Tesseract pudieron leer (y, si era proveedor nuevo,
+// tampoco Mistral). Se guarda el PDF en Drive (carpeta SIN_TITULAR) para no
+// perderlo y se inserta con estado 'pendiente_lectura_manual'. NUNCA llama a API.
 // v11: IDEMPOTENTE. Recibe el hash ya calculado. Antes de insertar comprueba si
 // el hash ya existe (duplicada) y, si el INSERT choca igualmente por carrera,
 // lo trata como duplicada en vez de lanzar error → ningún archivo se pierde.
