@@ -7,8 +7,8 @@
  *   GET  /api/facturas?action=faltantes         → facturas faltantes
  *   GET  /api/facturas?action=resubir-drive     → listado pdf sin drive_id
  *   GET  /api/facturas?action=reproc            → reprocesado masivo 0 API (lote + auto-encadenado)
- *   GET  /api/facturas?action=reasignar-titulares → relee PDFs y asigna titular por NIF (no destructivo)
- *   GET  /api/facturas?action=cartero           → cartero IMAP: recoge facturas del buzón y las procesa
+ *   GET  /api/facturas?action=reasignar-titulares[&n=NN] → relee PDFs y asigna titular por NIF
+ *   GET  /api/facturas?action=cartero           → cartero IMAP
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
@@ -182,12 +182,13 @@ async function resubirDrive(res: VercelResponse) {
 // relee el PDF de Drive, busca el NIF de Rubén/Emilio en el texto y asigna el
 // titular EXACTO. NO toca facturas_gastos ni conciliacion (solo actualiza
 // facturas.titular_id + nif_cliente), por lo que NO dispara el trigger de
-// conciliación ni colisiona con el re-match. Lote pequeño + auto-encadenado.
-// La columna titular_revisado evita reprocesar dos veces y evita bucles: cada
-// factura procesada (se identifique o no) queda marcada y sale del conjunto.
-const LOTE_REASIG_TITULAR = 5
-
+// conciliación ni colisiona con el re-match. Lote configurable por ?n (1..60,
+// def 25) + auto-encadenado. La columna titular_revisado evita reprocesar dos
+// veces y evita bucles: cada factura procesada (se identifique o no) queda
+// marcada y sale del conjunto.
 async function reasignarTitulares(req: VercelRequest, res: VercelResponse) {
+  const LOTE_REASIG_TITULAR = Math.min(Math.max(Number(req.query.n) || 25, 1), 60)
+
   const { data: facturas, error } = await supabaseAdmin
     .from('facturas')
     .select('id, pdf_drive_id, pdf_original_name')
@@ -229,16 +230,12 @@ async function reasignarTitulares(req: VercelRequest, res: VercelResponse) {
           .eq('id', f.id as string)
         if (t.titularId === RUBEN_ID) aRuben++; else aEmilio++
       } else {
-        // No se ve el NIF (escaneo ilegible): se marca revisada para no buclear.
-        // NO se toca su estado de conciliación ni su titular actual; queda para
-        // la lista de asignación manual (nif_cliente null + titular_revisado true).
         await supabaseAdmin.from('facturas')
           .update({ titular_revisado: true })
           .eq('id', f.id as string)
         sinPista++
       }
     } catch {
-      // Fallo de descarga/lectura: marcar revisada para no bloquear el avance.
       await supabaseAdmin.from('facturas')
         .update({ titular_revisado: true })
         .eq('id', f.id as string)
@@ -250,7 +247,7 @@ async function reasignarTitulares(req: VercelRequest, res: VercelResponse) {
   const host = req.headers.host
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
   if (host) {
-    fetch(`${proto}://${host}/api/facturas?action=reasignar-titulares`, { method: 'GET' }).catch(() => {})
+    fetch(`${proto}://${host}/api/facturas?action=reasignar-titulares&n=${LOTE_REASIG_TITULAR}`, { method: 'GET' }).catch(() => {})
   }
 
   return res.status(200).json({
