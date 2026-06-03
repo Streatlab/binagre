@@ -7,18 +7,17 @@ import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import ImportDropzone, { type ParsedRow } from '@/components/conciliacion/ImportDropzone'
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
-import type { Movimiento, Regla } from '@/types/conciliacion'
+import type { Movimiento } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import { normalizarConcepto, matchPatron, inicializarStopwords } from '@/lib/normalizarConcepto'
 
 type PeriodoKey = 'mes' | 'mes_anterior' | 'trimestre' | '30d' | 'personalizado' | string
 
 const ModalAddGasto = ({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) => open ? null : null
-
-const STOP_WORDS = new Set(['liquidacion','pedido','nomina','del','de','la','el','por','para','con','sin','abril','marzo','febrero','enero','semana'])
 
 const TAB_STORAGE_KEY = 'conciliacion:tab'
 
@@ -32,21 +31,6 @@ function loadTab(): Tab {
 
 function saveTab(t: Tab) {
   try { sessionStorage.setItem(TAB_STORAGE_KEY, t) } catch { /* swallow */ }
-}
-
-function extraerPatron(concepto: string): string {
-  const w = concepto.toLowerCase().split(/\s+/).find(x => x.length > 3 && !STOP_WORDS.has(x))
-  return w ?? concepto.slice(0, 10).toLowerCase()
-}
-
-function matchPatron(concepto: string, patron: string): boolean {
-  if (!patron) return false
-  const c = concepto.toLowerCase()
-  const p = patron.toLowerCase()
-  if (!p.includes('*') && !p.includes('?')) return c.includes(p)
-  const esc = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-  const rx = new RegExp('^' + esc.replace(/\*/g, '.*').replace(/\?/g, '.') + '$')
-  return rx.test(c)
 }
 
 function colorContraparte(nombre: string): string | null {
@@ -85,6 +69,8 @@ export default function Conciliacion() {
   const [customHasta, setCustomHasta] = useState<string>('')
   const aniosDisponibles = useAniosDisponibles()
   useEffect(() => { saveTab(tab) }, [tab])
+  // Cargar stop-words desde BD al montar (C-03)
+  useEffect(() => { inicializarStopwords() }, [])
   const [periodoDesde, setPeriodoDesde] = useState<Date>(() => { const h = new Date(); h.setDate(1); h.setHours(0,0,0,0); return h })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(() => { const h = new Date(); h.setHours(23,59,59,999); return h })
   const [periodoLabelSFU, setPeriodoLabelSFU] = useState('Mes en curso')
@@ -95,9 +81,9 @@ export default function Conciliacion() {
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>(null)
   const [modalGastoOpen, setModalGastoOpen] = useState(false)
   const toggleFiltroRapido = (k: NonNullable<FiltroRapido>) => { setFiltroRapido(prev => prev === k ? null : k) }
-  const [importResult, setImportResult] = useState<{insertados:number;duplicados:number;omitidos:number}|null>(null)
-  const [reglas, setReglas] = useState<Regla[]>([])
-  const { movimientos: movimientosBD, insertMovimientos, updateCategoria, categorias: categoriasBD, loading: loadingBD } = useConciliacion()
+  // IDs de movimientos propagados en la última acción, para undo (C-02)
+  const [ultimaPropagacion, setUltimaPropagacion] = useState<string[] | null>(null)
+  const { movimientos: movimientosBD, updateCategoria, categorias: categoriasBD, loading: loadingBD } = useConciliacion()
 
   const dropdownGroups = useMemo(() => {
     const ingresos = categoriasBD.filter(c => c.tipo_parent === 'ingreso')
@@ -124,20 +110,53 @@ export default function Conciliacion() {
     })), [movimientosBD]
   )
 
+  // C-01: tipo SIEMPRE desde tipoPorCodigo, nunca del signo del importe
   const handleCategorizar = async (movId: string, catId: string, concepto: string) => {
     const normalizedCat = catId === '' ? null : catId
-    const mov = movimientos.find(m => m.id === movId)
-    const tipo: 'ingreso'|'gasto'|null = !normalizedCat ? null : (tipoPorCodigo[normalizedCat] ?? (mov && mov.importe >= 0 ? 'ingreso' : 'gasto'))
+    const tipo: 'ingreso'|'gasto'|null = !normalizedCat ? null : (tipoPorCodigo[normalizedCat] ?? null)
     try { await updateCategoria(movId, normalizedCat, tipo) } catch (err) { console.error('Error guardando categoría:', err); return }
-    if (normalizedCat) {
-      const patron = extraerPatron(concepto)
-      const similares = movimientos.filter(m => m.id !== movId && !m.categoria_id && matchPatron(m.concepto, patron))
-      for (const s of similares) {
-        const sTipo: 'ingreso'|'gasto' = s.importe >= 0 ? 'ingreso' : 'gasto'
-        try { await updateCategoria(s.id, normalizedCat, sTipo) } catch (err) { console.error('Error auto-categorizando:', err) }
-      }
-      setReglas(prev => [...prev, { patron, categoria_id: normalizedCat }])
+
+    if (!normalizedCat) return
+
+    // Motor único: normalizarConcepto + matchPatron desde normalizarConcepto.ts (C-02b)
+    const patron = normalizarConcepto(concepto)
+    if (!patron) return
+
+    const similares = movimientos.filter(
+      m => m.id !== movId && !m.categoria_id && matchPatron(normalizarConcepto(m.concepto), patron)
+    )
+
+    if (similares.length === 0) return
+
+    // C-02: previsualización con número de afectados antes de propagar
+    const ok = window.confirm(
+      `Se encontraron ${similares.length} movimiento${similares.length > 1 ? 's' : ''} sin categoría con patrón "${patron}".\n¿Categorizar también?`
+    )
+    if (!ok) return
+
+    // C-01: aplicar el MISMO tipo de la categoría elegida, no el signo de cada movimiento
+    const propagados: string[] = []
+    for (const s of similares) {
+      try {
+        await updateCategoria(s.id, normalizedCat, tipo)
+        propagados.push(s.id)
+      } catch (err) { console.error('Error propagando categoría:', err) }
     }
+
+    if (propagados.length > 0) {
+      // C-02: guardar para undo
+      setUltimaPropagacion(propagados)
+    }
+  }
+
+  // C-02: deshacer la última propagación (revierte a sin categoría)
+  const handleDeshacerPropagacion = async () => {
+    if (!ultimaPropagacion) return
+    for (const movId of ultimaPropagacion) {
+      try { await updateCategoria(movId, null, null) } catch {}
+    }
+    setUltimaPropagacion(null)
+    toast.success(`${ultimaPropagacion.length} movimiento${ultimaPropagacion.length > 1 ? 's' : ''} revertido${ultimaPropagacion.length > 1 ? 's' : ''}`)
   }
 
   const { rangoActual, rangoAnterior, rangoFechasLegible } = useMemo(() => {
@@ -208,6 +227,26 @@ export default function Conciliacion() {
       {tab === 'resumen' && <ResumenDashboard movimientos={movimientosFiltrados} movimientosAnterior={movimientosAnterior} mesNombre={mesNombre} anio={anioActual} diasRestantes={diasRestantes} />}
       {tab === 'movimientos' && <TabMovimientos periodoLabel={periodoLabelSFU} periodoDesde={periodoDesde} periodoHasta={periodoHasta} />}
       <ModalAddGasto open={modalGastoOpen} onClose={() => setModalGastoOpen(false)} onSaved={() => { setModalGastoOpen(false) }} />
+      {/* C-02: banner de deshacer propagación */}
+      {ultimaPropagacion && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#1e2233', color: '#fff', borderRadius: 10, padding: '10px 18px',
+          display: 'flex', alignItems: 'center', gap: 14, zIndex: 200,
+          fontFamily: 'Lexend, sans-serif', fontSize: 13,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+        }}>
+          <span>{ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''} categorizados</span>
+          <button onClick={handleDeshacerPropagacion} style={{
+            background: '#e8f442', color: '#1e2233', border: 'none', borderRadius: 6,
+            padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11,
+            letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600,
+          }}>Deshacer</button>
+          <button onClick={() => setUltimaPropagacion(null)} style={{
+            background: 'transparent', color: '#aaa', border: 'none', fontSize: 16, cursor: 'pointer', padding: 0, lineHeight: 1,
+          }}>×</button>
+        </div>
+      )}
     </div>
   )
 }

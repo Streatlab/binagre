@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { categoriaToSubcategoria, grupoFromCategoria } from '@/lib/categoriaMapping'
 import { normalizarConcepto, matchPatron } from '@/lib/normalizarConcepto'
+import { toast } from '@/lib/toastStore'
 import { loadAliases, matchProveedor } from '@/lib/matchProveedor'
 import { calcularDedupKey } from '@/lib/normalizar'
 import { cargarReglas, invalidarCacheReglas, aplicarReglas as aplicarReglasMDim } from '@/lib/aplicarReglas'
@@ -252,34 +253,41 @@ export function useConciliacion() {
       conciliacion_id: mov.id,
     }
 
-    if (mov.gasto_id) {
-      const { error } = await supabase.from('gastos').update(payload).eq('id', mov.gasto_id)
+    try {
+      if (mov.gasto_id) {
+        const { error } = await supabase.from('gastos').update(payload).eq('id', mov.gasto_id)
+        if (error) throw error
+        return mov.gasto_id
+      }
+      const { data, error } = await supabase.from('gastos').insert(payload).select('id').single()
       if (error) throw error
-      return mov.gasto_id
+      return (data?.id as string) ?? null
+    } catch (e: unknown) {
+      // F-10: error visible al usuario; el movimiento queda categorizado pero sin fila en gastos
+      const msg = e instanceof Error ? e.message : 'Error desconocido'
+      toast.error(`Categorizado pero sin fila en gastos (reintentar): ${msg}`)
+      console.error('syncGasto failed:', msg)
+      return null
     }
-
-    const { data, error } = await supabase.from('gastos').insert(payload).select('id').single()
-    if (error) throw error
-    return (data?.id as string) ?? null
   }
 
   async function updateCategoria(id: string, codigo_categoria: string | null, tipo: 'ingreso' | 'gasto' | null) {
     const mov = movimientos.find(m => m.id === id)
     if (!mov) return
 
-    let nuevoGastoId: string | null = null
-    try {
-      nuevoGastoId = await syncGasto(mov, codigo_categoria, tipo)
-    } catch (e: any) {
-      console.error('syncGasto failed:', e?.message ?? e)
-    }
+    // C-01: tipo SIEMPRE desde el tipo_parent de la categoría real, nunca del signo del importe
+    const tipoReal: 'ingreso' | 'gasto' | null = !codigo_categoria
+      ? null
+      : (categorias.find(c => c.codigo === codigo_categoria)?.tipo_parent ?? tipo ?? null)
+
+    const nuevoGastoId = await syncGasto(mov, codigo_categoria, tipoReal)
 
     const { error } = await supabase.from('conciliacion')
-      .update({ categoria: codigo_categoria, tipo, gasto_id: nuevoGastoId })
+      .update({ categoria: codigo_categoria, tipo: tipoReal, gasto_id: nuevoGastoId })
       .eq('id', id)
     if (error) throw error
 
-    if (codigo_categoria && tipo) {
+    if (codigo_categoria && tipoReal) {
       const patron = normalizarConcepto(mov.concepto ?? '')
       if (patron) {
         try {
@@ -287,8 +295,8 @@ export function useConciliacion() {
             .from('reglas_conciliacion')
             .upsert({
               patron,
-              tipo_categoria: tipo,
-              asigna_como: tipo,
+              tipo_categoria: tipoReal,
+              asigna_como: tipoReal,
               categoria_codigo: codigo_categoria,
               categoria_id: null,
               activa: true,
