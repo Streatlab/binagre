@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { ClipboardList, Printer, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -13,10 +13,15 @@ const DIAS_LABEL: Record<Dia, string> = {
 }
 const TOTAL_COLS = 1 + DIAS.length * 2 + 1 // 16
 
+// Paginación impresión: capacidad por hoja A4 horizontal (en "filas equivalentes")
+const PAG_CAP = 26
+const HEADER_COST = 3
+
 interface CeldaValor { hoy: string; ssp: string }
 interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean }
 interface Seccion { id: string; nombre: string; orden: number; activa: boolean }
 interface EntradaProduccion { id: string; partida_id: string; semana_iso: string; dia: Dia; hoy: string; ssp: string }
+interface BloqueImpresion { sec: Seccion; cont: boolean; parts: Partida[] }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +41,32 @@ function getSemanaLabel(iso: string): string {
   const endOfWeek = new Date(startOfWeek.getTime() + 6 * 86400000)
   const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`
   return `Semana ${week} · ${fmt(startOfWeek)}–${fmt(endOfWeek)}`
+}
+
+// Reparte las secciones/partidas en páginas A4. Marca cont=true cuando una sección sigue de la hoja anterior.
+function paginar(secciones: Seccion[], partidas: Partida[]): BloqueImpresion[][] {
+  const paginas: BloqueImpresion[][] = []
+  let pagina: BloqueImpresion[] = []
+  let usado = 0
+  const cerrar = () => { if (pagina.length) { paginas.push(pagina); pagina = []; usado = 0 } }
+
+  for (const sec of secciones) {
+    const parts = partidas.filter(p => p.seccion_id === sec.id)
+    if (parts.length === 0) continue
+    if (usado + HEADER_COST + 1 > PAG_CAP) cerrar()
+    let bloque: BloqueImpresion = { sec, cont: false, parts: [] }
+    pagina.push(bloque); usado += HEADER_COST
+    for (const part of parts) {
+      if (usado + 1 > PAG_CAP) {
+        cerrar()
+        bloque = { sec, cont: true, parts: [] }
+        pagina.push(bloque); usado += HEADER_COST
+      }
+      bloque.parts.push(part); usado += 1
+    }
+  }
+  cerrar()
+  return paginas
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -125,29 +156,20 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
   function semanaAnterior() { const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() - 7); setSemana(getSemanaISO(d)) }
   function semanaSiguiente() { const [y, w] = semana.split('-W').map(Number); const d = new Date(y, 0, 1 + (w - 1) * 7); d.setDate(d.getDate() + 7); setSemana(getSemanaISO(d)) }
 
+  const paginas = useMemo(() => paginar(secciones, partidas), [secciones, partidas])
+
   if (loading) return <div style={{ padding: 24, color: T.sec, fontFamily: FONT.body }}>Cargando producción…</div>
   if (error) return <div style={{ padding: 24, color: '#B01D23', fontFamily: FONT.body }}>Error: {error}</div>
 
   const hayContenido = secciones.length > 0
 
-  // Celdas editables de una partida (HOY|SSP por día) — vista pantalla
-  const renderCeldasDia = (part: Partida) =>
-    DIAS.map(dia => {
-      const c = getCelda(part.id, dia)
-      return (
-        <React.Fragment key={dia}>
-          <td className="td-celda td-celda-hoy dia-ini">
-            <input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" />
-            <span className="celda-print">{c.hoy}</span>
-          </td>
-          <td className="td-celda td-celda-ssp">
-            <input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" />
-            <span className="celda-print">{c.ssp}</span>
-          </td>
-        </React.Fragment>
-      )
-    })
-
+  const cabeceraDias = (
+    <>
+      <th className="th-partida th-partida-ini">Producto</th>
+      {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia dia-ini">{DIAS_LABEL[dia]}</th>)}
+      <th className="th-partida th-partida-fin">Producto</th>
+    </>
+  )
   const subCabecera = (
     <>
       <th className="th-sub-empty" />
@@ -158,14 +180,6 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
         </React.Fragment>
       ))}
       <th className="th-sub-empty" />
-    </>
-  )
-
-  const cabeceraDias = (
-    <>
-      <th className="th-partida th-partida-ini">Producto</th>
-      {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia dia-ini">{DIAS_LABEL[dia]}</th>)}
-      <th className="th-partida th-partida-fin">Producto</th>
     </>
   )
 
@@ -210,7 +224,19 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
                       {partidas.filter(p => p.seccion_id === sec.id).map(part => (
                         <tr key={part.id} className="fila-partida">
                           <td className="td-partida td-partida-ini">{part.nombre}</td>
-                          {renderCeldasDia(part)}
+                          {DIAS.map(dia => {
+                            const c = getCelda(part.id, dia)
+                            return (
+                              <React.Fragment key={dia}>
+                                <td className="td-celda td-celda-hoy dia-ini">
+                                  <input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" />
+                                </td>
+                                <td className="td-celda td-celda-ssp">
+                                  <input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" />
+                                </td>
+                              </React.Fragment>
+                            )
+                          })}
                           <td className="td-partida td-partida-fin">{part.nombre}</td>
                         </tr>
                       ))}
@@ -223,42 +249,47 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
         </div>
       </div>
 
-      {/* ===== VISTA IMPRESIÓN: una tabla por sección (cabecera se repite al cortar) ===== */}
+      {/* ===== VISTA IMPRESIÓN: páginas A4 calculadas ===== */}
       <div className="vista-impresion">
-        <div className="print-head">
-          <span className="print-title">Lista de Producción</span>
-          <span className="print-week">{getSemanaLabel(semana)}</span>
-        </div>
-        {secciones.map(sec => {
-          const parts = partidas.filter(p => p.seccion_id === sec.id)
-          if (parts.length === 0) return null
-          return (
-            <table key={sec.id} className="prod-table prod-table-print">
-              <thead>
-                <tr><th colSpan={TOTAL_COLS} className="th-seccion-print">{sec.nombre}</th></tr>
-                <tr>{cabeceraDias}</tr>
-                <tr>{subCabecera}</tr>
-              </thead>
-              <tbody>
-                {parts.map(part => (
-                  <tr key={part.id} className="fila-partida">
-                    <td className="td-partida td-partida-ini">{part.nombre}</td>
-                    {DIAS.map(dia => {
-                      const c = getCelda(part.id, dia)
-                      return (
-                        <React.Fragment key={dia}>
-                          <td className="td-celda td-celda-hoy dia-ini"><span className="celda-print">{c.hoy}</span></td>
-                          <td className="td-celda td-celda-ssp"><span className="celda-print">{c.ssp}</span></td>
-                        </React.Fragment>
-                      )
-                    })}
-                    <td className="td-partida td-partida-fin">{part.nombre}</td>
+        {paginas.map((bloques, pi) => (
+          <div key={pi} className="hoja" style={{ breakAfter: pi < paginas.length - 1 ? 'page' : 'auto' }}>
+            <div className="print-head">
+              <span className="print-title">Lista de Producción</span>
+              <span className="print-week">{getSemanaLabel(semana)}</span>
+              <span className="print-pag">Página {pi + 1} de {paginas.length}</span>
+            </div>
+            {bloques.map((b, bi) => (
+              <table key={bi} className="prod-table prod-table-print">
+                <thead>
+                  <tr>
+                    <th colSpan={TOTAL_COLS} className="th-seccion-print">
+                      {b.sec.nombre}{b.cont ? ' · (CONTINÚA)' : ''}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        })}
+                  <tr>{cabeceraDias}</tr>
+                  <tr>{subCabecera}</tr>
+                </thead>
+                <tbody>
+                  {b.parts.map(part => (
+                    <tr key={part.id} className="fila-partida">
+                      <td className="td-partida td-partida-ini">{part.nombre}</td>
+                      {DIAS.map(dia => {
+                        const c = getCelda(part.id, dia)
+                        return (
+                          <React.Fragment key={dia}>
+                            <td className="td-celda td-celda-hoy dia-ini"><span className="celda-print">{c.hoy}</span></td>
+                            <td className="td-celda td-celda-ssp"><span className="celda-print">{c.ssp}</span></td>
+                          </React.Fragment>
+                        )
+                      })}
+                      <td className="td-partida td-partida-fin">{part.nombre}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
+          </div>
+        ))}
       </div>
 
       {modalSecciones && <ModalGestionSecciones T={T} secciones={secciones} onClose={() => setModalSecciones(false)} onSaved={() => { setModalSecciones(false); cargar() }} />}
@@ -396,10 +427,9 @@ const FICHA_CSS = `
 .th-sub { font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 600; text-align: center; padding: 2px 1px; color: #fff; }
 .th-sub-hoy { background: #8c161c; }
 .th-sub-ssp { background: #6e1116; color: #f0c9cb; }
-.td-seccion { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #B01D23; padding: 5px 8px; background: rgba(176,29,35,0.07); }
+.td-seccion { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #B01D23; padding: 5px 8px; background: rgba(176,29,35,0.07); }
 
-/* Padding reducido + letra mayor */
-.td-partida { font-family: 'Lexend', sans-serif; font-size: 13px; color: var(--text-primary); padding: 1px 8px; white-space: nowrap; background: var(--bg-card); }
+.td-partida { font-family: 'Lexend', sans-serif; font-size: 13.5px; color: var(--text-primary); padding: 1px 8px; white-space: nowrap; background: var(--bg-card); }
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
 .td-partida-fin { text-align: right; }
 .td-celda { padding: 0; }
@@ -409,50 +439,48 @@ const FICHA_CSS = `
 .celda-ssp { color: var(--text-muted); }
 .celda-print { display: none; }
 
-/* La vista de impresión no se ve en pantalla */
 .vista-impresion { display: none; }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 15mm 14mm 16mm 14mm;
-    @bottom-right { content: "Página " counter(page) " de " counter(pages); font-family: 'Oswald', sans-serif; font-size: 9px; color: #555; }
+  @page { size: A4 landscape; margin: 18mm 16mm 18mm 16mm; }
+  html, body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  html, body { background: #fff !important; }
   body * { visibility: hidden; }
-  .vista-impresion, .vista-impresion * { visibility: visible; }
+  .vista-impresion, .vista-impresion * { visibility: visible; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .vista-pantalla, .no-print { display: none !important; }
 
-  .vista-impresion { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #111; }
+  .vista-impresion { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #111; font-family: 'Lexend', sans-serif; }
 
-  .print-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 2px solid #111; }
-  .print-title { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 0.04em; color: #111; }
-  .print-week { margin-left: auto; font-family: 'Oswald', sans-serif; font-size: 11px; text-transform: uppercase; color: #333; }
+  .hoja { width: 100%; }
 
-  .prod-table-print { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 8px; font-size: 9.5px; }
-  /* La cabecera (nombre sección + días + HOY/SSP) se REPITE en cada página al cortar */
-  .prod-table-print thead { display: table-header-group; }
-  .prod-table-print tr { page-break-inside: avoid; break-inside: avoid; }
+  .print-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid #111; }
+  .print-title { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: 0.05em; color: #111; }
+  .print-week { font-family: 'Oswald', sans-serif; font-size: 12px; text-transform: uppercase; color: #444; }
+  .print-pag { margin-left: auto; font-family: 'Oswald', sans-serif; font-size: 12px; text-transform: uppercase; color: #444; }
 
+  .prod-table-print { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 10px; }
   .prod-table-print th, .prod-table-print td { border-right: 1px solid #333 !important; border-bottom: 1px solid #333 !important; }
-  .prod-table-print th.dia-ini, .prod-table-print td.dia-ini { border-left: 2.5px solid #B01D23 !important; }
+  .prod-table-print th.dia-ini, .prod-table-print td.dia-ini { border-left: 3px solid #B01D23 !important; }
 
   .th-seccion-print {
-    font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+    font-family: 'Oswald', sans-serif; font-size: 12.5px; font-weight: 700; letter-spacing: 0.12em;
     text-transform: uppercase; text-align: left; color: #fff !important; background: #B01D23 !important;
-    padding: 4px 8px !important; border: 1px solid #B01D23 !important;
+    padding: 5px 8px !important; border: 1px solid #B01D23 !important;
   }
-  .prod-table-print .th-partida { background: #B01D23 !important; color: #fff !important; padding: 3px 6px !important; position: static !important; font-size: 9px; }
-  .prod-table-print .th-dia { background: #B01D23 !important; color: #fff !important; padding: 2px 2px !important; font-size: 9px; }
+  .prod-table-print .th-partida { background: #B01D23 !important; color: #fff !important; padding: 4px 6px !important; position: static !important; font-size: 10.5px; min-width: 0; }
+  .prod-table-print .th-dia { background: #B01D23 !important; color: #fff !important; padding: 3px 2px !important; font-size: 10.5px; }
   .prod-table-print .th-sub-empty { background: #8c161c !important; position: static !important; }
-  .prod-table-print .th-sub-hoy { background: #8c161c !important; color: #fff !important; font-size: 8.5px; }
-  .prod-table-print .th-sub-ssp { background: #6e1116 !important; color: #f7dada !important; font-size: 8.5px; }
+  .prod-table-print .th-sub-hoy { background: #8c161c !important; color: #fff !important; font-size: 9.5px; }
+  .prod-table-print .th-sub-ssp { background: #6e1116 !important; color: #f7dada !important; font-size: 9.5px; }
 
-  .prod-table-print .td-partida { color: #111 !important; background: #fff !important; padding: 1px 6px !important; position: static !important; font-size: 9.5px; }
-  .prod-table-print .td-celda { padding: 0 !important; height: 16px; }
+  .prod-table-print .td-partida { color: #111 !important; background: #fff !important; padding: 2px 6px !important; position: static !important; font-size: 11px; }
+  .prod-table-print .td-celda { padding: 0 !important; height: 20px; }
   .prod-table-print .td-celda-hoy { background: #fff !important; }
-  .prod-table-print .td-celda-ssp { background: #f0dede !important; }   /* SSP sombreada, igual idea que pantalla */
-  .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 9.5px; padding: 0 2px; }
+  .prod-table-print .td-celda-ssp { background: #f1dada !important; }   /* SSP sombreada igual que pantalla */
+  .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 11px; padding: 0 2px; }
 }
 `
