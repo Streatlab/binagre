@@ -121,7 +121,10 @@ async function expandirArchivos(files: File[], extensionesValidas: string[]): Pr
     else if (validas.has(ext)) { aceptados.push(f) }
     else { rechazados.push(f.name) }
   }
-  return { aceptados, rechazados, expandidosZip: contador.n, totalOriginal: files.length, comprimidosServidor: contadorComp.n }
+  // ZIP files are expanded client-side and never uploaded; exclude them from totalOriginal.
+  // totalOriginal = non-ZIP inputs (sueltos + RAR/7z). Extracted content shows in expandidosZip.
+  const nZips = files.filter(f => (f.name.split('.').pop()?.toLowerCase() ?? '') === 'zip').length
+  return { aceptados, rechazados, expandidosZip: contador.n, totalOriginal: files.length - nZips, comprimidosServidor: contadorComp.n }
 }
 
 interface BtnSubirSplitProps { label: string; accept: string; extensiones: string[]; onArchivos: (resultado: { aceptados: File[]; rechazados: string[]; expandidosZip: number; totalOriginal: number; comprimidosServidor: number }) => void; preparando: boolean; setPreparando: (v: boolean) => void }
