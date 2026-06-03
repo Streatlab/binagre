@@ -11,6 +11,8 @@ const DIAS: Dia[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabad
 const DIAS_LABEL: Record<Dia, string> = {
   lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo',
 }
+// Columnas reales: 1 producto + 7 días × 2 (HOY/SSP) + 1 producto = 16
+const TOTAL_COLS = 1 + DIAS.length * 2 + 1
 
 interface CeldaValor { hoy: string; ssp: string }
 interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean }
@@ -150,6 +152,8 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
     </tr>
   )
 
+  const hayContenido = secciones.length > 0
+
   return (
     <>
       {/* Barra de acciones */}
@@ -176,41 +180,46 @@ function TabListaProduccion({ T, isDark }: { T: ReturnType<typeof useTheme>['T']
         </div>
 
         <div className="ficha-section" style={{ borderBottom: 'none', paddingBottom: 6 }}>
-          <div className="prod-table-wrap">
-            <table className="prod-table">
-              <thead>
-                <tr>
-                  <th className="th-partida th-partida-ini">Producto</th>
-                  {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia dia-ini">{DIAS_LABEL[dia]}</th>)}
-                  <th className="th-partida th-partida-fin">Producto</th>
-                </tr>
-                <tr>
-                  <th className="th-sub-empty" />
-                  {DIAS.map(dia => (
-                    <React.Fragment key={dia}>
-                      <th className="th-sub th-sub-hoy dia-ini">HOY</th>
-                      <th className="th-sub th-sub-ssp">SSP</th>
-                    </React.Fragment>
-                  ))}
-                  <th className="th-sub-empty" />
-                </tr>
-              </thead>
-              <tbody>
-                {secciones.map(sec => {
-                  const partsSeccion = partidas.filter(p => p.seccion_id === sec.id)
-                  return (
-                    <React.Fragment key={sec.id}>
-                      <tr className="fila-seccion">
-                        <td colSpan={17} className="td-seccion">{sec.nombre}</td>
-                      </tr>
-                      {partsSeccion.map(renderFilaPartida)}
-                    </React.Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-            {secciones.length === 0 && <div className="no-print" style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin secciones. Añade con los botones de arriba.</div>}
-          </div>
+          {!hayContenido ? (
+            <div className="no-print" style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
+              Sin secciones todavía.
+            </div>
+          ) : (
+            <div className="prod-table-wrap">
+              <table className="prod-table">
+                <thead>
+                  <tr>
+                    <th className="th-partida th-partida-ini">Producto</th>
+                    {DIAS.map(dia => <th key={dia} colSpan={2} className="th-dia dia-ini">{DIAS_LABEL[dia]}</th>)}
+                    <th className="th-partida th-partida-fin">Producto</th>
+                  </tr>
+                  <tr>
+                    <th className="th-sub-empty" />
+                    {DIAS.map(dia => (
+                      <React.Fragment key={dia}>
+                        <th className="th-sub th-sub-hoy dia-ini">HOY</th>
+                        <th className="th-sub th-sub-ssp">SSP</th>
+                      </React.Fragment>
+                    ))}
+                    <th className="th-sub-empty" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {secciones.map(sec => {
+                    const partsSeccion = partidas.filter(p => p.seccion_id === sec.id)
+                    return (
+                      <React.Fragment key={sec.id}>
+                        <tr className="fila-seccion">
+                          <td colSpan={TOTAL_COLS} className="td-seccion">{sec.nombre}</td>
+                        </tr>
+                        {partsSeccion.map(renderFilaPartida)}
+                      </React.Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
