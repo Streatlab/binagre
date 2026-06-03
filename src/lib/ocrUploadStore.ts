@@ -22,6 +22,7 @@ export interface OcrSession {
   completadoEn: number | null; orden: number; archivoActual?: string | null
   grupoId?: string | null; lotesIds?: string[]
   subidosStorage?: number; totalStorage?: number
+  estadoCola?: string | null
 }
 
 const emitter = new EventTarget()
@@ -179,7 +180,7 @@ async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
 
 function dbToSession(s: any): OcrSession {
-  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0 }
+  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0, estadoCola: s.estado_cola || null }
 }
 
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
@@ -238,6 +239,22 @@ async function cargarSesionesActivas() {
     }
     rawSessions = nuevas; emit()
     if (typeof window !== 'undefined' && nuevas.some(s => s.procesando)) { try { window.dispatchEvent(new Event('facturas:changed')) } catch {} }
+
+    // Detectar sesiones staging interrumpidas (pestaña cerrada durante la subida al Storage).
+    // Condición: staging/procesando + sin archivos_pendientes + algo subido al Storage + >60s de edad
+    // + NO está siendo subida activamente por este cliente.
+    const ahora = Date.now()
+    const interrumpidas = nuevas.filter(s =>
+      s.estadoCola === 'staging' &&
+      (s.subidosStorage ?? 0) > 0 &&
+      s.archivosPendientes.length === 0 &&
+      s.grupoId != null &&
+      !preparandoLocal.some(p => p.grupoId === s.grupoId) &&
+      ahora - s.creadoEn > 60_000
+    )
+    for (const s of interrumpidas) {
+      intentarReanudarInterrumpida(s).catch(e => console.warn('[OCR] reanudar error:', e))
+    }
   } catch (e: any) { console.warn('[OCR] cargarSesionesActivas excepción:', e?.message || e) }
 }
 
@@ -296,6 +313,75 @@ async function crearSesionBBDD(sesionId: string, grupoId: string, total: number,
 
 async function actualizarProgresoStorage(sesionId: string, subidos: number) {
   try { await supabase.from('ocr_sessions').update({ subidos_storage: subidos }).eq('id', sesionId) } catch {}
+}
+
+// Guarda las rutas de archivos ya subidos en la BD de forma incremental.
+// Si la pestaña se cierra, la próxima apertura puede leer el bucket para reanudar.
+async function actualizarArchivosPendientesIncrementales(
+  sesionId: string,
+  archivos: { name: string; type: string; storagePath: string; esComprimido: boolean }[]
+) {
+  try {
+    await supabase.from('ocr_sessions').update({
+      archivos_pendientes: archivos,
+      subidos_storage: archivos.length,
+    }).eq('id', sesionId)
+  } catch {}
+}
+
+// Intenta reanudar una sesión interrumpida (staging + sin archivos_pendientes + algo subido).
+// Lista el bucket, reconstruye archivos_pendientes, cambia estado a en_espera y lanza worker.
+async function intentarReanudarInterrumpida(sesion: OcrSession) {
+  const grupoId = sesion.grupoId
+  if (!grupoId) return
+  try {
+    const { data: ficheros, error } = await supabase.storage
+      .from('ocr-uploads')
+      .list(grupoId, { limit: 1000 })
+    if (error) throw error
+
+    // Solo archivos reales (no subcarpetas): tienen id
+    const archivosEnBucket = (ficheros ?? []).filter((f: any) => f.id && f.name)
+
+    if (archivosEnBucket.length === 0) {
+      // Nada subido: marcar como cancelada con aviso
+      await supabase.from('ocr_sessions').update({
+        estado: 'cancelada', estado_cola: 'cancelada', visible: true,
+        log: [...(sesion.log || []), {
+          filename: '(sesión)',
+          status: 'error',
+          detalle: 'Sesión interrumpida antes de subir archivos. Vuelve a arrastrar los archivos para reintentar.',
+        }],
+      }).eq('id', sesion.id)
+      return
+    }
+
+    const perdidos = Math.max(0, (sesion.totalStorage ?? 0) - archivosEnBucket.length)
+    const archivosPendientes = archivosEnBucket.map((f: any) => ({
+      name: f.name,
+      type: getMimeTypeBase(getExt(f.name)),
+      storagePath: `${grupoId}/${f.name}`,
+      esComprimido: false,
+    }))
+
+    const logEntry: ArchivoLog = perdidos > 0
+      ? { filename: '(reanudado)', status: 'achtung', detalle: `${archivosEnBucket.length} archivos retomados del servidor. ${perdidos} no llegaron a subirse — arrástralos de nuevo.`, achtungTipo: 'otro' }
+      : { filename: '(reanudado)', status: 'ok', detalle: `Subida retomada: ${archivosEnBucket.length} archivos encontrados en el servidor.` }
+
+    await supabase.from('ocr_sessions').update({
+      archivos_pendientes: archivosPendientes,
+      total: archivosPendientes.length,
+      total_storage: archivosPendientes.length,
+      subidos_storage: archivosPendientes.length,
+      estado: 'procesando',
+      estado_cola: 'en_espera',
+      log: [...(sesion.log || []), logEntry],
+    }).eq('id', sesion.id)
+
+    lanzarWorker()
+  } catch (e: any) {
+    console.warn('[OCR] intentarReanudarInterrumpida error:', e?.message || e)
+  }
 }
 
 export function useOcrUpload() {
@@ -371,8 +457,15 @@ export function useOcrUpload() {
         if ((e?.message || String(e)) !== 'cancelado') { fallos++; console.error(`[OCR] Error subiendo ${norm.name}:`, e?.message || e) }
       }
       const hechos = subidos + fallos; ponerPreparando(idLocal, totalReal, hechos, `Subiendo ${hechos} de ${totalReal}…`, grupoId)
-      const porSesion: Record<string, number> = {}; for (const a of archivosSubidos) { porSesion[a.sesionId] = (porSesion[a.sesionId] || 0) + 1 }
-      if (subidos % 10 === 0 || hechos === totalReal) { for (const [sid, count] of Object.entries(porSesion)) { actualizarProgresoStorage(sid, count) } }
+      // Guardar rutas incrementalmente cada 5 subidas para permitir reanudación si la pestaña se cierra
+      if (subidos % 5 === 0 || hechos === totalReal) {
+        for (const ses of sesionesCreadas) {
+          const archivosSes = archivosSubidos
+            .filter(a => a.sesionId === ses.id)
+            .map(a => ({ name: a.name, type: a.type, storagePath: a.storagePath, esComprimido: a.esComprimido }))
+          if (archivosSes.length > 0) actualizarArchivosPendientesIncrementales(ses.id, archivosSes)
+        }
+      }
     }
     let nextIdx = 0
     async function workerSubida() {
