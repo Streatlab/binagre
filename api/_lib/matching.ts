@@ -1,4 +1,5 @@
-// matching v4 — pre-jul-2023 -> asociada (conciliada sin banco) en vez de historica
+// matching v5 — lee matching_config (tolerancia_eur + ventana_dias por proveedor/plataforma) para no divergir del frontend (Chat B). Fallback a constantes si no hay fila.
+// v4 — pre-jul-2023 -> asociada (conciliada sin banco) en vez de historica
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ExtractedFactura } from './ocr.js'
 import { TOLERANCIA_IMPORTE, LIMITE_CONCILIACION } from './ocr-config.js'
@@ -17,6 +18,51 @@ const VENTANAS_ESPECIALES: Record<string, { antes: number; despues: number }> = 
   amazon: { antes: 10, despues: 45 },
   tgt: { antes: 5, despues: 120 },
   lacteos: { antes: 5, despues: 120 },
+}
+
+// ── matching_config (fuente compartida con el frontend / Chat B) ───────────
+// Tabla: proveedor (text|null = default), ventana_dias (int), tolerancia_eur
+// (numeric), activo (bool). El frontend la edita; el matching la LEE para que
+// ambos lados usen los mismos números y nunca diverjan. Si no hay fila o falla
+// la carga, se cae a las constantes/ventanas de siempre (comportamiento previo).
+interface FilaMatchingConfig { proveedor: string | null; ventana_dias: number | null; tolerancia_eur: number | null }
+interface ConfigResuelta { tolerancia: number; ventanaDias: number | null }
+
+async function cargarMatchingConfig(supabase: SupabaseClient): Promise<FilaMatchingConfig[]> {
+  try {
+    const { data } = await supabase
+      .from('matching_config')
+      .select('proveedor, ventana_dias, tolerancia_eur, activo')
+      .eq('activo', true)
+    return (data || []).map((r) => ({
+      proveedor: (r.proveedor as string | null) ?? null,
+      ventana_dias: r.ventana_dias as number | null,
+      tolerancia_eur: r.tolerancia_eur != null ? Number(r.tolerancia_eur) : null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+// Resuelve la config aplicable a una factura: fila por proveedor/plataforma si
+// existe; si no, la fila default (proveedor=null); si tampoco, las constantes.
+function resolverConfig(filas: FilaMatchingConfig[], proveedorNorm: string, plataforma: string | null): ConfigResuelta {
+  let especifica: FilaMatchingConfig | undefined
+  for (const f of filas) {
+    if (!f.proveedor) continue
+    const clave = normalizar(f.proveedor)
+    if (!clave) continue
+    if ((plataforma && clave.includes(plataforma.replace('_', ' '))) || proveedorNorm.includes(clave) || clave.includes(proveedorNorm)) {
+      especifica = f
+      break
+    }
+  }
+  const porDefecto = filas.find((f) => !f.proveedor)
+  const elegida = especifica || porDefecto
+  return {
+    tolerancia: elegida?.tolerancia_eur ?? TOLERANCIA_IMPORTE,
+    ventanaDias: elegida?.ventana_dias ?? null,
+  }
 }
 
 function ventanaProveedor(proveedorNombre: string): { antes: number; despues: number } {
@@ -170,21 +216,26 @@ export async function matchFactura(supabase: SupabaseClient, factura: ExtractedF
   let result: MatchingResult
   if (factura.plataforma === 'uber') return { estado: 'solo_drive', matches: [], confianza: 100, mensaje: 'Factura Uber Eats: gasto deducible, no matchea con banco (se descuenta en liquidación). Guardado en Drive.' }
   if (Math.abs(factura.total) < 0.01) return { estado: 'solo_drive', matches: [], confianza: 100, mensaje: 'Importe 0€ (cupón/bono): solo guardado en Drive para contabilidad.' }
+  // Carga de la config compartida (matching_config). Una vez por factura.
+  const filasCfg = await cargarMatchingConfig(supabase)
+  const cfg = resolverConfig(filasCfg, normalizar(factura.proveedor_nombre || ''), factura.plataforma ?? null)
   const provNorm = normalizar(factura.proveedor_nombre || '')
-  if (provNorm.includes('mercadona')) result = await matchFacturaMercadona(supabase, factura)
-  else if (factura.plataforma === 'glovo' || factura.plataforma === 'just_eat') result = await matchFacturaGlovoJustEat(supabase, factura)
-  else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) { const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre); result = await matchFacturaRecapitulativa(supabase, factura, alias) }
-  else { const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre); result = await matchFacturaNormal(supabase, factura, alias) }
+  if (provNorm.includes('mercadona')) result = await matchFacturaMercadona(supabase, factura, cfg)
+  else if (factura.plataforma === 'glovo' || factura.plataforma === 'just_eat') result = await matchFacturaGlovoJustEat(supabase, factura, cfg)
+  else if (factura.es_recapitulativa && factura.periodo_inicio && factura.periodo_fin) { const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre); result = await matchFacturaRecapitulativa(supabase, factura, alias, cfg) }
+  else { const alias = await obtenerAliasProveedor(supabase, factura.proveedor_nombre); result = await matchFacturaNormal(supabase, factura, alias, cfg) }
   result.cruza_cuentas = Boolean(factura.titular_id && result.matches.some((m) => m.titular_id && m.titular_id !== factura.titular_id))
   return result
 }
 
-async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFactura & { total: number; titular_id?: string | null }, alias: string[]): Promise<MatchingResult> {
+async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFactura & { total: number; titular_id?: string | null }, alias: string[], cfg: ConfigResuelta): Promise<MatchingResult> {
   if (alias.length === 0) return fechaEsHistorica(factura.fecha_factura) ? { estado: 'asociada', matches: [], confianza: 100, mensaje: 'Pre 03/07/2023: sin banco, justificante en Drive, dada por conciliada' } : { estado: 'sin_match', matches: [], confianza: 0, mensaje: `Sin alias para proveedor "${factura.proveedor_nombre}"` }
   const ventana = ventanaProveedor(factura.proveedor_nombre)
+  // Si matching_config define ventana_dias para este proveedor, manda esa (lado "después").
+  const ventanaDespues = cfg.ventanaDias ?? ventana.despues
   const fechaBase = new Date(factura.fecha_factura)
   const fechaMin = new Date(fechaBase); fechaMin.setDate(fechaMin.getDate() - ventana.antes)
-  const fechaMax = new Date(fechaBase); fechaMax.setDate(fechaMax.getDate() + ventana.despues)
+  const fechaMax = new Date(fechaBase); fechaMax.setDate(fechaMax.getDate() + ventanaDespues)
   let query = supabase.from('conciliacion').select('id, fecha, concepto, importe, proveedor, titular_id, categoria').lt('importe', 0).gte('fecha', fechaMin.toISOString().slice(0, 10)).lte('fecha', fechaMax.toISOString().slice(0, 10)).or(orFilterAlias(alias))
   if (factura.titular_id) query = query.eq('titular_id', factura.titular_id)
   const { data: candidatosRaw } = await query
@@ -195,8 +246,8 @@ async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFa
   let yaAsociadosIds = new Set<string>()
   if (ids.length > 0) { const { data: yaAsociados } = await supabase.from('facturas_gastos').select('conciliacion_id, factura_id').in('conciliacion_id', ids); yaAsociadosIds = new Set((yaAsociados || []).filter((a) => a.factura_id !== (factura as { id?: string }).id).map((a) => a.conciliacion_id as string)) }
   const disponibles = candidatos.filter((c) => !yaAsociadosIds.has(c.id))
-  const matchesExactos = disponibles.filter((c) => Math.abs(Math.abs(c.importe) - total) <= TOLERANCIA_IMPORTE)
-  if (matchesExactos.length === 0) return { estado: 'pendiente_revision', matches: disponibles.slice(0, 5), confianza: 0, mensaje: `Proveedor encontrado pero ningún importe cuadra con ${total.toFixed(2)}€ (tolerancia ±${TOLERANCIA_IMPORTE}€)` }
+  const matchesExactos = disponibles.filter((c) => Math.abs(Math.abs(c.importe) - total) <= cfg.tolerancia)
+  if (matchesExactos.length === 0) return { estado: 'pendiente_revision', matches: disponibles.slice(0, 5), confianza: 0, mensaje: `Proveedor encontrado pero ningún importe cuadra con ${total.toFixed(2)}€ (tolerancia ±${cfg.tolerancia}€)` }
   if (matchesExactos.length === 1) { const dias = diasEntre(matchesExactos[0].fecha, factura.fecha_factura); const confianza = dias <= 3 ? 100 : dias <= 15 ? 90 : 75; return { estado: 'asociada', matches: matchesExactos, confianza, mensaje: `Match directo: ${matchesExactos[0].fecha} · ${Math.abs(matchesExactos[0].importe).toFixed(2)}€` } }
   const ordenadosPorFecha = matchesExactos.map((m) => ({ m, dias: diasEntre(m.fecha, factura.fecha_factura) })).sort((a, b) => a.dias - b.dias)
   const mejor = ordenadosPorFecha[0]
@@ -204,7 +255,7 @@ async function matchFacturaNormal(supabase: SupabaseClient, factura: ExtractedFa
   return { estado: 'pendiente_revision', matches: matchesExactos, confianza: 60, mensaje: `Varios movimientos coinciden (${matchesExactos.length}). Confirma manualmente.` }
 }
 
-async function matchFacturaMercadona(supabase: SupabaseClient, factura: ExtractedFactura & { total: number; titular_id?: string | null }): Promise<MatchingResult> {
+async function matchFacturaMercadona(supabase: SupabaseClient, factura: ExtractedFactura & { total: number; titular_id?: string | null }, cfg: ConfigResuelta): Promise<MatchingResult> {
   const { inicio, fin } = mesAnterior(factura.fecha_factura)
   const alias = ['mercadona', 'cc.albufera', 'albufera plaza', 'mercadona online', 'mercadona colmena']
   const { data: movimientosRaw } = await supabase.from('conciliacion').select('id, fecha, concepto, importe, proveedor, titular_id, categoria').lt('importe', 0).gte('fecha', inicio).lte('fecha', fin).or(orFilterAlias(alias))
@@ -217,25 +268,27 @@ async function matchFacturaMercadona(supabase: SupabaseClient, factura: Extracte
   const sumaMovs = disponibles.reduce((acc, m) => acc + Math.abs(m.importe), 0)
   const totalFactura = Math.abs(factura.total)
   const diferencia = Math.abs(sumaMovs - totalFactura)
-  if (diferencia <= TOLERANCIA_IMPORTE) return { estado: 'asociada', matches: disponibles, confianza: 95, mensaje: `Mercadona ${inicio} → ${fin}: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ ✓ cuadra` }
+  if (diferencia <= cfg.tolerancia) return { estado: 'asociada', matches: disponibles, confianza: 95, mensaje: `Mercadona ${inicio} → ${fin}: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ ✓ cuadra` }
   if (diferencia <= 5.0) return { estado: 'pendiente_revision', matches: disponibles, confianza: 70, mensaje: `Mercadona: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)` }
   return { estado: 'pendiente_revision', matches: disponibles, confianza: 40, mensaje: `Mercadona descuadre: ${sumaMovs.toFixed(2)}€ banco vs ${totalFactura.toFixed(2)}€ factura (dif ${diferencia.toFixed(2)}€). Falta extracto tarjeta Emilio o cargo sin etiquetar.` }
 }
 
-async function matchFacturaGlovoJustEat(supabase: SupabaseClient, factura: ExtractedFactura & { total: number }): Promise<MatchingResult> {
+async function matchFacturaGlovoJustEat(supabase: SupabaseClient, factura: ExtractedFactura & { total: number }, cfg: ConfigResuelta): Promise<MatchingResult> {
   const plataforma = factura.plataforma as 'glovo' | 'just_eat'
   const aliasMap: Record<string, string[]> = { glovo: ['glovo', 'glovoapp', 'glovo app'], just_eat: ['just eat', 'justeat', 'je spain', 'takeaway'] }
   const alias = aliasMap[plataforma]
   const fechaInicio = factura.periodo_inicio || factura.fecha_factura
   const fechaFinBase = factura.periodo_fin || factura.fecha_factura
-  const fechaFinExt = new Date(fechaFinBase); fechaFinExt.setDate(fechaFinExt.getDate() + 14)
+  // Ventana "después" desde matching_config si está definida (uber/glovo/just eat = 45d); fallback 14d.
+  const diasExt = cfg.ventanaDias ?? 14
+  const fechaFinExt = new Date(fechaFinBase); fechaFinExt.setDate(fechaFinExt.getDate() + diasExt)
   const { data: ingresosRaw } = await supabase.from('conciliacion').select('id, fecha, concepto, importe, proveedor, titular_id, categoria').gt('importe', 0).gte('fecha', fechaInicio).lte('fecha', fechaFinExt.toISOString().slice(0, 10)).or(orFilterAlias(alias))
   const ingresos: MatchCandidato[] = (ingresosRaw || []).map((c) => ({ id: c.id as string, fecha: c.fecha as string, concepto: (c.concepto as string) || null, importe: Number(c.importe), proveedor: (c.proveedor as string) || null, titular_id: (c.titular_id as string | null) ?? null, categoria_codigo: (c.categoria as string | null) ?? null }))
   if (ingresos.length === 0) return { estado: 'pendiente_revision', matches: [], confianza: 0, mensaje: `Liquidación ${plataforma}: sin ingresos en banco entre ${fechaInicio} y ${fechaFinExt.toISOString().slice(0, 10)}` }
   return { estado: 'pendiente_revision', matches: ingresos, confianza: 70, mensaje: `Liquidación ${plataforma}: ${ingresos.length} ingresos en periodo. Confirma manualmente.` }
 }
 
-async function matchFacturaRecapitulativa(supabase: SupabaseClient, factura: ExtractedFactura & { id?: string; total: number }, alias: string[]): Promise<MatchingResult> {
+async function matchFacturaRecapitulativa(supabase: SupabaseClient, factura: ExtractedFactura & { id?: string; total: number }, alias: string[], cfg: ConfigResuelta): Promise<MatchingResult> {
   if (!factura.periodo_inicio || !factura.periodo_fin) return { estado: 'pendiente_revision', matches: [], confianza: 0, mensaje: 'Recapitulativa sin periodo_inicio/periodo_fin' }
   const fechaFinExt = new Date(factura.periodo_fin); fechaFinExt.setDate(fechaFinExt.getDate() + 3)
   const { data: movimientosRaw } = await supabase.from('conciliacion').select('id, fecha, concepto, importe, proveedor, titular_id, categoria').lt('importe', 0).gte('fecha', factura.periodo_inicio).lte('fecha', fechaFinExt.toISOString().slice(0, 10)).or(orFilterAlias(alias))
@@ -249,7 +302,7 @@ async function matchFacturaRecapitulativa(supabase: SupabaseClient, factura: Ext
   const totalFactura = Math.abs(factura.total)
   const diferencia = Math.abs(sumaMovs - totalFactura)
   // G06: tolerancia 2€ en recapitulativas es intencional (documentado) — recaps suman muchos cargos pequeños
-  if (diferencia <= TOLERANCIA_IMPORTE) return { estado: 'asociada', matches: disponibles, confianza: 95, mensaje: `Recapitulativa: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€` }
+  if (diferencia <= cfg.tolerancia) return { estado: 'asociada', matches: disponibles, confianza: 95, mensaje: `Recapitulativa: ${disponibles.length} cargos suman ${sumaMovs.toFixed(2)}€` }
   if (diferencia <= 2.0) return { estado: 'pendiente_revision', matches: disponibles, confianza: 70, mensaje: `Suma ${disponibles.length} cargos: ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)` }
   return { estado: 'pendiente_revision', matches: disponibles, confianza: 30, mensaje: `Descuadre: suma ${sumaMovs.toFixed(2)}€ vs factura ${totalFactura.toFixed(2)}€ (dif ${diferencia.toFixed(2)}€)` }
 }
