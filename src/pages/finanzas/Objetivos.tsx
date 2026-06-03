@@ -3,11 +3,20 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
+import { useConfig } from '@/hooks/useConfig'
+import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import { esFestivo as esFestivoMadrid, nombreFestivo } from '@/utils/festivosMadrid'
 
 interface ObjetivoGeneral { tipo: string; importe: number; id: string }
 interface ObjetivoDia { dia: number; importe: number; id: string }
 interface ObjetivoPresupuesto { id: string; categoria_codigo: string; anio: number; mes: number; importe: number }
+interface VentaCanal {
+  fecha: string
+  total_bruto: number
+  uber_bruto: number; glovo_bruto: number; je_bruto: number; web_bruto: number; directa_bruto: number
+  uber_pedidos: number; glovo_pedidos: number; je_pedidos: number; web_pedidos: number; directa_pedidos: number
+}
 
 function getISOWeek(d: Date): { year: number; week: number } {
   const dd = new Date(d)
@@ -38,12 +47,6 @@ function toDateStr(d: Date): string {
 }
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-
-const FESTIVOS_2026 = [
-  '2026-01-01', '2026-01-06', '2026-03-19', '2026-04-02', '2026-04-03',
-  '2026-05-01', '2026-05-02', '2026-05-15', '2026-07-25', '2026-08-15',
-  '2026-10-12', '2026-11-01', '2026-11-09', '2026-12-08', '2026-12-25',
-]
 
 const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: string; nombre: string }[] }[] = [
   { grupo: 'PRODUCTO', label: 'Producto (COGS)', codigos: [
@@ -88,20 +91,55 @@ const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: str
 const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
+// Festivo Madrid — amarillo SL sólido + texto oscuro legible
+const FESTIVO_BG = '#e8f442'
+const FESTIVO_BORDE = '#c8d400'
+const FESTIVO_TXT = '#5c5c00'
+
 function barColor(pct: number): string {
   return pct > 0 ? '#1D9E75' : '#E24B4A'
 }
 
-// TODO: sustituir por datos reales de neto cuando estén disponibles en Supabase
-function calcNetoEstimado(bruto: number): number {
-  const COM_MEDIA = 0.327
-  return Math.max(0, bruto * (1 - COM_MEDIA))
-}
-const PCT_NETO_EST = Math.round((1 - 0.327) * 100)
-
 export default function Objetivos() {
   const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
+  const { canales } = useConfig()
+
+  // Estado config canales + marcas por canal cargado de Supabase
+  const [cfgCanalesReal, setCfgCanalesReal] = useState<Record<string, CanalConfigCentral>>({})
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  useEffect(() => {
+    loadConfigCanales().then(setCfgCanalesReal)
+    loadMarcasPorCanal().then(setMarcasPorCanal)
+    const onChange = () => {
+      loadConfigCanales().then(setCfgCanalesReal)
+      loadMarcasPorCanal().then(setMarcasPorCanal)
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
+  // Helper: calcula neto delegando en calcNetoPorCanal central (fórmula real verificada)
+  // Incluye: Uber 30%/33% Prime + fee_promo 0,82€ + 2,29€/sem/marca. Glovo 30% + fee_prime 0,74€ + 10€/quincena/marca. JE 30% + 0,30€/ped. IVA 21% sobre todo.
+  const calcNetoCompleto = useCallback((ventasRango: VentaCanal[], desde: Date, hasta: Date): { neto: number; bruto: number } => {
+    let netoTotal = 0, brutoTotal = 0
+    const acum = { uber: {b:0,p:0}, glovo: {b:0,p:0}, je: {b:0,p:0}, web: {b:0,p:0}, dir: {b:0,p:0} }
+    for (const r of ventasRango) {
+      acum.uber.b  += r.uber_bruto    || 0;  acum.uber.p  += r.uber_pedidos    || 0
+      acum.glovo.b += r.glovo_bruto   || 0;  acum.glovo.p += r.glovo_pedidos   || 0
+      acum.je.b    += r.je_bruto      || 0;  acum.je.p    += r.je_pedidos      || 0
+      acum.web.b   += r.web_bruto     || 0;  acum.web.p   += r.web_pedidos     || 0
+      acum.dir.b   += r.directa_bruto || 0;  acum.dir.p   += r.directa_pedidos || 0
+      brutoTotal += r.total_bruto || 0
+    }
+    for (const k of ['uber','glovo','je','web','dir'] as const) {
+      const a = acum[k]
+      if (a.b <= 0) continue
+      const { neto } = calcNetoPorCanal(k, a.b, a.p, marcasPorCanal, desde, hasta, cfgCanalesReal)
+      netoTotal += neto
+    }
+    return { neto: netoTotal, bruto: brutoTotal }
+  }, [cfgCanalesReal, marcasPorCanal])
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
@@ -138,7 +176,7 @@ export default function Objetivos() {
   }, [weekMon])
 
   const esFinde = (dia: number) => dia >= 5
-  const esFestivo = (dia: number) => FESTIVOS_2026.includes(toDateStr(fechaDia(dia)))
+  const esFestivo = (dia: number) => esFestivoMadrid(toDateStr(fechaDia(dia)))
   const esHoyFlag = (dia: number) => fechaDia(dia).toDateString() === hoy.toDateString()
 
   const [objetivos, setObjetivos] = useState<ObjetivoGeneral[]>([])
@@ -147,7 +185,7 @@ export default function Objetivos() {
   const [editValue, setEditValue] = useState('')
   const [histTipo, setHistTipo] = useState<'dias' | 'semanas' | 'meses' | 'anual'>('semanas')
   const [histAnio, setHistAnio] = useState<number>(hoy.getFullYear())
-  const [ventas, setVentas] = useState<{ fecha: string; total_bruto: number }[]>([])
+  const [ventas, setVentas] = useState<VentaCanal[]>([])
   const [loading, setLoading] = useState(true)
   const [presAnio, setPresAnio] = useState(hoy.getFullYear())
   const [presData, setPresData] = useState<ObjetivoPresupuesto[]>([])
@@ -160,11 +198,16 @@ export default function Objetivos() {
     Promise.all([
       supabase.from('objetivos').select('*').in('tipo', ['diario','semanal','mensual','anual']),
       supabase.from('objetivos_dia_semana').select('*').order('dia'),
-      supabase.from('facturacion_diario').select('fecha,total_bruto').order('fecha', { ascending: false }).limit(2000),
+      supabase.from('facturacion_diario').select('fecha,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,uber_pedidos,glovo_pedidos,je_pedidos,web_pedidos,directa_pedidos').order('fecha', { ascending: false }).limit(2000),
     ]).then(([g, d, v]) => {
       if (g.data) setObjetivos(g.data.map((r: any) => ({ tipo: r.tipo, importe: Number(r.importe), id: r.id })))
       if (d.data) setDiasSemana(d.data.map((r: any) => ({ dia: r.dia, importe: Number(r.importe), id: r.id })))
-      if (v.data) setVentas(v.data.map((r: any) => ({ fecha: r.fecha, total_bruto: Number(r.total_bruto) || 0 })))
+      if (v.data) setVentas(v.data.map((r: any) => ({
+        fecha: r.fecha,
+        total_bruto: Number(r.total_bruto) || 0,
+        uber_bruto: Number(r.uber_bruto)||0, glovo_bruto: Number(r.glovo_bruto)||0, je_bruto: Number(r.je_bruto)||0, web_bruto: Number(r.web_bruto)||0, directa_bruto: Number(r.directa_bruto)||0,
+        uber_pedidos: Number(r.uber_pedidos)||0, glovo_pedidos: Number(r.glovo_pedidos)||0, je_pedidos: Number(r.je_pedidos)||0, web_pedidos: Number(r.web_pedidos)||0, directa_pedidos: Number(r.directa_pedidos)||0,
+      })))
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
@@ -244,10 +287,11 @@ export default function Objetivos() {
   const periodoDesdeStr = useMemo(() => toDateStr(periodoDesde), [periodoDesde])
   const periodoHastaStr = useMemo(() => toDateStr(periodoHasta), [periodoHasta])
 
-  const ventasPeriodo = useMemo(
-    () => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr).reduce((a, r) => a + r.total_bruto, 0),
-    [ventas, periodoDesdeStr, periodoHastaStr]
-  )
+  const ventasPeriodoArr = useMemo(() => ventas.filter(r => r.fecha >= periodoDesdeStr && r.fecha <= periodoHastaStr), [ventas, periodoDesdeStr, periodoHastaStr])
+  const ventasPeriodo = useMemo(() => ventasPeriodoArr.reduce((a, r) => a + r.total_bruto, 0), [ventasPeriodoArr])
+  const netoEstPeriodo = useMemo(() => calcNetoCompleto(ventasPeriodoArr, periodoDesde, periodoHasta).neto, [ventasPeriodoArr, periodoDesde, periodoHasta, calcNetoCompleto])
+  const PCT_NETO_EST_PERIODO = ventasPeriodo > 0 ? Math.round((netoEstPeriodo / ventasPeriodo) * 100) : 0
+
   const ventasSemana = useMemo(
     () => ventas.filter(r => r.fecha >= weekStart && r.fecha <= weekEnd).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, weekStart, weekEnd]
@@ -276,7 +320,6 @@ export default function Objetivos() {
     () => ventas.filter(r => r.fecha.startsWith(currentYear)).reduce((a, r) => a + r.total_bruto, 0),
     [ventas, currentYear]
   )
-  const netoEstPeriodo = useMemo(() => calcNetoEstimado(ventasPeriodo), [ventasPeriodo])
 
   const sumaSemana = useMemo(() => diasSemana.reduce((a, d) => a + Number(d.importe || 0), 0), [diasSemana])
   const sumaMes = useMemo(() => {
@@ -355,7 +398,7 @@ export default function Objetivos() {
 
   const INCUMPLIDO = '#E24B4A'
   const VERDE = '#1D9E75'
-  const KPI_SIZE = 36 // tamaño único para bruto y neto
+  const KPI_SIZE = 36
 
   const inputSelectStyle = {
     background: isDark ? '#3a4058' : '#ffffff',
@@ -468,13 +511,11 @@ export default function Objetivos() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            {/* CARD VENTAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
 
-              {/* Bruto negro + neto verde — MISMO tamaño */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
                   {fmtNumES(ventasPeriodo, 2)}
@@ -483,9 +524,8 @@ export default function Objetivos() {
                   <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: VERDE, lineHeight: 1, letterSpacing: '-0.5px' }}>
                     {fmtNumES(netoEstPeriodo, 2)}
                   </span>
-                  {/* TODO: quitar badge cuando haya neto real en Supabase */}
                   <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
-                    NETO EST. {PCT_NETO_EST}%
+                    NETO EST. {PCT_NETO_EST_PERIODO}%
                   </span>
                 </div>
               </div>
@@ -499,7 +539,6 @@ export default function Objetivos() {
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
             </div>
 
-            {/* CARD DÍAS */}
             <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>
@@ -520,16 +559,18 @@ export default function Objetivos() {
                   const hoyFl = esHoyFlag(dia)
                   const fechaDiaD = fechaDia(dia)
                   const fechaDiaStr = toDateStr(fechaDiaD)
+                  const festNombre = nombreFestivo(fechaDiaStr)
                   const tipoDiaActual = tipoDia(fechaDiaStr)
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
-                  if (festivo) { rowBg = '#f5a62310'; rowBorderLeft = '3px solid #f5a623'; diaColor = '#f5a623' }
-                  else if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
-                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; rowBg = '#ffffff15' }
+                  if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
+                  if (festivo) { rowBg = FESTIVO_BG; rowBorderLeft = `3px solid ${FESTIVO_BORDE}`; diaColor = FESTIVO_TXT }
+                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; if (!festivo) rowBg = '#ffffff15' }
 
                   const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
+                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : T.mut)
                   void esCerrado
 
                   return (
@@ -540,12 +581,13 @@ export default function Objetivos() {
                       borderRadius: hoyFl ? 8 : 0,
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: hoyFl ? '#1E5BCC' : diaColor, textTransform: 'uppercase', fontWeight: hoyFl ? 700 : 500 }}>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: hoyFl ? '#1E5BCC' : T.mut, marginTop: 1, fontWeight: hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
-                          {esCerrado && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
+                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: '#1a1a00', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
+                          {esCerrado && !festivo && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
                           {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
                           {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
                         </div>
@@ -571,7 +613,7 @@ export default function Objetivos() {
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl ? 700 : 600, color: T.pri, cursor: 'pointer' }}>
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? '#1a1a00' : T.pri, cursor: 'pointer' }}>
                             {fmtNumES(importe, 0)}
                           </span>
                         )}
@@ -584,7 +626,6 @@ export default function Objetivos() {
 
           </div>
 
-          {/* HISTÓRICO — con € */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ ...sectionLabel, margin: 0 }}>Histórico de cumplimiento</div>
             <div style={{ display: 'flex', gap: 8 }}>

@@ -18,7 +18,7 @@ import {
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 
@@ -134,13 +134,15 @@ export default function Dashboard() {
 
   const [marcasBD, setMarcasBD] = useState<string[]>([])
   const [configCanales, setConfigCanales] = useState<Record<string, ConfigCanalRow>>({})
-  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
   useEffect(() => {
     loadConfigCanales().then(setConfigCanales)
-    supabase.from('marcas').select('id', { count: 'exact', head: true }).eq('activo', true)
-      .then(({ count }) => { if (count && count > 0) setMarcasActivas(count) })
-    const onCfgChange = () => { recargarConfigCanales().then(setConfigCanales) }
+    loadMarcasPorCanal().then(setMarcasPorCanal)
+    const onCfgChange = () => {
+      recargarConfigCanales().then(setConfigCanales)
+      loadMarcasPorCanal().then(setMarcasPorCanal)
+    }
     window.addEventListener('config_canales:changed', onCfgChange)
     return () => window.removeEventListener('config_canales:changed', onCfgChange)
   }, [])
@@ -342,12 +344,12 @@ export default function Dashboard() {
     return canalesActivos.map(c => {
       const bruto = rowsPeriodo.reduce((a,r) => a + ((r[c.bruKey as keyof Row] as number) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a,r) => a + ((r[c.pedKey as keyof Row] as number) || 0), 0)
-      const { neto, margenPct: margen } = calcNetoPorCanal(c.id, bruto, pedidos, marcasActivas, fechaDesde, fechaHasta, configCanales)
+      const { neto, margenPct: margen } = calcNetoPorCanal(c.id, bruto, pedidos, marcasPorCanal, fechaDesde, fechaHasta, configCanales)
       const pct = ventasPeriodo > 0 ? (bruto / ventasPeriodo) * 100 : 0
       const ticket = pedidos > 0 ? bruto / pedidos : 0
       return { id:c.id, label:c.label, color:c.color, bruto, neto, pct, pedidos, ticket, margen }
     })
-  }, [rowsPeriodo, canalesFiltro, ventasPeriodo, configCanales, marcasActivas, fechaDesde, fechaHasta])
+  }, [rowsPeriodo, canalesFiltro, ventasPeriodo, configCanales, marcasPorCanal, fechaDesde, fechaHasta])
 
   const netoTotal = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
   const ticketMedioNeto = pedidosPeriodo > 0 ? netoTotal / pedidosPeriodo : 0

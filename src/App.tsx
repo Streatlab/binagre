@@ -8,13 +8,18 @@ import Escandallo from '@/pages/Escandallo'
 import Facturacion from '@/pages/Facturacion'
 import Conciliacion from '@/pages/Conciliacion'
 import POS from '@/pages/POS'
-import Configuracion from '@/pages/Configuracion'
 import Placeholder from '@/pages/Placeholder'
 
 import MarcasPage from '@/pages/configuracion/marcas/MarcasPage'
 import TabMarcas from '@/pages/configuracion/marcas/TabMarcas'
 import TabCanales from '@/pages/configuracion/marcas/TabCanales'
 import TabDrive from '@/pages/configuracion/marcas/TabDrive'
+
+import ReglasPage from '@/pages/configuracion/reglas/ReglasPage'
+import TabReglasIngredientes from '@/pages/configuracion/reglas/TabReglasIngredientes'
+import TabReglasConciliacion from '@/pages/configuracion/reglas/TabReglasConciliacion'
+import TabOcrPlantillas from '@/pages/configuracion/reglas/TabOcrPlantillas'
+import TabCorreoOcr from '@/pages/configuracion/reglas/TabCorreoOcr'
 
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
 import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
@@ -28,7 +33,6 @@ import TabUnidades from '@/pages/configuracion/compras/TabUnidades'
 
 import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 import CategoriasFinancierasPage from '@/pages/configuracion/categorias/CategoriasPage'
-import PlataformasPage from '@/pages/configuracion/plataformas/PlataformasPage'
 import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
 
@@ -40,18 +44,9 @@ import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 import GestionFacturas from '@/pages/finanzas/GestionFacturas'
 
 import PanelGlobal from '@/pages/PanelGlobal'
-import Mockup from '@/pages/Mockup'
-import MockupBinagrePosthog from '@/pages/mockups/MockupBinagrePosthog'
-import MockupHolded from '@/pages/mockups/MockupHolded'
-import MockupMarginEdge from '@/pages/mockups/MockupMarginEdge'
-import MockupRestaurant365 from '@/pages/mockups/MockupRestaurant365'
-import MockupFusion3 from '@/pages/mockups/MockupFusion3'
-import MockupFusion3Binagre from '@/pages/mockups/MockupFusion3Binagre'
-import MockupBinagreColors from '@/pages/mockups/MockupBinagreColors'
-import MockupPosthogBinagre from '@/pages/mockups/MockupPosthogBinagre'
+import PanelGlobal2 from '@/pages/PanelGlobal2'
 import MockupLymon from '@/pages/mockups/MockupLymon'
-import MockupLymonBinagre from '@/pages/mockups/MockupLymonBinagre'
-import Ocr from '@/pages/Ocr'
+import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
 import EscandalloV2 from '@/pages/EscandalloV2'
 import Carta from '@/pages/Carta'
@@ -67,7 +62,8 @@ import CocinaRecetas from '@/pages/CocinaRecetas'
 import CocinaInventario from '@/pages/CocinaInventario'
 import MenuEngineering from '@/pages/cocina/MenuEngineering'
 import Recetario from '@/pages/cocina/Recetario'
-import RecetaDetalle from '@/pages/cocina/RecetaDetalle'
+import Esquemas from '@/pages/cocina/Esquemas'
+import Produccion from '@/pages/cocina/Produccion'
 
 import MarketingEmbudo from '@/pages/MarketingEmbudo'
 
@@ -96,6 +92,7 @@ import Dotacion from '@/pages/equipo/Dotacion'
 import OnboardingDigital from '@/pages/equipo/OnboardingDigital'
 import SgSst from '@/pages/equipo/SgSst'
 import MisVentasMetas from '@/pages/equipo/MisVentasMetas'
+import Horarios from '@/pages/equipo/Horarios'
 
 import ClubFidelizacion from '@/pages/clientes/ClubFidelizacion'
 import CrmTiendaPropia from '@/pages/clientes/CrmTiendaPropia'
@@ -104,6 +101,7 @@ import PanelResenas from '@/pages/clientes/PanelResenas'
 import PosVentas from '@/pages/integraciones/PosVentas'
 
 import InformesPanel from '@/pages/informes/InformesPanel'
+import ImportarVentas from '@/pages/ImportarVentas'
 import Destinatarios from '@/pages/informes/Destinatarios'
 import Historial from '@/pages/informes/Historial'
 import ConfiguracionInformes from '@/pages/informes/ConfiguracionInformes'
@@ -131,7 +129,8 @@ function AppRoutes() {
         <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
         <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
-        <Route path="configuracion/configuracion" element={<ProtectedRoute solo={['admin']}><Configuracion /></ProtectedRoute>} />
+        {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
+        <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 
         <Route path="configuracion/integraciones" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
           <Route index element={<TabMarcas />} />
@@ -140,6 +139,14 @@ function AppRoutes() {
         </Route>
         <Route path="configuracion/marcas" element={<Navigate to="/configuracion/integraciones" replace />} />
         <Route path="configuracion/marcas/canales" element={<Navigate to="/configuracion/integraciones/canales" replace />} />
+
+        <Route path="configuracion/reglas" element={<ProtectedRoute solo={['admin']}><ReglasPage /></ProtectedRoute>}>
+          <Route index element={<TabReglasIngredientes />} />
+          <Route path="ingredientes" element={<TabReglasIngredientes />} />
+          <Route path="conciliacion" element={<TabReglasConciliacion />} />
+          <Route path="plantillas" element={<TabOcrPlantillas />} />
+          <Route path="correo" element={<TabCorreoOcr />} />
+        </Route>
 
         <Route path="configuracion/bancos" element={<ProtectedRoute solo={['admin']}><BancosPage /></ProtectedRoute>} />
         <Route path="configuracion/cuentas-bancarias" element={<ProtectedRoute solo={['admin']}><CuentasBancarias /></ProtectedRoute>} />
@@ -155,7 +162,6 @@ function AppRoutes() {
 
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
         <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
-        <Route path="configuracion/plataformas" element={<ProtectedRoute solo={['admin']}><PlataformasPage /></ProtectedRoute>} />
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
@@ -167,24 +173,14 @@ function AppRoutes() {
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+        <Route path="panel-2" element={<ProtectedRoute solo={['admin']}><PanelGlobal2 /></ProtectedRoute>} />
 
-        {/* Mockup desplegable con 10 submódulos */}
-        <Route path="mockup" element={<Navigate to="/mockup/lymon-binagre" replace />} />
-        <Route path="mockup/binagre-posthog" element={<ProtectedRoute solo={['admin']}><MockupBinagrePosthog /></ProtectedRoute>} />
-        <Route path="mockup/holded" element={<ProtectedRoute solo={['admin']}><MockupHolded /></ProtectedRoute>} />
-        <Route path="mockup/marginedge" element={<ProtectedRoute solo={['admin']}><MockupMarginEdge /></ProtectedRoute>} />
-        <Route path="mockup/restaurant365" element={<ProtectedRoute solo={['admin']}><MockupRestaurant365 /></ProtectedRoute>} />
-        <Route path="mockup/fusion3" element={<ProtectedRoute solo={['admin']}><MockupFusion3 /></ProtectedRoute>} />
-        <Route path="mockup/fusion3-binagre" element={<ProtectedRoute solo={['admin']}><MockupFusion3Binagre /></ProtectedRoute>} />
-        <Route path="mockup/binagre-colors" element={<ProtectedRoute solo={['admin']}><MockupBinagreColors /></ProtectedRoute>} />
-        <Route path="mockup/posthog-binagre" element={<ProtectedRoute solo={['admin']}><MockupPosthogBinagre /></ProtectedRoute>} />
-        <Route path="mockup/lymon" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
-        <Route path="mockup/lymon-binagre" element={<ProtectedRoute solo={['admin']}><MockupLymonBinagre /></ProtectedRoute>} />
-        {/* Compatibilidad con la ruta antigua /mockup */}
-        <Route path="mockup-old" element={<ProtectedRoute solo={['admin']}><Mockup /></ProtectedRoute>} />
+        {/* Mockup único · estilo Lymon */}
+        <Route path="mockup" element={<ProtectedRoute solo={['admin']}><MockupLymon /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
-        <Route path="ocr" element={<ProtectedRoute solo={['admin']}><Ocr /></ProtectedRoute>} />
+        <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
+        <Route path="importar-ventas" element={<ProtectedRoute solo={['admin']}><ImportarVentas /></ProtectedRoute>} />
         <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 
         <Route path="informes" element={<ProtectedRoute solo={['admin']}><InformesPanel /></ProtectedRoute>} />
@@ -214,6 +210,7 @@ function AppRoutes() {
 
         <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
         <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
+        <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
         <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
         <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />
         <Route path="equipo/antiguedad" element={<ProtectedRoute solo={['admin']}><BeneficiosAntiguedad /></ProtectedRoute>} />
@@ -238,7 +235,8 @@ function AppRoutes() {
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
         <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
         <Route path="cocina/recetario" element={<Recetario />} />
-        <Route path="cocina/recetario/:id" element={<RecetaDetalle />} />
+        <Route path="cocina/esquemas" element={<Esquemas />} />
+        <Route path="cocina/produccion" element={<Produccion />} />
 
         <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         <Route path="ops/:slug" element={<Placeholder />} />

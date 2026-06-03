@@ -47,10 +47,11 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/finanzas/running',              label: 'Running Financiero',  emoji: '📊', perfiles: ['admin'] },
+      { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
+      { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
     ],
@@ -58,17 +59,21 @@ const SECTIONS: NavSection[] = [
   {
     key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
-      { path: '/equipo', label: 'Equipo', emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo',          label: 'Personas', emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/horarios', label: 'Horarios', emoji: '🗓️', perfiles: ['admin'] },
     ],
   },
   {
     key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
       { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/lista-compra',     label: 'Lista de Compra',      emoji: '🛒', perfiles: ['admin', 'cocina'] },
       { path: '/escandallo-v2',           label: 'Escandallo v2 (beta)', emoji: '⚗️', perfiles: ['admin'] },
       { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
       { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/esquemas',         label: 'Esquemas',             emoji: '🗂️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/produccion',       label: 'Lista de Producción',  emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -92,8 +97,8 @@ const SECTIONS: NavSection[] = [
     key: 'configuracion', emoji: '⚙️', label: 'Configuración', perfiles: ['admin'],
     items: [
       { path: '/configuracion/integraciones',    label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
+      { path: '/configuracion/reglas',           label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/plataformas',      label: 'Plataformas',          emoji: '📡', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
     ],
@@ -122,12 +127,11 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Albaranes',                    emoji: '📄' },
   { label: 'POS',                          emoji: '🖥️' },
   { label: 'Pedidos en Curso',             emoji: '⏳' },
-  { label: 'Producción',                   emoji: '🏭' },
   { label: 'Fichas Empleados',             emoji: '👤' },
   { label: 'Evaluaciones',                 emoji: '⭐' },
   { label: 'Llamados Atención',            emoji: '⚠️' },
   { label: 'Beneficios Antigüedad',        emoji: '🎁' },
-  { label: 'Celebraciones',                emoji: '🎉' },
+  { label: 'Celebraciones',               emoji: '🎉' },
   { label: 'Onboarding Digital',           emoji: '🚀' },
   { label: 'Mis Ventas / Mis Metas',       emoji: '🏅' },
   { label: 'Calendario',                   emoji: '📅' },
@@ -145,7 +149,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Ficha Cliente',                emoji: '👤' },
   { label: 'Envío WhatsApp',               emoji: '💬' },
   { label: 'Envío Email',                  emoji: '📧' },
-  { label: 'Oportunidades',                emoji: '💡' },
+  { label: 'Oportunidades',               emoji: '💡' },
   { label: 'Top Clientes Facturación',     emoji: '🏆' },
   { label: 'Tienda en Línea',              emoji: '🛒' },
   { label: 'Ventas por Hora',              emoji: '🕐' },
@@ -355,16 +359,88 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* MOCKUP — desplegable con 10 submódulos */}
+          {/* MOCKUP — item simple, estilo Lymon */}
           {(!collapsed && perfil === 'admin') && (
-            <MockupSubmenu T={T} onClose={onClose} />
+            <NavLink
+              to="/mockup"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#e8f442'} style={{ flexShrink: 0 }} />
+                  <span>Mockup</span>
+                </>
+              )}
+            </NavLink>
           )}
 
           {collapsed && perfil === 'admin' && (
             <NavLink
               to="/mockup"
               onClick={onClose}
-              title="Mockup · 10 estilos visuales"
+              title="Mockup · estilo Lymon"
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <LayoutDashboard size={20} strokeWidth={1.8} color="#e8f442" />
+            </NavLink>
+          )}
+
+          {/* PANEL GLOBAL 2 — copia real estilo Lymon */}
+          {(!collapsed && perfil === 'admin') && (
+            <NavLink
+              to="/panel-2"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '10px 14px 10px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: isActive ? '#ffffff' : T.pri,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#e8f442'} style={{ flexShrink: 0 }} />
+                  <span>Panel Global 2</span>
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil === 'admin' && (
+            <NavLink
+              to="/panel-2"
+              onClick={onClose}
+              title="Panel Global 2 · estilo Lymon"
               style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
             >
               <LayoutDashboard size={20} strokeWidth={1.8} color="#e8f442" />
@@ -588,87 +664,6 @@ function SidebarProximamente({ isOpen, onToggle, T }: { isOpen: boolean; onToggl
             <span style={{ fontSize: 12, flexShrink: 0 }}>{item.emoji}</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function MockupSubmenu({ T, onClose }: { T: ReturnType<typeof useTheme>['T']; onClose: () => void }) {
-  const [open, setOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('streatlab.sidebar.mockupOpen') === '1'
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem('streatlab.sidebar.mockupOpen', open ? '1' : '0')
-  }, [open])
-
-  const items = [
-    { path: '/mockup/binagre-posthog',  label: '1 · Binagre + Posthog' },
-    { path: '/mockup/holded',           label: '2 · Holded' },
-    { path: '/mockup/marginedge',       label: '3 · MarginEdge' },
-    { path: '/mockup/restaurant365',    label: '4 · Restaurant365' },
-    { path: '/mockup/fusion3',          label: '5 · Fusión 3 estilos' },
-    { path: '/mockup/fusion3-binagre',  label: '6 · Fusión + Binagre' },
-    { path: '/mockup/binagre-colors',   label: '7 · Actual + colores BIN' },
-    { path: '/mockup/posthog-binagre',  label: '8 · Posthog + Binagre' },
-    { path: '/mockup/lymon',            label: '9 · Lymon' },
-    { path: '/mockup/lymon-binagre',    label: '10 · Lymon + Rojo BIN' },
-  ]
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px 10px 12px',
-          fontFamily: FONT.heading, fontSize: 13,
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-          color: T.pri,
-          transition: 'color 200ms',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <LayoutDashboard size={18} strokeWidth={1.8} color="#e8f442" style={{ flexShrink: 0 }} />
-          <span>Mockup</span>
-        </div>
-        <span style={{ fontSize: 11, transition: 'transform 300ms', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
-      </button>
-      <div
-        style={{
-          maxHeight: open ? `${items.length * 36 + 4}px` : 0,
-          overflow: 'hidden', transition: 'max-height 300ms ease',
-        }}
-      >
-        {items.map((item, idx) => (
-          <NavLink
-            key={`${item.path}-${idx}`}
-            to={item.path}
-            onClick={onClose}
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '8px 10px 8px 38px',
-              margin: '0 8px',
-              borderRadius: 4,
-              fontFamily: FONT.body,
-              fontSize: 12.5,
-              color: isActive ? '#ffffff' : T.pri,
-              background: isActive ? '#B01D23' : 'transparent',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            })}
-          >
-            {item.label}
-          </NavLink>
         ))}
       </div>
     </div>

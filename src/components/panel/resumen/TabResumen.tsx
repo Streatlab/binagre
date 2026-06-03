@@ -1,13 +1,15 @@
 /**
  * Tab Resumen v3 — Panel Global
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
- * Pasa marcasActivas + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
+ * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
+ * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo),
+ * no por días del rango, para no hundir el resultado en semanas a medio cargar.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { COLOR, LEXEND, row3 } from './tokens'
 import CardVentas from './CardVentas'
 import CardPedidosTM from './CardPedidosTM'
@@ -135,7 +137,7 @@ export default function TabResumen({
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
-  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -154,23 +156,19 @@ export default function TabResumen({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  /* ── fetch config_canales + listener refresco vivo ─────────────────── */
+  /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
   useEffect(() => {
     loadConfigCanales().then(cfg => setConfigCanales(cfg))
+    loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
     const onChange = () => {
       recargarConfigCanales().then(cfg => setConfigCanales(cfg))
+      loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
     }
     window.addEventListener('config_canales:changed', onChange)
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
 
-  /* ── fetch nº marcas activas ─────────────────── */
-  useEffect(() => {
-    supabase.from('marcas').select('id', { count: 'exact', head: true }).eq('activo', true)
-      .then(({ count }) => {
-        if (count && count > 0) setMarcasActivas(count)
-      })
-  }, [])
+  /* ── fetch nº marcas por canal · ya gestionado en useEffect anterior con loadMarcasPorCanal ── */
 
   /* ── fetch objetivos ventas ─────────────────── */
   const loadObjetivos = useCallback(async () => {
@@ -293,6 +291,12 @@ export default function TabResumen({
       })
   }, [])
 
+  /* ── días con datos reales en el periodo (para prorrateo de fees) ── */
+  const diasConDatosPeriodo = useMemo(
+    () => new Set(rowsPeriodo.filter(r => (r.total_bruto || 0) > 0).map(r => r.fecha)).size,
+    [rowsPeriodo]
+  )
+
   /* ── derivar canalStats del periodo ─────────── */
   const canalStats: CanalStat[] = useMemo(() => {
     const filt = canalesFiltro.length > 0
@@ -310,7 +314,7 @@ export default function TabResumen({
       const pedKey = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
       const bruto = rowsPeriodo.reduce((a, r) => a + (Number(r[brutoKey]) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a, r) => a + (Number(r[pedKey]) || 0), 0)
-      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fechaDesde, fechaHasta, configCanales)
+      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta, configCanales, diasConDatos: diasConDatosPeriodo })
       return {
         id, label: labels[id], color: colores[id], bruto, neto, pedidos,
         pct: totalBruto > 0 ? (bruto / totalBruto) * 100 : 0,
@@ -318,7 +322,7 @@ export default function TabResumen({
         margen: margenPct,
       }
     })
-  }, [rowsPeriodo, canalesFiltro, configCanales, marcasActivas, fechaDesde, fechaHasta])
+  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta, diasConDatosPeriodo])
 
   const ventasPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsPeriodo])
   const pedidosPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsPeriodo])
@@ -460,6 +464,7 @@ export default function TabResumen({
 
     function netoRows(d1: string, d2: string, fIni: Date, fFin: Date): number {
       const rs = rowsAll.filter(r => r.fecha >= d1 && r.fecha <= d2)
+      const diasDatos = new Set(rs.filter(r => (r.total_bruto || 0) > 0).map(r => r.fecha)).size
       const ids: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']
       let n = 0
       for (const id of ids) {
@@ -467,7 +472,7 @@ export default function TabResumen({
         const pk = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
         const bruto = rs.reduce((a, r) => a + (Number(r[bk]) || 0), 0)
         const pedidos = rs.reduce((a, r) => a + (Number(r[pk]) || 0), 0)
-        n += calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales).neto
+        n += calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: fIni, fechaHasta: fFin, configCanales, diasConDatos: diasDatos }).neto
       }
       return n
     }
@@ -480,7 +485,7 @@ export default function TabResumen({
 
     const saldoHoy = Math.max(0, cobros30d - pagos30d) + (peParams?.caja_minima_verde ?? 0)
     return { saldoHoy, cobros7d, pagos7d, cobros30d, pagos30d }
-  }, [rowsAll, gastos, peParams, configCanales, marcasActivas])
+  }, [rowsAll, gastos, peParams, configCanales, marcasPorCanal])
 
   const gastosFijosMes = useMemo(() => {
     if (!peParams) return 0

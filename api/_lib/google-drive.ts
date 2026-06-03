@@ -1,3 +1,4 @@
+// google-drive v3 — + descarga por ID para reprocesador (0 API)
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
@@ -12,9 +13,7 @@ type DriveExtracted = {
   carpeta_titular?: string
 }
 
-// 11/05/26: raíz Drive definitiva = "00 SISTEMA STREAT LAB > 05 OPERACIONES"
-// Bajo esta raíz se crea RUBÉN/EMILIO > AÑO > TRIMESTRE > MES > PROVEEDORES|PLATAFORMAS
-const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNl8JxGGuv8MXloUCJ3_evd7H'
+const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNI8JxGGuv8MXloUCJ3_evd7H'
 const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
 
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
@@ -80,12 +79,13 @@ const MESES = [
   '07 JULIO', '08 AGOSTO', '09 SEPTIEMBRE', '10 OCTUBRE', '11 NOVIEMBRE', '12 DICIEMBRE',
 ]
 
+// F10: slug preserva espacios como guiones bajos y NO elimina tildes del texto
 function slug(s: string): string {
   return (s || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '')
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F\s]+/g, '')
+    .replace(/\s+/g, '_')
     .trim()
+    || 'SinNombre'
 }
 
 export function generarNombreArchivo(extracted: DriveExtracted, ext: string): string {
@@ -109,7 +109,11 @@ export async function subirArchivoADrive(
   const tri = trimestre(fecha)
   const mes = MESES[fecha.getMonth()]
   const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
-  const carpetaTitular = extracted.carpeta_titular || 'SIN_TITULAR'
+  const rawTitular = extracted.carpeta_titular || 'SIN_TITULAR'
+  const carpetaTitular = rawTitular
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
 
   const anclaId: string | null = ROOT_FOLDER_ID || null
   let folderId: string
@@ -137,6 +141,17 @@ export async function subirArchivoADrive(
   })
 
   return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
+}
+
+// Descarga el contenido de un archivo de Drive por su ID. Usado por el
+// reprocesador para re-leer PDFs ya subidos sin pedir nada al usuario. 0 API.
+export async function descargarArchivoDeDrive(fileId: string): Promise<Buffer> {
+  const drive = await getDriveGlobal()
+  const res = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    { responseType: 'arraybuffer' },
+  )
+  return Buffer.from(res.data as ArrayBuffer)
 }
 
 export async function subirPdfADrive(

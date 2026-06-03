@@ -1,6 +1,7 @@
+// detectarTipo v2 — I01 I02: añadir tif/tiff/gif/bmp a imagen
 export type TipoArchivo = 'pdf' | 'imagen' | 'word' | 'excel' | 'email' | 'texto'
 
-const EXT_IMAGEN = ['jpg', 'jpeg', 'png', 'webp', 'heic']
+const EXT_IMAGEN = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'tif', 'tiff', 'gif', 'bmp']
 const EXT_WORD = ['docx', 'doc']
 const EXT_EXCEL = ['xlsx', 'xls']
 const EXT_EMAIL = ['eml', 'msg']
@@ -10,6 +11,10 @@ const MIME_IMAGENES = new Set([
   'image/png',
   'image/webp',
   'image/heic',
+  'image/heif',
+  'image/tiff',
+  'image/gif',
+  'image/bmp',
 ])
 
 export function detectarTipoArchivo(filename: string, mimeType?: string | null): TipoArchivo {
@@ -36,6 +41,11 @@ export function mimeTypeParaExtension(ext: string): string {
     png: 'image/png',
     webp: 'image/webp',
     heic: 'image/heic',
+    heif: 'image/heif',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     doc: 'application/msword',
     xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

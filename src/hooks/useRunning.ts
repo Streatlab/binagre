@@ -132,3 +132,5 @@ export function useRunning(
 
   return { ...state, reload };
 }
+
+export type { RunningState as RunningData }

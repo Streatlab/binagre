@@ -1,7 +1,18 @@
-// OcrUploadToast v7 — colores ERP blanco/crema + botón cancelar
-import { useState } from 'react'
+// OcrUploadToast v11 — aviso visible durante subida (no cerrar a media subida)
+import { useState, useEffect } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import type { OcrSession } from '@/lib/ocrUploadStore'
+
+// C02: inyectar CSS global una sola vez
+const STYLE_ID = 'ocr-toast-styles'
+function inyectarEstilosGlobales() {
+  if (typeof document === 'undefined') return
+  if (document.getElementById(STYLE_ID)) return
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent = `@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}} @keyframes ocrSpin { from { transform: rotate(0deg);} to { transform: rotate(360deg);}}`
+  document.head.appendChild(style)
+}
 
 function AchtungBanner({ session }: { session: OcrSession }) {
   if (!session.achtungMensaje) return null
@@ -23,19 +34,60 @@ function AchtungBanner({ session }: { session: OcrSession }) {
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>
         {session.achtungMensaje}
       </div>
-      <style>{`@keyframes achtungPulse { 0%,100% { box-shadow: 0 0 16px rgba(255,71,87,0.5);} 50% { box-shadow: 0 0 24px rgba(255,71,87,0.9);}}`}</style>
     </div>
   )
 }
 
-function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
-  session: OcrSession; onCerrar: () => void; onOcultar: () => void; onCancelar: () => void
+// Aviso: mientras los archivos suben al servidor (fase frágil en el navegador),
+// NO se debe cerrar ni cambiar de página o se pierden los no subidos.
+function SubiendoBanner({ session }: { session: OcrSession }) {
+  const totalSt = session.totalStorage ?? 0
+  const subidosSt = session.subidosStorage ?? 0
+  const subiendo = session.procesando && totalSt > 0 && subidosSt < totalSt
+  if (!subiendo) return null
+  return (
+    <div style={{
+      background: '#FFF3E0',
+      border: '1px solid #F26B1F',
+      color: '#8a4b00',
+      padding: '10px 12px',
+      borderRadius: 8,
+      marginBottom: 10,
+      fontSize: 11.5,
+      fontFamily: 'Lexend, sans-serif',
+      lineHeight: 1.45,
+      fontWeight: 500,
+    }}>
+      ⚠ Subiendo {subidosSt} de {totalSt} al servidor. No cierres esta ventana ni cambies de página hasta que ponga “Procesando”.
+    </div>
+  )
+}
+
+// Pastilla mini: icono + contador. Toca para expandir al toast completo.
+function MiniToast({ session, onExpandir }: { session: OcrSession; onExpandir: () => void }) {
+  const esAbortReal = !!session.achtungMensaje && (session.achtungTipo === 'creditos' || session.achtungTipo === 'api_key' || session.achtungTipo === 'modelo' || (session.achtungMensaje || '').includes('DRIVE'))
+  const color = session.cancelado ? '#7a8090' : (esAbortReal ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75')))
+  const icono = esAbortReal ? '⚠' : session.cancelado ? '⊘' : session.pausada ? '⏸' : session.procesando ? '⏳' : '✓'
+  const girando = session.procesando && !session.pausada && !esAbortReal
+  return (
+    <button onClick={onExpandir} title="Ver detalle"
+      style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${color}`, borderRadius: 999, padding: '8px 14px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontFamily: 'Oswald, sans-serif' }}>
+      <span style={{ fontSize: 15, color, display: 'inline-block', animation: girando ? 'ocrSpin 1.6s linear infinite' : 'none' }}>{icono}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color, letterSpacing: '0.5px' }}>{session.enviados}/{session.total}</span>
+    </button>
+  )
+}
+
+function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onReanudar, onMini }: {
+  session: OcrSession; onCerrar: () => void; onOcultar: () => void; onCancelar: () => void; onPausar: () => void; onReanudar: () => void; onMini: () => void
 }) {
+  const esAbortReal = !!session.achtungMensaje && (session.achtungTipo === 'creditos' || session.achtungTipo === 'api_key' || session.achtungTipo === 'modelo' || (session.achtungMensaje || '').includes('DRIVE'))
   const tieneErroresOAchtung = session.errores > 0 || session.achtung > 0
   const [expandido, setExpandido] = useState(tieneErroresOAchtung)
   const [confirmarCancelar, setConfirmarCancelar] = useState(false)
+  const [confirmarCerrar, setConfirmarCerrar] = useState(false)
   const pct = session.total > 0 ? Math.round((session.enviados / session.total) * 100) : 0
-  const tieneAchtung = session.achtung > 0
+  const tieneAchtung = esAbortReal
 
   const bgPrincipal = '#fff'
   const bgSubtle = '#f5f3ef'
@@ -49,28 +101,44 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
       color: textoPrincipal,
       padding: '14px 18px',
       borderRadius: 12,
-      width: 380,
+      width: '100%', // C04: responsive
+      maxWidth: 380, // C04: max-width en vez de width fijo
       fontFamily: 'Lexend, sans-serif',
       fontSize: 13,
       boxShadow: tieneAchtung ? '0 6px 32px rgba(176, 29, 35, 0.25)' : '0 6px 24px rgba(0,0,0,0.12)',
       border: tieneAchtung ? `1px solid ${bordeColor}` : `0.5px solid ${bordeColor}`,
+      boxSizing: 'border-box' as const,
     }}>
       <AchtungBanner session={session} />
+      <SubiendoBanner session={session} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{
           fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase',
-          color: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.procesando ? '#B01D23' : '#1D9E75')),
+          color: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75'))),
           fontWeight: 600,
         }}>
           {session.cancelado
             ? `Cancelada · ${session.enviados}/${session.total}`
-            : tieneAchtung
+            : esAbortReal
               ? `Abortado · ${session.enviados}/${session.total}`
-              : session.procesando
-                ? `Procesando ${session.enviados}/${session.total}`
-                : `Completado · ${session.total} archivos`}
+              : session.pausada
+                ? `Pausado · ${session.enviados}/${session.total}`
+                : session.procesando
+                  ? `Procesando ${session.enviados}/${session.total}`
+                  : `Completado · ${session.total} archivos`}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
+          {session.procesando && !confirmarCancelar && (
+            session.pausada
+              ? <button onClick={onReanudar}
+                  style={{ background: '#F26B1F', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  ▶ Reanudar
+                </button>
+              : <button onClick={onPausar}
+                  style={{ background: 'transparent', border: '0.5px solid #F26B1F', color: '#F26B1F', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  ⏸ Pausar
+                </button>
+          )}
           {session.procesando && !confirmarCancelar && (
             <button onClick={() => setConfirmarCancelar(true)}
               style={{ background: 'transparent', border: '0.5px solid #d0c8bc', color: '#E24B4A', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
@@ -89,9 +157,15 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
               </button>
             </>
           )}
+          <button onClick={onMini} title="Minimizar a icono" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>⌄</button>
           {session.procesando
-            ? <button onClick={onOcultar} title="Ocultar" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
-            : <button onClick={onCerrar} style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            ? <button onClick={onOcultar} title="Ocultar (sigue procesando en segundo plano)" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
+            : (confirmarCerrar
+                ? <>
+                    <button onClick={() => setConfirmarCerrar(false)} style={{ background: '#fff', border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>No</button>
+                    <button onClick={onCerrar} style={{ background: '#E24B4A', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>Sí, cerrar</button>
+                  </>
+                : <button onClick={() => setConfirmarCerrar(true)} title="Cerrar" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>)
           }
         </div>
       </div>
@@ -106,7 +180,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
       <div style={{ height: 4, background: bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
         <div style={{
           width: `${pct}%`, height: '100%',
-          background: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.procesando ? '#B01D23' : '#1D9E75')),
+          background: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75'))),
           transition: 'width 0.4s'
         }} />
       </div>
@@ -154,16 +228,51 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar }: {
 }
 
 export default function OcrUploadToast() {
-  const { sessions, cerrar, ocultar, cancelar } = useOcrUpload()
+  const { sessions, cerrar, ocultar, cancelar, pausar, reanudar } = useOcrUpload()
+  // ids minimizados a pastilla. Por defecto en movil arranca mini.
+  const esMovil = typeof window !== 'undefined' && window.innerWidth <= 640
+  const [minis, setMinis] = useState<Set<string>>(new Set())
+  const [autoMiniHecho, setAutoMiniHecho] = useState(false)
+
+  // C02: inyectar estilos globales una vez
+  useEffect(() => { inyectarEstilosGlobales() }, [])
+
   const visibles = [...sessions.filter(s => s.visible)].sort((a, b) => a.creadoEn - b.creadoEn)
+
+  // Aviso al cerrar/recargar la pestaña si hay una subida en curso (fase frágil).
+  useEffect(() => {
+    const haySubiendo = visibles.some(s => s.procesando && (s.totalStorage ?? 0) > 0 && (s.subidosStorage ?? 0) < (s.totalStorage ?? 0))
+    if (!haySubiendo) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [visibles])
+
+  // En movil, la primera vez que aparece un toast procesando, arranca minimizado
+  useEffect(() => {
+    if (esMovil && !autoMiniHecho && visibles.some(s => s.procesando)) {
+      setMinis(new Set(visibles.filter(s => s.procesando).map(s => s.id)))
+      setAutoMiniHecho(true)
+    }
+  }, [esMovil, autoMiniHecho, visibles])
+
+  function toggleMini(id: string, on: boolean) {
+    setMinis(prev => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n })
+  }
+
   if (visibles.length === 0) return null
   return (
-    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 10, alignItems: 'flex-end', maxHeight: 'calc(100vh - 40px)', overflow: 'hidden', maxWidth: 'calc(100vw - 40px)' }}>
       {visibles.map(s => (
-        <SessionToast key={s.id} session={s}
-          onCerrar={() => cerrar(s.id)}
-          onOcultar={() => ocultar(s.id)}
-          onCancelar={() => cancelar(s.id)} />
+        minis.has(s.id)
+          ? <MiniToast key={s.id} session={s} onExpandir={() => toggleMini(s.id, false)} />
+          : <SessionToast key={s.id} session={s}
+              onCerrar={() => cerrar(s.id)}
+              onOcultar={() => ocultar(s.id)}
+              onCancelar={() => cancelar(s.id)}
+              onPausar={() => pausar(s.id)}
+              onReanudar={() => reanudar(s.id)}
+              onMini={() => toggleMini(s.id, true)} />
       ))}
     </div>
   )

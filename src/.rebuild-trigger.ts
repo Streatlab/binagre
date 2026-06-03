@@ -1,2 +1,2 @@
-// rebuild trigger — multi-sort acumulativo
-export const BUILD = '2026-05-07-multisort-v2'
+// Rebuild: cards OCR cuentan en servidor (count exacto). El fix llegó cancelado antes.
+export const REBUILD = 'ocr-cards-count-servidor-3'

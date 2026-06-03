@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { FESTIVOS_MADRID, esFestivo } from '@/utils/festivosMadrid'
+import { FESTIVOS_MADRID, esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 
 interface Empleado { id: string; nombre: string }
 interface EventoLaboral {
@@ -138,6 +138,7 @@ export default function TabCalendarioLaboral() {
           const day = i + 1
           const fecha = isoDate(year, month, day)
           const esFest = esFestivo(fecha) || FESTIVOS_MADRID.includes(fecha)
+          const festNombre = nombreFestivo(fecha)
           const evs = getEventosForDate(fecha)
           const isToday = new Date().toISOString().slice(0, 10) === fecha
 
@@ -145,6 +146,7 @@ export default function TabCalendarioLaboral() {
             <div
               key={day}
               onClick={e => { e.stopPropagation(); setDropdown(d => d?.fecha === fecha ? null : { fecha, x: e.clientX, y: e.clientY }) }}
+              title={festNombre ?? undefined}
               style={{
                 minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? '#B01D23' : T.brd}`,
                 background: esFest ? '#e8f44215' : T.card,
@@ -154,12 +156,16 @@ export default function TabCalendarioLaboral() {
             >
               <div style={{
                 fontFamily: FONT.heading, fontSize: 12, fontWeight: isToday ? 700 : 400,
-                color: esFest ? '#e8f442' : isToday ? '#B01D23' : T.sec,
+                color: esFest ? '#9a9a1e' : isToday ? '#B01D23' : T.sec,
                 marginBottom: 3,
               }}>
                 {day}
               </div>
-              {esFest && <div style={{ fontSize: 8, color: '#e8f442', fontFamily: FONT.body, lineHeight: 1.2, marginBottom: 2 }}>Festivo</div>}
+              {festNombre && (
+                <div style={{ fontSize: 8, color: '#9a9a1e', fontFamily: FONT.body, lineHeight: 1.2, marginBottom: 2, fontWeight: 600 }}>
+                  {festNombre}
+                </div>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                 {evs.map(ev => (
                   <div
@@ -195,7 +201,7 @@ export default function TabCalendarioLaboral() {
             </div>
             <button
               onClick={() => addEvento(dropdown.fecha, 'festivo')}
-              style={{ display: 'block', width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, fontSize: 13, color: '#e8f442' }}
+              style={{ display: 'block', width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, fontSize: 13, color: '#9a9a1e' }}
             >
               Marcar festivo
             </button>

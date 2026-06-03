@@ -32,12 +32,7 @@ export interface PeriodoRango { desde: Date; hasta: Date; label: string; key: st
 
 export function periodoMesActual(ref = new Date()): PeriodoRango {
   const y = ref.getFullYear(), m = ref.getMonth();
-  return {
-    desde: new Date(y, m, 1),
-    hasta: new Date(y, m+1, 0),
-    label: `${MESES_LARGO[m]} ${y}`,
-    key: 'mes_actual',
-  };
+  return { desde: new Date(y, m, 1), hasta: new Date(y, m+1, 0), label: `${MESES_LARGO[m]} ${y}`, key: 'mes_actual' };
 }
 
 export function periodoUltimoMes(ref = new Date()): PeriodoRango {
@@ -77,12 +72,4 @@ export function statusRango(pctReal: number, _min: number, max: number): 'ok'|'w
   if (pctReal > max) return 'bad';
   if (pctReal > max * 0.9) return 'warn';
   return 'ok';
-}
-
-export function deltaPct(actual: number, anterior: number): { sign:'up'|'down'|'neutral'; value: number } {
-  if (!anterior && !actual) return { sign:'neutral', value: 0 };
-  if (!anterior) return { sign:'up', value: 100 };
-  const d = ((actual - anterior) / Math.abs(anterior)) * 100;
-  if (Math.abs(d) < 0.5) return { sign:'neutral', value: 0 };
-  return { sign: d>0 ? 'up' : 'down', value: Math.round(Math.abs(d)) };
 }

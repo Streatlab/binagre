@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import ToastHost from '@/components/ui/ToastHost'
+import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 
 export default function Layout() {
@@ -31,6 +32,7 @@ export default function Layout() {
       </div>
       <ToastHost />
       <OcrUploadToast />
+      <OcrCompletadoGlobal />
     </div>
   )
 }

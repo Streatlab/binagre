@@ -1,11 +1,23 @@
+// ModalDetalleFactura v2 — D01 D03 D04 D05 D07
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 
 const TOLERANCIA = 0.05
 
+// D01: sincronizado con matching.ts
 const VENTANAS: Record<string, { antes: number; despues: number }> = {
-  lidl: { antes: 5, despues: 105 },
+  lidl: { antes: 30, despues: 110 },
+  alcampo: { antes: 30, despues: 45 },
+  waitry: { antes: 5, despues: 60 },
+  tesys: { antes: 5, despues: 60 },
+  piensasolutions: { antes: 5, despues: 60 },
+  envases: { antes: 5, despues: 45 },
+  envapro: { antes: 5, despues: 45 },
+  ayora: { antes: 5, despues: 30 },
+  amazon: { antes: 10, despues: 45 },
+  tgt: { antes: 5, despues: 120 },
+  lacteos: { antes: 5, despues: 120 },
 }
 const VENTANA_DEFAULT = { antes: 5, despues: 30 }
 
@@ -39,6 +51,7 @@ interface FacturaEdit {
   pdf_drive_url: string | null
   pdf_drive_id: string | null
   numero_factura: string | null
+  mensaje_matching: string | null
   facturas_gastos?: { id: string; conciliacion_id: string; confirmado: boolean }[]
 }
 
@@ -60,6 +73,8 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   const [confirmarBorrar, setConfirmarBorrar] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ampliarVentana, setAmpliarVentana] = useState(false)
+  // D05: override categoría
+  const [overrideCategoria, setOverrideCategoria] = useState(false)
 
   const ventana = useMemo(() => {
     const base = ventanaProveedor(factura.proveedor_nombre)
@@ -68,7 +83,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   }, [factura.proveedor_nombre, ampliarVentana])
 
   const buscarCandidatos = useCallback(async () => {
-    if (!factura.titular_id || !factura.fecha_factura || !factura.total) return
+    if (!factura.fecha_factura || !factura.total) return
     setCargandoMovs(true)
     try {
       const fechaF = new Date(factura.fecha_factura)
@@ -78,13 +93,19 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
       const importeMin = -(importeAbs + TOLERANCIA)
       const importeMax = -(importeAbs - TOLERANCIA)
 
-      const { data } = await supabase.from('conciliacion')
+      // D03: si no hay titular, buscar sin filtro titular
+      let query = supabase.from('conciliacion')
         .select('id, fecha, concepto, importe, proveedor, titular_id, categoria')
-        .eq('titular_id', factura.titular_id)
         .gte('fecha', fechaMin).lte('fecha', fechaMax)
         .gte('importe', importeMin).lte('importe', importeMax)
         .order('fecha', { ascending: false })
         .limit(40)
+
+      if (factura.titular_id) {
+        query = query.eq('titular_id', factura.titular_id)
+      }
+
+      const { data } = await query
 
       const asociado = factura.facturas_gastos?.find(fg => fg.confirmado)?.conciliacion_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,9 +134,10 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
   useEffect(() => {
     if (!movimientoId) return
+    if (overrideCategoria) return // D05: no pisar si usuario hizo override
     const m = movsCandidatos.find(x => x.id === movimientoId)
     if (m?.categoria) setCategoria(m.categoria)
-  }, [movimientoId, movsCandidatos])
+  }, [movimientoId, movsCandidatos, overrideCategoria])
 
   const catNivel3 = useMemo(() => categoriasPyg.filter(c => c.nivel === 3), [categoriasPyg])
 
@@ -124,7 +146,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
     try {
       const movActual = factura.facturas_gastos?.find(fg => fg.confirmado)
       const movSeleccionado = movsCandidatos.find(m => m.id === movimientoId) || null
-      const categoriaFinal = movSeleccionado?.categoria || categoria || null
+      const categoriaFinal = overrideCategoria ? categoria : (movSeleccionado?.categoria || categoria || null)
 
       const updateFactura: Record<string, unknown> = { categoria_factura: categoriaFinal }
       if (movSeleccionado) updateFactura.estado = 'asociada'
@@ -140,7 +162,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         }
         await supabase.from('facturas_gastos').insert({
           factura_id: factura.id, conciliacion_id: movimientoId,
-          importe_asociado: Math.abs(factura.total), confirmado: true, confianza_match: 100,
+          importe_asociado: Math.abs(factura.total), confirmado: true, confirmado_manual: true, confianza_match: 100,
         })
         await supabase.from('conciliacion').update({
           doc_estado: 'tiene', factura_id: factura.id,
@@ -214,10 +236,18 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             </div>
           )}
 
+          {/* D07: mostrar mensaje_matching */}
+          {factura.mensaje_matching && (
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', lineHeight: 1.4 }}>
+              {factura.mensaje_matching}
+            </div>
+          )}
+
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090' }}>Movimiento bancario</label>
-              {!cargandoMovs && movsCandidatos.length === 0 && !ampliarVentana && (
+              {/* D04: botón ampliar siempre visible */}
+              {!cargandoMovs && !ampliarVentana && (
                 <button onClick={() => setAmpliarVentana(true)} style={{ background: 'transparent', border: 'none', color: '#FF4757', fontFamily: 'Lexend, sans-serif', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
                   Ampliar búsqueda
                 </button>
@@ -227,7 +257,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Buscando candidatos…</div>
             ) : movsCandidatos.length === 0 ? (
               <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A40', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23' }}>
-                No hay movimientos del mismo titular con importe {fmtEur(-Math.abs(factura.total))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
+                No hay movimientos {factura.titular_id ? 'del mismo titular ' : ''}con importe {fmtEur(-Math.abs(factura.total))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
               </div>
             ) : (
               <select value={movimientoId} onChange={e => setMovimientoId(e.target.value)}
@@ -249,19 +279,21 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
           <div>
             <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>
-              Categoría {categoriaPropuesta ? <span style={{ color: '#1D9E75', fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
+              Categoría {categoriaPropuesta && !overrideCategoria ? <span style={{ color: '#1D9E75', fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
+              {overrideCategoria ? <span style={{ color: '#F26B1F', fontStyle: 'italic', textTransform: 'none' }}>(manual — se sobreescribe la del banco)</span> : null}
             </label>
-            <select value={categoria} onChange={e => setCategoria(e.target.value)} disabled={!!categoriaPropuesta}
+            {/* D05: categoría editable con override */}
+            <select value={categoria} onChange={e => { setCategoria(e.target.value); if (categoriaPropuesta) setOverrideCategoria(true) }}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
-                background: categoriaPropuesta ? '#fafaf7' : '#fff',
+                background: '#fff',
                 fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111',
-                cursor: categoriaPropuesta ? 'not-allowed' : 'pointer' }}>
+                cursor: 'pointer' }}>
               <option value="">— Sin categoría —</option>
               {catNivel3.map(c => (<option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>))}
             </select>
-            {categoriaPropuesta && (
+            {categoriaPropuesta && !overrideCategoria && (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
-                La categoría se hereda del movimiento bancario. Si quieres cambiarla, edita el movimiento en Conciliación.
+                La categoría se hereda del movimiento bancario. Puedes cambiarla seleccionando otra.
               </div>
             )}
           </div>

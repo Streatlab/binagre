@@ -11,6 +11,7 @@ export interface Movimiento {
   factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
   titular_id?: string | null
   doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null
+  estado_real?: 'conciliado' | 'parcial' | 'pendiente' | null
 }
 
 export interface Categoria {

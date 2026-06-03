@@ -1,7 +1,5 @@
-# Streatlab Binagre ERP
+# Binagre ERP
 
-ERP web del proyecto Binagre / Streat Lab.
+ERP web de Binagre / Streat Lab.
 
-Stack: Next.js + Vite + Supabase + Vercel.
-
-Última actualización: 3 may 2026 · trigger v8 gestor-doc
+<!-- deploy trigger: dedup solo por hash v12 -->

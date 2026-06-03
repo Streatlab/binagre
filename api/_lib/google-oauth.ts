@@ -9,6 +9,10 @@ const REDIRECT_URI = process.env.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:
 export const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/userinfo.email',
+  // Cartero de facturas: lectura del buzón (solo lectura). Permite recoger
+  // facturas que llegan por correo sin subirlas a mano.
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.modify',
 ]
 
 export function makeOAuth2Client(): OAuth2Client {
@@ -70,7 +74,7 @@ export async function getOAuthClient(): Promise<OAuth2Client> {
  * si falla con invalid_grant, BORRA el token corrupto y devuelve conectado=false.
  * Esto fuerza al usuario a reconectar y soluciona invalid_grant silenciosamente.
  */
-export async function tieneDriveConectado(opts: { validate?: boolean } = {}): Promise<{ conectado: boolean; email?: string; error?: string }> {
+export async function tieneDriveConectado(opts: { validate?: boolean } = {}): Promise<{ conectado: boolean; email?: string; error?: string; scope?: string | null; gmail?: boolean }> {
   const { data } = await supabaseAdmin
     .from('google_oauth_tokens')
     .select('id, email, refresh_token, access_token, expires_at, scope')
@@ -78,8 +82,11 @@ export async function tieneDriveConectado(opts: { validate?: boolean } = {}): Pr
     .maybeSingle()
   if (!data) return { conectado: false }
 
+  const scope = (data as { scope: string | null }).scope || null
+  const gmail = !!scope && scope.includes('gmail.readonly')
+
   if (!opts.validate) {
-    return { conectado: true, email: (data as { email: string | null }).email || undefined }
+    return { conectado: true, email: (data as { email: string | null }).email || undefined, scope, gmail }
   }
 
   try {
@@ -92,7 +99,7 @@ export async function tieneDriveConectado(opts: { validate?: boolean } = {}): Pr
     })
     // Forzar refresh para validar
     await client.getAccessToken()
-    return { conectado: true, email: (data as { email: string | null }).email || undefined }
+    return { conectado: true, email: (data as { email: string | null }).email || undefined, scope, gmail }
   } catch (err: any) {
     const msg = err?.message || String(err)
     if (msg.includes('invalid_grant') || msg.includes('invalid_token')) {

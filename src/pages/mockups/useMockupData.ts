@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
 interface MarcaItem { id: string; nombre: string }
@@ -48,7 +49,7 @@ export interface MockupData {
   facturacion: number
   pedidos: number
   ticketMedio: number
-  margen: number          // placeholder hasta tener datos reales (62.4%)
+  margen: number          // % neto real calculado con calcNetoPorCanal
   // Comparación con mes anterior
   facturacionAnt: number
   pedidosAnt: number
@@ -85,6 +86,14 @@ export function useMockupData(): MockupData {
   const [rowsPeriodo, setRowsPeriodo] = useState<RowFacturacion[]>([])
   const [rowsMesAnterior, setRowsMesAnterior] = useState<RowFacturacion[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [cfgCanales, setCfgCanales] = useState<Record<string, CanalConfig>>({})
+  const [marcasPorCanalData, setMarcasPorCanalData] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+
+  useEffect(() => {
+    loadConfigCanales().then(c => setCfgCanales(c))
+    loadMarcasPorCanal().then(m => setMarcasPorCanalData(m))
+  }, [])
 
   // Marcas activas
   useEffect(() => {
@@ -157,12 +166,35 @@ export function useMockupData(): MockupData {
     const facturacion = cur.bruto
     const pedidos = cur.pedidos
     const ticketMedio = pedidos > 0 ? facturacion / pedidos : 0
-    const margen = 62.4 // TODO: dato real cuando esté disponible
+
+    // Margen real: calcular neto total con calcNetoPorCanal
+    const canalesBruto = [
+      { id: 'uber', bruto: cur.uber, pedidos: cur.uberPed },
+      { id: 'glovo', bruto: cur.glovo, pedidos: cur.glovoPed },
+      { id: 'je', bruto: cur.je, pedidos: cur.jePed },
+      { id: 'web', bruto: cur.web, pedidos: cur.webPed },
+      { id: 'dir', bruto: cur.dir, pedidos: cur.dirPed },
+    ]
+    const netoTotal = canalesBruto.reduce((acc, c) =>
+      acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasPorCanalData, fechaDesde, fechaHasta, cfgCanales).neto, 0)
+    const margen = facturacion > 0 ? (netoTotal / facturacion) * 100 : 0
 
     const facturacionAnt = ant.bruto
     const pedidosAnt = ant.pedidos
     const ticketAnt = pedidosAnt > 0 ? facturacionAnt / pedidosAnt : 0
-    const margenAnt = 65.0
+    // Margen anterior: mismo cálculo con datos mes anterior
+    const canalesBrutoAnt = [
+      { id: 'uber', bruto: ant.uber, pedidos: ant.uberPed },
+      { id: 'glovo', bruto: ant.glovo, pedidos: ant.glovoPed },
+      { id: 'je', bruto: ant.je, pedidos: ant.jePed },
+      { id: 'web', bruto: ant.web, pedidos: ant.webPed },
+      { id: 'dir', bruto: ant.dir, pedidos: ant.dirPed },
+    ]
+    const mesAntDesde = new Date(fechaHasta.getFullYear(), fechaHasta.getMonth() - 1, 1)
+    const mesAntHasta = new Date(fechaHasta.getFullYear(), fechaHasta.getMonth(), 0)
+    const netoAnt = canalesBrutoAnt.reduce((acc, c) =>
+      acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasPorCanalData, mesAntDesde, mesAntHasta, cfgCanales).neto, 0)
+    const margenAnt = facturacionAnt > 0 ? (netoAnt / facturacionAnt) * 100 : 0
 
     const deltaFacturacion = facturacionAnt > 0 ? ((facturacion - facturacionAnt) / facturacionAnt) * 100 : 0
     const deltaPedidos = pedidosAnt > 0 ? ((pedidos - pedidosAnt) / pedidosAnt) * 100 : 0
@@ -223,7 +255,7 @@ export function useMockupData(): MockupData {
       diaMes,
       totalDiasMes,
     }
-  }, [rowsPeriodo, rowsMesAnterior, marcas, loading, diaMes, totalDiasMes, periodoLabel])
+  }, [rowsPeriodo, rowsMesAnterior, marcas, loading, diaMes, totalDiasMes, periodoLabel, cfgCanales, marcasPorCanalData])
 }
 
 // Helpers de formato compartidos

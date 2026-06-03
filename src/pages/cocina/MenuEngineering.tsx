@@ -13,8 +13,12 @@ import {
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { useTheme, cardStyle, FONT } from '@/styles/tokens'
+import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
-// ─── TIPOS ────────────────────────────────────────────────────────────────────
+/* MenuEngineering · matriz Kasavana & Smith.
+   Comisiones leídas de config_canales (verificadas mayo 2026).
+   Margen nivel plato = pvp − (comisión_pct × pvp + fijo_eur) × 1.21 − food_cost.
+   No modela Prime/Promo a nivel plato (no se sabe si el cliente final será Prime). */
 
 interface CartaPlato {
   id: string
@@ -38,17 +42,15 @@ interface PlotPoint {
   id: string
   nombre: string
   marca: string
-  popularidad: number   // 0-100 %
-  margen: number        // € absolutos
-  margenPct: number     // % sobre pvp
+  popularidad: number
+  margen: number
+  margenPct: number
   pvp: number
   cuadrante: 'estrella' | 'vaca' | 'dilema' | 'perro'
-  estimado: boolean     // true si popularidad por fallback uniforme
+  estimado: boolean
 }
 
 type Periodo = 'semana' | 'mes_actual' | 'mes_anterior' | 'tres_meses' | 'ano_actual'
-
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function periodoToDateRange(p: Periodo): { desde: string; hasta: string } {
   const now = new Date()
@@ -89,8 +91,6 @@ function median(arr: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-// ─── COLORES CUADRANTE ────────────────────────────────────────────────────────
-
 const QUAD_COLOR: Record<PlotPoint['cuadrante'], string> = {
   estrella: '#e8f442',
   vaca:     '#06C167',
@@ -112,9 +112,14 @@ const QUAD_ACTION: Record<PlotPoint['cuadrante'], string> = {
   perro:    'Eliminar de carta o rediseñar',
 }
 
+// UI canales → canalId central (calcNetoPorCanal usa 'uber','glovo','je','web','dir')
 const CANALES_LIST = ['Uber', 'Glovo', 'JustEat', 'Web', 'Directa']
-const COMISION_DEFAULT: Record<string, number> = {
-  Uber: 0.30, Glovo: 0.30, JustEat: 0.30, Web: 0.07, Directa: 0.00
+const CANAL_UI_TO_ID: Record<string, string> = {
+  Uber: 'uber',
+  Glovo: 'glovo',
+  JustEat: 'je',
+  Web: 'web',
+  Directa: 'dir',
 }
 
 const PERIODOS: { value: Periodo; label: string }[] = [
@@ -124,8 +129,6 @@ const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 'tres_meses',   label: 'Últimos 3 meses' },
   { value: 'ano_actual',   label: 'Año actual' },
 ]
-
-// ─── TOOLTIP RECHARTS ─────────────────────────────────────────────────────────
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: PlotPoint }> }) {
   if (!active || !payload?.length) return null
@@ -149,32 +152,25 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   )
 }
 
-// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
-
 export default function MenuEngineering() {
   const { T, isDark } = useTheme()
   const navigate = useNavigate()
 
-  // Filtros
   const [marcasSelec, setMarcasSelec] = useState<string[]>([])
   const [canalesSelec, setCanalesSelec] = useState<string[]>(CANALES_LIST)
   const [periodo, setPeriodo] = useState<Periodo>('mes_actual')
 
-  // Datos BD
   const [cartaPlatos, setCartaPlatos] = useState<CartaPlato[]>([])
   const [foodCosts, setFoodCosts] = useState<Map<string, number>>(new Map())
   const [pedidosConteo, setPedidosConteo] = useState<PedidoConteo[]>([])
-  const [comisiones, setComisiones] = useState<Map<string, number>>(new Map(Object.entries(COMISION_DEFAULT)))
+  const configCanales = useConfigCanales()
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [sinFoodCost, setSinFoodCost] = useState(0)
 
-  // ─── Cargar datos ────────────────────────────────────────────────────────────
-
   const cargarDatos = useCallback(async () => {
     setLoading(true)
 
-    // 1. carta_platos
     let platos: CartaPlato[] = []
     try {
       const { data } = await supabase
@@ -182,9 +178,7 @@ export default function MenuEngineering() {
         .select('id,nombre,pvp,marca,receta_id')
         .eq('activo', true)
       platos = (data as CartaPlato[]) ?? []
-    } catch {
-      // tabla no existe todavia
-    }
+    } catch { /* tabla no existe */ }
 
     setCartaPlatos(platos)
     const marcas = [...new Set(platos.map(p => p.marca))].filter(Boolean).sort()
@@ -193,7 +187,6 @@ export default function MenuEngineering() {
       setMarcasSelec(marcas)
     }
 
-    // 2. food cost desde recetas
     const recetaIds = platos.map(p => p.receta_id).filter(Boolean) as string[]
     if (recetaIds.length > 0) {
       const { data: recs } = await supabase
@@ -207,7 +200,6 @@ export default function MenuEngineering() {
       setFoodCosts(fcMap)
     }
 
-    // 3. popularidad desde pedidos_plataforma
     const { desde, hasta } = periodoToDateRange(periodo)
     try {
       const { data: pedidos } = await supabase
@@ -227,50 +219,34 @@ export default function MenuEngineering() {
       setPedidosConteo([])
     }
 
-    // 4. comisiones desde config_canales
-    try {
-      const { data: canales } = await supabase
-        .from('config_canales')
-        .select('canal,comision')
-      if (canales) {
-        const cm = new Map(Object.entries(COMISION_DEFAULT))
-        for (const c of canales as { canal: string; comision: number }[]) {
-          cm.set(c.canal, Number(c.comision))
-        }
-        setComisiones(cm)
-      }
-    } catch {
-      // usa defaults
-    }
-
     setLoading(false)
   }, [periodo])
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  // ─── Calcular puntos del scatter ─────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onChange = () => cargarDatos()
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [cargarDatos])
 
   const { points, medX, medY } = useMemo<{ points: PlotPoint[]; medX: number; medY: number }>(() => {
     if (cartaPlatos.length === 0) return { points: [], medX: 50, medY: 0 }
 
-    // Filtrar por marcas seleccionadas
     const platosFiltrados = marcasSelec.length > 0
       ? cartaPlatos.filter(p => marcasSelec.includes(p.marca))
       : cartaPlatos
 
     if (platosFiltrados.length === 0) return { points: [], medX: 50, medY: 0 }
 
-    // Calcular comisión media ponderada de canales seleccionados
-    const comisionMedia = canalesSelec.length > 0
-      ? canalesSelec.reduce((sum, c) => sum + (comisiones.get(c) ?? COMISION_DEFAULT[c] ?? 0), 0) / canalesSelec.length
-      : 0
+    // Canales seleccionados → ids centrales (usados luego con calcNetoPorCanal modo plato)
+    const canalesIds = canalesSelec.map(c => CANAL_UI_TO_ID[c]).filter(Boolean)
 
-    // Popularidad desde pedidos_plataforma
     const totalPedidos = pedidosConteo.reduce((s, p) => s + p.count, 0)
     const pedidosMap = new Map(pedidosConteo.map(p => [p.plato, p.count]))
     const hayPedidos = totalPedidos > 0
 
-    // Fallback: distribucion uniforme por marca
     const platosAgrupadosPorMarca = new Map<string, number>()
     for (const p of platosFiltrados) {
       platosAgrupadosPorMarca.set(p.marca, (platosAgrupadosPorMarca.get(p.marca) ?? 0) + 1)
@@ -288,17 +264,24 @@ export default function MenuEngineering() {
       }
 
       const pvp = Number(plato.pvp)
-      const margen = pvp * (1 - comisionMedia) - foodCostReceta
+      // Neto del plato = media de neto en cada canal seleccionado (calcNetoPorCanal modo plato)
+      let netoPlato = pvp  // default si no hay canales
+      if (canalesIds.length > 0) {
+        let sumNeto = 0
+        for (const id of canalesIds) {
+          sumNeto += calcNetoPorCanal(id, pvp, 1, { modo: 'plato', configCanales }).neto
+        }
+        netoPlato = sumNeto / canalesIds.length
+      }
+      const margen = netoPlato - foodCostReceta
       const margenPct = pvp > 0 ? margen / pvp : 0
 
-      // Popularidad
       let pop = 0
       let estimado = false
       if (hayPedidos) {
         const pedidosPlato = pedidosMap.get(plato.nombre) ?? 0
         pop = totalPedidos > 0 ? (pedidosPlato / totalPedidos) * 100 : 0
       } else {
-        // Fallback uniforme dentro de la marca
         const nPlatosMarca = platosAgrupadosPorMarca.get(plato.marca) ?? 1
         pop = 100 / nPlatosMarca
         estimado = true
@@ -312,7 +295,7 @@ export default function MenuEngineering() {
         margen,
         margenPct,
         pvp,
-        cuadrante: 'perro', // se asigna tras mediana
+        cuadrante: 'perro',
         estimado,
       })
     }
@@ -334,9 +317,8 @@ export default function MenuEngineering() {
     }
 
     return { points: pts, medX: mX, medY: mY }
-  }, [cartaPlatos, marcasSelec, canalesSelec, foodCosts, pedidosConteo, comisiones])
+  }, [cartaPlatos, marcasSelec, canalesSelec, foodCosts, pedidosConteo, configCanales])
 
-  // Agrupados por cuadrante
   const porCuadrante = useMemo(() => {
     const map: Record<PlotPoint['cuadrante'], PlotPoint[]> = { estrella: [], vaca: [], dilema: [], perro: [] }
     for (const p of points) map[p.cuadrante].push(p)
@@ -344,8 +326,6 @@ export default function MenuEngineering() {
   }, [points])
 
   const hayEstimados = useMemo(() => points.some(p => p.estimado), [points])
-
-  // ─── Estilos ──────────────────────────────────────────────────────────────────
 
   const tabBtnStyle = (active: boolean): React.CSSProperties => ({
     padding: '8px 16px',
@@ -372,8 +352,6 @@ export default function MenuEngineering() {
     cursor: 'pointer',
   }
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
       <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando datos…</div>
@@ -393,23 +371,19 @@ export default function MenuEngineering() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', textTransform: 'uppercase' }}>
           Menu Engineering
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {/* Periodo */}
           <select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)} style={selectStyle}>
             {PERIODOS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
       </div>
 
-      {/* FILTROS MARCA + CANAL */}
       <div style={{ ...cardStyle(T), display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-        {/* Marcas */}
         <div>
           <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>Marcas</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -436,7 +410,6 @@ export default function MenuEngineering() {
           </div>
         </div>
 
-        {/* Canales */}
         <div>
           <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>Canales</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -456,7 +429,6 @@ export default function MenuEngineering() {
         </div>
       </div>
 
-      {/* AVISOS */}
       {sinFoodCost > 0 && (
         <div style={{ background: '#1a1200', border: '1px solid #f5a623', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: '#f5a623' }}>
           {sinFoodCost} plato{sinFoodCost > 1 ? 's' : ''} excluido{sinFoodCost > 1 ? 's' : ''} por falta de food cost. Asigna receta en Escandallo v2.
@@ -473,10 +445,8 @@ export default function MenuEngineering() {
         </div>
       )}
 
-      {/* SCATTER CHART + CUADRANTES */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
 
-        {/* Scatter */}
         <div style={{ ...cardStyle(T), padding: '20px 16px' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 16 }}>
             Matriz Kasavana &amp; Smith · Mediana dinámica
@@ -521,7 +491,6 @@ export default function MenuEngineering() {
               </ScatterChart>
             </ResponsiveContainer>
           )}
-          {/* Leyenda */}
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
             {(['estrella', 'vaca', 'dilema', 'perro'] as PlotPoint['cuadrante'][]).map(q => (
               <div key={q} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -532,7 +501,6 @@ export default function MenuEngineering() {
           </div>
         </div>
 
-        {/* Panel cuadrantes */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(['estrella', 'vaca', 'dilema', 'perro'] as PlotPoint['cuadrante'][]).map(q => (
             <div key={q} style={{ ...cardStyle(T), borderLeft: `3px solid ${QUAD_COLOR[q]}` }}>

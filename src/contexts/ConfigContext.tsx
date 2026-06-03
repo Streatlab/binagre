@@ -1,16 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
-
-/* ═══════════════════════════════════════════════════════════
-   TYPES
-   ═══════════════════════════════════════════════════════════ */
 
 export interface MarcaConfig {
   id: string
   nombre: string
-  activa: boolean
-  estado: string | null
-  margen_objetivo_pct: number | null
+  activa?: boolean
+  estado?: 'activa' | 'pausada' | string
+  archivada_at?: string | null
 }
 
 export interface CategoriaConfig {
@@ -18,14 +14,15 @@ export interface CategoriaConfig {
   nombre: string
   grupo: string
   activa: boolean
-  signo: string
+  signo: number
 }
 
 export interface CanalConfig {
-  id: string
-  nombre: string
-  comision_pct: number | null
-  comision_fija: number | null
+  id: number
+  canal: string
+  comision_pct: number
+  fijo_eur: number
+  fee_periodo_eur: number
   activo: boolean
 }
 
@@ -34,24 +31,16 @@ interface ConfigCtx {
   categoriasActivas: CategoriaConfig[]
   canalesActivos: CanalConfig[]
   loading: boolean
-  refetch: () => Promise<void>
+  reload: () => Promise<void>
 }
 
-const ConfigContext = createContext<ConfigCtx>({
+const Ctx = createContext<ConfigCtx>({
   marcasActivas: [],
   categoriasActivas: [],
   canalesActivos: [],
   loading: true,
-  refetch: async () => {},
+  reload: async () => {},
 })
-
-export function useConfig(): ConfigCtx {
-  return useContext(ConfigContext)
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PROVIDER
-   ═══════════════════════════════════════════════════════════ */
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [marcasActivas, setMarcasActivas] = useState<MarcaConfig[]>([])
@@ -62,34 +51,35 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     setLoading(true)
     const [marcasRes, catRes, canalesRes] = await Promise.allSettled([
-      supabase.from('marcas').select('id,nombre,activa,estado,margen_objetivo_pct').order('nombre'),
+      supabase.from('marcas').select('id,nombre,estado,archivada_at').order('nombre'),
       supabase.from('categorias_maestras').select('codigo,nombre,grupo,activa,signo').order('orden_grupo').order('orden_sub'),
-      supabase.from('config_canales').select('id,nombre,comision_pct,comision_fija,activo').order('nombre'),
+      supabase.from('config_canales').select('id,canal,comision_pct,fijo_eur,fee_periodo_eur,activo').order('canal'),
     ])
 
     if (marcasRes.status === 'fulfilled' && marcasRes.value.data) {
       const all = marcasRes.value.data as MarcaConfig[]
-      setMarcasActivas(all.filter(m => m.activa !== false && m.estado !== 'pausada'))
+      setMarcasActivas(all.filter(m => !m.archivada_at && m.estado !== 'pausada'))
     }
 
     if (catRes.status === 'fulfilled' && catRes.value.data) {
       const all = catRes.value.data as CategoriaConfig[]
-      setCategoriasActivas(all.filter(c => c.activa !== false))
+      setCategoriasActivas(all.filter(c => c.activa))
     }
 
     if (canalesRes.status === 'fulfilled' && canalesRes.value.data) {
       const all = canalesRes.value.data as CanalConfig[]
-      setCanalesActivos(all.filter(c => c.activo !== false))
+      setCanalesActivos(all.filter(c => c.activo))
     }
-
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   return (
-    <ConfigContext.Provider value={{ marcasActivas, categoriasActivas, canalesActivos, loading, refetch: load }}>
+    <Ctx.Provider value={{ marcasActivas, categoriasActivas, canalesActivos, loading, reload: load }}>
       {children}
-    </ConfigContext.Provider>
+    </Ctx.Provider>
   )
 }
+
+export function useConfig() { return useContext(Ctx) }

@@ -1,16 +1,17 @@
 import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur } from '@/utils/format'
 import { fmtFechaCorta } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import {
-  COLORS, FONT, CARDS, LAYOUT, TABS_PILL,
+  COLORS, FONT, CARDS,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, type CanalConfig as ConfigCanalRow } from '@/lib/panel/calcNetoPlataforma'
+import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
+import { useMultiSort } from '@/hooks/useMultiSort'
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
@@ -37,8 +38,6 @@ interface SemanaGroup extends AggRow { year: number; week: number; periodo: stri
 interface MesGroup extends AggRow { anio: number; mes: number; dias: number; media_diaria: number; vs_anterior: number | null }
 
 type Tab = 'diario' | 'semanas' | 'meses' | 'anual'
-type SortDir = 'asc' | 'desc'
-type SortCol = 'fecha' | 'serv' | 'uber' | 'glovo' | 'je' | 'web' | 'dir' | 'total'
 type CanalId = 'uber' | 'glovo' | 'je' | 'web' | 'dir'
 
 const ALL_COLS: { id: CanalId; label: string; ped: keyof AggRow; bru: keyof AggRow; color: string; bg: string }[] = [
@@ -160,14 +159,14 @@ export default function Facturacion() {
   const [periodoDesde, setPeriodoDesde] = useState<Date>(()=>{ const h=new Date();h.setDate(1);h.setHours(0,0,0,0);return h })
   const [periodoHasta, setPeriodoHasta] = useState<Date>(()=>{ const h=new Date();h.setHours(23,59,59,999);return h })
   const [configCanales, setConfigCanales] = useState<Record<string, ConfigCanalRow>>({})
-  const [marcasActivas, setMarcasActivas] = useState<number>(1)
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
   useEffect(()=>{
     loadConfigCanales().then(setConfigCanales)
-    supabase.from('marcas').select('id', { count:'exact', head:true }).eq('activo', true)
-      .then(({ count })=>{ if(count && count > 0) setMarcasActivas(count) })
+    loadMarcasPorCanal().then(setMarcasPorCanal)
     const onCfgChange = () => {
       recargarConfigCanales().then(setConfigCanales)
+      loadMarcasPorCanal().then(setMarcasPorCanal)
       setRefreshKey(k=>k+1)
     }
     window.addEventListener('config_canales:changed', onCfgChange)
@@ -210,8 +209,8 @@ export default function Facturacion() {
       { id:'web',   bruto:totals.web_bruto,     pedidos:totals.web_pedidos },
       { id:'dir',   bruto:totals.directa_bruto, pedidos:totals.directa_pedidos },
     ]
-    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, marcasActivas, periodoDesde, periodoHasta, configCanales).neto, 0)
-  },[totals, marcasActivas, periodoDesde, periodoHasta, configCanales])
+    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, { modo:'agregado_canal', marcasPorCanal, fechaDesde:periodoDesde, fechaHasta:periodoHasta, configCanales, diasConDatos:dias }).neto, 0)
+  },[totals, marcasPorCanal, periodoDesde, periodoHasta, configCanales, dias])
   const tm = totals.total_pedidos>0?totals.total_bruto/totals.total_pedidos:0
   const tmNeto = totals.total_pedidos>0?netoEstimado/totals.total_pedidos:0
   const mediadiaria = dias>0?totals.total_bruto/dias:0
@@ -345,21 +344,18 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
 }
 
 function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta }: { allData:RawDiario[]; cols:typeof ALL_COLS; weekFilter:{year:number;week:number}|null; onEdit:(r:RawDiario)=>void; onAdd:()=>void; tipoDia:(f:string)=>TipoDia; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number }) {
-  const [sortCol, setSortCol] = useState<SortCol>('fecha')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const ms = useMultiSort('facturacion_diario')
   const rows = useMemo(()=>{
     let data=allData
     if(weekFilter){ const [from,to]=weekBounds(weekFilter.year,weekFilter.week); data=data.filter(r=>r.fecha>=from&&r.fecha<=to) }
-    return [...data].sort((a,b)=>{
-      let va: number|string=0, vb: number|string=0
-      if(sortCol==='fecha'){va=a.fecha;vb=b.fecha} else if(sortCol==='serv'){va=a.servicio;vb=b.servicio}
-      else if(sortCol==='uber'){va=a.uber_bruto;vb=b.uber_bruto} else if(sortCol==='glovo'){va=a.glovo_bruto;vb=b.glovo_bruto}
-      else if(sortCol==='je'){va=a.je_bruto;vb=b.je_bruto} else if(sortCol==='web'){va=a.web_bruto;vb=b.web_bruto}
-      else if(sortCol==='dir'){va=a.directa_bruto;vb=b.directa_bruto} else if(sortCol==='total'){va=a.total_bruto;vb=b.total_bruto}
-      if(typeof va==='string') return sortDir==='asc'?va.localeCompare(vb as string):(vb as string).localeCompare(va)
-      return sortDir==='asc'?(va as number)-(vb as number):(vb as number)-(va as number)
-    })
-  },[allData,weekFilter,sortCol,sortDir])
+    const getters: Record<string, (r: RawDiario) => any> = {
+      fecha: r => r.fecha, serv: r => r.servicio,
+      uber: r => r.uber_bruto, glovo: r => r.glovo_bruto, je: r => r.je_bruto,
+      web: r => r.web_bruto, dir: r => r.directa_bruto, total: r => r.total_bruto,
+    }
+    const ordered = ms.sorts.length > 0 ? ms.applySort([...data], getters) : [...data].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+    return ordered
+  },[allData,weekFilter,ms.sorts])
   const rowTotals = useMemo(()=>aggregate(rows),[rows])
   const fechaCount = useMemo(()=>{ const m=new Map<string,number>(); for(const r of rows) m.set(r.fecha,(m.get(r.fecha)??0)+1); return m },[rows])
   const subtotalMap = useMemo(()=>{ const m=new Map<string,AggRow>(); for(const [f,c] of fechaCount) if(c>1) m.set(f,aggregate(allData.filter(r=>r.fecha===f))); return m },[allData,fechaCount])
@@ -370,25 +366,22 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
     return result
   },[rows,fechaCount,subtotalMap])
   const exportar=()=>{ downloadCSV('facturacion_diario.csv',['Fecha','Servicio','UE Ped','UE Bruto','GL Ped','GL Bruto','JE Ped','JE Bruto','Web Ped','Web Bruto','Dir Ped','Dir Bruto','Total Ped','Total Bruto'],rows.map(r=>[r.fecha,r.servicio,r.uber_pedidos,r.uber_bruto,r.glovo_pedidos,r.glovo_bruto,r.je_pedidos,r.je_bruto,r.web_pedidos,r.web_bruto,r.directa_pedidos,r.directa_bruto,r.total_pedidos,r.total_bruto])) }
-  const handleSort=(col:SortCol)=>{ if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else{setSortCol(col);setSortDir('asc')} }
-  const arr=(col:SortCol)=>sortCol===col?(sortDir==='asc'?' ↑':' ↓'):''
-  const thBase=(col:SortCol,align:'left'|'right'|'center'='left'): CSSProperties=>({ fontFamily:FONT.heading, fontSize:10, fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', textAlign:align, color:sortCol===col?COLORS.redSL:COLORS.mut, padding:'10px 12px', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' })
-  const thCol=(col:SortCol,color:string,bg:string): CSSProperties=>({ ...thBase(col,'center'), background:bg, color:sortCol===col?color:`${color}99` })
   const tdBase: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap', verticalAlign:'middle' }
   if(allData.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos de facturación diaria</div>
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
+      {ms.showClearButton && <div style={{marginBottom:10}}><ClearSortButton show={true} onClear={ms.clearSorts} /></div>}
       {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0, whiteSpace:'nowrap', minWidth:860 }}>
             <thead>
               <tr>
-                <th onClick={()=>handleSort('fecha')} style={{...thBase('fecha'),paddingLeft:16}} rowSpan={2}>Fecha{arr('fecha')}</th>
-                <th onClick={()=>handleSort('serv')} style={thBase('serv')} rowSpan={2}>Serv.{arr('serv')}</th>
-                {cols.map(c=>(<th key={c.id} colSpan={2} onClick={()=>handleSort(c.id as SortCol)} style={thCol(c.id as SortCol,c.color,c.bg)}>{c.label}{arr(c.id as SortCol)}</th>))}
-                <th colSpan={2} onClick={()=>handleSort('total')} style={thBase('total','center')}>Total{arr('total')}</th>
+                <SortableHeader col="fecha" label="Fecha" sortIndex={ms.sortIndex('fecha')} sortDir={ms.sortDir('fecha')} onToggle={ms.toggleSort} align="left" rowSpan={2} style={{paddingLeft:16}} />
+                <SortableHeader col="serv" label="Serv." sortIndex={ms.sortIndex('serv')} sortDir={ms.sortDir('serv')} onToggle={ms.toggleSort} align="left" rowSpan={2} />
+                {cols.map(c=>(<SortableHeader key={c.id} col={c.id} label={c.label} sortIndex={ms.sortIndex(c.id)} sortDir={ms.sortDir(c.id)} onToggle={ms.toggleSort} align="center" colSpan={2} style={{background:c.bg, color: ms.sortIndex(c.id)>=0 ? c.color : `${c.color}99`}} />))}
+                <SortableHeader col="total" label="Total" sortIndex={ms.sortIndex('total')} sortDir={ms.sortDir('total')} onToggle={ms.toggleSort} align="center" colSpan={2} />
               </tr>
               <tr>
                 {cols.map(c=>(<Fragment key={c.id}><th style={{ padding:'5px 10px', textAlign:'center', background:c.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Ped</th><th style={{ padding:'5px 10px', textAlign:'right', background:c.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Bruto</th></Fragment>))}
