@@ -283,7 +283,7 @@ export function useConciliacion() {
     const nuevoGastoId = await syncGasto(mov, codigo_categoria, tipoReal)
 
     const { error } = await supabase.from('conciliacion')
-      .update({ categoria: codigo_categoria, tipo: tipoReal, gasto_id: nuevoGastoId })
+      .update({ categoria: codigo_categoria, tipo: tipoReal, gasto_id: nuevoGastoId, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) throw error
 
@@ -349,7 +349,7 @@ export function useConciliacion() {
       }
 
       const { error } = await supabase.from('conciliacion')
-        .update({ categoria: codigo, tipo: regla.tipo_categoria, gasto_id: gastoId })
+        .update({ categoria: codigo, tipo: regla.tipo_categoria, gasto_id: gastoId, updated_at: new Date().toISOString() })
         .eq('id', m.id)
       if (!error) aplicados++
     }
