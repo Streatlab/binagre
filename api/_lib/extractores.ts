@@ -44,12 +44,13 @@ export async function extraerExcel(buffer: Buffer): Promise<ContenidoExtraido> {
 
 export async function extraerEmail(buffer: Buffer): Promise<ContenidoExtraido> {
   const parsed = await simpleParser(buffer)
+  const cuerpo = parsed.text || (typeof parsed.html === 'string' ? htmlATexto(parsed.html) : '') || ''
   const texto = [
     `De: ${parsed.from?.text || ''}`,
     `Asunto: ${parsed.subject || ''}`,
     `Fecha: ${parsed.date?.toISOString?.() || ''}`,
     '',
-    parsed.text || (typeof parsed.html === 'string' ? parsed.html : '') || '',
+    cuerpo,
   ].join('\n')
 
   const adjuntos: AdjuntoExtraido[] = (parsed.attachments || [])
@@ -63,8 +64,66 @@ export async function extraerEmail(buffer: Buffer): Promise<ContenidoExtraido> {
   return { tipo: 'texto', data: texto, adjuntos }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// LIMPIEZA HTML → TEXTO PLANO (gratis, sin IA)
+// Muchas facturas llegan como .txt/.html (ej. Just Eat manda la factura en una
+// tabla HTML). Sin limpiar, las etiquetas ("Total a pagar") y el importe quedan
+// envueltos en <td>/<tr> y el lector por reglas saca 0 o un importe equivocado.
+// Conversión clave para que las reglas lean:
+//   - Cada celda </td>/</th> → " | " (mantiene etiqueta + importe en la MISMA
+//     línea, que es lo que buscarTotal espera).
+//   - Fin de fila/párrafo/salto </tr>,<br>,</p>,</div> → salto de línea real.
+//   - Se quitan los demás tags y <script>/<style> enteros.
+//   - Se decodifican las entidades (&euro; &nbsp; &amp; &#xE9; &#243; …).
+// ──────────────────────────────────────────────────────────────────────────
+const ENTIDADES_NOMBRE: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  euro: '€', eacute: 'é', aacute: 'á', iacute: 'í', oacute: 'ó',
+  uacute: 'ú', ntilde: 'ñ', Ntilde: 'Ñ', uuml: 'ü', ordf: 'ª',
+  ordm: 'º', deg: '°', middot: '·', hellip: '…', mdash: '—', ndash: '–',
+}
+
+function decodificarEntidades(s: string): string {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)) } catch { return _ }
+    })
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(parseInt(d, 10)) } catch { return _ }
+    })
+    .replace(/&([a-zA-Z]+);/g, (m, name) => (name in ENTIDADES_NOMBRE ? ENTIDADES_NOMBRE[name] : m))
+}
+
+export function pareceHtml(s: string): boolean {
+  if (!s) return false
+  const t = s.slice(0, 4000).toLowerCase()
+  return /<!doctype html|<html[\s>]|<table[\s>]|<td[\s>]|<div[\s>]|<body[\s>]/.test(t)
+}
+
+export function htmlATexto(html: string): string {
+  let t = html
+  // Fuera bloques no visibles enteros
+  t = t.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  t = t.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  t = t.replace(/<head[\s\S]*?<\/head>/gi, ' ')
+  // Celdas dentro de la misma fila → separador en línea (etiqueta | valor)
+  t = t.replace(/<\/(td|th)>/gi, ' | ')
+  // Fin de fila / saltos / bloques → salto de línea real
+  t = t.replace(/<\/(tr|p|div|h\d|li)>/gi, '\n')
+  t = t.replace(/<br\s*\/?>/gi, '\n')
+  // Resto de tags fuera
+  t = t.replace(/<[^>]+>/g, ' ')
+  // Entidades
+  t = decodificarEntidades(t)
+  // Normalizar espacios y líneas
+  t = t.replace(/[ \t\f\v]+/g, ' ')
+  t = t.replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n')
+  return t.trim()
+}
+
 export function extraerTexto(texto: string): ContenidoExtraido {
-  return { tipo: 'texto', data: texto }
+  const limpio = pareceHtml(texto) ? htmlATexto(texto) : texto
+  return { tipo: 'texto', data: limpio }
 }
 
 export function prepararVision(buffer: Buffer, mimeType: string): ContenidoExtraido {
@@ -285,7 +344,27 @@ function buscarFecha(texto: string, plantilla?: PlantillaNif | null): string | n
     const [, d, mo, y] = m
     return `20${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
   }
+  // Fecha en texto: "31 enero 2026" (común en Just Eat / facturas españolas)
+  const fTxt = buscarFechaTextual(texto)
+  if (fTxt) return fTxt
   return null
+}
+
+// Fecha escrita con el mes en palabra: "31 enero 2026", "5 de marzo de 2026".
+const MESES_ES: Record<string, string> = {
+  enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06',
+  julio: '07', agosto: '08', septiembre: '09', setiembre: '09', octubre: '10',
+  noviembre: '11', diciembre: '12',
+}
+function buscarFechaTextual(texto: string): string | null {
+  const re = /\b(\d{1,2})\s+(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(20\d{2})\b/i
+  const m = texto.match(re)
+  if (!m) return null
+  const d = m[1].padStart(2, '0')
+  const mo = MESES_ES[m[2].toLowerCase()]
+  const y = m[3]
+  if (!mo) return null
+  return `${y}-${mo}-${d}`
 }
 
 function buscarNumeroFactura(texto: string, plantilla?: PlantillaNif | null): string | null {
