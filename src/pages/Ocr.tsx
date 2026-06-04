@@ -11,6 +11,7 @@ import ModalDetalleFactura from '@/components/ocr/ModalDetalleFactura'
 import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import VentasTab from '@/components/ocr/VentasTab'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
+import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { DocBadge } from '@/components/ocr/DocBadgeV2'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
@@ -479,7 +480,7 @@ export default function Ocr() {
   const TABS = [{ id: 'facturas', label: 'Facturas' }, { id: 'extractos', label: 'Extractos bancarios' }, { id: 'ventas', label: 'Ventas' }, { id: 'otros', label: 'Otros documentos' }]
   const emptyLabel = tab === 'otros' ? 'No hay documentos en este periodo' : 'No hay facturas en este periodo'
   const emptySub = tab === 'otros' ? 'Prueba a cambiar el periodo o sube tus primeros documentos' : 'Prueba a cambiar el periodo o sube tus primeras facturas'
-  const gridCols = tab === 'facturas' ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)'
+  const gridCols = tab === 'facturas' ? 'repeat(6, 1fr)' : 'repeat(4, 1fr)'
   return (
     <div style={groupStyle(T)}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}><div><h1 style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: '#B01D23', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>OCR</h1><p style={{ fontFamily: FONT.body, fontSize: 13, color: '#7a8090', marginTop: 4, marginBottom: 0 }}>{periodoLabel}</p></div><SelectorFechaUniversal nombreModulo="ocr" defaultOpcion="mes_en_curso" onChange={(desde, hasta, label) => { setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label) }} /></div>
@@ -500,6 +501,7 @@ export default function Ocr() {
               <button onClick={(e) => { e.stopPropagation(); onToggleSoloDuplicados() }} disabled={dupTotal === 0 && !soloDuplicados} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none', background: (dupTotal === 0 && !soloDuplicados) ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: (dupTotal === 0 && !soloDuplicados) ? 'default' : 'pointer', fontWeight: 600 }}>{soloDuplicados ? 'Ver todas' : 'Revisar bandeja'}</button>
             </div>
           )}
+          {tab === 'facturas' && (<CardSaludOcr />)}
         </div>
         <div style={{ marginBottom: 14 }}>
           <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} extensiones={tab === 'facturas' ? EXT_ACEPTADAS_FACTURAS : EXT_ACEPTADAS_OTROS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: r.aceptados, comprimidos: r.comprimidos, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, comprimidosServidor: r.comprimidosServidor, visible: true, fnName: 'ocr-procesar-factura' }) }} />
