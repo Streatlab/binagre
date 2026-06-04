@@ -117,11 +117,29 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
 
   async function eliminar() {
     if (!confirm('¿Eliminar factura?')) return
+    // Si la factura tiene copia en Drive, preguntar si se borra también allí.
+    let borrarDrive = false
+    if (datos.pdf_drive_id) {
+      borrarDrive = confirm(
+        '¿Borrar también el archivo en Google Drive?\n\n' +
+        'Aceptar = se borra del ERP y se envía a la papelera de Drive (recuperable 30 días).\n' +
+        'Cancelar = se borra solo del ERP; el archivo se queda en Drive.',
+      )
+    }
     try {
-      await fetch(`/api/facturas/${factura.id}`, { method: 'DELETE' })
+      const url = `/api/facturas/${factura.id}${borrarDrive ? '?drive=1' : ''}`
+      const r = await fetch(url, { method: 'DELETE' })
+      const resp = await r.json().catch(() => ({} as Record<string, unknown>))
+      if (borrarDrive && resp && resp.drive_borrado === false && resp.drive_error) {
+        alert(`Factura borrada del ERP.\nAviso: no se pudo borrar en Drive (${resp.drive_error}).`)
+      }
     } catch {
+      // Fallback dev/sin serverless: borra en base de datos. No toca Drive.
       await supabase.from('facturas_gastos').delete().eq('factura_id', factura.id)
       await supabase.from('facturas').delete().eq('id', factura.id)
+      if (borrarDrive) {
+        alert('Factura borrada del ERP.\nAviso: el borrado en Drive necesita el servidor; el archivo se queda en Drive.')
+      }
     }
     onUpdate()
   }
