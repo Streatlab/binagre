@@ -63,7 +63,6 @@ export default function CardSaludOcr() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontFamily: 'Lexend, sans-serif', fontSize: 10.5, color: '#7a8090' }}>
         <Fila label="Esperando banco" valor={s?.esperando_banco ?? 0} color="#7a8090" />
         <Fila label="Sin NIF / categoría" valor={(s?.sin_nif ?? 0) + (s?.sin_categoria ?? 0)} color={huecos > 0 ? '#F26B1F' : '#1D9E75'} />
-        <Fila label="Glovo/JustEat a separar" valor={s?.glovo_justeat_revisar ?? 0} color={(s?.glovo_justeat_revisar ?? 0) > 0 ? '#F26B1F' : '#1D9E75'} />
       </div>
     </div>
   )
