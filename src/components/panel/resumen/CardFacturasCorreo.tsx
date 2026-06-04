@@ -167,6 +167,21 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       {aviso && (
         <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#3a4050', marginTop: 6, lineHeight: 1.3 }}>{aviso}</div>
       )}
+      {!buzonOk && (
+        <a
+          href="/api/oauth/google?action=connect"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 8,
+            padding: '8px 10px', borderRadius: 8, border: '0.5px solid #E24B4A',
+            background: '#fff', color: '#E24B4A', textAlign: 'center', textDecoration: 'none',
+            fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px',
+            textTransform: 'uppercase', fontWeight: 600,
+          }}
+        >
+          Reconectar Drive
+        </a>
+      )}
     </div>
   )
 }
