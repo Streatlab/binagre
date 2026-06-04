@@ -374,7 +374,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Contraparte (no editable)</label>
           <div
             style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fafaf7', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box' }}>
-            {contraparte || '—'}
+            {contraparte || facturasAsociadas[0]?.factura_proveedor || '—'}
           </div>
         </div>
 
