@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
 import { fmt, n, getProveedor } from './types'
-import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, groupStyle } from '@/styles/tokens'
 
 interface Props {
@@ -14,33 +13,22 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
+// Semáforo de usos: rojo 0 / amarillo 1-4 / verde 5+
+function semaforoColor(usos: number): string {
+  if (usos === 0) return '#dc2626'
+  if (usos <= 4) return '#f59e0b'
+  return '#16a34a'
+}
+
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
-  const [usosMap, setUsosMap] = useState<Record<string, number>>({})
-
-  useEffect(() => {
-    const recalcular = async () => {
-      const [{ data: epsL }, { data: recL }] = await Promise.all([
-        supabase.from('eps_lineas').select('ingrediente_id'),
-        supabase.from('recetas_lineas').select('ingrediente_id'),
-      ])
-      const conteo: Record<string, number> = {}
-      ;[...(epsL ?? []), ...(recL ?? [])].forEach((u: { ingrediente_id: string | null }) => {
-        if (!u.ingrediente_id) return
-        const id = String(u.ingrediente_id)
-        conteo[id] = (conteo[id] ?? 0) + 1
-      })
-      setUsosMap(conteo)
-    }
-    recalcular()
-  }, [ingredientes])
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
     const base = ingredientes.filter(i =>
       i.abv !== 'EPS' && i.abv !== 'MRM' && (i as { tipo_merma?: string }).tipo_merma !== 'EPS'
     )
-    const getUsos = (ing: Ingrediente) => usosMap[String(ing.id)] ?? n(ing.usos)
+    const getUsos = (ing: Ingrediente) => n(ing.usos)
     const totalCount = base.length
     const enUsoCount = base.filter(i => getUsos(i) > 0).length
     let filteredList = base
@@ -58,7 +46,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
       )
     }
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
-  }, [ingredientes, usosMap, filter, busqueda])
+  }, [ingredientes, filter, busqueda])
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
@@ -119,6 +107,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                   <th style={thStyle}>PROVEEDOR</th>
                   <th style={thStyle}>MARCA</th>
                   <th style={thStyle}>FORMATO</th>
+                  <th style={{ ...thStyle, textAlign: 'center' }}>USOS</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>UDS</th>
                   <th style={thStyle}>UD STD</th>
                   <th style={thStyle}>UD MIN</th>
@@ -126,26 +115,35 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(i => (
-                  <tr
-                    key={i.id}
-                    onClick={() => onSelect?.(i)}
-                    style={{ cursor: onSelect ? 'pointer' : 'default' }}
-                  >
-                    <td style={{ ...tdStyle, color: T.accent, fontWeight: 600 }}>{i.iding ?? '—'}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{i.categoria ?? '—'}</td>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{i.nombre_base ?? '—'}</td>
-                    <td style={{ ...tdStyle, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700 }}>{i.abv ?? '—'}</td>
-                    <td style={tdStyle}>{i.nombre}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{getProveedor(i.abv)}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{i.marca ?? '—'}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{i.formato ?? '—'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(i.uds)}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{i.ud_std ?? '—'}</td>
-                    <td style={{ ...tdStyle, color: T.sec }}>{i.ud_min ?? '—'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
-                  </tr>
-                ))}
+                {filtered.map(i => {
+                  const usos = n(i.usos)
+                  return (
+                    <tr
+                      key={i.id}
+                      onClick={() => onSelect?.(i)}
+                      style={{ cursor: onSelect ? 'pointer' : 'default' }}
+                    >
+                      <td style={{ ...tdStyle, color: T.accent, fontWeight: 600 }}>{i.iding ?? '—'}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{i.categoria ?? '—'}</td>
+                      <td style={{ ...tdStyle, fontWeight: 500 }}>{i.nombre_base ?? '—'}</td>
+                      <td style={{ ...tdStyle, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700 }}>{i.abv ?? '—'}</td>
+                      <td style={tdStyle}>{i.nombre}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{getProveedor(i.abv)}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{i.marca ?? '—'}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{i.formato ?? '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, color: T.pri }}>{usos}</span>
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(i.uds)}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{i.ud_std ?? '—'}</td>
+                      <td style={{ ...tdStyle, color: T.sec }}>{i.ud_min ?? '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
