@@ -48,7 +48,6 @@ import PanelGlobal2 from '@/pages/PanelGlobal2'
 import MockupLymon from '@/pages/mockups/MockupLymon'
 import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
-import EscandalloV2 from '@/pages/EscandalloV2'
 import Carta from '@/pages/Carta'
 
 import RevenueTicketMedio from '@/pages/analytics/RevenueTicketMedio'
@@ -122,7 +121,6 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="escandallo" element={<Escandallo />} />
-        <Route path="escandallo-v2" element={<EscandalloV2 />} />
         <Route path="carta" element={<Carta />} />
         <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
         <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
