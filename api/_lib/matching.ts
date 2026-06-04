@@ -1,3 +1,8 @@
+// matching v6 — HERENCIA por proveedor conocido (Ruben 04/06/26): al aplicar matching,
+//   toda factura hereda NIF + categoria de su proveedor conocido (reglas_conciliacion por
+//   alias/palabra, o ultimo movimiento conciliado del proveedor) AUNQUE no case fecha+importe.
+//   Solo rellena campos vacios, nunca pisa. Cubre B-1 (alias), B-2 (traer de conciliacion) y
+//   B-3 (al entrar: aplicarMatching corre en cada subida).
 // matching v5 — lee matching_config (tolerancia_eur + ventana_dias por proveedor/plataforma) para no divergir del frontend (Chat B). Fallback a constantes si no hay fila.
 // v4 — pre-jul-2023 -> asociada (conciliada sin banco) en vez de historica
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -309,6 +314,66 @@ async function matchFacturaRecapitulativa(supabase: SupabaseClient, factura: Ext
 
 function fechaEsHistorica(fecha: string): boolean { return new Date(fecha) < new Date(LIMITE_CONCILIACION) }
 
+// Trae NIF emisor y categoria del proveedor ya conocido, aunque no exista match
+// por fecha+importe. Orden: (1) reglas_conciliacion por NIF -> patron/palabra;
+// (2) ultimo movimiento conciliado del mismo proveedor (por alias) con categoria.
+// Devuelve solo lo que encuentre; el caller decide si rellena (nunca pisa lo lleno).
+async function metadatosProveedorConocido(
+  supabase: SupabaseClient,
+  proveedorNombre: string | null | undefined,
+  nifEmisor: string | null | undefined,
+): Promise<{ nif: string | null; categoria: string | null; proveedor_canonico: string | null }> {
+  let nif: string | null = nifEmisor ? nifEmisor.toUpperCase() : null
+  let categoria: string | null = null
+  let proveedor_canonico: string | null = null
+
+  // (1) reglas_conciliacion por NIF o por palabra del nombre.
+  if (proveedorNombre || nif) {
+    const fromReglas = await categoriaDesdReglas(supabase, proveedorNombre || '', nif)
+    if (fromReglas.categoria) categoria = fromReglas.categoria
+    if (fromReglas.proveedor_canonico) proveedor_canonico = fromReglas.proveedor_canonico
+  }
+  // NIF heredado: si la factura no traia NIF, buscar el patron_nif de una regla cuyo
+  // patron (palabra) o set_proveedor coincida con el proveedor. Asi "ENVAPRO" hereda el
+  // NIF registrado de "ENVASES PARA PROFESIONALES" aunque el nombre varie (B-1).
+  if (!nif && proveedorNombre) {
+    const palabras = normalizar(proveedorNombre).split(' ').filter((p) => p.length >= 3)
+    for (const palabra of palabras) {
+      const esc = escaparLike(palabra)
+      const { data } = await supabase
+        .from('reglas_conciliacion')
+        .select('patron_nif')
+        .not('patron_nif', 'is', null)
+        .or(`patron.ilike.%${esc}%,set_proveedor.ilike.%${esc}%,razon_social.ilike.%${esc}%`)
+        .eq('activa', true)
+        .order('prioridad', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (data?.patron_nif) { nif = (data.patron_nif as string).toUpperCase(); break }
+    }
+  }
+
+  // (2) Si aun falta categoria, copiar la del ultimo movimiento conciliado del mismo
+  // proveedor (por alias), aunque su importe/fecha no casen con esta factura (B-2).
+  if (!categoria && proveedorNombre) {
+    const alias = await obtenerAliasProveedor(supabase, proveedorNombre)
+    if (alias.length > 0) {
+      const { data } = await supabase
+        .from('conciliacion')
+        .select('categoria, proveedor')
+        .or(orFilterAlias(alias))
+        .not('categoria', 'is', null)
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (data?.categoria) categoria = data.categoria as string
+      if (!proveedor_canonico && data?.proveedor) proveedor_canonico = data.proveedor as string
+    }
+  }
+
+  return { nif, categoria, proveedor_canonico }
+}
+
 export async function aplicarMatching(supabase: SupabaseClient, facturaId: string, result: MatchingResult, facturaExtra?: { proveedor_nombre?: string; nif_emisor?: string | null }): Promise<void> {
   await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId).eq('confirmado_manual', false)
   if (result.matches.length > 0) {
@@ -321,9 +386,23 @@ export async function aplicarMatching(supabase: SupabaseClient, facturaId: strin
   }
   let categoriaPropagada: string | null = null
   if (result.estado === 'asociada' && result.matches.length > 0) categoriaPropagada = categoriaMayoritaria(result.matches)
-  if (!categoriaPropagada && facturaExtra?.proveedor_nombre) { const fromReglas = await categoriaDesdReglas(supabase, facturaExtra.proveedor_nombre, facturaExtra.nif_emisor); if (fromReglas.categoria) categoriaPropagada = fromReglas.categoria }
+
+  // HERENCIA por proveedor conocido (B-1/B-2/B-3): rellena NIF y categoria desde el
+  // proveedor ya conocido aunque no haya match por fecha+importe. Lee el estado real
+  // de la factura para no pisar lo que ya tiene relleno.
+  const { data: facActual } = await supabase
+    .from('facturas')
+    .select('nif_emisor, categoria_factura, proveedor_nombre')
+    .eq('id', facturaId)
+    .maybeSingle()
+  const nombreProv = (facActual?.proveedor_nombre as string) || facturaExtra?.proveedor_nombre || ''
+  const nifActual = (facActual?.nif_emisor as string) || facturaExtra?.nif_emisor || null
+  const meta = await metadatosProveedorConocido(supabase, nombreProv, nifActual)
+  if (!categoriaPropagada && meta.categoria) categoriaPropagada = meta.categoria
+
   const updateFactura: Record<string, unknown> = { estado: result.estado, mensaje_matching: result.mensaje }
-  if (categoriaPropagada) updateFactura.categoria_factura = categoriaPropagada
+  if (categoriaPropagada && !facActual?.categoria_factura) updateFactura.categoria_factura = categoriaPropagada
+  if (meta.nif && !facActual?.nif_emisor) updateFactura.nif_emisor = meta.nif
   await supabase.from('facturas').update(updateFactura).eq('id', facturaId)
   if (result.estado === 'asociada' && result.matches.length > 0) { const matchIds = result.matches.map((m) => m.id); await supabase.from('conciliacion').update({ factura_id: facturaId }).in('id', matchIds) }
 }
