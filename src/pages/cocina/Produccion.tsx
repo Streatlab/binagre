@@ -17,7 +17,7 @@ const PAG_CAP = 24
 const HEADER_COST = 3
 
 interface CeldaValor { hoy: string; ssp: string }
-interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean }
+interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean; biberon?: boolean }
 interface Seccion { id: string; nombre: string; orden: number; activa: boolean }
 interface EntradaProduccion { id: string; partida_id: string; semana_iso: string; dia: Dia; hoy: string; ssp: string }
 interface BloqueImpresion { sec: Seccion; cont: boolean; parts: Partida[] }
@@ -74,6 +74,18 @@ function agruparLados(secciones: Seccion[]): { titulo: string; secs: Seccion[] }
   if (izq.length) grupos.push({ titulo: 'PARTE IZQUIERDA', secs: izq })
   if (der.length) grupos.push({ titulo: 'PARTE DERECHA', secs: der })
   return grupos
+}
+
+// Devuelve las filas de una lista de partidas insertando un subencabezado "Biberones:" antes del primer biberón
+type FilaItem = { kind: 'sub'; label: string } | { kind: 'part'; part: Partida }
+function conBiberones(parts: Partida[]): FilaItem[] {
+  const out: FilaItem[] = []
+  let metido = false
+  for (const p of parts) {
+    if (p.biberon && !metido) { out.push({ kind: 'sub', label: 'Biberones:' }); metido = true }
+    out.push({ kind: 'part', part: p })
+  }
+  return out
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -187,6 +199,38 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
     </>
   )
 
+  const filaPartidaPantalla = (part: Partida) => (
+    <tr key={part.id} className="fila-partida">
+      <td className="td-partida td-partida-ini">{part.nombre}</td>
+      {DIAS.map(dia => {
+        const c = getCelda(part.id, dia)
+        return (
+          <React.Fragment key={dia}>
+            <td className="td-celda td-celda-hoy dia-ini"><input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" /></td>
+            <td className="td-celda td-celda-ssp"><input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" /></td>
+          </React.Fragment>
+        )
+      })}
+      <td className="td-partida td-partida-fin">{part.nombre}</td>
+    </tr>
+  )
+
+  const filaPartidaImpresion = (part: Partida) => (
+    <tr key={part.id} className="fila-partida">
+      <td className="td-partida td-partida-ini">{part.nombre}</td>
+      {DIAS.map(dia => {
+        const c = getCelda(part.id, dia)
+        return (
+          <React.Fragment key={dia}>
+            <td className="td-celda td-celda-hoy dia-ini"><span className="celda-print">{c.hoy}</span></td>
+            <td className="td-celda td-celda-ssp"><span className="celda-print">{c.ssp}</span></td>
+          </React.Fragment>
+        )
+      })}
+      <td className="td-partida td-partida-fin">{part.nombre}</td>
+    </tr>
+  )
+
   return (
     <>
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -217,21 +261,11 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
                   {secciones.map(sec => (
                     <React.Fragment key={sec.id}>
                       <tr className="fila-seccion"><td colSpan={TOTAL_COLS} className="td-seccion">{sec.nombre}</td></tr>
-                      {partidas.filter(p => p.seccion_id === sec.id).map(part => (
-                        <tr key={part.id} className="fila-partida">
-                          <td className="td-partida td-partida-ini">{part.nombre}</td>
-                          {DIAS.map(dia => {
-                            const c = getCelda(part.id, dia)
-                            return (
-                              <React.Fragment key={dia}>
-                                <td className="td-celda td-celda-hoy dia-ini"><input value={c.hoy} onChange={e => setCelda(part.id, dia, 'hoy', e.target.value)} className="celda-input" /></td>
-                                <td className="td-celda td-celda-ssp"><input value={c.ssp} onChange={e => setCelda(part.id, dia, 'ssp', e.target.value)} className="celda-input celda-ssp" /></td>
-                              </React.Fragment>
-                            )
-                          })}
-                          <td className="td-partida td-partida-fin">{part.nombre}</td>
-                        </tr>
-                      ))}
+                      {conBiberones(partidas.filter(p => p.seccion_id === sec.id)).map((f, i) =>
+                        f.kind === 'sub'
+                          ? <tr key={`sub-${i}`} className="fila-bib"><td colSpan={TOTAL_COLS} className="td-bib">{f.label}</td></tr>
+                          : filaPartidaPantalla(f.part)
+                      )}
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -258,21 +292,11 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
                   <tr>{subCabecera}</tr>
                 </thead>
                 <tbody>
-                  {b.parts.map(part => (
-                    <tr key={part.id} className="fila-partida">
-                      <td className="td-partida td-partida-ini">{part.nombre}</td>
-                      {DIAS.map(dia => {
-                        const c = getCelda(part.id, dia)
-                        return (
-                          <React.Fragment key={dia}>
-                            <td className="td-celda td-celda-hoy dia-ini"><span className="celda-print">{c.hoy}</span></td>
-                            <td className="td-celda td-celda-ssp"><span className="celda-print">{c.ssp}</span></td>
-                          </React.Fragment>
-                        )
-                      })}
-                      <td className="td-partida td-partida-fin">{part.nombre}</td>
-                    </tr>
-                  ))}
+                  {conBiberones(b.parts).map((f, i) =>
+                    f.kind === 'sub'
+                      ? <tr key={`sub-${i}`} className="fila-bib"><td colSpan={TOTAL_COLS} className="td-bib">{f.label}</td></tr>
+                      : filaPartidaImpresion(f.part)
+                  )}
                 </tbody>
               </table>
             ))}
@@ -314,7 +338,11 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
                   <div key={sec.id} className="camara-balda">
                     <div className="camara-balda-head">{sec.nombre}</div>
                     <ul className={`camara-balda-list ${muchos ? 'dos-cols' : ''}`}>
-                      {parts.map(p => <li key={p.id} className="camara-balda-item">{p.nombre}</li>)}
+                      {conBiberones(parts).map((f, i) =>
+                        f.kind === 'sub'
+                          ? <li key={`sub-${i}`} className="camara-bib-head">{f.label}</li>
+                          : <li key={f.part.id} className="camara-balda-item">{f.part.nombre}</li>
+                      )}
                     </ul>
                   </div>
                 )
@@ -409,7 +437,7 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
               </>
             ) : (
               <>
-                <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.nombre}</div>
+                <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.nombre}{p.biberon ? ' · biberón' : ''}</div>
                 <button onClick={() => { setEditId(p.id); setEditNombre(p.nombre) }} style={iconBtn(T)}><Pencil size={13} /></button>
                 <button onClick={() => eliminar(p)} style={{ ...iconBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
               </>
@@ -453,6 +481,7 @@ const FICHA_CSS = `
 .th-sub-hoy { background: #8c161c; }
 .th-sub-ssp { background: #6e1116; color: #f0c9cb; }
 .td-seccion { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #B01D23; padding: 5px 8px; background: rgba(176,29,35,0.07); }
+.td-bib { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a1a22; padding: 3px 8px 3px 20px; background: rgba(176,29,35,0.04); }
 
 .td-partida { font-family: 'Lexend', sans-serif; font-size: 13.5px; color: var(--text-primary); padding: 1px 8px; white-space: nowrap; background: var(--bg-card); }
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
@@ -476,12 +505,12 @@ const FICHA_CSS = `
 .camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
 .camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
 .camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 18px; line-height: 1.7; color: var(--text-primary); }
+.camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
 .camara-balda-list.dos-cols { column-count: 2; column-gap: 24px; }
-.camara-balda-list.dos-cols .camara-balda-item { break-inside: avoid; }
+.camara-balda-list.dos-cols .camara-balda-item, .camara-balda-list.dos-cols .camara-bib-head { break-inside: avoid; }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
-  /* Margen por defecto del navegador (el usuario lo gestiona desde el diálogo de impresión) */
   @page { size: A4 landscape; }
   html, body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body * { visibility: hidden; }
@@ -506,24 +535,26 @@ const FICHA_CSS = `
   .prod-table-print .th-sub-hoy { background: #f0d8da !important; color: #8a1a22 !important; font-size: 9.5px; }
   .prod-table-print .th-sub-ssp { background: #e6c7ca !important; color: #7a1419 !important; font-size: 9.5px; }
   .prod-table-print .td-partida { color: #111 !important; background: #fff !important; padding: 2px 6px !important; position: static !important; font-size: 11px; }
+  .prod-table-print .td-bib { color: #8a1a22 !important; background: #f7eeef !important; font-size: 10px; padding: 2px 6px 2px 18px !important; }
   .prod-table-print .td-celda { padding: 0 !important; height: 20px; }
   .prod-table-print .td-celda-hoy { background: #fff !important; }
   .prod-table-print .td-celda-ssp { background: #f7eeef !important; }
   .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 11px; padding: 0 2px; }
 
-  /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado, ocupando casi todo ---- */
+  /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado ---- */
   .camara-wrap { display: block; position: absolute; left: 0; top: 0; width: 100%; }
-  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 8px; overflow: hidden; page-break-after: always; break-after: page; height: 192mm; display: flex; flex-direction: column; }
+  .hoja-camara { border: 3px solid #B01D23 !important; border-radius: 8px; overflow: hidden; page-break-after: always; break-after: page; height: 176mm; display: flex; flex-direction: column; }
   .hoja-camara:last-child { page-break-after: auto; break-after: auto; }
-  .camara-lado-head { font-size: 46px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 14px 24px !important; flex: 0 0 auto; }
-  .camara-cols { display: grid; flex: 1 1 auto; gap: 0; }
-  .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0; display: flex; flex-direction: column; }
+  .camara-lado-head { font-size: 40px !important; background: #f0d8da !important; color: #8a1a22 !important; border-bottom: 3px solid #B01D23 !important; padding: 12px 22px !important; flex: 0 0 auto; }
+  .camara-cols { display: grid; flex: 1 1 auto; gap: 0; min-height: 0; }
+  .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0; display: flex; flex-direction: column; min-height: 0; }
   .camara-balda:last-child { border-right: none; }
-  .camara-balda-head { font-size: 24px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 8px 16px !important; flex: 0 0 auto; }
-  .camara-balda-list { padding: 12px 18px !important; flex: 1 1 auto; }
-  .camara-balda-item { font-size: 30px !important; line-height: 1.85 !important; color: #111 !important; }
-  /* baldas con muchos productos → 2 columnas, letra grande igualmente */
-  .camara-balda-list.dos-cols { column-count: 2; column-gap: 18px; padding: 12px 16px !important; }
-  .camara-balda-list.dos-cols .camara-balda-item { font-size: 23px !important; line-height: 1.6 !important; break-inside: avoid; }
+  .camara-balda-head { font-size: 22px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 7px 14px !important; flex: 0 0 auto; }
+  .camara-balda-list { padding: 10px 16px !important; flex: 1 1 auto; }
+  .camara-balda-item { font-size: 26px !important; line-height: 1.7 !important; color: #111 !important; }
+  .camara-bib-head { font-size: 22px !important; color: #8a1a22 !important; margin-top: 4px; }
+  .camara-balda-list.dos-cols { column-count: 2; column-gap: 16px; padding: 10px 14px !important; }
+  .camara-balda-list.dos-cols .camara-balda-item { font-size: 21px !important; line-height: 1.5 !important; break-inside: avoid; }
+  .camara-balda-list.dos-cols .camara-bib-head { font-size: 19px !important; break-inside: avoid; }
 }
 `
