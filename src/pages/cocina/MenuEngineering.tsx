@@ -363,7 +363,7 @@ export default function MenuEngineering() {
       <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT.body }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '2px', color: '#B01D23', marginBottom: 12 }}>MENU ENGINEERING</div>
         <div style={{ color: T.sec, fontSize: 14, marginBottom: 8 }}>No hay platos en la carta.</div>
-        <div style={{ color: T.mut, fontSize: 12 }}>Vincula platos a recetas en Escandallo v2 para activar el análisis.</div>
+        <div style={{ color: T.mut, fontSize: 12 }}>Vincula platos a recetas en Escandallo para activar el análisis.</div>
       </div>
     )
   }
@@ -431,7 +431,7 @@ export default function MenuEngineering() {
 
       {sinFoodCost > 0 && (
         <div style={{ background: '#1a1200', border: '1px solid #f5a623', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: '#f5a623' }}>
-          {sinFoodCost} plato{sinFoodCost > 1 ? 's' : ''} excluido{sinFoodCost > 1 ? 's' : ''} por falta de food cost. Asigna receta en Escandallo v2.
+          {sinFoodCost} plato{sinFoodCost > 1 ? 's' : ''} excluido{sinFoodCost > 1 ? 's' : ''} por falta de food cost. Asigna receta en Escandallo.
         </div>
       )}
       {hayEstimados && (
