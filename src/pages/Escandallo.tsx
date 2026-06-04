@@ -94,7 +94,7 @@ export default function Escandallo() {
         <TabsPastilla
           tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
           activeId={tab}
-          onChange={(id) => { setTab(id as Tab); setBusqueda('') }}
+          onChange={(id) => setTab(id as Tab)}
         />
         <input
           className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
