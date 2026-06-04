@@ -1,4 +1,4 @@
-// google-drive v3 — + descarga por ID para reprocesador (0 API)
+// google-drive v3 — + descarga por ID para reprocesador (0 API) + borrado por ID
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
@@ -152,6 +152,22 @@ export async function descargarArchivoDeDrive(fileId: string): Promise<Buffer> {
     { responseType: 'arraybuffer' },
   )
   return Buffer.from(res.data as ArrayBuffer)
+}
+
+// Borra (envía a la papelera) un archivo de Drive por su ID. Usado al eliminar
+// una factura desde el ERP cuando el usuario confirma que quiere borrar también
+// la copia en Drive. Best-effort: si el archivo ya no existe, no lanza error.
+export async function borrarArchivoDeDrive(fileId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!fileId) return { ok: false, error: 'sin fileId' }
+  try {
+    const drive = await getDriveGlobal()
+    // trashed=true envía a la papelera de Drive (recuperable 30 días),
+    // más seguro que el borrado permanente.
+    await drive.files.update({ fileId, requestBody: { trashed: true }, supportsAllDrives: true })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export async function subirPdfADrive(
