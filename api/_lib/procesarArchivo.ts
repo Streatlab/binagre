@@ -4,6 +4,8 @@
 //                      documento: si aparece uno, el titular es exacto, no estimado.
 //                      Se ELIMINA el default a Rubén: lo que no se detecta queda
 //                      titular NULL + pendiente_titular_manual (nunca colgado a uno).
+// v17 — Capas de pago Anthropic+Mistral con candado por proveedor (Ruben 04/06/26).
+//        Primario=Anthropic Haiku, respaldo=Mistral. Mismo candado: 1 pago/proveedor.
 // v16 — Mistral SOLO arranca proveedor NUEVO (NIF sin ficha en reglas_conciliacion).
 //                      Si el NIF emisor ya está registrado, NUNCA se vuelve a llamar a Mistral.
 // v15 — + PASO 3 Mistral (red de seguridad de pago tras reglas+Tesseract)
@@ -35,6 +37,7 @@ import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { leerFacturaMistral, mistralDisponible, cuadraImportes } from './mistral-ocr.js'
+import { extraerDatosDesdeContenido as leerFacturaAnthropic } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive } from './google-drive.js'
 
@@ -54,6 +57,11 @@ const MULTIFACTURA_ACTIVO = process.env.OCR_DESACTIVAR_MULTIFACTURA !== 'true'
 
 // Tope diario de lecturas Mistral (bootstrap de proveedores nuevos). Default 200/día.
 const OCR_MISTRAL_LIMITE_DIARIO = Number(process.env.OCR_MISTRAL_LIMITE_DIARIO) || 200
+
+// Tope diario de lecturas Anthropic (bootstrap de proveedores nuevos). Default 200/dia.
+const OCR_ANTHROPIC_LIMITE_DIARIO = Number(process.env.OCR_ANTHROPIC_LIMITE_DIARIO) || 200
+// Lector de pago primario. 'anthropic' (def) o 'mistral'. El otro queda de respaldo.
+const OCR_LECTOR_PRIMARIO = (process.env.OCR_LECTOR_PRIMARIO === 'mistral' ? 'mistral' : 'anthropic') as 'anthropic' | 'mistral'
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -376,6 +384,72 @@ async function dentroDelTopeMistral(supabase: SupabaseClient): Promise<boolean> 
   }
 }
 
+function anthropicDisponible(): boolean {
+  return !!process.env.ANTHROPIC_API_KEY
+}
+
+// Tope diario Anthropic (mismo criterio que Mistral). Cuenta filas de ocr_auditoria
+// con origen_lectura='anthropic' creadas hoy. Conservador: si falla, false (no gasta).
+async function dentroDelTopeAnthropic(supabase: SupabaseClient): Promise<boolean> {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10)
+    const { count } = await supabase
+      .from('ocr_auditoria')
+      .select('id', { count: 'exact', head: true })
+      .eq('origen_lectura', 'anthropic')
+      .gte('created_at', `${hoy}T00:00:00`)
+    return (count ?? 0) < OCR_ANTHROPIC_LIMITE_DIARIO
+  } catch {
+    return false
+  }
+}
+
+// Lectura de pago con candado y respaldo. Solo se llama si el proveedor es NUEVO.
+// Intenta el lector primario; si falla o no cuadra, prueba el secundario. Aprende
+// el proveedor por NIF tras el primer acierto -> nunca se vuelve a pagar por el.
+async function leerConCapasDePago(
+  supabase: SupabaseClient,
+  contenido: ContenidoExtraido,
+): Promise<{ extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null> {
+  const intentar = async (lector: 'anthropic' | 'mistral'): Promise<ExtractedFactura | null> => {
+    try {
+      if (lector === 'anthropic') {
+        if (!anthropicDisponible() || !(await dentroDelTopeAnthropic(supabase))) return null
+        const a = await leerFacturaAnthropic(contenido)
+        if (a && a.total !== undefined && a.total !== null) {
+          if (!cuadraImportes(a)) a.confianza = 50
+          return a
+        }
+        return null
+      } else {
+        if (!mistralDisponible() || !(await dentroDelTopeMistral(supabase))) return null
+        const m = await leerFacturaMistral(contenido)
+        if (m && m.total !== undefined && m.total !== null) {
+          if (!cuadraImportes(m)) m.confianza = 50
+          return m
+        }
+        return null
+      }
+    } catch (e) {
+      console.error(`[procesarArchivo] lector ${lector} no resolvio:`, errMsg(e))
+      return null
+    }
+  }
+
+  const primario = OCR_LECTOR_PRIMARIO
+  const secundario: 'anthropic' | 'mistral' = primario === 'anthropic' ? 'mistral' : 'anthropic'
+
+  let extracted = await intentar(primario)
+  let origen = primario
+  if (!extracted) {
+    extracted = await intentar(secundario)
+    origen = secundario
+  }
+  if (!extracted) return null
+  await aprenderProveedorNif(supabase, extracted)
+  return { extracted, origen }
+}
+
 // CANDADO BOOTSTRAP (Rubén 02/06/26): ¿el NIF emisor ya tiene ficha en
 // reglas_conciliacion? Si la tiene, el proveedor YA fue dado de alta (bootstrap
 // hecho) → Mistral NO se vuelve a ejecutar para él NUNCA. Sus facturas se leen
@@ -525,7 +599,7 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral' | 'anthropic' = 'reglas'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -565,27 +639,19 @@ async function procesarContenidoPrincipal(
   if (extractedReglas) {
     extracted = extractedReglas
   } else {
-    // PASO 3 — BOOTSTRAP MISTRAL (~0,002 €), SOLO PROVEEDOR NUEVO.
-    let extractedMistral: ExtractedFactura | null = null
+    // PASO 3 — CAPAS DE PAGO (Anthropic + Mistral), SOLO PROVEEDOR NUEVO.
+    // Candado: si el NIF emisor ya tiene ficha, NUNCA se paga otra vez por el.
     const nifEmisorTexto = normalizarNif(textoPdfCache ? extraerNifEmisorLibre(textoPdfCache) : null)
     const proveedorYaConocido = await nifYaRegistrado(supabase, nifEmisorTexto)
-    if (mistralDisponible() && !proveedorYaConocido && (await dentroDelTopeMistral(supabase))) {
-      try {
-        const m = await leerFacturaMistral(contenido)
-        if (m && m.total !== undefined && m.total !== null) {
-          if (!cuadraImportes(m)) m.confianza = 50
-          extractedMistral = m
-          origenLectura = 'mistral'
-          await aprenderProveedorNif(supabase, m)
-        }
-      } catch (mistralErr) {
-        console.error('[procesarArchivo] Mistral no resolvió:', errMsg(mistralErr))
-      }
+    let resultadoPago: { extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null = null
+    if (!proveedorYaConocido) {
+      resultadoPago = await leerConCapasDePago(supabase, contenido)
     }
-    if (extractedMistral) {
-      extracted = extractedMistral
+    if (resultadoPago) {
+      extracted = resultadoPago.extracted
+      origenLectura = resultadoPago.origen
     } else {
-      // Ni reglas, ni Tesseract, ni (cuando aplica) Mistral leyeron. Lectura manual.
+      // Ni reglas, ni Tesseract, ni capas de pago leyeron. Lectura manual.
       return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
     }
   }
