@@ -17,7 +17,7 @@ const PAG_CAP = 24
 const HEADER_COST = 3
 
 interface CeldaValor { hoy: string; ssp: string }
-interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean; biberon?: boolean }
+interface Partida { id: string; seccion_id: string; nombre: string; orden: number; activa: boolean; biberon?: boolean; solo_camara?: boolean }
 interface Seccion { id: string; nombre: string; orden: number; activa: boolean }
 interface EntradaProduccion { id: string; partida_id: string; semana_iso: string; dia: Dia; hoy: string; ssp: string }
 interface BloqueImpresion { sec: Seccion; cont: boolean; parts: Partida[] }
@@ -151,6 +151,9 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
   const [modalPartidas, setModalPartidas] = useState(false)
   const semana = useMemo(() => getSemanaISO(new Date()), [])
 
+  // En la lista de producción no salen las partidas marcadas como "solo cámara"
+  const partidasLista = useMemo(() => partidas.filter(p => !p.solo_camara), [partidas])
+
   useEffect(() => {
     supabase.from('produccion_entradas').select('*').eq('semana_iso', semana)
       .then(({ data }) => setEntradas((data as EntradaProduccion[]) ?? []))
@@ -176,7 +179,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
     }
   }
 
-  const paginas = useMemo(() => paginar(secciones, partidas), [secciones, partidas])
+  const paginas = useMemo(() => paginar(secciones, partidasLista), [secciones, partidasLista])
   const hayContenido = secciones.length > 0
 
   const cabeceraDias = (
@@ -261,7 +264,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
                   {secciones.map(sec => (
                     <React.Fragment key={sec.id}>
                       <tr className="fila-seccion"><td colSpan={TOTAL_COLS} className="td-seccion">{sec.nombre}</td></tr>
-                      {conBiberones(partidas.filter(p => p.seccion_id === sec.id)).map((f, i) =>
+                      {conBiberones(partidasLista.filter(p => p.seccion_id === sec.id)).map((f, i) =>
                         f.kind === 'sub'
                           ? <tr key={`sub-${i}`} className="fila-bib"><td colSpan={TOTAL_COLS} className="td-bib">{f.label}</td></tr>
                           : filaPartidaPantalla(f.part)
@@ -437,7 +440,7 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
               </>
             ) : (
               <>
-                <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.nombre}{p.biberon ? ' · biberón' : ''}</div>
+                <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.nombre}{p.biberon ? ' · biberón' : ''}{p.solo_camara ? ' · solo cámara' : ''}</div>
                 <button onClick={() => { setEditId(p.id); setEditNombre(p.nombre) }} style={iconBtn(T)}><Pencil size={13} /></button>
                 <button onClick={() => eliminar(p)} style={{ ...iconBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
               </>
