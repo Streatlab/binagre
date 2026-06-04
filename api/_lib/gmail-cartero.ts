@@ -8,10 +8,13 @@
 //     "Procesadas" del propio Gmail, así nunca se vuelve a coger.
 //   - NO DUPLICA EN ORIGEN: el motor de facturas deduplica por hash de archivo
 //     y marca posible_duplicado lógico (nº+NIF+total) en base de datos.
+//   - NO METE FIRMAS: las imágenes embebidas del cuerpo/firma (logos, banners,
+//     image001.png de Outlook) se descartan; nunca se procesan como factura.
 //
 // 0 coste: IMAP de Gmail es gratis; el OCR posterior es local.
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
+import type { Attachment } from 'mailparser'
 import { supabaseAdmin } from './supabase-admin.js'
 
 export interface AdjuntoCorreo {
@@ -27,7 +30,35 @@ const CARPETA_PROCESADAS = 'Procesadas'
 const EXT_FACTURA = /\.(pdf|jpg|jpeg|png|webp|heic|tif|tiff|gif|bmp|eml|doc|docx|xls|xlsx)$/i
 const MIME_FACTURA = /^(application\/pdf|image\/|message\/rfc822|application\/vnd|application\/msword)/i
 
-function esAdjuntoFactura(nombre: string, mime: string): boolean {
+// Imágenes embebidas de firma de correo (Outlook/Gmail) que NO son facturas.
+const NOMBRE_FIRMA = /^(image|imagen|logo|icon|signature|firma|banner)[-_]?\d*\.(png|jpe?g|gif|bmp|webp)$/i
+// Por debajo de este tamaño una imagen es casi siempre un logo/icono de firma.
+const TAM_MIN_IMAGEN_FACTURA = 20000 // 20 KB
+
+function esImagen(mime: string, nombre: string): boolean {
+  if (mime && mime.toLowerCase().startsWith('image/')) return true
+  return /\.(png|jpe?g|gif|bmp|webp|heic|tif|tiff)$/i.test(nombre || '')
+}
+
+// Devuelve true si el adjunto es una imagen de firma/decorativa (a ignorar).
+function esImagenDeFirma(att: Attachment, nombre: string, mime: string): boolean {
+  if (!esImagen(mime, nombre)) return false
+  // 1) Embebida en el cuerpo (inline / related con Content-ID): firma o logo.
+  const disp = (att.contentDisposition || '').toLowerCase()
+  if (disp === 'inline') return true
+  if (att.related === true) return true
+  if (att.cid) return true
+  // 2) Nombre típico de firma (image001.png, logo.png, banner.jpg…).
+  if (NOMBRE_FIRMA.test(nombre)) return true
+  // 3) Imagen diminuta: logo/icono, no una foto de factura.
+  const size = typeof att.size === 'number' ? att.size : (att.content ? (att.content as Buffer).length : 0)
+  if (size > 0 && size < TAM_MIN_IMAGEN_FACTURA) return true
+  return false
+}
+
+function esAdjuntoFactura(att: Attachment, nombre: string, mime: string): boolean {
+  // Las imágenes de firma nunca son facturas.
+  if (esImagenDeFirma(att, nombre, mime)) return false
   if (nombre && EXT_FACTURA.test(nombre)) return true
   if (mime && MIME_FACTURA.test(mime)) return true
   return false
@@ -99,7 +130,7 @@ export async function recogerFacturasDelCorreo(
         for (const att of parsed.attachments || []) {
           const nombre = att.filename || 'adjunto'
           const mime = att.contentType || ''
-          if (!esAdjuntoFactura(nombre, mime)) continue
+          if (!esAdjuntoFactura(att, nombre, mime)) continue
           tieneFactura = true
           adjuntos.push({
             nombre,
