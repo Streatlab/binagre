@@ -1,97 +1,233 @@
-import { useState } from 'react'
-import { AlertTriangle, Copy, Tag } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { COLORS, OSWALD, LEXEND, CARDS, DROPDOWN_BTN } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtDate } from '@/utils/format'
-import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
-import { useFacturasPendientes, type FacturaPendiente } from '@/hooks/useFacturasPendientes'
 
-export default function BandejaPendiente() {
-  const { facturas, loading, setCategoria, resolverDuplicado, resolverAritmetica } = useFacturasPendientes()
+interface Factura {
+  id: string
+  proveedor_nombre: string
+  fecha_factura: string
+  total: number
+  categoria_factura: string | null
+  posible_duplicado: boolean
+  duplicado_revisado: boolean
+  aviso_aritmetica: boolean | null
+  posible_duplicado_de: string | null
+}
 
-  const duplicados = facturas.filter(f => f.posible_duplicado)
-  const aritmeticos = facturas.filter(f => f.aviso_aritmetica && !f.posible_duplicado)
-  const sinCategoria = facturas.filter(f => !f.categoria_factura && !f.posible_duplicado && !f.aviso_aritmetica)
+interface CatGasto {
+  id: string
+  codigo: string
+  nombre: string
+}
 
-  const total = duplicados.length + aritmeticos.length + sinCategoria.length
+export function BandejaPendiente() {
+  const [facturas, setFacturas] = useState<Factura[]>([])
+  const [categorias, setCategorias] = useState<CatGasto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editTotal, setEditTotal] = useState<{ id: string; valor: string } | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
 
-  if (!loading && total === 0) return null
+  const load = async () => {
+    const { data } = await supabase
+      .from('facturas')
+      .select(
+        'id, proveedor_nombre, fecha_factura, total, categoria_factura, posible_duplicado, duplicado_revisado, aviso_aritmetica, posible_duplicado_de',
+      )
+      .or('posible_duplicado.eq.true,aviso_aritmetica.eq.true,categoria_factura.is.null')
+      .order('fecha_factura', { ascending: false })
+    if (data) setFacturas(data as Factura[])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
+    supabase
+      .from('categorias_gastos')
+      .select('id, codigo, nombre')
+      .order('nombre')
+      .then(({ data }) => { if (data) setCategorias(data as CatGasto[]) })
+  }, [])
+
+  const resolverDuplicado = async (id: string) => {
+    setSaving(id)
+    await supabase.from('facturas').update({ duplicado_revisado: true }).eq('id', id)
+    setFacturas(prev => prev.map(f => (f.id === id ? { ...f, duplicado_revisado: true } : f)))
+    setSaving(null)
+  }
+
+  const guardarTotal = async (id: string, valor: string) => {
+    const n = parseFloat(valor.replace(',', '.'))
+    if (isNaN(n)) return
+    setSaving(id)
+    await supabase.from('facturas').update({ total: n, aviso_aritmetica: false }).eq('id', id)
+    setFacturas(prev =>
+      prev.map(f => (f.id === id ? { ...f, total: n, aviso_aritmetica: false } : f)),
+    )
+    setEditTotal(null)
+    setSaving(null)
+  }
+
+  const asignarCategoria = async (id: string, codigo: string) => {
+    setSaving(id)
+    await supabase
+      .from('facturas')
+      .update({ categoria_factura: codigo, categoria_factura_origen: 'manual' })
+      .eq('id', id)
+    setFacturas(prev =>
+      prev.map(f => (f.id === id ? { ...f, categoria_factura: codigo } : f)),
+    )
+    setSaving(null)
+  }
+
+  if (loading) return null
+
+  const duplicados = facturas.filter(f => f.posible_duplicado && !f.duplicado_revisado)
+  const aritmetica = facturas.filter(f => f.aviso_aritmetica)
+  const sinCat = facturas.filter(f => f.categoria_factura === null)
+  const total = duplicados.length + aritmetica.length + sinCat.length
+
+  if (total === 0) {
+    return (
+      <div
+        style={{
+          ...CARDS.std,
+          textAlign: 'center',
+          padding: '18px 20px',
+          marginTop: 16,
+        }}
+      >
+        <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '2px', color: COLORS.ok }}>
+          ✓ TODO REVISADO
+        </div>
+        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>
+          No hay facturas pendientes de revisión.
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ ...CARDS.big, marginBottom: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', color: COLORS.mut, textTransform: 'uppercase', fontWeight: 500 }}>
-          Pendiente de mí
-        </span>
-        {!loading && total > 0 && (
-          <span style={{
-            background: COLORS.err, color: '#fff', borderRadius: '50%',
-            width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: FONT.heading, fontSize: 11, fontWeight: 600,
-          }}>{total}</span>
-        )}
+    <div style={{ marginTop: 24 }}>
+      <div
+        style={{
+          fontFamily: OSWALD,
+          fontSize: 14,
+          letterSpacing: '2px',
+          color: COLORS.redSL,
+          textTransform: 'uppercase',
+          marginBottom: 14,
+        }}
+      >
+        PENDIENTE DE MÍ · {total} ítem{total !== 1 ? 's' : ''}
       </div>
 
-      {loading && <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut }}>Cargando…</div>}
+      {duplicados.length > 0 && (
+        <SeccionPendiente titulo={`POSIBLES DUPLICADOS (${duplicados.length})`} color={COLORS.warn}>
+          {duplicados.map(f => (
+            <FilaPendiente key={f.id} factura={f}>
+              <button
+                onClick={() => resolverDuplicado(f.id)}
+                disabled={saving === f.id}
+                style={estiloBtn(COLORS.warn)}
+              >
+                {saving === f.id ? '…' : 'Resolver'}
+              </button>
+            </FilaPendiente>
+          ))}
+        </SeccionPendiente>
+      )}
 
-      {!loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {duplicados.length > 0 && (
-            <Seccion
-              icono={<Copy size={14} />}
-              titulo="Posibles duplicados"
-              color={COLORS.err}
-            >
-              {duplicados.map(f => (
-                <FilaFactura key={f.id} factura={f}>
-                  <button onClick={() => resolverDuplicado(f.id)} style={btnResolver(COLORS.err)}>
-                    Resolver
+      {aritmetica.length > 0 && (
+        <SeccionPendiente titulo={`AVISO ARITMÉTICA (${aritmetica.length})`} color={COLORS.err}>
+          {aritmetica.map(f => (
+            <FilaPendiente key={f.id} factura={f}>
+              {editTotal?.id === f.id ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={editTotal.valor}
+                    onChange={e => setEditTotal({ id: f.id, valor: e.target.value })}
+                    style={{ ...DROPDOWN_BTN, width: 90, fontFamily: LEXEND }}
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') guardarTotal(f.id, editTotal.valor)
+                      if (e.key === 'Escape') setEditTotal(null)
+                    }}
+                  />
+                  <button
+                    onClick={() => guardarTotal(f.id, editTotal.valor)}
+                    disabled={saving === f.id}
+                    style={estiloBtn(COLORS.ok)}
+                  >
+                    {saving === f.id ? '…' : '✓'}
                   </button>
-                </FilaFactura>
-              ))}
-            </Seccion>
-          )}
+                  <button onClick={() => setEditTotal(null)} style={estiloBtn(COLORS.mut)}>
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setEditTotal({ id: f.id, valor: String(f.total) })}
+                  style={estiloBtn(COLORS.err)}
+                >
+                  Editar total
+                </button>
+              )}
+            </FilaPendiente>
+          ))}
+        </SeccionPendiente>
+      )}
 
-          {aritmeticos.length > 0 && (
-            <Seccion
-              icono={<AlertTriangle size={14} />}
-              titulo="Aviso aritmética"
-              color={COLORS.warn}
-            >
-              {aritmeticos.map(f => (
-                <FilaFacturaEditable key={f.id} factura={f} onGuardar={resolverAritmetica} />
-              ))}
-            </Seccion>
-          )}
-
-          {sinCategoria.length > 0 && (
-            <Seccion
-              icono={<Tag size={14} />}
-              titulo="Sin categoría"
-              color={COLORS.mut}
-            >
-              {sinCategoria.map(f => (
-                <FilaCategoria key={f.id} factura={f} onGuardar={setCategoria} />
-              ))}
-            </Seccion>
-          )}
-        </div>
+      {sinCat.length > 0 && (
+        <SeccionPendiente titulo={`SIN CATEGORÍA (${sinCat.length})`} color={COLORS.sec}>
+          {sinCat.map(f => (
+            <FilaPendiente key={f.id} factura={f}>
+              <select
+                value={f.categoria_factura ?? ''}
+                onChange={e => { if (e.target.value) asignarCategoria(f.id, e.target.value) }}
+                style={{ ...DROPDOWN_BTN, fontFamily: LEXEND, minWidth: 170 }}
+                disabled={saving === f.id}
+              >
+                <option value="">Seleccionar categoría…</option>
+                {categorias.map(c => (
+                  <option key={c.id} value={c.codigo}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </FilaPendiente>
+          ))}
+        </SeccionPendiente>
       )}
     </div>
   )
 }
 
-function Seccion({ icono, titulo, color, children }: {
-  icono: React.ReactNode
+function SeccionPendiente({
+  titulo,
+  color,
+  children,
+}: {
   titulo: string
   color: string
   children: React.ReactNode
 }) {
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <span style={{ color }}>{icono}</span>
-        <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color, textTransform: 'uppercase', fontWeight: 500 }}>
-          {titulo}
-        </span>
+    <div style={{ marginBottom: 18 }}>
+      <div
+        style={{
+          fontFamily: OSWALD,
+          fontSize: 10,
+          letterSpacing: '2px',
+          color,
+          textTransform: 'uppercase',
+          marginBottom: 6,
+          borderLeft: `3px solid ${color}`,
+          paddingLeft: 8,
+        }}
+      >
+        {titulo}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {children}
@@ -100,129 +236,53 @@ function Seccion({ icono, titulo, color, children }: {
   )
 }
 
-function FilaFactura({ factura: f, children }: { factura: FacturaPendiente; children?: React.ReactNode }) {
+function FilaPendiente({
+  factura: f,
+  children,
+}: {
+  factura: Factura
+  children: React.ReactNode
+}) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: COLORS.group, borderRadius: 9, padding: '10px 14px', gap: 12, flexWrap: 'wrap',
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, fontWeight: 500 }}>
-          {f.proveedor ?? '—'}
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {f.fecha_factura && <span style={chipMut}>{fmtDate(f.fecha_factura)}</span>}
-          {f.total != null && <span style={chipMut}>{fmtEur(f.total)}</span>}
-          {f.numero_factura && <span style={chipMut}>{f.numero_factura}</span>}
-          {f.titular && <span style={chipMut}>{f.titular}</span>}
+    <div
+      style={{
+        ...CARDS.std,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 600, color: COLORS.pri }}>
+          {f.proveedor_nombre}
         </div>
+        <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut }}>
+          {fmtDate(f.fecha_factura)}
+        </div>
+      </div>
+      <div style={{ fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: COLORS.pri }}>
+        {fmtEur(f.total)}
       </div>
       {children}
     </div>
   )
 }
 
-function FilaFacturaEditable({ factura: f, onGuardar }: {
-  factura: FacturaPendiente
-  onGuardar: (id: string, total: number) => Promise<void>
-}) {
-  const [editando, setEditando] = useState(false)
-  const [valor, setValor] = useState(f.total?.toString() ?? '')
-
-  const guardar = async () => {
-    const n = parseFloat(valor.replace(',', '.'))
-    if (isNaN(n)) return
-    await onGuardar(f.id, n)
-    setEditando(false)
-  }
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: COLORS.group, borderRadius: 9, padding: '10px 14px', gap: 12, flexWrap: 'wrap',
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, fontWeight: 500 }}>
-          {f.proveedor ?? '—'}
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {f.fecha_factura && <span style={chipMut}>{fmtDate(f.fecha_factura)}</span>}
-          {editando ? (
-            <input
-              value={valor}
-              onChange={e => setValor(e.target.value)}
-              style={{ width: 90, fontFamily: FONT.body, fontSize: 12, padding: '2px 6px', borderRadius: 5, border: `1px solid ${COLORS.warn}`, background: '#fff' }}
-              autoFocus
-            />
-          ) : (
-            f.total != null && <span style={chipMut}>{fmtEur(f.total)}</span>
-          )}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {editando ? (
-          <>
-            <button onClick={guardar} style={btnResolver(COLORS.ok)}>Guardar</button>
-            <button onClick={() => setEditando(false)} style={btnResolver(COLORS.mut)}>Cancelar</button>
-          </>
-        ) : (
-          <button onClick={() => setEditando(true)} style={btnResolver(COLORS.warn)}>Revisar total</button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function FilaCategoria({ factura: f, onGuardar }: {
-  factura: FacturaPendiente
-  onGuardar: (id: string, categoria: string) => Promise<void>
-}) {
-  const [valor, setValor] = useState('')
-
-  const guardar = async () => {
-    if (!valor.trim()) return
-    await onGuardar(f.id, valor.trim())
-  }
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: COLORS.group, borderRadius: 9, padding: '10px 14px', gap: 12, flexWrap: 'wrap',
-    }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, fontWeight: 500 }}>
-          {f.proveedor ?? '—'}
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {f.fecha_factura && <span style={chipMut}>{fmtDate(f.fecha_factura)}</span>}
-          {f.total != null && <span style={chipMut}>{fmtEur(f.total)}</span>}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <input
-          value={valor}
-          onChange={e => setValor(e.target.value)}
-          placeholder="Categoría…"
-          style={{ width: 140, fontFamily: FONT.body, fontSize: 12, padding: '4px 8px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: '#fff' }}
-          onKeyDown={e => { if (e.key === 'Enter') guardar() }}
-        />
-        <button onClick={guardar} style={btnResolver(COLORS.redSL)} disabled={!valor.trim()}>
-          Asignar
-        </button>
-      </div>
-    </div>
-  )
-}
-
-const chipMut: React.CSSProperties = {
-  fontFamily: FONT.body, fontSize: 11, padding: '2px 7px', borderRadius: 5,
-  background: COLORS.brd + '44', color: COLORS.sec, border: `0.5px solid ${COLORS.brd}`,
-}
-
-function btnResolver(color: string): React.CSSProperties {
+function estiloBtn(color: string) {
   return {
-    background: color, color: '#fff', border: 'none', borderRadius: 6,
-    padding: '5px 11px', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
-    textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap',
+    padding: '6px 14px',
+    borderRadius: 7,
+    border: `1.5px solid ${color}`,
+    background: 'transparent',
+    color,
+    fontFamily: OSWALD,
+    fontSize: 11,
+    letterSpacing: '1px',
+    textTransform: 'uppercase' as const,
+    cursor: 'pointer',
+    fontWeight: 600,
+    whiteSpace: 'nowrap' as const,
   }
 }
