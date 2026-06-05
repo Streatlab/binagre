@@ -89,10 +89,6 @@ function conBiberones(parts: Partida[]): FilaItem[] {
   return out
 }
 
-function abrirImpresion() {
-  window.print()
-}
-
 // ─── GENERACIÓN DE PDF REAL (descarga directa, sin diálogo de impresión) ───────
 
 const RED: [number, number, number] = [176, 29, 35]
@@ -105,13 +101,21 @@ function safe(name: string) {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
 }
 
-// PDF de la LISTA DE PRODUCCIÓN (A4 horizontal, paginado)
-function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
+// Abre el PDF generado en una pestaña nueva y lanza el diálogo de impresión desde el visor
+// (evita la cola colgada de la impresora WiFi al imprimir directo desde la web)
+function imprimirDesdePDF(doc: jsPDF) {
+  const url = doc.output('bloburl')
+  const win = window.open(url as unknown as string, '_blank')
+  if (win) {
+    win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* el usuario imprime desde el visor */ } })
+  }
+}
+
+function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const PW = doc.internal.pageSize.getWidth()
   const M = 12
   const usableW = PW - M * 2
-  // 16 columnas: Producto(ancho) + 14 dia + Producto(ancho)
   const wProd = 26
   const wCelda = (usableW - wProd * 2) / 14
   const rowH = 5.2
@@ -119,8 +123,6 @@ function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
   paginas.forEach((bloques, pi) => {
     if (pi > 0) doc.addPage()
     let y = M
-
-    // Cabecera hoja
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
     doc.text('LISTA DE PRODUCCIÓN', M, y + 4)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90)
@@ -132,35 +134,23 @@ function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
 
     bloques.forEach(b => {
       const filas = conBiberones(b.parts)
-      // Cabecera sección
       doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 6, 'F')
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...RED_DARK)
       doc.text(`${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`, M + 2, y + 4)
       y += 6
-      // Cabecera columnas (Producto + días + Producto)
-      doc.setFillColor(...RED_SOFT2)
-      doc.rect(M, y, usableW, 5, 'F')
+      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 5, 'F')
       doc.setFontSize(7); doc.setTextColor(...RED_DARK)
       doc.text('Producto', M + 1.5, y + 3.3)
       let x = M + wProd
-      DIAS.forEach(dia => {
-        doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' })
-        x += wCelda * 2
-      })
+      DIAS.forEach(dia => { doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' }); x += wCelda * 2 })
       doc.text('Producto', M + wProd + wCelda * 14 + 1.5, y + 3.3)
       y += 5
-      // Sub HOY/SSP
       doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 3.6, 'F')
       doc.setFontSize(5.5)
       x = M + wProd
-      DIAS.forEach(() => {
-        doc.text('HOY', x + wCelda / 2, y + 2.6, { align: 'center' })
-        doc.text('SSP', x + wCelda + wCelda / 2, y + 2.6, { align: 'center' })
-        x += wCelda * 2
-      })
+      DIAS.forEach(() => { doc.text('HOY', x + wCelda / 2, y + 2.6, { align: 'center' }); doc.text('SSP', x + wCelda + wCelda / 2, y + 2.6, { align: 'center' }); x += wCelda * 2 })
       y += 3.6
 
-      // Filas
       doc.setFont('helvetica', 'normal')
       filas.forEach(f => {
         if (f.kind === 'sub') {
@@ -168,55 +158,46 @@ function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
           doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...RED_DARK)
           doc.text(f.label.toUpperCase(), M + 6, y + 3.5)
           doc.setFont('helvetica', 'normal')
-          // líneas verticales celdas
           drawColsLines(doc, M, y, rowH, wProd, wCelda)
           y += rowH
           return
         }
-        // sombra SSP
         x = M + wProd
-        DIAS.forEach(() => {
-          doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F')
-          x += wCelda * 2
-        })
-        // texto producto
+        DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
         doc.setFontSize(7.5); doc.setTextColor(20)
         doc.text(f.part.nombre, M + 1.5, y + 3.4)
         doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.4)
         drawColsLines(doc, M, y, rowH, wProd, wCelda)
         y += rowH
       })
-      // marco exterior del bloque ya cubierto por líneas; pequeño respiro
       y += 3
     })
   })
+  return doc
+}
 
-  doc.save(`lista-produccion-${safe(semanaLabel)}.pdf`)
+function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
+  construirListaPDF(paginas, semanaLabel).save(`lista-produccion-${safe(semanaLabel)}.pdf`)
 }
 
 function drawColsLines(doc: jsPDF, M: number, y: number, rowH: number, wProd: number, wCelda: number) {
   doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
-  // borde inferior fila
   const totalW = wProd * 2 + wCelda * 14
   doc.line(M, y + rowH, M + totalW, y + rowH)
-  // verticales: inicio, fin de producto, cada celda, antes del producto final
   let x = M
   doc.line(x, y, x, y + rowH); x += wProd
   for (let i = 0; i < 14; i++) {
-    // borde grueso rojo al inicio de cada día (cada 2 celdas)
     if (i % 2 === 0) { doc.setDrawColor(207, 123, 129); doc.setLineWidth(0.5) }
     else { doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1) }
     doc.line(x, y, x, y + rowH)
     x += wCelda
   }
   doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
-  doc.line(x, y, x, y + rowH) // antes producto final
-  x += wProd
-  doc.line(x, y, x, y + rowH) // borde derecho
+  doc.line(x, y, x, y + rowH); x += wProd
+  doc.line(x, y, x, y + rowH)
 }
 
-// PDF de ORDENACIÓN DE CÁMARA (una hoja A4 horizontal por lado, letra grande)
-function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
+function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
@@ -224,7 +205,6 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
   grupos.forEach((g, gi) => {
     if (gi > 0) doc.addPage()
-    // Título lado
     doc.setFillColor(...RED_SOFT); doc.rect(M, M, PW - M * 2, 16, 'F')
     doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(...RED_DARK)
     doc.text(g.titulo, M + 6, M + 11)
@@ -235,9 +215,7 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
     g.secs.forEach((sec, ci) => {
       const x0 = M + ci * colW
       const parts = partidas.filter(p => p.seccion_id === sec.id)
-      // separador vertical
       if (ci > 0) { doc.setDrawColor(...RED).setLineWidth(0.4); doc.line(x0, top, x0, top + colH) }
-      // cabecera balda
       doc.setFillColor(250, 240, 241); doc.rect(x0, top, colW, 9, 'F')
       doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
       doc.text(sec.nombre, x0 + 4, top + 6)
@@ -269,11 +247,13 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
         idx++
       }
     })
-    // marco
     doc.setDrawColor(...RED).setLineWidth(0.8); doc.rect(M, M, PW - M * 2, PH - M * 2)
   })
+  return doc
+}
 
-  doc.save('ordenacion-camara.pdf')
+function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
+  construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -339,7 +319,6 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
   const [modalPartidas, setModalPartidas] = useState(false)
   const semana = useMemo(() => getSemanaISO(new Date()), [])
 
-  // En la lista de producción no salen las partidas marcadas como "solo cámara"
   const partidasLista = useMemo(() => partidas.filter(p => !p.solo_camara), [partidas])
 
   useEffect(() => {
@@ -432,7 +411,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
-          <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={() => imprimirDesdePDF(construirListaPDF(paginas, semLabel))} style={btnGhost}><Printer size={15} /> Imprimir</button>
           <button onClick={() => descargarListaPDF(paginas, semLabel)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
@@ -515,7 +494,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
           Una hoja A4 por lado de la cámara (izquierda / derecha), con todas sus baldas y los productos en grande para pegar en la puerta.
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={() => imprimirDesdePDF(construirCamaraPDF(grupos, partidas))} style={btnGhost}><Printer size={15} /> Imprimir</button>
           <button onClick={() => descargarCamaraPDF(grupos, partidas)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
