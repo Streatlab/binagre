@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -88,9 +89,191 @@ function conBiberones(parts: Partida[]): FilaItem[] {
   return out
 }
 
-// Imprimir / Guardar como PDF (el diálogo del navegador permite "Guardar como PDF" para descargar y compartir)
 function abrirImpresion() {
   window.print()
+}
+
+// ─── GENERACIÓN DE PDF REAL (descarga directa, sin diálogo de impresión) ───────
+
+const RED: [number, number, number] = [176, 29, 35]
+const RED_DARK: [number, number, number] = [138, 26, 34]
+const RED_SOFT: [number, number, number] = [240, 216, 218]
+const RED_SOFT2: [number, number, number] = [245, 226, 227]
+const GREY_LINE: [number, number, number] = [201, 201, 201]
+
+function safe(name: string) {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
+}
+
+// PDF de la LISTA DE PRODUCCIÓN (A4 horizontal, paginado)
+function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const PW = doc.internal.pageSize.getWidth()
+  const M = 12
+  const usableW = PW - M * 2
+  // 16 columnas: Producto(ancho) + 14 dia + Producto(ancho)
+  const wProd = 26
+  const wCelda = (usableW - wProd * 2) / 14
+  const rowH = 5.2
+
+  paginas.forEach((bloques, pi) => {
+    if (pi > 0) doc.addPage()
+    let y = M
+
+    // Cabecera hoja
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
+    doc.text('LISTA DE PRODUCCIÓN', M, y + 4)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90)
+    doc.text(semanaLabel, M + 70, y + 4)
+    doc.text(`Página ${pi + 1} de ${paginas.length}`, PW - M, y + 4, { align: 'right' })
+    y += 7
+    doc.setDrawColor(...RED_DARK); doc.setLineWidth(0.4); doc.line(M, y, PW - M, y)
+    y += 3
+
+    bloques.forEach(b => {
+      const filas = conBiberones(b.parts)
+      // Cabecera sección
+      doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 6, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...RED_DARK)
+      doc.text(`${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`, M + 2, y + 4)
+      y += 6
+      // Cabecera columnas (Producto + días + Producto)
+      doc.setFillColor(...RED_SOFT2)
+      doc.rect(M, y, usableW, 5, 'F')
+      doc.setFontSize(7); doc.setTextColor(...RED_DARK)
+      doc.text('Producto', M + 1.5, y + 3.3)
+      let x = M + wProd
+      DIAS.forEach(dia => {
+        doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' })
+        x += wCelda * 2
+      })
+      doc.text('Producto', M + wProd + wCelda * 14 + 1.5, y + 3.3)
+      y += 5
+      // Sub HOY/SSP
+      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 3.6, 'F')
+      doc.setFontSize(5.5)
+      x = M + wProd
+      DIAS.forEach(() => {
+        doc.text('HOY', x + wCelda / 2, y + 2.6, { align: 'center' })
+        doc.text('SSP', x + wCelda + wCelda / 2, y + 2.6, { align: 'center' })
+        x += wCelda * 2
+      })
+      y += 3.6
+
+      // Filas
+      doc.setFont('helvetica', 'normal')
+      filas.forEach(f => {
+        if (f.kind === 'sub') {
+          doc.setFillColor(247, 238, 239); doc.rect(M, y, usableW, rowH, 'F')
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...RED_DARK)
+          doc.text(f.label.toUpperCase(), M + 6, y + 3.5)
+          doc.setFont('helvetica', 'normal')
+          // líneas verticales celdas
+          drawColsLines(doc, M, y, rowH, wProd, wCelda)
+          y += rowH
+          return
+        }
+        // sombra SSP
+        x = M + wProd
+        DIAS.forEach(() => {
+          doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F')
+          x += wCelda * 2
+        })
+        // texto producto
+        doc.setFontSize(7.5); doc.setTextColor(20)
+        doc.text(f.part.nombre, M + 1.5, y + 3.4)
+        doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.4)
+        drawColsLines(doc, M, y, rowH, wProd, wCelda)
+        y += rowH
+      })
+      // marco exterior del bloque ya cubierto por líneas; pequeño respiro
+      y += 3
+    })
+  })
+
+  doc.save(`lista-produccion-${safe(semanaLabel)}.pdf`)
+}
+
+function drawColsLines(doc: jsPDF, M: number, y: number, rowH: number, wProd: number, wCelda: number) {
+  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+  // borde inferior fila
+  const totalW = wProd * 2 + wCelda * 14
+  doc.line(M, y + rowH, M + totalW, y + rowH)
+  // verticales: inicio, fin de producto, cada celda, antes del producto final
+  let x = M
+  doc.line(x, y, x, y + rowH); x += wProd
+  for (let i = 0; i < 14; i++) {
+    // borde grueso rojo al inicio de cada día (cada 2 celdas)
+    if (i % 2 === 0) { doc.setDrawColor(207, 123, 129); doc.setLineWidth(0.5) }
+    else { doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1) }
+    doc.line(x, y, x, y + rowH)
+    x += wCelda
+  }
+  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+  doc.line(x, y, x, y + rowH) // antes producto final
+  x += wProd
+  doc.line(x, y, x, y + rowH) // borde derecho
+}
+
+// PDF de ORDENACIÓN DE CÁMARA (una hoja A4 horizontal por lado, letra grande)
+function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const PW = doc.internal.pageSize.getWidth()
+  const PH = doc.internal.pageSize.getHeight()
+  const M = 10
+
+  grupos.forEach((g, gi) => {
+    if (gi > 0) doc.addPage()
+    // Título lado
+    doc.setFillColor(...RED_SOFT); doc.rect(M, M, PW - M * 2, 16, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(...RED_DARK)
+    doc.text(g.titulo, M + 6, M + 11)
+    const top = M + 16
+    const colW = (PW - M * 2) / g.secs.length
+    const colH = PH - top - M
+
+    g.secs.forEach((sec, ci) => {
+      const x0 = M + ci * colW
+      const parts = partidas.filter(p => p.seccion_id === sec.id)
+      // separador vertical
+      if (ci > 0) { doc.setDrawColor(...RED).setLineWidth(0.4); doc.line(x0, top, x0, top + colH) }
+      // cabecera balda
+      doc.setFillColor(250, 240, 241); doc.rect(x0, top, colW, 9, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
+      doc.text(sec.nombre, x0 + 4, top + 6)
+
+      const filas = conBiberones(parts)
+      const muchos = parts.length > 12
+      const fs = muchos ? 11 : 14
+      const lh = muchos ? 6.2 : 8
+      doc.setFontSize(fs)
+      const innerTop = top + 12
+      const innerH = colH - 12
+      const subColW = muchos ? colW / 2 : colW
+      const filasPorCol = muchos ? Math.ceil(filas.length / 2) : filas.length
+      let idx = 0
+      for (const f of filas) {
+        const sub = muchos ? Math.floor(idx / filasPorCol) : 0
+        const posEnCol = muchos ? idx % filasPorCol : idx
+        const fx = x0 + 4 + sub * subColW
+        const fy = innerTop + posEnCol * lh + 4
+        if (fy > innerTop + innerH) { idx++; continue }
+        if (f.kind === 'sub') {
+          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED_DARK)
+          doc.text(f.label, fx, fy)
+          doc.setFont('helvetica', 'normal')
+        } else {
+          doc.setTextColor(20)
+          doc.text(f.part.nombre, fx, fy)
+        }
+        idx++
+      }
+    })
+    // marco
+    doc.setDrawColor(...RED).setLineWidth(0.8); doc.rect(M, M, PW - M * 2, PH - M * 2)
+  })
+
+  doc.save('ordenacion-camara.pdf')
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -186,6 +369,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
 
   const paginas = useMemo(() => paginar(secciones, partidasLista), [secciones, partidasLista])
   const hayContenido = secciones.length > 0
+  const semLabel = getSemanaLabel(semana)
 
   const cabeceraDias = (
     <>
@@ -243,13 +427,13 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
     <>
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, letterSpacing: '0.5px' }}>
-          Plantilla · {getSemanaLabel(semana)}
+          Plantilla · {semLabel}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
           <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={abrirImpresion} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <button onClick={() => descargarListaPDF(paginas, semLabel)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
@@ -257,7 +441,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
       <div className="vista-pantalla ficha-card">
         <div className="ficha-head">
           <span className="ficha-title">Lista de Producción</span>
-          <span className="ficha-week">{getSemanaLabel(semana)}</span>
+          <span className="ficha-week">{semLabel}</span>
         </div>
         <div className="ficha-section" style={{ borderBottom: 'none', paddingBottom: 6 }}>
           {!hayContenido ? (
@@ -290,7 +474,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
           <div key={pi} className="hoja" style={{ breakAfter: pi < paginas.length - 1 ? 'page' : 'auto' }}>
             <div className="print-head">
               <span className="print-title">Lista de Producción</span>
-              <span className="print-week">{getSemanaLabel(semana)}</span>
+              <span className="print-week">{semLabel}</span>
               <span className="print-pag">Página {pi + 1} de {paginas.length}</span>
             </div>
             {bloques.map((b, bi) => (
@@ -332,7 +516,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={abrirImpresion} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <button onClick={() => descargarCamaraPDF(grupos, partidas)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
