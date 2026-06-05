@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
-import { ClipboardList, Printer, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
+import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -86,6 +86,11 @@ function conBiberones(parts: Partida[]): FilaItem[] {
     out.push({ kind: 'part', part: p })
   }
   return out
+}
+
+// Imprimir / Guardar como PDF (el diálogo del navegador permite "Guardar como PDF" para descargar y compartir)
+function abrirImpresion() {
+  window.print()
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -243,7 +248,8 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
-          <button onClick={() => window.print()} style={btnGhost}><Printer size={15} /> Imprimir / PDF</button>
+          <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={abrirImpresion} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
@@ -321,11 +327,12 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
   return (
     <>
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, maxWidth: 640 }}>
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, maxWidth: 560 }}>
           Una hoja A4 por lado de la cámara (izquierda / derecha), con todas sus baldas y los productos en grande para pegar en la puerta.
         </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <button onClick={() => window.print()} style={btnGhost}><Printer size={15} /> Imprimir / PDF</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={abrirImpresion} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={abrirImpresion} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
