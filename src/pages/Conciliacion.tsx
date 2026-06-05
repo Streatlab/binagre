@@ -12,6 +12,10 @@ import { useConciliacion } from '@/hooks/useConciliacion'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
+import PanelCierre from '@/components/conciliacion/PanelCierre'
+import BandejaPropuestas from '@/components/conciliacion/BandejaPropuestas'
+import BandejaPendiente from '@/components/conciliacion/BandejaPendiente'
+import CierreCuatroPiezas from '@/components/conciliacion/CierreCuatroPiezas'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { normalizarConcepto, matchPatron, inicializarStopwords } from '@/lib/normalizarConcepto'
 import { fechaLocalStr } from '@/utils/fechaLocal'
@@ -25,7 +29,7 @@ const TAB_STORAGE_KEY = 'conciliacion:tab'
 function loadTab(): Tab {
   try {
     const raw = sessionStorage.getItem(TAB_STORAGE_KEY)
-    if (raw === 'movimientos' || raw === 'resumen') return raw
+    if (raw === 'movimientos' || raw === 'resumen' || raw === 'cuadre') return raw
   } catch { /* swallow */ }
   return 'resumen'
 }
@@ -59,7 +63,7 @@ function calcularLabelPeriodo(periodo: string, customDesde?: string, customHasta
   return 'ÚLTIMOS 31 DÍAS'
 }
 
-type Tab = 'resumen' | 'movimientos'
+type Tab = 'resumen' | 'movimientos' | 'cuadre'
 type FiltroRapido = 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 'sin_titular' | null
 
 export default function Conciliacion() {
@@ -224,9 +228,17 @@ export default function Conciliacion() {
           <SelectorFechaUniversal nombreModulo="conciliacion" defaultOpcion="mes_en_curso" onChange={(desde, hasta, label) => { setPeriodoDesde(desde); setPeriodoHasta(hasta); setPeriodoLabelSFU(label) }} />
         </div>
       </div>
-      <TabsPastilla tabs={[{ id:'resumen', label:'Resumen' }, { id:'movimientos', label:'Movimientos' }]} activeId={tab} onChange={(id) => setTab(id as Tab)} />
+      <TabsPastilla tabs={[{ id:'resumen', label:'Resumen' }, { id:'movimientos', label:'Movimientos' }, { id:'cuadre', label:'Cuadre' }]} activeId={tab} onChange={(id) => setTab(id as Tab)} />
       {tab === 'resumen' && <ResumenDashboard movimientos={movimientosFiltrados} movimientosAnterior={movimientosAnterior} mesNombre={mesNombre} anio={anioActual} diasRestantes={diasRestantes} />}
       {tab === 'movimientos' && <TabMovimientos periodoLabel={periodoLabelSFU} periodoDesde={periodoDesde} periodoHasta={periodoHasta} />}
+      {tab === 'cuadre' && (
+        <div style={{ marginTop: 16 }}>
+          <PanelCierre />
+          <BandejaPropuestas />
+          <BandejaPendiente />
+          <CierreCuatroPiezas />
+        </div>
+      )}
       <ModalAddGasto open={modalGastoOpen} onClose={() => setModalGastoOpen(false)} onSaved={() => { setModalGastoOpen(false) }} />
       {/* C-02: banner de deshacer propagación */}
       {ultimaPropagacion && (
