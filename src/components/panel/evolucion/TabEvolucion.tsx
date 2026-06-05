@@ -1,12 +1,14 @@
 /**
  * TabEvolucion — Panel Global · Comparativas
- * Reutiliza componentes y tokens de Resumen. Todo depende del periodo seleccionado
- * y se compara contra el periodo anterior o el mismo periodo del año anterior.
+ * Reutiliza componentes y tokens de Resumen. Todo depende del periodo seleccionado.
+ * Comparativas alineadas por calendario:
+ *  - Día a día: vs mismo día de la semana anterior (-7), vs mismo día del mes anterior, vs mismo día del año anterior.
+ *  - Semanas: ventas vs objetivo (cumple/no cumple) y vs misma semana del mes anterior.
  */
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum } from '@/lib/format'
+import { fmtEur } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, fmtDec } from '@/components/panel/resumen/tokens'
 import {
   calcNetoPorCanal, useConfigCanales, useMarcasPorCanal,
@@ -21,28 +23,23 @@ function toStr(d: Date): string {
 }
 function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 function addMonthsClamp(d: Date, n: number): Date {
-  const day = d.getDate()
-  const x = new Date(d.getFullYear(), d.getMonth() + n, 1)
-  const dim = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate()
-  x.setDate(Math.min(day, dim)); return x
+  const day = d.getDate(); const x = new Date(d.getFullYear(), d.getMonth() + n, 1)
+  const dim = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate(); x.setDate(Math.min(day, dim)); return x
 }
+function addYears(d: Date, n: number): Date { return new Date(d.getFullYear() + n, d.getMonth(), d.getDate()) }
 function minDate(a: Date, b: Date) { return a < b ? a : b }
 function isoDow(s: string): number { const d = new Date(s + 'T00:00:00'); return ((d.getDay() + 6) % 7) + 1 }
-const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Jue', 'Sáb', 'Dom']
+function mondayOf(d: Date): Date { return addDays(d, -((d.getDay() + 6) % 7)) }
 const DIAS_OK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 function fdShort(d: Date): string { return `${d.getDate()} ${MESES[d.getMonth()]}` }
 
 function rangoPrevio(desde: Date, hasta: Date) {
   const dias = Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1
-  const h = addDays(desde, -1); const d = addDays(h, -(dias - 1))
-  return { desde: d, hasta: h }
+  const h = addDays(desde, -1); const d = addDays(h, -(dias - 1)); return { desde: d, hasta: h }
 }
 function rangoAnio(desde: Date, hasta: Date) {
-  return {
-    desde: new Date(desde.getFullYear() - 1, desde.getMonth(), desde.getDate()),
-    hasta: new Date(hasta.getFullYear() - 1, hasta.getMonth(), hasta.getDate()),
-  }
+  return { desde: addYears(desde, -1), hasta: addYears(hasta, -1) }
 }
 
 interface RowFac {
@@ -81,11 +78,9 @@ function aggregate(rows: RowFac[], canales: string[], desde: Date, hasta: Date, 
   const on = (id: string) => canales.length === 0 || canales.includes(id)
   const porCanal: Record<string, { bruto: number; pedidos: number; neto: number }> = {}
   for (const c of CANALES) porCanal[c.id] = { bruto: 0, pedidos: 0, neto: 0 }
-  const fechasConDatos = new Set<string>()
-  let alm = 0, cena = 0
+  const fechasConDatos = new Set<string>(); let alm = 0, cena = 0
   for (const r of rows) {
-    const db = dayBrutoOf(r, on)
-    if (db > 0) fechasConDatos.add(r.fecha)
+    const db = dayBrutoOf(r, on); if (db > 0) fechasConDatos.add(r.fecha)
     for (const c of CANALES) {
       if (!on(c.id)) continue
       porCanal[c.id].bruto += Number((r as unknown as Record<string, number>)[c.bk] || 0)
@@ -108,7 +103,6 @@ function delta(a: number, b: number): number | null {
   if (!isFinite(a) || !isFinite(b) || b <= 0) return null
   return ((a - b) / b) * 100
 }
-
 function Delta({ pct, fallback = '—' }: { pct: number | null; fallback?: string }) {
   if (pct == null) return <span style={{ fontFamily: OSWALD, fontSize: 12, color: COLOR.textMut }}>{fallback}</span>
   const up = pct >= 0
@@ -118,29 +112,35 @@ function Row({ label, val, right }: { label: string; val: string; right: React.R
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, fontFamily: LEXEND }}>
       <span style={{ color: COLOR.textMut }}>{label}</span>
-      <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-        <span style={{ fontFamily: OSWALD, color: COLOR.textPri }}>{val}</span>{right}
-      </span>
+      <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}><span style={{ fontFamily: OSWALD, color: COLOR.textPri }}>{val}</span>{right}</span>
     </div>
   )
 }
 const numBig: React.CSSProperties = { fontFamily: OSWALD, fontSize: 38, fontWeight: 600 }
+const th: React.CSSProperties = { padding: '4px 6px', fontFamily: OSWALD, fontWeight: 500, color: COLOR.textMut }
 
 export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: Props) {
   const [compare, setCompare] = useState<Compare>('previo')
   const [rows, setRows] = useState<RowFac[]>([])
+  const [rowsLY, setRowsLY] = useState<RowFac[]>([])
   const [objMap, setObjMap] = useState<Record<number, number>>({})
   const cfg = useConfigCanales()
   const marcas = useMarcasPorCanal()
 
   const cmpRange = useMemo(() => compare === 'previo' ? rangoPrevio(fechaDesde, fechaHasta) : rangoAnio(fechaDesde, fechaHasta), [compare, fechaDesde, fechaHasta])
-  const wideDesde = useMemo(() => minDate(cmpRange.desde, addDays(fechaDesde, -35)), [cmpRange, fechaDesde])
+  const wideDesde = useMemo(() => minDate(cmpRange.desde, addDays(mondayOf(fechaDesde), -45)), [cmpRange, fechaDesde])
 
   useEffect(() => {
     supabase.from('facturacion_diario').select(SELECT_COLS)
       .gte('fecha', toStr(wideDesde)).lte('fecha', toStr(fechaHasta)).order('fecha', { ascending: true })
       .then(({ data }) => setRows((data ?? []) as RowFac[]))
   }, [wideDesde, fechaHasta])
+
+  useEffect(() => {
+    supabase.from('facturacion_diario').select(SELECT_COLS)
+      .gte('fecha', toStr(addDays(addYears(fechaDesde, -1), -2))).lte('fecha', toStr(addDays(addYears(fechaHasta, -1), 2)))
+      .then(({ data }) => setRowsLY((data ?? []) as RowFac[]))
+  }, [fechaDesde, fechaHasta])
 
   useEffect(() => {
     supabase.from('objetivos_dia_semana').select('dia,importe').then(({ data }) => {
@@ -157,6 +157,11 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
     for (const r of rows) m.set(r.fecha, (m.get(r.fecha) || 0) + dayBrutoOf(r, on))
     return m
   }, [rows, on])
+  const dayMapLY = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rowsLY) m.set(r.fecha, (m.get(r.fecha) || 0) + dayBrutoOf(r, on))
+    return m
+  }, [rowsLY, on])
 
   const inRange = (f: string, d: Date, h: Date) => f >= toStr(d) && f <= toStr(h)
   const rowsPeriodo = useMemo(() => rows.filter(r => inRange(r.fecha, fechaDesde, fechaHasta)), [rows, fechaDesde, fechaHasta])
@@ -185,10 +190,6 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
 
   const patron = useMemo(() => {
     const acc = Array.from({ length: 7 }, () => ({ sum: 0, n: 0 }))
-    for (const r of rowsPeriodo) {
-      const v = dayMap.get(r.fecha) || 0
-      // contamos cada fecha una vez
-    }
     const vistos = new Set<string>()
     for (const r of rowsPeriodo) {
       if (vistos.has(r.fecha)) continue; vistos.add(r.fecha)
@@ -208,23 +209,52 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
   }, [rowsPeriodo, dayMap, objMap])
 
   const diaADia = useMemo(() => {
-    const out: { f: string; bruto: number | null; dSem: number | null; dMes: number | null }[] = []
+    const out: { f: string; bruto: number | null; dSem: number | null; dMes: number | null; dAno: number | null }[] = []
     let d = new Date(fechaDesde)
     while (d <= fechaHasta) {
       const f = toStr(d)
       const bruto = dayMap.has(f) ? (dayMap.get(f) || 0) : null
-      const semF = toStr(addDays(d, -7)); const mesF = toStr(addMonthsClamp(d, -1))
-      const semV = dayMap.has(semF) ? (dayMap.get(semF) || 0) : null
-      const mesV = dayMap.has(mesF) ? (dayMap.get(mesF) || 0) : null
+      const semV = dayMap.has(toStr(addDays(d, -7))) ? (dayMap.get(toStr(addDays(d, -7))) || 0) : null
+      const mesV = dayMap.has(toStr(addMonthsClamp(d, -1))) ? (dayMap.get(toStr(addMonthsClamp(d, -1))) || 0) : null
+      const anoV = dayMapLY.has(toStr(addYears(d, -1))) ? (dayMapLY.get(toStr(addYears(d, -1))) || 0) : null
       out.push({
         f, bruto,
         dSem: bruto != null && semV != null ? delta(bruto, semV) : null,
         dMes: bruto != null && mesV != null ? delta(bruto, mesV) : null,
+        dAno: bruto != null && anoV != null ? delta(bruto, anoV) : null,
       })
       d = addDays(d, 1)
     }
     return out
-  }, [fechaDesde, fechaHasta, dayMap])
+  }, [fechaDesde, fechaHasta, dayMap, dayMapLY])
+
+  /* ── semanas vs objetivo ── */
+  const semanas = useMemo(() => {
+    const hoy = toStr(new Date())
+    const buckets = new Map<string, string[]>()
+    let d = new Date(fechaDesde)
+    while (d <= fechaHasta) {
+      const k = toStr(mondayOf(d))
+      if (!buckets.has(k)) buckets.set(k, [])
+      buckets.get(k)!.push(toStr(d)); d = addDays(d, 1)
+    }
+    return [...buckets.entries()].map(([k, fechas]) => {
+      let ventas = 0, objetivo = 0, mesAnt = 0
+      for (const f of fechas) {
+        ventas += dayMap.get(f) || 0
+        if (f <= hoy) objetivo += objMap[isoDow(f)] || 0
+        const fm = toStr(addMonthsClamp(new Date(f + 'T00:00:00'), -1))
+        mesAnt += dayMap.get(fm) || 0
+      }
+      const pct = objetivo > 0 ? (ventas / objetivo) * 100 : null
+      const ini = new Date(fechas[0] + 'T00:00:00'); const fin = new Date(fechas[fechas.length - 1] + 'T00:00:00')
+      return {
+        label: `${fdShort(ini)}–${fin.getDate()}`, ventas, objetivo,
+        pct, cumple: pct != null ? ventas >= objetivo : null,
+        dMes: mesAnt > 0 ? delta(ventas, mesAnt) : null,
+      }
+    }).filter(s => s.ventas > 0 || s.objetivo > 0)
+  }, [fechaDesde, fechaHasta, dayMap, objMap])
 
   const cmpLabel = compare === 'previo' ? 'periodo anterior' : 'año anterior'
   const y1fb = compare === 'y1' ? 'sin histórico' : '—'
@@ -350,19 +380,49 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
         </div>
       </div>
 
-      {/* FILA 3 — día a día */}
+      {/* SEMANAS vs OBJETIVO */}
+      <div style={{ ...cardBig, marginBottom: 14 }}>
+        <div style={lbl}>SEMANAS · CUMPLIMIENTO OBJETIVO · vs mes anterior</div>
+        {semanas.length === 0 ? <div style={{ fontSize: 12, color: COLOR.textMut, marginTop: 14, fontFamily: LEXEND }}>Sin datos.</div> : (
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: LEXEND, fontSize: 12 }}>
+              <thead><tr style={{ textAlign: 'left' }}>
+                <th style={th}>Semana</th>
+                <th style={{ ...th, textAlign: 'right' }}>Ventas</th>
+                <th style={{ ...th, textAlign: 'right' }}>Objetivo</th>
+                <th style={{ ...th, textAlign: 'right' }}>%</th>
+                <th style={{ ...th, textAlign: 'center' }}>Cumple</th>
+                <th style={{ ...th, textAlign: 'right' }}>vs mes ant.</th>
+              </tr></thead>
+              <tbody>
+                {semanas.map(s => (
+                  <tr key={s.label} style={{ borderTop: `0.5px solid ${COLOR.bordeClaro}` }}>
+                    <td style={{ padding: '5px 6px' }}>{s.label}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: OSWALD, color: COLOR.textPri }}>{fmtEur(s.ventas, { showEuro: true, decimals: 0 })}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: OSWALD, color: COLOR.textMut }}>{s.objetivo > 0 ? fmtEur(s.objetivo, { showEuro: true, decimals: 0 }) : '—'}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: OSWALD, color: s.pct == null ? COLOR.textMut : s.cumple ? COLOR.verde : COLOR.rojo }}>{s.pct == null ? '—' : `${fmtDec(s.pct, 0)}%`}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'center', color: s.cumple == null ? COLOR.textMut : s.cumple ? COLOR.verde : COLOR.rojo, fontWeight: 700 }}>{s.cumple == null ? '—' : s.cumple ? '✓' : '✗'}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right' }}><Delta pct={s.dMes} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* DÍA A DÍA */}
       <div style={cardBig}>
-        <div style={lbl}>DÍA A DÍA · vs semana anterior · vs mes anterior</div>
+        <div style={lbl}>DÍA A DÍA · vs semana / mes / año anterior</div>
         <div style={{ marginTop: 12, maxHeight: 320, overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: LEXEND, fontSize: 12 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: COLOR.textMut }}>
-                <th style={{ padding: '4px 6px', fontFamily: OSWALD, fontWeight: 500 }}>Día</th>
-                <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: OSWALD, fontWeight: 500 }}>Bruto</th>
-                <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: OSWALD, fontWeight: 500 }}>vs sem. ant.</th>
-                <th style={{ padding: '4px 6px', textAlign: 'right', fontFamily: OSWALD, fontWeight: 500 }}>vs mes ant.</th>
-              </tr>
-            </thead>
+            <thead><tr style={{ textAlign: 'left' }}>
+              <th style={th}>Día</th>
+              <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
+              <th style={{ ...th, textAlign: 'right' }}>vs sem.</th>
+              <th style={{ ...th, textAlign: 'right' }}>vs mes</th>
+              <th style={{ ...th, textAlign: 'right' }}>vs año</th>
+            </tr></thead>
             <tbody>
               {diaADia.map(d => (
                 <tr key={d.f} style={{ borderTop: `0.5px solid ${COLOR.bordeClaro}` }}>
@@ -370,6 +430,7 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
                   <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: OSWALD, color: COLOR.textPri }}>{d.bruto == null ? '—' : fmtEur(d.bruto, { showEuro: true, decimals: 0 })}</td>
                   <td style={{ padding: '5px 6px', textAlign: 'right' }}><Delta pct={d.dSem} /></td>
                   <td style={{ padding: '5px 6px', textAlign: 'right' }}><Delta pct={d.dMes} /></td>
+                  <td style={{ padding: '5px 6px', textAlign: 'right' }}><Delta pct={d.dAno} fallback="sin hist." /></td>
                 </tr>
               ))}
             </tbody>
