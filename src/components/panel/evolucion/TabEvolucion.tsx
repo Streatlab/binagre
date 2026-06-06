@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { fmtEur, fmtNum, fmtPct } from '@/lib/format'
+import { fmtEur, fmtNum } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl, lblXs, fmtDec, SUBTABS } from '@/components/panel/resumen/tokens'
 import {
   calcNetoPorCanal, useConfigCanales, useMarcasPorCanal,
@@ -159,11 +159,10 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
   const rMes = useMemo(() => ({ desde: addMonthsClamp(fechaDesde, -1), hasta: addMonthsClamp(fechaHasta, -1) }), [fechaDesde, fechaHasta])
   const rAno = useMemo(() => ({ desde: addYears(fechaDesde, -1), hasta: addYears(fechaHasta, -1) }), [fechaDesde, fechaHasta])
 
-  const aggOf = (d: Date, h: Date) => aggregate(rows.filter(r => inRange(r.fecha, d, h)), canalesFiltro, d, h, cfg, marcas)
-  const A = useMemo(() => aggOf(fechaDesde, fechaHasta), [rows, canalesFiltro, fechaDesde, fechaHasta, cfg, marcas])
-  const P = useMemo(() => aggOf(rPrev.desde, rPrev.hasta), [rows, canalesFiltro, rPrev, cfg, marcas])
-  const M = useMemo(() => aggOf(rMes.desde, rMes.hasta), [rows, canalesFiltro, rMes, cfg, marcas])
-  const Y = useMemo(() => aggOf(rAno.desde, rAno.hasta), [rows, canalesFiltro, rAno, cfg, marcas])
+  const A = useMemo(() => aggregate(rows.filter(r => inRange(r.fecha, fechaDesde, fechaHasta)), canalesFiltro, fechaDesde, fechaHasta, cfg, marcas), [rows, canalesFiltro, fechaDesde, fechaHasta, cfg, marcas])
+  const P = useMemo(() => aggregate(rows.filter(r => inRange(r.fecha, rPrev.desde, rPrev.hasta)), canalesFiltro, rPrev.desde, rPrev.hasta, cfg, marcas), [rows, canalesFiltro, rPrev, cfg, marcas])
+  const M = useMemo(() => aggregate(rows.filter(r => inRange(r.fecha, rMes.desde, rMes.hasta)), canalesFiltro, rMes.desde, rMes.hasta, cfg, marcas), [rows, canalesFiltro, rMes, cfg, marcas])
+  const Y = useMemo(() => aggregate(rows.filter(r => inRange(r.fecha, rAno.desde, rAno.hasta)), canalesFiltro, rAno.desde, rAno.hasta, cfg, marcas), [rows, canalesFiltro, rAno, cfg, marcas])
 
   const C = cmp === 'previo' ? P : cmp === 'mes' ? M : Y
   const cmpFb = cmp === 'ano' ? 'sin hist.' : '—'
@@ -195,7 +194,7 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
       vistos.add(r.fecha); const v = dayMap.get(r.fecha) || 0; if (v <= 0) continue
       const i = isoDow(r.fecha) - 1; acc[i].s += v; acc[i].n++
     }
-    return acc.map((a, i) => ({ dia: DIAS[i], avg: a.n ? a.s / a.n : 0, n: a.n })).filter(p => p.n > 0).sort((a, b) => b.avg - a.avg)
+    return acc.map((a, i) => ({ dia: DIAS[i], avg: a.n ? a.s / a.n : 0, n: a.n })).filter(p => p.n > 0)
   }, [rows, dayMap, fechaDesde, fechaHasta])
   const patronMax = Math.max(...patron.map(p => p.avg), 1)
 
@@ -295,15 +294,14 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
             </div>
           </div>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {[['Periodo anterior', P], ['Mes anterior', M], ['Año anterior', Y]].map(([t, ref]) => {
-              const r = ref as Agg
+            {([['Periodo anterior', P], ['Mes anterior', M], ['Año anterior', Y]] as [string, Agg][]).map(([t, ref]) => {
               const fb = t === 'Año anterior' ? 'sin hist.' : '—'
               return (
-                <div key={t as string} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, fontFamily: LEXEND }}>
-                  <span style={{ color: COLOR.textMut }}>{t as string}</span>
+                <div key={t} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, fontFamily: LEXEND }}>
+                  <span style={{ color: COLOR.textMut }}>{t}</span>
                   <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: OSWALD }}>{fmtEur(r.bruto, { showEuro: true, decimals: 0 })}</span>
-                    <Delta pct={delta(A.bruto, r.bruto)} fallback={fb} />
+                    <span style={{ fontFamily: OSWALD }}>{fmtEur(ref.bruto, { showEuro: true, decimals: 0 })}</span>
+                    <Delta pct={delta(A.bruto, ref.bruto)} fallback={fb} />
                   </span>
                 </div>
               )
@@ -381,7 +379,7 @@ export default function TabEvolucion({ fechaDesde, fechaHasta, canalesFiltro }: 
               {DIAS.map(dl => {
                 const p = patron.find(x => x.dia === dl)
                 const avg = p?.avg || 0
-                const best = p && avg === patronMax
+                const best = !!p && avg === patronMax
                 return (
                   <div key={dl} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
                     <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: OSWALD }}>{avg > 0 ? fmtEur(avg, { showEuro: false, decimals: 0 }) : ''}</div>
