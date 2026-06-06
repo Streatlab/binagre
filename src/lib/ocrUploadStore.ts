@@ -1,7 +1,7 @@
-// ocrUploadStore v42 — PDF >20MB se comprime SOLO en el navegador antes de subir.
+// ocrUploadStore v43 — PDF >20MB se comprime SOLO en el navegador antes de subir.
 // Si tras comprimir sigue >20MB, se parte en varios PDF por páginas (cada parte <20MB),
 // y cada parte se procesa como un archivo más. El usuario no hace nada.
-// Mantiene v41: toast autocierre SIEMPRE a 20s.
+// Mantiene v41: toast autocierre SIEMPRE a 1 min (60s).
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -36,7 +36,7 @@ let timersAutoCerrar: Map<string, number> = new Map()
 
 const SESION_MAX_ARCHIVOS = 500
 const PARALELO_SUBIDAS = 6
-const TOAST_COMPLETADO_MS = 20000
+const TOAST_COMPLETADO_MS = 60000
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
 const MAX_REINTENTOS = 10
