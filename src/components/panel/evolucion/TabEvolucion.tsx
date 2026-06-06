@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v15
+ * Tab Evolución — Panel Global · v16
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -21,6 +21,8 @@ type Periodo = 'semana' | 'mes' | 'anio'
 type Comp = 'prev' | 'mes' | 'anio'
 
 const ROJO = '#E24B4A'
+const AZUL_PED = '#1E5BCC'
+const NARANJA_TM = '#F26B1F'
 const VERDE = '#1D9E75'
 const AMARILLO = '#f5a623'
 const TRACK = '#ebe8e2'
@@ -83,7 +85,7 @@ const BATERIA: FraseDef[] = [
   { cond: () => true, txt: e => `Periodo en marcha: ${nf0(e.total)} acumulado.`, color: () => NEU },
 ]
 
-export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
+export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>(() => (localStorage.getItem('evo_periodo') as Periodo) || 'semana')
   const [comp, setComp] = useState<Comp>(() => (localStorage.getItem('evo_comp') as Comp) || 'prev')
   const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); localStorage.setItem('evo_periodo', p); if (p !== 'semana' && comp === 'prev') { setComp('mes'); localStorage.setItem('evo_comp', 'mes') } }, [comp])
@@ -146,9 +148,10 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
   }, [objDia, objBase])
 
   const hoyStr = toLocal(new Date())
-  const lunes = useMemo(() => mondayOf(new Date(hoyStr + 'T12:00:00')), [hoyStr])
+  const anclaStr = fechaHasta ? toLocal(fechaHasta) : hoyStr
+  const lunes = useMemo(() => mondayOf(new Date(anclaStr + 'T12:00:00')), [anclaStr])
   const domingo = useMemo(() => addDays(lunes, 6), [lunes])
-  const ref = useMemo(() => new Date(hoyStr + 'T12:00:00'), [hoyStr])
+  const ref = useMemo(() => new Date(anclaStr + 'T12:00:00'), [anclaStr])
   const labelComp = comp === 'prev' ? (periodo === 'semana' ? 'la semana anterior' : 'el periodo anterior') : comp === 'mes' ? 'el mes anterior' : 'el año anterior'
 
   const seg = useMemo(() => {
@@ -302,8 +305,9 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
               const colF = sinObj ? (s.dV == null ? COLOR.textMut : s.dV >= 0 ? VERDE : ROJO) : fill(p)
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontFamily: OSWALD, fontSize: periodo === 'anio' ? 11 : 13, fontWeight: 700, color: s.futuro ? COLOR.textMut : s.real != null ? COLOR.textPri : COLOR.textMut, height: 16, lineHeight: '16px' }}>{s.real != null ? nf0(s.real) : '—'}</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: colorDelta(s.dV), height: 14, lineHeight: '14px' }}>{s.dV != null ? `${s.dV >= 0 ? '▲' : '▼'}${Math.abs(s.dV).toFixed(0)}%` : ''}</span>
+                  <span style={{ fontFamily: OSWALD, fontSize: periodo === 'anio' ? 13 : 16, fontWeight: 700, color: s.futuro ? COLOR.textMut : s.real != null ? COLOR.textPri : COLOR.textMut, height: 19, lineHeight: '19px' }}>{s.real != null ? nf0(s.real) : '—'}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: colorDelta(s.dV), height: 15, lineHeight: '15px' }}>{s.dV != null ? `${s.dV >= 0 ? '▲' : '▼'}${Math.abs(s.dV).toFixed(0)}%` : ''}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: colorDelta(s.dV), height: 13, lineHeight: '13px' }}>{s.dV != null && s.hist != null && s.real != null ? `${s.real - s.hist >= 0 ? '+' : '−'}${nf0(Math.abs(s.real - s.hist))}` : ''}</span>
                   <div style={{ position: 'relative', width: '60%', height: BAR_H, marginTop: 2 }}>
                     {supera && <div style={{ position: 'absolute', top: -SOBRE, left: -4, right: -4, bottom: -4, border: `2px dashed ${VERDE}`, borderRadius: 8, pointerEvents: 'none' }} />}
                     {supera && <span style={{ position: 'absolute', top: -SOBRE + 2, left: 0, right: 0, textAlign: 'center', fontSize: 13, color: VERDE, fontWeight: 700 }}>⋯</span>}
@@ -318,17 +322,27 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
           </div>
         </div>
 
-        {/* TICKET MEDIO por día (multicolor, base Resumen) */}
+        {/* TICKET MEDIO (estilo Resumen): actual + comparado */}
         <div style={card}>
-          <div style={{ ...lblS, marginBottom: 4 }}>Ticket medio · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</div>
-          <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 14 }}>TM {nf2(tm)} {dTM != null && <span style={{ color: colorDelta(dTM) }}>({dTM >= 0 ? '+' : ''}{dTM.toFixed(1)}% vs {labelComp})</span>}</div>
+          <div style={{ ...lblS, marginBottom: 12 }}>Ticket medio · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: NARANJA_TM }}>{nf2(tm)}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: NARANJA_TM, fontWeight: 500 }}>TM actual</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: COLOR.textMut }}>{tmC > 0 ? nf2(tmC) : '—'}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 500 }}>{labelComp}</div>
+            </div>
+            {dTM != null && <span style={{ fontFamily: LEXEND, fontSize: 13, fontWeight: 600, color: colorDelta(dTM) }}>{dTM >= 0 ? '▲ +' : '▼ '}{Math.abs(dTM).toFixed(1)}%</span>}
+          </div>
           {seg.map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ minWidth: 34, fontFamily: LEXEND, fontSize: 12, color: s.esActual ? COLOR.textPri : COLOR.textSec, fontWeight: s.esActual ? 700 : 400 }}>{s.nombre}</span>
               <div style={{ flex: 1, height: 10, background: TRACK, borderRadius: 5 }}>
                 <div style={{ height: 10, width: `${Math.min(((s.tm || 0) / maxTM) * 100, 100)}%`, background: s.color, borderRadius: 5 }} />
               </div>
-              <span style={{ minWidth: 52, textAlign: 'right', fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: s.tm != null ? COLOR.textPri : COLOR.textMut }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
+              <span style={{ minWidth: 52, textAlign: 'right', fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: s.tm != null ? NARANJA_TM : COLOR.textMut }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
               <span style={{ minWidth: 42, textAlign: 'right', fontFamily: LEXEND, fontSize: 11, color: colorDelta(s.dTM) }}>{s.dTM == null ? '' : `${s.dTM >= 0 ? '▲' : '▼'}${Math.abs(s.dTM).toFixed(0)}%`}</span>
             </div>
           ))}
@@ -340,13 +354,22 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
         <div style={{ ...lblS, marginBottom: 12 }}>Por canal · {periodo} · vs {labelComp}</div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canalPeriodo.length}, 1fr)`, gap: 10 }}>
           {canalPeriodo.map(c => (
-            <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '12px 14px' }}>
-              <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: c.color, marginBottom: 4 }}>{c.label}</div>
-              <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</div>
-              <div style={{ fontFamily: LEXEND, fontSize: 12, color: colorDelta(c.delta), marginTop: 2, marginBottom: 8 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}% vs ${labelComp}`}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec, marginBottom: 3 }}><span>Pedidos</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: COLOR.textPri }}>{nf0(c.ped)}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec, marginBottom: 3 }}><span>TM bruto</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: COLOR.textPri }}>{nf2(c.tmBruto)}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec }}><span>TM neto</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: VERDE }}>{nf2(c.tmNeto)}</span></div>
+            <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '16px 18px' }}>
+              <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.color, marginBottom: 6 }}>{c.label}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</div>
+              <div style={{ fontFamily: LEXEND, fontSize: 13, fontWeight: 600, color: colorDelta(c.delta), marginTop: 3, marginBottom: 14 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}% vs ${labelComp}`}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: AZUL_PED }}>Pedidos</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: AZUL_PED }}>{nf0(c.ped)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: NARANJA_TM }}>TM bruto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: NARANJA_TM }}>{nf2(c.tmBruto)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: VERDE }}>TM neto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE }}>{nf2(c.tmNeto)}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -355,8 +378,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
       {/* MOVIMIENTO EN CALENDARIO (estilo Días Pico) */}
       <div style={card}>
         <div style={{ ...lblS, marginBottom: 4 }}>Movimiento en el calendario · vs {labelComp}</div>
-        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 16 }}>Cada día y la {semCal.w}ª semana del mes comparados con su posición equivalente</div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 170, marginBottom: 14 }}>
+        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 14 }}>Cada día y la {semCal.w}ª semana del mes vs su posición equivalente en {labelComp}. Barra ancha = actual · barra fina = {labelComp}.</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 190, marginBottom: 14 }}>
           {calBars.map((b, i) => {
             const h = b.real != null && b.real > 0 ? Math.max((b.real / maxCalBar) * 120, 4) : 0
             const hH = b.hist != null && b.hist > 0 ? Math.max((b.hist / maxCalBar) * 120, 2) : 0
@@ -364,11 +387,12 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
                 <span style={{ fontFamily: OSWALD, fontSize: 12, fontWeight: 700, color: b.futuro ? COLOR.textMut : COLOR.textPri, height: 16 }}>{b.real != null ? nf0(b.real) : '—'}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: colorDelta(b.delta), height: 14 }}>{b.delta != null ? `${b.delta >= 0 ? '▲' : '▼'}${Math.abs(b.delta).toFixed(0)}%` : ''}</span>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
-                  <div style={{ width: 14, height: h, background: b.futuro ? TRACK : b.color, borderRadius: '3px 3px 0 0', opacity: b.futuro ? 0.4 : 1 }} title="actual" />
-                  <div style={{ width: 8, height: hH, background: `${b.color}55`, borderRadius: '3px 3px 0 0' }} title="comparado" />
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
+                  <div style={{ width: 16, height: h, background: b.futuro ? TRACK : b.color, borderRadius: '3px 3px 0 0', opacity: b.futuro ? 0.4 : 1 }} title="actual" />
+                  <div style={{ width: 10, height: hH, background: `${b.color}55`, borderRadius: '3px 3px 0 0' }} title="comparado" />
                 </div>
-                <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: b.esActual ? 700 : 400, marginTop: 6 }}>{b.nombre}</span>
+                <span style={{ fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut, marginTop: 4 }}>{b.hist != null ? nf0(b.hist) : '—'}</span>
+                <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: b.esActual ? 700 : 400, marginTop: 2 }}>{b.nombre}</span>
               </div>
             )
           })}
