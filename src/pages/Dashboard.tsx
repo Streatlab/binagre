@@ -149,7 +149,16 @@ export default function Dashboard() {
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
   const [topTab, setTopTab] = useState<'prod'|'mod'>('prod')
-  const [mainTab, setMainTab] = useState<MainTab>('resumen')
+  const [mainTab, setMainTab] = useState<MainTab>(() => {
+    if (typeof window !== 'undefined') {
+      const s = localStorage.getItem('panel_main_tab') as MainTab | null
+      if (s && MAIN_TABS.some(t => t.id === s)) return s
+    }
+    return 'resumen'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('panel_main_tab', mainTab)
+  }, [mainTab])
   const [diaSemanaFiltro, setDiaSemanaFiltro] = useState<number | null>(null)
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
@@ -542,9 +551,14 @@ export default function Dashboard() {
 
         {mainTab === 'evolucion' && (
           <TabEvolucion
+            rowsPeriodo={diaSemanaFiltro != null
+              ? rowsPeriodo.filter(r => ((parseLocalDate(r.fecha).getDay() + 6) % 7) === diaSemanaFiltro)
+              : rowsPeriodo}
+            rowsAll={data}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
             canalesFiltro={canalesFiltro}
+            onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
           />
         )}
 
