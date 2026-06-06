@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v16
+ * Tab Evolución — Panel Global · v17
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -186,7 +186,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
 
   const total = useMemo(() => seg.reduce((a, s) => a + (s.real || 0), 0), [seg])
   const objTotal = useMemo(() => seg.reduce((a, s) => a + (s.obj || 0), 0), [seg])
-  const histTotal = useMemo(() => { const h = seg.filter(s => s.hist != null); return h.length ? h.reduce((a, s) => a + (s.hist || 0), 0) : null }, [seg])
+  const histTotal = useMemo(() => { const h = seg.filter(s => s.hist != null && !s.futuro); return h.length ? h.reduce((a, s) => a + (s.hist || 0), 0) : null }, [seg])
   const pctObj = objTotal > 0 ? (total / objTotal) * 100 : 0
   const deltaTotal = histTotal != null && histTotal > 0 ? ((total - histTotal) / histTotal) * 100 : null
 
@@ -208,6 +208,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
   const diasTot = periodo === 'semana' ? 7 : Math.round((pFin.getTime() - pIni.getTime()) / 86400000) + 1
   const diasRest = periodo === 'semana' ? seg.filter(s => s.futuro || s.esActual).length : Math.max(diasTot - diasTrans, 0)
   const proy = total / Math.max(diasTrans, 1) * diasTot
+  const incompleto = diasRest > 0 && total > 0
+  const proyDeltaObj = objTotal > 0 ? ((proy - objTotal) / objTotal) * 100 : null
 
   const frase = useMemo(() => {
     const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTotal - total, 0), hayComp: cmp.hay, total, proy, obj: objTotal, labelComp }
@@ -279,11 +281,25 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
           {deltaTotal != null && <span style={{ color: colorDelta(deltaTotal), background: `${colorDelta(deltaTotal)}1f`, padding: '0 10px', borderRadius: 8 }}>{deltaTotal >= 0 ? '+' : ''}{deltaTotal.toFixed(1)}%</span>}
           {deltaTotal != null && <span> VS {labelComp.toUpperCase()}.</span>}
         </div>
+        {deltaTotal != null && incompleto && (
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginTop: 4 }}>
+            Comparado al mismo tramo: {diasTrans} {diasTrans === 1 ? 'día' : 'días'} de este periodo frente a los {diasTrans} primeros de {labelComp}.
+          </div>
+        )}
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontFamily: OSWALD, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, color: COLOR.textPri, letterSpacing: '0.3px' }}>
             {nf2(total)} · {nf0(pedidos)} pedidos · ticket medio {nf2(tm)}
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.4vw,24px)', fontWeight: 600, color: frase.color, letterSpacing: '0.3px' }}>{frase.txt}</div>
+          {incompleto && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+              <span style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Proyección cierre</span>
+              <span style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.4vw,24px)', fontWeight: 600, color: COLOR.textPri }}>{nf2(proy)}</span>
+              {objTotal > 0 && <span style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>objetivo {nf0(objTotal)}</span>}
+              {proyDeltaObj != null && <span style={{ fontFamily: LEXEND, fontSize: 12, fontWeight: 600, color: colorDelta(proyDeltaObj) }}>{proyDeltaObj >= 0 ? '▲ +' : '▼ '}{Math.abs(proyDeltaObj).toFixed(0)}% vs objetivo</span>}
+              <span style={{ fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut, fontStyle: 'italic' }}>estimado al ritmo actual</span>
+            </div>
+          )}
         </div>
       </div>
 
