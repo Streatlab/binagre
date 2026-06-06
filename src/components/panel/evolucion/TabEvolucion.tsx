@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v8
+ * Tab Evolución — Panel Global · v8.1
  * - Datos REALES de facturacion_diario AGREGANDO todas las filas por fecha (2/día).
  * - Foco semana actual real (lunes de hoy). Grupos de pills: periodo (Semana/Mes/Año)
  *   a la izquierda + comparación a la derecha, estilo Facturación.
@@ -16,6 +16,10 @@ import type { RowFacturacion } from '../resumen/types'
 interface Props {
   rowsAll: RowFacturacion[]
   canalesFiltro: string[]
+  rowsPeriodo?: RowFacturacion[]
+  fechaDesde?: Date
+  fechaHasta?: Date
+  onFiltrarDiaSemana?: (idx: number) => void
 }
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -219,12 +223,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
       if (day > dim) return null
       return brutoDia(toLocal(new Date(t.getFullYear(), t.getMonth(), day)))
     }
-    // total de la "Nª semana del mes" actual y comparados
     const semDeMes = (atrasMes: number, atrasAnio: number): number | null => {
       const t = new Date(hoy.getFullYear() - atrasAnio, hoy.getMonth() - atrasMes, 1)
       const dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()
-      const ini = new Date(t.getFullYear(), t.getMonth(), (wom - 1) * 7 + 1)
       if ((wom - 1) * 7 + 1 > dim) return null
+      const ini = new Date(t.getFullYear(), t.getMonth(), (wom - 1) * 7 + 1)
       const fin = new Date(t.getFullYear(), t.getMonth(), Math.min(wom * 7, dim))
       const r = brutoRango(ini, fin); return r.hay ? r.v : null
     }
@@ -303,7 +306,6 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
               const p = s.obj > 0 && s.real != null ? (s.real / s.obj) * 100 : 0
               const relleno = Math.min(hReal, hObj)
               const sobre = Math.max(hReal - hObj, 0)
-              // en mes/año (sin objetivo) la barra es el valor coloreado por delta
               const sinObj = s.obj === 0
               const hVal = sinObj ? hReal : 0
               const colVal = s.deltaPct == null ? COLOR.textMut : s.deltaPct >= 0 ? VERDE : ROJO
