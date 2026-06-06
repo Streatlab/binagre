@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v13
+ * Tab Evolución — Panel Global · v14
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -141,6 +141,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
     for (let d = new Date(ini); d <= fin; d = addDays(d, 1)) { const f = toLocal(d); const b = brutoDia(f); if (b != null) { hay = true; v += b; ped += pedDia(f) || 0 } }
     return { v, ped, hay }
   }, [brutoDia, pedDia])
+  const objetivoRango = useCallback((ini: Date, fin: Date) => {
+    let o = 0
+    for (let d = new Date(ini); d <= fin; d = addDays(d, 1)) { const dow = d.getDay() === 0 ? 7 : d.getDay(); o += objDia[dow] || objBase || 0 }
+    return o
+  }, [objDia, objBase])
 
   const hoyStr = toLocal(new Date())
   const lunes = useMemo(() => mondayOf(new Date(hoyStr + 'T12:00:00')), [hoyStr])
@@ -174,16 +179,16 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
         const cm = comp === 'anio' ? 12 : 1, dimC = new Date(y, m - cm + 1, 0).getDate()
         const cc = rango(new Date(y, m - cm, k * 7 + 1), new Date(y, m - cm, Math.min((k + 1) * 7, dimC)))
         const tm = cur.ped > 0 ? cur.v / cur.ped : null, tmH = cc.ped > 0 ? cc.v / cc.ped : null
-        return { nombre: `S${k + 1}`, real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: 0, futuro: new Date(y, m, k * 7 + 1) > ref, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: wom(ref) === k + 1, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
+        return { nombre: `S${k + 1}`, real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, m, k * 7 + 1), new Date(y, m, Math.min((k + 1) * 7, dim))), futuro: new Date(y, m, k * 7 + 1) > ref, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: wom(ref) === k + 1, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
       })
     }
     const y = ref.getFullYear()
     return Array.from({ length: ref.getMonth() + 1 }, (_, k) => {
       const cur = rango(new Date(y, k, 1), new Date(y, k + 1, 0)), cc = rango(new Date(y - 1, k, 1), new Date(y - 1, k + 1, 0))
       const tm = cur.ped > 0 ? cur.v / cur.ped : null, tmH = cc.ped > 0 ? cc.v / cc.ped : null
-      return { nombre: MESES[k], real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: 0, futuro: false, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: ref.getMonth() === k, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
+      return { nombre: MESES[k], real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, k, 1), new Date(y, k + 1, 0)), futuro: false, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: ref.getMonth() === k, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
     })
-  }, [periodo, comp, lunes, ref, brutoDia, pedDia, rango, objDia, objBase, hoyStr])
+  }, [periodo, comp, lunes, ref, brutoDia, pedDia, rango, objetivoRango, objDia, objBase, hoyStr])
 
   const total = useMemo(() => seg.reduce((a, s) => a + (s.real || 0), 0), [seg])
   const objTotal = useMemo(() => seg.reduce((a, s) => a + (s.obj || 0), 0), [seg])
@@ -216,7 +221,6 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
     return { txt: def.txt(e), color: def.color() }
   }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTotal, total, cmp.hay, proy, labelComp])
 
-  // Detalle por canal y día (base Días Pico) — desglose del canal seleccionado por día del periodo
   const canalDia = useMemo(() => {
     const c = CANALES.find(x => x.id === canalSel)!
     let bTot = 0, pTot = 0, bTotC = 0, hayC = false
@@ -261,6 +265,18 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
     const { neto, margenPct } = calcNetoPorCanal(c.id, canalDia.bTot, canalDia.pTot, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: pIni, fechaHasta: pFin, configCanales, diasConDatos })
     return { neto, margen: margenPct }
   }, [canalDia, marcasPorCanal, pIni, pFin, configCanales, diasConDatos])
+
+  const canalPeriodo = useMemo(() => {
+    const vis = filtra ? CANALES.filter(c => canalesFiltro.includes(c.id)) : CANALES
+    return vis.map(c => {
+      let b = 0, p = 0, bc = 0, hayC = false
+      for (let d = new Date(pIni); d <= pFin; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { b += a[c.bk]; p += a[c.pk] } }
+      for (let d = new Date(cIni); d <= cFin; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { hayC = true; bc += a[c.bk] } }
+      const { neto, margenPct } = calcNetoPorCanal(c.id, b, p, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: pIni, fechaHasta: pFin, configCanales, diasConDatos })
+      return { ...c, b, neto, margen: margenPct, delta: hayC && bc > 0 ? ((b - bc) / bc) * 100 : null }
+    })
+  }, [agg, filtra, canalesFiltro, pIni, pFin, cIni, cFin, marcasPorCanal, configCanales, diasConDatos])
+  const maxCanalP = Math.max(...canalPeriodo.map(c => c.b), 1)
 
   const cal = useMemo(() => {
     const wd = (ref.getDay() + 6) % 7, nth = nthWd(ref), w = wom(ref)
@@ -308,10 +324,10 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
           {deltaTotal != null && <span> VS {labelComp.toUpperCase()}.</span>}
         </div>
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(17px,2vw,21px)', fontWeight: 500, color: COLOR.textPri, letterSpacing: '0.3px' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, color: COLOR.textPri, letterSpacing: '0.3px' }}>
             {nf2(total)} · {nf0(pedidos)} pedidos · ticket medio {nf2(tm)}
           </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(15px,1.8vw,18px)', fontWeight: 500, color: frase.color, letterSpacing: '0.3px' }}>{frase.txt}</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.4vw,24px)', fontWeight: 600, color: frase.color, letterSpacing: '0.3px' }}>{frase.txt}</div>
         </div>
       </div>
 
@@ -375,6 +391,24 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
         </div>
       </div>
 
+      {/* CANAL · cards de color (base Resumen) con comparación */}
+      <div style={{ ...card, marginBottom: 14 }}>
+        <div style={{ ...lblS, marginBottom: 12 }}>Facturación por canal · vs {labelComp}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canalPeriodo.length}, 1fr)`, gap: 10 }}>
+          {canalPeriodo.map(c => (
+            <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '12px 14px' }}>
+              <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: c.color, marginBottom: 4 }}>{c.label}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</div>
+              <div style={{ fontFamily: LEXEND, fontSize: 12, color: VERDE, marginTop: 2 }}>{nf2(c.neto)} neto · {c.margen.toFixed(1)}%</div>
+              <div style={{ height: 6, background: TRACK, borderRadius: 3, marginTop: 8 }}>
+                <div style={{ height: 6, width: `${Math.min((c.b / maxCanalP) * 100, 100)}%`, background: c.color, borderRadius: 3 }} />
+              </div>
+              <div style={{ fontFamily: LEXEND, fontSize: 12, color: colorDelta(c.delta), marginTop: 6 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}% vs ${labelComp}`}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* DETALLE POR CANAL Y DÍA (base Días Pico, comparado) */}
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -408,6 +442,20 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
             )
           })}
         </div>
+      </div>
+
+      {/* TICKET MEDIO / PEDIDOS por segmento (global) · comparado */}
+      <div style={{ ...card, marginTop: 14 }}>
+        <div style={{ ...lblS, marginBottom: 12 }}>Ticket medio y pedidos · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'} · vs {labelComp}</div>
+        {seg.map((s2, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+            <span style={{ minWidth: 38, fontFamily: LEXEND, fontSize: 12, color: s2.esActual ? COLOR.textPri : COLOR.textSec, fontWeight: s2.esActual ? 700 : 400 }}>{s2.nombre}</span>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: s2.color, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: s2.tm != null ? COLOR.textPri : COLOR.textMut }}>{s2.tm != null ? nf2(s2.tm) : '—'}</span>
+            <span style={{ minWidth: 60, textAlign: 'right', fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut }}>{s2.ped != null && s2.ped > 0 ? `${nf0(s2.ped)} ped` : ''}</span>
+            <span style={{ minWidth: 52, textAlign: 'right', fontFamily: LEXEND, fontSize: 12, color: colorDelta(s2.dTM) }}>{s2.dTM == null ? '—' : `${s2.dTM >= 0 ? '▲' : '▼'}${Math.abs(s2.dTM).toFixed(0)}%`}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
