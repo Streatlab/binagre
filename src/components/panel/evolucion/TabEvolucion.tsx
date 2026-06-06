@@ -20,6 +20,7 @@ interface Props {
   fechaDesde: Date
   fechaHasta: Date
   canalesFiltro: string[]
+  onFiltrarDiaSemana?: (idx: number) => void
 }
 
 type Comparar = 'semana' | 'mes' | 'anio'
