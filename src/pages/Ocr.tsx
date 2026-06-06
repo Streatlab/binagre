@@ -209,10 +209,6 @@ export default function Ocr() {
   // hoy a cualquier hora). Se usa el día siguiente como cota superior exclusiva.
   const periodoHastaExclusivo = (() => { const d = new Date(fechaHasta); d.setDate(d.getDate() + 1); return fechaLocalStr(d) })()
 
-  // Detecta si la ordenación incluye la columna "estado" (calculada, requiere fetch full)
-  const ordenaEstadoCalculado = ms.sorts.some((s: any) => s.col === 'estado')
-  const filtraEstadoCalculado = filtroCard !== null
-
   // Conteo global de posibles duplicados (toda la base, no solo el periodo). Alimenta
   // la card "Duplicados" (quinta card) y su botón "Revisar bandeja".
   const cargarDupTotal = useCallback(async () => {
@@ -234,14 +230,10 @@ export default function Ocr() {
       if (idsCorreo.length === 0) { setFilas([]); setTotal(0); setCargando(false); return }
     }
 
-    // Si filtra/ordena por estado calculado o por correo → trae TODAS las filas del periodo, filtra y ordena en cliente, pagina en cliente
-    const necesitaClienteCompleto = ordenaEstadoCalculado || filtraEstadoCalculado || soloCorreo
-
-    const sortMap: Record<string, string | null> = {
-      fecha: 'fecha_factura', contraparte: 'proveedor_nombre', nif: 'nif_emisor',
-      importe: 'total', categoria: 'categoria_factura', doc: 'pdf_drive_url',
-      titular: 'titular_id', estado: null,
-    }
+    // Canónico: SIEMPRE cliente completo. El periodo acota el universo; la card
+    // (filtro madre), la ordenación y la paginación se resuelven en cliente sobre
+    // TODA la tabla del periodo. Así el header ordena el total filtrado y no solo
+    // la página visible, con el mismo criterio en todos los casos.
 
     // El periodo filtra por created_at (fecha de SUBIDA), no por fecha_factura.
     // Motivo: las facturas sin plantilla no tienen fecha real legible y llevan
@@ -265,27 +257,12 @@ export default function Ocr() {
       if (safe) q = q.or(`proveedor_nombre.ilike.%${safe}%,nif_emisor.ilike.%${safe}%,numero_factura.ilike.%${safe}%`)
     }
 
-    // Orden servidor solo si el primer criterio (más prioritario) tiene mapeo en BD
-    const orderList = ms.toSupabaseOrder(sortMap)
-    if (!necesitaClienteCompleto && orderList.length > 0) {
-      for (const o of orderList) q = q.order(o.field, { ascending: o.ascending })
-    } else if (!necesitaClienteCompleto) {
-      q = q.order('created_at', { ascending: false })
-    } else {
-      // Para cliente completo, traer ordenado por created_at como base estable
-      q = q.order('created_at', { ascending: false })
-    }
+    // Orden base estable; el orden real se aplica en cliente con criterio único
+    q = q.order('created_at', { ascending: false })
+    // Cliente completo: subir el tope por encima del límite por defecto de PostgREST (1000)
+    q = q.range(0, 99999)
 
-    if (!necesitaClienteCompleto) {
-      const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-      q = q.range(from, to)
-    } else {
-      // Cliente completo: subir el tope por encima del límite por defecto de PostgREST (1000)
-      q = q.range(0, 99999)
-    }
-
-    const { data, error, count } = await q
+    const { data, error } = await q
     if (myFetchId !== fetchIdRef.current) return
 
     if (error) {
@@ -322,50 +299,45 @@ export default function Ocr() {
 
       if (myFetchId !== fetchIdRef.current) return
 
-      if (necesitaClienteCompleto) {
-        // 1. Filtrar por filtroCard
-        let filtradas = mapped
-        if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada)
-        else if (filtroCard === 'pendientes') filtradas = mapped.filter(f => !esConciliada(f))
+      // 1. Filtrar por filtroCard (filtro madre)
+      let filtradas = mapped
+      if (filtroCard === 'conciliadas') filtradas = mapped.filter(esConciliada)
+      else if (filtroCard === 'pendientes') filtradas = mapped.filter((f: Factura) => !esConciliada(f))
 
-        // 2. Ordenar en cliente con todos los criterios (incluye "estado" calculado)
-        const sortsActivos = ms.sorts
-        if (sortsActivos.length > 0) {
-          filtradas = [...filtradas].sort((a: Factura, b: Factura) => {
-            for (const s of sortsActivos) {
-              let va: any, vb: any
-              switch(s.col) {
-                case 'fecha':       va = a.fecha_factura ?? ''; vb = b.fecha_factura ?? ''; break
-                case 'contraparte': va = (a.proveedor_nombre || '').toLowerCase(); vb = (b.proveedor_nombre || '').toLowerCase(); break
-                case 'nif':         va = (a.nif_emisor || '').toLowerCase(); vb = (b.nif_emisor || '').toLowerCase(); break
-                case 'importe':     va = a.total; vb = b.total; break
-                case 'categoria':   va = a.categoria_factura ?? ''; vb = b.categoria_factura ?? ''; break
-                case 'doc':         va = a.pdf_drive_url ? 1 : 0; vb = b.pdf_drive_url ? 1 : 0; break
-                case 'titular':     va = a.titular_id ?? ''; vb = b.titular_id ?? ''; break
-                case 'estado':      va = estadoSortKey(a); vb = estadoSortKey(b); break
-                default:            va = ''; vb = ''
-              }
-              let cmp = 0
-              if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb
-              else cmp = String(va).localeCompare(String(vb), 'es', { numeric: true })
-              if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp
+      // 2. Ordenar en cliente con todos los criterios (incluye "estado" calculado) sobre TODA la tabla
+      const sortsActivos = ms.sorts
+      if (sortsActivos.length > 0) {
+        filtradas = [...filtradas].sort((a: Factura, b: Factura) => {
+          for (const s of sortsActivos) {
+            let va: any, vb: any
+            switch(s.col) {
+              case 'fecha':       va = a.fecha_factura ?? ''; vb = b.fecha_factura ?? ''; break
+              case 'contraparte': va = (a.proveedor_nombre || '').toLowerCase(); vb = (b.proveedor_nombre || '').toLowerCase(); break
+              case 'nif':         va = (a.nif_emisor || '').toLowerCase(); vb = (b.nif_emisor || '').toLowerCase(); break
+              case 'importe':     va = a.total; vb = b.total; break
+              case 'categoria':   va = a.categoria_factura ?? ''; vb = b.categoria_factura ?? ''; break
+              case 'doc':         va = a.pdf_drive_url ? 1 : 0; vb = b.pdf_drive_url ? 1 : 0; break
+              case 'titular':     va = a.titular_id ?? ''; vb = b.titular_id ?? ''; break
+              case 'estado':      va = estadoSortKey(a); vb = estadoSortKey(b); break
+              default:            va = ''; vb = ''
             }
-            return 0
-          })
-        }
-
-        // 3. Paginar en cliente
-        const totalFiltradas = filtradas.length
-        const from = (page - 1) * pageSize
-        setFilas(filtradas.slice(from, from + pageSize))
-        setTotal(totalFiltradas)
-      } else {
-        setFilas(mapped)
-        setTotal(count ?? 0)
+            let cmp = 0
+            if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb
+            else cmp = String(va).localeCompare(String(vb), 'es', { numeric: true })
+            if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp
+          }
+          return 0
+        })
       }
+
+      // 3. Paginar en cliente
+      const totalFiltradas = filtradas.length
+      const from = (page - 1) * pageSize
+      setFilas(filtradas.slice(from, from + pageSize))
+      setTotal(totalFiltradas)
     }
     setCargando(false)
-  }, [page, pageSize, ms.sorts, filtroCard, soloCorreo, soloDuplicados, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab, ordenaEstadoCalculado, filtraEstadoCalculado])
+  }, [page, pageSize, ms.sorts, filtroCard, soloCorreo, soloDuplicados, catFiltro, periodoDesdeStr, periodoHastaExclusivo, refreshTick, busquedaDebounced, tab])
 
   // Cards: FUENTE ÚNICA DE VERDAD. El conteo e importe de conciliadas/pendientes
   // los calcula 100% en servidor la función ocr_agregados_facturas, que lee la
