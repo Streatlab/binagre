@@ -1,8 +1,13 @@
 // google-drive v3 — + descarga por ID para reprocesador (0 API) + borrado por ID
+// + archivado legible: las facturas que llegan como HTML/.txt (Just Eat) se
+//   convierten a un PDF legible antes de archivarlas, para que el clip muestre
+//   la factura y no el código crudo.
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
 import { getOAuthClient, tieneDriveConectado } from './google-oauth.js'
+import { pareceHtml, htmlATexto } from './extractores.js'
+import { jsPDF } from 'jspdf'
 
 type DriveExtracted = {
   proveedor_nombre: string
@@ -96,6 +101,31 @@ export function generarNombreArchivo(extracted: DriveExtracted, ext: string): st
   return `${proveedor}_${numero}_${fecha}.${extClean}`
 }
 
+// Genera un PDF A4 legible (multipágina) a partir de texto plano. Se usa para
+// archivar como documento legible las facturas que llegan en HTML/.txt (Just
+// Eat), de modo que al pinchar el clip se vea la factura y no el código crudo.
+function textoLegibleAPdf(texto: string, datos: DriveExtracted): Buffer {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  const margin = 40
+  const ancho = doc.internal.pageSize.getWidth() - margin * 2
+  const alto = doc.internal.pageSize.getHeight() - margin
+  let y = margin
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  const cab = [datos.proveedor_nombre, datos.numero_factura, datos.fecha_factura]
+    .filter(Boolean).join('   ·   ') || 'Factura'
+  for (const l of doc.splitTextToSize(cab, ancho)) { doc.text(l, margin, y); y += 16 }
+  y += 8
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  for (const l of doc.splitTextToSize(texto, ancho)) {
+    if (y > alto) { doc.addPage(); y = margin }
+    doc.text(l, margin, y)
+    y += 13
+  }
+  return Buffer.from(doc.output('arraybuffer'))
+}
+
 export async function subirArchivoADrive(
   buffer: Buffer,
   nombre: string,
@@ -103,6 +133,22 @@ export async function subirArchivoADrive(
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null }> {
   const drive = await getDriveGlobal()
+
+  // Just Eat y similares llegan como .txt/.html/.eml con el HTML de la factura
+  // dentro. Se convierte a un PDF legible y se archiva el PDF (no el crudo).
+  // Si la conversión falla, se sube el archivo original sin romper el flujo.
+  const extBaja = (ext || '').replace(/^\./, '').toLowerCase()
+  if (['txt', 'html', 'htm', 'eml'].includes(extBaja)) {
+    try {
+      const crudo = buffer.toString('utf-8')
+      const legible = pareceHtml(crudo) ? htmlATexto(crudo) : crudo
+      if (legible && legible.trim().length > 0) {
+        buffer = textoLegibleAPdf(legible, extracted)
+        nombre = nombre.replace(/\.[a-z0-9]+$/i, '') + '.pdf'
+        ext = 'pdf'
+      }
+    } catch { /* se sube el original */ }
+  }
 
   const fecha = new Date(extracted.fecha_factura)
   const año = String(fecha.getFullYear())
