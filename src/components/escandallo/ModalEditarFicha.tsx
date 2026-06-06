@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, ImagePlus } from 'lucide-react'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)', color: 'var(--sl-btn-save-text)',
@@ -48,8 +48,12 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
     return m
   })
   const [alergenos, setAlergenos] = useState<string[]>(ficha.alergenos ?? [])
+  const [fotoUrl, setFotoUrl] = useState<string | null>(ficha.foto_url ?? null)
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  const esReceta = ficha.tipo === 'receta'
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -69,6 +73,23 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
   const toggleAlerg = (a: string) => setAlergenos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])
   const setConservaMetodo = (m: string, v: string) => setConserva(prev => ({ ...prev, [m]: v }))
 
+  async function subirFoto(file: File) {
+    setErr(null)
+    setSubiendoFoto(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${ficha.id}-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('fichas-fotos').upload(path, file, { upsert: true })
+      if (error) throw error
+      const { data } = supabase.storage.from('fichas-fotos').getPublicUrl(path)
+      setFotoUrl(data.publicUrl)
+    } catch (e: any) {
+      setErr('No se pudo subir la foto: ' + (e.message ?? ''))
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
   async function guardar() {
     setErr(null)
     if (!nombre.trim()) { setErr('El nombre es obligatorio'); return }
@@ -87,6 +108,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
         pasos: pasos.filter(p => p.trim()),
         conservacion: conservacionArr,
         alergenos,
+        foto_url: fotoUrl,
         edicion: (ficha.edicion ?? 1) + 1,
       }
       const { error } = await supabase.from('fichas_tecnicas').update(payload).eq('id', ficha.id)
@@ -139,6 +161,29 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
               </div>
             </div>
           </div>
+
+          {/* Foto (solo recetas) */}
+          {esReceta && (
+            <div>
+              <div className="ds-section-label">Foto de presentación</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 96, height: 96, borderRadius: 8, border: '1px solid var(--sl-border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--sl-input-edit)', flexShrink: 0 }}>
+                  {fotoUrl
+                    ? <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <ImagePlus size={26} color="var(--sl-text-muted)" />}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px dashed var(--sl-border)', borderRadius: 8, color: 'var(--sl-text-secondary)', padding: '7px 14px', fontSize: 13, cursor: 'pointer', width: 'fit-content' }}>
+                    <ImagePlus size={15} /> {subiendoFoto ? 'Subiendo…' : (fotoUrl ? 'Cambiar foto' : 'Subir foto')}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }} />
+                  </label>
+                  {fotoUrl && (
+                    <button onClick={() => setFotoUrl(null)} style={{ background: 'none', border: 'none', color: '#B01D23', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>Quitar foto</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Ingredientes */}
           <div>
