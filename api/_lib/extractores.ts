@@ -1,6 +1,9 @@
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
 import { simpleParser } from 'mailparser'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { writeFile, unlink } from 'node:fs/promises'
 import type { ExtractedFactura } from './ocr.js'
 
 export interface AdjuntoExtraido {
@@ -26,8 +29,35 @@ export interface PlantillaNif {
 }
 
 export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
-  const result = await mammoth.extractRawText({ buffer })
-  return { tipo: 'texto', data: result.value || '' }
+  // .docx (OOXML, cabecera 'PK'): mammoth lee bien
+  const esDocx = buffer.length > 3 && buffer[0] === 0x50 && buffer[1] === 0x4b
+  if (esDocx) {
+    try {
+      const result = await mammoth.extractRawText({ buffer })
+      if ((result.value || '').trim()) return { tipo: 'texto', data: result.value }
+    } catch { /* cae a word-extractor */ }
+  }
+  // .doc binario antiguo (OLE2 D0 CF 11 E0) o fallback: word-extractor (lee .doc y .docx)
+  const tmp = join(tmpdir(), `w-${Date.now()}-${Math.random().toString(36).slice(2)}.doc`)
+  try {
+    await writeFile(tmp, buffer)
+    const mod: any = await import('word-extractor')
+    const WordExtractor = mod.default || mod
+    const extractor = new WordExtractor()
+    const doc = await extractor.extract(tmp)
+    const texto = [doc.getBody?.(), doc.getHeaders?.(), doc.getFootnotes?.()]
+      .filter(Boolean).join('\n').trim()
+    if (texto) return { tipo: 'texto', data: texto }
+  } catch { /* ultimo recurso abajo */ } finally {
+    await unlink(tmp).catch(() => {})
+  }
+  // ultimo recurso
+  try {
+    const result = await mammoth.extractRawText({ buffer })
+    return { tipo: 'texto', data: result.value || '' }
+  } catch {
+    return { tipo: 'texto', data: '' }
+  }
 }
 
 export async function extraerExcel(buffer: Buffer): Promise<ContenidoExtraido> {
