@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v14
+ * Tab Evolución — Panel Global · v15
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -86,8 +86,6 @@ const BATERIA: FraseDef[] = [
 export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>(() => (localStorage.getItem('evo_periodo') as Periodo) || 'semana')
   const [comp, setComp] = useState<Comp>(() => (localStorage.getItem('evo_comp') as Comp) || 'prev')
-  const [canalSel, setCanalSelState] = useState<string>(() => localStorage.getItem('evo_canal') || 'uber')
-  const setCanalSel = useCallback((c: string) => { setCanalSelState(c); localStorage.setItem('evo_canal', c) }, [])
   const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); localStorage.setItem('evo_periodo', p); if (p !== 'semana' && comp === 'prev') { setComp('mes'); localStorage.setItem('evo_comp', 'mes') } }, [comp])
   const setCompP = useCallback((c: Comp) => { setComp(c); localStorage.setItem('evo_comp', c) }, [])
 
@@ -153,13 +151,6 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
   const ref = useMemo(() => new Date(hoyStr + 'T12:00:00'), [hoyStr])
   const labelComp = comp === 'prev' ? (periodo === 'semana' ? 'la semana anterior' : 'el periodo anterior') : comp === 'mes' ? 'el mes anterior' : 'el año anterior'
 
-  useEffect(() => {
-    if (filtra && !canalesFiltro.includes(canalSel)) {
-      const first = CANALES.find(c => canalesFiltro.includes(c.id))
-      if (first) setCanalSel(first.id)
-    }
-  }, [filtra, canalesFiltro, canalSel, setCanalSel])
-
   const seg = useMemo(() => {
     if (periodo === 'semana') {
       return DIAS.map((nombre, i) => {
@@ -179,14 +170,14 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
         const cm = comp === 'anio' ? 12 : 1, dimC = new Date(y, m - cm + 1, 0).getDate()
         const cc = rango(new Date(y, m - cm, k * 7 + 1), new Date(y, m - cm, Math.min((k + 1) * 7, dimC)))
         const tm = cur.ped > 0 ? cur.v / cur.ped : null, tmH = cc.ped > 0 ? cc.v / cc.ped : null
-        return { nombre: `S${k + 1}`, real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, m, k * 7 + 1), new Date(y, m, Math.min((k + 1) * 7, dim))), futuro: new Date(y, m, k * 7 + 1) > ref, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: wom(ref) === k + 1, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
+        return { nombre: `S${k + 1}`, real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, m, k * 7 + 1), new Date(y, m, Math.min((k + 1) * 7, dim))), futuro: new Date(y, m, k * 7 + 1) > ref, ped: cur.hay ? cur.ped : null, color: DIAS_COLOR[k % 7], esActual: wom(ref) === k + 1, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
       })
     }
     const y = ref.getFullYear()
     return Array.from({ length: ref.getMonth() + 1 }, (_, k) => {
       const cur = rango(new Date(y, k, 1), new Date(y, k + 1, 0)), cc = rango(new Date(y - 1, k, 1), new Date(y - 1, k + 1, 0))
       const tm = cur.ped > 0 ? cur.v / cur.ped : null, tmH = cc.ped > 0 ? cc.v / cc.ped : null
-      return { nombre: MESES[k], real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, k, 1), new Date(y, k + 1, 0)), futuro: false, ped: cur.hay ? cur.ped : null, color: COLOR.uber, esActual: ref.getMonth() === k, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
+      return { nombre: MESES[k], real: cur.hay ? cur.v : null, hist: cc.hay ? cc.v : null, obj: objetivoRango(new Date(y, k, 1), new Date(y, k + 1, 0)), futuro: false, ped: cur.hay ? cur.ped : null, color: DIAS_COLOR[k % 7], esActual: ref.getMonth() === k, dV: cur.hay && cc.hay && cc.v > 0 ? ((cur.v - cc.v) / cc.v) * 100 : null, tm, dTM: tm != null && tmH != null && tmH > 0 ? ((tm - tmH) / tmH) * 100 : null }
     })
   }, [periodo, comp, lunes, ref, brutoDia, pedDia, rango, objetivoRango, objDia, objBase, hoyStr])
 
@@ -221,80 +212,41 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
     return { txt: def.txt(e), color: def.color() }
   }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTotal, total, cmp.hay, proy, labelComp])
 
-  const canalDia = useMemo(() => {
-    const c = CANALES.find(x => x.id === canalSel)!
-    let bTot = 0, pTot = 0, bTotC = 0, hayC = false
-    const items = seg.map((s, i) => {
-      let bruto: number | null = null, ped = 0, brutoC: number | null = null
-      if (periodo === 'semana') {
-        const f = toLocal(addDays(lunes, i)); const a = agg.get(f)
-        if (a) { bruto = a[c.bk]; ped = a[c.pk] }
-        const fc = toLocal(shiftD(addDays(lunes, i), comp)); const ac = agg.get(fc)
-        if (ac) brutoC = ac[c.bk]
-      } else {
-        let ini: Date, fin: Date, iniC: Date, finC: Date
-        if (periodo === 'mes') {
-          const y = ref.getFullYear(), m = ref.getMonth(), dim = new Date(y, m + 1, 0).getDate()
-          ini = new Date(y, m, i * 7 + 1); fin = new Date(y, m, Math.min((i + 1) * 7, dim))
-          const cm = comp === 'anio' ? 12 : 1, dimC = new Date(y, m - cm + 1, 0).getDate()
-          iniC = new Date(y, m - cm, i * 7 + 1); finC = new Date(y, m - cm, Math.min((i + 1) * 7, dimC))
-        } else {
-          const y = ref.getFullYear()
-          ini = new Date(y, i, 1); fin = new Date(y, i + 1, 0); iniC = new Date(y - 1, i, 1); finC = new Date(y - 1, i + 1, 0)
-        }
-        let bb = 0, pp = 0, hay = false, bbc = 0, hayc = false
-        for (let d = new Date(ini); d <= fin; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { hay = true; bb += a[c.bk]; pp += a[c.pk] } }
-        for (let d = new Date(iniC); d <= finC; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { hayc = true; bbc += a[c.bk] } }
-        if (hay) { bruto = bb; ped = pp }
-        if (hayc) brutoC = bbc
-      }
-      if (bruto != null) { bTot += bruto; pTot += ped }
-      if (brutoC != null) { hayC = true; bTotC += brutoC }
-      const tmDia = bruto != null && ped > 0 ? bruto / ped : null
-      const delta = bruto != null && brutoC != null && brutoC > 0 ? ((bruto - brutoC) / brutoC) * 100 : null
-      return { nombre: s.nombre, color: s.color, esActual: s.esActual, futuro: s.futuro, bruto, ped, tm: tmDia, delta }
-    })
-    const max = Math.max(...items.map(x => x.bruto || 0), 1)
-    const deltaTot = hayC && bTotC > 0 ? ((bTot - bTotC) / bTotC) * 100 : null
-    return { canal: c, items, max, bTot, pTot, tmTot: pTot > 0 ? bTot / pTot : 0, deltaTot }
-  }, [canalSel, seg, periodo, comp, lunes, ref, agg])
-
   const diasConDatos = useMemo(() => { let n = 0; for (let d = new Date(pIni); d <= pFin; d = addDays(d, 1)) if ((agg.get(toLocal(d))?.bruto ?? 0) > 0) n++; return n }, [agg, pIni, pFin])
-  const canalSelNeto = useMemo(() => {
-    const c = canalDia.canal
-    const { neto, margenPct } = calcNetoPorCanal(c.id, canalDia.bTot, canalDia.pTot, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: pIni, fechaHasta: pFin, configCanales, diasConDatos })
-    return { neto, margen: margenPct }
-  }, [canalDia, marcasPorCanal, pIni, pFin, configCanales, diasConDatos])
 
+  // Cards de color por canal: bruto + pedidos + TM bruto + TM neto (coordinado con periodo/comp)
   const canalPeriodo = useMemo(() => {
     const vis = filtra ? CANALES.filter(c => canalesFiltro.includes(c.id)) : CANALES
     return vis.map(c => {
       let b = 0, p = 0, bc = 0, hayC = false
       for (let d = new Date(pIni); d <= pFin; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { b += a[c.bk]; p += a[c.pk] } }
       for (let d = new Date(cIni); d <= cFin; d = addDays(d, 1)) { const a = agg.get(toLocal(d)); if (a) { hayC = true; bc += a[c.bk] } }
-      const { neto, margenPct } = calcNetoPorCanal(c.id, b, p, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: pIni, fechaHasta: pFin, configCanales, diasConDatos })
-      return { ...c, b, neto, margen: margenPct, delta: hayC && bc > 0 ? ((b - bc) / bc) * 100 : null }
+      const { neto } = calcNetoPorCanal(c.id, b, p, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: pIni, fechaHasta: pFin, configCanales, diasConDatos })
+      return { ...c, b, ped: p, tmBruto: p > 0 ? b / p : 0, tmNeto: p > 0 ? neto / p : 0, delta: hayC && bc > 0 ? ((b - bc) / bc) * 100 : null }
     })
   }, [agg, filtra, canalesFiltro, pIni, pFin, cIni, cFin, marcasPorCanal, configCanales, diasConDatos])
-  const maxCanalP = Math.max(...canalPeriodo.map(c => c.b), 1)
 
-  const cal = useMemo(() => {
-    const wd = (ref.getDay() + 6) % 7, nth = nthWd(ref), w = wom(ref)
-    const valHoy = brutoDia(hoyStr)
-    const nthEn = (aM: number, aA: number): number | null => {
-      const t = new Date(ref.getFullYear() - aA, ref.getMonth() - aM, 1); const fw = (t.getDay() + 6) % 7
-      const day = 1 + ((wd - fw + 7) % 7) + (nth - 1) * 7; const dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()
-      if (day > dim) return null
-      return brutoDia(toLocal(new Date(t.getFullYear(), t.getMonth(), day)))
-    }
-    const semEn = (aM: number, aA: number): number | null => {
+  // Movimiento en calendario (estilo Días Pico): L-D actual vs misma posición del comp
+  const calBars = useMemo(() => {
+    return DIAS.map((nombre, i) => {
+      const dia = addDays(lunes, i); const f = toLocal(dia)
+      const real = brutoDia(f)
+      const hf = toLocal(shiftD(dia, comp)); const hist = brutoDia(hf)
+      return { nombre, color: DIAS_COLOR[i], real, hist, esActual: f === hoyStr, futuro: f > hoyStr, delta: real != null && hist != null && hist > 0 ? ((real - hist) / hist) * 100 : null }
+    })
+  }, [lunes, comp, brutoDia, hoyStr])
+  const maxCalBar = Math.max(...calBars.map(b => Math.max(b.real || 0, b.hist || 0)), 1)
+  const semCal = useMemo(() => {
+    const w = wom(ref)
+    const cur = (() => { const r = rango(new Date(ref.getFullYear(), ref.getMonth(), (w - 1) * 7 + 1), new Date(ref.getFullYear(), ref.getMonth(), w * 7)); return r.hay ? r.v : null })()
+    const en = (aM: number, aA: number): number | null => {
       const t = new Date(ref.getFullYear() - aA, ref.getMonth() - aM, 1); const dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()
       if ((w - 1) * 7 + 1 > dim) return null
       const r = rango(new Date(t.getFullYear(), t.getMonth(), (w - 1) * 7 + 1), new Date(t.getFullYear(), t.getMonth(), Math.min(w * 7, dim))); return r.hay ? r.v : null
     }
-    const semAct = (() => { const r = rango(new Date(ref.getFullYear(), ref.getMonth(), (w - 1) * 7 + 1), new Date(ref.getFullYear(), ref.getMonth(), w * 7)); return r.hay ? r.v : null })()
-    return { diaLabel: `${nth}º ${DIAS_L[wd]} del mes`, valHoy, diaMes: nthEn(1, 0), diaAno: nthEn(0, 1), semLabel: `${w}ª semana del mes`, semAct, semMes: semEn(1, 0), semAno: semEn(0, 1) }
-  }, [ref, hoyStr, brutoDia, rango])
+    const histC = comp === 'anio' ? en(0, 1) : en(1, 0)
+    return { w, cur, hist: histC, delta: cur != null && histC != null && histC > 0 ? ((cur - histC) / histC) * 100 : null }
+  }, [ref, comp, rango])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -305,6 +257,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
   const lblS: CSSProperties = { fontFamily: OSWALD, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut }
   const BAR_H = 150, SOBRE = 26
   const fill = (p: number) => p >= 50 ? VERDE : AMARILLO
+  const maxTM = Math.max(...seg.map(s => s.tm || 0), 1)
 
   return (
     <div style={{ fontFamily: LEXEND, color: COLOR.textPri, paddingTop: 18 }}>
@@ -331,7 +284,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
         </div>
       </div>
 
-      {/* BARRAS (2/3) + CALENDARIO (1/3) */}
+      {/* BARRAS (2/3) + TICKET MEDIO POR DÍA (1/3) */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -340,7 +293,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
               {objTotal > 0 && <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginTop: 2 }}>objetivo {nf0(objTotal)} · {pctObj.toFixed(0)}%</div>}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: periodo === 'anio' ? 6 : 12, paddingTop: SOBRE + 10 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: periodo === 'anio' ? 6 : 12, paddingTop: SOBRE + 6 }}>
             {seg.map((s, i) => {
               const sinObj = s.obj === 0
               const p = !sinObj && s.real != null ? (s.real / s.obj) * 100 : 0
@@ -349,113 +302,83 @@ export default function TabEvolucion({ rowsAll, canalesFiltro }: Props) {
               const colF = sinObj ? (s.dV == null ? COLOR.textMut : s.dV >= 0 ? VERDE : ROJO) : fill(p)
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontFamily: OSWALD, fontSize: periodo === 'anio' ? 9 : 11, fontWeight: 600, color: s.futuro ? COLOR.textMut : s.real != null ? COLOR.textPri : COLOR.textMut, marginBottom: 3, height: 14 }}>{s.real != null ? nf0(s.real) : '—'}</span>
-                  <div style={{ position: 'relative', width: '60%', height: BAR_H }}>
+                  <span style={{ fontFamily: OSWALD, fontSize: periodo === 'anio' ? 11 : 13, fontWeight: 700, color: s.futuro ? COLOR.textMut : s.real != null ? COLOR.textPri : COLOR.textMut, height: 16, lineHeight: '16px' }}>{s.real != null ? nf0(s.real) : '—'}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: colorDelta(s.dV), height: 14, lineHeight: '14px' }}>{s.dV != null ? `${s.dV >= 0 ? '▲' : '▼'}${Math.abs(s.dV).toFixed(0)}%` : ''}</span>
+                  <div style={{ position: 'relative', width: '60%', height: BAR_H, marginTop: 2 }}>
                     {supera && <div style={{ position: 'absolute', top: -SOBRE, left: -4, right: -4, bottom: -4, border: `2px dashed ${VERDE}`, borderRadius: 8, pointerEvents: 'none' }} />}
                     {supera && <span style={{ position: 'absolute', top: -SOBRE + 2, left: 0, right: 0, textAlign: 'center', fontSize: 13, color: VERDE, fontWeight: 700 }}>⋯</span>}
                     <div style={{ position: 'absolute', inset: 0, background: s.futuro ? TRACK : ROJO, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', opacity: s.futuro ? 0.4 : 1 }}>
                       {!s.futuro && rell > 0 && <div style={{ width: '100%', height: `${rell}%`, background: colF }} />}
                     </div>
                   </div>
-                  {s.dV != null && <span style={{ fontSize: 9, color: colorDelta(s.dV), marginTop: 4 }}>{s.dV >= 0 ? '▲' : '▼'}{Math.abs(s.dV).toFixed(0)}%</span>}
-                  <span style={{ fontFamily: LEXEND, fontSize: periodo === 'anio' ? 10 : 12, color: s.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: s.esActual ? 700 : 400, marginTop: 4 }}>{s.nombre}</span>
+                  <span style={{ fontFamily: LEXEND, fontSize: periodo === 'anio' ? 10 : 12, color: s.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: s.esActual ? 700 : 400, marginTop: 6, height: 16 }}>{s.nombre}</span>
                 </div>
               )
             })}
           </div>
         </div>
 
+        {/* TICKET MEDIO por día (multicolor, base Resumen) */}
         <div style={card}>
-          <div style={{ ...lblS, marginBottom: 14 }}>Posición en el calendario</div>
-          {[
-            { tit: cal.diaLabel, base: cal.valHoy, c: [{ l: 'mes ant.', v: cal.diaMes }, { l: 'año ant.', v: cal.diaAno }] },
-            { tit: cal.semLabel, base: cal.semAct, c: [{ l: 'mes ant.', v: cal.semMes }, { l: 'año ant.', v: cal.semAno }] },
-          ].map((b, bi) => (
-            <div key={bi} style={{ marginBottom: bi === 0 ? 18 : 0 }}>
-              <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec, marginBottom: 6 }}>{b.tit}</div>
-              <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: b.base == null ? COLOR.textMut : COLOR.textPri }}>{b.base != null ? nf0(b.base) : '—'}</div>
-              <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-                {b.c.map((c, ci) => {
-                  const d = b.base != null && c.v != null && c.v > 0 ? ((b.base - c.v) / c.v) * 100 : null
-                  return (
-                    <div key={ci} style={{ fontFamily: LEXEND, fontSize: 12 }}>
-                      <span style={{ color: COLOR.textMut }}>{c.l}: </span>
-                      <span style={{ color: c.v == null ? COLOR.textMut : COLOR.textSec }}>{c.v != null ? nf0(c.v) : 'sin dato'}</span>
-                      {d != null && <span style={{ color: colorDelta(d), marginLeft: 4 }}>{d >= 0 ? '▲' : '▼'}{Math.abs(d).toFixed(0)}%</span>}
-                    </div>
-                  )
-                })}
+          <div style={{ ...lblS, marginBottom: 4 }}>Ticket medio · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 14 }}>TM {nf2(tm)} {dTM != null && <span style={{ color: colorDelta(dTM) }}>({dTM >= 0 ? '+' : ''}{dTM.toFixed(1)}% vs {labelComp})</span>}</div>
+          {seg.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ minWidth: 34, fontFamily: LEXEND, fontSize: 12, color: s.esActual ? COLOR.textPri : COLOR.textSec, fontWeight: s.esActual ? 700 : 400 }}>{s.nombre}</span>
+              <div style={{ flex: 1, height: 10, background: TRACK, borderRadius: 5 }}>
+                <div style={{ height: 10, width: `${Math.min(((s.tm || 0) / maxTM) * 100, 100)}%`, background: s.color, borderRadius: 5 }} />
               </div>
+              <span style={{ minWidth: 52, textAlign: 'right', fontFamily: OSWALD, fontSize: 14, fontWeight: 600, color: s.tm != null ? COLOR.textPri : COLOR.textMut }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
+              <span style={{ minWidth: 42, textAlign: 'right', fontFamily: LEXEND, fontSize: 11, color: colorDelta(s.dTM) }}>{s.dTM == null ? '' : `${s.dTM >= 0 ? '▲' : '▼'}${Math.abs(s.dTM).toFixed(0)}%`}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* CANAL · cards de color (base Resumen) con comparación */}
+      {/* CARDS DE COLOR POR CANAL (bruto + pedidos + TM bruto + TM neto) */}
       <div style={{ ...card, marginBottom: 14 }}>
-        <div style={{ ...lblS, marginBottom: 12 }}>Facturación por canal · vs {labelComp}</div>
+        <div style={{ ...lblS, marginBottom: 12 }}>Por canal · {periodo} · vs {labelComp}</div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canalPeriodo.length}, 1fr)`, gap: 10 }}>
           {canalPeriodo.map(c => (
             <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '12px 14px' }}>
               <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: c.color, marginBottom: 4 }}>{c.label}</div>
-              <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</div>
-              <div style={{ fontFamily: LEXEND, fontSize: 12, color: VERDE, marginTop: 2 }}>{nf2(c.neto)} neto · {c.margen.toFixed(1)}%</div>
-              <div style={{ height: 6, background: TRACK, borderRadius: 3, marginTop: 8 }}>
-                <div style={{ height: 6, width: `${Math.min((c.b / maxCanalP) * 100, 100)}%`, background: c.color, borderRadius: 3 }} />
-              </div>
-              <div style={{ fontFamily: LEXEND, fontSize: 12, color: colorDelta(c.delta), marginTop: 6 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}% vs ${labelComp}`}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</div>
+              <div style={{ fontFamily: LEXEND, fontSize: 12, color: colorDelta(c.delta), marginTop: 2, marginBottom: 8 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}% vs ${labelComp}`}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec, marginBottom: 3 }}><span>Pedidos</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: COLOR.textPri }}>{nf0(c.ped)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec, marginBottom: 3 }}><span>TM bruto</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: COLOR.textPri }}>{nf2(c.tmBruto)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 12, color: COLOR.textSec }}><span>TM neto</span><span style={{ fontFamily: OSWALD, fontWeight: 600, color: VERDE }}>{nf2(c.tmNeto)}</span></div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* DETALLE POR CANAL Y DÍA (base Días Pico, comparado) */}
+      {/* MOVIMIENTO EN CALENDARIO (estilo Días Pico) */}
       <div style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-          <div style={lblS}>Detalle por canal · {periodo === 'semana' ? 'día' : periodo === 'mes' ? 'semana' : 'mes'} · vs {labelComp}</div>
-          <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-            {CANALES.filter(c => !filtra || canalesFiltro.includes(c.id)).map(c => (
-              <button key={c.id} onClick={() => setCanalSel(c.id)} style={{ padding: '5px 12px', borderRadius: 999, border: canalSel === c.id ? 'none' : `0.5px solid ${BORDE}`, background: canalSel === c.id ? c.color : '#fff', color: canalSel === c.id ? '#fff' : '#3a4050', fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer' }}>{c.label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSWALD, fontSize: 28, fontWeight: 600, color: canalDia.canal.color }}>{nf2(canalDia.bTot)}</span>
-          <span style={{ fontFamily: LEXEND, fontSize: 13, color: VERDE }}>{nf2(canalSelNeto.neto)} neto · margen {canalSelNeto.margen.toFixed(1)}%</span>
-          <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>{nf0(canalDia.pTot)} pedidos · TM {nf2(canalDia.tmTot)}</span>
-          {canalDia.deltaTot != null && <span style={{ fontFamily: LEXEND, fontSize: 13, color: colorDelta(canalDia.deltaTot) }}>{canalDia.deltaTot >= 0 ? '▲ +' : '▼ '}{Math.abs(canalDia.deltaTot).toFixed(1)}% vs {labelComp}</span>}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: periodo === 'anio' ? 6 : 12, height: 170 }}>
-          {canalDia.items.map((it, i) => {
-            const h = it.bruto != null && it.bruto > 0 ? Math.max((it.bruto / canalDia.max) * 120, 4) : 0
+        <div style={{ ...lblS, marginBottom: 4 }}>Movimiento en el calendario · vs {labelComp}</div>
+        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 16 }}>Cada día y la {semCal.w}ª semana del mes comparados con su posición equivalente</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 170, marginBottom: 14 }}>
+          {calBars.map((b, i) => {
+            const h = b.real != null && b.real > 0 ? Math.max((b.real / maxCalBar) * 120, 4) : 0
+            const hH = b.hist != null && b.hist > 0 ? Math.max((b.hist / maxCalBar) * 120, 2) : 0
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                <span style={{ fontFamily: OSWALD, fontSize: periodo === 'anio' ? 9 : 11, fontWeight: 600, color: it.futuro ? COLOR.textMut : COLOR.textPri, marginBottom: 2 }}>{it.bruto != null ? nf0(it.bruto) : '—'}</span>
-                {it.delta != null && <span style={{ fontSize: 9, color: colorDelta(it.delta), marginBottom: 2 }}>{it.delta >= 0 ? '▲' : '▼'}{Math.abs(it.delta).toFixed(0)}%</span>}
-                <div style={{ width: '58%', height: h, background: it.futuro ? TRACK : canalDia.canal.color, borderRadius: '4px 4px 0 0', opacity: it.futuro ? 0.4 : 1 }} />
-                <span style={{ fontFamily: LEXEND, fontSize: 10, color: COLOR.textMut, marginTop: 4 }}>{it.tm != null ? nf2(it.tm) : ''}</span>
-                <span style={{ fontFamily: LEXEND, fontSize: 9, color: COLOR.textMut }}>{it.ped > 0 ? `${nf0(it.ped)}p` : ''}</span>
-                <span style={{ fontFamily: LEXEND, fontSize: periodo === 'anio' ? 10 : 12, color: it.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: it.esActual ? 700 : 400, marginTop: 3 }}>{it.nombre}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 12, fontWeight: 700, color: b.futuro ? COLOR.textMut : COLOR.textPri, height: 16 }}>{b.real != null ? nf0(b.real) : '—'}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: colorDelta(b.delta), height: 14 }}>{b.delta != null ? `${b.delta >= 0 ? '▲' : '▼'}${Math.abs(b.delta).toFixed(0)}%` : ''}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
+                  <div style={{ width: 14, height: h, background: b.futuro ? TRACK : b.color, borderRadius: '3px 3px 0 0', opacity: b.futuro ? 0.4 : 1 }} title="actual" />
+                  <div style={{ width: 8, height: hH, background: `${b.color}55`, borderRadius: '3px 3px 0 0' }} title="comparado" />
+                </div>
+                <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: b.esActual ? 700 : 400, marginTop: 6 }}>{b.nombre}</span>
               </div>
             )
           })}
         </div>
-      </div>
-
-      {/* TICKET MEDIO / PEDIDOS por segmento (global) · comparado */}
-      <div style={{ ...card, marginTop: 14 }}>
-        <div style={{ ...lblS, marginBottom: 12 }}>Ticket medio y pedidos · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'} · vs {labelComp}</div>
-        {seg.map((s2, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-            <span style={{ minWidth: 38, fontFamily: LEXEND, fontSize: 12, color: s2.esActual ? COLOR.textPri : COLOR.textSec, fontWeight: s2.esActual ? 700 : 400 }}>{s2.nombre}</span>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: s2.color, flexShrink: 0 }} />
-            <span style={{ flex: 1, fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: s2.tm != null ? COLOR.textPri : COLOR.textMut }}>{s2.tm != null ? nf2(s2.tm) : '—'}</span>
-            <span style={{ minWidth: 60, textAlign: 'right', fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut }}>{s2.ped != null && s2.ped > 0 ? `${nf0(s2.ped)} ped` : ''}</span>
-            <span style={{ minWidth: 52, textAlign: 'right', fontFamily: LEXEND, fontSize: 12, color: colorDelta(s2.dTM) }}>{s2.dTM == null ? '—' : `${s2.dTM >= 0 ? '▲' : '▼'}${Math.abs(s2.dTM).toFixed(0)}%`}</span>
-          </div>
-        ))}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, paddingTop: 12, borderTop: `0.5px solid ${BORDE}` }}>
+          <span style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec }}>{semCal.w}ª semana del mes</span>
+          <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: semCal.cur == null ? COLOR.textMut : COLOR.textPri }}>{semCal.cur != null ? nf0(semCal.cur) : '—'}</span>
+          <span style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>{labelComp}: {semCal.hist != null ? nf0(semCal.hist) : 'sin dato'}</span>
+          {semCal.delta != null && <span style={{ fontFamily: LEXEND, fontSize: 13, color: colorDelta(semCal.delta) }}>{semCal.delta >= 0 ? '▲ +' : '▼ '}{Math.abs(semCal.delta).toFixed(1)}%</span>}
+        </div>
       </div>
     </div>
   )
