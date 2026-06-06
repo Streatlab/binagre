@@ -29,7 +29,8 @@
     "react-router-dom": "^7.14.1",
     "recharts": "^3.8.1",
     "tesseract.js": "^5.1.1",
-    "unpdf": "^0.12.1"
+    "unpdf": "^0.12.1",
+    "word-extractor": "^1.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
