@@ -1,21 +1,18 @@
 /**
- * Tab Evolución — Panel Global
- * Reutiliza las cards reales del Resumen (CardVentas, CardPedidosTM,
- * ColFacturacionCanal, ColDiasPico) con la MISMA lógica de cálculo,
- * y añade una capa de comparación temporal (vs semana / mes / año anterior)
- * controlada por subtabs a la derecha. Titular dinámico arriba con datos vivos.
- * Sin datos hardcodeados: todo lee de facturacion_diario + objetivos.
+ * Tab Evolución — Panel Global · v7 (16 correcciones)
+ * Foco: la SEMANA en curso (lunes→domingo). Subtabs a la derecha comparan
+ * contra semana / mes / año anterior y cambian de verdad los datos.
+ * Barras verticales con objetivo REAL (objetivos_dia_semana) en rojo de base
+ * que se rellena en naranja/verde según cumplimiento. Sin hardcodes.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { fmtEur } from '@/lib/format'
 import { COLOR, LEXEND, OSWALD, row3, cardBig, lbl, SUBTABS } from '../resumen/tokens'
-import CardVentas from '../resumen/CardVentas'
 import CardPedidosTM from '../resumen/CardPedidosTM'
 import ColFacturacionCanal from '../resumen/ColFacturacionCanal'
-import ColDiasPico, { type DiaPico } from '../resumen/ColDiasPico'
-import type { RowFacturacion, CanalStat, ObjetivosVentas } from '../resumen/types'
+import type { RowFacturacion, CanalStat } from '../resumen/types'
 
 interface Props {
   rowsPeriodo: RowFacturacion[]
@@ -23,57 +20,45 @@ interface Props {
   fechaDesde: Date
   fechaHasta: Date
   canalesFiltro: string[]
-  onFiltrarDiaSemana?: (idxDow: number) => void
 }
 
 type Comparar = 'semana' | 'mes' | 'anio'
 
-const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-const COLORES_DIAS = [COLOR.diaLun, COLOR.diaMar, COLOR.diaMie, COLOR.diaJue, COLOR.diaVie, COLOR.diaSab, COLOR.diaDom]
+const ROJO_OBJ = '#B01D23'   // rojo base de cumplimiento (tabla Objetivos)
+const VERDE = COLOR.verde     // #1D9E75
+const NARANJA = COLOR.ambar   // #f5a623
+const GRIS = '#c7c0b4'
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
+const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function toLocal(d: Date): string {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
-function parseLocalDate(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d)
+function mondayOf(d: Date): Date {
+  const r = new Date(d); const dow = r.getDay() || 7
+  r.setDate(r.getDate() - dow + 1); r.setHours(0, 0, 0, 0); return r
 }
-function startOfWeekStr(): string {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(now)
-  monday.setDate(now.getDate() + diff)
-  return toLocalDateStr(monday)
+function addDays(d: Date, n: number): Date { const r = new Date(d); r.setDate(d.getDate() + n); return r }
+function shiftDate(d: Date, modo: Comparar): Date {
+  const r = new Date(d)
+  if (modo === 'semana') r.setDate(r.getDate() - 7)
+  else if (modo === 'mes') r.setMonth(r.getMonth() - 1)
+  else r.setFullYear(r.getFullYear() - 1)
+  return r
 }
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dayNum = date.getUTCDay() || 7
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-}
-// Desplaza un rango hacia atrás según el modo de comparación
-function shiftRango(desde: Date, hasta: Date, modo: Comparar): { desde: string; hasta: string } {
-  const d = new Date(desde), h = new Date(hasta)
-  if (modo === 'semana') { d.setDate(d.getDate() - 7); h.setDate(h.getDate() - 7) }
-  else if (modo === 'mes') { d.setMonth(d.getMonth() - 1); h.setMonth(h.getMonth() - 1) }
-  else { d.setFullYear(d.getFullYear() - 1); h.setFullYear(h.getFullYear() - 1) }
-  return { desde: toLocalDateStr(d), hasta: toLocalDateStr(h) }
+// color del relleno según % de cumplimiento
+function colorRelleno(pct: number): string {
+  if (pct >= 100) return VERDE
+  return NARANJA
 }
 
-export default function TabEvolucion({
-  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, onFiltrarDiaSemana,
-}: Props) {
+export default function TabEvolucion({ rowsAll, fechaDesde, canalesFiltro }: Props) {
   const [comparar, setComparar] = useState<Comparar>(() => (localStorage.getItem('evolucion_comparar') as Comparar) || 'semana')
-  const setCompararPersist = useCallback((c: Comparar) => {
-    setComparar(c); localStorage.setItem('evolucion_comparar', c)
-  }, [])
+  const setCompararPersist = useCallback((c: Comparar) => { setComparar(c); localStorage.setItem('evolucion_comparar', c) }, [])
 
-  const [objetivos, setObjetivos] = useState<ObjetivosVentas>({ diario: 0, semanal: 0, mensual: 0, anual: 0 })
+  const [objDia, setObjDia] = useState<Record<number, number>>({})   // 1=Lun..7=Dom
+  const [objDiarioBase, setObjDiarioBase] = useState(0)
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
@@ -85,216 +70,244 @@ export default function TabEvolucion({
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
 
-  const loadObjetivos = useCallback(async () => {
-    const [resObj, resDias] = await Promise.all([
-      supabase.from('objetivos').select('tipo,importe').in('tipo', ['diario', 'semanal', 'mensual', 'anual']),
+  useEffect(() => {
+    Promise.all([
+      supabase.from('objetivos').select('tipo,importe').eq('tipo', 'diario'),
       supabase.from('objetivos_dia_semana').select('dia,importe'),
-    ])
-    const overrides: Partial<Record<'diario' | 'semanal' | 'mensual' | 'anual', number>> = {}
-    for (const r of (resObj.data ?? []) as { tipo: string; importe: number }[]) {
-      if (r.tipo === 'diario' || r.tipo === 'semanal' || r.tipo === 'mensual' || r.tipo === 'anual') overrides[r.tipo] = Number(r.importe)
-    }
-    const dias = (resDias.data ?? []) as { dia: number; importe: number }[]
-    const findDia = (d: number) => Number(dias.find(x => x.dia === d)?.importe || 0)
-    const sumaSemana = dias.reduce((a, d) => a + Number(d.importe || 0), 0)
-    const hoyD = new Date()
-    const ano = hoyD.getFullYear()
-    const diasEnMes = new Date(ano, hoyD.getMonth() + 1, 0).getDate()
-    const esBis = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0
-    const dAno = esBis ? 366 : 365
-    const diaActual = hoyD.getDay() === 0 ? 7 : hoyD.getDay()
-    const mediaDia = sumaSemana / 7
-    const use = (k: 'diario' | 'semanal' | 'mensual' | 'anual') => overrides[k] !== undefined && (overrides[k] as number) > 0
-    setObjetivos({
-      diario:  use('diario')  ? (overrides.diario  as number) : findDia(diaActual),
-      semanal: use('semanal') ? (overrides.semanal as number) : sumaSemana,
-      mensual: use('mensual') ? (overrides.mensual as number) : mediaDia * diasEnMes,
-      anual:   use('anual')   ? (overrides.anual   as number) : mediaDia * dAno,
+    ]).then(([resD, resDias]) => {
+      const base = Number(((resD.data ?? [])[0] as { importe: number })?.importe || 0)
+      setObjDiarioBase(base)
+      const map: Record<number, number> = {}
+      for (const r of (resDias.data ?? []) as { dia: number; importe: number }[]) map[Number(r.dia)] = Number(r.importe)
+      setObjDia(map)
     })
   }, [])
-  useEffect(() => { loadObjetivos() }, [loadObjetivos])
 
-  const diasConDatosPeriodo = useMemo(
-    () => new Set(rowsPeriodo.filter(r => (r.total_bruto || 0) > 0).map(r => r.fecha)).size,
-    [rowsPeriodo]
-  )
+  // Semana en curso (lunes de la fecha seleccionada arriba) → L-D
+  const lunes = useMemo(() => mondayOf(fechaDesde), [fechaDesde])
+  const domingo = useMemo(() => addDays(lunes, 6), [lunes])
+  const hoyStr = toLocal(new Date())
 
+  const byFecha = useMemo(() => {
+    const m = new Map<string, RowFacturacion>()
+    for (const r of rowsAll) m.set(r.fecha, r)
+    return m
+  }, [rowsAll])
+
+  const brutoDe = useCallback((r: RowFacturacion | undefined): number => {
+    if (!r) return 0
+    if (canalesFiltro.length === 0) return r.total_bruto || 0
+    let s = 0
+    for (const id of canalesFiltro) {
+      const k = `${id === 'dir' ? 'directa' : id}_bruto` as keyof RowFacturacion
+      s += Number(r[k]) || 0
+    }
+    return s
+  }, [canalesFiltro])
+  const pedidosDe = useCallback((r: RowFacturacion | undefined): number => {
+    if (!r) return 0
+    if (canalesFiltro.length === 0) return r.total_pedidos || 0
+    let s = 0
+    for (const id of canalesFiltro) {
+      const k = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
+      s += Number(r[k]) || 0
+    }
+    return s
+  }, [canalesFiltro])
+
+  const objetivoDeDia = useCallback((diaIdx0: number): number => {
+    const diaNum = diaIdx0 + 1 // 0=Lun→1
+    return objDia[diaNum] || objDiarioBase || 0
+  }, [objDia, objDiarioBase])
+
+  const labelComp = comparar === 'semana' ? 'la semana anterior' : comparar === 'mes' ? 'el mes anterior' : 'el año anterior'
+
+  // ── Barras L-D ──
+  const barras = useMemo(() => {
+    return NOMBRES_DIAS.map((nombre, i) => {
+      const dia = addDays(lunes, i)
+      const fecha = toLocal(dia)
+      const real = byFecha.has(fecha) ? brutoDe(byFecha.get(fecha)) : null
+      const compFecha = toLocal(shiftDate(dia, comparar))
+      const hist = byFecha.has(compFecha) ? brutoDe(byFecha.get(compFecha)) : null
+      const obj = objetivoDeDia(i)
+      const futuro = fecha > hoyStr
+      const deltaPct = real != null && hist != null && hist > 0 ? ((real - hist) / hist) * 100 : null
+      return { nombre, fecha, real, hist, obj, futuro, deltaPct, esHoy: fecha === hoyStr }
+    })
+  }, [lunes, byFecha, comparar, brutoDe, objetivoDeDia, hoyStr])
+
+  const totalSemana = useMemo(() => barras.reduce((a, b) => a + (b.real || 0), 0), [barras])
+  const objSemana = useMemo(() => barras.reduce((a, b) => a + (b.obj || 0), 0), [barras])
+  const pctSemana = objSemana > 0 ? (totalSemana / objSemana) * 100 : 0
+
+  // escala vertical (incluye objetivo y real, deja aire para sobrebarra)
+  const escala = useMemo(() => {
+    const maxV = Math.max(...barras.map(b => Math.max(b.real || 0, b.obj || 0)), 1)
+    return maxV * 1.15
+  }, [barras])
+
+  // ── Totales semana comparada (para titular) ──
+  const compSemana = useMemo(() => {
+    let tot = 0, hay = false, ped = 0
+    for (let i = 0; i < 7; i++) {
+      const f = toLocal(shiftDate(addDays(lunes, i), comparar))
+      if (byFecha.has(f)) { hay = true; tot += brutoDe(byFecha.get(f)); ped += pedidosDe(byFecha.get(f)) }
+    }
+    return { tot: hay ? tot : null, ped: hay ? ped : null }
+  }, [lunes, comparar, byFecha, brutoDe, pedidosDe])
+
+  const pedidosSemana = useMemo(() => barras.reduce((a, b) => a + pedidosDe(byFecha.get(b.fecha)), 0), [barras, byFecha, pedidosDe])
+  const tmSemana = pedidosSemana > 0 ? totalSemana / pedidosSemana : 0
+  const deltaVentas = compSemana.tot != null && compSemana.tot > 0 ? ((totalSemana - compSemana.tot) / compSemana.tot) * 100 : null
+  const deltaPedidos = compSemana.ped != null && compSemana.ped > 0 ? ((pedidosSemana - compSemana.ped) / compSemana.ped) * 100 : null
+
+  // ── canalStats de la semana (para ColFacturacionCanal + CardPedidosTM) ──
+  const rowsSemana = useMemo(() => barras.map(b => byFecha.get(b.fecha)).filter(Boolean) as RowFacturacion[], [barras, byFecha])
+  const diasConDatos = useMemo(() => rowsSemana.filter(r => (r.total_bruto || 0) > 0).length, [rowsSemana])
   const canalStats: CanalStat[] = useMemo(() => {
-    const filt = canalesFiltro.length > 0
     const ids: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']
-    const visibles = filt ? ids.filter(id => canalesFiltro.includes(id)) : ids
+    const visibles = canalesFiltro.length ? ids.filter(id => canalesFiltro.includes(id)) : ids
     const labels: Record<CanalStat['id'], string> = { uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web', dir: 'Directa' }
     const colores: Record<CanalStat['id'], string> = { uber: COLOR.uber, glovo: COLOR.glovo, je: COLOR.je, web: COLOR.webSL, dir: COLOR.directa }
-    const totalBruto = rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0)
+    const totalBruto = rowsSemana.reduce((a, r) => a + (r.total_bruto || 0), 0)
     return visibles.map(id => {
-      const brutoKey = `${id === 'dir' ? 'directa' : id}_bruto` as keyof RowFacturacion
-      const pedKey = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
-      const bruto = rowsPeriodo.reduce((a, r) => a + (Number(r[brutoKey]) || 0), 0)
-      const pedidos = rowsPeriodo.reduce((a, r) => a + (Number(r[pedKey]) || 0), 0)
-      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta, configCanales, diasConDatos: diasConDatosPeriodo })
+      const bk = `${id === 'dir' ? 'directa' : id}_bruto` as keyof RowFacturacion
+      const pk = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
+      const bruto = rowsSemana.reduce((a, r) => a + (Number(r[bk]) || 0), 0)
+      const pedidos = rowsSemana.reduce((a, r) => a + (Number(r[pk]) || 0), 0)
+      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: lunes, fechaHasta: domingo, configCanales, diasConDatos })
       return { id, label: labels[id], color: colores[id], bruto, neto, pedidos, pct: totalBruto > 0 ? (bruto / totalBruto) * 100 : 0, ticket: pedidos > 0 ? bruto / pedidos : 0, margen: margenPct }
     })
-  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta, diasConDatosPeriodo])
-
-  const ventasPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsPeriodo])
-  const pedidosPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsPeriodo])
-  const tmBruto = pedidosPeriodo > 0 ? ventasPeriodo / pedidosPeriodo : 0
-  const netoEstimado = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
-  const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
-  const pctNeto = ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0
-
-  // Comparación temporal real según subtab
-  const comp = useMemo(() => {
-    const { desde, hasta } = shiftRango(fechaDesde, fechaHasta, comparar)
-    const prev = rowsAll.filter(r => r.fecha >= desde && r.fecha <= hasta)
-    const pVentas = prev.reduce((a, r) => a + (r.total_bruto || 0), 0)
-    const pPedidos = prev.reduce((a, r) => a + (r.total_pedidos || 0), 0)
-    const pTm = pPedidos > 0 ? pVentas / pPedidos : 0
-    const hay = prev.some(r => (r.total_bruto || 0) > 0)
-    return {
-      hay,
-      varVentas: hay && pVentas > 0 ? ((ventasPeriodo - pVentas) / pVentas) * 100 : null,
-      varPedidos: hay && pPedidos > 0 ? ((pedidosPeriodo - pPedidos) / pPedidos) * 100 : null,
-      varTM: hay && pTm > 0 ? ((tmBruto - pTm) / pTm) * 100 : null,
-      pVentas, pPedidos,
-    }
-  }, [rowsAll, fechaDesde, fechaHasta, comparar, ventasPeriodo, pedidosPeriodo, tmBruto])
-
-  // ventas semana/mes/año en curso (para barras de cumplimiento de CardVentas)
-  const ventasSemana = useMemo(() => {
-    const ws = startOfWeekStr(); const monday = parseLocalDate(ws)
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
-    const we = toLocalDateStr(sunday)
-    return rowsAll.filter(r => r.fecha >= ws && r.fecha <= we).reduce((a, r) => a + (r.total_bruto || 0), 0)
-  }, [rowsAll])
-  const ventasMes = useMemo(() => {
-    const m = toLocalDateStr(new Date()).slice(0, 7)
-    return rowsAll.filter(r => r.fecha.startsWith(m)).reduce((a, r) => a + (r.total_bruto || 0), 0)
-  }, [rowsAll])
-  const ventasAno = useMemo(() => {
-    const a = toLocalDateStr(new Date()).slice(0, 4)
-    return rowsAll.filter(r => r.fecha.startsWith(a)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
-  }, [rowsAll])
-
-  const nSemana = isoWeek(new Date())
-  const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' })
-  const ano = new Date().getFullYear()
-
-  const diasPico: DiaPico[] = useMemo(() => {
-    const m = toLocalDateStr(new Date()).slice(0, 7)
-    const acum = [0, 0, 0, 0, 0, 0, 0]
-    for (const r of rowsAll) {
-      if (!r.fecha.startsWith(m)) continue
-      const d = parseLocalDate(r.fecha)
-      acum[(d.getDay() + 6) % 7] += r.total_bruto || 0
-    }
-    return acum.map((v, i) => ({ idx: i, nombre: NOMBRES_DIAS[i], valor: v, color: COLORES_DIAS[i] }))
-  }, [rowsAll])
-  const mediaDiariaPico = useMemo(() => {
-    const validos = diasPico.filter(d => d.valor > 0)
-    return validos.length ? validos.reduce((a, d) => a + d.valor, 0) / validos.length : 0
-  }, [diasPico])
-
-  async function saveObjetivoVenta(tipo: 'semanal' | 'mensual' | 'anual', valor: number | null) {
-    if (valor == null) { await supabase.from('objetivos').delete().eq('tipo', tipo); await loadObjetivos(); return }
-    setObjetivos(p => ({ ...p, [tipo]: valor }))
-    await supabase.from('objetivos').upsert({ tipo, importe: valor }, { onConflict: 'tipo' })
-    await loadObjetivos()
-  }
+  }, [rowsSemana, canalesFiltro, marcasPorCanal, configCanales, lunes, domingo, diasConDatos])
+  const netoSemana = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
+  const tmNetoSemana = pedidosSemana > 0 ? netoSemana / pedidosSemana : 0
+  // delta TM
+  const tmComp = compSemana.tot != null && compSemana.ped != null && compSemana.ped > 0 ? compSemana.tot / compSemana.ped : null
+  const deltaTM = tmComp != null && tmComp > 0 ? ((tmSemana - tmComp) / tmComp) * 100 : null
 
   // ── Titular dinámico ──
-  const labelComp = comparar === 'semana' ? 'semana anterior' : comparar === 'mes' ? 'mes anterior' : 'año anterior'
+  const colDelta = (v: number | null) => v == null ? COLOR.textMut : v >= 0 ? VERDE : COLOR.rojo
   const titular = useMemo(() => {
-    const v = comp.varVentas
-    const colDelta = v == null ? COLOR.textMut : v >= 0 ? COLOR.verde : COLOR.rojo
-    const frase2col = comp.varPedidos == null ? COLOR.textMut : comp.varPedidos >= 0 ? COLOR.verde : COLOR.rojo
-    return {
-      big: v == null ? 'SIN HISTÓRICO PARA COMPARAR' : 'EL NEGOCIO VA',
-      pct: v,
-      colDelta,
-      frases: [
-        { txt: `Facturación bruta ${fmtEur(ventasPeriodo, { decimals: 2 })} · neto estimado ${fmtEur(netoEstimado, { decimals: 2 })} (${pctNeto.toFixed(1)}%) · ticket medio ${fmtEur(tmBruto, { decimals: 2 })}.`, color: COLOR.textSec },
-        comp.varPedidos == null
-          ? { txt: `${pedidosPeriodo} pedidos en el periodo. Sin histórico de la ${labelComp} para comparar.`, color: COLOR.textMut }
-          : { txt: `${pedidosPeriodo} pedidos · ${comp.varPedidos >= 0 ? '+' : ''}${comp.varPedidos.toFixed(1)}% vs ${labelComp}.`, color: frase2col },
-      ],
+    const frases: { txt: string; color: string }[] = []
+    // estado vs objetivo
+    if (objSemana > 0) {
+      const colObj = pctSemana >= 100 ? VERDE : pctSemana >= 50 ? NARANJA : ROJO_OBJ
+      frases.push({ txt: `Semana: ${fmtEur(totalSemana, { decimals: 2 })} de ${fmtEur(objSemana, { decimals: 0 })} de objetivo (${pctSemana.toFixed(0)}%).`, color: colObj })
+    } else {
+      frases.push({ txt: `Llevas ${fmtEur(totalSemana, { decimals: 2 })} esta semana.`, color: COLOR.textSec })
     }
-  }, [comp, ventasPeriodo, netoEstimado, pctNeto, tmBruto, pedidosPeriodo, labelComp])
+    // pedidos + ticket
+    frases.push({
+      txt: `${pedidosSemana} pedidos · ticket medio ${fmtEur(tmSemana, { decimals: 2 })}${deltaPedidos != null ? ` · ${deltaPedidos >= 0 ? '+' : ''}${deltaPedidos.toFixed(1)}% pedidos vs ${labelComp}` : ''}.`,
+      color: deltaPedidos == null ? COLOR.textSec : colDelta(deltaPedidos),
+    })
+    // dónde apretar
+    if (objSemana > 0 && pctSemana < 100) {
+      const diasRestantes = barras.filter(b => b.futuro || b.esHoy).length
+      const falta = Math.max(objSemana - totalSemana, 0)
+      if (diasRestantes > 0) frases.push({ txt: `Faltan ${fmtEur(falta, { decimals: 0 })} en ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} para llegar al objetivo.`, color: pctSemana >= 50 ? NARANJA : ROJO_OBJ })
+    }
+    return frases
+  }, [objSemana, pctSemana, totalSemana, pedidosSemana, tmSemana, deltaPedidos, labelComp, barras])
 
   const compararTabs: { id: Comparar; label: string }[] = [
-    { id: 'semana', label: 'vs semana ant.' },
+    { id: 'semana', label: 'vs sem. ant.' },
     { id: 'mes', label: 'vs mes ant.' },
     { id: 'anio', label: 'vs año ant.' },
   ]
 
-  const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 } as const
+  const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  const BAR_AREA = 200
 
   return (
     <div style={{ background: COLOR.bgPagina, color: COLOR.textPri, fontFamily: LEXEND, padding: '20px 0', borderRadius: 12, marginTop: 18 }}>
 
-      {/* ── TITULAR DINÁMICO ── */}
+      {/* ── TITULAR DINÁMICO + SUBTABS DERECHA ── */}
       <div style={{ ...cardBig, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
-          <div style={lbl}>EVOLUCIÓN</div>
-          {/* subtabs comparación a la derecha */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={lbl}>EVOLUCIÓN · SEMANA EN CURSO</div>
           <div style={{ display: 'inline-flex', gap: 6 }}>
             {compararTabs.map(t => (
               <button key={t.id} onClick={() => setCompararPersist(t.id)} style={comparar === t.id ? SUBTABS.active : SUBTABS.inactive}>{t.label}</button>
             ))}
           </div>
         </div>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(26px,4vw,40px)', fontWeight: 600, lineHeight: 1.05, color: COLOR.textPri }}>
-          {titular.big}{' '}
-          {titular.pct != null && (
-            <span style={{ color: titular.colDelta, background: `${titular.colDelta}22`, padding: '0 8px', borderRadius: 6 }}>
-              {titular.pct >= 0 ? '+' : ''}{titular.pct.toFixed(1)}%
+        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(26px,4vw,40px)', fontWeight: 600, lineHeight: 1.05, color: COLOR.textPri, marginTop: 2 }}>
+          {deltaVentas == null ? 'SEMANA EN MARCHA' : 'EL NEGOCIO VA'}{' '}
+          {deltaVentas != null && (
+            <span style={{ color: colDelta(deltaVentas), background: `${colDelta(deltaVentas)}22`, padding: '0 8px', borderRadius: 6 }}>
+              {deltaVentas >= 0 ? '+' : ''}{deltaVentas.toFixed(1)}%
             </span>
           )}{' '}
-          {titular.pct != null && <span>VS {labelComp.toUpperCase()}.</span>}
+          {deltaVentas != null && <span>VS {labelComp.toUpperCase()}.</span>}
         </div>
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {titular.frases.map((f, i) => (
+          {titular.map((f, i) => (
             <div key={i} style={{ fontFamily: LEXEND, fontSize: 14, color: f.color, fontWeight: 500 }}>{f.txt}</div>
           ))}
         </div>
       </div>
 
-      {/* ── FILA 1: Facturación + Pedidos/TM (cards reales del Resumen) ── */}
-      <div style={{ ...row3, gridTemplateColumns: 'repeat(2, 1fr)', marginBottom: 14 }}>
-        <CardVentas
-          bruto={ventasPeriodo}
-          netoEstimado={netoEstimado}
-          variacionPct={comp.varVentas}
-          ventasSemana={ventasSemana}
-          ventasMes={ventasMes}
-          ventasAno={ventasAno}
-          nSemana={nSemana}
-          mes={new Date().getMonth() + 1}
-          ano={ano}
-          objetivos={objetivos}
-          onSaveObjetivo={saveObjetivoVenta}
-          refetchObjetivos={loadObjetivos}
-        />
-        <CardPedidosTM
-          pedidos={pedidosPeriodo}
-          tmBruto={tmBruto}
-          tmNeto={tmNeto}
-          pedidosDeltaPct={comp.varPedidos}
-          tmDeltaPct={comp.varTM}
-          canales={canalStats}
-        />
+      {/* ── CARD GRANDE SEMANAL: barras verticales con objetivo (ancho completo = 2 cards) ── */}
+      <div style={{ ...cardBig, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          <div style={lbl}>FACTURACIÓN SEMANA · {ddmm(lunes)} — {ddmm(domingo)}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+            <span style={{ fontFamily: OSWALD, fontSize: 34, fontWeight: 600, color: pctSemana >= 100 ? VERDE : pctSemana >= 50 ? NARANJA : ROJO_OBJ }}>{fmtEur(totalSemana, { decimals: 2 })}</span>
+            {objSemana > 0 && <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>objetivo {fmtEur(objSemana, { decimals: 0 })}</span>}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: BAR_AREA + 44 }}>
+          {barras.map((b, i) => {
+            const hObj = b.obj > 0 ? Math.max((b.obj / escala) * BAR_AREA, 4) : 0
+            const hReal = b.real != null ? Math.max((b.real / escala) * BAR_AREA, b.real > 0 ? 3 : 0) : 0
+            const relleno = Math.min(hReal, hObj)
+            const sobre = Math.max(hReal - hObj, 0)
+            const pct = b.obj > 0 && b.real != null ? (b.real / b.obj) * 100 : 0
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                {/* importe del día */}
+                <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, color: b.futuro ? COLOR.textMut : b.real != null ? (pct >= 100 ? VERDE : COLOR.textPri) : COLOR.textMut, marginBottom: 2 }}>
+                  {b.real != null ? fmtEur(b.real, { decimals: 0 }) : '—'}
+                </span>
+                {/* delta vs comparado */}
+                {b.deltaPct != null && (
+                  <span style={{ fontSize: 9, color: colDelta(b.deltaPct), fontFamily: LEXEND, marginBottom: 3 }}>
+                    {b.deltaPct >= 0 ? '▲' : '▼'}{Math.abs(b.deltaPct).toFixed(0)}%
+                  </span>
+                )}
+                {/* sobrebarra (objetivo superado) */}
+                {sobre > 0 && (
+                  <div style={{ width: '58%', height: sobre, background: VERDE, borderRadius: '4px 4px 0 0', opacity: 0.9, position: 'relative' }}>
+                    <span style={{ position: 'absolute', top: -2, left: 0, right: 0, textAlign: 'center', fontSize: 9, color: VERDE }}>⋯</span>
+                  </div>
+                )}
+                {/* barra objetivo (roja) con relleno */}
+                <div style={{ width: '58%', height: hObj, background: b.futuro ? GRIS : ROJO_OBJ, borderRadius: sobre > 0 ? 0 : '4px 4px 0 0', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', opacity: b.futuro ? 0.4 : 1, overflow: 'hidden' }}>
+                  {!b.futuro && relleno > 0 && (
+                    <div style={{ width: '100%', height: relleno, background: colorRelleno(pct) }} />
+                  )}
+                </div>
+                {/* día */}
+                <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esHoy ? COLOR.textPri : COLOR.textMut, fontWeight: b.esHoy ? 700 : 400, marginTop: 6 }}>{b.nombre}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* ── FILA 2: Facturación por canal + Días pico (cards reales) ── */}
-      <div style={grid2}>
+      {/* ── FILA: Facturación por canal + Pedidos/TM (cards reales del Resumen) ── */}
+      <div style={{ ...row3, gridTemplateColumns: 'repeat(2, 1fr)' }}>
         <ColFacturacionCanal canales={canalStats} />
-        <ColDiasPico
-          dias={diasPico}
-          media={mediaDiariaPico}
-          nombreMes={nombreMes}
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          onClickDia={onFiltrarDiaSemana}
+        <CardPedidosTM
+          pedidos={pedidosSemana}
+          tmBruto={tmSemana}
+          tmNeto={tmNetoSemana}
+          pedidosDeltaPct={deltaPedidos}
+          tmDeltaPct={deltaTM}
+          canales={canalStats}
         />
       </div>
     </div>
