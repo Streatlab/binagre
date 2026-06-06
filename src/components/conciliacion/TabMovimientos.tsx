@@ -197,17 +197,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     }
   }, [])
 
-  const sortMap: Record<SortColumn, string | null> = {
-    fecha:       'fecha',
-    concepto:    'concepto',
-    contraparte: 'proveedor',
-    importe:     'importe',
-    categoria:   'categoria',
-    doc:         'doc_estado',
-    titular:     'titular_id',
-    estado:      null,
-  }
-
   // Canónico: SIEMPRE cliente completo. El periodo acota el universo; las cards
   // (filtro madre), el "ocultar conciliados", la ordenación y la paginación se
   // resuelven en cliente sobre el conjunto completo del periodo. Así la
@@ -217,8 +206,6 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     const myFetchId = ++fetchIdRef.current
     setCargando(true)
     setErrorCarga(null)
-
-    const necesitaClienteCompleto = true
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
@@ -261,7 +248,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     // Cliente completo: subir el tope por encima del límite por defecto de PostgREST (1000)
     q = q.range(0, 99999)
 
-    const { data, error, count } = await q
+    const { data, error } = await q
 
     if (error) {
       setErrorCarga('Error cargando movimientos. Intenta de nuevo.')
@@ -269,7 +256,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       setTotal(0)
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let mapped = (data ?? []).map((m: any): Movimiento => ({
+      let mapped: Movimiento[] = (data ?? []).map((m: any): Movimiento => ({
         id:          m.id,
         fecha:       m.fecha,
         concepto:    m.concepto,
@@ -302,23 +289,18 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
       if (myFetchId !== fetchIdRef.current) return
 
-      if (necesitaClienteCompleto) {
-        // 1. Ocultar conciliados (solo cuando no hay card activa, igual que la vista)
-        let visibles = mapped
-        if (ocultarConciliados && !filtroCard) {
-          visibles = visibles.filter(m => calcularEstado(m) !== 'conciliado')
-        }
-        // 2. Ordenar con criterio único sobre TODO el subconjunto filtrado
-        const ordenadas = ms.applySorts(visibles)
-        // 3. Paginar en cliente
-        const totalFiltradas = ordenadas.length
-        const from = (page - 1) * pageSize
-        setFilas(ordenadas.slice(from, from + pageSize))
-        setTotal(totalFiltradas)
-      } else {
-        setFilas(mapped)
-        setTotal(count ?? 0)
+      // 1. Ocultar conciliados (solo cuando no hay card activa, igual que la vista)
+      let visibles: Movimiento[] = mapped
+      if (ocultarConciliados && !filtroCard) {
+        visibles = visibles.filter((m: Movimiento) => calcularEstado(m) !== 'conciliado')
       }
+      // 2. Ordenar con criterio único sobre TODO el subconjunto filtrado
+      const ordenadas = ms.applySorts(visibles)
+      // 3. Paginar en cliente
+      const totalFiltradas = ordenadas.length
+      const from = (page - 1) * pageSize
+      setFilas(ordenadas.slice(from, from + pageSize))
+      setTotal(totalFiltradas)
     }
     setCargando(false)
   }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
