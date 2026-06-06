@@ -7,6 +7,7 @@ const TABS = [
   { id: 'ingredientes', label: 'Normalización ingredientes' },
   { id: 'conciliacion', label: 'OCR / Conciliación' },
   { id: 'plantillas', label: 'OCR / Plantillas' },
+  { id: 'diccionario', label: 'Diccionario NIF' },
   { id: 'correo', label: 'Aprendizaje OCR correo' },
 ]
 
@@ -15,7 +16,12 @@ export default function ReglasPage() {
   const nav = useNavigate()
 
   const seg = loc.pathname.split('/').filter(Boolean).pop() ?? ''
-  const active = seg === 'conciliacion' ? 'conciliacion' : seg === 'plantillas' ? 'plantillas' : seg === 'correo' ? 'correo' : 'ingredientes'
+  const active =
+    seg === 'conciliacion' ? 'conciliacion'
+    : seg === 'plantillas' ? 'plantillas'
+    : seg === 'diccionario' ? 'diccionario'
+    : seg === 'correo' ? 'correo'
+    : 'ingredientes'
 
   const handleChange = (id: string) => {
     nav(`/configuracion/reglas/${id}`)
