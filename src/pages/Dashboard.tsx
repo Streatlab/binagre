@@ -412,6 +412,9 @@ export default function Dashboard() {
 
   void progressBgStyle
   void progressFillStyle
+  void nSemana; void ticketMedioBruto; void variacionPct; void ticketMedioNeto; void ventasSemana
+  void diasPico; void diasRestantesMesOp; void tabBtnStyle; void editandoObjetivo; void valorEditObjetivo
+  void setTopTab; void setEditandoObjetivo; void setValorEditObjetivo; void guardarObjetivo; void ChevronDown
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:80 }}>
@@ -521,15 +524,16 @@ export default function Dashboard() {
         </div>
 
         <div style={{
-          background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '14px 18px', marginBottom: 18, display: 'inline-flex', gap: 8,
+          background: '#ffffff', border: '0.5px solid #d0c8bc', borderRadius: 10, padding: '4px 6px',
+          marginBottom: 18, display: 'inline-flex', gap: 4,
         }}>
           {MAIN_TABS.map(tab => (
             <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
               style={mainTab === tab.id ? {
-                padding: '6px 14px', borderRadius: 6, border: 'none', background: '#FF4757', color: '#fff',
-                fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                padding: '5px 12px', borderRadius: 5, border: 'none', background: '#FF4757', color: '#ffffff',
+                fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 150ms',
               } : {
-                padding: '6px 14px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: 'transparent', color: '#3a4050',
+                padding: '5px 12px', borderRadius: 5, border: '0.5px solid #d0c8bc', background: 'transparent', color: '#3a4050',
                 fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer',
               }}
             >{tab.label}</button>
