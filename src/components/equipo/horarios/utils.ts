@@ -137,4 +137,4 @@ export function fmtHoras(h: number): string {
   return h.toLocaleString('es-ES', { minimumFractionDigits: h % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 }) + 'h'
 }
 
-// build: rota v6 — master force build (destrabar cola Evolución)
+// build: rota v7 — master force build (destrabar cola OCR ordenacion)
