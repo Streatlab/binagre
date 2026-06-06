@@ -20,6 +20,7 @@ import TabReglasIngredientes from '@/pages/configuracion/reglas/TabReglasIngredi
 import TabReglasConciliacion from '@/pages/configuracion/reglas/TabReglasConciliacion'
 import TabOcrPlantillas from '@/pages/configuracion/reglas/TabOcrPlantillas'
 import TabCorreoOcr from '@/pages/configuracion/reglas/TabCorreoOcr'
+import TabDiccionarioNif from '@/pages/configuracion/reglas/TabDiccionarioNif'
 
 import BancosPage from '@/pages/configuracion/bancos/BancosPage'
 import CuentasBancarias from '@/pages/configuracion/CuentasBancarias'
@@ -143,6 +144,7 @@ function AppRoutes() {
           <Route path="ingredientes" element={<TabReglasIngredientes />} />
           <Route path="conciliacion" element={<TabReglasConciliacion />} />
           <Route path="plantillas" element={<TabOcrPlantillas />} />
+          <Route path="diccionario" element={<TabDiccionarioNif />} />
           <Route path="correo" element={<TabCorreoOcr />} />
         </Route>
 
