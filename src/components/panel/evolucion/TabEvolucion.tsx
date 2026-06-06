@@ -1,8 +1,8 @@
 /**
- * Tab Evolución — Panel Global · v10
+ * Tab Evolución — Panel Global · v11
  * Pills idénticos a Facturación (TabsPastilla comparación + separador + SUBTAB invertido Semana/Mes/Año).
  * Canal: cards de color reales (estilo Resumen) con bruto/neto/margen + delta vs comparado.
- * Barras tamaño fijo medio, relleno objetivo (rojo #E24B4A/amarillo<50/verde≥50/sobrebarra).
+ * Barras tamaño fijo medio, relleno objetivo (rojo #E24B4A/amarillo<50/verde≥50/sobrebarra verde canónico).
  * Importes sin € con miles. Batería 20 frases por regla. Ticket/pedidos por día. Posición calendario.
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
@@ -27,7 +27,7 @@ type Comp = 'prev' | 'mes' | 'anio'
 const ROJO = '#E24B4A'
 const VERDE = '#1D9E75'
 const AMARILLO = '#f5a623'
-const VERDE_SOBRE = '#147A5A'
+const VERDE_SOBRE = '#1D9E75'
 const TRACK = '#ebe8e2'
 const BORDE = '#d0c8bc'
 
