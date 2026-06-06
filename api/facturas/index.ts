@@ -11,6 +11,7 @@
  *   GET  /api/facturas?action=cartero           → cartero IMAP
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes
  *   GET  /api/facturas?action=health-ocr        → diagnóstico claves OCR de pago (Anthropic + Mistral)
+ *   GET  /api/facturas?action=purgar[&lote=NN]  → borra facturas NO resueltas + Drive a papelera (lote)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -21,7 +22,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
-import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
+import { descargarArchivoDeDrive, borrarArchivoDeDrive } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
@@ -61,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'health-ocr')    return healthOcr(res)
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
+  if (action === 'purgar')        return purgar(req, res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -762,4 +764,53 @@ async function limpieza(res: VercelResponse) {
   if (errDel) return res.status(500).json({ error: errDel.message, ids })
 
   return res.status(200).json({ borradas: ids.length, ids })
+}
+
+// ── Handler: purga de facturas NO resueltas (no conciliadas) ───────────────
+// Borra en lotes las facturas cuyo estado no es conciliada/asociada/solo_drive:
+// manda su archivo de Drive a la papelera (recuperable 30 dias), borra las
+// conexiones (gastos y detalle de plataforma) y la propia factura. Se invoca
+// en bucle (action=purgar&lote=N) hasta que devuelve terminado:true. El borrado
+// de Drive del lote se hace en paralelo para caber en el tiempo de la funcion.
+async function purgar(req: VercelRequest, res: VercelResponse) {
+  const RESUELTAS = '(conciliada,asociada,solo_drive)'
+  const lote = Math.min(Math.max(Number(req.query.lote) || 40, 1), 80)
+
+  const { data: filas, error } = await supabaseAdmin
+    .from('facturas')
+    .select('id, pdf_drive_id')
+    .not('estado', 'in', RESUELTAS)
+    .order('id', { ascending: true })
+    .limit(lote)
+  if (error) return res.status(500).json({ error: error.message })
+
+  const ids = (filas || []).map(f => f.id as string)
+  if (ids.length === 0) {
+    return res.status(200).json({ terminado: true, borradas: 0, restantes: 0 })
+  }
+
+  const driveIds = (filas || [])
+    .map(f => f.pdf_drive_id as string | null)
+    .filter((d): d is string => !!d)
+  const resultados = await Promise.allSettled(driveIds.map(d => borrarArchivoDeDrive(d)))
+  const driveOk = resultados.filter(r => r.status === 'fulfilled' && r.value.ok).length
+  const driveFail = resultados.length - driveOk
+
+  await supabaseAdmin.from('facturas_plataforma_detalle').delete().in('factura_id', ids)
+  await supabaseAdmin.from('facturas_gastos').delete().in('factura_id', ids)
+  const { error: errDel } = await supabaseAdmin.from('facturas').delete().in('id', ids)
+  if (errDel) return res.status(500).json({ error: errDel.message })
+
+  const { count } = await supabaseAdmin
+    .from('facturas')
+    .select('id', { count: 'exact', head: true })
+    .not('estado', 'in', RESUELTAS)
+  const restantes = count ?? 0
+  return res.status(200).json({
+    terminado: restantes === 0,
+    borradas: ids.length,
+    drive_ok: driveOk,
+    drive_fail: driveFail,
+    restantes,
+  })
 }
