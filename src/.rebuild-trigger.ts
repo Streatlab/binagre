@@ -1,2 +1,2 @@
-// Rebuild: lista-compra module deploy
-export const REBUILD = 'lista-compra-deploy-1'
+// lectura
+export const _r = 3
