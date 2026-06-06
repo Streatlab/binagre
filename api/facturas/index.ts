@@ -580,7 +580,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     .order('fecha_factura', { ascending: true })
 
   if (soloSinLeer) {
-    q = q.or('total.is.null,total.eq.0').range(0, LOTE_REPROC - 1)
+    q = q.or('total.is.null,total.eq.0,nif_emisor.is.null').range(0, LOTE_REPROC - 1)
   } else {
     q = q.range(offset, offset + LOTE_REPROC - 1)
   }
