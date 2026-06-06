@@ -208,15 +208,17 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     estado:      null,
   }
 
-  // Si la ordenación incluye la columna 'estado' (calculada) → cliente completo (sin range)
-  const ordenaEstadoCalculado = ms.sorts.some(s => s.col === 'estado')
-
+  // Canónico: SIEMPRE cliente completo. El periodo acota el universo; las cards
+  // (filtro madre), el "ocultar conciliados", la ordenación y la paginación se
+  // resuelven en cliente sobre el conjunto completo del periodo. Así la
+  // ordenación y el contador operan sobre el subconjunto realmente visible, no
+  // sobre una página ya troceada por el servidor.
   const cargarPagina = useCallback(async () => {
     const myFetchId = ++fetchIdRef.current
     setCargando(true)
     setErrorCarga(null)
 
-    const necesitaClienteCompleto = ordenaEstadoCalculado
+    const necesitaClienteCompleto = true
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
@@ -253,20 +255,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       else if (matchIds.length > 1) q = q.in('titular_id', matchIds)
     }
 
-    const ordenServidor = ms.toSupabaseOrder(sortMap)
-    if (!necesitaClienteCompleto && ordenServidor.length > 0) {
-      for (const { column, ascending } of ordenServidor) {
-        q = q.order(column, { ascending })
-      }
-    } else {
-      q = q.order('fecha', { ascending: false })
-    }
+    // Orden base estable; el orden real se aplica en cliente con criterio único
+    q = q.order('fecha', { ascending: false })
 
-    if (!necesitaClienteCompleto) {
-      const from = (page - 1) * pageSize
-      const to   = from + pageSize - 1
-      q = q.range(from, to)
-    }
+    // Cliente completo: subir el tope por encima del límite por defecto de PostgREST (1000)
+    q = q.range(0, 99999)
 
     const { data, error, count } = await q
 
@@ -310,7 +303,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       if (myFetchId !== fetchIdRef.current) return
 
       if (necesitaClienteCompleto) {
-        const ordenadas = ms.applySorts(mapped)
+        // 1. Ocultar conciliados (solo cuando no hay card activa, igual que la vista)
+        let visibles = mapped
+        if (ocultarConciliados && !filtroCard) {
+          visibles = visibles.filter(m => calcularEstado(m) !== 'conciliado')
+        }
+        // 2. Ordenar con criterio único sobre TODO el subconjunto filtrado
+        const ordenadas = ms.applySorts(visibles)
+        // 3. Paginar en cliente
         const totalFiltradas = ordenadas.length
         const from = (page - 1) * pageSize
         setFilas(ordenadas.slice(from, from + pageSize))
@@ -321,7 +321,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       }
     }
     setCargando(false)
-  }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados, ordenaEstadoCalculado])
+  }, [page, pageSize, ms.sortsKey, filtroCard, catFiltro, filtroTitular, titulares, periodoDesdeStr, periodoHastaStr, refreshTick, busquedaDebounced, ocultarConciliados])
 
   const cargarAgregados = useCallback(async () => {
     try {
@@ -431,12 +431,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     if (page !== 1) updateUrl({ page: 1 })
   }
 
-  const filasVisibles = useMemo(() => {
-    if (ocultarConciliados && !filtroCard) {
-      return filas.filter(m => calcularEstado(m) !== 'conciliado')
-    }
-    return filas
-  }, [filas, ocultarConciliados, filtroCard])
+  const filasVisibles = useMemo(() => filas, [filas])
 
   const handleExportar = async () => {
     setExportando(true)
