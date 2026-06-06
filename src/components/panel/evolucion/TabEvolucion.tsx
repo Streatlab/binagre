@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import {
@@ -257,7 +257,7 @@ export default function TabEvolucion({ fechaDesde, canalesFiltro }: Props) {
       const target = new Date(hoyD); target.setFullYear(hoyD.getFullYear() - anios); target.setMonth(hoyD.getMonth() - meses)
       const first = new Date(target.getFullYear(), target.getMonth(), 1)
       const firstWd = (first.getDay() + 6) % 7
-      let day = 1 + ((wdIdx - firstWd + 7) % 7) + (nth - 1) * 7
+      const day = 1 + ((wdIdx - firstWd + 7) % 7) + (nth - 1) * 7
       const dim = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
       if (day > dim) return null
       return valDia(toLocal(new Date(target.getFullYear(), target.getMonth(), day)), metrica)
@@ -299,7 +299,7 @@ export default function TabEvolucion({ fechaDesde, canalesFiltro }: Props) {
       const val = metrica === 'fact' ? bAct : metrica === 'ped' ? pAct : tmAct
       const valPrev = metrica === 'fact' ? bPrev : metrica === 'ped' ? pPrev : (pPrev > 0 ? bPrev / pPrev : 0)
       const deltaPct = hayPrev && valPrev > 0 ? ((val - valPrev) / valPrev) * 100 : null
-      return { id: c.id, label: c.label, color: c.color, val, valPrev: hayPrev ? valPrev : null, deltaPct }
+      return { id: c.id, label: c.label, color: c.color, val, deltaPct }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lunes, byFecha, comparar, metrica, canalesFiltro])
