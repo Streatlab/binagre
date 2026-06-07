@@ -422,6 +422,13 @@ function esFechaValida(f: string | null): boolean {
 export function extraerPorReglas(
   texto: string,
   plantillaResolver?: (nifEmisor: string) => PlantillaNif | null,
+  // requireFecha=true (def): solo devuelve factura si hay fecha válida. Lo usa el
+  // partido multi-factura (conservador: una página sin fecha NO cuenta como factura).
+  // requireFecha=false: si hay TOTAL legible pero la fecha no se reconoce, NO se
+  // descarta la factura; se devuelve con fecha vacía (el llamador aplica hoy como
+  // fallback) y confianza menor. Evita tirar a lectura manual una factura cuyo
+  // importe sí se leyó bien solo porque la fecha venía en un formato raro.
+  requireFecha = true,
 ): ExtractedFactura | null {
   if (!texto || texto.length < 30) return null
 
@@ -442,12 +449,16 @@ export function extraerPorReglas(
   const total = buscarTotal(texto, plantilla)
   const fecha = buscarFecha(texto, plantilla)
   if (total === null || total <= 0) return null
-  if (!esFechaValida(fecha)) return null
+
+  const fechaOk = esFechaValida(fecha)
+  if (!fechaOk && requireFecha) return null
 
   return {
     proveedor_nombre: '',
     numero_factura: buscarNumeroFactura(texto, plantilla) || '',
-    fecha_factura: fecha as string,
+    // Si no hay fecha válida (solo posible con requireFecha=false) se deja vacía:
+    // procesarArchivo aplica la fecha de hoy como fallback.
+    fecha_factura: fechaOk ? (fecha as string) : '',
     es_recapitulativa: false,
     periodo_inicio: null,
     periodo_fin: null,
@@ -463,8 +474,63 @@ export function extraerPorReglas(
     base_21: 0,
     iva_21: 0,
     total,
-    confianza: 92,
+    // Confianza menor cuando la fecha quedó por defecto: queda marcada como menos
+    // fiable para una posible revisión, pero la factura se procesa (no va a manual).
+    confianza: fechaOk ? 92 : 70,
   }
+}
+
+// Deriva una plantilla de lectura (etiqueta de total + formato de fecha) a partir
+// del texto del documento y de los valores ya leídos por la capa de pago. Sirve
+// para que la PRÓXIMA factura del mismo proveedor se lea GRATIS por reglas, con la
+// etiqueta correcta. Best-effort y conservador: solo fija un campo si lo encuentra
+// con seguridad; si no, lo deja null (el lector genérico sigue funcionando).
+export function derivarPlantilla(
+  texto: string | null | undefined,
+  extracted: { total?: number | null; fecha_factura?: string | null },
+): PlantillaNif {
+  const out: PlantillaNif = { totalLabel: null, fechaFormato: null, numLabel: null }
+  if (!texto) return out
+
+  // 1) Etiqueta del total: línea cuyo importe coincide con el total leído.
+  const total = extracted.total
+  if (typeof total === 'number' && total > 0) {
+    const lineas = texto.split(/\n+/)
+    for (let i = 0; i < lineas.length; i++) {
+      const imps = importesDeLinea(lineas[i])
+      const coincide = imps.some((v) => Math.abs(v - total) < 0.005)
+      if (!coincide) continue
+      // Etiqueta = texto antes del importe en la misma línea; si la línea es solo
+      // el importe, se mira la línea anterior.
+      let label = limpiarLabel(lineas[i])
+      if (!label && i > 0) label = limpiarLabel(lineas[i - 1])
+      // Solo se acepta como plantilla si parece una etiqueta de total real.
+      if (label && /total|importe|pagar|amount|due/i.test(label)) {
+        out.totalLabel = label
+        break
+      }
+    }
+  }
+
+  // 2) Formato de fecha: detectar si el documento usa ymd o dmy.
+  if (extracted.fecha_factura) {
+    if (/\b20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b/.test(texto)) out.fechaFormato = 'ymd'
+    else if (/\b\d{1,2}[-/.]\d{1,2}[-/.]20\d{2}\b/.test(texto)) out.fechaFormato = 'dmy'
+  }
+
+  return out
+}
+
+// Limpia una línea para usarla como etiqueta: quita importes/símbolos, colapsa
+// espacios y recorta. Devuelve null si no queda una etiqueta corta y plausible.
+function limpiarLabel(linea: string): string | null {
+  const label = linea
+    .replace(RE_IMPORTE, ' ')
+    .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (label.length < 3 || label.length > 40) return null
+  return label
 }
 
 // ──────────────────────────────────────────────────────────────────────────

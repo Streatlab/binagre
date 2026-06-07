@@ -32,6 +32,7 @@ import {
   extraerPorReglas,
   partirEnFacturas,
   extraerNifEmisorLibre,
+  derivarPlantilla,
 } from './extractores.js'
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
@@ -410,6 +411,9 @@ async function dentroDelTopeAnthropic(supabase: SupabaseClient): Promise<boolean
 async function leerConCapasDePago(
   supabase: SupabaseClient,
   contenido: ContenidoExtraido,
+  // Texto del documento (PDF o el que sacó Tesseract), si lo hay. Se usa para
+  // derivar la plantilla del proveedor nuevo y leer las próximas facturas gratis.
+  texto?: string | null,
 ): Promise<{ extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null> {
   const intentar = async (lector: 'anthropic' | 'mistral'): Promise<ExtractedFactura | null> => {
     try {
@@ -446,7 +450,7 @@ async function leerConCapasDePago(
     origen = secundario
   }
   if (!extracted) return null
-  await aprenderProveedorNif(supabase, extracted)
+  await aprenderProveedorNif(supabase, extracted, texto)
   return { extracted, origen }
 }
 
@@ -469,11 +473,17 @@ async function nifYaRegistrado(supabase: SupabaseClient, nif: string | null): Pr
   }
 }
 
-// Aprende el proveedor por NIF: si Mistral leyó un NIF emisor + razón social que
-// aún no está en reglas_conciliacion, lo inserta. Así la próxima factura del mismo
-// proveedor se resuelve gratis por diccionario y Mistral no vuelve a usarse.
-// Best-effort: nunca lanza.
-async function aprenderProveedorNif(supabase: SupabaseClient, extracted: ExtractedFactura): Promise<void> {
+// Aprende el proveedor por NIF: si la capa de pago leyó un NIF emisor + razón
+// social que aún no está en reglas_conciliacion, lo inserta. Así la próxima factura
+// del mismo proveedor se resuelve gratis por diccionario y la API no vuelve a usarse.
+// Además, si se dispone del texto del documento, DERIVA una plantilla de lectura
+// (etiqueta de total + formato de fecha) para que esas próximas facturas se lean
+// correctamente por reglas y NO acaben en lectura manual. Best-effort: nunca lanza.
+async function aprenderProveedorNif(
+  supabase: SupabaseClient,
+  extracted: ExtractedFactura,
+  texto?: string | null,
+): Promise<void> {
   try {
     const nif = normalizarNif(extracted.nif_emisor)
     if (!nif || !extracted.proveedor_nombre) return
@@ -483,9 +493,16 @@ async function aprenderProveedorNif(supabase: SupabaseClient, extracted: Extract
       .eq('patron_nif', nif)
       .maybeSingle()
     if (ya) return
+    const plantilla = derivarPlantilla(texto, extracted)
     await supabase
       .from('reglas_conciliacion')
-      .insert({ patron_nif: nif, razon_social: extracted.proveedor_nombre })
+      .insert({
+        patron_nif: nif,
+        razon_social: extracted.proveedor_nombre,
+        plantilla_total_label: plantilla.totalLabel,
+        plantilla_fecha_formato: plantilla.fechaFormato,
+        plantilla_num_label: plantilla.numLabel,
+      })
   } catch (e) {
     console.error('[aprenderProveedorNif]', errMsg(e))
   }
@@ -609,7 +626,9 @@ async function procesarContenidoPrincipal(
       textoPdfCache = textoPdf
       if (pdfTieneTexto(textoPdf)) {
         diccionario = await cargarDiccionarioNif(supabase)
-        extractedReglas = extraerPorReglas(textoPdf, (nif) => diccionario?.get(nif)?.plantilla || null)
+        // requireFecha=false: si el total se lee pero la fecha viene en formato raro,
+        // NO se descarta la factura (se procesa con fecha de hoy como fallback).
+        extractedReglas = extraerPorReglas(textoPdf, (nif) => diccionario?.get(nif)?.plantilla || null, false)
       }
     } catch {
       extractedReglas = null
@@ -625,7 +644,7 @@ async function procesarContenidoPrincipal(
         // Acumular el texto OCR para el fallback de NIF en lectura manual
         textoPdfCache = textoPdfCache && textoPdfCache.length > textoOCR.length ? textoPdfCache : textoOCR
         if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
-        const extractedOCR = extraerPorReglas(textoOCR, (nif) => diccionario?.get(nif)?.plantilla || null)
+        const extractedOCR = extraerPorReglas(textoOCR, (nif) => diccionario?.get(nif)?.plantilla || null, false)
         if (extractedOCR) {
           extractedReglas = extractedOCR
           origenLectura = 'ocr_tesseract'
@@ -645,7 +664,7 @@ async function procesarContenidoPrincipal(
     const proveedorYaConocido = await nifYaRegistrado(supabase, nifEmisorTexto)
     let resultadoPago: { extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null = null
     if (!proveedorYaConocido) {
-      resultadoPago = await leerConCapasDePago(supabase, contenido)
+      resultadoPago = await leerConCapasDePago(supabase, contenido, textoPdfCache)
     }
     if (resultadoPago) {
       extracted = resultadoPago.extracted
