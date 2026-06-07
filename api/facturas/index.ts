@@ -823,11 +823,11 @@ async function purgar(req: VercelRequest, res: VercelResponse) {
 
 // ── Handler: info de la papelera (solo lectura) ───────────────────────────
 // Cuenta los archivos que fueron enviados a la papelera de Drive en las últimas
-// N horas (para ver qué se puede recuperar de un borrado reciente).
+// N horas (Google retiene la papelera ~30 días = 720h máx recuperable).
 async function papeleraInfo(req: VercelRequest, res: VercelResponse) {
-  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 72)
+  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 720)
   const desde = new Date(Date.now() - horas * 3600 * 1000).toISOString()
-  const archivos = await listarPapeleraReciente(desde, 1000)
+  const archivos = await listarPapeleraReciente(desde, 2000)
   return res.status(200).json({
     desde,
     total_en_papelera: archivos.length,
@@ -842,7 +842,7 @@ async function papeleraInfo(req: VercelRequest, res: VercelResponse) {
 // dejar copias sueltas. El de-duplicado evita recrear lo que ya existe. Se
 // invoca en bucle (recuperar-papelera&lote=N) hasta terminado:true.
 async function recuperarPapelera(req: VercelRequest, res: VercelResponse) {
-  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 72)
+  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 720)
   const desde = new Date(Date.now() - horas * 3600 * 1000).toISOString()
   const lote = Math.min(Math.max(Number(req.query.lote) || 8, 1), 20)
 
