@@ -287,6 +287,21 @@ export async function restaurarArchivoDeDrive(fileId: string): Promise<{ ok: boo
   }
 }
 
+// Borra PERMANENTEMENTE un archivo de Drive (no recuperable). Se usa tras
+// recrear una factura desde un original de la papelera: el contenido ya quedó
+// archivado de nuevo (Storage + copia en Drive), así que el original duplicado
+// de la papelera ya no hace falta y se elimina para no dejar duplicados.
+export async function borrarArchivoPermanente(fileId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!fileId) return { ok: false, error: 'sin fileId' }
+  try {
+    const drive = await getDriveGlobal()
+    await drive.files.delete({ fileId, supportsAllDrives: true })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 // Lista archivos que están en la papelera de Drive y fueron movidos a ella
 // después de 'desdeISO' (para aislar un borrado concreto por su fecha). No
 // incluye carpetas. Devuelve id, nombre y nº de byte (para descartar vacíos).
