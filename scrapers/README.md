@@ -59,7 +59,8 @@ Secrets/variables a configurar en GitHub:
 
 ## Ejecución
 
-- **Automática**: cron en `.github/workflows/scraping-diario.yml` (~06:00/07:00 Madrid).
+- **Automática**: cron en `.github/workflows/scraping-diario.yml`, **16:00 y 23:00**
+  (hora de Madrid). El robot saca los datos del día en curso en cada pasada.
 - **Manual / local**:
 
 ```bash

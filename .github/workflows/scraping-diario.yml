@@ -2,8 +2,12 @@ name: Extracción diaria de facturación
 
 on:
   schedule:
-    # 05:00 UTC ≈ 06:00 (invierno) / 07:00 (verano) en Madrid.
-    - cron: '0 5 * * *'
+    # Objetivo: 16:00 y 23:00 hora de Madrid.
+    # GitHub Cron es UTC y no entiende horario de verano, así que disparamos en las
+    # horas UTC que cubren ambas estaciones; run.ts filtra a la hora real de Madrid.
+    #   16:00 Madrid = 14:00 UTC (verano) / 15:00 UTC (invierno)
+    #   23:00 Madrid = 21:00 UTC (verano) / 22:00 UTC (invierno)
+    - cron: '0 14,15,21,22 * * *'
   workflow_dispatch:
     inputs:
       portales:
@@ -20,6 +24,8 @@ jobs:
       IMPORT_BASE: ${{ vars.IMPORT_BASE || 'https://binagre.vercel.app' }}
       IMPORT_SECRET: ${{ secrets.IMPORT_SECRET }}
       SCRAPER_PORTALES: ${{ github.event.inputs.portales || 'uber,glovo,justeat,rushour,bbva' }}
+      # Ejecución manual: forzar sin esperar a la hora objetivo
+      FORZAR: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
       UBER_STORAGE_STATE: ${{ secrets.UBER_STORAGE_STATE }}
       GLOVO_STORAGE_STATE: ${{ secrets.GLOVO_STORAGE_STATE }}
       JUSTEAT_STORAGE_STATE: ${{ secrets.JUSTEAT_STORAGE_STATE }}

@@ -1,8 +1,8 @@
 import type { Download, Page } from 'playwright'
 import type { ArchivoDescargado, FechaRango } from '../tipos.ts'
 
-/** Rango "ayer" en hora de Madrid (YYYY-MM-DD). */
-export function ayerMadrid(): FechaRango {
+/** Fecha en Madrid (YYYY-MM-DD), con desplazamiento opcional de días. */
+export function fechaMadrid(offsetDias = 0): string {
   // en-CA produce formato YYYY-MM-DD
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Madrid',
@@ -10,9 +10,23 @@ export function ayerMadrid(): FechaRango {
     month: '2-digit',
     day: '2-digit',
   })
-  const ayer = new Date(Date.now() - 24 * 3600 * 1000)
-  const f = fmt.format(ayer)
+  return fmt.format(new Date(Date.now() + offsetDias * 24 * 3600 * 1000))
+}
+
+/** Rango de un solo día ('hoy' o 'ayer') en hora de Madrid. */
+export function rangoObjetivo(dia: 'hoy' | 'ayer'): FechaRango {
+  const f = dia === 'ayer' ? fechaMadrid(-1) : fechaMadrid(0)
   return { desde: f, hasta: f }
+}
+
+/** Hora actual (0-23) en Madrid. */
+export function horaMadrid(): number {
+  const fmt = new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  })
+  return Number(fmt.format(new Date()))
 }
 
 /**

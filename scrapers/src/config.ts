@@ -27,3 +27,12 @@ export const ENDPOINT_IMPORT: Record<PlataformaId, string> = {
 
 /** Directorio donde se guardan/cargan los storageState (cookies) en local. */
 export const DIR_SESIONES = process.env.SCRAPER_SESIONES_DIR ?? '.sesiones'
+
+/** Horas (Madrid) a las que debe ejecutarse. Por defecto 16:00 y 23:00. */
+export const HORAS_OBJETIVO: number[] = (process.env.HORAS_OBJETIVO ?? '16,23')
+  .split(',')
+  .map((s) => Number(s.trim()))
+  .filter((n) => !Number.isNaN(n))
+
+/** Día a extraer: 'hoy' (por defecto, hay dos pasadas al día) o 'ayer'. */
+export const DIA_OBJETIVO: 'hoy' | 'ayer' = process.env.DIA_OBJETIVO === 'ayer' ? 'ayer' : 'hoy'

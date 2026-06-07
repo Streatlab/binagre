@@ -1,8 +1,8 @@
 import { chromium } from 'playwright'
 import type { BrowserContextOptions } from 'playwright'
-import { PORTALES_ACTIVOS } from './config.ts'
+import { DIA_OBJETIVO, HORAS_OBJETIVO, PORTALES_ACTIVOS } from './config.ts'
 import { PORTALES } from './portales/index.ts'
-import { ayerMadrid } from './portales/base.ts'
+import { horaMadrid, rangoObjetivo } from './portales/base.ts'
 import { cargarSesion } from './sesion.ts'
 import { importar } from './importar.ts'
 import type { ResultadoPortal } from './tipos.ts'
@@ -15,7 +15,19 @@ import type { ResultadoPortal } from './tipos.ts'
  * Un fallo en un portal NO detiene a los demás. Termina en rojo si hubo algún fallo.
  */
 async function main(): Promise<void> {
-  const fecha = ayerMadrid()
+  // El cron de GitHub se programa en UTC y dispara varias veces para cubrir el
+  // horario de verano/invierno; aquí filtramos a las horas reales de Madrid.
+  // Una ejecución manual (FORZAR=1) se salta el filtro.
+  const forzar = process.env.FORZAR === '1'
+  if (!forzar) {
+    const h = horaMadrid()
+    if (!HORAS_OBJETIVO.includes(h)) {
+      console.log(`No toca ahora (hora Madrid=${h}h, objetivo=${HORAS_OBJETIVO.join('h, ')}h). Saliendo.`)
+      return
+    }
+  }
+
+  const fecha = rangoObjetivo(DIA_OBJETIVO)
   const resultados: ResultadoPortal[] = []
 
   const browser = await chromium.launch({ headless: true })
