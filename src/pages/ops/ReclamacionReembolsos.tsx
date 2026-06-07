@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import {
   useReclamaciones, computeMetricas, computeMetricasPorCanal,
   CANAL_LABELS, TIPO_LABELS, ESTADO_LABELS,
+} from "../../lib/reclamaciones/useReclamaciones";
+import type {
   Reclamacion, Canal, EstadoReclamacion, TipoReclamacion,
 } from "../../lib/reclamaciones/useReclamaciones";
 
@@ -150,14 +152,14 @@ export default function ReclamacionReembolsos() {
               <option key={mes} value={mes}>{new Date(mes + "-01").toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</option>
             ))}
           </select>
-          <select style={selectSt} value={filterCanal} onChange={e => setFilterCanal(e.target.value as any)}>
+          <select style={selectSt} value={filterCanal} onChange={e => setFilterCanal(e.target.value as Canal | "all")}>
             <option value="all">Todas las plataformas</option>
             <option value="uber_eats">Uber Eats</option>
             <option value="glovo">Glovo</option>
             <option value="just_eat">Just Eat</option>
             <option value="web">Web</option>
           </select>
-          <select style={selectSt} value={filterTipo} onChange={e => setFilterTipo(e.target.value as any)}>
+          <select style={selectSt} value={filterTipo} onChange={e => setFilterTipo(e.target.value as TipoReclamacion | "all")}>
             <option value="all">Todos los tipos</option>
             {Object.entries(TIPO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
@@ -255,13 +257,13 @@ export default function ReclamacionReembolsos() {
       {showNew && <ModalReclamacion onClose={() => setShowNew(false)} onSave={async (payload, file) => {
         let foto_url: string | null = null;
         if (file) foto_url = await uploadFoto(file);
-        await insert({ ...payload, foto_url } as any);
+        await insert({ ...payload, foto_url } as Partial<Reclamacion>);
         setShowNew(false);
       }} />}
 
       {editing && <ModalReclamacion existing={editing} onClose={() => setEditing(null)}
         onSave={async (payload, file) => {
-          let patch: any = { ...payload };
+          const patch: Partial<Reclamacion> = { ...payload };
           if (file) patch.foto_url = await uploadFoto(file);
           await update(editing.id, patch);
           setEditing(null);
@@ -390,8 +392,8 @@ function ModalReclamacion({ existing, onClose, onSave, onDelete }: {
         estado, fecha_envio: fechaEnvio || null,
         factura_cobro_periodo: facturaCobroPeriodo || null,
       }, file);
-    } catch (e: any) {
-      setErr(e?.message || "Error al guardar");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -461,18 +463,14 @@ function ModalReclamacion({ existing, onClose, onSave, onDelete }: {
             </Field>
           </div>
 
-          {(estado === "cobrada" || estado === "rechazada") && (
+          {estado === "cobrada" && (
             <div style={fg2}>
-              {estado === "cobrada" && (
-                <>
-                  <Field label="Importe compensado (€)">
-                    <input style={inputSt} value={importeCompensado} onChange={e => setImporteCompensado(e.target.value)} placeholder="0,00" />
-                  </Field>
-                  <Field label="Cobrado en factura">
-                    <input style={inputSt} value={facturaCobroPeriodo} onChange={e => setFacturaCobroPeriodo(e.target.value)} placeholder="Fact. abr-2026" />
-                  </Field>
-                </>
-              )}
+              <Field label="Importe compensado (€)">
+                <input style={inputSt} value={importeCompensado} onChange={e => setImporteCompensado(e.target.value)} placeholder="0,00" />
+              </Field>
+              <Field label="Cobrado en factura">
+                <input style={inputSt} value={facturaCobroPeriodo} onChange={e => setFacturaCobroPeriodo(e.target.value)} placeholder="Fact. abr-2026" />
+              </Field>
             </div>
           )}
 
