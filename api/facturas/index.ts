@@ -12,6 +12,8 @@
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes
  *   GET  /api/facturas?action=health-ocr        → diagnóstico claves OCR de pago (Anthropic + Mistral)
  *   GET  /api/facturas?action=purgar[&lote=NN]  → borra facturas NO resueltas + Drive a papelera (lote)
+ *   GET  /api/facturas?action=papelera-info[&horas=NN] → cuenta archivos en papelera reciente
+ *   GET  /api/facturas?action=recuperar-papelera[&lote=NN&horas=NN] → recupera borrados (lote)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -22,7 +24,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
-import { descargarArchivoDeDrive, borrarArchivoDeDrive } from '../_lib/google-drive.js'
+import { descargarArchivoDeDrive, borrarArchivoDeDrive, restaurarArchivoDeDrive, borrarArchivoPermanente, listarPapeleraReciente } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
@@ -63,6 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
   if (action === 'purgar')        return purgar(req, res)
+  if (action === 'papelera-info') return papeleraInfo(req, res)
+  if (action === 'recuperar-papelera') return recuperarPapelera(req, res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -812,5 +816,62 @@ async function purgar(req: VercelRequest, res: VercelResponse) {
     drive_ok: driveOk,
     drive_fail: driveFail,
     restantes,
+  })
+}
+
+// ── Handler: info de la papelera (solo lectura) ───────────────────────────
+// Cuenta los archivos que fueron enviados a la papelera de Drive en las últimas
+// N horas (para ver qué se puede recuperar de un borrado reciente).
+async function papeleraInfo(req: VercelRequest, res: VercelResponse) {
+  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 72)
+  const desde = new Date(Date.now() - horas * 3600 * 1000).toISOString()
+  const archivos = await listarPapeleraReciente(desde, 1000)
+  return res.status(200).json({
+    desde,
+    total_en_papelera: archivos.length,
+    muestra: archivos.slice(0, 6).map((a) => a.name),
+  })
+}
+
+// ── Handler: recuperar documentos de la papelera ──────────────────────────
+// Para cada archivo enviado a la papelera en las últimas N horas: lo saca de la
+// papelera, lo relee y recrea su factura (con la red de seguridad: queda en
+// Storage + copia en Drive). El duplicado de la papelera se elimina para no
+// dejar copias sueltas. El de-duplicado evita recrear lo que ya existe. Se
+// invoca en bucle (recuperar-papelera&lote=N) hasta terminado:true.
+async function recuperarPapelera(req: VercelRequest, res: VercelResponse) {
+  const horas = Math.min(Math.max(Number(req.query.horas) || 6, 1), 72)
+  const desde = new Date(Date.now() - horas * 3600 * 1000).toISOString()
+  const lote = Math.min(Math.max(Number(req.query.lote) || 8, 1), 20)
+
+  const archivos = await listarPapeleraReciente(desde, lote)
+  if (archivos.length === 0) {
+    return res.status(200).json({ terminado: true, recuperadas: 0, duplicadas: 0, errores: 0, lote: 0 })
+  }
+
+  let recuperadas = 0, duplicadas = 0, errores = 0
+  for (const a of archivos) {
+    try {
+      // Sacar de la papelera primero: aunque luego falle, ya no reaparece en el
+      // listado, de modo que el barrido siempre avanza (no se queda en bucle).
+      await restaurarArchivoDeDrive(a.id)
+      const buffer = await descargarArchivoDeDrive(a.id)
+      const resultados = await procesarArchivo(supabaseAdmin, { nombre: a.name, buffer }, `recup-${Date.now().toString(36)}`)
+      const r = resultados[0]
+      if (!r || r.estado === 'error') { errores++; continue }
+      if (r.estado === 'duplicada') duplicadas++
+      else recuperadas++
+      // Recreada (o ya existía): hay factura + copia nueva archivada.
+      // El original de la papelera ya no hace falta: se elimina (no duplicar).
+      await borrarArchivoPermanente(a.id)
+    } catch {
+      errores++
+    }
+  }
+
+  const quedan = await listarPapeleraReciente(desde, 1)
+  return res.status(200).json({
+    terminado: quedan.length === 0,
+    recuperadas, duplicadas, errores, lote: archivos.length,
   })
 }
