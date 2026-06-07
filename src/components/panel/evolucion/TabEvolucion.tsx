@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v19
+ * Tab Evolución — Panel Global · v20
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -113,12 +113,18 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
     })
   }, [])
 
-  // Solo fila servicio='TODO' (total real del día). Nunca sumar ALM/CENAS (duplicaría / inflaría).
+  // Total real del día. La fila servicio='TODO' es la verdad cuando existe.
+  // Cuando NO hay fila TODO (p.ej. importaciones recientes solo ALM/CENAS), el total = suma de ALM+CENAS,
+  // igual que hace el módulo Facturación al construir la fila "TODOS" al vuelo. Nunca sumar TODO+ALM+CENAS.
   const agg = useMemo(() => {
+    const todoFechas = new Set<string>()
+    for (const r of rowsAll) if ((r as { servicio?: string }).servicio === 'TODO') todoFechas.add(r.fecha)
     const m = new Map<string, Agg>()
     for (const r of rowsAll) {
       const serv = (r as { servicio?: string }).servicio
-      if (serv && serv !== 'TODO') continue
+      // Si existe fila TODO para la fecha, usar solo TODO. Si no existe, usar ALM+CENAS.
+      if (todoFechas.has(r.fecha)) { if (serv !== 'TODO') continue }
+      else { if (serv !== 'ALM' && serv !== 'CENAS') continue }
       const a = m.get(r.fecha) ?? ZERO()
       a.bruto += r.total_bruto || 0; a.ped += r.total_pedidos || 0
       for (const c of CANALES) { a[c.bk] += (r[c.bk as keyof RowFacturacion] as number) || 0; a[c.pk] += (r[c.pk as keyof RowFacturacion] as number) || 0 }
