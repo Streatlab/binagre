@@ -1,0 +1,21 @@
+# 17 archivos a subir sueltos (los unicos sin Drive)
+
+Casi todos son facturas de la luz de Octopus Energy (cada PDF trae varios meses).
+
+1. billing-statement-elect-A-A3A06A5B-2741001.pdf  (luz, dic 2024)
+2. billing-statement-elect-A-A3A06A5B-2760381 (1).pdf  (luz, dic 2024)
+3. billing-statement-elect-A-A3A06A5B-3052393.pdf  (luz, ene 2025)
+4. billing-statement-elect-A-A3A06A5B-3412131.pdf  (luz, feb 2025)
+5. billing-statement-elect-A-A3A06A5B-3693605.pdf  (luz, mar 2025)
+6. billing-statement-elect-A-A3A06A5B-3964020 (1).pdf  (luz, abr 2025)
+7. billing-statement-elect-A-A3A06A5B-4318724 (1).pdf  (luz, may 2025)
+8. billing-statement-elect-A-A3A06A5B-4671269.pdf  (luz, jun 2025)
+9. billing-statement-elect-A-A3A06A5B-4987809.pdf  (luz, jul 2025)
+10. billing-statement-elect-A-A3A06A5B-5414270.pdf  (luz, ago 2025)
+11. billing-statement-elect-A-A3A06A5B-5787135.pdf  (luz, sep 2025)
+12. billing-statement-elect-A-A3A06A5B-6674840.pdf  (luz, nov 2025)
+13. billing-statement-elect-A-A3A06A5B-8155609.pdf  (luz, ene 2026)
+14. N1285032677.PDF  (Uber/TGT, may 2025)
+15. N1285039165.PDF  (TGT, jun 2025)
+16. A-V2025-00005451194.pdf  (Uber Eats, oct 2025)
+17. Detalle_del_movimiento1759146563334.pdf  (Seguridad Social, jul 2025)
