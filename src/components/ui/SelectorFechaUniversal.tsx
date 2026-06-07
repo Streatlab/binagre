@@ -4,7 +4,7 @@ import { fmtFechaCorta } from '@/styles/tokens'
 
 interface SelectorFechaUniversalProps {
   nombreModulo: string
-  onChange: (desde: Date, hasta: Date, label: string) => void
+  onChange: (desde: Date, hasta: Date, label: string, opcion?: Opcion) => void
   defaultOpcion?: Opcion
 }
 
@@ -166,7 +166,7 @@ export default function SelectorFechaUniversal({
         const op = saved.opcion
         if (op === 'semanas_x' && saved.semanaISO && saved.semanaYear) {
           const item = semanas.find(s => s.semanaISO === saved.semanaISO && s.year === saved.semanaYear)
-          if (item) { setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label); return }
+          if (item) { setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label, op); return }
         }
         if (op === 'personalizado' && saved.desde && saved.hasta) {
           const d = new Date(saved.desde + 'T00:00:00')
@@ -175,19 +175,19 @@ export default function SelectorFechaUniversal({
           setOpcion(op)
           setDesdeInput(isoToDisplay(saved.desde))
           setHastaInput(isoToDisplay(saved.hasta))
-          setSelectedLabel(labelPers); onChange(d, h, labelPers); return
+          setSelectedLabel(labelPers); onChange(d, h, labelPers, op); return
         }
         if (!['personalizado', 'semanas_x'].includes(op)) {
           const label = OPCIONES.find(o => o.id === op)?.label ?? 'Semana actual'
           const rango = calcRango(op)
-          setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label); return
+          setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label, op); return
         }
       }
     } catch {}
     if (defaultOpcion === 'semanas_x' || defaultOpcion === 'personalizado') {
-      const rango = calcRango('semana_actual'); onChange(rango.desde, rango.hasta, 'Semana actual')
+      const rango = calcRango('semana_actual'); onChange(rango.desde, rango.hasta, 'Semana actual', 'semana_actual')
     } else {
-      const rango = calcRango(defaultOpcion); onChange(rango.desde, rango.hasta, defaultLabel)
+      const rango = calcRango(defaultOpcion); onChange(rango.desde, rango.hasta, defaultLabel, defaultOpcion)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -217,13 +217,13 @@ export default function SelectorFechaUniversal({
     const rango = calcRango(op)
     setOpcion(op); setSelectedLabel(label); setOpen(false); setSemanaOpen(false)
     persist({ opcion: op, desde: toDateString(rango.desde), hasta: toDateString(rango.hasta) })
-    onChange(rango.desde, rango.hasta, label)
+    onChange(rango.desde, rango.hasta, label, op)
   }
 
   function selectSemana(item: SemanaItem) {
     setOpcion('semanas_x'); setSelectedLabel(item.label); setSemanaOpen(false)
     persist({ opcion: 'semanas_x', desde: toDateString(item.lunes), hasta: toDateString(item.domingo), semanaISO: item.semanaISO, semanaYear: item.year })
-    onChange(item.lunes, item.domingo, item.label)
+    onChange(item.lunes, item.domingo, item.label, 'semanas_x')
   }
 
   function applyPersonalizado() {
@@ -238,7 +238,7 @@ export default function SelectorFechaUniversal({
     const label = `${fmtFechaCorta(desdeIso)} → ${fmtFechaCorta(hastaFinal)}`
     setSelectedLabel(label)
     persist({ opcion: 'personalizado', desde: desdeIso, hasta: hastaFinal })
-    onChange(d, h, label)
+    onChange(d, h, label, 'personalizado')
   }
 
   function handleDesdeBlur() {
