@@ -90,12 +90,6 @@ const CANALES: Array<{ id: string; pvp: keyof RecetaRow; label: string; color: s
 function mean(arr: number[]): number {
   return arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : 0
 }
-function median(arr: number[]): number {
-  if (!arr.length) return 0
-  const s = [...arr].sort((a, b) => a - b)
-  const m = Math.floor(s.length / 2)
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
-}
 function pctTramos(precios: number[], nTramos: number): { rango: [number, number]; n: number; pct: number }[] {
   if (!precios.length) return []
   const min = Math.min(...precios), max = Math.max(...precios)
@@ -152,11 +146,10 @@ export default function MenuEngineering() {
       supabase.from('recetas')
         .select('id,nombre,coste_rac,pvp_uber,pvp_glovo,pvp_je,pvp_web,pvp_real,marca_id')
         .gt('coste_rac', 0),
-      supabase.from('ventas_plato')
-        .select('plato,canal,mes,año,unidades,estimado,origen'),
+      supabase.from('ventas_plato').select('*'),
     ])
     setRecetas((r as RecetaRow[]) ?? [])
-    setVentas((v as VentaRow[]) ?? [])
+    setVentas((v as unknown as VentaRow[]) ?? [])
     setLoading(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
