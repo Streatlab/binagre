@@ -8,10 +8,6 @@ import { UNIDADES, thCls, tdCls, n } from './types'
 import ModalIngrediente from './ModalIngrediente'
 import ModalEPS from './ModalEPS'
 
-// NOTE: This is the restored version from commit 164c4ce.
-// The previous commit (f7e25f3) corrupted this file with a file path reference.
-// TODO: re-apply Prime/Promo comisión ponderada changes from the migration task.
-
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
 interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
@@ -184,12 +180,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
   }, [])
   const addLinea = () => { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }]) }
-  const changeTipo = (idx: number, tipo: 'ING' | 'EPS') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: 'gr.' })
+  const changeTipo = (idx: number, tipo: 'ING' | 'EPS' | 'ENV') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: tipo === 'ENV' ? 'ud.' : 'gr.' })
+  const envases = useMemo(() => ingredientes.filter(i => /_ENV$/.test(i.nombre ?? '')), [ingredientes])
   const selectItem = (idx: number, val: string) => {
     const l = lineas[idx]
-    if (l.tipo === 'ING') {
+    if (l.tipo === 'ING' || l.tipo === 'ENV') {
       const ing = ingredientes.find(i => i.nombre === val)
-      if (ing) updateLinea(idx, { ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std), unidad: ing.ud_min ?? ing.ud_std ?? 'gr.' })
+      if (ing) updateLinea(idx, { ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std), unidad: ing.ud_min ?? ing.ud_std ?? (l.tipo === 'ENV' ? 'ud.' : 'gr.') })
       else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null, eps_id: null })
     } else {
       const ep = epsList.find(e => e.nombre === val)
@@ -322,8 +319,8 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
-                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS')}><option value="ING">ING</option><option value="EPS">EPS</option></select></td>
-                            <td className={tdCls}><input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : 'EPS...'} /><datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist></td>
+                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS' | 'ENV')}><option value="ING">ING</option><option value="EPS">EPS</option><option value="ENV">ENV</option></select></td>
+                            <td className={tdCls}><input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} /><datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : l.tipo === 'ENV' ? envases.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
@@ -425,10 +422,11 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR ING</button>
                     <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: 'none', color: '#66aaff', border: '0.5px solid #66aaff', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR EPS</button>
-                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
+                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else if (tipo === 'ENV') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ENV', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
                       <option value="">Elegir existente...</option>
-                      <optgroup label="INGREDIENTES">{ingredientes.map(i => <option key={i.id} value={`ING::${i.id}`}>{i.nombre}</option>)}</optgroup>
+                      <optgroup label="INGREDIENTES">{ingredientes.filter(i => !/_ENV$/.test(i.nombre ?? '')).map(i => <option key={i.id} value={`ING::${i.id}`}>{i.nombre}</option>)}</optgroup>
                       <optgroup label="EPS">{epsList.map(e => <option key={e.id} value={`EPS::${e.id}`}>{e.nombre}</option>)}</optgroup>
+                      <optgroup label="ENVASES">{envases.map(i => <option key={i.id} value={`ENV::${i.id}`}>{i.nombre}</option>)}</optgroup>
                     </select>
                   </div>
                 </div>
