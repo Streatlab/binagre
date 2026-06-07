@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v21
+ * Tab Evolución — Panel Global · v22
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -238,6 +238,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
   const objTramo = useMemo(() => objetivoRango(pIni, pFinTramo), [objetivoRango, pIni, pFinTramo])
   const objPeriodo = useMemo(() => objetivoRango(pIni, pFin), [objetivoRango, pIni, pFin])
   const pctObj = objTramo > 0 ? (total / objTramo) * 100 : 0
+  const pctObjPeriodo = objPeriodo > 0 ? (total / objPeriodo) * 100 : 0
   const periodoCerrado = pFinTramo >= pFin
 
   // Proyección de cierre REAL (media diaria de días con datos × días totales)
@@ -270,24 +271,25 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
     })
   }, [agg, filtra, canalesFiltro, pIni, pFinTramo, cIni, cFinTramo, marcasPorCanal, configCanales, diasConDatosCanal])
 
-  // Reparto del dia: almuerzo vs cena (tramo actual vs mismo tramo comparado)
+  // Reparto del dia: almuerzo vs cena. Compara día-a-día por POSICIÓN: cada día del tramo actual
+  // contra el MISMO día desplazado (semana/mes/año anterior), y suma. Así almuerzo vs almuerzo de fecha equivalente.
   const franja = useMemo(() => {
-    const sum = (ini: Date, fin: Date) => {
-      let alm = 0, cenas = 0, almPed = 0, cenasPed = 0, hay = false
-      for (let d = new Date(ini); d <= fin; d = addDays(d, 1)) {
-        const a = aggServ.get(toLocal(d))
-        if (a) { hay = true; alm += a.alm; cenas += a.cenas; almPed += a.almPed; cenasPed += a.cenasPed }
-      }
-      const tot = alm + cenas
-      return { alm, cenas, almPed, cenasPed, tot, pctAlm: tot > 0 ? (alm / tot) * 100 : 0, pctCenas: tot > 0 ? (cenas / tot) * 100 : 0, hay }
+    let alm = 0, cenas = 0, almPed = 0, cenasPed = 0, hay = false
+    let almC = 0, cenasC = 0, almPedC = 0, cenasPedC = 0, hayC = false
+    for (let d = new Date(pIni); d <= pFinTramo; d = addDays(d, 1)) {
+      const a = aggServ.get(toLocal(d))
+      if (a) { hay = true; alm += a.alm; cenas += a.cenas; almPed += a.almPed; cenasPed += a.cenasPed }
+      const c = aggServ.get(toLocal(shiftD(d, comp)))
+      if (c) { hayC = true; almC += c.alm; cenasC += c.cenas; almPedC += c.almPed; cenasPedC += c.cenasPed }
     }
-    const act = sum(pIni, pFinTramo)
-    const cmp = sum(cIni, cFinTramo)
+    const tot = alm + cenas, totC = almC + cenasC
+    const act = { alm, cenas, almPed, cenasPed, tot, pctAlm: tot > 0 ? (alm / tot) * 100 : 0, pctCenas: tot > 0 ? (cenas / tot) * 100 : 0, hay }
+    const cmp = { alm: almC, cenas: cenasC, almPed: almPedC, cenasPed: cenasPedC, tot: totC, pctAlm: totC > 0 ? (almC / totC) * 100 : 0, pctCenas: totC > 0 ? (cenasC / totC) * 100 : 0, hay: hayC }
     const dAlm = cmp.hay && cmp.alm > 0 ? ((act.alm - cmp.alm) / cmp.alm) * 100 : null
     const dCenas = cmp.hay && cmp.cenas > 0 ? ((act.cenas - cmp.cenas) / cmp.cenas) * 100 : null
     const dPctAlm = cmp.hay ? act.pctAlm - cmp.pctAlm : null
     return { act, cmp, dAlm, dCenas, dPctAlm }
-  }, [aggServ, pIni, pFinTramo, cIni, cFinTramo])
+  }, [aggServ, pIni, pFinTramo, comp])
 
   // Movimiento en calendario: cada día L-D actual vs misma posición del comparado
   const calBars = useMemo(() => {
@@ -350,6 +352,13 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
             <span style={{ color: NARANJA_TM }}>TM {nf2(tm)}</span>
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.4vw,24px)', fontWeight: 600, color: frase.color, letterSpacing: '0.3px' }}>{frase.txt}</div>
+          {objPeriodo > 0 && total > 0 && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
+              {total < objPeriodo
+                ? <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Para el objetivo faltan</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: ROJO }}>{nf2(objPeriodo - total)}</span><span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>de {nf0(objPeriodo)} ({pctObjPeriodo.toFixed(0)}% logrado)</span></>
+                : <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Objetivo superado en</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE }}>{nf2(total - objPeriodo)}</span><span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>({pctObjPeriodo.toFixed(0)}% del objetivo)</span></>}
+            </div>
+          )}
           {!periodoCerrado && proy > 0 && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 4, paddingTop: 10, borderTop: `0.5px solid ${BORDE}` }}>
               <span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Proyección de cierre</span>
