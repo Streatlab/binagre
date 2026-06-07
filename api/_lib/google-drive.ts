@@ -2,12 +2,19 @@
 // + archivado legible: las facturas que llegan como HTML/.txt (Just Eat) se
 //   convierten a un PDF legible antes de archivarlas, para que el clip muestre
 //   la factura y no el código crudo.
+// + RED DE SEGURIDAD (cero pérdida): cada documento se copia SIEMPRE al bucket
+//   de Storage 'facturas' (infra propia) antes de subirse a Drive, y la subida
+//   a Drive se reintenta. Así ningún documento puede perderse aunque Drive falle.
+// + restaurar/listar papelera, para recuperar documentos borrados.
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
 import { mimeTypeParaExtension } from './detectarTipo.js'
 import { getOAuthClient, tieneDriveConectado } from './google-oauth.js'
 import { pareceHtml, htmlATexto } from './extractores.js'
+import { supabaseAdmin } from './supabase-admin.js'
 import { jsPDF } from 'jspdf'
+
+const STORAGE_BUCKET = 'facturas'
 
 type DriveExtracted = {
   proveedor_nombre: string
@@ -20,6 +27,8 @@ type DriveExtracted = {
 
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '1dB6REknvNI8JxGGuv8MXloUCJ3_evd7H'
 const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || ''
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function getDriveGlobal(): Promise<drive_v3.Drive> {
   const oauthStatus = await tieneDriveConectado()
@@ -101,6 +110,20 @@ export function generarNombreArchivo(extracted: DriveExtracted, ext: string): st
   return `${proveedor}_${numero}_${fecha}.${extClean}`
 }
 
+// Niveles de carpeta (TITULAR/AÑO/T/MES/TIPO) que comparten Drive y Storage.
+function nivelesCarpeta(extracted: DriveExtracted): string[] {
+  const fecha = new Date(extracted.fecha_factura)
+  const año = String(fecha.getFullYear())
+  const tri = trimestre(fecha)
+  const mes = MESES[fecha.getMonth()]
+  const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
+  const carpetaTitular = (extracted.carpeta_titular || 'SIN_TITULAR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+  return [carpetaTitular, año, tri, mes, carpetaTipo]
+}
+
 // Genera un PDF A4 legible (multipágina) a partir de texto plano. Se usa para
 // archivar como documento legible las facturas que llegan en HTML/.txt (Just
 // Eat), de modo que al pinchar el clip se vea la factura y no el código crudo.
@@ -126,12 +149,27 @@ function textoLegibleAPdf(texto: string, datos: DriveExtracted): Buffer {
   return Buffer.from(doc.output('arraybuffer'))
 }
 
+// Copia de seguridad en Storage propio. Es la garantía de "cero pérdida":
+// pase lo que pase con Drive, el original queda guardado aquí al instante.
+async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: string): Promise<boolean> {
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const { error } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .upload(path, buffer, { contentType: mimeType, upsert: true })
+      if (!error) return true
+    } catch { /* reintentar */ }
+    await sleep(400)
+  }
+  return false
+}
+
 export async function subirArchivoADrive(
   buffer: Buffer,
   nombre: string,
   extracted: DriveExtracted,
   ext: string,
-): Promise<{ id: string; webViewLink: string | null }> {
+): Promise<{ id: string; webViewLink: string | null; storagePath: string; driveOk: boolean }> {
   const drive = await getDriveGlobal()
 
   // Just Eat y similares llegan como .txt/.html/.eml con el HTML de la factura
@@ -150,43 +188,51 @@ export async function subirArchivoADrive(
     } catch { /* se sube el original */ }
   }
 
-  const fecha = new Date(extracted.fecha_factura)
-  const año = String(fecha.getFullYear())
-  const tri = trimestre(fecha)
-  const mes = MESES[fecha.getMonth()]
-  const carpetaTipo = extracted.tipo === 'plataforma' ? 'PLATAFORMAS' : 'PROVEEDORES'
-  const rawTitular = extracted.carpeta_titular || 'SIN_TITULAR'
-  const carpetaTitular = rawTitular
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
+  const niveles = nivelesCarpeta(extracted)
+  const mimeType = mimeTypeParaExtension(ext)
+  const storagePath = [...niveles, nombre].join('/')
 
-  const anclaId: string | null = ROOT_FOLDER_ID || null
+  // ── RED DE SEGURIDAD: respaldo en Storage propio ANTES de tocar Drive ──────
+  // Si esto falla, no damos el documento por archivado: se lanza error para que
+  // el flujo lo marque y se reintente, nunca se pierde en silencio.
+  const respaldoOk = await guardarRespaldoStorage(storagePath, buffer, mimeType)
+  if (!respaldoOk) {
+    throw new Error('No se pudo respaldar el documento en Storage (no se archiva sin copia segura).')
+  }
+
+  // ── Drive con reintentos (3 intentos) ─────────────────────────────────────
   let folderId: string
-  if (anclaId) {
-    folderId = anclaId
+  if (ROOT_FOLDER_ID) {
+    folderId = ROOT_FOLDER_ID
   } else {
     folderId = await getOrCreateFolder(drive, 'STREATLAB_FACTURAS', null)
   }
-  for (const nivel of [carpetaTitular, año, tri, mes, carpetaTipo]) {
+  for (const nivel of niveles) {
     folderId = await getOrCreateFolder(drive, nivel, folderId)
   }
 
-  const mimeType = mimeTypeParaExtension(ext)
-  const { data: uploaded } = await drive.files.create({
-    requestBody: {
-      name: nombre,
-      parents: [folderId],
-    },
-    media: {
-      mimeType,
-      body: Readable.from(buffer),
-    },
-    fields: 'id, webViewLink',
-    supportsAllDrives: true,
-  })
+  let driveId: string | null = null
+  let webViewLink: string | null = null
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const { data: uploaded } = await drive.files.create({
+        requestBody: { name: nombre, parents: [folderId] },
+        media: { mimeType, body: Readable.from(buffer) },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true,
+      })
+      driveId = uploaded.id || null
+      webViewLink = uploaded.webViewLink || null
+      if (driveId) break
+    } catch {
+      if (intento < 3) await sleep(intento * 800)
+    }
+  }
 
-  return { id: uploaded.id!, webViewLink: uploaded.webViewLink || null }
+  // Aunque Drive haya fallado las 3 veces, el original está a salvo en Storage.
+  // Se devuelve driveOk=false para que el llamador lo marque y un barrido
+  // posterior lo suba a Drive desde el respaldo. El documento NO se pierde.
+  return { id: driveId || '', webViewLink, storagePath, driveOk: !!driveId }
 }
 
 // Descarga el contenido de un archivo de Drive por su ID. Usado por el
@@ -198,6 +244,18 @@ export async function descargarArchivoDeDrive(fileId: string): Promise<Buffer> {
     { responseType: 'arraybuffer' },
   )
   return Buffer.from(res.data as ArrayBuffer)
+}
+
+// Descarga el contenido de un objeto del respaldo de Storage por su ruta.
+export async function descargarRespaldoStorage(path: string): Promise<Buffer | null> {
+  try {
+    const { data, error } = await supabaseAdmin.storage.from(STORAGE_BUCKET).download(path)
+    if (error || !data) return null
+    const ab = await data.arrayBuffer()
+    return Buffer.from(ab)
+  } catch {
+    return null
+  }
 }
 
 // Borra (envía a la papelera) un archivo de Drive por su ID. Usado al eliminar
@@ -216,6 +274,43 @@ export async function borrarArchivoDeDrive(fileId: string): Promise<{ ok: boolea
   }
 }
 
+// Restaura un archivo de la papelera de Drive (trashed=false). Para recuperar
+// documentos borrados por error.
+export async function restaurarArchivoDeDrive(fileId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!fileId) return { ok: false, error: 'sin fileId' }
+  try {
+    const drive = await getDriveGlobal()
+    await drive.files.update({ fileId, requestBody: { trashed: false }, supportsAllDrives: true })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// Lista archivos que están en la papelera de Drive y fueron movidos a ella
+// después de 'desdeISO' (para aislar un borrado concreto por su fecha). No
+// incluye carpetas. Devuelve id, nombre y nº de byte (para descartar vacíos).
+export async function listarPapeleraReciente(
+  desdeISO: string,
+  limit = 100,
+): Promise<{ id: string; name: string; size: number }[]> {
+  const drive = await getDriveGlobal()
+  const q = `trashed=true and mimeType!='application/vnd.google-apps.folder' and modifiedTime > '${desdeISO}'`
+  const { data } = await drive.files.list({
+    q,
+    fields: 'files(id,name,size)',
+    pageSize: Math.min(Math.max(limit, 1), 1000),
+    orderBy: 'modifiedTime',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  })
+  return (data.files || []).map((f) => ({
+    id: f.id as string,
+    name: (f.name as string) || '',
+    size: Number(f.size || 0),
+  }))
+}
+
 export async function subirPdfADrive(
   buffer: Buffer,
   nombre: string,
@@ -223,5 +318,6 @@ export async function subirPdfADrive(
 ): Promise<{ id: string; webViewLink: string | null }> {
   const extMatch = nombre.match(/\.([a-z0-9]+)$/i)
   const ext = extMatch ? extMatch[1] : 'pdf'
-  return subirArchivoADrive(buffer, nombre, extracted, ext)
+  const r = await subirArchivoADrive(buffer, nombre, extracted, ext)
+  return { id: r.id, webViewLink: r.webViewLink }
 }
