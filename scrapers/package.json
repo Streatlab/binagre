@@ -1,0 +1,20 @@
+{
+  "name": "binagre-scrapers",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Extracción diaria automática de facturación desde portales (Uber Eats, Glovo, Just Eat, Rushour) y banco (BBVA) con navegador headless. Alimenta el pipeline de importación del ERP.",
+  "scripts": {
+    "run": "tsx src/run.ts",
+    "login": "tsx src/auth/login.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright": "^1.49.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "typescript": "~6.0.2"
+  }
+}

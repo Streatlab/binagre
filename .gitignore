@@ -31,6 +31,11 @@ dist-ssr
 # OS
 Thumbs.db
 
+# Scrapers — sesiones (cookies = secretos) y env local
+scrapers/.sesiones/
+scrapers/.env
+scrapers/node_modules
+
 # Claude Code
 .claude/
 .vercel

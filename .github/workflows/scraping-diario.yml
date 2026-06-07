@@ -1,0 +1,38 @@
+name: Extracción diaria de facturación
+
+on:
+  schedule:
+    # 05:00 UTC ≈ 06:00 (invierno) / 07:00 (verano) en Madrid.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      portales:
+        description: 'Portales a ejecutar (coma-separados)'
+        default: 'uber,glovo,justeat,rushour,bbva'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scrapers
+    env:
+      IMPORT_BASE: ${{ vars.IMPORT_BASE || 'https://binagre.vercel.app' }}
+      IMPORT_SECRET: ${{ secrets.IMPORT_SECRET }}
+      SCRAPER_PORTALES: ${{ github.event.inputs.portales || 'uber,glovo,justeat,rushour,bbva' }}
+      UBER_STORAGE_STATE: ${{ secrets.UBER_STORAGE_STATE }}
+      GLOVO_STORAGE_STATE: ${{ secrets.GLOVO_STORAGE_STATE }}
+      JUSTEAT_STORAGE_STATE: ${{ secrets.JUSTEAT_STORAGE_STATE }}
+      RUSHOUR_STORAGE_STATE: ${{ secrets.RUSHOUR_STORAGE_STATE }}
+      BBVA_STORAGE_STATE: ${{ secrets.BBVA_STORAGE_STATE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Ejecutar extracción
+        run: npm run run
