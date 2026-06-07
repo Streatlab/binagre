@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v18
+ * Tab Evolución — Panel Global · v19
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -127,6 +127,20 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
     return m
   }, [rowsAll])
 
+  // Agregado ALM / CENAS por fecha (reparto del día). 'TODO' es el total y se excluye aqui.
+  const aggServ = useMemo(() => {
+    const m = new Map<string, { alm: number; cenas: number; almPed: number; cenasPed: number }>()
+    for (const r of rowsAll) {
+      const serv = (r as { servicio?: string }).servicio
+      if (serv !== 'ALM' && serv !== 'CENAS') continue
+      const a = m.get(r.fecha) ?? { alm: 0, cenas: 0, almPed: 0, cenasPed: 0 }
+      if (serv === 'ALM') { a.alm += r.total_bruto || 0; a.almPed += r.total_pedidos || 0 }
+      else { a.cenas += r.total_bruto || 0; a.cenasPed += r.total_pedidos || 0 }
+      m.set(r.fecha, a)
+    }
+    return m
+  }, [rowsAll])
+
   const filtra = canalesFiltro.length > 0
   const brutoDia = useCallback((f: string): number | null => {
     const a = agg.get(f); if (!a) return null
@@ -249,6 +263,25 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
       }
     })
   }, [agg, filtra, canalesFiltro, pIni, pFinTramo, cIni, cFinTramo, marcasPorCanal, configCanales, diasConDatosCanal])
+
+  // Reparto del dia: almuerzo vs cena (tramo actual vs mismo tramo comparado)
+  const franja = useMemo(() => {
+    const sum = (ini: Date, fin: Date) => {
+      let alm = 0, cenas = 0, almPed = 0, cenasPed = 0, hay = false
+      for (let d = new Date(ini); d <= fin; d = addDays(d, 1)) {
+        const a = aggServ.get(toLocal(d))
+        if (a) { hay = true; alm += a.alm; cenas += a.cenas; almPed += a.almPed; cenasPed += a.cenasPed }
+      }
+      const tot = alm + cenas
+      return { alm, cenas, almPed, cenasPed, tot, pctAlm: tot > 0 ? (alm / tot) * 100 : 0, pctCenas: tot > 0 ? (cenas / tot) * 100 : 0, hay }
+    }
+    const act = sum(pIni, pFinTramo)
+    const cmp = sum(cIni, cFinTramo)
+    const dAlm = cmp.hay && cmp.alm > 0 ? ((act.alm - cmp.alm) / cmp.alm) * 100 : null
+    const dCenas = cmp.hay && cmp.cenas > 0 ? ((act.cenas - cmp.cenas) / cmp.cenas) * 100 : null
+    const dPctAlm = cmp.hay ? act.pctAlm - cmp.pctAlm : null
+    return { act, cmp, dAlm, dCenas, dPctAlm }
+  }, [aggServ, pIni, pFinTramo, cIni, cFinTramo])
 
   // Movimiento en calendario: cada día L-D actual vs misma posición del comparado
   const calBars = useMemo(() => {
@@ -441,6 +474,48 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
           <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>({semCal.lbl})</span>
           {semCal.delta != null && <span style={{ fontFamily: LEXEND, fontSize: 14, fontWeight: 600, color: colorDelta(semCal.delta) }}>{semCal.delta >= 0 ? '▲ +' : '▼ '}{Math.abs(semCal.delta).toFixed(1)}%</span>}
         </div>
+      </div>
+
+      {/* REPARTO DEL DÍA · ALMUERZO vs CENA */}
+      <div style={{ ...card, marginTop: 14 }}>
+        <div style={{ ...lblS, marginBottom: 4 }}>Reparto del día · almuerzo vs cena · vs {labelComp}</div>
+        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 16 }}>Cómo se reparte la facturación entre el turno de comidas y el de cenas, y cómo evoluciona frente a {labelComp}.</div>
+
+        {franja.act.tot === 0 ? (
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin desglose de almuerzo/cena en este tramo.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {([
+              { key: 'alm', label: 'Almuerzo', col: NARANJA_TM, bruto: franja.act.alm, ped: franja.act.almPed, pct: franja.act.pctAlm, pctC: franja.cmp.pctAlm, d: franja.dAlm },
+              { key: 'cenas', label: 'Cena', col: AZUL_PED, bruto: franja.act.cenas, ped: franja.act.cenasPed, pct: franja.act.pctCenas, pctC: franja.cmp.pctCenas, d: franja.dCenas },
+            ] as const).map(f => (
+              <div key={f.key} style={{ background: `${f.col}1a`, border: `0.5px solid ${f.col}`, borderRadius: 14, padding: '16px 18px' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: f.col, marginBottom: 6 }}>{f.label}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: '#111' }}>{nf2(f.bruto)}</span>
+                  <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: f.col }}>{f.pct.toFixed(0)}%</span>
+                </div>
+                <div style={{ fontFamily: LEXEND, fontSize: 13, fontWeight: 600, color: colorDelta(f.d), marginTop: 3, marginBottom: 12 }}>{f.d == null ? 'sin comparativa' : `${f.d >= 0 ? '▲ +' : '▼ '}${Math.abs(f.d).toFixed(1)}% vs ${labelComp}`}</div>
+                <div style={{ height: 10, background: TRACK, borderRadius: 5, marginBottom: 6 }}>
+                  <div style={{ height: 10, width: `${Math.min(f.pct, 100)}%`, background: f.col, borderRadius: 5 }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut }}>
+                  <span>{nf0(f.ped)} pedidos</span>
+                  <span>{labelComp}: {f.pctC.toFixed(0)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {franja.dPctAlm != null && franja.act.tot > 0 && (
+          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(15px,2vw,18px)', fontWeight: 600, marginTop: 14, color: Math.abs(franja.dPctAlm) < 2 ? COLOR.textSec : franja.dPctAlm > 0 ? NARANJA_TM : AZUL_PED }}>
+            {Math.abs(franja.dPctAlm) < 2
+              ? 'El reparto comida/cena se mantiene estable.'
+              : franja.dPctAlm > 0
+                ? `El almuerzo gana peso: +${franja.dPctAlm.toFixed(1)} puntos sobre el total vs ${labelComp}.`
+                : `La cena gana peso: +${Math.abs(franja.dPctAlm).toFixed(1)} puntos sobre el total vs ${labelComp}.`}
+          </div>
+        )}
       </div>
     </div>
   )
