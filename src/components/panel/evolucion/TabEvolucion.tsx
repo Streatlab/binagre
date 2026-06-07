@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v20
+ * Tab Evolución — Panel Global · v21
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -67,11 +67,11 @@ const BATERIA: FraseDef[] = [
   { cond: e => e.pctObj >= 100, txt: e => `Objetivo superado (${e.pctObj.toFixed(0)}%). A mantener el nivel.`, color: () => POS },
   { cond: e => e.pctObj < 100 && e.diasRest > 0 && e.proy >= e.obj && e.obj > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del tramo, pero al ritmo actual cerrarías por encima del objetivo.`, color: () => POS },
   { cond: e => e.pctObj >= 90 && e.pctObj < 100 && e.diasRest > 0, txt: e => `Muy cerca: ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
-  { cond: e => e.hayComp && (e.dV ?? 0) >= 10, txt: e => `Facturación +${(e.dV ?? 0).toFixed(0)}% vs ${e.labelComp} (mismo tramo). Tendencia al alza.`, color: () => POS },
-  { cond: e => e.hayComp && (e.dV ?? 0) > 0 && (e.dV ?? 0) < 10, txt: e => `Ligeramente por encima de ${e.labelComp} (+${(e.dV ?? 0).toFixed(1)}%, mismo tramo).`, color: () => POS },
-  { cond: e => e.hayComp && Math.abs(e.dV ?? 0) <= 1, txt: e => `En línea con ${e.labelComp} (mismo tramo). Sin cambios relevantes.`, color: () => NEU },
-  { cond: e => e.hayComp && (e.dV ?? 0) <= -15, txt: e => `Atención: facturación ${(e.dV ?? 0).toFixed(0)}% vs ${e.labelComp} (mismo tramo). Hay que reaccionar.`, color: () => NEG },
-  { cond: e => e.hayComp && (e.dV ?? 0) < 0, txt: e => `Por debajo de ${e.labelComp} (${(e.dV ?? 0).toFixed(1)}%, mismo tramo). Margen de mejora.`, color: () => NEG },
+  { cond: e => e.hayComp && (e.dV ?? 0) >= 10, txt: e => `Vas +${(e.dV ?? 0).toFixed(0)}% por encima de ${e.labelComp} en los mismos días. Tendencia al alza.`, color: () => POS },
+  { cond: e => e.hayComp && (e.dV ?? 0) > 0 && (e.dV ?? 0) < 10, txt: e => `Vas ${(e.dV ?? 0).toFixed(1)}% por encima de ${e.labelComp} en los mismos días.`, color: () => POS },
+  { cond: e => e.hayComp && Math.abs(e.dV ?? 0) <= 1, txt: e => `Vas igual que ${e.labelComp} en los mismos días. Sin cambios.`, color: () => NEU },
+  { cond: e => e.hayComp && (e.dV ?? 0) <= -15, txt: e => `Atención: vas ${Math.abs(e.dV ?? 0).toFixed(0)}% por debajo de ${e.labelComp} en los mismos días. Hay que reaccionar.`, color: () => NEG },
+  { cond: e => e.hayComp && (e.dV ?? 0) < 0, txt: e => `Vas ${Math.abs(e.dV ?? 0).toFixed(1)}% por debajo de ${e.labelComp} en los mismos días. Hay margen para remontar.`, color: () => NEG },
   { cond: e => e.hayComp && (e.dP ?? 0) <= -10, txt: e => `Caen los pedidos (${(e.dP ?? 0).toFixed(0)}% vs ${e.labelComp}). Revisar visibilidad/promos.`, color: () => NEG },
   { cond: e => e.hayComp && (e.dP ?? 0) >= 10, txt: e => `Más pedidos que ${e.labelComp} (+${(e.dP ?? 0).toFixed(0)}%). Buen empuje de demanda.`, color: () => POS },
   { cond: e => e.hayComp && (e.dT ?? 0) >= 5, txt: e => `Ticket medio +${(e.dT ?? 0).toFixed(1)}% vs ${e.labelComp}. Suben los carritos.`, color: () => POS },
@@ -384,8 +384,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
                     </div>
                   </div>
                   <span style={{ fontFamily: LEXEND, fontSize: periodo === 'anio' ? 10 : 12, color: s.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: s.esActual ? 700 : 400, marginTop: 6, height: 15 }}>{s.nombre}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: colorDelta(s.dV), height: 14, lineHeight: '14px' }}>{s.dV != null ? `${s.dV >= 0 ? '▲' : '▼'}${Math.abs(s.dV).toFixed(0)}%` : ''}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: colorDelta(s.dV), height: 13, lineHeight: '13px' }}>{dif != null ? `${dif >= 0 ? '+' : '−'}${nf0(Math.abs(dif))}` : ''}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: colorDelta(s.dV), height: 17, lineHeight: '17px' }}>{s.dV != null ? `${s.dV >= 0 ? '▲' : '▼'}${Math.abs(s.dV).toFixed(0)}%` : ''}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colorDelta(s.dV), height: 17, lineHeight: '17px' }}>{dif != null ? `${dif >= 0 ? '+' : '−'}${nf0(Math.abs(dif))}` : ''}</span>
                 </div>
               )
             })}
@@ -394,17 +394,17 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
 
         {/* TICKET MEDIO (estilo Resumen): actual naranja + comparado gris, por día */}
         <div style={card}>
-          <div style={{ ...lblS, marginBottom: 12 }}>Ticket medio · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</div>
+          <div style={{ ...lblS, marginBottom: 12 }}>Ticket medio</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: NARANJA_TM }}>{nf2(tm)}</div>
               <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: NARANJA_TM, fontWeight: 500 }}>TM actual</div>
             </div>
             <div>
-              <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: GRIS_COMP }}>{tmC > 0 ? nf2(tmC) : '—'}</div>
+              <div style={{ fontFamily: OSWALD, fontSize: 32, fontWeight: 600, color: GRIS_COMP }}>{tmC > 0 ? nf2(tmC) : '—'}</div>
               <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS_COMP, fontWeight: 500 }}>{labelComp}</div>
             </div>
-            {dTM != null && <span style={{ fontFamily: LEXEND, fontSize: 13, fontWeight: 600, color: colorDelta(dTM) }}>{dTM >= 0 ? '▲ +' : '▼ '}{Math.abs(dTM).toFixed(1)}%</span>}
+            {dTM != null && <span style={{ fontFamily: LEXEND, fontSize: 16, fontWeight: 700, color: colorDelta(dTM) }}>{dTM >= 0 ? '▲ +' : '▼ '}{Math.abs(dTM).toFixed(1)}%</span>}
           </div>
           {seg.map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -413,10 +413,9 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
                 <div style={{ height: 10, width: `${Math.min(((s.tm || 0) / maxTM) * 100, 100)}%`, background: s.color, borderRadius: 5 }} />
               </div>
               <span style={{ minWidth: 48, textAlign: 'right', fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: s.tm != null ? NARANJA_TM : COLOR.textMut }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
-              <span style={{ minWidth: 44, textAlign: 'right', fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: GRIS_COMP }}>{s.tmH != null ? nf2(s.tmH) : '—'}</span>
+              <span style={{ minWidth: 48, textAlign: 'right', fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: GRIS_COMP }}>{s.tmH != null ? nf2(s.tmH) : '—'}</span>
             </div>
           ))}
-          <div style={{ fontFamily: LEXEND, fontSize: 10, color: COLOR.textMut, marginTop: 4 }}>Naranja: actual · Gris: {labelComp}</div>
         </div>
       </div>
 
@@ -429,24 +428,23 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
               <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.color, marginBottom: 6 }}>{c.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontFamily: OSWALD, fontSize: 28, fontWeight: 600, color: '#111' }}>{nf2(c.b)}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 500, color: GRIS_COMP }}>{c.bc > 0 ? nf0(c.bc) : '—'}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 28, fontWeight: 600, color: GRIS_COMP }}>{c.bc > 0 ? nf2(c.bc) : '—'}</span>
               </div>
-              <div style={{ fontFamily: LEXEND, fontSize: 13, fontWeight: 600, color: colorDelta(c.delta), marginTop: 3, marginBottom: 12 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}%`}</div>
+              <div style={{ fontFamily: LEXEND, fontSize: 16, fontWeight: 700, color: colorDelta(c.delta), marginTop: 3, marginBottom: 12 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}%`}</div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '4px 8px', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: AZUL_PED }}>Pedidos</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: AZUL_PED, textAlign: 'right' }}>{nf0(c.ped)}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: GRIS_COMP, textAlign: 'right', minWidth: 38 }}>{c.pedC > 0 ? nf0(c.pedC) : '—'}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: AZUL_PED }}>Pedidos</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: AZUL_PED, textAlign: 'right' }}>{nf0(c.ped)}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 500, color: GRIS_COMP, textAlign: 'right', minWidth: 44 }}>{c.pedC > 0 ? nf0(c.pedC) : '—'}</span>
 
-                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: NARANJA_TM }}>TM bruto</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: NARANJA_TM, textAlign: 'right' }}>{nf2(c.tmBruto)}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: GRIS_COMP, textAlign: 'right' }}>{c.tmBrutoC > 0 ? nf2(c.tmBrutoC) : '—'}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: NARANJA_TM }}>TM bruto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: NARANJA_TM, textAlign: 'right' }}>{nf2(c.tmBruto)}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 500, color: GRIS_COMP, textAlign: 'right' }}>{c.tmBrutoC > 0 ? nf2(c.tmBrutoC) : '—'}</span>
 
-                <span style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.2px', textTransform: 'uppercase', color: VERDE }}>TM neto</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: VERDE, textAlign: 'right' }}>{nf2(c.tmNeto)}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 500, color: GRIS_COMP, textAlign: 'right' }}>{c.tmNetoC > 0 ? nf2(c.tmNetoC) : '—'}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: VERDE }}>TM neto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE, textAlign: 'right' }}>{nf2(c.tmNeto)}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 500, color: GRIS_COMP, textAlign: 'right' }}>{c.tmNetoC > 0 ? nf2(c.tmNetoC) : '—'}</span>
               </div>
-              <div style={{ fontFamily: LEXEND, fontSize: 10, color: COLOR.textMut, marginTop: 8 }}>Izq: actual · Der gris: {labelComp}</div>
             </div>
           ))}
         </div>
@@ -461,31 +459,30 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
             const hH = b.hist != null && b.hist > 0 ? Math.max((b.hist / maxCalBar) * 120, 2) : 0
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                <span style={{ fontFamily: OSWALD, fontSize: 13, fontWeight: 700, color: b.futuro ? COLOR.textMut : COLOR.textPri, height: 17 }}>{b.real != null ? nf0(b.real) : '—'}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 700, color: b.futuro ? COLOR.textMut : COLOR.textPri, height: 20 }}>{b.real != null ? nf0(b.real) : '—'}</span>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
                   <div style={{ width: 16, height: h, background: b.futuro ? TRACK : b.color, borderRadius: '3px 3px 0 0', opacity: b.futuro ? 0.4 : 1 }} title="actual" />
                   <div style={{ width: 10, height: hH, background: `${b.color}55`, borderRadius: '3px 3px 0 0' }} title="comparado" />
                 </div>
                 <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: b.esActual ? 700 : 400, marginTop: 6, height: 16 }}>{b.nombre}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 12, fontWeight: 500, color: GRIS_COMP, height: 15 }}>{b.hist != null ? nf0(b.hist) : '—'}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: colorDelta(b.delta), height: 14 }}>{b.delta != null ? `${b.delta >= 0 ? '▲' : '▼'}${Math.abs(b.delta).toFixed(0)}%` : ''}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, color: GRIS_COMP, height: 18 }}>{b.hist != null ? nf0(b.hist) : '—'}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: colorDelta(b.delta), height: 17 }}>{b.delta != null ? `${b.delta >= 0 ? '▲' : '▼'}${Math.abs(b.delta).toFixed(0)}%` : ''}</span>
               </div>
             )
           })}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingTop: 12, borderTop: `0.5px solid ${BORDE}`, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec }}>{semCal.w}ª semana del mes</span>
-          <span style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: semCal.cur == null ? COLOR.textMut : COLOR.textPri }}>{semCal.cur != null ? nf0(semCal.cur) : '—'}</span>
-          <span style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 500, color: GRIS_COMP }}>{semCal.hist != null ? nf0(semCal.hist) : '—'}</span>
+          <span style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: semCal.cur == null ? COLOR.textMut : VERDE }}>{semCal.cur != null ? nf0(semCal.cur) : '—'}</span>
+          <span style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 500, color: GRIS_COMP }}>{semCal.hist != null ? nf0(semCal.hist) : '—'}</span>
           <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>({semCal.lbl})</span>
-          {semCal.delta != null && <span style={{ fontFamily: LEXEND, fontSize: 14, fontWeight: 600, color: colorDelta(semCal.delta) }}>{semCal.delta >= 0 ? '▲ +' : '▼ '}{Math.abs(semCal.delta).toFixed(1)}%</span>}
+          {semCal.delta != null && <span style={{ fontFamily: LEXEND, fontSize: 17, fontWeight: 700, color: colorDelta(semCal.delta) }}>{semCal.delta >= 0 ? '▲ +' : '▼ '}{Math.abs(semCal.delta).toFixed(1)}%</span>}
         </div>
       </div>
 
       {/* REPARTO DEL DÍA · ALMUERZO vs CENA */}
       <div style={{ ...card, marginTop: 14 }}>
-        <div style={{ ...lblS, marginBottom: 4 }}>Reparto del día · almuerzo vs cena · vs {labelComp}</div>
-        <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut, marginBottom: 16 }}>Cómo se reparte la facturación entre el turno de comidas y el de cenas, y cómo evoluciona frente a {labelComp}.</div>
+        <div style={{ ...lblS, marginBottom: 14 }}>Almuerzo vs cena · vs {labelComp}</div>
 
         {franja.act.tot === 0 ? (
           <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin desglose de almuerzo/cena en este tramo.</div>
