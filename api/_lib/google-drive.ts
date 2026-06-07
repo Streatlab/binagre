@@ -152,7 +152,7 @@ function textoLegibleAPdf(texto: string, datos: DriveExtracted): Buffer {
 // Copia de seguridad en Storage propio. Es la garantía de "cero pérdida":
 // pase lo que pase con Drive, el original queda guardado aquí al instante.
 async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: string): Promise<boolean> {
-  for (let intento = 1; intento <= 2; intento++) {
+  for (let intento = 1; intento <= 3; intento++) {
     try {
       const { error } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
@@ -200,7 +200,7 @@ export async function subirArchivoADrive(
     throw new Error('No se pudo respaldar el documento en Storage (no se archiva sin copia segura).')
   }
 
-  // ── Drive con reintentos (3 intentos) ─────────────────────────────────────
+  // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
   let folderId: string
   if (ROOT_FOLDER_ID) {
     folderId = ROOT_FOLDER_ID
@@ -213,7 +213,7 @@ export async function subirArchivoADrive(
 
   let driveId: string | null = null
   let webViewLink: string | null = null
-  for (let intento = 1; intento <= 3; intento++) {
+  for (let intento = 1; intento <= 6; intento++) {
     try {
       const { data: uploaded } = await drive.files.create({
         requestBody: { name: nombre, parents: [folderId] },
@@ -225,13 +225,14 @@ export async function subirArchivoADrive(
       webViewLink = uploaded.webViewLink || null
       if (driveId) break
     } catch {
-      if (intento < 3) await sleep(intento * 800)
+      if (intento < 6) await sleep(intento * 800)
     }
   }
 
-  // Aunque Drive haya fallado las 3 veces, el original está a salvo en Storage.
-  // Se devuelve driveOk=false para que el llamador lo marque y un barrido
-  // posterior lo suba a Drive desde el respaldo. El documento NO se pierde.
+  // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
+  // Storage. Se devuelve driveOk=false para que el llamador lo marque y el
+  // barrido de repesca lo suba a Drive desde el respaldo. El documento NO se
+  // pierde y acaba SIEMPRE en Drive (en el momento o por repesca).
   return { id: driveId || '', webViewLink, storagePath, driveOk: !!driveId }
 }
 
@@ -302,28 +303,40 @@ export async function borrarArchivoPermanente(fileId: string): Promise<{ ok: boo
   }
 }
 
-// Lista archivos que están en la papelera de Drive y fueron movidos a ella
-// después de 'desdeISO' (para aislar un borrado concreto por su fecha). No
-// incluye carpetas. Devuelve id, nombre y nº de byte (para descartar vacíos).
+// Lista archivos que están en la papelera de Drive y fueron ENVIADOS A LA
+// PAPELERA después de 'desdeISO'. Importante: se filtra por trashedTime (cuándo
+// se mandó a la papelera), NO por modifiedTime, porque borrar un archivo no
+// cambia su fecha de modificación. Pagina la papelera y filtra en memoria.
 export async function listarPapeleraReciente(
   desdeISO: string,
   limit = 100,
 ): Promise<{ id: string; name: string; size: number }[]> {
   const drive = await getDriveGlobal()
-  const q = `trashed=true and mimeType!='application/vnd.google-apps.folder' and modifiedTime > '${desdeISO}'`
-  const { data } = await drive.files.list({
-    q,
-    fields: 'files(id,name,size)',
-    pageSize: Math.min(Math.max(limit, 1), 1000),
-    orderBy: 'modifiedTime',
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-  })
-  return (data.files || []).map((f) => ({
-    id: f.id as string,
-    name: (f.name as string) || '',
-    size: Number(f.size || 0),
-  }))
+  const desdeMs = Date.parse(desdeISO) || 0
+  const out: { id: string; name: string; size: number }[] = []
+  let pageToken: string | undefined = undefined
+
+  for (let pagina = 0; pagina < 30 && out.length < limit; pagina++) {
+    const { data }: { data: drive_v3.Schema$FileList } = await drive.files.list({
+      q: `trashed=true and mimeType!='application/vnd.google-apps.folder'`,
+      fields: 'nextPageToken, files(id,name,size,trashedTime)',
+      pageSize: 1000,
+      spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      pageToken,
+    })
+    for (const f of data.files || []) {
+      const tt = f.trashedTime ? Date.parse(f.trashedTime) : 0
+      if (tt >= desdeMs) {
+        out.push({ id: f.id as string, name: (f.name as string) || '', size: Number(f.size || 0) })
+        if (out.length >= limit) break
+      }
+    }
+    pageToken = data.nextPageToken || undefined
+    if (!pageToken) break
+  }
+  return out
 }
 
 export async function subirPdfADrive(
