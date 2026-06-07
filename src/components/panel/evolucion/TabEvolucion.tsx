@@ -14,11 +14,34 @@ interface Props {
   rowsPeriodo?: RowFacturacion[]
   fechaDesde?: Date
   fechaHasta?: Date
+  fechaOpcion?: string
   onFiltrarDiaSemana?: (idx: number) => void
 }
 
 type Periodo = 'semana' | 'mes' | 'anio'
 type Comp = 'prev' | 'mes' | 'anio'
+
+// El desplegable de fecha manda: cada opción del selector global mapea a un periodo de evolución.
+// 'personalizado' no tiene periodo fijo → se deduce del ancho del rango (≤10d semana, ≤70d mes, resto año).
+function periodoDeOpcion(op: string | undefined, desde?: Date, hasta?: Date): Periodo | null {
+  switch (op) {
+    case 'semana_actual':
+    case 'ultimos_7':
+    case 'semanas_x':
+      return 'semana'
+    case 'mes_en_curso':
+    case 'un_mes':
+    case 'ultimos_60':
+      return 'mes'
+    case 'personalizado': {
+      if (!desde || !hasta) return null
+      const dias = Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1
+      return dias <= 10 ? 'semana' : dias <= 70 ? 'mes' : 'anio'
+    }
+    default:
+      return null
+  }
+}
 
 const ROJO = '#E24B4A'
 const AZUL_PED = '#1E5BCC'
@@ -84,11 +107,19 @@ const BATERIA: FraseDef[] = [
   { cond: () => true, txt: e => `Periodo en marcha: ${nf0(e.total)} acumulado.`, color: () => NEU },
 ]
 
-export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Props) {
+export default function TabEvolucion({ rowsAll, canalesFiltro, fechaDesde, fechaHasta, fechaOpcion }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>(() => (localStorage.getItem('evo_periodo') as Periodo) || 'semana')
   const [comp, setComp] = useState<Comp>(() => (localStorage.getItem('evo_comp') as Comp) || 'prev')
   const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); localStorage.setItem('evo_periodo', p); if (p !== 'semana' && comp === 'prev') { setComp('mes'); localStorage.setItem('evo_comp', 'mes') } }, [comp])
   const setCompP = useCallback((c: Comp) => { setComp(c); localStorage.setItem('evo_comp', c) }, [])
+
+  // El desplegable de fecha global manda: al cambiar la opción, el periodo de evolución la sigue.
+  // Las pills Semana/Mes/Año quedan como override manual hasta el siguiente cambio del desplegable.
+  useEffect(() => {
+    const p = periodoDeOpcion(fechaOpcion, fechaDesde, fechaHasta)
+    if (p && p !== periodo) setPeriodoP(p)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaOpcion, fechaDesde, fechaHasta])
 
   const [objDia, setObjDia] = useState<Record<number, number>>({})
   const [objBase, setObjBase] = useState(0)
@@ -291,25 +322,26 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
     return { act, cmp, dAlm, dCenas, dPctAlm }
   }, [aggServ, pIni, pFinTramo, comp])
 
-  // Movimiento en calendario: sigue el periodo del selector (semana=L-D, mes=semanas, año=meses).
-  // Reutiliza 'seg', que ya respeta periodo y comparado, para que case con lo seleccionado arriba.
-  const calBars = useMemo(() =>
-    seg.map(s => ({ nombre: s.nombre, color: s.color, real: s.real, hist: s.hist, esActual: s.esActual, futuro: s.futuro, delta: s.dV })),
-  [seg])
-  const maxCalBar = Math.max(...calBars.map(b => Math.max(b.real || 0, b.hist || 0)), 1)
-  const semCal = useMemo(() => {
-    const w = wom(ref)
-    const cur = (() => { const r = rango(new Date(ref.getFullYear(), ref.getMonth(), (w - 1) * 7 + 1), new Date(ref.getFullYear(), ref.getMonth(), w * 7)); return r.hay ? r.v : null })()
-    const en = (aM: number, aA: number): number | null => {
-      const t = new Date(ref.getFullYear() - aA, ref.getMonth() - aM, 1); const dim = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()
-      if ((w - 1) * 7 + 1 > dim) return null
-      const r = rango(new Date(t.getFullYear(), t.getMonth(), (w - 1) * 7 + 1), new Date(t.getFullYear(), t.getMonth(), Math.min(w * 7, dim))); return r.hay ? r.v : null
+  // Posición en el calendario: en vez de duplicar las barras de Facturación, destila DÓNDE cae
+  // el periodo — mejor/peor segmento, media, racha al alza y ranking del segmento en curso.
+  // Todo deriva de 'seg', que ya respeta periodo (semana=días, mes=semanas, año=meses) y comparado.
+  const posCal = useMemo(() => {
+    const conDatos = seg.filter(s => s.real != null && (s.real as number) > 0 && !s.futuro)
+    if (conDatos.length === 0) return null
+    const mejor = conDatos.reduce((a, b) => ((b.real as number) > (a.real as number) ? b : a))
+    const peor = conDatos.reduce((a, b) => ((b.real as number) < (a.real as number) ? b : a))
+    const media = conDatos.reduce((s, x) => s + (x.real as number), 0) / conDatos.length
+    // Racha al alza: segmentos consecutivos (desde el último con datos hacia atrás) por encima del comparado.
+    let racha = 0
+    for (let i = conDatos.length - 1; i >= 0; i--) {
+      if (conDatos[i].dV != null && (conDatos[i].dV as number) >= 0) racha++; else break
     }
-    const histC = comp === 'anio' ? en(0, 1) : en(1, 0)
-    // Etiqueta del comparado de la semana
-    const lbl = comp === 'prev' ? 'semana anterior' : comp === 'mes' ? MESES[(ref.getMonth() + 11) % 12] : `${MESES[ref.getMonth()]} ${ref.getFullYear() - 1}`
-    return { w, cur, hist: histC, lbl, delta: cur != null && histC != null && histC > 0 ? ((cur - histC) / histC) * 100 : null }
-  }, [ref, comp, rango])
+    const superan = conDatos.filter(s => s.obj > 0 && (s.real as number) >= s.obj).length
+    const actual = conDatos.find(s => s.esActual) ?? conDatos[conDatos.length - 1]
+    const rank = [...conDatos].sort((a, b) => (b.real as number) - (a.real as number)).findIndex(s => s === actual) + 1
+    const gap = (peor.real as number) > 0 ? (((mejor.real as number) - (peor.real as number)) / (peor.real as number)) * 100 : null
+    return { mejor, peor, media, racha, superan, total: conDatos.length, actual, rank, gap }
+  }, [seg])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -321,6 +353,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
   const BAR_H = 150, SOBRE = 26
   const fill = (p: number) => p >= 50 ? VERDE : AMARILLO
   const maxTM = Math.max(...seg.map(s => Math.max(s.tm || 0, s.tmH || 0)), 1)
+  const unidad = periodo === 'semana' ? 'día' : periodo === 'mes' ? 'semana' : 'mes'
+  const unidadPl = periodo === 'semana' ? 'días' : periodo === 'mes' ? 'semanas' : 'meses'
 
   return (
     <div style={{ fontFamily: LEXEND, color: COLOR.textPri, paddingTop: 18 }}>
@@ -455,34 +489,48 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
         </div>
       </div>
 
-      {/* MOVIMIENTO EN CALENDARIO */}
+      {/* POSICIÓN EN EL CALENDARIO */}
       <div style={card}>
-        <div style={{ ...lblS, marginBottom: 16 }}>Movimiento en el calendario · vs {labelComp}</div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 200, marginBottom: 14 }}>
-          {calBars.map((b, i) => {
-            const h = b.real != null && b.real > 0 ? Math.max((b.real / maxCalBar) * 120, 4) : 0
-            const hH = b.hist != null && b.hist > 0 ? Math.max((b.hist / maxCalBar) * 120, 2) : 0
-            return (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                <span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 700, color: b.futuro ? COLOR.textMut : COLOR.textPri, height: 20 }}>{b.real != null ? nf0(b.real) : '—'}</span>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
-                  <div style={{ width: 16, height: h, background: b.futuro ? TRACK : b.color, borderRadius: '3px 3px 0 0', opacity: b.futuro ? 0.4 : 1 }} title="actual" />
-                  <div style={{ width: 10, height: hH, background: `${b.color}55`, borderRadius: '3px 3px 0 0' }} title="comparado" />
-                </div>
-                <span style={{ fontFamily: LEXEND, fontSize: 12, color: b.esActual ? COLOR.textPri : COLOR.textMut, fontWeight: b.esActual ? 700 : 400, marginTop: 6, height: 16 }}>{b.nombre}</span>
-                <span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, color: GRIS_COMP, height: 18 }}>{b.hist != null ? nf0(b.hist) : '—'}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: colorDelta(b.delta), height: 17 }}>{b.delta != null ? `${b.delta >= 0 ? '▲' : '▼'}${Math.abs(b.delta).toFixed(0)}%` : ''}</span>
+        <div style={{ ...lblS, marginBottom: 16 }}>Posición en el calendario · por {unidad} · vs {labelComp}</div>
+        {posCal == null ? (
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Aún no hay {unidadPl} con datos en este periodo.</div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div style={{ background: `${VERDE}14`, border: `0.5px solid ${VERDE}`, borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: VERDE, marginBottom: 6 }}>Mejor {unidad}</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{posCal.mejor.nombre}</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: VERDE }}>{nf0(posCal.mejor.real as number)}</div>
               </div>
-            )
-          })}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingTop: 12, borderTop: `0.5px solid ${BORDE}`, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec }}>{semCal.w}ª semana del mes</span>
-          <span style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 600, color: semCal.cur == null ? COLOR.textMut : VERDE }}>{semCal.cur != null ? nf0(semCal.cur) : '—'}</span>
-          <span style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 500, color: GRIS_COMP }}>{semCal.hist != null ? nf0(semCal.hist) : '—'}</span>
-          <span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>({semCal.lbl})</span>
-          {semCal.delta != null && <span style={{ fontFamily: LEXEND, fontSize: 17, fontWeight: 700, color: colorDelta(semCal.delta) }}>{semCal.delta >= 0 ? '▲ +' : '▼ '}{Math.abs(semCal.delta).toFixed(1)}%</span>}
-        </div>
+              <div style={{ background: `${ROJO}12`, border: `0.5px solid ${ROJO}`, borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: ROJO, marginBottom: 6 }}>{unidad === 'día' ? 'Día' : unidad === 'semana' ? 'Semana' : 'Mes'} más flojo</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{posCal.peor.nombre}</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 18, fontWeight: 600, color: ROJO }}>{nf0(posCal.peor.real as number)}</div>
+              </div>
+              <div style={{ background: `${NARANJA_TM}12`, border: `0.5px solid ${NARANJA_TM}`, borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: NARANJA_TM, marginBottom: 6 }}>Media · {unidad}</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{nf0(posCal.media)}</div>
+                <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>{posCal.total} {posCal.total === 1 ? unidad : unidadPl} con datos</div>
+              </div>
+              <div style={{ background: `${AZUL_PED}12`, border: `0.5px solid ${AZUL_PED}`, borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: AZUL_PED, marginBottom: 6 }}>Racha al alza</div>
+                <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111' }}>{posCal.racha} {posCal.racha === 1 ? unidad : unidadPl}</div>
+                <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>{posCal.racha > 0 ? `por encima de ${labelComp}` : `sin racha vs ${labelComp}`}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 14, marginTop: 14, borderTop: `0.5px solid ${BORDE}` }}>
+              <span style={{ fontFamily: OSWALD, fontSize: 'clamp(15px,2vw,18px)', fontWeight: 600, color: COLOR.textPri }}>
+                {posCal.gap != null && posCal.mejor !== posCal.peor
+                  ? `El ${unidad} fuerte (${posCal.mejor.nombre}) factura un ${posCal.gap.toFixed(0)}% más que el más flojo (${posCal.peor.nombre}).`
+                  : `${posCal.mejor.nombre} es el ${unidad} con más facturación del tramo.`}
+              </span>
+              <span style={{ fontFamily: LEXEND, fontSize: 14, color: COLOR.textSec }}>
+                {posCal.actual.esActual ? `${posCal.actual.nombre} en curso: nº ${posCal.rank} de ${posCal.total} ${posCal.total === 1 ? unidad : unidadPl}. ` : ''}
+                {posCal.superan > 0 ? `${posCal.superan} ${posCal.superan === 1 ? unidad : unidadPl} ${posCal.superan === 1 ? 'supera' : 'superan'} objetivo.` : 'Ningún tramo supera objetivo todavía.'}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* REPARTO DEL DÍA · ALMUERZO vs CENA */}

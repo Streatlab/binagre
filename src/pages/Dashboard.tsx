@@ -131,6 +131,7 @@ export default function Dashboard() {
   })
   const [fechaHasta, setFechaHasta] = useState<Date>(new Date())
   const [fechaLabel, setFechaLabel] = useState('Semana actual')
+  const [fechaOpcion, setFechaOpcion] = useState<string>('semana_actual')
 
   const [marcasBD, setMarcasBD] = useState<string[]>([])
   const [configCanales, setConfigCanales] = useState<Record<string, ConfigCanalRow>>({})
@@ -286,10 +287,11 @@ export default function Dashboard() {
     return () => document.removeEventListener('click', handler)
   }, [])
 
-  const handleFechaChange = useCallback((desde: Date, hasta: Date, label: string) => {
+  const handleFechaChange = useCallback((desde: Date, hasta: Date, label: string, opcion?: string) => {
     setFechaDesde(desde)
     setFechaHasta(hasta)
     setFechaLabel(label)
+    if (opcion) setFechaOpcion(opcion)
   }, [])
 
   async function guardarObjetivo(tipo: 'semanal'|'mensual'|'anual', valor: string) {
@@ -561,6 +563,7 @@ export default function Dashboard() {
             rowsAll={data}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
+            fechaOpcion={fechaOpcion}
             canalesFiltro={canalesFiltro}
             onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
           />
