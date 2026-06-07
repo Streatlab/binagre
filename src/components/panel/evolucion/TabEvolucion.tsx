@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v22
+ * Tab Evolución — Panel Global · v23
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -291,15 +291,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta }: Pro
     return { act, cmp, dAlm, dCenas, dPctAlm }
   }, [aggServ, pIni, pFinTramo, comp])
 
-  // Movimiento en calendario: cada día L-D actual vs misma posición del comparado
-  const calBars = useMemo(() => {
-    return DIAS.map((nombre, i) => {
-      const dia = addDays(lunes, i); const f = toLocal(dia)
-      const real = brutoDia(f)
-      const hf = toLocal(shiftD(dia, comp)); const hist = brutoDia(hf)
-      return { nombre, color: DIAS_COLOR[i], real, hist, esActual: f === hoyStr, futuro: f > hoyStr, delta: real != null && hist != null && hist > 0 ? ((real - hist) / hist) * 100 : null }
-    })
-  }, [lunes, comp, brutoDia, hoyStr])
+  // Movimiento en calendario: sigue el periodo del selector (semana=L-D, mes=semanas, año=meses).
+  // Reutiliza 'seg', que ya respeta periodo y comparado, para que case con lo seleccionado arriba.
+  const calBars = useMemo(() =>
+    seg.map(s => ({ nombre: s.nombre, color: s.color, real: s.real, hist: s.hist, esActual: s.esActual, futuro: s.futuro, delta: s.dV })),
+  [seg])
   const maxCalBar = Math.max(...calBars.map(b => Math.max(b.real || 0, b.hist || 0)), 1)
   const semCal = useMemo(() => {
     const w = wom(ref)
