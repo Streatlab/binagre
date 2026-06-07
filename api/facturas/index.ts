@@ -14,6 +14,7 @@
  *   GET  /api/facturas?action=purgar[&lote=NN]  → borra facturas NO resueltas + Drive a papelera (lote)
  *   GET  /api/facturas?action=papelera-info[&horas=NN] → cuenta archivos en papelera reciente
  *   GET  /api/facturas?action=recuperar-papelera[&lote=NN&horas=NN] → recupera borrados (lote)
+ *   GET  /api/facturas?action=archivar-pendientes[&lote=NN] → repesca: sube a Drive lo que falte (lote + auto-encadenado)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -24,7 +25,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
 import { procesarArchivo } from '../_lib/procesarArchivo.js'
-import { descargarArchivoDeDrive, borrarArchivoDeDrive, restaurarArchivoDeDrive, borrarArchivoPermanente, listarPapeleraReciente } from '../_lib/google-drive.js'
+import { descargarArchivoDeDrive, borrarArchivoDeDrive, restaurarArchivoDeDrive, borrarArchivoPermanente, listarPapeleraReciente, subirRespaldoADrive } from '../_lib/google-drive.js'
 import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
@@ -67,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'purgar')        return purgar(req, res)
   if (action === 'papelera-info') return papeleraInfo(req, res)
   if (action === 'recuperar-papelera') return recuperarPapelera(req, res)
+  if (action === 'archivar-pendientes') return archivarPendientes(req, res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -874,4 +876,68 @@ async function recuperarPapelera(req: VercelRequest, res: VercelResponse) {
     terminado: quedan.length === 0,
     recuperadas, duplicadas, errores, lote: archivos.length,
   })
+}
+
+// ── Handler: repesca — sube a Drive lo que aún no esté ─────────────────────
+// Recorre archivo_respaldo (registro de cada documento respaldado en Storage) y
+// sube a Drive todo lo que aún no tenga drive_id. Vincula la factura por hash.
+// Auto-encadenado: se vuelve a llamar mientras queden pendientes, de modo que
+// TODO documento acaba en Drive sí o sí (el "infinito hasta lograrlo").
+async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
+  const lote = Math.min(Math.max(Number(req.query.lote) || 10, 1), 30)
+
+  const { data: filas, error } = await supabaseAdmin
+    .from('archivo_respaldo')
+    .select('id, hash, storage_path')
+    .is('drive_id', null)
+    .order('creado', { ascending: true })
+    .limit(lote)
+  if (error) return res.status(500).json({ error: error.message })
+
+  const pendientes = filas || []
+  if (pendientes.length === 0) {
+    return res.status(200).json({ terminado: true, subidas: 0, errores: 0, restantes: 0 })
+  }
+
+  let subidas = 0, errores = 0
+  for (const f of pendientes) {
+    try {
+      const r = await subirRespaldoADrive(f.storage_path as string)
+      if (!r) { errores++; continue }
+      await supabaseAdmin.from('archivo_respaldo')
+        .update({ drive_id: r.id, actualizado: new Date().toISOString() })
+        .eq('id', f.id as string)
+      // Vincular la factura por hash (si la tiene y aún no tiene Drive).
+      if (f.hash) {
+        await supabaseAdmin.from('facturas')
+          .update({ pdf_drive_id: r.id, pdf_drive_url: r.webViewLink, error_mensaje: null })
+          .eq('pdf_hash', f.hash as string)
+          .is('pdf_drive_id', null)
+        await supabaseAdmin.from('facturas')
+          .update({ estado: 'solo_drive' })
+          .eq('pdf_hash', f.hash as string)
+          .eq('estado', 'drive_pendiente')
+      }
+      subidas++
+    } catch {
+      errores++
+    }
+  }
+
+  const { count } = await supabaseAdmin
+    .from('archivo_respaldo')
+    .select('id', { count: 'exact', head: true })
+    .is('drive_id', null)
+  const restantes = count ?? 0
+
+  // Auto-encadena mientras queden pendientes: la repesca insiste hasta lograrlo.
+  if (restantes > 0) {
+    const host = req.headers.host
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+    if (host) {
+      fetch(`${proto}://${host}/api/facturas?action=archivar-pendientes&lote=${lote}`, { method: 'GET' }).catch(() => {})
+    }
+  }
+
+  return res.status(200).json({ terminado: restantes === 0, subidas, errores, restantes })
 }
