@@ -5,9 +5,12 @@
 // + RED DE SEGURIDAD (cero pérdida): cada documento se copia SIEMPRE al bucket
 //   de Storage 'facturas' (infra propia) antes de subirse a Drive, y la subida
 //   a Drive se reintenta. Así ningún documento puede perderse aunque Drive falle.
+//   Además se registra en archivo_respaldo para que el barrido de repesca lo
+//   suba a Drive una y otra vez hasta lograrlo (siempre acaba en Drive).
 // + restaurar/listar papelera, para recuperar documentos borrados.
 import { google, drive_v3 } from 'googleapis'
 import { Readable } from 'stream'
+import { createHash } from 'crypto'
 import { mimeTypeParaExtension } from './detectarTipo.js'
 import { getOAuthClient, tieneDriveConectado } from './google-oauth.js'
 import { pareceHtml, htmlATexto } from './extractores.js'
@@ -164,6 +167,46 @@ async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: st
   return false
 }
 
+// Sube un buffer a Drive (con reintentos) dentro de la carpeta indicada.
+async function subirBufferAFolder(
+  drive: drive_v3.Drive,
+  folderId: string,
+  nombre: string,
+  mimeType: string,
+  buffer: Buffer,
+): Promise<{ id: string | null; webViewLink: string | null }> {
+  let driveId: string | null = null
+  let webViewLink: string | null = null
+  for (let intento = 1; intento <= 6; intento++) {
+    try {
+      const { data: uploaded } = await drive.files.create({
+        requestBody: { name: nombre, parents: [folderId] },
+        media: { mimeType, body: Readable.from(buffer) },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true,
+      })
+      driveId = uploaded.id || null
+      webViewLink = uploaded.webViewLink || null
+      if (driveId) break
+    } catch {
+      if (intento < 6) await sleep(intento * 800)
+    }
+  }
+  return { id: driveId, webViewLink }
+}
+
+// Crea (si hace falta) la cadena de carpetas dada por 'niveles' bajo la raíz.
+async function carpetaDestino(drive: drive_v3.Drive, niveles: string[]): Promise<string> {
+  let folderId: string = ROOT_FOLDER_ID
+    ? ROOT_FOLDER_ID
+    : await getOrCreateFolder(drive, 'STREATLAB_FACTURAS', null)
+  for (const nivel of niveles) {
+    if (!nivel) continue
+    folderId = await getOrCreateFolder(drive, nivel, folderId)
+  }
+  return folderId
+}
+
 export async function subirArchivoADrive(
   buffer: Buffer,
   nombre: string,
@@ -171,6 +214,11 @@ export async function subirArchivoADrive(
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null; storagePath: string; driveOk: boolean }> {
   const drive = await getDriveGlobal()
+
+  // Hash del documento TAL Y COMO LLEGA (antes de cualquier conversión). Coincide
+  // con el pdf_hash que calcula procesarArchivo, para poder vincular la repesca
+  // con su factura.
+  const hashEntrada = createHash('sha256').update(buffer).digest('hex')
 
   // Just Eat y similares llegan como .txt/.html/.eml con el HTML de la factura
   // dentro. Se convierte a un PDF legible y se archiva el PDF (no el crudo).
@@ -201,39 +249,50 @@ export async function subirArchivoADrive(
   }
 
   // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
-  let folderId: string
-  if (ROOT_FOLDER_ID) {
-    folderId = ROOT_FOLDER_ID
-  } else {
-    folderId = await getOrCreateFolder(drive, 'STREATLAB_FACTURAS', null)
-  }
-  for (const nivel of niveles) {
-    folderId = await getOrCreateFolder(drive, nivel, folderId)
-  }
+  const folderId = await carpetaDestino(drive, niveles)
+  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
 
-  let driveId: string | null = null
-  let webViewLink: string | null = null
-  for (let intento = 1; intento <= 6; intento++) {
-    try {
-      const { data: uploaded } = await drive.files.create({
-        requestBody: { name: nombre, parents: [folderId] },
-        media: { mimeType, body: Readable.from(buffer) },
-        fields: 'id, webViewLink',
-        supportsAllDrives: true,
-      })
-      driveId = uploaded.id || null
-      webViewLink = uploaded.webViewLink || null
-      if (driveId) break
-    } catch {
-      if (intento < 6) await sleep(intento * 800)
-    }
-  }
+  // Registro de repesca: deja constancia del respaldo y de si llegó a Drive. Si
+  // drive_id queda null, el barrido archivar-pendientes lo subirá hasta lograrlo.
+  try {
+    await supabaseAdmin
+      .from('archivo_respaldo')
+      .upsert(
+        {
+          hash: hashEntrada,
+          storage_path: storagePath,
+          drive_id: driveId,
+          nombre,
+          actualizado: new Date().toISOString(),
+        },
+        { onConflict: 'storage_path' },
+      )
+  } catch { /* el registro de repesca nunca rompe el archivado */ }
 
   // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
-  // Storage. Se devuelve driveOk=false para que el llamador lo marque y el
-  // barrido de repesca lo suba a Drive desde el respaldo. El documento NO se
-  // pierde y acaba SIEMPRE en Drive (en el momento o por repesca).
+  // Storage y registrado en archivo_respaldo. La repesca lo subirá a Drive. El
+  // documento NO se pierde y acaba SIEMPRE en Drive (en el momento o por repesca).
   return { id: driveId || '', webViewLink, storagePath, driveOk: !!driveId }
+}
+
+// Repesca: sube a Drive un documento que está en el respaldo de Storage (porque
+// en su momento Drive falló). Reconstruye la carpeta a partir de la ruta de
+// Storage. Devuelve el id de Drive o null si no se pudo (se reintentará luego).
+export async function subirRespaldoADrive(
+  storagePath: string,
+): Promise<{ id: string; webViewLink: string | null } | null> {
+  const buffer = await descargarRespaldoStorage(storagePath)
+  if (!buffer) return null
+  const drive = await getDriveGlobal()
+  const partes = storagePath.split('/')
+  const nombre = partes[partes.length - 1] || 'documento'
+  const niveles = partes.slice(0, -1)
+  const extMatch = nombre.match(/\.([a-z0-9]+)$/i)
+  const mimeType = mimeTypeParaExtension(extMatch ? extMatch[1] : 'pdf')
+  const folderId = await carpetaDestino(drive, niveles)
+  const { id, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
+  if (!id) return null
+  return { id, webViewLink }
 }
 
 // Descarga el contenido de un archivo de Drive por su ID. Usado por el
