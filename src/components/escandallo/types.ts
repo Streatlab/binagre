@@ -112,7 +112,7 @@ export interface Receta {
 
 export interface RecetaLinea {
   linea: number
-  tipo: 'ING' | 'EPS'
+  tipo: 'ING' | 'EPS' | 'ENV'
   ingrediente_nombre: string
   ingrediente_id: string | null
   eps_id: string | null
@@ -132,17 +132,16 @@ export const UNIDADES = ['gr.', 'Kg.', 'ml.', 'L.', 'ud.', 'Ud.', 'Ración']
 /* ── marcaMap (ABV → proveedor completo) ── */
 
 export const MARCA_MAP: Record<string, string> = {
-  MER: 'Hacendado',
-  ALC: 'Auchan',
-  MRM: 'Cocina Interna',
+  MER: 'Mercadona',
+  ALC: 'Alcampo',
+  MRM: 'Merma',
   EPS: 'Cocina Interna',
-  CHI: 'Gruñona',
-  JAS: 'Jaserba',
-  PAM: 'Pamesa',
-  ENV: 'Envases Garcia',
-  EMB: 'Embutidos',
+  CHI: 'China Caliente',
+  CHO: 'China Gruñona',
+  JAS: 'Jasa',
+  ENV: 'Envapro',
+  EMB: 'Embajadores',
   TGT: 'Target',
-  PAS: 'Pastas',
   LID: 'Lidl',
 }
 
