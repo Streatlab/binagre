@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v27
+ * Tab Evolución — Panel Global · v29
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -280,10 +280,10 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const diasRest = Math.max(diasTotDias - diasTransDias, 0)
 
   const frase = useMemo(() => {
-    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp, tituloDelta: deltaTotal != null, tituloObjetivo: objPeriodo > 0 && total > 0 }
+    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp, tituloDelta: deltaTotal != null, tituloObjetivo: objTramo > 0 && total > 0 }
     const def = BATERIA.find(f => { try { return f.cond(e) } catch { return false } }) || BATERIA[BATERIA.length - 1]
     return { txt: def.txt(e), color: def.color() }
-  }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTramo, objPeriodo, total, cmpT.hay, proy, labelComp])
+  }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTramo, total, cmpT.hay, proy, labelComp])
 
   const diasConDatosCanal = useMemo(() => { let n = 0; for (let d = new Date(pIni); d <= pFinTramo; d = addDays(d, 1)) if ((agg.get(toLocal(d))?.bruto ?? 0) > 0) n++; return n }, [agg, pIni, pFinTramo])
 
@@ -384,11 +384,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
             <span style={{ color: NARANJA_TM }}>TM {nf2(tm)}</span>
           </div>
           <div style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.4vw,24px)', fontWeight: 600, color: frase.color, letterSpacing: '0.3px' }}>{frase.txt}</div>
-          {objPeriodo > 0 && total > 0 && (
+          {objTramo > 0 && total > 0 && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
-              {total < objPeriodo
-                ? <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Para el objetivo faltan</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: ROJO }}>{nf2(objPeriodo - total)}</span><span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>de {nf0(objPeriodo)} ({pctObjPeriodo.toFixed(0)}% logrado)</span></>
-                : <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Objetivo superado en</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE }}>{nf2(total - objPeriodo)}</span><span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>({pctObjPeriodo.toFixed(0)}% del objetivo)</span></>}
+              {total < objTramo
+                ? <><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec }}>{periodoCerrado ? 'Para el objetivo faltan' : 'Objetivo a día de hoy: faltan'}</span><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, letterSpacing: '0.5px', color: ROJO }}>{nf2(objTramo - total)}</span><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>de {nf0(objTramo)} ({pctObj.toFixed(0)}% logrado)</span></>
+                : <><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec }}>{periodoCerrado ? 'Objetivo superado en' : 'Objetivo a día de hoy superado en'}</span><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 600, letterSpacing: '0.5px', color: VERDE }}>{nf2(total - objTramo)}</span><span style={{ fontFamily: OSWALD, fontSize: 16, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>({pctObj.toFixed(0)}% del objetivo)</span></>}
             </div>
           )}
           {!periodoCerrado && proy > 0 && (
