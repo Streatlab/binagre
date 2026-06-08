@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/styles/tokens';
+import { COLORS } from '@/components/panel/resumen/tokens';
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW · Binagre — Ingresos
@@ -22,11 +22,19 @@ interface Cobro {
 }
 
 const CANAL_COLOR: Record<string, string> = {
-  'Uber Eats': '#06C167',
-  'Glovo': '#F26B1F',
-  'Just Eat': '#B01D23',
-  'Web Propia': '#1E5BCC',
-  'Venta Directa': '#9ba3af',
+  'Uber Eats': COLORS.uber,
+  'Glovo': COLORS.glovo,
+  'Just Eat': COLORS.je,
+  'Web Propia': COLORS.web,
+  'Venta Directa': COLORS.directa,
+};
+// color de TEXTO legible por canal (Glovo es amarillo)
+const CANAL_TEXTO: Record<string, string> = {
+  'Uber Eats': COLORS.uber,
+  'Glovo': COLORS.glovoText,
+  'Just Eat': COLORS.jeDark,
+  'Web Propia': COLORS.web,
+  'Venta Directa': COLORS.directaDark,
 };
 const ORDEN = ['Uber Eats', 'Glovo', 'Just Eat', 'Web Propia', 'Venta Directa'];
 
@@ -62,7 +70,6 @@ function fechaPago(canal: string, fv: string): string {
 }
 
 export default function Cashflow() {
-  const { T } = useTheme();
   const [modo, setModo] = useState<Modo>('semana');
   const [cobros, setCobros] = useState<Cobro[]>([]);
   const [pagosTotal, setPagosTotal] = useState(0);
@@ -73,7 +80,7 @@ export default function Cashflow() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: cfg } = await supabase.from('config_canales').select('canal, comision_pct');
+        const { data: cfg } = await supabase.from('config_canales').select('canal, comision_pct, fee_periodo_eur');
         const com: Record<string, number> = {};
         (cfg || []).forEach((c: any) => { com[c.canal] = parseFloat(c.comision_pct || '0'); });
 
@@ -172,18 +179,18 @@ export default function Cashflow() {
     return { W, H, pad, X, Y, max, visibles, idxHoy, solido, punteado, real };
   }, [visibles]);
 
-  const card: React.CSSProperties = { background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: 20 };
-  const lab: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.mut, marginBottom: 6 };
+  const card: React.CSSProperties = { background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 16, padding: 20 };
+  const lab: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 6 };
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: T.sec, fontFamily: 'Lexend, sans-serif' }}>Cargando…</div>;
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: COLORS.sec, fontFamily: 'Lexend, sans-serif' }}>Cargando…</div>;
 
   return (
-    <div style={{ background: T.bg, padding: '20px 4px' }}>
+    <div style={{ background: COLORS.bg, padding: '20px 4px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 21, fontWeight: 600, color: '#B01D23', letterSpacing: 2.5, textTransform: 'uppercase' }}>CASH FLOW</div>
         <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, padding: '2px 10px', borderRadius: 20, background: '#f5a62318', color: '#a07400', border: '0.5px solid #f5a62340' }}>Estimado desde facturación</span>
       </div>
-      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: T.mut, marginBottom: 20 }}>Qué nos paga cada plataforma y cuándo · bruto y neto</div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: COLORS.mut, marginBottom: 20 }}>Qué nos paga cada plataforma y cuándo · bruto y neto</div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 18, alignItems: 'start' }}>
 
@@ -195,7 +202,7 @@ export default function Cashflow() {
               {(['semana', 'quincena', 'mes'] as Modo[]).map(m => (
                 <button key={m} onClick={() => setModo(m)} style={{
                   fontFamily: 'Lexend, sans-serif', fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
-                  border: `0.5px solid ${modo === m ? '#FF4757' : T.brd}`, background: modo === m ? '#FF4757' : '#fff', color: modo === m ? '#fff' : T.sec,
+                  border: `0.5px solid ${modo === m ? '#FF4757' : COLORS.brd}`, background: modo === m ? '#FF4757' : '#fff', color: modo === m ? '#fff' : COLORS.sec,
                 }}>{m === 'semana' ? 'Semanas' : m === 'quincena' ? 'Quincenas' : 'Meses'}</button>
               ))}
             </div>
@@ -209,7 +216,7 @@ export default function Cashflow() {
             </div>
             <div>
               <div style={lab}>Se nos debe (total)</div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 26, color: T.sec, lineHeight: 1.25 }}>{eur(seNosDebe)}</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 26, color: COLORS.sec, lineHeight: 1.25 }}>{eur(seNosDebe)}</div>
             </div>
           </div>
 
@@ -235,7 +242,7 @@ export default function Cashflow() {
                 {chart.solido.length > 1 && <polyline points={chart.solido.join(' ')} fill="none" stroke="#1D9E75" strokeWidth="2.5" />}
                 {chart.real.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill={p.fut ? '#1E5BCC' : '#1D9E75'} />)}
               </svg>
-              <div style={{ display: 'flex', gap: 14, fontSize: 11, color: T.sec, marginTop: 4, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 14, fontSize: 11, color: COLORS.sec, marginTop: 4, flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 16, borderTop: '2.5px solid #1D9E75' }} />Cobrado</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 16, borderTop: '2.5px dashed #1E5BCC' }} />Previsto</span>
               </div>
@@ -243,37 +250,37 @@ export default function Cashflow() {
           )}
 
           {/* TABLA por plataforma */}
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.sec, fontWeight: 600, margin: '8px 0 8px' }}>Por plataforma · periodo visible</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: COLORS.sec, fontWeight: 600, margin: '8px 0 8px' }}>Por plataforma · periodo visible</div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>
               {['Plataforma', 'Bruto', 'Neto'].map((h, i) => (
-                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.mut, fontWeight: 500, textAlign: i ? 'right' : 'left', padding: '6px', borderBottom: `0.5px solid ${T.brd}` }}>{h}</th>
+                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, textAlign: i ? 'right' : 'left', padding: '6px', borderBottom: `0.5px solid ${COLORS.brd}` }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {porPlataforma.map(p => (
                 <tr key={p.canal}>
-                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6' }}><span style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 600, fontSize: 11.5, textTransform: 'uppercase', color: CANAL_COLOR[p.canal] }}>{p.canal}</span></td>
-                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6', textAlign: 'right', fontFamily: 'Oswald, sans-serif', color: T.mut }}>{eur(p.bruto)}</td>
-                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontWeight: 700, color: CANAL_COLOR[p.canal] }}>{eur(p.neto)}</td>
+                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6' }}><span style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 600, fontSize: 11.5, textTransform: 'uppercase', color: CANAL_TEXTO[p.canal] }}>{p.canal}</span></td>
+                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6', textAlign: 'right', fontFamily: 'Oswald, sans-serif', color: COLORS.mut }}>{eur(p.bruto)}</td>
+                  <td style={{ padding: '9px 6px', borderBottom: '0.5px solid #efece6', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontWeight: 700, color: CANAL_TEXTO[p.canal] }}>{eur(p.neto)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           {/* PRÓXIMOS COBROS con fecha real */}
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.sec, fontWeight: 600, margin: '18px 0 8px' }}>Próximos cobros</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: COLORS.sec, fontWeight: 600, margin: '18px 0 8px' }}>Próximos cobros</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {proximos.length === 0 && <div style={{ fontSize: 13, color: T.mut, fontFamily: 'Lexend, sans-serif' }}>Sin cobros futuros previstos.</div>}
+            {proximos.length === 0 && <div style={{ fontSize: 13, color: COLORS.mut, fontFamily: 'Lexend, sans-serif' }}>Sin cobros futuros previstos.</div>}
             {proximos.map((p, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: T.bg, borderRadius: 10, borderLeft: `3px solid ${CANAL_COLOR[p.canal]}` }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: COLORS.bg, borderRadius: 10, borderLeft: `3px solid ${CANAL_COLOR[p.canal]}` }}>
                 <div>
-                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: CANAL_COLOR[p.canal] }}>{p.canal}</div>
-                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut, marginTop: 2 }}>{fmtFecha(p.fechaPago)}</div>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: CANAL_TEXTO[p.canal] }}>{p.canal}</div>
+                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{fmtFecha(p.fechaPago)}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 700, color: T.pri }}>{eur(p.neto)}</div>
-                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: T.mut }}>bruto {eur(p.bruto)}</div>
+                  <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 700, color: COLORS.pri }}>{eur(p.neto)}</div>
+                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: COLORS.mut }}>bruto {eur(p.bruto)}</div>
                 </div>
               </div>
             ))}
@@ -286,12 +293,12 @@ export default function Cashflow() {
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B01D23', marginBottom: 14 }}>▲ Gastos · por pagar</div>
             <div style={lab}>Facturas de proveedor sin pagar</div>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 34, color: '#B01D23', lineHeight: 1 }}>{eur(pagosTotal)}</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut, marginTop: 6 }}>{pagosN} facturas pendientes</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: COLORS.mut, marginTop: 6 }}>{pagosN} facturas pendientes</div>
           </div>
           <div style={{ ...card, border: `0.5px solid ${saldo >= 0 ? '#1D9E7555' : '#B01D2355'}` }}>
             <div style={lab}>Saldo neto previsto</div>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 34, color: saldo >= 0 ? '#1D9E75' : '#B01D23', lineHeight: 1 }}>{saldo < 0 ? '−' : '+'}{eur(Math.abs(saldo))}</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut, marginTop: 6 }}>Se nos debe {eur(seNosDebe)} − por pagar {eur(pagosTotal)}</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: COLORS.mut, marginTop: 6 }}>Se nos debe {eur(seNosDebe)} − por pagar {eur(pagosTotal)}</div>
           </div>
         </div>
 
