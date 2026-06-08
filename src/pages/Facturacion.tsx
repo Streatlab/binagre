@@ -584,13 +584,20 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   const filaAlm=useMemo(()=>allData.find(r=>r.fecha===fecha&&r.servicio==='ALM'&&r.id!==existing?.id),[allData,fecha,existing?.id])
   const esCenasAlm=servicio==='CENAS_ALM'
 
-  // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo: visibles, editables y persistentes (se mantienen en su fila ALM, no se duplican en la cena)
+  // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo: cada uno en su línea, visibles, editables y persistentes
+  // (se mantienen en su fila ALM, no se duplican en la cena). Si el almuerzo tiene varios pedidos pero no se guardó el
+  // detalle importe-a-importe, se generan N líneas repartiendo el total a partes iguales para poder ajustarlas a mano.
   useEffect(()=>{
     if(isEdit) return
     if(esCenasAlm&&filaAlm){
+      const njAlm=filaAlm.je_pedidos||0; const jbAlm=filaAlm.je_bruto??0
       const ref:JeItem[]=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)
         ? filaAlm.je_items.map(v=>({raw:String(Number(v)),alm:true}))
-        : ((filaAlm.je_bruto??0)>0?[{raw:String(filaAlm.je_bruto),alm:true}]:[])
+        : (jbAlm>0
+            ? (njAlm>1
+                ? Array.from({length:njAlm},()=>({raw:(jbAlm/njAlm).toFixed(2),alm:true}))
+                : [{raw:String(jbAlm),alm:true}])
+            : [])
       setJeItems(prev=>[...ref,...prev.filter(i=>!i.alm)])
     } else {
       setJeItems(prev=>prev.filter(i=>!i.alm))
