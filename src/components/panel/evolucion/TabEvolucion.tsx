@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v23
+ * Tab Evolución — Panel Global · v24
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -189,7 +189,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   }, [objDia, objBase])
 
   const hoyStr = toLocal(new Date())
-  const anclaStr = fechaHasta ? toLocal(fechaHasta) : hoyStr
+  // Última fecha con datos reales. Si el ancla (fechaHasta) cae en una zona todavía sin ventas
+  // (p.ej. hoy es lunes y la semana en curso aún no tiene datos), retrocede a la última fecha con
+  // datos para no enseñar el panel vacío.
+  const maxDato = useMemo(() => { let mx = ''; for (const r of rowsAll) { const f = r.fecha; if (f && f > mx) mx = f } return mx }, [rowsAll])
+  const anclaStr = useMemo(() => { const base = fechaHasta ? toLocal(fechaHasta) : hoyStr; return maxDato && base > maxDato ? maxDato : base }, [fechaHasta, hoyStr, maxDato])
   const lunes = useMemo(() => mondayOf(new Date(anclaStr + 'T12:00:00')), [anclaStr])
   const domingo = useMemo(() => addDays(lunes, 6), [lunes])
   const ref = useMemo(() => new Date(anclaStr + 'T12:00:00'), [anclaStr])
