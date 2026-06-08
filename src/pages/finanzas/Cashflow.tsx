@@ -9,9 +9,8 @@ import {
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW · Ingresos — pestaña del Panel Global
-   El periodo (Semana/Mes/Año) filtra las VENTAS del periodo y el
-   módulo muestra cuánto neto generan y cuándo se cobran.
-   Neto vía calcNetoPorCanal. Fechas de pago reales por plataforma.
+   Neto vía calcNetoPorCanal (calculadora central). Fechas de pago
+   reales por plataforma. Estilo homogéneo con Resumen/Evolución.
    ════════════════════════════════════════════════════════════ */
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -20,15 +19,14 @@ type Comp = 'prev' | 'mes' | 'anio'
 const VERDE = '#1D9E75'
 const ROJO = '#E24B4A'
 const AMARILLO = '#f5a623'
-const AZUL = '#1E5BCC'
 const GRIS = '#9ba3af'
 const BORDE = '#d0c8bc'
-const POS = VERDE, WARN = AMARILLO, NEG = ROJO
+const POS = VERDE, WARN = AMARILLO
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
-// Orden FIJO de plataformas: Uber, Glovo, Just Eat, Web, Directa.
+// Orden FIJO de plataformas: Uber, Glovo, Just Eat, Web, Directa
 const CANALES = [
   { id: 'uber', label: 'Uber Eats', color: COLOR.uber, bk: 'uber_bruto', pk: 'uber_pedidos' },
   { id: 'glovo', label: 'Glovo', color: '#c9a900', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
@@ -60,9 +58,9 @@ function pagoUber(domingo: Date): string {
   for (let i = 0; i < 7 && FESTIVOS.has(toLocal(p)); i++) p = addDays(p, 1)
   return toLocal(p)
 }
-// Glovo: 1-15 → 5 del mes siguiente; 16-fin → 20 del mes siguiente.
+// Glovo: 1-15 → cobra el 5 del mes siguiente; 16-fin → cobra el 20 del mes siguiente.
 function pagoGlovo(y: number, m: number, q: 1 | 2): string { return toLocal(new Date(y, m + 1, q === 1 ? 5 : 20, 12)) }
-// Just Eat: 1-15 → 20 del mismo mes; 16-fin → 5 del mes siguiente.
+// Just Eat: 1-15 → cobra el 20 del mismo mes; 16-fin → cobra el 5 del mes siguiente.
 function pagoJE(y: number, m: number, q: 1 | 2): string { return q === 1 ? toLocal(new Date(y, m, 20, 12)) : toLocal(new Date(y, m + 1, 5, 12)) }
 
 interface Row {
@@ -72,11 +70,16 @@ interface Row {
   je_bruto: number; je_pedidos: number
   web_bruto: number; web_pedidos: number
   directa_bruto: number; directa_pedidos: number
+  total_bruto: number; total_pedidos: number
 }
 
-interface Cobro { canal: string; label: string; color: string; ini: string; fin: string; pago: string; bruto: number; neto: number; pedidos: number }
+interface Cobro {
+  canal: string; label: string; color: string
+  ini: string; fin: string; pago: string
+  bruto: number; neto: number; pedidos: number; futuro: boolean
+}
 
-const SELECT = 'fecha,servicio,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos'
+const SELECT = 'fecha,servicio,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos,total_bruto,total_pedidos'
 
 export default function Cashflow() {
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -121,122 +124,121 @@ export default function Cashflow() {
     return m
   }, [rows])
 
-  // Construye los cobros de las ventas de un rango [iniS, finS], agrupados por la
-  // liquidación real de cada plataforma (Uber por semana, Glovo/JE por quincena, Web/Directa por día).
-  const buildCobros = useMemo(() => {
-    return (iniS: string, finS: string): Cobro[] => {
-      type G = { canal: typeof CANALES[number]; ini: string; fin: string; pago: string; bruto: number; ped: number; dias: Set<string> }
-      const grupos = new Map<string, G>()
-      const push = (key: string, canal: typeof CANALES[number], ini: string, fin: string, pago: string, bruto: number, ped: number, f: string) => {
-        let g = grupos.get(key)
-        if (!g) { g = { canal, ini, fin, pago, bruto: 0, ped: 0, dias: new Set() }; grupos.set(key, g) }
-        g.bruto += bruto; g.ped += ped; g.dias.add(f)
-      }
-      for (const [f, a] of aggDia) {
-        if (f < iniS || f > finS) continue
-        const d = parse(f); const y = d.getFullYear(); const m = d.getMonth(); const q: 1 | 2 = d.getDate() <= 15 ? 1 : 2
-        for (const c of CANALES) {
-          const bruto = a[c.bk] ?? 0; const ped = a[c.pk] ?? 0
-          if (bruto <= 0) continue
-          if (c.id === 'uber') {
-            const lun = mondayOf(d); const dom = addDays(lun, 6)
-            push('U' + toLocal(lun), c, toLocal(lun), toLocal(dom), pagoUber(dom), bruto, ped, f)
-          } else if (c.id === 'glovo' || c.id === 'je') {
-            const ini = toLocal(new Date(y, m, q === 1 ? 1 : 16, 12))
-            const fin = q === 1 ? toLocal(new Date(y, m, 15, 12)) : toLocal(finDeMes(y, m))
-            const pago = c.id === 'glovo' ? pagoGlovo(y, m, q) : pagoJE(y, m, q)
-            push(`${c.id}${y}-${m}-${q}`, c, ini, fin, pago, bruto, ped, f)
-          } else {
-            push(`${c.id}${f}`, c, f, f, f, bruto, ped, f)
-          }
+  // Cobros agrupados por el periodo de liquidación real de cada canal.
+  const cobros = useMemo<Cobro[]>(() => {
+    if (loading) return []
+    type G = { canal: typeof CANALES[number]; ini: string; fin: string; pago: string; bruto: number; ped: number; dias: Set<string> }
+    const grupos = new Map<string, G>()
+    const push = (key: string, canal: typeof CANALES[number], ini: string, fin: string, pago: string, bruto: number, ped: number, f: string) => {
+      let g = grupos.get(key)
+      if (!g) { g = { canal, ini, fin, pago, bruto: 0, ped: 0, dias: new Set() }; grupos.set(key, g) }
+      g.bruto += bruto; g.ped += ped; g.dias.add(f)
+    }
+    for (const [f, a] of aggDia) {
+      const d = parse(f); const y = d.getFullYear(); const m = d.getMonth(); const q: 1 | 2 = d.getDate() <= 15 ? 1 : 2
+      for (const c of CANALES) {
+        const bruto = a[c.bk] ?? 0; const ped = a[c.pk] ?? 0
+        if (bruto <= 0) continue
+        if (c.id === 'uber') {
+          const lun = mondayOf(d); const dom = addDays(lun, 6)
+          push('U' + toLocal(lun), c, toLocal(lun), toLocal(dom), pagoUber(dom), bruto, ped, f)
+        } else if (c.id === 'glovo' || c.id === 'je') {
+          const ini = toLocal(new Date(y, m, q === 1 ? 1 : 16, 12))
+          const fin = q === 1 ? toLocal(new Date(y, m, 15, 12)) : toLocal(finDeMes(y, m))
+          const pago = c.id === 'glovo' ? pagoGlovo(y, m, q) : pagoJE(y, m, q)
+          push(`${c.id}${y}-${m}-${q}`, c, ini, fin, pago, bruto, ped, f)
+        } else {
+          push(`${c.id}${f}`, c, f, f, f, bruto, ped, f) // Web / Directa: inmediato
         }
       }
-      const out: Cobro[] = []
-      for (const g of grupos.values()) {
-        const { neto } = calcNetoPorCanal(g.canal.id, g.bruto, g.ped, {
-          modo: 'agregado_canal', marcasPorCanal: marcas,
-          fechaDesde: parse(g.ini), fechaHasta: parse(g.fin), configCanales: config, diasConDatos: g.dias.size,
-        })
-        out.push({ canal: g.canal.id, label: g.canal.label, color: g.canal.color, ini: g.ini, fin: g.fin, pago: g.pago, bruto: g.bruto, neto, pedidos: g.ped })
-      }
-      return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
     }
-  }, [aggDia, config, marcas])
+    const out: Cobro[] = []
+    for (const g of grupos.values()) {
+      const { neto } = calcNetoPorCanal(g.canal.id, g.bruto, g.ped, {
+        modo: 'agregado_canal', marcasPorCanal: marcas,
+        fechaDesde: parse(g.ini), fechaHasta: parse(g.fin), configCanales: config, diasConDatos: g.dias.size,
+      })
+      out.push({ canal: g.canal.id, label: g.canal.label, color: g.canal.color, ini: g.ini, fin: g.fin, pago: g.pago, bruto: g.bruto, neto, pedidos: g.ped, futuro: g.pago > hoy })
+    }
+    return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
+  }, [aggDia, config, marcas, loading, hoy])
 
-  /* Rango de ventas del periodo y del comparado */
-  const { vIni, vFin, cIni, cFin, labelComp } = useMemo(() => {
+  const futuros = useMemo(() => cobros.filter(c => c.pago > hoy), [cobros, hoy])
+  const porCobrarTotal = useMemo(() => futuros.reduce((s, c) => s + c.neto, 0), [futuros])
+  const proximo = futuros[0] ?? null
+
+  // Caja del periodo (cobrado) vs comparado — usa las pills
+  const { winIni, winFin } = useMemo(() => {
     const now = new Date(); const y = now.getFullYear(); const m = now.getMonth()
-    let vi: Date, vf: Date
-    if (periodo === 'semana') { vi = mondayOf(now); vf = addDays(vi, 6) }
-    else if (periodo === 'mes') { vi = new Date(y, m, 1, 12); vf = finDeMes(y, m) }
-    else { vi = new Date(y, 0, 1, 12); vf = new Date(y, 11, 31, 12) }
-    let ci: Date, cf: Date, lc: string
-    if (comp === 'prev') { ci = addDays(vi, -7); cf = addDays(vf, -7); lc = periodo === 'semana' ? 'la semana anterior' : 'el periodo anterior' }
-    else if (comp === 'mes') { ci = new Date(vi.getFullYear(), vi.getMonth() - 1, vi.getDate(), 12); cf = new Date(vf.getFullYear(), vf.getMonth() - 1, vf.getDate(), 12); lc = 'el mes anterior' }
-    else { ci = new Date(vi.getFullYear() - 1, vi.getMonth(), vi.getDate(), 12); cf = new Date(vf.getFullYear() - 1, vf.getMonth(), vf.getDate(), 12); lc = 'el año anterior' }
-    return { vIni: vi, vFin: vf, cIni: ci, cFin: cf, labelComp: lc }
-  }, [periodo, comp])
+    if (periodo === 'semana') { const li = mondayOf(now); return { winIni: toLocal(li), winFin: toLocal(addDays(li, 6)) } }
+    if (periodo === 'mes') return { winIni: toLocal(new Date(y, m, 1, 12)), winFin: toLocal(finDeMes(y, m)) }
+    return { winIni: toLocal(new Date(y, 0, 1, 12)), winFin: toLocal(new Date(y, 11, 31, 12)) }
+  }, [periodo])
 
-  const cobros = useMemo(() => loading ? [] : buildCobros(toLocal(vIni), toLocal(vFin)), [buildCobros, vIni, vFin, loading])
-  const netoComp = useMemo(() => loading ? 0 : buildCobros(toLocal(cIni), toLocal(cFin)).reduce((s, c) => s + c.neto, 0), [buildCobros, cIni, cFin, loading])
+  const { cIni, cFin, labelComp } = useMemo(() => {
+    const a = parse(winIni); const b = parse(winFin)
+    if (comp === 'prev') {
+      const dias = Math.round((b.getTime() - a.getTime()) / 86400000) + 1
+      return { cIni: toLocal(addDays(a, -dias)), cFin: toLocal(addDays(a, -1)), labelComp: periodo === 'semana' ? 'la semana anterior' : 'el periodo anterior' }
+    }
+    if (comp === 'mes') return { cIni: toLocal(new Date(a.getFullYear(), a.getMonth() - 1, a.getDate(), 12)), cFin: toLocal(new Date(b.getFullYear(), b.getMonth() - 1, b.getDate(), 12)), labelComp: 'el mes anterior' }
+    return { cIni: toLocal(new Date(a.getFullYear() - 1, a.getMonth(), a.getDate(), 12)), cFin: toLocal(new Date(b.getFullYear() - 1, b.getMonth(), b.getDate(), 12)), labelComp: 'el año anterior' }
+  }, [winIni, winFin, comp, periodo])
 
-  const brutoTotal = useMemo(() => cobros.reduce((s, c) => s + c.bruto, 0), [cobros])
-  const netoTotal = useMemo(() => cobros.reduce((s, c) => s + c.neto, 0), [cobros])
-  const pedidosTotal = useMemo(() => cobros.reduce((s, c) => s + c.pedidos, 0), [cobros])
-  const delta = netoComp > 0 ? ((netoTotal - netoComp) / netoComp) * 100 : null
+  const cobradoPeriodo = useMemo(() => cobros.filter(c => c.pago >= winIni && c.pago <= winFin && c.pago <= hoy).reduce((s, c) => s + c.neto, 0), [cobros, winIni, winFin, hoy])
+  const cobradoComp = useMemo(() => cobros.filter(c => c.pago >= cIni && c.pago <= cFin).reduce((s, c) => s + c.neto, 0), [cobros, cIni, cFin])
+  const delta = cobradoComp > 0 ? ((cobradoPeriodo - cobradoComp) / cobradoComp) * 100 : null
 
-  // Por plataforma — orden FIJO de CANALES, datos del periodo
+  // Por cobrar, por plataforma (orden FIJO de CANALES, sin reordenar)
   const porCanal = useMemo(() => {
     return CANALES.map(c => {
-      const list = cobros.filter(x => x.canal === c.id)
+      const list = futuros.filter(x => x.canal === c.id)
       const bruto = list.reduce((s, x) => s + x.bruto, 0)
       const neto = list.reduce((s, x) => s + x.neto, 0)
-      const prox = list.filter(x => x.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1))[0]
-      return { ...c, bruto, neto, pct: brutoTotal > 0 ? (bruto / brutoTotal) * 100 : 0, prox: prox?.pago ?? null }
-    }).filter(c => c.bruto > 0)
-  }, [cobros, brutoTotal, hoy])
+      const prox = list.map(x => x.pago).sort()[0] ?? null
+      return { id: c.id, label: c.label, color: c.color, bruto, neto, prox }
+    })
+  }, [futuros])
+  const topPlat = useMemo(() => [...porCanal].sort((a, b) => b.neto - a.neto)[0] ?? null, [porCanal])
 
-  // Puntos del gráfico: cobros agrupados por fecha de pago (o por mes si periodo=año)
-  const puntos = useMemo(() => {
-    const m = new Map<string, { orden: string; label: string; fechaReal: string; total: number; futuro: boolean; items: { label: string; color: string; neto: number }[] }>()
+  // Gráfico: cobros agrupados por fecha de pago, ventana centrada en hoy (cobrados recientes + previstos)
+  const graf = useMemo(() => {
+    const desde = toLocal(addDays(new Date(), -35))
+    const hasta = toLocal(addDays(new Date(), 45))
+    const m = new Map<string, { pago: string; total: number; futuro: boolean; items: { label: string; color: string; neto: number }[] }>()
     for (const c of cobros) {
-      let key: string, label: string, orden: string
-      if (periodo === 'anio') { const d = parse(c.pago); key = `${d.getFullYear()}-${d.getMonth()}`; label = MESES[d.getMonth()]; orden = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}` }
-      else { key = c.pago; label = fmtCorta(c.pago); orden = c.pago }
-      const e = m.get(key) ?? { orden, label, fechaReal: c.pago, total: 0, futuro: true, items: [] }
+      if (c.pago < desde || c.pago > hasta) continue
+      const e = m.get(c.pago) ?? { pago: c.pago, total: 0, futuro: c.pago > hoy, items: [] }
       e.total += c.neto
-      if (c.pago <= hoy) e.futuro = false
       const it = e.items.find(x => x.label === c.label)
       if (it) it.neto += c.neto; else e.items.push({ label: c.label, color: c.color, neto: c.neto })
-      m.set(key, e)
+      m.set(c.pago, e)
     }
-    return [...m.values()].sort((a, b) => (a.orden < b.orden ? -1 : 1))
-  }, [cobros, periodo, hoy])
+    return [...m.values()].sort((a, b) => (a.pago < b.pago ? -1 : 1))
+  }, [cobros, hoy])
 
-  /* Batería de frases (mismo estilo Evolución, cada una aporta un dato distinto) */
-  const fraseMargen = useMemo(() => {
-    if (brutoTotal <= 0) return null
-    const pct = (netoTotal / brutoTotal) * 100
-    return { txt: `El neto es el ${pct.toFixed(0)}% del bruto: las comisiones se llevan ${nf0(brutoTotal - netoTotal)}.`, color: pct >= 58 ? POS : pct >= 48 ? WARN : NEG }
-  }, [brutoTotal, netoTotal])
+  // Día con mayor cobro futuro (para frase "el grueso")
+  const grueso = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of futuros) m.set(c.pago, (m.get(c.pago) ?? 0) + c.neto)
+    let best: { pago: string; total: number } | null = null
+    for (const [pago, total] of m) if (!best || total > best.total) best = { pago, total }
+    return best
+  }, [futuros])
 
-  const fraseGrueso = useMemo(() => {
-    if (puntos.length === 0) return null
-    const top = puntos.reduce((a, b) => (b.total > a.total ? b : a))
-    const pct = netoTotal > 0 ? (top.total / netoTotal) * 100 : 0
-    const cuando = periodo === 'anio' ? `en ${top.label}` : `el ${fmtLarga(top.fechaReal)}`
-    return { txt: `El grueso entra ${cuando}: ${nf0(top.total)} (${pct.toFixed(0)}% del total).`, color: POS }
-  }, [puntos, netoTotal, periodo])
-
-  const frasePlat = useMemo(() => {
-    if (porCanal.length === 0 || netoTotal <= 0) return null
-    const top = [...porCanal].sort((a, b) => b.neto - a.neto)[0]
-    const pct = (top.neto / netoTotal) * 100
-    if (pct < 45) return null
-    return { txt: `${top.label} aporta el ${pct.toFixed(0)}% del neto del periodo.`, color: pct >= 65 ? WARN : COLOR.textSec }
-  }, [porCanal, netoTotal])
-
-  const frases = [fraseMargen, fraseGrueso, frasePlat].filter(Boolean) as { txt: string; color: string }[]
+  /* Batería de frases de negocio (estilo Evolución). No repiten el subtítulo. */
+  const frases = useMemo(() => {
+    const out: { txt: string; color: string }[] = []
+    if (grueso && porCobrarTotal > 0) {
+      const pct = (grueso.total / porCobrarTotal) * 100
+      out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, el ${pct.toFixed(0)}% de lo pendiente.`, color: POS })
+    }
+    if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) {
+      const pct = (topPlat.neto / porCobrarTotal) * 100
+      if (pct >= 45) out.push({ txt: `${topPlat.label} concentra el ${pct.toFixed(0)}% de lo que queda por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec })
+    }
+    return out
+  }, [grueso, topPlat, porCobrarTotal])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -253,12 +255,12 @@ export default function Cashflow() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: COLOR.textSec, fontFamily: LEXEND }}>Cargando…</div>
 
   // Geometría gráfico
-  const W = 720, H = 230, pad = { l: 46, r: 16, t: 24, b: 30 }
+  const W = 720, H = 220, pad = { l: 44, r: 16, t: 22, b: 30 }
   const ix = W - pad.l - pad.r, iy = H - pad.t - pad.b
-  const maxY = Math.max(...puntos.map(p => p.total), 1) * 1.15
-  const X = (i: number) => pad.l + ix * (puntos.length <= 1 ? 0.5 : i / (puntos.length - 1))
+  const maxY = Math.max(...graf.map(p => p.total), 1) * 1.15
+  const X = (i: number) => pad.l + ix * (graf.length <= 1 ? 0.5 : i / (graf.length - 1))
   const Y = (v: number) => pad.t + iy * (1 - v / maxY)
-  const idxHoy = puntos.findIndex(p => p.futuro)
+  const idxFuturo = graf.findIndex(p => p.futuro)
 
   return (
     <div style={{ fontFamily: LEXEND, color: COLOR.textPri, paddingTop: 18 }}>
@@ -274,18 +276,16 @@ export default function Cashflow() {
         </div>
 
         <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4.2vw,44px)', fontWeight: 600, lineHeight: 1.04 }}>
-          {delta == null ? 'COBROS DEL PERIODO' : 'LOS COBROS VAN'}{' '}
-          {delta != null && <span style={{ color: colorDelta(delta), background: `${colorDelta(delta)}1f`, padding: '0 10px', borderRadius: 8 }}>{delta >= 0 ? '+' : ''}{delta.toFixed(1)}%</span>}
-          {delta != null && <span> VS {labelComp.toUpperCase()}.</span>}
+          POR COBRAR <span style={{ color: VERDE }}>{nf0(porCobrarTotal)}</span>
         </div>
 
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, letterSpacing: '0.3px' }}>
-            <span style={{ color: VERDE }}>{nf0(netoTotal)}</span>
-            <span style={{ color: COLOR.textMut }}> neto · </span>
-            <span style={{ color: '#111' }}>{nf0(brutoTotal)}</span>
-            <span style={{ color: COLOR.textMut }}> bruto · </span>
-            <span style={{ color: AZUL }}>{nf0(pedidosTotal)} pedidos</span>
+          <div style={{ fontFamily: OSWALD, fontSize: 'clamp(18px,2.6vw,26px)', fontWeight: 600 }}>
+            <span style={{ color: COLOR.textSec }}>{futuros.length} cobros pendientes</span>
+            {proximo && <><span style={{ color: COLOR.textMut }}> · </span><span style={{ color: VERDE }}>próximo {fmtCorta(proximo.pago)}</span></>}
+            <span style={{ color: COLOR.textMut }}> · </span>
+            <span style={{ color: COLOR.textSec }}>cobrado {periodo === 'semana' ? 'esta semana' : periodo === 'mes' ? 'este mes' : 'este año'} {nf0(cobradoPeriodo)}</span>
+            {delta != null && <span style={{ color: colorDelta(delta), marginLeft: 8 }}>{delta >= 0 ? '▲ +' : '▼ '}{Math.abs(delta).toFixed(1)}% vs {labelComp}</span>}
           </div>
           {frases.map((f, i) => (
             <div key={i} style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.2vw,21px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>
@@ -295,9 +295,9 @@ export default function Cashflow() {
 
       {/* GRÁFICO de cobros con tooltip por punto */}
       <div style={{ ...card, marginBottom: 14 }}>
-        <div style={{ ...lblS, marginBottom: 4 }}>Cuándo se cobra · neto · {periodo === 'semana' ? 'ventas de la semana' : periodo === 'mes' ? 'ventas del mes' : 'ventas del año'}</div>
-        {puntos.length === 0 ? (
-          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut, padding: '20px 0' }}>Sin ventas en este periodo.</div>
+        <div style={{ ...lblS, marginBottom: 4 }}>Cobros · cobrado y previsto · neto</div>
+        {graf.length === 0 ? (
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut, padding: '20px 0' }}>Sin cobros en el horizonte.</div>
         ) : (
           <div style={{ position: 'relative' }}>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
@@ -306,39 +306,36 @@ export default function Cashflow() {
                   <line x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="#efece6" />
                   <text x={pad.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text>
                 </g>) })}
-              {idxHoy > 0 && (() => { const xh = (X(idxHoy - 1) + X(idxHoy)) / 2; return (
+              {idxFuturo > 0 && (() => { const xh = (X(idxFuturo - 1) + X(idxFuturo)) / 2; return (
                 <g>
                   <line x1={xh} y1={pad.t} x2={xh} y2={H - pad.b} stroke={COLORS.accent} strokeWidth="1" strokeDasharray="3 3" />
-                  <text x={xh} y={pad.t - 8} textAnchor="middle" fontSize="9" fill={COLORS.accent} fontFamily="Oswald">HOY</text>
+                  <text x={xh} y={pad.t - 6} textAnchor="middle" fontSize="9" fill={COLORS.accent} fontFamily="Oswald">HOY</text>
                 </g>) })()}
-              {puntos.length > 1 && (
-                <polyline points={puntos.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="2.5" />
-              )}
-              {puntos.map((p, i) => (
+              {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="2.5" />}
+              {graf.map((p, i) => (
                 <g key={i}>
-                  <circle cx={X(i)} cy={Y(p.total)} r="14" fill="transparent" style={{ cursor: 'pointer' }}
-                    onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />
-                  <circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 6 : 4} fill={p.futuro ? '#fff' : VERDE} stroke={VERDE} strokeWidth="2" style={{ pointerEvents: 'none' }} />
-                  <text x={X(i)} y={H - pad.b + 16} textAnchor="middle" fontSize="9.5" fill={GRIS} fontFamily="Lexend">{p.label}</text>
+                  <circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 6 : 4} fill={p.futuro ? '#fff' : VERDE} stroke={VERDE} strokeWidth="2"
+                    style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />
+                  <text x={X(i)} y={H - pad.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text>
                 </g>
               ))}
             </svg>
-            {hover != null && puntos[hover] && (
+            {hover != null && graf[hover] && (
               <div style={{
-                position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(puntos[hover].total) / H) * 100}%`,
-                transform: 'translate(-50%, calc(-100% - 14px))', background: COLORS.modal, color: '#fff',
-                borderRadius: 10, padding: '10px 12px', minWidth: 158, pointerEvents: 'none', zIndex: 5,
+                position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`,
+                transform: 'translate(-50%, calc(-100% - 12px))', background: COLORS.modal, color: '#fff',
+                borderRadius: 10, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5,
                 boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
               }}>
-                <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{periodo === 'anio' ? puntos[hover].label : fmtLarga(puntos[hover].fechaReal)}</div>
-                {puntos[hover].items.map((it, k) => (
+                <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{fmtLarga(graf[hover].pago)}</div>
+                {graf[hover].items.map((it, k) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontFamily: LEXEND, fontSize: 12, marginBottom: 2 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: it.color }} />{it.label}</span>
                     <span style={{ fontFamily: OSWALD, fontWeight: 600 }}>{nf0(it.neto)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginTop: 6, paddingTop: 6, borderTop: '0.5px solid rgba(255,255,255,0.25)', fontFamily: OSWALD, fontSize: 13, fontWeight: 700 }}>
-                  <span>{puntos[hover].futuro ? 'Previsto' : 'Cobrado'}</span><span>{nf0(puntos[hover].total)}</span>
+                  <span>{graf[hover].futuro ? 'Previsto' : 'Cobrado'}</span><span>{nf0(graf[hover].total)}</span>
                 </div>
               </div>
             )}
@@ -350,30 +347,23 @@ export default function Cashflow() {
         )}
       </div>
 
-      {/* POR PLATAFORMA · orden fijo · bruto negro / neto verde */}
+      {/* POR PLATAFORMA · lo que está por cobrar (orden fijo, bruto negro / neto verde) */}
       <div style={card}>
-        <div style={{ ...lblS, marginBottom: 12 }}>Por plataforma · bruto y neto del periodo</div>
-        {porCanal.length === 0 ? (
-          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin ventas en este periodo.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${porCanal.length}, 1fr)`, gap: 10 }}>
-            {porCanal.map(c => (
-              <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '16px 18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                  <span style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.color }}>{c.label}</span>
-                  <span style={{ fontFamily: OSWALD, fontSize: 12, color: COLOR.textMut }}>{c.pct.toFixed(0)}%</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 10px', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: COLOR.textMut }}>Bruto</span>
-                  <span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: '#111', textAlign: 'right' }}>{nf0(c.bruto)}</span>
-                  <span style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: VERDE }}>Neto</span>
-                  <span style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, color: VERDE, textAlign: 'right' }}>{nf0(c.neto)}</span>
-                </div>
-                {c.prox && <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut, marginTop: 8 }}>Se cobra: {fmtCorta(c.prox)}</div>}
+        <div style={{ ...lblS, marginBottom: 12 }}>Por cobrar · por plataforma</div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${CANALES.length}, 1fr)`, gap: 10 }}>
+          {porCanal.map(c => (
+            <div key={c.id} style={{ background: `${c.color}1a`, border: `0.5px solid ${c.color}`, borderRadius: 14, padding: '16px 18px', opacity: c.neto > 0 ? 1 : 0.55 }}>
+              <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.color, marginBottom: 8 }}>{c.label}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 10px', alignItems: 'baseline' }}>
+                <span style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: COLOR.textMut }}>Bruto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 600, color: '#111', textAlign: 'right' }}>{nf0(c.bruto)}</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: VERDE }}>Neto</span>
+                <span style={{ fontFamily: OSWALD, fontSize: 25, fontWeight: 700, color: VERDE, textAlign: 'right' }}>{nf0(c.neto)}</span>
               </div>
-            ))}
-          </div>
-        )}
+              <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut, marginTop: 8 }}>{c.prox ? `Próximo: ${fmtCorta(c.prox)}` : 'Cobro inmediato'}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
     </div>
