@@ -69,6 +69,29 @@ const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
 
+// NIF canónico del EMISOR por plataforma delivery. El OCR a veces lee del documento
+// un NIF ajeno (p.ej. una factura de Just Eat con el NIF de Uber, o de Uber con el de
+// Canal Isabel II). La plataforma/proveedor se detecta de forma fiable, así que se
+// FUERZA el NIF correcto del emisor. Con el NIF correcto, la categoría por NIF y el
+// archivado salen bien solos, sin corrección manual.
+const NIF_PLATAFORMA: Record<string, string> = {
+  uber: 'B88515200',     // PORTIER EATS SPAIN, S.L. → cat 1.1.1
+  glovo: 'B67282871',    // Glovoapp Spain Platform S.L. → cat 1.1.2
+  just_eat: 'B86008539', // JUST EAT SPAIN SL → cat 1.1.3
+}
+
+// Devuelve el NIF canónico del emisor si la factura es de una plataforma delivery,
+// detectada por el campo plataforma o por el nombre del proveedor. null si no aplica.
+function nifCanonicoPlataforma(extracted: ExtractedFactura): string | null {
+  const p = extracted.plataforma
+  if (p && NIF_PLATAFORMA[p]) return NIF_PLATAFORMA[p]
+  const nom = (extracted.proveedor_nombre || '').toLowerCase()
+  if (/\buber\b|portier\s*eats/.test(nom)) return NIF_PLATAFORMA.uber
+  if (/\bglovo/.test(nom)) return NIF_PLATAFORMA.glovo
+  if (/just\s*eat/.test(nom)) return NIF_PLATAFORMA.just_eat
+  return null
+}
+
 // Estados de factura que cuentan como conciliada para la auditoría
 const ESTADOS_CONCILIADA = ['conciliada', 'asociada']
 
@@ -695,6 +718,11 @@ async function procesarContenidoPrincipal(
     return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
+  // Plataforma delivery: forzar el NIF canónico del emisor (corrige NIF ajenos mal
+  // leídos del documento). Con el NIF correcto, la categoría por NIF sale sola.
+  const nifPlat = nifCanonicoPlataforma(extracted)
+  if (nifPlat) extracted.nif_emisor = nifPlat
+
   // F05: validar fecha antes de insert
   const fechaFactura = fechaValida(extracted.fecha_factura)
     ? extracted.fecha_factura
@@ -1036,6 +1064,9 @@ async function guardarFacturasMulti(
 
     const fechaFactura = fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : new Date().toISOString().slice(0, 10)
     const numFactura = extracted.numero_factura || `SN-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+    // Plataforma delivery: forzar NIF canónico del emisor (igual que en el flujo simple).
+    const nifPlatMulti = nifCanonicoPlataforma(extracted)
+    if (nifPlatMulti) extracted.nif_emisor = nifPlatMulti
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
 
     const { data: nueva, error: errInsert } = await supabase

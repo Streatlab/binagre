@@ -155,14 +155,18 @@ function textoLegibleAPdf(texto: string, datos: DriveExtracted): Buffer {
 // Copia de seguridad en Storage propio. Es la garantía de "cero pérdida":
 // pase lo que pase con Drive, el original queda guardado aquí al instante.
 async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: string): Promise<boolean> {
-  for (let intento = 1; intento <= 3; intento++) {
+  // 6 intentos con espera creciente: el respaldo en Storage es la garantía de
+  // "cero pérdida" (de él tira la repesca). En lotes grandes el Storage puede dar
+  // errores transitorios (503/timeout); insistir evita que un documento se quede
+  // sin respaldo y, por tanto, sin vía de recuperación.
+  for (let intento = 1; intento <= 6; intento++) {
     try {
       const { error } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
         .upload(path, buffer, { contentType: mimeType, upsert: true })
       if (!error) return true
     } catch { /* reintentar */ }
-    await sleep(400)
+    await sleep(Math.min(400 * intento, 2000))
   }
   return false
 }

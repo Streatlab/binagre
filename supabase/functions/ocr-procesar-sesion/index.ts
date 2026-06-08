@@ -317,6 +317,10 @@ async function trabajarSesion(sessionId: string) {
   }
 
   await persistir({ estado: 'completada', estado_cola: 'completada', completado_en: new Date().toISOString() })
+  // AUTO-REPESCA: al cerrar la sesión, dispara el barrido que sube a Drive cualquier
+  // factura que quedara en drive_pendiente por un fallo transitorio de Drive durante el
+  // lote. Fire-and-forget: no bloquea ni rompe el cierre. El usuario no pulsa nada.
+  try { fetch(`${VERCEL_BASE}/api/facturas?action=archivar-pendientes`, { method: 'GET' }).catch(() => {}) } catch { /* noop */ }
   return encadenarSiguiente()
 }
 
