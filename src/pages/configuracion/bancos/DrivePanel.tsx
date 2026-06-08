@@ -16,7 +16,7 @@ export default function DrivePanel() {
   async function cargar() {
     setLoading(true)
     try {
-      const r = await fetch('/api/oauth/google/status')
+      const r = await fetch('/api/oauth/google?action=status')
       if (!r.ok) throw new Error(await r.text())
       setData(await r.json())
     } catch (err) {
@@ -35,12 +35,12 @@ export default function DrivePanel() {
   }, [])
 
   function conectar() {
-    window.location.href = '/api/oauth/google/start'
+    window.location.href = '/api/oauth/google?action=start'
   }
 
   async function desconectar() {
     if (!confirm('¿Desconectar Drive? Las facturas ya subidas permanecen, pero no podrás subir nuevas hasta reconectar.')) return
-    await fetch('/api/oauth/google/disconnect', {
+    await fetch('/api/oauth/google?action=disconnect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })

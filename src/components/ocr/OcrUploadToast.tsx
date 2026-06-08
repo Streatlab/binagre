@@ -16,6 +16,10 @@ function inyectarEstilosGlobales() {
 
 function AchtungBanner({ session }: { session: OcrSession }) {
   if (!session.achtungMensaje) return null
+  // Si el problema es Google Drive desconectado, mostrar el botón de conectar
+  // DIRECTAMENTE en el aviso (lleva al OAuth real ?action=start). Al volver de
+  // Google, el usuario pulsa "Reanudar" y el lote continúa donde lo dejó.
+  const esDrive = (session.achtungMensaje || '').toUpperCase().includes('DRIVE')
   return (
     <div style={{
       background: 'linear-gradient(135deg, #B01D23, #7a0d12)',
@@ -34,6 +38,19 @@ function AchtungBanner({ session }: { session: OcrSession }) {
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, lineHeight: 1.4, fontWeight: 500 }}>
         {session.achtungMensaje}
       </div>
+      {esDrive && (
+        <a
+          href="/api/oauth/google?action=start"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
+            padding: '8px 14px', borderRadius: 8, background: '#fff', color: '#B01D23',
+            textDecoration: 'none', fontFamily: 'Oswald, sans-serif', fontSize: 11,
+            letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700,
+          }}
+        >
+          🔗 Conectar Drive
+        </a>
+      )}
     </div>
   )
 }
