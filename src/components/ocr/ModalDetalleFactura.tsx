@@ -1,6 +1,11 @@
-// ModalDetalleFactura v2 — D01 D03 D04 D05 D07
+// ModalDetalleFactura v3 — D01 D03 D04 D05 D07 + COMPLETAR DATOS
+// v3: además de categoría + movimiento bancario, ahora se pueden completar a mano
+//     los datos básicos que el OCR no haya dejado perfectos: proveedor, fecha,
+//     importe, NIF emisor y titular. Así CUALQUIER factura a medias se resuelve
+//     entera desde esta misma pantalla (objetivo 100%). La búsqueda de movimiento
+//     bancario reacciona al importe/fecha que escribas.
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { fmtEur, fmtDate } from '@/utils/format'
+import { fmtEur } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 
 const TOLERANCIA = 0.05
@@ -30,6 +35,7 @@ function ventanaProveedor(nombre: string): { antes: number; despues: number } {
 }
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }
+interface Titular { id: string; nombre: string }
 interface MovBanco {
   id: string
   fecha: string
@@ -52,18 +58,38 @@ interface FacturaEdit {
   pdf_drive_id: string | null
   numero_factura: string | null
   mensaje_matching: string | null
+  estado?: string | null
   facturas_gastos?: { id: string; conciliacion_id: string; confirmado: boolean }[]
 }
 
 interface Props {
   factura: FacturaEdit
   categoriasPyg: CatPyg[]
+  titulares?: Titular[]
   onClose: () => void
   onSaved: () => void
   onDeleted: () => void
 }
 
-export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, onSaved, onDeleted }: Props) {
+// Estilo común de inputs/selects de este modal (tema claro).
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111',
+  boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px',
+  textTransform: 'uppercase', color: '#7a8090', marginBottom: 6,
+}
+
+export default function ModalDetalleFactura({ factura, categoriasPyg, titulares = [], onClose, onSaved, onDeleted }: Props) {
+  // Datos editables (completar lo que el OCR no leyó). Arrancan con lo que haya.
+  const [proveedor, setProveedor] = useState(factura.proveedor_nombre || '')
+  const [fecha, setFecha] = useState(factura.fecha_factura || '')
+  const [totalStr, setTotalStr] = useState(factura.total ? String(factura.total) : '')
+  const [nifEmisor, setNifEmisor] = useState(factura.nif_emisor || '')
+  const [titularId, setTitularId] = useState(factura.titular_id || '')
+
   const [categoria, setCategoria] = useState(factura.categoria_factura || '')
   const [movimientoId, setMovimientoId] = useState(factura.facturas_gastos?.find(fg => fg.confirmado)?.conciliacion_id || '')
   const [movsCandidatos, setMovsCandidatos] = useState<MovBanco[]>([])
@@ -76,20 +102,27 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
   // D05: override categoría
   const [overrideCategoria, setOverrideCategoria] = useState(false)
 
+  // Importe numérico a partir de lo escrito (admite coma decimal española).
+  const totalNum = useMemo(() => {
+    const v = (totalStr || '').replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')
+    const n = parseFloat(v)
+    return isNaN(n) ? 0 : n
+  }, [totalStr])
+
   const ventana = useMemo(() => {
-    const base = ventanaProveedor(factura.proveedor_nombre)
+    const base = ventanaProveedor(proveedor)
     if (ampliarVentana) return { antes: base.antes + 30, despues: base.despues + 60 }
     return base
-  }, [factura.proveedor_nombre, ampliarVentana])
+  }, [proveedor, ampliarVentana])
 
   const buscarCandidatos = useCallback(async () => {
-    if (!factura.fecha_factura || !factura.total) return
+    if (!fecha || !totalNum) { setMovsCandidatos([]); return }
     setCargandoMovs(true)
     try {
-      const fechaF = new Date(factura.fecha_factura)
+      const fechaF = new Date(fecha)
       const fechaMin = new Date(fechaF.getTime() - ventana.antes * 86400000).toISOString().slice(0, 10)
       const fechaMax = new Date(fechaF.getTime() + ventana.despues * 86400000).toISOString().slice(0, 10)
-      const importeAbs = Math.abs(Number(factura.total))
+      const importeAbs = Math.abs(totalNum)
       const importeMin = -(importeAbs + TOLERANCIA)
       const importeMax = -(importeAbs - TOLERANCIA)
 
@@ -101,8 +134,8 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         .order('fecha', { ascending: false })
         .limit(40)
 
-      if (factura.titular_id) {
-        query = query.eq('titular_id', factura.titular_id)
+      if (titularId) {
+        query = query.eq('titular_id', titularId)
       }
 
       const { data } = await query
@@ -128,7 +161,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
     } finally {
       setCargandoMovs(false)
     }
-  }, [factura.id, factura.titular_id, factura.fecha_factura, factura.total, factura.facturas_gastos, ventana])
+  }, [titularId, fecha, totalNum, factura.facturas_gastos, ventana])
 
   useEffect(() => { buscarCandidatos() }, [buscarCandidatos])
 
@@ -141,6 +174,17 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
 
   const catNivel3 = useMemo(() => categoriasPyg.filter(c => c.nivel === 3), [categoriasPyg])
 
+  // ¿Qué falta para que esta factura quede "completa"? Guía visual hacia el 100%.
+  const faltan = useMemo(() => {
+    const f: string[] = []
+    if (!proveedor.trim()) f.push('proveedor')
+    if (!fecha) f.push('fecha')
+    if (!totalNum) f.push('importe')
+    if (!titularId) f.push('titular')
+    if (!categoria) f.push('categoría')
+    return f
+  }, [proveedor, fecha, totalNum, titularId, categoria])
+
   const handleGuardar = async () => {
     setGuardando(true); setError(null)
     try {
@@ -148,9 +192,23 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
       const movSeleccionado = movsCandidatos.find(m => m.id === movimientoId) || null
       const categoriaFinal = overrideCategoria ? categoria : (movSeleccionado?.categoria || categoria || null)
 
-      const updateFactura: Record<string, unknown> = { categoria_factura: categoriaFinal }
+      // Datos básicos editados (completar lo que faltaba)
+      const updateFactura: Record<string, unknown> = {
+        proveedor_nombre: proveedor.trim() || factura.proveedor_nombre,
+        fecha_factura: fecha || factura.fecha_factura,
+        total: totalNum,
+        nif_emisor: nifEmisor.trim() ? nifEmisor.trim().toUpperCase() : null,
+        titular_id: titularId || null,
+        categoria_factura: categoriaFinal,
+      }
       if (movSeleccionado) updateFactura.estado = 'asociada'
       else if (movActual) updateFactura.estado = 'sin_match'
+      // Si la factura venía marcada como "a medias" y ya tiene importe y titular,
+      // sale de la cola de pendientes de completar (estado neutro 'leida').
+      const estadosPendientesDato = ['pendiente_lectura_manual', 'pendiente_titular_manual', 'drive_pendiente', 'error']
+      if (!movSeleccionado && !movActual && factura.estado && estadosPendientesDato.includes(factura.estado) && totalNum > 0 && titularId) {
+        updateFactura.estado = 'leida'
+      }
 
       const { error: errF } = await supabase.from('facturas').update(updateFactura).eq('id', factura.id)
       if (errF) throw new Error(`Factura: ${errF.message}`)
@@ -162,7 +220,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         }
         await supabase.from('facturas_gastos').insert({
           factura_id: factura.id, conciliacion_id: movimientoId,
-          importe_asociado: Math.abs(factura.total), confirmado: true, confirmado_manual: true, confianza_match: 100,
+          importe_asociado: Math.abs(totalNum), confirmado: true, confirmado_manual: true, confianza_match: 100,
         })
         await supabase.from('conciliacion').update({
           doc_estado: 'tiene', factura_id: factura.id,
@@ -173,6 +231,20 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
         await supabase.from('conciliacion').update({ doc_estado: 'falta', factura_id: null }).eq('id', movActual.conciliacion_id)
       } else if (movimientoId && categoriaFinal) {
         await supabase.from('conciliacion').update({ categoria: categoriaFinal }).eq('id', movimientoId)
+      }
+
+      // Aprender la categoría para futuras facturas del mismo NIF (0 €, sin API):
+      // si hay NIF emisor + categoría, se guarda/actualiza su regla de conciliación.
+      if (categoriaFinal && nifEmisor.trim()) {
+        try {
+          const nifN = nifEmisor.trim().toUpperCase()
+          const { data: reglaPrev } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nifN).maybeSingle()
+          if (reglaPrev?.id) {
+            await supabase.from('reglas_conciliacion').update({ categoria_codigo: categoriaFinal }).eq('id', reglaPrev.id)
+          } else {
+            await supabase.from('reglas_conciliacion').insert({ patron_nif: nifN, razon_social: proveedor.trim() || null, categoria_codigo: categoriaFinal })
+          }
+        } catch { /* best-effort: no romper el guardado por la regla */ }
       }
 
       onSaved()
@@ -216,25 +288,62 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
       <div style={{ background: '#fff', borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Factura (datos no editables)</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{factura.proveedor_nombre || '—'}</div>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Completar factura</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{proveedor || '—'}</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 2 }}>
-              {fmtDate(factura.fecha_factura)} · {fmtEur(factura.total)} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
-              {factura.nif_emisor ? ` · NIF ${factura.nif_emisor}` : ''}
+              {totalNum ? fmtEur(totalNum) : 'sin importe'} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#7a8090', cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Aviso de qué falta por completar */}
+          {faltan.length > 0 ? (
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFF7ED', border: '0.5px solid #F26B1F50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#9a4a12' }}>
+              Faltan por completar: <strong>{faltan.join(', ')}</strong>
+            </div>
+          ) : (
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#1D9E7510', border: '0.5px solid #1D9E7540', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#0F6E56' }}>
+              ✓ Factura completa
+            </div>
+          )}
+
           {tienePdf && (
             <div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Documento</div>
+              <div style={labelStyle}>Documento</div>
               <a href={factura.pdf_drive_url!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: '#1D9E7515', color: '#0F6E56', textDecoration: 'none', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500 }}>
                 📎 Abrir en Drive
               </a>
             </div>
           )}
+
+          {/* Datos básicos editables */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Proveedor</label>
+              <input type="text" value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Fecha</label>
+              <input type="date" value={fecha ? fecha.slice(0, 10) : ''} onChange={e => setFecha(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Importe (€)</label>
+              <input type="text" inputMode="decimal" value={totalStr} onChange={e => setTotalStr(e.target.value)} placeholder="0,00" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>NIF emisor</label>
+              <input type="text" value={nifEmisor} onChange={e => setNifEmisor(e.target.value)} placeholder="B12345678" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Titular</label>
+              <select value={titularId} onChange={e => setTitularId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="">— Sin titular —</option>
+                {titulares.map(t => (<option key={t.id} value={t.id}>{t.nombre}</option>))}
+              </select>
+            </div>
+          </div>
 
           {/* D07: mostrar mensaje_matching */}
           {factura.mensaje_matching && (
@@ -253,19 +362,21 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
                 </button>
               )}
             </div>
-            {cargandoMovs ? (
+            {!fecha || !totalNum ? (
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Completa importe y fecha para buscar el movimiento del banco.</div>
+            ) : cargandoMovs ? (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Buscando candidatos…</div>
             ) : movsCandidatos.length === 0 ? (
               <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A40', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23' }}>
-                No hay movimientos {factura.titular_id ? 'del mismo titular ' : ''}con importe {fmtEur(-Math.abs(factura.total))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
+                No hay movimientos {titularId ? 'del mismo titular ' : ''}con importe {fmtEur(-Math.abs(totalNum))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
               </div>
             ) : (
               <select value={movimientoId} onChange={e => setMovimientoId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>
+                style={{ ...inputStyle, cursor: 'pointer' }}>
                 <option value="">— Sin asociar —</option>
                 {movsCandidatos.map(m => (
                   <option key={m.id} value={m.id}>
-                    {fmtDate(m.fecha)} · {(m.concepto || '').slice(0, 40)} · {fmtEur(m.importe)}{m.categoria ? ` · ${m.categoria}` : ''}
+                    {m.fecha} · {(m.concepto || '').slice(0, 40)} · {fmtEur(m.importe)}{m.categoria ? ` · ${m.categoria}` : ''}
                   </option>
                 ))}
               </select>
@@ -284,16 +395,18 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, onClose, o
             </label>
             {/* D05: categoría editable con override */}
             <select value={categoria} onChange={e => { setCategoria(e.target.value); if (categoriaPropuesta) setOverrideCategoria(true) }}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
-                background: '#fff',
-                fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111',
-                cursor: 'pointer' }}>
+              style={{ ...inputStyle, cursor: 'pointer' }}>
               <option value="">— Sin categoría —</option>
               {catNivel3.map(c => (<option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>))}
             </select>
             {categoriaPropuesta && !overrideCategoria && (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
                 La categoría se hereda del movimiento bancario. Puedes cambiarla seleccionando otra.
+              </div>
+            )}
+            {nifEmisor.trim() && categoria && (
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
+                Se recordará esta categoría para las próximas facturas del NIF {nifEmisor.trim().toUpperCase()}.
               </div>
             )}
           </div>
