@@ -494,14 +494,21 @@ async function aprenderProveedorNif(
       .maybeSingle()
     if (ya) return
     const plantilla = derivarPlantilla(texto, extracted)
+    // patron y tipo_categoria son NOT NULL en reglas_conciliacion: hay que
+    // rellenarlos siempre o el INSERT falla en silencio (la plantilla no se
+    // guardaría y el candado nunca aprendería el proveedor).
     await supabase
       .from('reglas_conciliacion')
       .insert({
+        patron: extracted.proveedor_nombre,
+        tipo_categoria: 'gasto',
         patron_nif: nif,
         razon_social: extracted.proveedor_nombre,
         plantilla_total_label: plantilla.totalLabel,
         plantilla_fecha_formato: plantilla.fechaFormato,
         plantilla_num_label: plantilla.numLabel,
+        activa: true,
+        prioridad: 50,
       })
   } catch (e) {
     console.error('[aprenderProveedorNif]', errMsg(e))
