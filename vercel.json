@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    { "source": "/api/oauth/google/start", "destination": "/api/oauth/google?action=start" },
+    { "source": "/api/oauth/google/connect", "destination": "/api/oauth/google?action=connect" },
+    { "source": "/api/oauth/google/status", "destination": "/api/oauth/google?action=status" },
+    { "source": "/api/oauth/google/disconnect", "destination": "/api/oauth/google?action=disconnect" },
+    { "source": "/api/oauth/google/callback", "destination": "/api/oauth/google?action=callback" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
