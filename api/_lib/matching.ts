@@ -374,6 +374,46 @@ async function metadatosProveedorConocido(
   return { nif, categoria, proveedor_canonico }
 }
 
+// Aprende en el diccionario (reglas_conciliacion) la categoría de un proveedor por
+// NIF, para que las próximas facturas suyas la hereden al instante sin volver a
+// buscar en conciliación. Best-effort: nunca lanza. NUNCA pisa una categoría ya
+// configurada a mano (solo rellena si está vacía o si el NIF aún no tiene ficha).
+// patron/tipo_categoria son NOT NULL en la tabla → se rellenan siempre.
+async function aprenderCategoriaProveedor(
+  supabase: SupabaseClient,
+  nif: string | null | undefined,
+  proveedorNombre: string | null | undefined,
+  categoria: string | null | undefined,
+): Promise<void> {
+  if (!nif || !categoria) return
+  try {
+    const nifU = nif.toUpperCase()
+    const { data: existentes } = await supabase
+      .from('reglas_conciliacion')
+      .select('id, categoria_codigo')
+      .eq('patron_nif', nifU)
+      .limit(1)
+    const ya = existentes && existentes.length > 0 ? existentes[0] : null
+    if (ya) {
+      if (!ya.categoria_codigo) {
+        await supabase.from('reglas_conciliacion').update({ categoria_codigo: categoria }).eq('id', ya.id as string)
+      }
+      return
+    }
+    await supabase.from('reglas_conciliacion').insert({
+      patron: proveedorNombre || nifU,
+      tipo_categoria: 'gasto',
+      patron_nif: nifU,
+      razon_social: proveedorNombre || null,
+      categoria_codigo: categoria,
+      activa: true,
+      prioridad: 50,
+    })
+  } catch (e) {
+    console.error('[aprenderCategoriaProveedor]', e instanceof Error ? e.message : String(e))
+  }
+}
+
 export async function aplicarMatching(supabase: SupabaseClient, facturaId: string, result: MatchingResult, facturaExtra?: { proveedor_nombre?: string; nif_emisor?: string | null }): Promise<void> {
   await supabase.from('facturas_gastos').delete().eq('factura_id', facturaId).eq('confirmado_manual', false)
   if (result.matches.length > 0) {
@@ -404,6 +444,15 @@ export async function aplicarMatching(supabase: SupabaseClient, facturaId: strin
   if (categoriaPropagada && !facActual?.categoria_factura) updateFactura.categoria_factura = categoriaPropagada
   if (meta.nif && !facActual?.nif_emisor) updateFactura.nif_emisor = meta.nif
   await supabase.from('facturas').update(updateFactura).eq('id', facturaId)
+
+  // Aprender la categoría en el diccionario por NIF (lo que pidió Rubén): si el
+  // proveedor ya tenía categoría en conciliación, se trae a la factura (arriba) y
+  // además se guarda por NIF para que la próxima de ese proveedor la herede sola.
+  const nifParaAprender = (facActual?.nif_emisor as string) || meta.nif || null
+  const nombreParaAprender = (facActual?.proveedor_nombre as string) || facturaExtra?.proveedor_nombre || null
+  if (categoriaPropagada && nifParaAprender) {
+    await aprenderCategoriaProveedor(supabase, nifParaAprender, nombreParaAprender, categoriaPropagada)
+  }
   if (result.estado === 'asociada' && result.matches.length > 0) { const matchIds = result.matches.map((m) => m.id); await supabase.from('conciliacion').update({ factura_id: facturaId }).in('id', matchIds) }
 }
 

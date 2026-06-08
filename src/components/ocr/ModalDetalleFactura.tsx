@@ -238,11 +238,13 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
       if (categoriaFinal && nifEmisor.trim()) {
         try {
           const nifN = nifEmisor.trim().toUpperCase()
-          const { data: reglaPrev } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nifN).maybeSingle()
+          const { data: reglasPrev } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nifN).limit(1)
+          const reglaPrev = reglasPrev && reglasPrev.length > 0 ? reglasPrev[0] : null
           if (reglaPrev?.id) {
             await supabase.from('reglas_conciliacion').update({ categoria_codigo: categoriaFinal }).eq('id', reglaPrev.id)
           } else {
-            await supabase.from('reglas_conciliacion').insert({ patron_nif: nifN, razon_social: proveedor.trim() || null, categoria_codigo: categoriaFinal })
+            // patron y tipo_categoria son NOT NULL: sin ellos el insert falla.
+            await supabase.from('reglas_conciliacion').insert({ patron: proveedor.trim() || nifN, tipo_categoria: 'gasto', patron_nif: nifN, razon_social: proveedor.trim() || null, categoria_codigo: categoriaFinal, activa: true, prioridad: 50 })
           }
         } catch { /* best-effort: no romper el guardado por la regla */ }
       }
