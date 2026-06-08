@@ -82,7 +82,10 @@ function esConciliada(f: Factura): boolean {
 // (importe, titular o categoría). Es la cola hacia el 100%: en cuanto se rellenan
 // los tres, la factura sale de aquí sola.
 // Nota: total=0 = sin leer. Notas de crédito tienen total negativo (válido, no falta).
+// Una factura ya conciliada (incluye cupones 0€ en 'solo_drive') está cerrada: no
+// se cuenta como "por completar" aunque su importe sea 0.
 function faltanDatos(f: Factura): boolean {
+  if (esConciliada(f)) return false
   return !f.total || !f.titular_id || !f.categoria_factura
 }
 

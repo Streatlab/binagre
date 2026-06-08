@@ -29,6 +29,13 @@ export interface PlantillaNif {
 }
 
 export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
+  // HTML disfrazado de .doc (Just Eat y otros exportan la factura como HTML con
+  // extensión .doc). word-extractor/mammoth fallan con esto, así que se detecta y
+  // se extrae el texto quitando etiquetas. Es lo que permite leer las Just Eat .doc.
+  if (pareceHtmlBuffer(buffer)) {
+    const t = htmlBufferATexto(buffer)
+    if (t && t.replace(/\s/g, '').length >= 20) return { tipo: 'texto', data: t }
+  }
   // .docx (OOXML, cabecera 'PK'): mammoth lee bien
   const esDocx = buffer.length > 3 && buffer[0] === 0x50 && buffer[1] === 0x4b
   if (esDocx) {
@@ -51,13 +58,42 @@ export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
   } catch { /* ultimo recurso abajo */ } finally {
     await unlink(tmp).catch(() => {})
   }
-  // ultimo recurso
+  // ultimo recurso: si el contenido tenía pinta de HTML, intentar el strip aunque
+  // pareceHtmlBuffer no lo detectara en la cabecera.
+  const crudo = buffer.toString('utf-8')
+  if (/<\/?(table|td|tr|div|p|html|body)\b/i.test(crudo)) {
+    const t = htmlBufferATexto(buffer)
+    if (t.trim()) return { tipo: 'texto', data: t }
+  }
   try {
     const result = await mammoth.extractRawText({ buffer })
     return { tipo: 'texto', data: result.value || '' }
   } catch {
     return { tipo: 'texto', data: '' }
   }
+}
+
+// ¿El buffer es HTML? Mira la cabecera en busca de marcadores típicos.
+function pareceHtmlBuffer(buffer: Buffer): boolean {
+  const head = buffer.subarray(0, 4096).toString('utf-8').toLowerCase()
+  return head.includes('<html') || head.includes('<!doctype html') ||
+         head.includes('<table') || head.includes('<body') || head.includes('<td')
+}
+
+// Convierte HTML en texto plano legible para las reglas: separa celdas/filas con
+// espacios y saltos para que etiqueta y valor (p.ej. "Total a pagar" … "30,81€")
+// queden en la misma línea y el lector genérico/plantilla los encuentre.
+function htmlBufferATexto(buffer: Buffer): string {
+  let s = buffer.toString('utf-8')
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  s = s.replace(/<\/(td|th)>/gi, ' ').replace(/<\/(tr|p|div|h[1-6]|li)>/gi, '\n')
+  s = s.replace(/<[^>]+>/g, ' ')
+  s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&euro;/gi, '€')
+       .replace(/&aacute;/gi, 'á').replace(/&eacute;/gi, 'é').replace(/&iacute;/gi, 'í')
+       .replace(/&oacute;/gi, 'ó').replace(/&uacute;/gi, 'ú').replace(/&ntilde;/gi, 'ñ')
+       .replace(/&#?\w+;/g, ' ')
+  s = s.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim()
+  return s
 }
 
 export async function extraerExcel(buffer: Buffer): Promise<ContenidoExtraido> {

@@ -665,6 +665,19 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // PASO 1b (gratis): documentos de TEXTO (word/.doc-HTML de Just Eat, email, txt,
+  // excel). Su contenido ya viene como texto en `contenido.data`; se le aplican las
+  // MISMAS reglas/plantilla por NIF. Sin esto, los .doc nunca pasaban por reglas y
+  // acababan en lectura manual aunque el texto fuera perfectamente legible.
+  if (!extractedReglas && contenido.tipo === 'texto' && typeof contenido.data === 'string') {
+    const textoDoc = contenido.data
+    if (textoDoc && textoDoc.replace(/\s/g, '').length >= 20) {
+      textoPdfCache = textoPdfCache && textoPdfCache.length > textoDoc.length ? textoPdfCache : textoDoc
+      if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
+      extractedReglas = extraerPorReglas(textoDoc, (nif) => diccionario?.get(nif)?.plantilla || null, false)
+    }
+  }
+
   // PASO 2 (gratis): si las reglas no leyeron y es PDF escaneado o imagen/foto,
   // se pasa por OCR Tesseract (0 €) para sacar el texto y reintentar las reglas.
   if (!extractedReglas && OCR_TESSERACT_ACTIVO && (tipo === 'pdf' || tipo === 'imagen')) {
