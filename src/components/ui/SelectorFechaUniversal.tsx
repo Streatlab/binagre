@@ -277,9 +277,9 @@ export default function SelectorFechaUniversal({
     if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
       setOpcion(op); setOpen(false)
-      // Campos vacíos: el usuario elige inicio y fin a mano (no se prerellena con hoy).
+      // Inicio vacío (lo elige el usuario); fin = hoy por defecto.
       setDesdeInput('')
-      setHastaInput('')
+      setHastaInput(isoToDisplay(todayStr()))
       setTimeout(() => desdeRef.current?.focus(), 50)
       return
     }
