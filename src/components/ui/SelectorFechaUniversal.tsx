@@ -277,14 +277,9 @@ export default function SelectorFechaUniversal({
     if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
       setOpcion(op); setOpen(false)
-      // Prerellenar con el periodo que se estaba viendo; fin = hoy por defecto.
-      const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
-      const prev = lastRangeRef.current
-      const pd = prev?.desde ?? calcRango('esta_semana').desde
-      let ph = prev?.hasta ?? hoy
-      if (ph > hoy) ph = hoy
-      setDesdeInput(isoToDisplay(toDateString(pd)))
-      setHastaInput(isoToDisplay(toDateString(ph)))
+      // Campos vacíos: el usuario elige inicio y fin a mano (no se prerellena con hoy).
+      setDesdeInput('')
+      setHastaInput('')
       setTimeout(() => desdeRef.current?.focus(), 50)
       return
     }
@@ -343,10 +338,7 @@ export default function SelectorFechaUniversal({
 
   function handleDesdeBlur() {
     const desdeIso = parseFechaInput(desdeInput)
-    if (desdeIso) {
-      setDesdeInput(isoToDisplay(desdeIso))
-      if (!parseFechaInput(hastaInput)) setHastaInput(isoToDisplay(todayStr()))
-    }
+    if (desdeIso) setDesdeInput(isoToDisplay(desdeIso))
   }
   function handleHastaBlur() {
     const hastaIso = parseFechaInput(hastaInput)
