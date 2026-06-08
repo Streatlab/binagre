@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v26
+ * Tab Evolución — Panel Global · v27
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -67,15 +67,15 @@ const SUBTAB_CONTAINER: CSSProperties = { display: 'inline-flex', gap: 4, paddin
 const SUBTAB_ACTIVE: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#ffffff', color: COLORS.pri, fontFamily: FONT.heading, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none' }
 const SUBTAB_INACTIVE: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.25)', color: '#ffffff', fontFamily: FONT.heading, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none' }
 
-interface Esc { pctObj: number; dV: number | null; dP: number | null; dT: number | null; diasRest: number; falta: number; hayComp: boolean; total: number; proy: number; obj: number; labelComp: string; tituloDelta: boolean }
+interface Esc { pctObj: number; dV: number | null; dP: number | null; dT: number | null; diasRest: number; falta: number; hayComp: boolean; total: number; proy: number; obj: number; labelComp: string; tituloDelta: boolean; tituloObjetivo: boolean }
 interface FraseDef { cond: (e: Esc) => boolean; txt: (e: Esc) => string; color: () => string }
 const POS = VERDE, NEG = ROJO, WARN = AMARILLO, NEU = COLOR.textSec
 const BATERIA: FraseDef[] = [
   { cond: e => e.total === 0, txt: () => 'Aún no hay facturación registrada en este periodo.', color: () => NEU },
-  { cond: e => e.pctObj >= 120, txt: e => `Objetivo pulverizado: ${e.pctObj.toFixed(0)}% del objetivo. Ritmo excelente.`, color: () => POS },
-  { cond: e => e.pctObj >= 100, txt: e => `Objetivo superado (${e.pctObj.toFixed(0)}%). A mantener el nivel.`, color: () => POS },
-  { cond: e => e.pctObj < 100 && e.diasRest > 0 && e.proy >= e.obj && e.obj > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del tramo, pero al ritmo actual cerrarías por encima del objetivo.`, color: () => POS },
-  { cond: e => e.pctObj >= 90 && e.pctObj < 100 && e.diasRest > 0, txt: e => `Muy cerca: ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
+  { cond: e => !e.tituloObjetivo && e.pctObj >= 120, txt: e => `Objetivo pulverizado: ${e.pctObj.toFixed(0)}% del objetivo. Ritmo excelente.`, color: () => POS },
+  { cond: e => !e.tituloObjetivo && e.pctObj >= 100, txt: e => `Objetivo superado (${e.pctObj.toFixed(0)}%). A mantener el nivel.`, color: () => POS },
+  { cond: e => !e.tituloObjetivo && e.pctObj < 100 && e.diasRest > 0 && e.proy >= e.obj && e.obj > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del tramo, pero al ritmo actual cerrarías por encima del objetivo.`, color: () => POS },
+  { cond: e => !e.tituloObjetivo && e.pctObj >= 90 && e.pctObj < 100 && e.diasRest > 0, txt: e => `Muy cerca: ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
   { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) >= 10, txt: e => `Vas +${(e.dV ?? 0).toFixed(0)}% por encima de ${e.labelComp} en los mismos días. Tendencia al alza.`, color: () => POS },
   { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) > 0 && (e.dV ?? 0) < 10, txt: e => `Vas ${(e.dV ?? 0).toFixed(1)}% por encima de ${e.labelComp} en los mismos días.`, color: () => POS },
   { cond: e => !e.tituloDelta && e.hayComp && Math.abs(e.dV ?? 0) <= 1, txt: e => `Vas igual que ${e.labelComp} en los mismos días. Sin cambios.`, color: () => NEU },
@@ -85,10 +85,10 @@ const BATERIA: FraseDef[] = [
   { cond: e => e.hayComp && (e.dP ?? 0) >= 10, txt: e => `Más pedidos que ${e.labelComp} (+${(e.dP ?? 0).toFixed(0)}%). Buen empuje de demanda.`, color: () => POS },
   { cond: e => e.hayComp && (e.dT ?? 0) >= 5, txt: e => `Ticket medio +${(e.dT ?? 0).toFixed(1)}% vs ${e.labelComp}. Suben los carritos.`, color: () => POS },
   { cond: e => e.hayComp && (e.dT ?? 0) <= -5, txt: e => `Ticket medio ${(e.dT ?? 0).toFixed(1)}% vs ${e.labelComp}. Trabajar upselling.`, color: () => NEG },
-  { cond: e => e.obj > 0 && e.pctObj < 50 && e.diasRest > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del objetivo del tramo: hay que apretar.`, color: () => NEG },
-  { cond: e => e.obj > 0 && e.pctObj >= 50 && e.pctObj < 90 && e.diasRest > 0, txt: e => `Al ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
-  { cond: e => e.obj > 0 && e.diasRest === 0 && e.pctObj < 100 && e.pctObj >= 80, txt: e => `Periodo cerrado al ${e.pctObj.toFixed(0)}% del objetivo. Cerca pero no.`, color: () => WARN },
-  { cond: e => e.obj > 0 && e.diasRest === 0 && e.pctObj < 80, txt: e => `Periodo cerrado al ${e.pctObj.toFixed(0)}% del objetivo. Por debajo de lo previsto.`, color: () => NEG },
+  { cond: e => !e.tituloObjetivo && e.obj > 0 && e.pctObj < 50 && e.diasRest > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del objetivo del tramo: hay que apretar.`, color: () => NEG },
+  { cond: e => !e.tituloObjetivo && e.obj > 0 && e.pctObj >= 50 && e.pctObj < 90 && e.diasRest > 0, txt: e => `Al ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
+  { cond: e => !e.tituloObjetivo && e.obj > 0 && e.diasRest === 0 && e.pctObj < 100 && e.pctObj >= 80, txt: e => `Periodo cerrado al ${e.pctObj.toFixed(0)}% del objetivo. Cerca pero no.`, color: () => WARN },
+  { cond: e => !e.tituloObjetivo && e.obj > 0 && e.diasRest === 0 && e.pctObj < 80, txt: e => `Periodo cerrado al ${e.pctObj.toFixed(0)}% del objetivo. Por debajo de lo previsto.`, color: () => NEG },
   { cond: e => !e.hayComp, txt: e => `Llevas ${nf0(e.total)} este periodo. Sin histórico de ${e.labelComp} para comparar.`, color: () => NEU },
   { cond: () => true, txt: e => `Periodo en marcha: ${nf0(e.total)} acumulado.`, color: () => NEU },
 ]
@@ -276,10 +276,10 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const diasRest = Math.max(diasTotDias - diasTransDias, 0)
 
   const frase = useMemo(() => {
-    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp, tituloDelta: deltaTotal != null }
+    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp, tituloDelta: deltaTotal != null, tituloObjetivo: objPeriodo > 0 && total > 0 }
     const def = BATERIA.find(f => { try { return f.cond(e) } catch { return false } }) || BATERIA[BATERIA.length - 1]
     return { txt: def.txt(e), color: def.color() }
-  }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTramo, total, cmpT.hay, proy, labelComp])
+  }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTramo, objPeriodo, total, cmpT.hay, proy, labelComp])
 
   const diasConDatosCanal = useMemo(() => { let n = 0; for (let d = new Date(pIni); d <= pFinTramo; d = addDays(d, 1)) if ((agg.get(toLocal(d))?.bruto ?? 0) > 0) n++; return n }, [agg, pIni, pFinTramo])
 
