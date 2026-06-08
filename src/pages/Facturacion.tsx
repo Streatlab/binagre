@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useMemo, type FormEvent, type CSSProperties } from 'react'
+import { Fragment, useEffect, useState, useMemo, useRef, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtFechaCorta } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
@@ -15,6 +15,9 @@ import { useMultiSort } from '@/hooks/useMultiSort'
 
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping:true })
+// Acepta indistintamente coma o punto como separador decimal
+const parseNum = (s: string): number => { const n = parseFloat(String(s ?? '').trim().replace(',', '.')); return isNaN(n) ? 0 : n }
+const parseIntES = (s: string): number => Math.round(parseNum(s))
 const toLocalDateStr = (d: Date): string => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -33,7 +36,7 @@ interface AggRow {
   directa_pedidos: number; directa_bruto: number
   total_pedidos: number; total_bruto: number
 }
-interface RawDiario extends AggRow { id: number; fecha: string; servicio: string }
+interface RawDiario extends AggRow { id: number; fecha: string; servicio: string; je_items?: number[] }
 interface SemanaGroup extends AggRow { year: number; week: number; periodo: string; dias: number }
 interface MesGroup extends AggRow { anio: number; mes: number; dias: number; media_diaria: number; vs_anterior: number | null }
 
@@ -60,7 +63,7 @@ const MES_NOMBRE: Record<number, string> = {
   7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre',
 }
 
-const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
+const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto,je_items'
 const COLOR_TODOS = COLORS.lun
 
 const SUBTAB_CONTAINER: CSSProperties = {
@@ -527,56 +530,103 @@ interface FormFields { uber_pedidos:string;uber_bruto:string;glovo_pedidos:strin
 const FORM_COLS: { label:string; ped:keyof FormFields; bru:keyof FormFields }[] = [{label:'Uber Eats',ped:'uber_pedidos',bru:'uber_bruto'},{label:'Glovo',ped:'glovo_pedidos',bru:'glovo_bruto'},{label:'Web',ped:'web_pedidos',bru:'web_bruto'},{label:'Venta Directa',ped:'directa_ped',bru:'directa_bru'}]
 const CANAL_COLORS_M: Record<string,{bg:string;border:string;label:string}> = {'Uber Eats':{bg:'#06C16712',border:'#06C167',label:'#06C167'},'Glovo':{bg:'#e8f44218',border:'#8a7800',label:'#8a7800'},'Web':{bg:'#B01D2312',border:'#B01D23',label:'#B01D23'},'Venta Directa':{bg:'#66aaff12',border:'#66aaff',label:'#66aaff'}}
 
+type JeItem = { raw:string; alm:boolean }
+
 function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]; existing?:RawDiario; onClose:()=>void; onSaved:()=>void }) {
   const isEdit=!!existing
-  const [fecha,setFecha]=useState(existing?.fecha??toLocalDateStr(new Date()))
-  const [servicio,setServicio]=useState(existing?.servicio??'ALM')
+  const hoy=toLocalDateStr(new Date())
+  const almDe=(f:string)=>allData.find(r=>r.fecha===f&&r.servicio==='ALM'&&r.id!==existing?.id)
+  const [fecha,setFecha]=useState(existing?.fecha??hoy)
+  // Autoselección: si ya existe fila ALM del día y es un alta nueva -> abrir directamente en CENAS/ALM
+  const [servicio,setServicio]=useState<string>(()=> existing?.servicio ?? (almDe(existing?.fecha??hoy)?'CENAS_ALM':'ALM'))
   const [fields,setFields]=useState<FormFields>(()=>{ if(!existing) return {uber_pedidos:'',uber_bruto:'',glovo_pedidos:'',glovo_bruto:'',je_ped:'',je_bru:'',web_pedidos:'',web_bruto:'',directa_ped:'0',directa_bru:'0.00'}; return {uber_pedidos:String(existing.uber_pedidos||''),uber_bruto:String(existing.uber_bruto||''),glovo_pedidos:String(existing.glovo_pedidos||''),glovo_bruto:String(existing.glovo_bruto||''),je_ped:String(existing.je_pedidos||''),je_bru:String(existing.je_bruto||''),web_pedidos:String(existing.web_pedidos||''),web_bruto:String(existing.web_bruto||''),directa_ped:String(existing.directa_pedidos||0),directa_bru:String(existing.directa_bruto||0)} })
   const [saving,setSaving]=useState(false)
   const [formError,setFormError]=useState<string|null>(null)
-  const [jeItems,setJeItems]=useState<number[]>(existing&&(existing.je_bruto??0)>0?[existing.je_bruto]:[])
+  const [jeItems,setJeItems]=useState<JeItem[]>(()=>{
+    if(existing){
+      if(Array.isArray(existing.je_items)&&existing.je_items.length>0) return existing.je_items.map(v=>({raw:String(Number(v)),alm:false}))
+      if((existing.je_bruto??0)>0) return [{raw:String(existing.je_bruto),alm:false}]
+    }
+    return []
+  })
   const [jeInput,setJeInput]=useState('')
-  useEffect(()=>{const t=jeItems.reduce((a,b)=>a+b,0);setFields(f=>({...f,je_ped:String(jeItems.length),je_bru:t.toFixed(2)}))},[jeItems])
-  const set=(k:keyof FormFields,v:string)=>setFields(p=>({...p,[k]:v}))
+  const jeRef=useRef<HTMLInputElement|null>(null)
+
   const filaAlm=useMemo(()=>allData.find(r=>r.fecha===fecha&&r.servicio==='ALM'&&r.id!==existing?.id),[allData,fecha,existing?.id])
+  const esCenasAlm=servicio==='CENAS_ALM'
 
-  const handleSubmit=async(e:FormEvent)=>{
-    e.preventDefault(); setFormError(null); if(!fecha){setFormError('Selecciona una fecha');return}
+  // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo: visibles, editables y persistentes (se mantienen en su fila ALM, no se duplican en la cena)
+  useEffect(()=>{
+    if(isEdit) return
+    if(esCenasAlm&&filaAlm){
+      const ref:JeItem[]=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)
+        ? filaAlm.je_items.map(v=>({raw:String(Number(v)),alm:true}))
+        : ((filaAlm.je_bruto??0)>0?[{raw:String(filaAlm.je_bruto),alm:true}]:[])
+      setJeItems(prev=>[...ref,...prev.filter(i=>!i.alm)])
+    } else {
+      setJeItems(prev=>prev.filter(i=>!i.alm))
+    }
+  },[esCenasAlm,filaAlm,isEdit])
 
-    if(servicio==='CENAS_ALM'){
+  // El total JE editable refleja solo los pedidos de la CENA (los del almuerzo viven en su propia fila ALM)
+  useEffect(()=>{ const ed=jeItems.filter(i=>!i.alm); const t=ed.reduce((a,b)=>a+parseNum(b.raw),0); setFields(f=>({...f,je_ped:String(ed.length),je_bru:t.toFixed(2)})) },[jeItems])
+
+  const set=(k:keyof FormFields,v:string)=>setFields(p=>({...p,[k]:v}))
+  const addJe=()=>{ const v=parseNum(jeInput); if(v>0){ setJeItems(p=>[...p,{raw:String(v),alm:false}]); setJeInput(''); requestAnimationFrame(()=>jeRef.current?.focus()) } }
+
+  const almByLabel:Record<string,{p:number;b:number}>={
+    'Uber Eats':{p:filaAlm?.uber_pedidos||0,b:filaAlm?.uber_bruto||0},
+    'Glovo':{p:filaAlm?.glovo_pedidos||0,b:filaAlm?.glovo_bruto||0},
+    'Web':{p:filaAlm?.web_pedidos||0,b:filaAlm?.web_bruto||0},
+    'Venta Directa':{p:filaAlm?.directa_pedidos||0,b:filaAlm?.directa_bruto||0},
+  }
+  const phPed=(label:string)=> esCenasAlm&&filaAlm ? `Almuerzo: ${almByLabel[label].p||0}` : '0'
+  const phBru=(label:string)=> esCenasAlm&&filaAlm ? `Almuerzo: ${fmt2(almByLabel[label].b||0)}` : '0.00'
+
+  const handleSubmit=async(e?:FormEvent)=>{
+    e?.preventDefault(); setFormError(null); if(!fecha){setFormError('Selecciona una fecha');return}
+    const edJe=jeItems.filter(i=>!i.alm)
+
+    if(esCenasAlm){
       if(!filaAlm){setFormError('No hay fila ALM para este día.');return}
-      const ub=Math.max(0,(parseFloat(fields.uber_bruto)||0)-(filaAlm.uber_bruto||0)); const gb=Math.max(0,(parseFloat(fields.glovo_bruto)||0)-(filaAlm.glovo_bruto||0)); const jb=Math.max(0,(parseFloat(fields.je_bru)||0)-(filaAlm.je_bruto||0)); const wb=Math.max(0,(parseFloat(fields.web_bruto)||0)-(filaAlm.web_bruto||0)); const db=Math.max(0,(parseFloat(fields.directa_bru)||0)-(filaAlm.directa_bruto||0))
-      const up=Math.max(0,(Math.round(parseFloat(fields.uber_pedidos)||0))-(filaAlm.uber_pedidos||0)); const gp=Math.max(0,(Math.round(parseFloat(fields.glovo_pedidos)||0))-(filaAlm.glovo_pedidos||0)); const jp=Math.max(0,(Math.round(parseFloat(fields.je_ped)||0))-(filaAlm.je_pedidos||0)); const wp=Math.max(0,(Math.round(parseFloat(fields.web_pedidos)||0))-(filaAlm.web_pedidos||0)); const dp=Math.max(0,(Math.round(parseFloat(fields.directa_ped)||0))-(filaAlm.directa_pedidos||0))
+      // UE/Glovo/Web/Directa: se introduce el TOTAL del día -> restamos el almuerzo para obtener la cena
+      const ub=Math.max(0,parseNum(fields.uber_bruto)-(filaAlm.uber_bruto||0)); const gb=Math.max(0,parseNum(fields.glovo_bruto)-(filaAlm.glovo_bruto||0)); const wb=Math.max(0,parseNum(fields.web_bruto)-(filaAlm.web_bruto||0)); const db=Math.max(0,parseNum(fields.directa_bru)-(filaAlm.directa_bruto||0))
+      const up=Math.max(0,parseIntES(fields.uber_pedidos)-(filaAlm.uber_pedidos||0)); const gp=Math.max(0,parseIntES(fields.glovo_pedidos)-(filaAlm.glovo_pedidos||0)); const wp=Math.max(0,parseIntES(fields.web_pedidos)-(filaAlm.web_pedidos||0)); const dp=Math.max(0,parseIntES(fields.directa_ped)-(filaAlm.directa_pedidos||0))
+      // JE: solo los pedidos de la cena (los del almuerzo ya viven en su propia fila ALM)
+      const jb=edJe.reduce((a,b)=>a+parseNum(b.raw),0); const jp=edJe.length
       const tp=up+gp+jp+wp+dp; const tb=ub+gb+jb+wb+db; if(tp===0&&tb===0){setFormError('El total es igual o menor al ALM.');return}
-      const p={fecha,servicio:'CENAS',uber_pedidos:up,uber_bruto:parseFloat(ub.toFixed(2)),glovo_pedidos:gp,glovo_bruto:parseFloat(gb.toFixed(2)),je_pedidos:jp,je_bruto:parseFloat(jb.toFixed(2)),web_pedidos:wp,web_bruto:parseFloat(wb.toFixed(2)),directa_pedidos:dp,directa_bruto:parseFloat(db.toFixed(2)),total_pedidos:tp,total_bruto:parseFloat(tb.toFixed(2))}
-      setSaving(true); if(isEdit){const{error:de}=await supabase.from('facturacion_diario').delete().eq('id',existing!.id);if(de){setSaving(false);setFormError(`Error borrando: ${de.message} [${de.code}]`);return}}
+      const p={fecha,servicio:'CENAS',uber_pedidos:up,uber_bruto:parseFloat(ub.toFixed(2)),glovo_pedidos:gp,glovo_bruto:parseFloat(gb.toFixed(2)),je_pedidos:jp,je_bruto:parseFloat(jb.toFixed(2)),web_pedidos:wp,web_bruto:parseFloat(wb.toFixed(2)),directa_pedidos:dp,directa_bruto:parseFloat(db.toFixed(2)),total_pedidos:tp,total_bruto:parseFloat(tb.toFixed(2)),je_items:edJe.map(i=>parseNum(i.raw))}
+      setSaving(true)
+      // Si el usuario editó/borró/añadió pedidos JE del almuerzo, propagamos el cambio a la fila ALM (sin duplicarlo en la cena)
+      const almJe=jeItems.filter(i=>i.alm).map(i=>parseNum(i.raw))
+      const origAlm=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)?filaAlm.je_items.map(Number):((filaAlm.je_bruto??0)>0?[filaAlm.je_bruto]:[])
+      if(JSON.stringify(almJe)!==JSON.stringify(origAlm)){
+        const najb=almJe.reduce((a,b)=>a+b,0); const najp=almJe.length
+        const nalmTotalBru=parseFloat(((filaAlm.total_bruto||0)-(filaAlm.je_bruto||0)+najb).toFixed(2))
+        const nalmTotalPed=(filaAlm.total_pedidos||0)-(filaAlm.je_pedidos||0)+najp
+        const{error:ae}=await supabase.from('facturacion_diario').update({je_pedidos:najp,je_bruto:parseFloat(najb.toFixed(2)),total_pedidos:nalmTotalPed,total_bruto:nalmTotalBru,je_items:almJe}).eq('id',filaAlm.id).select('id')
+        if(ae){setSaving(false);setFormError(`Error actualizando JE del almuerzo: ${ae.message} [${ae.code}]`);return}
+      }
       const{error:ie}=await supabase.from('facturacion_diario').insert(p); setSaving(false)
       if(ie){setFormError(`Error guardando CENAS: ${ie.message} [${ie.code}]`);return}
       onSaved(); return
     }
 
-    const up=Math.round(parseFloat(fields.uber_pedidos)||0)
-    const ub=parseFloat(fields.uber_bruto)||0
-    const gp=Math.round(parseFloat(fields.glovo_pedidos)||0)
-    const gb=parseFloat(fields.glovo_bruto)||0
-    const jp=Math.round(parseFloat(fields.je_ped)||0)
-    const jb=parseFloat(fields.je_bru)||0
-    const wp=Math.round(parseFloat(fields.web_pedidos)||0)
-    const wb=parseFloat(fields.web_bruto)||0
-    const dp=Math.round(parseFloat(fields.directa_ped)||0)
-    const db=parseFloat(fields.directa_bru)||0
-    const tp=up+gp+jp+wp+dp
-    const tb=ub+gb+jb+wb+db
-
+    const up=parseIntES(fields.uber_pedidos); const ub=parseNum(fields.uber_bruto)
+    const gp=parseIntES(fields.glovo_pedidos); const gb=parseNum(fields.glovo_bruto)
+    const jp=edJe.length; const jb=edJe.reduce((a,b)=>a+parseNum(b.raw),0)
+    const wp=parseIntES(fields.web_pedidos); const wb=parseNum(fields.web_bruto)
+    const dp=parseIntES(fields.directa_ped); const db=parseNum(fields.directa_bru)
+    const tp=up+gp+jp+wp+dp; const tb=ub+gb+jb+wb+db
     if(tp===0&&tb===0){setFormError('Introduce datos en al menos un canal');return}
-
-    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb}
+    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb,je_items:edJe.map(i=>parseNum(i.raw))}
 
     setSaving(true)
     if(isEdit){
-      const{error:ue}=await supabase.from('facturacion_diario').update(p).eq('id',existing!.id)
+      const{data:upd,error:ue}=await supabase.from('facturacion_diario').update(p).eq('id',existing!.id).select('id')
       setSaving(false)
       if(ue){setFormError(`Error actualizando: ${ue.message} [${ue.code}]`);return}
+      if(!upd||upd.length===0){setFormError('No se actualizó ninguna fila. Recarga la página e inténtalo de nuevo.');return}
       onSaved()
     } else {
       const{error:ie}=await supabase.from('facturacion_diario').insert(p)
@@ -589,27 +639,29 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   const handleDelete=async()=>{ if(!confirm('¿Eliminar este día?'))return; const{error}=await supabase.from('facturacion_diario').delete().eq('id',existing!.id); if(error){setFormError(`Error borrando: ${error.message} [${error.code}]`);return}; onSaved() }
   const inp: CSSProperties={ width:'100%', background:'#fff', color:'#111', border:'1px solid #d0c8bc', borderRadius:8, padding:'8px 12px', fontSize:13, fontFamily:FONT.body, outline:'none' }
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:16 }} onClick={onClose}>
-      <div style={{ background:'#fff', border:`0.5px solid ${COLORS.brd}`, borderRadius:16, width:'100%', maxWidth:560, maxHeight:'90vh', overflowY:'auto' }} onClick={e=>e.stopPropagation()}>
+    <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:16 }}>
+      <div style={{ background:'#fff', border:`0.5px solid ${COLORS.brd}`, borderRadius:16, width:'100%', maxWidth:560, maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:`0.5px solid ${COLORS.brd}` }}>
           <h3 style={{ color:'#111', fontFamily:FONT.heading, fontSize:16, fontWeight:600, margin:0, letterSpacing:'2px' }}>{isEdit?'EDITAR DÍA':'AÑADIR DÍA'}</h3>
-          <button onClick={onClose} style={{ background:'none', border:'none', color:COLORS.mut, fontSize:24, cursor:'pointer', lineHeight:1, padding:0 }}>&times;</button>
+          <button onClick={onClose} title="Cerrar (cancela los cambios)" style={{ background:'none', border:'none', color:COLORS.mut, fontSize:24, cursor:'pointer', lineHeight:1, padding:0 }}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding:20, display:'flex', flexDirection:'column', gap:16 }}>
           <div style={{ display:'flex', gap:12, alignItems:'flex-end' }}>
             <div style={{ flex:'0 0 43%' }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Fecha</label><input type="date" value={fecha} onChange={e=>setFecha(e.target.value)} style={inp} /></div>
             <div style={{ flex:1 }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Servicio</label><div style={{ display:'flex', gap:4 }}>{[{key:'ALM',label:'ALM'},{key:'CENAS',label:'CENAS'},{key:'TODO',label:'TODOS'},{key:'CENAS_ALM',label:'CENAS/ALM'}].map(s=>{ const isA=servicio===s.key; const isCA=s.key==='CENAS_ALM'; return (<button key={s.key} type="button" onClick={()=>setServicio(s.key)} style={{ flex:1, padding:'8px 4px', borderRadius:8, fontSize:10, fontWeight:600, border:isA?'none':`0.5px solid ${COLORS.brd}`, background:isA?(isCA?'#7c3aed':COLORS.redSL):'#fff', color:isA?'#fff':COLORS.mut, cursor:'pointer', fontFamily:FONT.heading, letterSpacing:'0.5px', whiteSpace:'nowrap' }}>{s.label}</button>) })}</div></div>
           </div>
+          {esCenasAlm&&!filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.warn, fontFamily:FONT.body }}>No hay almuerzo guardado para esta fecha. Selecciona otro servicio o crea primero el ALM.</p>}
+          {esCenasAlm&&filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.mut, fontFamily:FONT.body }}>Introduce el TOTAL del día en cada canal (la referencia gris es lo que ya hubo en el almuerzo). En Just Eat los pedidos del almuerzo ya están cargados: añade debajo solo los de la cena.</p>}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
+            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
           </div>
           <div style={{ background:'#f5a62312', border:'1px solid #f5a623', borderRadius:10, padding:14 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+b,0).toFixed(2)} €</span>}</div>
-            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:'#fff', border:`0.5px solid ${COLORS.brd}` }}><span style={{ fontFamily:FONT.body, fontSize:13 }}>{item.toFixed(2)} €</span><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}><input type="number" step="0.01" min="0" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const v=parseFloat(jeInput);if(v>0){setJeItems(p=>[...p,v]);setJeInput('')}}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={()=>{const v=parseFloat(jeInput);if(v>0){setJeItems(p=>[...p,v]);setJeInput('')}}} style={{ padding:'6px 14px', borderRadius:8, background:'#f5a623', color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+parseNum(b.raw),0).toFixed(2)} €</span>}</div>
+            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:item.alm?'#fffaf0':'#fff', border:`0.5px solid ${COLORS.brd}` }}><div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}><span style={{ fontFamily:FONT.heading, fontSize:11, color:COLORS.mut, width:18, flexShrink:0 }}>{idx+1}.</span><input type="text" inputMode="decimal" value={item.raw} onChange={e=>{const nv=e.target.value; setJeItems(p=>p.map((it,i)=>i===idx?{...it,raw:nv}:it))}} style={{ ...inp, width:96, padding:'4px 8px' }} /><span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>€</span>{item.alm&&<span style={{ fontSize:9, letterSpacing:1, color:'#f5a623', fontFamily:FONT.heading, textTransform:'uppercase' }}>almuerzo</span>}</div><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}><input ref={jeRef} type="text" inputMode="decimal" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addJe()}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={addJe} style={{ padding:'6px 14px', borderRadius:8, background:'#f5a623', color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="number" min="0" placeholder="0" value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
+            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
           </div>
           {formError&&<p style={{ color:COLORS.err, fontSize:12, margin:0, fontFamily:FONT.body, background:'#fef2f2', padding:'8px 12px', borderRadius:8, border:`1px solid ${COLORS.err}30` }}>{formError}</p>}
           <div style={{ display:'flex', gap:12, paddingTop:8 }}>
