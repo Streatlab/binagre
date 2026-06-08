@@ -21,26 +21,12 @@ interface Props {
 type Periodo = 'semana' | 'mes' | 'anio'
 type Comp = 'prev' | 'mes' | 'anio'
 
-// El desplegable de fecha manda: cada opción del selector global mapea a un periodo de evolución.
-// 'personalizado' no tiene periodo fijo → se deduce del ancho del rango (≤10d semana, ≤70d mes, resto año).
-function periodoDeOpcion(op: string | undefined, desde?: Date, hasta?: Date): Periodo | null {
-  switch (op) {
-    case 'semana_actual':
-    case 'ultimos_7':
-    case 'semanas_x':
-      return 'semana'
-    case 'mes_en_curso':
-    case 'un_mes':
-    case 'ultimos_60':
-      return 'mes'
-    case 'personalizado': {
-      if (!desde || !hasta) return null
-      const dias = Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1
-      return dias <= 10 ? 'semana' : dias <= 70 ? 'mes' : 'anio'
-    }
-    default:
-      return null
-  }
+// El desplegable manda PERO Evolución arranca siempre en Semana (con 'vs sem. ant.' visible).
+// Solo las opciones de SEMANA del selector fuerzan/mantienen la vista Semana; las de mes/año/custom
+// NO fuerzan periodo → el usuario pasa a Mes/Año manualmente con las pills ('aquí').
+function periodoDeOpcion(op: string | undefined): Periodo | null {
+  if (op === 'semana_actual' || op === 'ultimos_7' || op === 'semanas_x') return 'semana'
+  return null
 }
 
 const ROJO = '#E24B4A'
@@ -107,19 +93,21 @@ const BATERIA: FraseDef[] = [
   { cond: () => true, txt: e => `Periodo en marcha: ${nf0(e.total)} acumulado.`, color: () => NEU },
 ]
 
-export default function TabEvolucion({ rowsAll, canalesFiltro, fechaDesde, fechaHasta, fechaOpcion }: Props) {
-  const [periodo, setPeriodo] = useState<Periodo>(() => (localStorage.getItem('evo_periodo') as Periodo) || 'semana')
-  const [comp, setComp] = useState<Comp>(() => (localStorage.getItem('evo_comp') as Comp) || 'prev')
-  const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); localStorage.setItem('evo_periodo', p); if (p !== 'semana' && comp === 'prev') { setComp('mes'); localStorage.setItem('evo_comp', 'mes') } }, [comp])
-  const setCompP = useCallback((c: Comp) => { setComp(c); localStorage.setItem('evo_comp', c) }, [])
+export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fechaOpcion }: Props) {
+  // Evolución arranca SIEMPRE en Semana + 'vs sem. ant.' (no se lee de localStorage a propósito:
+  // así la vista por defecto es la semanal y se auto-recupera de estados previos forzados a 'mes').
+  const [periodo, setPeriodo] = useState<Periodo>('semana')
+  const [comp, setComp] = useState<Comp>('prev')
+  const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); if (p !== 'semana' && comp === 'prev') setComp('mes') }, [comp])
+  const setCompP = useCallback((c: Comp) => { setComp(c) }, [])
 
-  // El desplegable de fecha global manda: al cambiar la opción, el periodo de evolución la sigue.
-  // Las pills Semana/Mes/Año quedan como override manual hasta el siguiente cambio del desplegable.
+  // El desplegable manda solo para las opciones de SEMANA: al elegir una semana se asegura la vista
+  // Semana con 'vs sem. ant.'. Las opciones de mes/año/custom NO fuerzan periodo (el usuario va a
+  // Mes/Año con las pills). Reaccionar también a fechaHasta para reasegurar al cambiar de semana.
   useEffect(() => {
-    const p = periodoDeOpcion(fechaOpcion, fechaDesde, fechaHasta)
-    if (p && p !== periodo) setPeriodoP(p)
+    if (periodoDeOpcion(fechaOpcion) === 'semana') { setPeriodo('semana'); setComp('prev') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaOpcion, fechaDesde, fechaHasta])
+  }, [fechaOpcion, fechaHasta])
 
   const [objDia, setObjDia] = useState<Record<number, number>>({})
   const [objBase, setObjBase] = useState(0)
