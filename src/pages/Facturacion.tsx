@@ -530,7 +530,7 @@ interface FormFields { uber_pedidos:string;uber_bruto:string;glovo_pedidos:strin
 const FORM_COLS: { label:string; ped:keyof FormFields; bru:keyof FormFields }[] = [{label:'Uber Eats',ped:'uber_pedidos',bru:'uber_bruto'},{label:'Glovo',ped:'glovo_pedidos',bru:'glovo_bruto'},{label:'Web',ped:'web_pedidos',bru:'web_bruto'},{label:'Venta Directa',ped:'directa_ped',bru:'directa_bru'}]
 const CANAL_COLORS_M: Record<string,{bg:string;border:string;label:string}> = {'Uber Eats':{bg:'#06C16712',border:'#06C167',label:'#06C167'},'Glovo':{bg:'#e8f44218',border:'#8a7800',label:'#8a7800'},'Web':{bg:'#B01D2312',border:'#B01D23',label:'#B01D23'},'Venta Directa':{bg:'#66aaff12',border:'#66aaff',label:'#66aaff'}}
 
-type JeItem = { v:number; lock:boolean }
+type JeItem = { raw:string; alm:boolean }
 
 function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]; existing?:RawDiario; onClose:()=>void; onSaved:()=>void }) {
   const isEdit=!!existing
@@ -544,8 +544,8 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   const [formError,setFormError]=useState<string|null>(null)
   const [jeItems,setJeItems]=useState<JeItem[]>(()=>{
     if(existing){
-      if(Array.isArray(existing.je_items)&&existing.je_items.length>0) return existing.je_items.map(v=>({v:Number(v),lock:false}))
-      if((existing.je_bruto??0)>0) return [{v:existing.je_bruto,lock:false}]
+      if(Array.isArray(existing.je_items)&&existing.je_items.length>0) return existing.je_items.map(v=>({raw:String(Number(v)),alm:false}))
+      if((existing.je_bruto??0)>0) return [{raw:String(existing.je_bruto),alm:false}]
     }
     return []
   })
@@ -555,24 +555,24 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   const filaAlm=useMemo(()=>allData.find(r=>r.fecha===fecha&&r.servicio==='ALM'&&r.id!==existing?.id),[allData,fecha,existing?.id])
   const esCenasAlm=servicio==='CENAS_ALM'
 
-  // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo como referencia bloqueada (no se duplican ni se reenvían)
+  // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo: visibles, editables y persistentes (se mantienen en su fila ALM, no se duplican en la cena)
   useEffect(()=>{
     if(isEdit) return
     if(esCenasAlm&&filaAlm){
       const ref:JeItem[]=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)
-        ? filaAlm.je_items.map(v=>({v:Number(v),lock:true}))
-        : ((filaAlm.je_bruto??0)>0?[{v:filaAlm.je_bruto,lock:true}]:[])
-      setJeItems(prev=>[...ref,...prev.filter(i=>!i.lock)])
+        ? filaAlm.je_items.map(v=>({raw:String(Number(v)),alm:true}))
+        : ((filaAlm.je_bruto??0)>0?[{raw:String(filaAlm.je_bruto),alm:true}]:[])
+      setJeItems(prev=>[...ref,...prev.filter(i=>!i.alm)])
     } else {
-      setJeItems(prev=>prev.filter(i=>!i.lock))
+      setJeItems(prev=>prev.filter(i=>!i.alm))
     }
   },[esCenasAlm,filaAlm,isEdit])
 
-  // El total JE editable refleja solo los pedidos NO bloqueados (los que se guardan en esta fila)
-  useEffect(()=>{ const ed=jeItems.filter(i=>!i.lock); const t=ed.reduce((a,b)=>a+b.v,0); setFields(f=>({...f,je_ped:String(ed.length),je_bru:t.toFixed(2)})) },[jeItems])
+  // El total JE editable refleja solo los pedidos de la CENA (los del almuerzo viven en su propia fila ALM)
+  useEffect(()=>{ const ed=jeItems.filter(i=>!i.alm); const t=ed.reduce((a,b)=>a+parseNum(b.raw),0); setFields(f=>({...f,je_ped:String(ed.length),je_bru:t.toFixed(2)})) },[jeItems])
 
   const set=(k:keyof FormFields,v:string)=>setFields(p=>({...p,[k]:v}))
-  const addJe=()=>{ const v=parseNum(jeInput); if(v>0){ setJeItems(p=>[...p,{v,lock:false}]); setJeInput(''); requestAnimationFrame(()=>jeRef.current?.focus()) } }
+  const addJe=()=>{ const v=parseNum(jeInput); if(v>0){ setJeItems(p=>[...p,{raw:String(v),alm:false}]); setJeInput(''); requestAnimationFrame(()=>jeRef.current?.focus()) } }
 
   const almByLabel:Record<string,{p:number;b:number}>={
     'Uber Eats':{p:filaAlm?.uber_pedidos||0,b:filaAlm?.uber_bruto||0},
@@ -585,18 +585,28 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
   const handleSubmit=async(e?:FormEvent)=>{
     e?.preventDefault(); setFormError(null); if(!fecha){setFormError('Selecciona una fecha');return}
-    const edJe=jeItems.filter(i=>!i.lock)
+    const edJe=jeItems.filter(i=>!i.alm)
 
     if(esCenasAlm){
       if(!filaAlm){setFormError('No hay fila ALM para este día.');return}
       // UE/Glovo/Web/Directa: se introduce el TOTAL del día -> restamos el almuerzo para obtener la cena
       const ub=Math.max(0,parseNum(fields.uber_bruto)-(filaAlm.uber_bruto||0)); const gb=Math.max(0,parseNum(fields.glovo_bruto)-(filaAlm.glovo_bruto||0)); const wb=Math.max(0,parseNum(fields.web_bruto)-(filaAlm.web_bruto||0)); const db=Math.max(0,parseNum(fields.directa_bru)-(filaAlm.directa_bruto||0))
       const up=Math.max(0,parseIntES(fields.uber_pedidos)-(filaAlm.uber_pedidos||0)); const gp=Math.max(0,parseIntES(fields.glovo_pedidos)-(filaAlm.glovo_pedidos||0)); const wp=Math.max(0,parseIntES(fields.web_pedidos)-(filaAlm.web_pedidos||0)); const dp=Math.max(0,parseIntES(fields.directa_ped)-(filaAlm.directa_pedidos||0))
-      // JE: solo los pedidos NUEVOS de la cena (los del almuerzo ya viven en su propia fila)
-      const jb=edJe.reduce((a,b)=>a+b.v,0); const jp=edJe.length
+      // JE: solo los pedidos de la cena (los del almuerzo ya viven en su propia fila ALM)
+      const jb=edJe.reduce((a,b)=>a+parseNum(b.raw),0); const jp=edJe.length
       const tp=up+gp+jp+wp+dp; const tb=ub+gb+jb+wb+db; if(tp===0&&tb===0){setFormError('El total es igual o menor al ALM.');return}
-      const p={fecha,servicio:'CENAS',uber_pedidos:up,uber_bruto:parseFloat(ub.toFixed(2)),glovo_pedidos:gp,glovo_bruto:parseFloat(gb.toFixed(2)),je_pedidos:jp,je_bruto:parseFloat(jb.toFixed(2)),web_pedidos:wp,web_bruto:parseFloat(wb.toFixed(2)),directa_pedidos:dp,directa_bruto:parseFloat(db.toFixed(2)),total_pedidos:tp,total_bruto:parseFloat(tb.toFixed(2)),je_items:edJe.map(i=>i.v)}
+      const p={fecha,servicio:'CENAS',uber_pedidos:up,uber_bruto:parseFloat(ub.toFixed(2)),glovo_pedidos:gp,glovo_bruto:parseFloat(gb.toFixed(2)),je_pedidos:jp,je_bruto:parseFloat(jb.toFixed(2)),web_pedidos:wp,web_bruto:parseFloat(wb.toFixed(2)),directa_pedidos:dp,directa_bruto:parseFloat(db.toFixed(2)),total_pedidos:tp,total_bruto:parseFloat(tb.toFixed(2)),je_items:edJe.map(i=>parseNum(i.raw))}
       setSaving(true)
+      // Si el usuario editó/borró/añadió pedidos JE del almuerzo, propagamos el cambio a la fila ALM (sin duplicarlo en la cena)
+      const almJe=jeItems.filter(i=>i.alm).map(i=>parseNum(i.raw))
+      const origAlm=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)?filaAlm.je_items.map(Number):((filaAlm.je_bruto??0)>0?[filaAlm.je_bruto]:[])
+      if(JSON.stringify(almJe)!==JSON.stringify(origAlm)){
+        const najb=almJe.reduce((a,b)=>a+b,0); const najp=almJe.length
+        const nalmTotalBru=parseFloat(((filaAlm.total_bruto||0)-(filaAlm.je_bruto||0)+najb).toFixed(2))
+        const nalmTotalPed=(filaAlm.total_pedidos||0)-(filaAlm.je_pedidos||0)+najp
+        const{error:ae}=await supabase.from('facturacion_diario').update({je_pedidos:najp,je_bruto:parseFloat(najb.toFixed(2)),total_pedidos:nalmTotalPed,total_bruto:nalmTotalBru,je_items:almJe}).eq('id',filaAlm.id).select('id')
+        if(ae){setSaving(false);setFormError(`Error actualizando JE del almuerzo: ${ae.message} [${ae.code}]`);return}
+      }
       const{error:ie}=await supabase.from('facturacion_diario').insert(p); setSaving(false)
       if(ie){setFormError(`Error guardando CENAS: ${ie.message} [${ie.code}]`);return}
       onSaved(); return
@@ -604,12 +614,12 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
     const up=parseIntES(fields.uber_pedidos); const ub=parseNum(fields.uber_bruto)
     const gp=parseIntES(fields.glovo_pedidos); const gb=parseNum(fields.glovo_bruto)
-    const jp=edJe.length; const jb=edJe.reduce((a,b)=>a+b.v,0)
+    const jp=edJe.length; const jb=edJe.reduce((a,b)=>a+parseNum(b.raw),0)
     const wp=parseIntES(fields.web_pedidos); const wb=parseNum(fields.web_bruto)
     const dp=parseIntES(fields.directa_ped); const db=parseNum(fields.directa_bru)
     const tp=up+gp+jp+wp+dp; const tb=ub+gb+jb+wb+db
     if(tp===0&&tb===0){setFormError('Introduce datos en al menos un canal');return}
-    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb,je_items:edJe.map(i=>i.v)}
+    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb,je_items:edJe.map(i=>parseNum(i.raw))}
 
     setSaving(true)
     if(isEdit){
@@ -641,13 +651,13 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
             <div style={{ flex:1 }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Servicio</label><div style={{ display:'flex', gap:4 }}>{[{key:'ALM',label:'ALM'},{key:'CENAS',label:'CENAS'},{key:'TODO',label:'TODOS'},{key:'CENAS_ALM',label:'CENAS/ALM'}].map(s=>{ const isA=servicio===s.key; const isCA=s.key==='CENAS_ALM'; return (<button key={s.key} type="button" onClick={()=>setServicio(s.key)} style={{ flex:1, padding:'8px 4px', borderRadius:8, fontSize:10, fontWeight:600, border:isA?'none':`0.5px solid ${COLORS.brd}`, background:isA?(isCA?'#7c3aed':COLORS.redSL):'#fff', color:isA?'#fff':COLORS.mut, cursor:'pointer', fontFamily:FONT.heading, letterSpacing:'0.5px', whiteSpace:'nowrap' }}>{s.label}</button>) })}</div></div>
           </div>
           {esCenasAlm&&!filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.warn, fontFamily:FONT.body }}>No hay almuerzo guardado para esta fecha. Selecciona otro servicio o crea primero el ALM.</p>}
-          {esCenasAlm&&filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.mut, fontFamily:FONT.body }}>Introduce el TOTAL del día en cada canal (la referencia gris es lo que ya hubo en el almuerzo). En Just Eat solo añade los pedidos de la cena.</p>}
+          {esCenasAlm&&filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.mut, fontFamily:FONT.body }}>Introduce el TOTAL del día en cada canal (la referencia gris es lo que ya hubo en el almuerzo). En Just Eat los pedidos del almuerzo ya están cargados: añade debajo solo los de la cena.</p>}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'#f5f5f5', border:`1px solid ${cc?.border??'#ccc'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??'#666', fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
           </div>
           <div style={{ background:'#f5a62312', border:'1px solid #f5a623', borderRadius:10, padding:14 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+b.v,0).toFixed(2)} €</span>}</div>
-            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:item.lock?'#fffaf0':'#fff', border:`0.5px solid ${COLORS.brd}`, opacity:item.lock?0.72:1 }}><span style={{ fontFamily:FONT.body, fontSize:13, display:'flex', alignItems:'center', gap:8 }}>{item.v.toFixed(2)} €{item.lock&&<span style={{ fontSize:9, letterSpacing:1, color:'#f5a623', fontFamily:FONT.heading, textTransform:'uppercase' }}>almuerzo</span>}</span>{!item.lock&&<button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>}</div>))}</div>)}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:'#f5a623', textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+parseNum(b.raw),0).toFixed(2)} €</span>}</div>
+            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:item.alm?'#fffaf0':'#fff', border:`0.5px solid ${COLORS.brd}` }}><div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}><span style={{ fontFamily:FONT.heading, fontSize:11, color:COLORS.mut, width:18, flexShrink:0 }}>{idx+1}.</span><input type="text" inputMode="decimal" value={item.raw} onChange={e=>{const nv=e.target.value; setJeItems(p=>p.map((it,i)=>i===idx?{...it,raw:nv}:it))}} style={{ ...inp, width:96, padding:'4px 8px' }} /><span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>€</span>{item.alm&&<span style={{ fontSize:9, letterSpacing:1, color:'#f5a623', fontFamily:FONT.heading, textTransform:'uppercase' }}>almuerzo</span>}</div><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
             <div style={{ display:'flex', gap:8, alignItems:'center' }}><input ref={jeRef} type="text" inputMode="decimal" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addJe()}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={addJe} style={{ padding:'6px 14px', borderRadius:8, background:'#f5a623', color:'#fff', border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
