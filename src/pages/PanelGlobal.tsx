@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
+import Cashflow from '@/pages/finanzas/Cashflow'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
@@ -231,7 +232,7 @@ export default function PanelGlobal() {
       )}
       {activeTab === 'operaciones' && <TabPlaceholder nombre="Operaciones" />}
       {activeTab === 'finanzas'    && <TabPlaceholder nombre="Finanzas" />}
-      {activeTab === 'cashflow'    && <TabPlaceholder nombre="Cashflow" />}
+      {activeTab === 'cashflow'    && <Cashflow />}
       {activeTab === 'evolucion'   && <TabPlaceholder nombre="Evolución" />}
       {activeTab === 'marcas' && <TabPlaceholder nombre="Marcas" />}
     </div>
