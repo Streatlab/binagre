@@ -908,14 +908,19 @@ async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
         .update({ drive_id: r.id, actualizado: new Date().toISOString() })
         .eq('id', f.id as string)
       // Vincular la factura por hash (si la tiene y aún no tiene Drive).
+      // Cubre dos casos: factura simple (pdf_hash = hash exacto) y multi-factura
+      // (varias sub-facturas con pdf_hash = `<hash>#0`, `#1`, … que comparten el
+      // mismo PDF físico). Se actualizan ambos con OR sobre pdf_hash.
       if (f.hash) {
+        const hashBase = f.hash as string
+        const orHash = `pdf_hash.eq.${hashBase},pdf_hash.like.${hashBase}#%`
         await supabaseAdmin.from('facturas')
           .update({ pdf_drive_id: r.id, pdf_drive_url: r.webViewLink, error_mensaje: null })
-          .eq('pdf_hash', f.hash as string)
+          .or(orHash)
           .is('pdf_drive_id', null)
         await supabaseAdmin.from('facturas')
           .update({ estado: 'solo_drive' })
-          .eq('pdf_hash', f.hash as string)
+          .or(orHash)
           .eq('estado', 'drive_pendiente')
       }
       subidas++
