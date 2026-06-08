@@ -42,19 +42,11 @@ function migrarOpcion(op: string): Opcion {
   return (map[op] ?? op) as Opcion
 }
 
-// Algunos consumidores (Panel Global → Evolución) deciden su vista según el id de opción
-// usando la nomenclatura previa. Traducimos el id nuevo al equivalente que ya entienden,
-// para que el desplegable siga controlando la vista (semana) como antes.
+// El id de opción viaja tal cual a los consumidores (Panel Global → Evolución),
+// que ya reconocen toda la nomenclatura y fijan la vista: semana → Semana,
+// mes → Mes, año → Año.
 function opcionEmitida(op: Opcion): string {
-  switch (op) {
-    case 'esta_semana':
-    case 'semana_pasada': return 'semana_actual'
-    case 'este_mes':
-    case 'mes_pasado': return 'mes_en_curso'
-    case 'ultimas_12_semanas': return 'ultimos_60'
-    case 'ultimos_12_meses': return 'un_mes'
-    default: return op
-  }
+  return op
 }
 
 function isoWeekNumber(d: Date): number {
