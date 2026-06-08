@@ -205,9 +205,16 @@ function categoriaMayoritaria(matches: MatchCandidato[]): string | null {
 
 async function categoriaDesdReglas(supabase: SupabaseClient, proveedorNombre: string, nifEmisor: string | null | undefined): Promise<{ categoria: string | null; proveedor_canonico: string | null }> {
   if (nifEmisor) {
-    const { data } = await supabase.from('reglas_conciliacion').select('categoria_codigo, set_proveedor').eq('patron_nif', nifEmisor.toUpperCase()).eq('activa', true).order('prioridad', { ascending: true }).limit(1).maybeSingle()
-    if (data?.categoria_codigo) return { categoria: data.categoria_codigo as string, proveedor_canonico: (data.set_proveedor as string) || null }
+    // Normalizar NIF antes de buscar (quitar espacios/guiones) para evitar fallos de formato.
+    const nifNorm = nifEmisor.replace(/[\s\-.]/g, '').toUpperCase()
+    const { data } = await supabase.from('reglas_conciliacion').select('categoria_codigo, set_proveedor').eq('patron_nif', nifNorm).eq('activa', true).order('prioridad', { ascending: true }).limit(1).maybeSingle()
+    if (data) {
+      // El NIF está registrado. Devolver su categoría (puede ser null) y no seguir a búsqueda
+      // por palabras — la búsqueda de texto puede matchear proveedores incorrectos.
+      return { categoria: (data.categoria_codigo as string) || null, proveedor_canonico: (data.set_proveedor as string) || null }
+    }
   }
+  // Búsqueda por palabras: solo para proveedores cuyo NIF es desconocido.
   const norm = normalizar(proveedorNombre)
   const palabras = norm.split(' ').filter((p) => p.length >= 3)
   for (const palabra of palabras) {

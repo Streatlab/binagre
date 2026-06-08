@@ -167,7 +167,9 @@ async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
   if (['zip', 'rar', '7z'].includes(ext)) { const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext); return [{ name: file.name, type: t, blob: file, esComprimido: true }] }
   if (['xlsx', 'xls'].includes(ext)) { const csv = await excelACSV(file); return [{ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }), esComprimido: false }] }
   if (ext === 'docx') { const t = await docxATexto(file); return [{ name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
-  if (ext === 'doc') { const t = await docATexto(file); return [{ name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
+  // .doc: NO se convierte — se sube el original (Drive debe recibir el .doc tal cual).
+  // El backend extrae el texto con word-extractor.
+  if (ext === 'doc') { return [{ name: file.name, type: 'application/msword', blob: file, esComprimido: false }] }
   if (['html', 'htm'].includes(ext)) { const t = await htmlATexto(file); return [{ name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
   // PDF grande -> partir por páginas en el navegador.
   if (ext === 'pdf' && file.size > MAX_BYTES) {
