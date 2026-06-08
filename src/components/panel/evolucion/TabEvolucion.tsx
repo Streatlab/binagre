@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v24
+ * Tab Evolución — Panel Global · v25
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -67,7 +67,7 @@ const SUBTAB_CONTAINER: CSSProperties = { display: 'inline-flex', gap: 4, paddin
 const SUBTAB_ACTIVE: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#ffffff', color: COLORS.pri, fontFamily: FONT.heading, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none' }
 const SUBTAB_INACTIVE: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.25)', color: '#ffffff', fontFamily: FONT.heading, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none' }
 
-interface Esc { pctObj: number; dV: number | null; dP: number | null; dT: number | null; diasRest: number; falta: number; hayComp: boolean; total: number; proy: number; obj: number; labelComp: string }
+interface Esc { pctObj: number; dV: number | null; dP: number | null; dT: number | null; diasRest: number; falta: number; hayComp: boolean; total: number; proy: number; obj: number; labelComp: string; tituloDelta: boolean }
 interface FraseDef { cond: (e: Esc) => boolean; txt: (e: Esc) => string; color: () => string }
 const POS = VERDE, NEG = ROJO, WARN = AMARILLO, NEU = COLOR.textSec
 const BATERIA: FraseDef[] = [
@@ -76,11 +76,11 @@ const BATERIA: FraseDef[] = [
   { cond: e => e.pctObj >= 100, txt: e => `Objetivo superado (${e.pctObj.toFixed(0)}%). A mantener el nivel.`, color: () => POS },
   { cond: e => e.pctObj < 100 && e.diasRest > 0 && e.proy >= e.obj && e.obj > 0, txt: e => `Vas al ${e.pctObj.toFixed(0)}% del tramo, pero al ritmo actual cerrarías por encima del objetivo.`, color: () => POS },
   { cond: e => e.pctObj >= 90 && e.pctObj < 100 && e.diasRest > 0, txt: e => `Muy cerca: ${e.pctObj.toFixed(0)}% del objetivo del tramo, faltan ${nf0(e.falta)}.`, color: () => WARN },
-  { cond: e => e.hayComp && (e.dV ?? 0) >= 10, txt: e => `Vas +${(e.dV ?? 0).toFixed(0)}% por encima de ${e.labelComp} en los mismos días. Tendencia al alza.`, color: () => POS },
-  { cond: e => e.hayComp && (e.dV ?? 0) > 0 && (e.dV ?? 0) < 10, txt: e => `Vas ${(e.dV ?? 0).toFixed(1)}% por encima de ${e.labelComp} en los mismos días.`, color: () => POS },
-  { cond: e => e.hayComp && Math.abs(e.dV ?? 0) <= 1, txt: e => `Vas igual que ${e.labelComp} en los mismos días. Sin cambios.`, color: () => NEU },
-  { cond: e => e.hayComp && (e.dV ?? 0) <= -15, txt: e => `Atención: vas ${Math.abs(e.dV ?? 0).toFixed(0)}% por debajo de ${e.labelComp} en los mismos días. Hay que reaccionar.`, color: () => NEG },
-  { cond: e => e.hayComp && (e.dV ?? 0) < 0, txt: e => `Vas ${Math.abs(e.dV ?? 0).toFixed(1)}% por debajo de ${e.labelComp} en los mismos días. Hay margen para remontar.`, color: () => NEG },
+  { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) >= 10, txt: e => `Vas +${(e.dV ?? 0).toFixed(0)}% por encima de ${e.labelComp} en los mismos días. Tendencia al alza.`, color: () => POS },
+  { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) > 0 && (e.dV ?? 0) < 10, txt: e => `Vas ${(e.dV ?? 0).toFixed(1)}% por encima de ${e.labelComp} en los mismos días.`, color: () => POS },
+  { cond: e => !e.tituloDelta && e.hayComp && Math.abs(e.dV ?? 0) <= 1, txt: e => `Vas igual que ${e.labelComp} en los mismos días. Sin cambios.`, color: () => NEU },
+  { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) <= -15, txt: e => `Atención: vas ${Math.abs(e.dV ?? 0).toFixed(0)}% por debajo de ${e.labelComp} en los mismos días. Hay que reaccionar.`, color: () => NEG },
+  { cond: e => !e.tituloDelta && e.hayComp && (e.dV ?? 0) < 0, txt: e => `Vas ${Math.abs(e.dV ?? 0).toFixed(1)}% por debajo de ${e.labelComp} en los mismos días. Hay margen para remontar.`, color: () => NEG },
   { cond: e => e.hayComp && (e.dP ?? 0) <= -10, txt: e => `Caen los pedidos (${(e.dP ?? 0).toFixed(0)}% vs ${e.labelComp}). Revisar visibilidad/promos.`, color: () => NEG },
   { cond: e => e.hayComp && (e.dP ?? 0) >= 10, txt: e => `Más pedidos que ${e.labelComp} (+${(e.dP ?? 0).toFixed(0)}%). Buen empuje de demanda.`, color: () => POS },
   { cond: e => e.hayComp && (e.dT ?? 0) >= 5, txt: e => `Ticket medio +${(e.dT ?? 0).toFixed(1)}% vs ${e.labelComp}. Suben los carritos.`, color: () => POS },
@@ -193,7 +193,15 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   // (p.ej. hoy es lunes y la semana en curso aún no tiene datos), retrocede a la última fecha con
   // datos para no enseñar el panel vacío.
   const maxDato = useMemo(() => { let mx = ''; for (const r of rowsAll) { const f = r.fecha; if (f && f > mx) mx = f } return mx }, [rowsAll])
-  const anclaStr = useMemo(() => { const base = fechaHasta ? toLocal(fechaHasta) : hoyStr; return maxDato && base > maxDato ? maxDato : base }, [fechaHasta, hoyStr, maxDato])
+  const opcionSemana = periodoDeOpcion(fechaOpcion) === 'semana'
+  const anclaStr = useMemo(() => {
+    const base = fechaHasta ? toLocal(fechaHasta) : hoyStr
+    // Si el usuario elige una semana en el desplegable (semana actual / últimos 7 / semanas X),
+    // se respeta tal cual aunque la semana en curso aún no tenga ventas. En cualquier otro caso,
+    // si el ancla cae en zona todavía sin datos, retrocede a la última fecha con datos.
+    if (opcionSemana) return base
+    return maxDato && base > maxDato ? maxDato : base
+  }, [fechaHasta, hoyStr, maxDato, opcionSemana])
   const lunes = useMemo(() => mondayOf(new Date(anclaStr + 'T12:00:00')), [anclaStr])
   const domingo = useMemo(() => addDays(lunes, 6), [lunes])
   const ref = useMemo(() => new Date(anclaStr + 'T12:00:00'), [anclaStr])
@@ -270,7 +278,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const diasRest = Math.max(diasTotDias - diasTransDias, 0)
 
   const frase = useMemo(() => {
-    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp }
+    const e: Esc = { pctObj, dV: deltaTotal, dP: dPed, dT: dTM, diasRest, falta: Math.max(objTramo - total, 0), hayComp: cmpT.hay, total, proy, obj: objTramo, labelComp, tituloDelta: deltaTotal != null }
     const def = BATERIA.find(f => { try { return f.cond(e) } catch { return false } }) || BATERIA[BATERIA.length - 1]
     return { txt: def.txt(e), color: def.color() }
   }, [pctObj, deltaTotal, dPed, dTM, diasRest, objTramo, total, cmpT.hay, proy, labelComp])
@@ -377,8 +385,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
           {objPeriodo > 0 && total > 0 && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
               {total < objPeriodo
-                ? <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Para el objetivo faltan</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: ROJO }}>{nf2(objPeriodo - total)}</span><span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>de {nf0(objPeriodo)} ({pctObjPeriodo.toFixed(0)}% logrado)</span></>
-                : <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Objetivo superado en</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE }}>{nf2(total - objPeriodo)}</span><span style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>({pctObjPeriodo.toFixed(0)}% del objetivo)</span></>}
+                ? <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Para el objetivo faltan</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: ROJO }}>{nf2(objPeriodo - total)}</span><span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>de {nf0(objPeriodo)} ({pctObjPeriodo.toFixed(0)}% logrado)</span></>
+                : <><span style={{ fontFamily: OSWALD, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textSec }}>Objetivo superado en</span><span style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 600, color: VERDE }}>{nf2(total - objPeriodo)}</span><span style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 500, letterSpacing: '0.5px', color: COLOR.textMut }}>({pctObjPeriodo.toFixed(0)}% del objetivo)</span></>}
             </div>
           )}
           {!periodoCerrado && proy > 0 && (
