@@ -1,3 +1,5 @@
+// Worker v22: + AUTO-REPESCA al cerrar sesión (dispara archivar-pendientes para subir a
+//  Drive lo que quedó en drive_pendiente por fallos transitorios; el usuario no pulsa nada).
 // Worker v21: Drive desconectado PAUSA y conserva pendientes (Ruben).
 //  Cambio v20 -> v21: si se detecta "Drive desconectado" a mitad de lote, ANTES se
 //  descartaban los archivos pendientes y se marcaba la sesion 'completada' (se perdian
