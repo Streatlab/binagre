@@ -551,6 +551,7 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   })
   const [jeInput,setJeInput]=useState('')
   const jeRef=useRef<HTMLInputElement|null>(null)
+  const jeOrig = { count: Number(existing?.je_pedidos ?? 0), bruto: Number(existing?.je_bruto ?? 0), hadItems: !!(existing && Array.isArray(existing.je_items) && existing.je_items.length>0) }
 
   const filaAlm=useMemo(()=>allData.find(r=>r.fecha===fecha&&r.servicio==='ALM'&&r.id!==existing?.id),[allData,fecha,existing?.id])
   const esCenasAlm=servicio==='CENAS_ALM'
@@ -614,12 +615,16 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
     const up=parseIntES(fields.uber_pedidos); const ub=parseNum(fields.uber_bruto)
     const gp=parseIntES(fields.glovo_pedidos); const gb=parseNum(fields.glovo_bruto)
-    const jp=edJe.length; const jb=edJe.reduce((a,b)=>a+parseNum(b.raw),0)
+    // Día antiguo sin desglose JE y no tocado -> conservamos el nº de pedidos original (no colapsar a 1)
+    const jeFallbackIntacto = isEdit && !jeOrig.hadItems && jeOrig.count>0 && edJe.length===1 && parseNum(edJe[0].raw)===jeOrig.bruto
+    const jp = jeFallbackIntacto ? jeOrig.count : edJe.length
+    const jb = jeFallbackIntacto ? jeOrig.bruto : edJe.reduce((a,b)=>a+parseNum(b.raw),0)
+    const jeItemsSave = jeFallbackIntacto ? [] : edJe.map(i=>parseNum(i.raw))
     const wp=parseIntES(fields.web_pedidos); const wb=parseNum(fields.web_bruto)
     const dp=parseIntES(fields.directa_ped); const db=parseNum(fields.directa_bru)
     const tp=up+gp+jp+wp+dp; const tb=ub+gb+jb+wb+db
     if(tp===0&&tb===0){setFormError('Introduce datos en al menos un canal');return}
-    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb,je_items:edJe.map(i=>parseNum(i.raw))}
+    const p={fecha,servicio,uber_pedidos:up,uber_bruto:ub,glovo_pedidos:gp,glovo_bruto:gb,je_pedidos:jp,je_bruto:jb,web_pedidos:wp,web_bruto:wb,directa_pedidos:dp,directa_bruto:db,total_pedidos:tp,total_bruto:tb,je_items:jeItemsSave}
 
     setSaving(true)
     if(isEdit){
