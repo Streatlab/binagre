@@ -367,7 +367,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
   },[rows,fechaCount,subtotalMap])
   const exportar=()=>{ downloadCSV('facturacion_diario.csv',['Fecha','Servicio','UE Ped','UE Bruto','GL Ped','GL Bruto','JE Ped','JE Bruto','Web Ped','Web Bruto','Dir Ped','Dir Bruto','Total Ped','Total Bruto'],rows.map(r=>[r.fecha,r.servicio,r.uber_pedidos,r.uber_bruto,r.glovo_pedidos,r.glovo_bruto,r.je_pedidos,r.je_bruto,r.web_pedidos,r.web_bruto,r.directa_pedidos,r.directa_bruto,r.total_pedidos,r.total_bruto])) }
   const tdBase: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap', verticalAlign:'middle' }
-  if(allData.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos de facturación diaria</div>
+  if(allData.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
@@ -431,7 +431,7 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
   const exportar=()=>{ downloadCSV('facturacion_semanas.csv',['Semana','Periodo','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto'],rows.map(r=>[`S${r.week}`,r.periodo,r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto])) }
   const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 12px', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   const tdS: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
-  if(rows.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos semanales</div>
+  if(rows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
@@ -467,7 +467,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   const exportar=()=>{ downloadCSV(`facturacion_meses_${selYear}.csv`,['Mes','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto','Media Diaria','vs Anterior'],rows.map(r=>{const vs=r.vs_anterior!==null?r.vs_anterior.toFixed(1)+'%':'';return[MES_NOMBRE[r.mes],r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto,r.media_diaria.toFixed(2),vs]})) }
   const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 12px', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   const tdS: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
-  if(allRows.length===0) return <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos mensuales</div>
+  if(allRows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
