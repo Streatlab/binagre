@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v28
+ * Tab Evolución — Panel Global · v27
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -21,11 +21,13 @@ interface Props {
 type Periodo = 'semana' | 'mes' | 'anio'
 type Comp = 'prev' | 'mes' | 'anio'
 
-// El desplegable manda PERO Evolución arranca siempre en Semana (con 'vs sem. ant.' visible).
-// Solo las opciones de SEMANA del selector fuerzan/mantienen la vista Semana; las de mes/año/custom
-// NO fuerzan periodo → el usuario pasa a Mes/Año manualmente con las pills ('aquí').
+// El desplegable manda la vista de Evolución: cada opción fija su periodo
+// (semana → Semana, mes → Mes, año → Año). Personalizado/sin opción no fuerza
+// (el usuario elige Semana/Mes/Año con las pills).
 function periodoDeOpcion(op: string | undefined): Periodo | null {
-  if (op === 'semana_actual' || op === 'ultimos_7' || op === 'semanas_x') return 'semana'
+  if (op === 'esta_semana' || op === 'semana_pasada' || op === 'ultimos_7' || op === 'semanas_x' || op === 'semana_actual') return 'semana'
+  if (op === 'este_mes' || op === 'mes_pasado' || op === 'ultimos_30' || op === 'ultimos_60' || op === 'ultimas_12_semanas' || op === 'mes_en_curso') return 'mes'
+  if (op === 'ultimos_12_meses') return 'anio'
   return null
 }
 
@@ -101,11 +103,13 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const setPeriodoP = useCallback((p: Periodo) => { setPeriodo(p); if (p !== 'semana' && comp === 'prev') setComp('mes') }, [comp])
   const setCompP = useCallback((c: Comp) => { setComp(c) }, [])
 
-  // El desplegable manda solo para las opciones de SEMANA: al elegir una semana se asegura la vista
-  // Semana con 'vs sem. ant.'. Las opciones de mes/año/custom NO fuerzan periodo (el usuario va a
-  // Mes/Año con las pills). Reaccionar también a fechaHasta para reasegurar al cambiar de semana.
+  // El desplegable manda la vista: opción de semana → Semana (vs sem. ant.), de mes → Mes (vs mes ant.),
+  // de año → Año (vs año ant.). Reaccionar también a fechaHasta para reasegurar al cambiar de tramo.
   useEffect(() => {
-    if (periodoDeOpcion(fechaOpcion) === 'semana') { setPeriodo('semana'); setComp('prev') }
+    const p = periodoDeOpcion(fechaOpcion)
+    if (p === 'semana') { setPeriodo('semana'); setComp('prev') }
+    else if (p === 'mes') { setPeriodo('mes'); setComp('mes') }
+    else if (p === 'anio') { setPeriodo('anio'); setComp('anio') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaOpcion, fechaHasta])
 
@@ -195,13 +199,11 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const maxDato = useMemo(() => { let mx = ''; for (const r of rowsAll) { const f = r.fecha; if (f && f > mx) mx = f } return mx }, [rowsAll])
   const anclaStr = useMemo(() => {
     const base = fechaHasta ? toLocal(fechaHasta) : hoyStr
-    // 'Semana actual' debe mostrar SIEMPRE la semana en curso (lunes-domingo de hoy), aunque hoy sea
-    // lunes y todavía no haya ventas: el usuario pide explícitamente la semana viva, no la anterior.
-    if (fechaOpcion === 'semana_actual') return base
-    // Para el resto (últimos 7 días, semanas X, mes, año, sin opción): si la referencia cae por delante
-    // del último día con ventas, retrocede a la última fecha con datos para no enseñar un panel vacío.
+    // Si la fecha de referencia cae por delante del último día con ventas (p.ej. hoy es lunes y la
+    // semana/periodo en curso aún no tiene datos), retrocede a la última fecha con datos para mostrar
+    // siempre el último tramo real en vez de un panel vacío.
     return maxDato && base > maxDato ? maxDato : base
-  }, [fechaHasta, hoyStr, maxDato, fechaOpcion])
+  }, [fechaHasta, hoyStr, maxDato])
   const lunes = useMemo(() => mondayOf(new Date(anclaStr + 'T12:00:00')), [anclaStr])
   const domingo = useMemo(() => addDays(lunes, 6), [lunes])
   const ref = useMemo(() => new Date(anclaStr + 'T12:00:00'), [anclaStr])
