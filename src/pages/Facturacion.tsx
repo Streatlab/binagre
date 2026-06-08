@@ -65,6 +65,10 @@ const MES_NOMBRE: Record<number, string> = {
 
 const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto,je_items'
 const COLOR_TODOS = COLORS.lun
+const AZUL_PED = COLORS.lun
+const NARANJA_TM = COLORS.sab
+const VERDE_NETO = COLORS.ok
+const TRACK_BAR = COLORS.group
 
 const SUBTAB_CONTAINER: CSSProperties = {
   display: 'inline-flex',
@@ -291,58 +295,81 @@ interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; 
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const isMobile = useIsMobile()
   const netoLabel = totals.total_bruto > 0 ? `NETO EST. · ${((netoEstimado/totals.total_bruto)*100).toFixed(0)}%` : 'NETO EST.'
-  const cardCompacto: CSSProperties = { ...CARDS.big, padding: isMobile ? '14px 14px' : '16px 20px' }
-  const MEDIA_SIZE = 32
+  const cardEvo: CSSProperties = { background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:16, padding: isMobile ? '16px 16px' : '18px 20px' }
+  const lblS: CSSProperties = { fontFamily:FONT.heading, fontSize:11, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut }
   return (
-    <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
-      <div style={cardCompacto}>
-        <div style={{ ...lblSm, marginBottom:10 }}>FACTURACIÓN</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
-          <div>
-            <div style={{ ...kpiBig, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div>
-            <div style={{ ...lblXs, marginTop:3, marginBottom:12 }}>BRUTO</div>
-            <div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtKpi(netoEstimado)}</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>{netoLabel}</div>
+    <>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
+        <div style={cardEvo}>
+          <div style={{ ...lblS, marginBottom:12 }}>Facturación</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div><div style={{ ...lblXs, marginTop:4 }}>BRUTO</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(netoEstimado)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>{netoLabel}</div></div>
           </div>
-          <div>
-            <div style={{ fontFamily:FONT.heading, fontSize:MEDIA_SIZE, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div>
-            <div style={{ ...lblXs, color:COLORS.mut, marginTop:3, marginBottom:12 }}>MEDIA/DÍA BRUTA</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:MEDIA_SIZE, fontWeight:600, color:COLORS.ok, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div>
-            <div style={{ fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>MEDIA/DÍA NETA</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:18, marginTop:16, flexWrap:'wrap' }}>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div><div style={{ ...lblXs, marginTop:4 }}>MEDIA/DÍA</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>MEDIA/DÍA NETA</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.mut, lineHeight:1 }}>{dias}</div><div style={{ ...lblXs, marginTop:4 }}>DÍAS</div></div>
           </div>
+        </div>
+
+        <div style={cardEvo}>
+          <div style={{ ...lblS, marginBottom:12 }}>Pedidos · Ticket medio</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:AZUL_PED, lineHeight:1 }}>{fmtInt(totals.total_pedidos)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:AZUL_PED, fontWeight:500, marginTop:4 }}>PEDIDOS</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:NARANJA_TM, lineHeight:1 }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:NARANJA_TM, fontWeight:500, marginTop:4 }}>TM BRUTO</div></div>
+            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>TM NETO</div></div>
+          </div>
+          <div style={{ marginTop:16, fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>Neto estimado tras comisiones de plataforma.</div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
+            style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
+            <span style={{ fontSize:20, lineHeight:1, color:'#fff' }}>↑</span>
+            <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
+          </div>
+          {onExport && (
+            <button onClick={onExport}
+              style={{ flex:'0 0 30%', ...cardEvo, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
+              <span style={{ fontSize:13 }}>↓</span> Exportar CSV
+            </button>
+          )}
         </div>
       </div>
 
-      <div style={cardCompacto}>
-        <div style={{ ...lblSm, marginBottom:10 }}>PEDIDOS · TM</div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:14, flexWrap:'wrap' }}>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.lun }}>{fmtInt(totals.total_pedidos)}</div><div style={{ ...lblXs, marginTop:3 }}>PEDIDOS</div></div>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.warn }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.warn, marginTop:3 }}>TM BRUTO</div></div>
-          <div><div style={{ ...kpiBig, lineHeight:1, color:COLORS.ok }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.ok, marginTop:3 }}>TM NETO</div></div>
-        </div>
-        <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:4 }}>
-          <span style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, color:COLORS.mut }}>{dias}</span>
-          <span style={{ ...lblXs, color:COLORS.mut }}>DÍAS</span>
+      <div style={{ ...cardEvo, marginBottom:14 }}>
+        <div style={{ ...lblS, marginBottom:14 }}>Por canal</div>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : `repeat(${ALL_COLS.length}, 1fr)`, gap:10 }}>
+          {ALL_COLS.map(c=>{
+            const b=(totals[c.bru] as number)||0; const p=(totals[c.ped] as number)||0
+            const pct=totals.total_bruto>0?(b/totals.total_bruto)*100:0
+            const tmc=p>0?b/p:0
+            return (
+              <div key={c.id} style={{ background:`${c.color}1a`, border:`0.5px solid ${c.color}`, borderRadius:14, padding:'14px 16px' }}>
+                <div style={{ fontFamily:FONT.heading, fontSize:12, letterSpacing:'1.5px', textTransform:'uppercase', color:c.color, marginBottom:8 }}>{c.label}</div>
+                <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+                  <span style={{ fontFamily:FONT.heading, fontSize:26, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtBru(b)}</span>
+                  <span style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:c.color }}>{pct.toFixed(0)}%</span>
+                </div>
+                <div style={{ height:8, background:TRACK_BAR, borderRadius:4, margin:'10px 0', overflow:'hidden' }}>
+                  <div style={{ height:8, width:`${Math.min(pct,100)}%`, background:c.color, borderRadius:4 }} />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'4px 8px', alignItems:'baseline' }}>
+                  <span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.2px', textTransform:'uppercase', color:AZUL_PED }}>Pedidos</span>
+                  <span style={{ fontFamily:FONT.heading, fontSize:18, fontWeight:600, color:AZUL_PED, textAlign:'right' }}>{fmtInt(p)}</span>
+                  <span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.2px', textTransform:'uppercase', color:NARANJA_TM }}>TM</span>
+                  <span style={{ fontFamily:FONT.heading, fontSize:18, fontWeight:600, color:NARANJA_TM, textAlign:'right' }}>{fmtTM(tmc)}</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
-
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
-          style={{ flex:'0 0 70%', ...cardCompacto, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
-          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
-          <span style={{ fontSize:20, lineHeight:1, color:'#fff' }}>↑</span>
-          <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
-          <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
-        </div>
-        {onExport && (
-          <button onClick={onExport}
-            style={{ flex:'0 0 30%', ...cardCompacto, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
-            <span style={{ fontSize:13 }}>↓</span> Exportar CSV
-          </button>
-        )}
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -478,17 +505,18 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
       <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:0, whiteSpace:'nowrap' }}>
-            <thead><tr><th style={thS}>Mes</th><th style={{ ...thS, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...thS, background:c.bg, color:`${c.color}99`, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...thS, textAlign:'right' }}>Media/día</th><th style={{ ...thS, textAlign:'right' }}>vs Anterior</th></tr></thead>
+            <thead><tr><th style={thS}>Mes</th><th style={{ ...thS, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...thS, background:c.bg, color:`${c.color}99`, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...thS, textAlign:'right' }}>Total</th><th style={{ ...thS, textAlign:'right' }}>Media/día</th><th style={{ ...thS, textAlign:'right' }}>vs Anterior</th></tr></thead>
             <tbody>
               {rows.map((r,idx)=>(<tr key={r.mes} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${COLORS.bg}80`}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
                 <td style={{ ...tdS, fontFamily:FONT.heading, fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{MES_NOMBRE[r.mes]}</td>
                 <td style={{ ...tdS, textAlign:'center', color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.dias}</td>
                 {cols.map(c=>(<td key={c.id} style={{ ...tdS, textAlign:'right', background:c.bg, color:(r[c.bru] as number)>0?COLORS.sec:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{(r[c.bru] as number)>0?fmtBru(r[c.bru] as number):'—'}</td>))}
+                <td style={{ ...tdS, textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
                 <td style={{ ...tdS, textAlign:'right', color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.dias>0?fmtBru(r.media_diaria):'—'}</td>
                 <td style={{ ...tdS, textAlign:'right', borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.vs_anterior!==null?<DesvBadge pct={r.vs_anterior} />:<span style={{ color:COLORS.mut }}>—</span>}</td>
               </tr>))}
             </tbody>
-            <tfoot><tr style={{ background:COLORS.bg }}><td style={{ padding:'10px 12px', color:COLORS.mut, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>{selYear} Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{yearTotal.dias>0?fmtBru(yearTotal.total_bruto/yearTotal.dias):'—'}</td><td style={{ padding:'10px 12px', borderTop:`0.5px solid ${COLORS.brd}` }} /></tr></tfoot>
+            <tfoot><tr style={{ background:COLORS.bg }}><td style={{ padding:'10px 12px', color:COLORS.mut, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>{selYear} Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal.total_bruto)}</td><td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{yearTotal.dias>0?fmtBru(yearTotal.total_bruto/yearTotal.dias):'—'}</td><td style={{ padding:'10px 12px', borderTop:`0.5px solid ${COLORS.brd}` }} /></tr></tfoot>
           </table>
         </div>
       </div>
