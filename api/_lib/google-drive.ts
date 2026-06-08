@@ -213,8 +213,6 @@ export async function subirArchivoADrive(
   extracted: DriveExtracted,
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null; storagePath: string; driveOk: boolean }> {
-  const drive = await getDriveGlobal()
-
   // Hash del documento TAL Y COMO LLEGA (antes de cualquier conversión). Coincide
   // con el pdf_hash que calcula procesarArchivo, para poder vincular la repesca
   // con su factura.
@@ -248,12 +246,11 @@ export async function subirArchivoADrive(
     throw new Error('No se pudo respaldar el documento en Storage (no se archiva sin copia segura).')
   }
 
-  // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
-  const folderId = await carpetaDestino(drive, niveles)
-  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
-
-  // Registro de repesca: deja constancia del respaldo y de si llegó a Drive. Si
-  // drive_id queda null, el barrido archivar-pendientes lo subirá hasta lograrlo.
+  // Registro de repesca INMEDIATO (drive_id=null), ANTES de tocar Drive. Clave para
+  // "cero pérdida": si Drive está desconectado (getDriveGlobal/upload lanza), la fila
+  // ya existe y el barrido archivar-pendientes encontrará el documento y lo subirá.
+  // Antes el registro iba después de subir a Drive: si Drive fallaba, no quedaba
+  // constancia y la repesca nunca veía el documento.
   try {
     await supabaseAdmin
       .from('archivo_respaldo')
@@ -261,13 +258,30 @@ export async function subirArchivoADrive(
         {
           hash: hashEntrada,
           storage_path: storagePath,
-          drive_id: driveId,
+          drive_id: null,
           nombre,
           actualizado: new Date().toISOString(),
         },
         { onConflict: 'storage_path' },
       )
   } catch { /* el registro de repesca nunca rompe el archivado */ }
+
+  // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
+  // getDriveGlobal() va AQUÍ (no al principio): si Drive está caído lanza, pero el
+  // documento ya está respaldado y registrado arriba, así que la repesca lo recupera.
+  const drive = await getDriveGlobal()
+  const folderId = await carpetaDestino(drive, niveles)
+  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
+
+  // Drive OK: completar la fila de repesca con el drive_id real.
+  if (driveId) {
+    try {
+      await supabaseAdmin
+        .from('archivo_respaldo')
+        .update({ drive_id: driveId, actualizado: new Date().toISOString() })
+        .eq('storage_path', storagePath)
+    } catch { /* el registro de repesca nunca rompe el archivado */ }
+  }
 
   // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
   // Storage y registrado en archivo_respaldo. La repesca lo subirá a Drive. El

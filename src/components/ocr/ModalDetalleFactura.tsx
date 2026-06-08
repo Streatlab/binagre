@@ -233,8 +233,9 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         await supabase.from('conciliacion').update({ categoria: categoriaFinal }).eq('id', movimientoId)
       }
 
-      // Aprender la categoría para futuras facturas del mismo NIF (0 €, sin API):
-      // si hay NIF emisor + categoría, se guarda/actualiza su regla de conciliación.
+      // Aprender la categoría + propagar a TODAS las facturas del mismo NIF (0 €, sin API):
+      // si hay NIF emisor + categoría, se guarda/actualiza su regla de conciliación y se
+      // corrigen todas las facturas existentes de ese NIF en una sola pasada.
       if (categoriaFinal && nifEmisor.trim()) {
         try {
           const nifN = nifEmisor.trim().toUpperCase()
@@ -246,6 +247,9 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
             // patron y tipo_categoria son NOT NULL: sin ellos el insert falla.
             await supabase.from('reglas_conciliacion').insert({ patron: proveedor.trim() || nifN, tipo_categoria: 'gasto', patron_nif: nifN, razon_social: proveedor.trim() || null, categoria_codigo: categoriaFinal, activa: true, prioridad: 50 })
           }
+          // Propagar la categoría a todas las facturas del mismo NIF (corrige existentes y futuras).
+          // La factura actual ya se actualizó arriba; las demás se sincronizan aquí.
+          await supabase.from('facturas').update({ categoria_factura: categoriaFinal }).eq('nif_emisor', nifN).neq('id', factura.id)
         } catch { /* best-effort: no romper el guardado por la regla */ }
       }
 

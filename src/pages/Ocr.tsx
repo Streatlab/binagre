@@ -81,8 +81,9 @@ function esConciliada(f: Factura): boolean {
 // "Por completar": a la factura le falta algún dato clave para quedar perfecta
 // (importe, titular o categoría). Es la cola hacia el 100%: en cuanto se rellenan
 // los tres, la factura sale de aquí sola.
+// Nota: total=0 = sin leer. Notas de crédito tienen total negativo (válido, no falta).
 function faltanDatos(f: Factura): boolean {
-  return (f.total <= 0) || !f.titular_id || !f.categoria_factura
+  return !f.total || !f.titular_id || !f.categoria_factura
 }
 
 // Orden canónico para columna "estado": 'conciliada' (0) → 'pendiente' (1). Asc: conciliadas primero.
