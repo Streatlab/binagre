@@ -1,14 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Calendar as CalendarIcon } from 'lucide-react'
 import { fmtFechaCorta } from '@/styles/tokens'
+
+type Opcion =
+  | 'esta_semana'
+  | 'semana_pasada'
+  | 'ultimos_7'
+  | 'este_mes'
+  | 'mes_pasado'
+  | 'ultimos_30'
+  | 'ultimos_60'
+  | 'ultimas_12_semanas'
+  | 'ultimos_12_meses'
+  | 'semanas_x'
+  | 'personalizado'
+
+// Valores antiguos persistidos / pasados como prop. Se migran a los nuevos.
+type LegacyOpcion = 'semana_actual' | 'mes_en_curso' | 'un_mes'
 
 interface SelectorFechaUniversalProps {
   nombreModulo: string
   onChange: (desde: Date, hasta: Date, label: string, opcion?: Opcion) => void
-  defaultOpcion?: Opcion
+  defaultOpcion?: Opcion | LegacyOpcion
 }
-
-type Opcion = 'semana_actual' | 'ultimos_7' | 'mes_en_curso' | 'un_mes' | 'ultimos_60' | 'personalizado' | 'semanas_x'
 
 interface PersistedState { opcion: Opcion; desde: string; hasta: string; semanaISO?: number; semanaYear?: number }
 interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Date; label: string }
@@ -17,6 +31,16 @@ interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Da
 // Todos los módulos comparten el mismo periodo. nombreModulo se mantiene como parámetro
 // por compatibilidad pero ya no se usa para diferenciar la clave de storage.
 const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
+
+// Migración de ids antiguos a los nuevos (no romper estado guardado ni props).
+function migrarOpcion(op: string): Opcion {
+  const map: Record<string, Opcion> = {
+    semana_actual: 'esta_semana',
+    mes_en_curso: 'este_mes',
+    un_mes: 'ultimos_30',
+  }
+  return (map[op] ?? op) as Opcion
+}
 
 function isoWeekNumber(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -93,28 +117,45 @@ function buildSemanasList(): SemanaItem[] {
 function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
   switch (opcion) {
-    case 'semana_actual': {
+    case 'esta_semana': {
       const dow = hoy.getDay() || 7
       const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow + 1)
       const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
       return { desde: lunes, hasta: domingo }
     }
+    case 'semana_pasada': {
+      const dow = hoy.getDay() || 7
+      const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow + 1 - 7)
+      const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
+      return { desde: lunes, hasta: domingo }
+    }
     case 'ultimos_7':   { const d = new Date(hoy); d.setDate(hoy.getDate() - 7);  return { desde: d, hasta: hoy } }
-    case 'mes_en_curso':{ return { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy } }
-    case 'un_mes':      { const d = new Date(hoy); d.setDate(hoy.getDate() - 30); return { desde: d, hasta: hoy } }
+    case 'este_mes':    { return { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy } }
+    case 'mes_pasado':  {
+      const primero = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
+      const ultimo = new Date(hoy.getFullYear(), hoy.getMonth(), 0)
+      return { desde: primero, hasta: ultimo }
+    }
+    case 'ultimos_30':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 30); return { desde: d, hasta: hoy } }
     case 'ultimos_60':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 60); return { desde: d, hasta: hoy } }
+    case 'ultimas_12_semanas': { const d = new Date(hoy); d.setDate(hoy.getDate() - 84); return { desde: d, hasta: hoy } }
+    case 'ultimos_12_meses':   { const d = new Date(hoy); d.setMonth(hoy.getMonth() - 12); return { desde: d, hasta: hoy } }
     default: return { desde: hoy, hasta: hoy }
   }
 }
 
 const OPCIONES: { id: Opcion; label: string }[] = [
-  { id: 'semana_actual', label: 'Semana actual' },
+  { id: 'esta_semana', label: 'Esta semana' },
+  { id: 'semana_pasada', label: 'La semana pasada' },
   { id: 'ultimos_7', label: 'Últimos 7 días' },
-  { id: 'mes_en_curso', label: 'Mes en curso' },
-  { id: 'un_mes', label: 'Un mes hasta ahora' },
+  { id: 'este_mes', label: 'Este mes' },
+  { id: 'mes_pasado', label: 'El mes pasado' },
+  { id: 'ultimos_30', label: 'Últimos 30 días' },
   { id: 'ultimos_60', label: 'Últimos 60 días' },
-  { id: 'personalizado', label: 'Personalizado' },
+  { id: 'ultimas_12_semanas', label: 'Últimas 12 semanas' },
+  { id: 'ultimos_12_meses', label: 'Últimos 12 meses' },
   { id: 'semanas_x', label: 'Semanas X' },
+  { id: 'personalizado', label: 'Personalizado' },
 ]
 
 const btnStyle: React.CSSProperties = {
@@ -124,11 +165,20 @@ const btnStyle: React.CSSProperties = {
   gap: 4, whiteSpace: 'nowrap',
 }
 const inputStyle: React.CSSProperties = {
-  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  padding: '6px 26px 6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
   background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
-  color: '#111111', width: 100, outline: 'none',
+  color: '#111111', width: 110, outline: 'none',
 }
 const inputErrorStyle: React.CSSProperties = { ...inputStyle, borderColor: '#E24B4A' }
+const iconBtnStyle: React.CSSProperties = {
+  position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+  color: '#7a8090', display: 'flex', alignItems: 'center',
+}
+const hiddenDateStyle: React.CSSProperties = {
+  position: 'absolute', right: 0, top: 0, width: 1, height: 1,
+  opacity: 0, pointerEvents: 'none', border: 'none', padding: 0,
+}
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: '100%', right: 0, background: '#fff',
   border: '0.5px solid #d0c8bc', borderRadius: 8, width: 200, fontSize: 13,
@@ -142,52 +192,63 @@ const itemStyle: React.CSSProperties = {
 }
 
 export default function SelectorFechaUniversal({
-  nombreModulo: _nombreModulo, onChange, defaultOpcion = 'semana_actual',
+  nombreModulo: _nombreModulo, onChange, defaultOpcion = 'esta_semana',
 }: SelectorFechaUniversalProps) {
-  const defaultLabel = OPCIONES.find(o => o.id === defaultOpcion)?.label ?? 'Semana actual'
+  const defaultOp = migrarOpcion(defaultOpcion)
+  const defaultLabel = OPCIONES.find(o => o.id === defaultOp)?.label ?? 'Esta semana'
 
-  const [opcion, setOpcion] = useState<Opcion>(defaultOpcion)
+  const [opcion, setOpcion] = useState<Opcion>(defaultOp)
   const [open, setOpen] = useState(false)
   const [semanaOpen, setSemanaOpen] = useState(false)
   const [desdeInput, setDesdeInput] = useState('')
   const [hastaInput, setHastaInput] = useState('')
   const [selectedLabel, setSelectedLabel] = useState(defaultLabel)
+  // Último rango activo (para prerellenar Personalizado con lo que se estaba viendo)
+  const lastRangeRef = useRef<{ desde: Date; hasta: Date }>(calcRango(defaultOp))
   const containerRef = useRef<HTMLDivElement>(null)
   const desdeRef = useRef<HTMLInputElement>(null)
   const hastaRef = useRef<HTMLInputElement>(null)
+  const desdePickerRef = useRef<HTMLInputElement>(null)
+  const hastaPickerRef = useRef<HTMLInputElement>(null)
   const semanas = buildSemanasList()
 
   useEffect(() => {
     try {
-      // Leer de localStorage (persiste entre pestañas y F5)
       const raw = localStorage.getItem(STORAGE_KEY_GLOBAL)
       if (raw) {
         const saved: PersistedState = JSON.parse(raw)
-        const op = saved.opcion
+        const op = migrarOpcion(saved.opcion)
         if (op === 'semanas_x' && saved.semanaISO && saved.semanaYear) {
           const item = semanas.find(s => s.semanaISO === saved.semanaISO && s.year === saved.semanaYear)
-          if (item) { setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label, op); return }
+          if (item) {
+            lastRangeRef.current = { desde: item.lunes, hasta: item.domingo }
+            setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label, op); return
+          }
         }
         if (op === 'personalizado' && saved.desde && saved.hasta) {
           const d = new Date(saved.desde + 'T00:00:00')
           const h = new Date(saved.hasta + 'T23:59:59')
           const labelPers = `${fmtFechaCorta(saved.desde)} → ${fmtFechaCorta(saved.hasta)}`
+          lastRangeRef.current = { desde: d, hasta: h }
           setOpcion(op)
           setDesdeInput(isoToDisplay(saved.desde))
           setHastaInput(isoToDisplay(saved.hasta))
           setSelectedLabel(labelPers); onChange(d, h, labelPers, op); return
         }
         if (!['personalizado', 'semanas_x'].includes(op)) {
-          const label = OPCIONES.find(o => o.id === op)?.label ?? 'Semana actual'
+          const label = OPCIONES.find(o => o.id === op)?.label ?? 'Esta semana'
           const rango = calcRango(op)
+          lastRangeRef.current = rango
           setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label, op); return
         }
       }
     } catch {}
-    if (defaultOpcion === 'semanas_x' || defaultOpcion === 'personalizado') {
-      const rango = calcRango('semana_actual'); onChange(rango.desde, rango.hasta, 'Semana actual', 'semana_actual')
+    if (defaultOp === 'semanas_x' || defaultOp === 'personalizado') {
+      const rango = calcRango('esta_semana'); lastRangeRef.current = rango
+      onChange(rango.desde, rango.hasta, 'Esta semana', 'esta_semana')
     } else {
-      const rango = calcRango(defaultOpcion); onChange(rango.desde, rango.hasta, defaultLabel, defaultOpcion)
+      const rango = calcRango(defaultOp); lastRangeRef.current = rango
+      onChange(rango.desde, rango.hasta, defaultLabel, defaultOp)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -209,45 +270,75 @@ export default function SelectorFechaUniversal({
     if (op === 'semanas_x') { setOpcion(op); setOpen(false); setSemanaOpen(true); return }
     if (op === 'personalizado') {
       setOpcion(op); setOpen(false)
-      if (!hastaInput) setHastaInput(isoToDisplay(todayStr()))
+      // Prerellenar con el periodo que se estaba viendo; fin = hoy por defecto.
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+      const prev = lastRangeRef.current
+      const pd = prev?.desde ?? calcRango('esta_semana').desde
+      let ph = prev?.hasta ?? hoy
+      if (ph > hoy) ph = hoy
+      setDesdeInput(isoToDisplay(toDateString(pd)))
+      setHastaInput(isoToDisplay(toDateString(ph)))
       setTimeout(() => desdeRef.current?.focus(), 50)
       return
     }
     const label = OPCIONES.find(o => o.id === op)?.label ?? op
     const rango = calcRango(op)
+    lastRangeRef.current = rango
     setOpcion(op); setSelectedLabel(label); setOpen(false); setSemanaOpen(false)
     persist({ opcion: op, desde: toDateString(rango.desde), hasta: toDateString(rango.hasta) })
     onChange(rango.desde, rango.hasta, label, op)
   }
 
   function selectSemana(item: SemanaItem) {
+    lastRangeRef.current = { desde: item.lunes, hasta: item.domingo }
     setOpcion('semanas_x'); setSelectedLabel(item.label); setSemanaOpen(false)
     persist({ opcion: 'semanas_x', desde: toDateString(item.lunes), hasta: toDateString(item.domingo), semanaISO: item.semanaISO, semanaYear: item.year })
     onChange(item.lunes, item.domingo, item.label, 'semanas_x')
   }
 
-  function applyPersonalizado() {
-    const desdeIso = parseFechaInput(desdeInput)
-    const hastaIso = parseFechaInput(hastaInput) || todayStr()
-    if (!desdeIso) return
+  function commitPersonalizado(desdeIso: string, hastaIso: string) {
     const hastaFinal = hastaIso < desdeIso ? desdeIso : hastaIso
     setDesdeInput(isoToDisplay(desdeIso))
     setHastaInput(isoToDisplay(hastaFinal))
     const d = new Date(desdeIso + 'T00:00:00')
     const h = new Date(hastaFinal + 'T23:59:59')
+    lastRangeRef.current = { desde: d, hasta: h }
     const label = `${fmtFechaCorta(desdeIso)} → ${fmtFechaCorta(hastaFinal)}`
     setSelectedLabel(label)
     persist({ opcion: 'personalizado', desde: desdeIso, hasta: hastaFinal })
     onChange(d, h, label, 'personalizado')
   }
 
+  function applyPersonalizado() {
+    const desdeIso = parseFechaInput(desdeInput)
+    const hastaIso = parseFechaInput(hastaInput) || todayStr()
+    if (!desdeIso) return
+    commitPersonalizado(desdeIso, hastaIso)
+  }
+
+  function openPicker(ref: React.RefObject<HTMLInputElement>) {
+    const el = ref.current
+    if (!el) return
+    try { (el as any).showPicker?.() } catch {}
+    el.focus()
+  }
+  function onPickDesde(iso: string) {
+    if (!iso) return
+    const hIso = parseFechaInput(hastaInput) || todayStr()
+    commitPersonalizado(iso, hIso)
+  }
+  function onPickHasta(iso: string) {
+    if (!iso) return
+    const dIso = parseFechaInput(desdeInput)
+    if (dIso) commitPersonalizado(dIso, iso)
+    else setHastaInput(isoToDisplay(iso))
+  }
+
   function handleDesdeBlur() {
     const desdeIso = parseFechaInput(desdeInput)
     if (desdeIso) {
       setDesdeInput(isoToDisplay(desdeIso))
-      if (!parseFechaInput(hastaInput)) {
-        setHastaInput(isoToDisplay(todayStr()))
-      }
+      if (!parseFechaInput(hastaInput)) setHastaInput(isoToDisplay(todayStr()))
     }
   }
   function handleHastaBlur() {
@@ -255,7 +346,11 @@ export default function SelectorFechaUniversal({
     if (hastaIso) setHastaInput(isoToDisplay(hastaIso))
   }
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); applyPersonalizado() }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      // Autoformatear y aplicar al confirmar (Enter o Tab)
+      if (e.key === 'Enter') e.preventDefault()
+      applyPersonalizado()
+    }
   }
 
   const desdeOk = !desdeInput || parseFechaInput(desdeInput) !== null
@@ -289,27 +384,53 @@ export default function SelectorFechaUniversal({
 
       {opcion === 'personalizado' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input
-            ref={desdeRef}
-            type="text"
-            placeholder="DD/MM/AA"
-            value={desdeInput}
-            onChange={e => setDesdeInput(e.target.value)}
-            onBlur={handleDesdeBlur}
-            onKeyDown={handleKeyDown}
-            style={desdeOk ? inputStyle : inputErrorStyle}
-          />
+          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <input
+              ref={desdeRef}
+              type="text"
+              placeholder="DD/MM/AA"
+              value={desdeInput}
+              onChange={e => setDesdeInput(e.target.value)}
+              onBlur={handleDesdeBlur}
+              onKeyDown={handleKeyDown}
+              style={desdeOk ? inputStyle : inputErrorStyle}
+            />
+            <button type="button" style={iconBtnStyle} onClick={() => openPicker(desdePickerRef)} aria-label="Calendario inicio">
+              <CalendarIcon size={14} strokeWidth={2} />
+            </button>
+            <input
+              ref={desdePickerRef}
+              type="date"
+              value={parseFechaInput(desdeInput) || ''}
+              onChange={e => onPickDesde(e.target.value)}
+              style={hiddenDateStyle}
+              tabIndex={-1}
+            />
+          </div>
           <span style={{ fontSize: 13, color: '#777', fontFamily: 'Lexend, sans-serif' }}>→</span>
-          <input
-            ref={hastaRef}
-            type="text"
-            placeholder="DD/MM/AA"
-            value={hastaInput}
-            onChange={e => setHastaInput(e.target.value)}
-            onBlur={handleHastaBlur}
-            onKeyDown={handleKeyDown}
-            style={hastaOk ? inputStyle : inputErrorStyle}
-          />
+          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <input
+              ref={hastaRef}
+              type="text"
+              placeholder="DD/MM/AA"
+              value={hastaInput}
+              onChange={e => setHastaInput(e.target.value)}
+              onBlur={handleHastaBlur}
+              onKeyDown={handleKeyDown}
+              style={hastaOk ? inputStyle : inputErrorStyle}
+            />
+            <button type="button" style={iconBtnStyle} onClick={() => openPicker(hastaPickerRef)} aria-label="Calendario fin">
+              <CalendarIcon size={14} strokeWidth={2} />
+            </button>
+            <input
+              ref={hastaPickerRef}
+              type="date"
+              value={parseFechaInput(hastaInput) || ''}
+              onChange={e => onPickHasta(e.target.value)}
+              style={hiddenDateStyle}
+              tabIndex={-1}
+            />
+          </div>
           <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', borderColor: '#B01D23' }} onClick={applyPersonalizado}>
             Aplicar
           </button>
