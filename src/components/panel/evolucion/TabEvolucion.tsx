@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v27
+ * Tab Evolución — Panel Global · v28
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -195,11 +195,13 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const maxDato = useMemo(() => { let mx = ''; for (const r of rowsAll) { const f = r.fecha; if (f && f > mx) mx = f } return mx }, [rowsAll])
   const anclaStr = useMemo(() => {
     const base = fechaHasta ? toLocal(fechaHasta) : hoyStr
-    // Si la fecha de referencia cae por delante del último día con ventas (p.ej. hoy es lunes y la
-    // semana/periodo en curso aún no tiene datos), retrocede a la última fecha con datos para mostrar
-    // siempre el último tramo real en vez de un panel vacío.
+    // 'Semana actual' debe mostrar SIEMPRE la semana en curso (lunes-domingo de hoy), aunque hoy sea
+    // lunes y todavía no haya ventas: el usuario pide explícitamente la semana viva, no la anterior.
+    if (fechaOpcion === 'semana_actual') return base
+    // Para el resto (últimos 7 días, semanas X, mes, año, sin opción): si la referencia cae por delante
+    // del último día con ventas, retrocede a la última fecha con datos para no enseñar un panel vacío.
     return maxDato && base > maxDato ? maxDato : base
-  }, [fechaHasta, hoyStr, maxDato])
+  }, [fechaHasta, hoyStr, maxDato, fechaOpcion])
   const lunes = useMemo(() => mondayOf(new Date(anclaStr + 'T12:00:00')), [anclaStr])
   const domingo = useMemo(() => addDays(lunes, 6), [lunes])
   const ref = useMemo(() => new Date(anclaStr + 'T12:00:00'), [anclaStr])
