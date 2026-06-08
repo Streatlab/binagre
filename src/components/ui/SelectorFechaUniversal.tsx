@@ -316,7 +316,7 @@ export default function SelectorFechaUniversal({
     commitPersonalizado(desdeIso, hastaIso)
   }
 
-  function openPicker(ref: React.RefObject<HTMLInputElement>) {
+  function openPicker(ref: React.RefObject<HTMLInputElement | null>) {
     const el = ref.current
     if (!el) return
     try { (el as any).showPicker?.() } catch {}
