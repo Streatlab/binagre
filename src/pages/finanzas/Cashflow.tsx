@@ -47,8 +47,7 @@ export default function Cashflow() {
         const { data: factDatos } = await supabase
           .from('facturacion_diario')
           .select('fecha, uber_bruto, glovo_bruto, je_bruto, web_bruto, directa_bruto')
-          .gte('fecha', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-          .order('fecha', { ascending: false });
+          .gte('fecha', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
         const { data: configCanales } = await supabase
           .from('config_canales')
