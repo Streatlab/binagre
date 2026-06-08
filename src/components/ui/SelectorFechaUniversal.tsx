@@ -20,7 +20,7 @@ type LegacyOpcion = 'semana_actual' | 'mes_en_curso' | 'un_mes'
 
 interface SelectorFechaUniversalProps {
   nombreModulo: string
-  onChange: (desde: Date, hasta: Date, label: string, opcion?: Opcion) => void
+  onChange: (desde: Date, hasta: Date, label: string, opcion?: string) => void
   defaultOpcion?: Opcion | LegacyOpcion
 }
 
@@ -40,6 +40,21 @@ function migrarOpcion(op: string): Opcion {
     un_mes: 'ultimos_30',
   }
   return (map[op] ?? op) as Opcion
+}
+
+// Algunos consumidores (Panel Global → Evolución) deciden su vista según el id de opción
+// usando la nomenclatura previa. Traducimos el id nuevo al equivalente que ya entienden,
+// para que el desplegable siga controlando la vista (semana) como antes.
+function opcionEmitida(op: Opcion): string {
+  switch (op) {
+    case 'esta_semana':
+    case 'semana_pasada': return 'semana_actual'
+    case 'este_mes':
+    case 'mes_pasado': return 'mes_en_curso'
+    case 'ultimas_12_semanas': return 'ultimos_60'
+    case 'ultimos_12_meses': return 'un_mes'
+    default: return op
+  }
 }
 
 function isoWeekNumber(d: Date): number {
@@ -222,7 +237,7 @@ export default function SelectorFechaUniversal({
           const item = semanas.find(s => s.semanaISO === saved.semanaISO && s.year === saved.semanaYear)
           if (item) {
             lastRangeRef.current = { desde: item.lunes, hasta: item.domingo }
-            setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label, op); return
+            setOpcion(op); setSelectedLabel(item.label); onChange(item.lunes, item.domingo, item.label, opcionEmitida(op)); return
           }
         }
         if (op === 'personalizado' && saved.desde && saved.hasta) {
@@ -233,22 +248,22 @@ export default function SelectorFechaUniversal({
           setOpcion(op)
           setDesdeInput(isoToDisplay(saved.desde))
           setHastaInput(isoToDisplay(saved.hasta))
-          setSelectedLabel(labelPers); onChange(d, h, labelPers, op); return
+          setSelectedLabel(labelPers); onChange(d, h, labelPers, opcionEmitida(op)); return
         }
         if (!['personalizado', 'semanas_x'].includes(op)) {
           const label = OPCIONES.find(o => o.id === op)?.label ?? 'Esta semana'
           const rango = calcRango(op)
           lastRangeRef.current = rango
-          setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label, op); return
+          setOpcion(op); setSelectedLabel(label); onChange(rango.desde, rango.hasta, label, opcionEmitida(op)); return
         }
       }
     } catch {}
     if (defaultOp === 'semanas_x' || defaultOp === 'personalizado') {
       const rango = calcRango('esta_semana'); lastRangeRef.current = rango
-      onChange(rango.desde, rango.hasta, 'Esta semana', 'esta_semana')
+      onChange(rango.desde, rango.hasta, 'Esta semana', opcionEmitida('esta_semana'))
     } else {
       const rango = calcRango(defaultOp); lastRangeRef.current = rango
-      onChange(rango.desde, rango.hasta, defaultLabel, defaultOp)
+      onChange(rango.desde, rango.hasta, defaultLabel, opcionEmitida(defaultOp))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -286,14 +301,14 @@ export default function SelectorFechaUniversal({
     lastRangeRef.current = rango
     setOpcion(op); setSelectedLabel(label); setOpen(false); setSemanaOpen(false)
     persist({ opcion: op, desde: toDateString(rango.desde), hasta: toDateString(rango.hasta) })
-    onChange(rango.desde, rango.hasta, label, op)
+    onChange(rango.desde, rango.hasta, label, opcionEmitida(op))
   }
 
   function selectSemana(item: SemanaItem) {
     lastRangeRef.current = { desde: item.lunes, hasta: item.domingo }
     setOpcion('semanas_x'); setSelectedLabel(item.label); setSemanaOpen(false)
     persist({ opcion: 'semanas_x', desde: toDateString(item.lunes), hasta: toDateString(item.domingo), semanaISO: item.semanaISO, semanaYear: item.year })
-    onChange(item.lunes, item.domingo, item.label, 'semanas_x')
+    onChange(item.lunes, item.domingo, item.label, opcionEmitida('semanas_x'))
   }
 
   function commitPersonalizado(desdeIso: string, hastaIso: string) {
@@ -306,7 +321,7 @@ export default function SelectorFechaUniversal({
     const label = `${fmtFechaCorta(desdeIso)} → ${fmtFechaCorta(hastaFinal)}`
     setSelectedLabel(label)
     persist({ opcion: 'personalizado', desde: desdeIso, hasta: hastaFinal })
-    onChange(d, h, label, 'personalizado')
+    onChange(d, h, label, opcionEmitida('personalizado'))
   }
 
   function applyPersonalizado() {
