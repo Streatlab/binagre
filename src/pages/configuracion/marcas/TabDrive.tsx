@@ -7,7 +7,7 @@ export default function TabDrive() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/oauth/google/status')
+    fetch('/api/oauth/google?action=status')
       .then(r => r.json())
       .then(d => { setEstado(d); setLoading(false) })
       .catch(() => { setEstado({ conectado: false }); setLoading(false) })
@@ -20,7 +20,7 @@ export default function TabDrive() {
 
   const desconectar = async () => {
     if (!confirm('¿Desconectar la cuenta de Google Drive?')) return
-    await fetch('/api/oauth/google/disconnect', { method: 'POST' })
+    await fetch('/api/oauth/google?action=disconnect', { method: 'POST' })
     setEstado({ conectado: false })
   }
 
@@ -69,7 +69,7 @@ export default function TabDrive() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href="/api/oauth/google/start" style={btnPrimario}>Reconectar cuenta</a>
+            <a href="/api/oauth/google?action=start" style={btnPrimario}>Reconectar cuenta</a>
             <button
               type="button"
               onClick={desconectar}
@@ -97,7 +97,7 @@ export default function TabDrive() {
           <p style={{ fontSize: 12, color: T.mut, marginBottom: 18, lineHeight: 1.5 }}>
             Conecta tu cuenta de Google para subir facturas automáticamente a Drive y mantener los PDFs organizados por titular y trimestre.
           </p>
-          <a href="/api/oauth/google/start" style={btnPrimario}>🔗 Conectar Google Drive</a>
+          <a href="/api/oauth/google?action=start" style={btnPrimario}>🔗 Conectar Google Drive</a>
         </>
       )}
     </div>
