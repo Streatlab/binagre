@@ -239,6 +239,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
   })
   const [tareasBadge, setTareasBadge] = useState(0)
+  const [ocrBadge, setOcrBadge] = useState(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -257,6 +258,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .in('estado', ['pendiente', 'atrasada'])
       .then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
+
+  // Aviso OCR: facturas a las que les falta importe, titular o categoría (las que
+  // hay que completar para llegar al 100%). Cuenta global, todo el histórico.
+  useEffect(() => {
+    if (perfil !== 'admin') return
+    supabase
+      .from('facturas')
+      .select('id', { count: 'exact', head: true })
+      .in('tipo', ['proveedor', 'plataforma'])
+      .or('total.lte.0,titular_id.is.null,categoria_factura.is.null')
+      .then(({ count }) => setOcrBadge(count ?? 0))
+  }, [perfil])
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
@@ -473,6 +486,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                             <>
                               <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
+                              {item.path === '/ocr' && <SidebarBadge count={ocrBadge} />}
                             </>
                           )}
                         </NavLink>
