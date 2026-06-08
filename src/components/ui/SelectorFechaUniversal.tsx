@@ -361,11 +361,8 @@ export default function SelectorFechaUniversal({
     if (hastaIso) setHastaInput(isoToDisplay(hastaIso))
   }
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      // Autoformatear y aplicar al confirmar (Enter o Tab)
-      if (e.key === 'Enter') e.preventDefault()
-      applyPersonalizado()
-    }
+    // Enter aplica el rango. Tab solo salta de casilla; el formateo lo hace el onBlur.
+    if (e.key === 'Enter') { e.preventDefault(); applyPersonalizado() }
   }
 
   const desdeOk = !desdeInput || parseFechaInput(desdeInput) !== null
