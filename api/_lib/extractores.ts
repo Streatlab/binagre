@@ -609,6 +609,23 @@ function partirPorMarcadores(
   return dedupeFacturas(out)
 }
 
+// ¿El número de factura leído es PLAUSIBLE (un ref real) y no basura de una página
+// de continuación? Un recibo multipágina (p.ej. Octopus) hace que las páginas 2..n
+// se lean como facturas falsas con número "Periodo", "Fecha", vacío, etc. Exigir un
+// número plausible evita trocear una única factura en varias.
+const PALABRAS_CABECERA_NO_NUMERO = new Set([
+  'periodo', 'fecha', 'total', 'factura', 'cliente', 'importe', 'base', 'iva',
+  'numero', 'número', 'num', 'nº', 'serie', 'pagina', 'página', 'subtotal',
+])
+function numeroFacturaPlausible(numero: string | null | undefined): boolean {
+  if (!numero) return false
+  const n = numero.trim()
+  if (n.length < 4) return false
+  if (!/\d/.test(n)) return false // un ref de factura real lleva al menos un dígito
+  if (PALABRAS_CABECERA_NO_NUMERO.has(n.toLowerCase())) return false
+  return true
+}
+
 // Punto de entrada del partido multi-factura.
 // Devuelve [] si no detecta multi (0 o 1 factura) → el flujo normal sigue igual.
 // Devuelve ≥2 ExtractedFactura si detecta varias facturas distintas en el PDF.
@@ -632,12 +649,18 @@ export function partirEnFacturas(
   // Elegir la pasada que más facturas distintas válidas haya encontrado.
   const mejor = porPaginas.length >= porMarcadores.length ? porPaginas : porMarcadores
 
-  // CONSERVADOR: solo se considera multi-factura si hay ≥2 facturas distintas.
-  // Además, deben tener números de factura distintos entre sí (evita partir una
-  // recapitulativa con subtotales repetidos en varias filas).
+  // CONSERVADOR: solo se considera multi-factura si hay ≥2 facturas con número
+  // PLAUSIBLE y distinto entre sí. Esto:
+  //  - evita partir una recapitulativa con subtotales repetidos, y
+  //  - evita trocear una única factura multipágina (Octopus, etc.) donde las
+  //    páginas de continuación se leen como facturas falsas con número
+  //    "Periodo"/vacío.
   if (mejor.length < 2) return []
-  const numerosDistintos = new Set(mejor.map((f) => (f.numero_factura || '').toUpperCase()).filter(Boolean))
-  if (numerosDistintos.size < 2) return []
+  const plausibles = mejor.filter((f) => numeroFacturaPlausible(f.numero_factura))
+  const numerosPlausibles = new Set(plausibles.map((f) => (f.numero_factura || '').toUpperCase()))
+  if (plausibles.length < 2 || numerosPlausibles.size < 2) return []
 
-  return mejor
+  // Devolver SOLO las sub-facturas con número plausible: nunca se crean entradas
+  // basura de páginas de continuación.
+  return plausibles
 }
