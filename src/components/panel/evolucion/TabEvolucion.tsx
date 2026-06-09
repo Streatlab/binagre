@@ -1,5 +1,5 @@
 /**
- * Tab Evolución — Panel Global · v30
+ * Tab Evolución — Panel Global · v31
  */
 import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -41,6 +41,7 @@ const BORDE = '#d0c8bc'
 const GRIS_COMP = '#9ba3af'
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const DIAS_LARGO = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const DIAS_COLOR = [COLOR.diaLun, COLOR.diaMar, COLOR.diaMie, COLOR.diaJue, COLOR.diaVie, COLOR.diaSab, COLOR.diaDom]
 
@@ -258,21 +259,22 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const diasRest = Math.max(diasTotDias - diasTransDias, 0)
 
   const diaHoyNombre = useMemo(() => {
-    if (periodo === 'semana') return DIAS[((pFinTramo.getDay() || 7) - 1)]
+    if (periodo === 'semana') return DIAS_LARGO[((pFinTramo.getDay() || 7) - 1)]
     if (periodo === 'mes') return `la semana ${wom(pFinTramo)}`
     return MESES[pFinTramo.getMonth()]
   }, [periodo, pFinTramo])
 
-  // FRASE 1 — ritmo a día de hoy: % del objetivo proporcional a los días vividos.
+  // FRASE 1 — ritmo a día de hoy: lo conseguido frente a lo que TOCABA hasta hoy (objetivo proporcional).
+  // Sin repetir 'hoy', con día completo y cifras, y dejando claro que el % es lo ya conseguido.
   const fraseHoy = useMemo(() => {
     if (total <= 0 || objTramo <= 0) return null
     const pct = pctObj
-    const ref = periodo === 'semana' ? `a día de hoy, ${diaHoyNombre.toLowerCase()},` : `a ${diaHoyNombre.toLowerCase()}`
-    const meta = periodo === 'semana' ? 'lo previsto para hoy' : 'el objetivo del tramo'
-    if (pct >= 100) return { txt: `${cap(ref)} ya has superado ${meta}: ${pct.toFixed(0)}%.`, color: POS }
-    if (pct >= 85) return { txt: `${cap(ref)} llevas el ${pct.toFixed(0)}% de ${meta}. Muy buen ritmo.`, color: POS }
-    if (pct >= 60) return { txt: `${cap(ref)} llevas el ${pct.toFixed(0)}% de ${meta}.`, color: WARN }
-    return { txt: `${cap(ref)} solo llevas el ${pct.toFixed(0)}% de ${meta}. Hay que apretar.`, color: NEG }
+    const ini = periodo === 'semana' ? `Hasta el ${diaHoyNombre}` : `Hasta ${diaHoyNombre}`
+    const tocaban = `de los ${nf0(objTramo)} que tocaban a estas alturas`
+    if (pct >= 100) return { txt: `${ini} llevas ${nf0(total)}: ya has cubierto lo previsto (${pct.toFixed(0)}% ${tocaban}).`, color: POS }
+    if (pct >= 85) return { txt: `${ini} llevas ${nf0(total)}, el ${pct.toFixed(0)}% ${tocaban}. Buen ritmo.`, color: POS }
+    if (pct >= 60) return { txt: `${ini} llevas ${nf0(total)}, el ${pct.toFixed(0)}% ${tocaban}.`, color: WARN }
+    return { txt: `${ini} llevas ${nf0(total)}, solo el ${pct.toFixed(0)}% ${tocaban}. Hay que apretar.`, color: NEG }
   }, [periodo, total, objTramo, pctObj, diaHoyNombre])
 
   // FRASE 2 — cómo va / cómo cerrará el periodo completo (proyección al ritmo actual).
@@ -284,8 +286,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
       return { txt: `${cap(u)} cerró en ${nf0(total)} (${pp.toFixed(0)}% del objetivo).`, color: pp >= 100 ? POS : pp >= 85 ? WARN : NEG }
     }
     const pc = (proy / objPeriodo) * 100
-    if (proy >= objPeriodo) return { txt: `Al ritmo actual cerrarás ${u} en ${nf0(proy)}, por encima del objetivo (+${(pc - 100).toFixed(0)}%).`, color: POS }
-    return { txt: `Al ritmo actual cerrarás ${u} en ${nf0(proy)} (${pc.toFixed(0)}% del objetivo de ${nf0(objPeriodo)}).`, color: pc >= 85 ? WARN : NEG }
+    if (proy >= objPeriodo) return { txt: `A este ritmo ${u} cerrará en ${nf0(proy)}, por encima del objetivo de ${nf0(objPeriodo)} (+${(pc - 100).toFixed(0)}%).`, color: POS }
+    return { txt: `A este ritmo ${u} cerrará en ${nf0(proy)}, el ${pc.toFixed(0)}% del objetivo de ${nf0(objPeriodo)}.`, color: pc >= 85 ? WARN : NEG }
   }, [periodo, total, objPeriodo, pctObjPeriodo, periodoCerrado, proy])
 
   const diasConDatosCanal = useMemo(() => { let n = 0; for (let d = new Date(pIni); d <= pFinTramo; d = addDays(d, 1)) if ((agg.get(toLocal(d))?.bruto ?? 0) > 0) n++; return n }, [agg, pIni, pFinTramo])
@@ -376,7 +378,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
         <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4.2vw,44px)', fontWeight: 600, lineHeight: 1.04 }}>
           {deltaTotal == null ? 'PERIODO EN MARCHA' : 'EL NEGOCIO VA'}{' '}
           {deltaTotal != null && <span style={{ color: colorDelta(deltaTotal), background: `${colorDelta(deltaTotal)}1f`, padding: '0 10px', borderRadius: 8 }}>{deltaTotal >= 0 ? '+' : ''}{deltaTotal.toFixed(1)}%</span>}
-          {deltaTotal != null && <span> VS {labelComp.toUpperCase()}.</span>}
+          {deltaTotal != null && <span> VS {`los mismos días de ${labelComp}`.replace('de el ', 'del ').toUpperCase()}.</span>}
         </div>
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontFamily: OSWALD, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, letterSpacing: '0.3px' }}>
