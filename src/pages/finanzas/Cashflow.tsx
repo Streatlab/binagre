@@ -9,10 +9,9 @@ import {
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW — pestaña del Panel Global
-   Cobros (fechas de pago reales por plataforma) · Caja por mes con
-   línea de saldo · Ingresos pendientes · Gastos del mes (facturas
-   reales) · Caja por marca · Simulador. Neto vía calcNetoPorCanal.
-   Donde no hay dato fuente se marca "estimado" o "pendiente".
+   Cobros (fechas de pago reales por plataforma) · Caja por mes
+   (banco real) con línea de saldo · Saldo banco + Runway reales ·
+   Ingresos pendientes · Gastos del mes · Caja por marca · Simulador.
    ════════════════════════════════════════════════════════════ */
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -80,6 +79,7 @@ interface Row {
 interface Cobro { canal: string; label: string; color: string; ini: string; fin: string; pago: string; bruto: number; neto: number; pedidos: number; futuro: boolean }
 interface Factura { fecha_factura: string; total: number; total_iva: number; categoria_factura: string | null }
 interface VentaMarca { marca: string; neto: number; bruto: number }
+interface CajaMes { mes: string; ingresos: number; gastos: number; saldo_mes: number }
 
 const SELECT = 'fecha,servicio,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos,total_bruto,total_pedidos'
 
@@ -93,6 +93,7 @@ export default function Cashflow() {
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [catNombres, setCatNombres] = useState<Record<string, string>>({})
   const [ventasMarca, setVentasMarca] = useState<VentaMarca[]>([])
+  const [cajaBanco, setCajaBanco] = useState<CajaMes[]>([])
   const [festivos, setFestivos] = useState<Set<string>>(new Set(FESTIVOS_FALLBACK))
   const [config, setConfig] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
@@ -114,7 +115,8 @@ export default function Cashflow() {
       supabase.from('categorias_gastos').select('codigo,nombre'),
       supabase.from('festivos').select('fecha'),
       supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA'),
-    ]).then(([rd, rf, rc, rfe, rm]) => {
+      supabase.from('v_caja_mensual').select('mes,ingresos,gastos,saldo_mes'),
+    ]).then(([rd, rf, rc, rfe, rm, rcm]) => {
       setRows((rd.data as Row[]) ?? [])
       setFacturas(((rf.data as Factura[]) ?? []).filter(f => f.fecha_factura))
       const cm: Record<string, string> = {}
@@ -123,6 +125,7 @@ export default function Cashflow() {
       const fe = (rfe.data ?? []) as { fecha: string }[]
       if (fe.length) setFestivos(new Set(fe.map(x => x.fecha.slice(0, 10))))
       setVentasMarca((rm.data as VentaMarca[]) ?? [])
+      setCajaBanco((rcm.data as CajaMes[]) ?? [])
       setLoading(false)
     })
   }, [])
@@ -233,22 +236,16 @@ export default function Cashflow() {
   const gastoMesTotal = useMemo(() => gastosCat.reduce((s, c) => s + c.total, 0), [gastosCat])
   const nFacturasMes = useMemo(() => gastosCat.reduce((s, c) => s + c.n, 0), [gastosCat])
 
-  function gastoDeMes(ym: string) { return facturas.filter(f => (f.fecha_factura ?? '').slice(0, 7) === ym).reduce((s, f) => s + Number(f.total || 0), 0) }
-  function cobrosNetoDeMes(ym: string) { return cobros.filter(c => c.pago.slice(0, 7) === ym).reduce((s, c) => s + c.neto, 0) }
-
   const cruce = useMemo(() => {
-    const out: { ym: string; label: string; ingresos: number; gastos: number; margen: number }[] = []
-    const base = new Date()
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(base.getFullYear(), base.getMonth() - i, 1)
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const ingresos = cobrosNetoDeMes(ym); const gastos = gastoDeMes(ym)
-      out.push({ ym, label: MESES[d.getMonth()], ingresos, gastos, margen: ingresos - gastos })
-    }
-    return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cobros, facturas])
-  const cajaMes = useMemo(() => (cruce.find(c => c.ym === mesActual)?.margen ?? 0), [cruce, mesActual])
+    return [...cajaBanco].sort((a, b) => (a.mes < b.mes ? -1 : 1)).slice(-6).map(c => ({
+      ym: c.mes, label: MESES[parseInt(c.mes.slice(5, 7), 10) - 1],
+      ingresos: Number(c.ingresos) || 0, gastos: Number(c.gastos) || 0, margen: Number(c.saldo_mes) || 0,
+    }))
+  }, [cajaBanco])
+  const saldoBanco = useMemo(() => cajaBanco.reduce((s, c) => s + (Number(c.saldo_mes) || 0), 0), [cajaBanco])
+  const ultimoMov = useMemo(() => { const m = [...cajaBanco].map(c => c.mes).sort().slice(-1)[0]; return m ? `${MESES[parseInt(m.slice(5, 7), 10) - 1]} ${m.slice(0, 4)}` : '' }, [cajaBanco])
+  const burnMensual = useMemo(() => { const u = [...cajaBanco].sort((a, b) => (a.mes < b.mes ? -1 : 1)).slice(-4); return u.length ? u.reduce((s, c) => s + (Number(c.gastos) || 0), 0) / u.length : 0 }, [cajaBanco])
+  const runwaySem = useMemo(() => (burnMensual > 0 ? saldoBanco / (burnMensual / 4.345) : 0), [saldoBanco, burnMensual])
 
   const porMarca = useMemo(() => {
     const m = new Map<string, number>()
@@ -260,9 +257,9 @@ export default function Cashflow() {
     const out: { txt: string; color: string }[] = []
     if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: POS }) }
     if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec }) }
-    if (nFacturasMes > 0) out.push({ txt: cajaMes >= 0 ? `La caja del mes va en positivo: tras gastos te quedan +${nf0(cajaMes)}.` : `Cuidado: este mes los gastos se comen los cobros en ${nf0(Math.abs(cajaMes))}.`, color: cajaMes >= 0 ? POS : NEG })
+    if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? POS : WARN })
     return out
-  }, [grueso, topPlat, porCobrarTotal, nFacturasMes, cajaMes])
+  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -295,7 +292,7 @@ export default function Cashflow() {
 
   const maxBar = Math.max(...cruce.map(c => Math.max(c.ingresos, c.gastos)), 1)
   const CW = 720, cb = 120, ct = 16
-  const cstep = (CW - 60) / cruce.length
+  const cstep = (CW - 60) / Math.max(cruce.length, 1)
   const cx = (i: number) => 50 + cstep * i + cstep / 2
   const barH = (v: number) => Math.max((v / maxBar) * (cb - ct), 1)
   const ySaldo = (v: number) => cb - (v / maxBar) * (cb - ct) * 0.85
@@ -346,13 +343,13 @@ export default function Cashflow() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
           <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
-          <div style={kpi}><div style={kpiL}>Caja del mes</div><div style={{ ...kpiV, color: cajaMes >= 0 ? VERDE : ROJO }}>{cajaMes >= 0 ? '+' : ''}{nf0(cajaMes)}</div></div>
-          <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: GRIS, fontSize: 18 }}>— sem.</div><div style={{ ...ex, margin: 0 }}>requiere saldo banco</div></div>
+          <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
+          <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? AMARILLO : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
         </div>
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
-        <div style={lblS}>Caja por mes · cobros vs gastos · línea = saldo</div>
+        <div style={lblS}>Caja por mes · banco real · línea = saldo</div>
         <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke="#e6e1d8" />
           {cruce.map((c, i) => { const x = cx(i); return (
@@ -366,10 +363,10 @@ export default function Cashflow() {
           {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={3.5} fill={c.margen >= 0 ? TINTA : ROJO} />)}
         </svg>
         <div style={{ display: 'flex', gap: 16, fontSize: 11, color: COLOR.textSec, marginTop: 4 }}>
-          <span><span style={dot(VERDE)} />Cobros netos</span><span><span style={dot(ROJO)} />Gastos</span>
+          <span><span style={dot(VERDE)} />Ingresos</span><span><span style={dot(ROJO)} />Gastos</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 0, borderTop: `2px solid ${TINTA}` }} />Saldo</span>
         </div>
-        {nFacturasMes === 0 && <div style={ex}>Aún no hay facturas registradas de este mes; el gasto se completará al subirlas.</div>}
+        <div style={ex}>Movimientos reales del banco{ultimoMov ? ` · última importación: ${ultimoMov}` : ''}.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -453,12 +450,10 @@ export default function Cashflow() {
         <div style={lblS}>Se activa al cargar datos</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
           {[
-            { t: 'Conciliación de cobros', d: 'Casar cada depósito con el banco y marcar lo cobrado real.', dep: 'banco' },
-            { t: 'Recorte real vs previsto', d: 'Reembolsos y penalizaciones de cada liquidación.', dep: 'liquidaciones' },
-            { t: 'Coste de ADS y promos', d: 'Descuento por publicidad y su efecto en el neto.', dep: 'resúmenes' },
-            { t: 'Alerta de impago', d: 'Aviso si un cobro no entra en su fecha.', dep: 'banco' },
-            { t: 'Faltantes / duplicados', d: 'Depósito que falta o uno repetido.', dep: 'banco' },
-            { t: 'Calendario 30/60/90', d: 'Días con dinero y días secos.', dep: 'fechas de pago de gastos' },
+            { t: 'Recorte real vs previsto', d: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
+            { t: 'Coste de ADS y promos', d: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
+            { t: 'Conciliación cobro ↔ banco', d: 'Casar cada cobro previsto con su abono real en el banco.', dep: 'cruce automático (en desarrollo)' },
+            { t: 'Calendario 30/60/90', d: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
             <div key={i} style={{ border: `1px dashed ${BORDE}`, borderRadius: 11, padding: '10px 12px', background: '#faf8f4' }}>
               <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec, marginBottom: 5 }}>{x.t}</div>
