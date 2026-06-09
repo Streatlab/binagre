@@ -28,6 +28,18 @@ const fmtBru = fmt2
 const fmtTM  = fmt2
 const fmtKpi = fmt2
 
+// Reparte un total de Just Eat en n pedidos preservando SIEMPRE el total exacto:
+// las n-1 primeras líneas llevan el importe base truncado y la última absorbe el resto.
+// Se usa para días antiguos que tienen nº de pedidos y total de JE pero no el detalle importe-a-importe,
+// de modo que se vean los pedidos uno a uno sin alterar ni el recuento ni el total (y por tanto el TM).
+const repartoJE = (total: number, n: number): number[] => {
+  const t = total || 0
+  if (n <= 1) return [Number(t.toFixed(2))]
+  const base = Math.floor((t / n) * 100) / 100
+  const arr = Array.from({ length: n - 1 }, () => base)
+  return [...arr, Number((t - base * (n - 1)).toFixed(2))]
+}
+
 interface AggRow {
   uber_pedidos: number; uber_bruto: number
   glovo_pedidos: number; glovo_bruto: number
@@ -68,7 +80,7 @@ const COLOR_TODOS = COLORS.lun
 const AZUL_PED = COLORS.lun
 const NARANJA_TM = COLORS.sab
 const VERDE_NETO = COLORS.ok
-const TRACK_BAR = COLORS.group
+const TH_BG = COLORS.group
 
 const SUBTAB_CONTAINER: CSSProperties = {
   display: 'inline-flex',
@@ -298,78 +310,46 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
   const cardEvo: CSSProperties = { background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:16, padding: isMobile ? '16px 16px' : '18px 20px' }
   const lblS: CSSProperties = { fontFamily:FONT.heading, fontSize:11, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut }
   return (
-    <>
-      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
-        <div style={cardEvo}>
-          <div style={{ ...lblS, marginBottom:12 }}>Facturación</div>
-          <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div><div style={{ ...lblXs, marginTop:4 }}>BRUTO</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(netoEstimado)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>{netoLabel}</div></div>
-          </div>
-          <div style={{ display:'flex', alignItems:'baseline', gap:18, marginTop:16, flexWrap:'wrap' }}>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div><div style={{ ...lblXs, marginTop:4 }}>MEDIA/DÍA</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>MEDIA/DÍA NETA</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.mut, lineHeight:1 }}>{dias}</div><div style={{ ...lblXs, marginTop:4 }}>DÍAS</div></div>
-          </div>
+    <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
+      <div style={cardEvo}>
+        <div style={{ ...lblS, marginBottom:12 }}>Facturación</div>
+        <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div><div style={{ ...lblXs, marginTop:4 }}>BRUTO</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(netoEstimado)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>{netoLabel}</div></div>
         </div>
-
-        <div style={cardEvo}>
-          <div style={{ ...lblS, marginBottom:12 }}>Pedidos · Ticket medio</div>
-          <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:AZUL_PED, lineHeight:1 }}>{fmtInt(totals.total_pedidos)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:AZUL_PED, fontWeight:500, marginTop:4 }}>PEDIDOS</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:NARANJA_TM, lineHeight:1 }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:NARANJA_TM, fontWeight:500, marginTop:4 }}>TM BRUTO</div></div>
-            <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>TM NETO</div></div>
-          </div>
-          <div style={{ marginTop:16, fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>Neto estimado tras comisiones de plataforma.</div>
-        </div>
-
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
-            style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
-            <span style={{ fontSize:20, lineHeight:1, color:'#fff' }}>↑</span>
-            <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
-            <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
-          </div>
-          {onExport && (
-            <button onClick={onExport}
-              style={{ flex:'0 0 30%', ...cardEvo, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
-              <span style={{ fontSize:13 }}>↓</span> Exportar CSV
-            </button>
-          )}
+        <div style={{ display:'flex', alignItems:'baseline', gap:18, marginTop:16, flexWrap:'wrap' }}>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div><div style={{ ...lblXs, marginTop:4 }}>MEDIA/DÍA</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>MEDIA/DÍA NETA</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.mut, lineHeight:1 }}>{dias}</div><div style={{ ...lblXs, marginTop:4 }}>DÍAS</div></div>
         </div>
       </div>
 
-      <div style={{ ...cardEvo, marginBottom:14 }}>
-        <div style={{ ...lblS, marginBottom:14 }}>Por canal</div>
-        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : `repeat(${ALL_COLS.length}, 1fr)`, gap:10 }}>
-          {ALL_COLS.map(c=>{
-            const b=(totals[c.bru] as number)||0; const p=(totals[c.ped] as number)||0
-            const pct=totals.total_bruto>0?(b/totals.total_bruto)*100:0
-            const tmc=p>0?b/p:0
-            return (
-              <div key={c.id} style={{ background:`${c.color}1a`, border:`0.5px solid ${c.color}`, borderRadius:14, padding:'14px 16px' }}>
-                <div style={{ fontFamily:FONT.heading, fontSize:12, letterSpacing:'1.5px', textTransform:'uppercase', color:c.color, marginBottom:8 }}>{c.label}</div>
-                <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                  <span style={{ fontFamily:FONT.heading, fontSize:26, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtBru(b)}</span>
-                  <span style={{ fontFamily:FONT.heading, fontSize:16, fontWeight:600, color:c.color }}>{pct.toFixed(0)}%</span>
-                </div>
-                <div style={{ height:8, background:TRACK_BAR, borderRadius:4, margin:'10px 0', overflow:'hidden' }}>
-                  <div style={{ height:8, width:`${Math.min(pct,100)}%`, background:c.color, borderRadius:4 }} />
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'4px 8px', alignItems:'baseline' }}>
-                  <span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.2px', textTransform:'uppercase', color:AZUL_PED }}>Pedidos</span>
-                  <span style={{ fontFamily:FONT.heading, fontSize:18, fontWeight:600, color:AZUL_PED, textAlign:'right' }}>{fmtInt(p)}</span>
-                  <span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.2px', textTransform:'uppercase', color:NARANJA_TM }}>TM</span>
-                  <span style={{ fontFamily:FONT.heading, fontSize:18, fontWeight:600, color:NARANJA_TM, textAlign:'right' }}>{fmtTM(tmc)}</span>
-                </div>
-              </div>
-            )
-          })}
+      <div style={cardEvo}>
+        <div style={{ ...lblS, marginBottom:12 }}>Pedidos · Ticket medio</div>
+        <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:AZUL_PED, lineHeight:1 }}>{fmtInt(totals.total_pedidos)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:AZUL_PED, fontWeight:500, marginTop:4 }}>PEDIDOS</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:NARANJA_TM, lineHeight:1 }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:NARANJA_TM, fontWeight:500, marginTop:4 }}>TM BRUTO</div></div>
+          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>TM NETO</div></div>
         </div>
       </div>
-    </>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
+          style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
+          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
+          <span style={{ fontSize:20, lineHeight:1, color:'#fff' }}>↑</span>
+          <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', color:'#fff', textTransform:'uppercase' }}>AÑADIR DÍA</div>
+          <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
+        </div>
+        {onExport && (
+          <button onClick={onExport}
+            style={{ flex:'0 0 30%', ...cardEvo, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
+            <span style={{ fontSize:13 }}>↓</span> Exportar CSV
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -397,6 +377,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
   },[rows,fechaCount,subtotalMap])
   const exportar=()=>{ downloadCSV('facturacion_diario.csv',['Fecha','Servicio','UE Ped','UE Bruto','GL Ped','GL Bruto','JE Ped','JE Bruto','Web Ped','Web Bruto','Dir Ped','Dir Bruto','Total Ped','Total Bruto'],rows.map(r=>[r.fecha,r.servicio,r.uber_pedidos,r.uber_bruto,r.glovo_pedidos,r.glovo_bruto,r.je_pedidos,r.je_bruto,r.web_pedidos,r.web_bruto,r.directa_pedidos,r.directa_bruto,r.total_pedidos,r.total_bruto])) }
   const tdBase: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap', verticalAlign:'middle' }
+  const tdNum: CSSProperties={ ...tdBase, fontFamily:FONT.heading, fontWeight:600 }
   if(allData.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
     <>
@@ -415,8 +396,8 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
               </tr>
               <tr>
                 {cols.map(c=>(<Fragment key={c.id}><th style={{ padding:'5px 10px', textAlign:'center', background:c.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Ped</th><th style={{ padding:'5px 10px', textAlign:'right', background:c.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Bruto</th></Fragment>))}
-                <th style={{ padding:'5px 10px', textAlign:'center', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Ped</th>
-                <th style={{ padding:'5px 10px', textAlign:'right', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, fontWeight:400 }}>Bruto</th>
+                <th style={{ padding:'5px 10px', textAlign:'center', background:TH_BG, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.sec, fontWeight:600 }}>Ped</th>
+                <th style={{ padding:'5px 10px', textAlign:'right', background:TH_BG, borderBottom:`0.5px solid ${COLORS.brd}`, fontFamily:FONT.heading, fontSize:9, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.sec, fontWeight:600 }}>Bruto</th>
               </tr>
             </thead>
             <tbody>
@@ -427,8 +408,8 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
                     <td style={{ ...tdBase, color:COLORS.mut, fontSize:12, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}`, paddingLeft:16 }}>{fmtFechaCorta(item.fecha)}</td>
                     <td style={{ ...tdBase, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}><ServicioBadge s="TODO" /></td>
                     {cols.map(c=>{ const p=(s[c.ped] as number)||0; const b=(s[c.bru] as number)||0; return (<Fragment key={c.id}><td style={{ ...tdBase, textAlign:'center', background:c.bg, color:p>0?COLORS.sec:COLORS.mut, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{p>0?fmtInt(p):'—'}</td><td style={{ ...tdBase, textAlign:'right', background:c.bg, color:b>0?COLORS.sec:COLORS.mut, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{b>0?fmtBru(b):'—'}</td></Fragment>) })}
-                    <td style={{ ...tdBase, textAlign:'center', color:COLORS.sec, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtInt(s.total_pedidos)}</td>
-                    <td style={{ ...tdBase, textAlign:'right', color:COLORS.sec, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(s.total_bruto)}</td>
+                    <td style={{ ...tdNum, textAlign:'center', background:TH_BG, color:COLORS.sec, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtInt(s.total_pedidos)}</td>
+                    <td style={{ ...tdNum, textAlign:'right', background:TH_BG, color:COLORS.pri, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(s.total_bruto)}</td>
                   </tr>)
                 }
                 const {r}=item; const tipo=tipoDia(r.fecha); const esCerrado=tipo==='cerrado'||tipo==='festivo'||tipo==='vacaciones'; const isLast=idx===rowsConSub.length-1
@@ -436,17 +417,17 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
                   <td style={{ ...tdBase, color:COLORS.mut, fontSize:12, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}`, paddingLeft:16 }}><div style={{ display:'flex', alignItems:'center', gap:6 }}>{fmtFechaCorta(r.fecha)}<TipoPill tipo={tipo} /></div></td>
                   <td style={{ ...tdBase, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}><ServicioBadge s={r.servicio} /></td>
                   {cols.map(c=>{ const p=(r[c.ped] as number)||0; const b=(r[c.bru] as number)||0; return (<Fragment key={c.id}><td style={{ ...tdBase, textAlign:'center', background:c.bg, color:p>0?COLORS.sec:COLORS.mut, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{p>0?fmtInt(p):'—'}</td><td style={{ ...tdBase, textAlign:'right', background:c.bg, color:b>0?COLORS.sec:COLORS.mut, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{b>0?fmtBru(b):'—'}</td></Fragment>) })}
-                  <td style={{ ...tdBase, textAlign:'center', borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtInt(r.total_pedidos)}</td>
-                  <td style={{ ...tdBase, textAlign:'right', borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
+                  <td style={{ ...tdNum, textAlign:'center', background:TH_BG, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtInt(r.total_pedidos)}</td>
+                  <td style={{ ...tdNum, textAlign:'right', background:TH_BG, color:COLORS.pri, borderBottom:isLast?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
                 </tr>)
               })}
             </tbody>
             <tfoot>
-              <tr style={{ background:COLORS.bg }}>
-                <td style={{ padding:'10px 12px 10px 16px', color:COLORS.mut, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>Total</td>
+              <tr style={{ background:COLORS.group }}>
+                <td style={{ padding:'10px 12px 10px 16px', color:COLORS.sec, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>Total</td>
                 {cols.map(c=>(<Fragment key={c.id}><td style={{ padding:'10px 12px', textAlign:'center', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtInt(rowTotals[c.ped] as number)}</td><td style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(rowTotals[c.bru] as number)}</td></Fragment>))}
                 <td style={{ padding:'10px 12px', textAlign:'center', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtInt(rowTotals.total_pedidos)}</td>
-                <td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(rowTotals.total_bruto)}</td>
+                <td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.pri, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(rowTotals.total_bruto)}</td>
               </tr>
             </tfoot>
           </table>
@@ -459,7 +440,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
 function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd }: { allData:RawDiario[]; cols:typeof ALL_COLS; onDrill:(y:number,w:number)=>void; totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void }) {
   const rows = useMemo(()=>buildSemanas(allData).slice(0,12),[allData])
   const exportar=()=>{ downloadCSV('facturacion_semanas.csv',['Semana','Periodo','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto'],rows.map(r=>[`S${r.week}`,r.periodo,r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto])) }
-  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 12px', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
+  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:600, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.sec, padding:'10px 12px', background:TH_BG, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   const tdS: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   if(rows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
@@ -475,10 +456,10 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
                 <td style={{ ...tdS, color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.periodo}</td>
                 <td style={{ ...tdS, textAlign:'center', color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.dias}</td>
                 {cols.map(c=>(<td key={c.id} style={{ ...tdS, textAlign:'right', background:c.bg, color:(r[c.bru] as number)>0?COLORS.sec:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{(r[c.bru] as number)>0?fmtBru(r[c.bru] as number):'—'}</td>))}
-                <td style={{ ...tdS, textAlign:'right', fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
+                <td style={{ ...tdS, textAlign:'right', fontFamily:FONT.heading, fontWeight:600, color:COLORS.pri, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
               </tr>))}
             </tbody>
-            <tfoot><tr style={{ background:COLORS.bg }}><td style={{ padding:'10px 12px', color:COLORS.mut, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={3}>Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(totals[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(totals.total_bruto)}</td></tr></tfoot>
+            <tfoot><tr style={{ background:COLORS.group }}><td style={{ padding:'10px 12px', color:COLORS.sec, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={3}>Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(totals[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.pri, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(totals.total_bruto)}</td></tr></tfoot>
           </table>
         </div>
       </div>
@@ -495,7 +476,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   const rows=useMemo(()=>allRows.filter(r=>r.anio===selYear),[allRows,selYear])
   const yearTotal=useMemo(()=>{ const a=aggregate(allData.filter(r=>r.fecha.startsWith(String(selYear)))); const d=new Set(allData.filter(r=>r.fecha.startsWith(String(selYear))).map(r=>r.fecha)).size; return{...a,dias:d} },[allData,selYear])
   const exportar=()=>{ downloadCSV(`facturacion_meses_${selYear}.csv`,['Mes','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto','Media Diaria','vs Anterior'],rows.map(r=>{const vs=r.vs_anterior!==null?r.vs_anterior.toFixed(1)+'%':'';return[MES_NOMBRE[r.mes],r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto,r.media_diaria.toFixed(2),vs]})) }
-  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:500, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 12px', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
+  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:600, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.sec, padding:'10px 12px', background:TH_BG, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   const tdS: CSSProperties={ padding:'9px 12px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}`, whiteSpace:'nowrap' }
   if(allRows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
   return (
@@ -511,12 +492,12 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
                 <td style={{ ...tdS, fontFamily:FONT.heading, fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{MES_NOMBRE[r.mes]}</td>
                 <td style={{ ...tdS, textAlign:'center', color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.dias}</td>
                 {cols.map(c=>(<td key={c.id} style={{ ...tdS, textAlign:'right', background:c.bg, color:(r[c.bru] as number)>0?COLORS.sec:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{(r[c.bru] as number)>0?fmtBru(r[c.bru] as number):'—'}</td>))}
-                <td style={{ ...tdS, textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
+                <td style={{ ...tdS, textAlign:'right', color:COLORS.pri, fontFamily:FONT.heading, fontWeight:600, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(r.total_bruto)}</td>
                 <td style={{ ...tdS, textAlign:'right', color:COLORS.mut, borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.dias>0?fmtBru(r.media_diaria):'—'}</td>
                 <td style={{ ...tdS, textAlign:'right', borderBottom:idx===rows.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{r.vs_anterior!==null?<DesvBadge pct={r.vs_anterior} />:<span style={{ color:COLORS.mut }}>—</span>}</td>
               </tr>))}
             </tbody>
-            <tfoot><tr style={{ background:COLORS.bg }}><td style={{ padding:'10px 12px', color:COLORS.mut, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>{selYear} Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal.total_bruto)}</td><td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{yearTotal.dias>0?fmtBru(yearTotal.total_bruto/yearTotal.dias):'—'}</td><td style={{ padding:'10px 12px', borderTop:`0.5px solid ${COLORS.brd}` }} /></tr></tfoot>
+            <tfoot><tr style={{ background:COLORS.group }}><td style={{ padding:'10px 12px', color:COLORS.sec, fontFamily:FONT.heading, fontSize:10, letterSpacing:'2px', textTransform:'uppercase', fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }} colSpan={2}>{selYear} Total</td>{cols.map(c=>(<td key={c.id} style={{ padding:'10px 12px', textAlign:'right', color:c.color, background:c.bg, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal[c.bru] as number)}</td>))}<td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.pri, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{fmtBru(yearTotal.total_bruto)}</td><td style={{ padding:'10px 12px', textAlign:'right', color:COLORS.sec, fontFamily:FONT.heading, fontSize:14, fontWeight:600, borderTop:`0.5px solid ${COLORS.brd}` }}>{yearTotal.dias>0?fmtBru(yearTotal.total_bruto/yearTotal.dias):'—'}</td><td style={{ padding:'10px 12px', borderTop:`0.5px solid ${COLORS.brd}` }} /></tr></tfoot>
           </table>
         </div>
       </div>
@@ -528,7 +509,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
   const years = useMemo(()=>{ const m=new Map<number,{bruto:number;pedidos:number}>(); for(const r of allData){ const y=parseInt(r.fecha.slice(0,4)); if(!m.has(y))m.set(y,{bruto:0,pedidos:0}); const c=m.get(y)!; c.bruto+=r.total_bruto||0; c.pedidos+=r.total_pedidos||0 }; return [...m.entries()].sort((a,b)=>b[0]-a[0]).map(([anio,v])=>({anio,bruto:v.bruto,pedidos:v.pedidos,mediaMensual:v.bruto/12,mediaTicket:v.pedidos>0?v.bruto/v.pedidos:0})) },[allData])
   const maxBruto=Math.max(...years.map(y=>y.bruto),1)
   const exportar=()=>{ downloadCSV('facturacion_anual.csv',['Año','Bruto','Media mensual','Pedidos','Ticket medio'],years.map(y=>[y.anio,y.bruto,y.mediaMensual,y.pedidos,y.mediaTicket])) }
-  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.mut, padding:'10px 14px', textAlign:'left', background:COLORS.bg, borderBottom:`0.5px solid ${COLORS.brd}` }
+  const thS: CSSProperties={ fontFamily:FONT.heading, fontSize:10, fontWeight:600, letterSpacing:'1.5px', textTransform:'uppercase', color:COLORS.sec, padding:'10px 14px', textAlign:'left', background:TH_BG, borderBottom:`0.5px solid ${COLORS.brd}` }
   const tdS: CSSProperties={ padding:'12px 14px', fontSize:13, fontFamily:FONT.body, color:COLORS.sec, borderBottom:`0.5px solid ${COLORS.brd}` }
   return (
     <div>
@@ -540,7 +521,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
             {years.map((y,idx)=>{ const prev=years[idx+1]; const delta=prev?((y.bruto-prev.bruto)/prev.bruto)*100:null; const barW=`${Math.round((y.bruto/maxBruto)*100)}%`
               return (<tr key={y.anio} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${COLORS.bg}80`}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
                 <td style={{ ...tdS, fontFamily:FONT.heading, color:COLORS.redSL, fontWeight:600, borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{y.anio}</td>
-                <td style={{ ...tdS, textAlign:'right', borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}><div style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, marginBottom:4 }}>{fmtBru(y.bruto)}</div><div style={{ height:4, background:COLORS.brd, borderRadius:2, overflow:'hidden' }}><div style={{ height:4, width:barW, background:COLORS.redSL, borderRadius:2 }} /></div></td>
+                <td style={{ ...tdS, textAlign:'right', borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}><div style={{ fontFamily:FONT.heading, fontSize:14, fontWeight:600, color:COLORS.pri, marginBottom:4 }}>{fmtBru(y.bruto)}</div><div style={{ height:4, background:COLORS.brd, borderRadius:2, overflow:'hidden' }}><div style={{ height:4, width:barW, background:COLORS.redSL, borderRadius:2 }} /></div></td>
                 <td style={{ ...tdS, borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{delta!=null?<DesvBadge pct={delta} />:<span style={{ color:COLORS.mut }}>—</span>}</td>
                 <td style={{ ...tdS, textAlign:'right', color:COLORS.mut, borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtBru(y.mediaMensual)}</td>
                 <td style={{ ...tdS, textAlign:'right', color:COLORS.mut, borderBottom:idx===years.length-1?'none':`0.5px solid ${COLORS.brd}` }}>{fmtInt(y.pedidos)}</td>
@@ -573,7 +554,9 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   const [jeItems,setJeItems]=useState<JeItem[]>(()=>{
     if(existing){
       if(Array.isArray(existing.je_items)&&existing.je_items.length>0) return existing.je_items.map(v=>({raw:String(Number(v)),alm:false}))
-      if((existing.je_bruto??0)>0) return [{raw:String(existing.je_bruto),alm:false}]
+      // Día antiguo con nº de pedidos y total de JE pero sin detalle guardado: lo mostramos pedido a pedido
+      // repartiendo el total de forma exacta (preserva recuento y total -> el ticket medio no se falsea).
+      if((existing.je_bruto??0)>0) return repartoJE(existing.je_bruto??0, existing.je_pedidos||1).map(v=>({raw:String(v),alm:false}))
     }
     return []
   })
@@ -586,18 +569,14 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
   // Al activar CENAS/ALM precargamos los pedidos JE del almuerzo: cada uno en su línea, visibles, editables y persistentes
   // (se mantienen en su fila ALM, no se duplican en la cena). Si el almuerzo tiene varios pedidos pero no se guardó el
-  // detalle importe-a-importe, se generan N líneas repartiendo el total a partes iguales para poder ajustarlas a mano.
+  // detalle importe-a-importe, se reparte el total de forma exacta para verlos uno a uno sin alterar recuento ni total.
   useEffect(()=>{
     if(isEdit) return
     if(esCenasAlm&&filaAlm){
       const njAlm=filaAlm.je_pedidos||0; const jbAlm=filaAlm.je_bruto??0
       const ref:JeItem[]=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)
         ? filaAlm.je_items.map(v=>({raw:String(Number(v)),alm:true}))
-        : (jbAlm>0
-            ? (njAlm>1
-                ? Array.from({length:njAlm},()=>({raw:(jbAlm/njAlm).toFixed(2),alm:true}))
-                : [{raw:String(jbAlm),alm:true}])
-            : [])
+        : (jbAlm>0 ? repartoJE(jbAlm, njAlm||1).map(v=>({raw:String(v),alm:true})) : [])
       setJeItems(prev=>[...ref,...prev.filter(i=>!i.alm)])
     } else {
       setJeItems(prev=>prev.filter(i=>!i.alm))
@@ -635,7 +614,7 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
       setSaving(true)
       // Si el usuario editó/borró/añadió pedidos JE del almuerzo, propagamos el cambio a la fila ALM (sin duplicarlo en la cena)
       const almJe=jeItems.filter(i=>i.alm).map(i=>parseNum(i.raw))
-      const origAlm=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)?filaAlm.je_items.map(Number):((filaAlm.je_bruto??0)>0?[filaAlm.je_bruto]:[])
+      const origAlm=(Array.isArray(filaAlm.je_items)&&filaAlm.je_items.length>0)?filaAlm.je_items.map(Number):(filaAlm.je_pedidos>0?repartoJE(filaAlm.je_bruto??0, filaAlm.je_pedidos):((filaAlm.je_bruto??0)>0?[filaAlm.je_bruto]:[]))
       if(JSON.stringify(almJe)!==JSON.stringify(origAlm)){
         const najb=almJe.reduce((a,b)=>a+b,0); const najp=almJe.length
         const nalmTotalBru=parseFloat(((filaAlm.total_bruto||0)-(filaAlm.je_bruto||0)+najb).toFixed(2))
@@ -650,10 +629,11 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
     const up=parseIntES(fields.uber_pedidos); const ub=parseNum(fields.uber_bruto)
     const gp=parseIntES(fields.glovo_pedidos); const gb=parseNum(fields.glovo_bruto)
-    // Día antiguo sin desglose JE y no tocado -> conservamos el nº de pedidos original (no colapsar a 1)
-    const jeFallbackIntacto = isEdit && !jeOrig.hadItems && jeOrig.count>0 && edJe.length===1 && parseNum(edJe[0].raw)===jeOrig.bruto
+    // Día antiguo sin detalle JE y no tocado -> conservamos recuento y total originales (no inventar ni perder pedidos)
+    const edSuma=edJe.reduce((a,b)=>a+parseNum(b.raw),0)
+    const jeFallbackIntacto = isEdit && !jeOrig.hadItems && jeOrig.count>0 && edJe.length===jeOrig.count && Math.abs(edSuma-jeOrig.bruto)<0.005
     const jp = jeFallbackIntacto ? jeOrig.count : edJe.length
-    const jb = jeFallbackIntacto ? jeOrig.bruto : edJe.reduce((a,b)=>a+parseNum(b.raw),0)
+    const jb = jeFallbackIntacto ? jeOrig.bruto : edSuma
     const jeItemsSave = jeFallbackIntacto ? [] : edJe.map(i=>parseNum(i.raw))
     const wp=parseIntES(fields.web_pedidos); const wb=parseNum(fields.web_bruto)
     const dp=parseIntES(fields.directa_ped); const db=parseNum(fields.directa_bru)
