@@ -1,3 +1,12 @@
+// Worker v23: CIERRE SOLO AL 100% + manifiesto + estado 'ignorada'.
+//  - Cada archivo procesado actualiza su fila de ocr_manifiesto a estado FINAL
+//    (leida / lectura_manual / duplicada / ignorada / error) con detalle.
+//  - ANTES de marcar la sesión 'completada': verificación contra ocr_manifiesto.
+//    Si quedan filas sin estado final → se reencolan (1 vuelta) y, si tras esa vuelta
+//    siguen sin procesar, se fuerzan a estado final (error / error_subida). NUNCA se
+//    cierra una sesión con filas sin estado final: el cierre es 100% o no es.
+//  - Nuevo estado 'ignorada' (CSV de ingresos / resúmenes): NO cuenta como duplicada.
+//  - Mantiene v22 (auto-repesca a Drive al cerrar) y v20/v21 (candado + latido + pausa Drive).
 // Worker v22: + AUTO-REPESCA al cerrar sesión (dispara archivar-pendientes para subir a
 //  Drive lo que quedó en drive_pendiente por fallos transitorios; el usuario no pulsa nada).
 // Worker v21: Drive desconectado PAUSA y conserva pendientes (Ruben).
@@ -111,7 +120,26 @@ async function procesarFacturaRemoto(item: { name: string; type: string; base64:
       const ach = detectarAchtung(data?.error || '')
       return ach ? { filename: item.name, status: 'achtung', detalle: str(data?.error), achtungTipo: ach.tipo } : { filename: item.name, status: 'error', detalle: `HTTP ${res.status}: ${str(data?.error)}` }
     }
-    if (data?.estado === 'duplicada') return { filename: item.name, status: 'duplicado', detalle: data?.motivo || 'Ya existia' }
+    if (data?.estado === 'duplicada') {
+      const fe = data?.factura_existente
+      let det = data?.motivo || 'Ya existía'
+      if (fe) {
+        const prov = str(fe.proveedor_nombre) || 'factura'
+        const fecha = str(fe.fecha_factura)
+        const imp = fe.total != null ? `${fe.total}€` : ''
+        det = `ya existe: ${[prov, fecha, imp].filter(Boolean).join(' · ')}`
+      }
+      return { filename: item.name, status: 'duplicado', detalle: det }
+    }
+    if (data?.estado === 'ignorada') return { filename: item.name, status: 'ignorada', detalle: data?.motivo || 'no es una factura' }
+    if (data?.estado === 'multi' && Array.isArray(data?.resultados)) {
+      const subs = data.resultados as any[]
+      const total = subs.length
+      const huboOk = subs.some(s => s?.estado === 'ok')
+      const nErr = subs.filter(s => s?.estado === 'error').length
+      if (nErr > 0 && !huboOk) return { filename: item.name, status: 'error', detalle: `Multi-factura: ${nErr}/${total} con error` }
+      return { filename: item.name, status: 'ok', detalle: `Multi-factura: ${total} factura(s)` }
+    }
     if (data?.estado === 'lectura_manual') return { filename: item.name, status: 'pendiente', detalle: data?.motivo || 'Sin plantilla NIF - pendiente de plantilla (no se gasto API)' }
     if (data?.estado === 'error') {
       if (esDuplicadoContenido(data.error)) return { filename: item.name, status: 'duplicado', detalle: 'Ya existe (mismo PDF)' }
@@ -238,13 +266,83 @@ async function encadenarSiguiente() {
   }
 }
 
+// ── MANIFIESTO (cero pérdidas) ─────────────────────────────────────────────
+// Estados finales de una fila de manifiesto. Solo con 0 filas NO-finales se cierra.
+const MANIFIESTO_FINALES = ['leida', 'lectura_manual', 'duplicada', 'ignorada', 'error', 'error_subida']
+
+// Mapea el status del worker → estado final de manifiesto. 'achtung'/'cancelado'
+// devuelven null: NO se marcan finales (achtung global se reintenta al reanudar;
+// la reconciliación los cierra si nunca resuelven). Así nada queda como 'error'
+// falso (p.ej. una factura guardada en drive_pendiente que la repesca sí archiva).
+function estadoManifiesto(status: string): string | null {
+  switch (status) {
+    case 'ok': return 'leida'
+    case 'duplicado': return 'duplicada'
+    case 'pendiente': return 'lectura_manual'
+    case 'ignorada': return 'ignorada'
+    case 'error': return 'error'
+    default: return null
+  }
+}
+
+async function marcarManifiesto(sb: any, sessionId: string, storagePath: string | undefined | null, status: string, detalle: any) {
+  const est = estadoManifiesto(status)
+  if (!est || !storagePath) return
+  try {
+    await sb.from('ocr_manifiesto')
+      .update({ estado: est, detalle: str(detalle).slice(0, 500), actualizado: new Date().toISOString() })
+      .eq('sesion_id', sessionId).eq('storage_path', storagePath)
+  } catch { /* el manifiesto nunca rompe el procesado */ }
+}
+
+function esComprimidoExt(nombre: string): boolean { return ['zip', 'rar', '7z'].includes(getExt(nombre)) }
+
+// Verificación 100%: ¿quedan filas de manifiesto sin estado final? Devuelve la lista
+// de pendientes a REENCOLAR (en_storage no procesados). Cierra como final lo que no se
+// puede procesar: 'registrado' sin storage → error_subida; y, si ya se reintentó una
+// vez, los en_storage que sigan colgados → error. Garantiza terminación (≤1 reintento).
+async function reconciliarManifiesto(sb: any, sessionId: string, yaReconciliado: boolean): Promise<any[]> {
+  let noFinal: any[] = []
+  try {
+    const { data } = await sb.from('ocr_manifiesto')
+      .select('id,nombre,storage_path,estado')
+      .eq('sesion_id', sessionId)
+      .not('estado', 'in', `(${MANIFIESTO_FINALES.join(',')})`)
+    noFinal = data || []
+  } catch { return [] }
+  if (noFinal.length === 0) return []
+
+  // Solo se reencola lo REALMENTE subido (estado 'en_storage' + ruta). Un 'registrado'
+  // sin subida confirmada NO se reencola (su archivo no está en el almacén; reprocesarlo
+  // lo leería como "retirado" y lo ocultaría): se cierra como 'error_subida' (visible).
+  const aReencolar = noFinal.filter(r => r.estado === 'en_storage' && r.storage_path)
+  const nuncaSubidos = noFinal.filter(r => r.estado !== 'en_storage')
+
+  for (const r of nuncaSubidos) {
+    try { await sb.from('ocr_manifiesto').update({ estado: 'error_subida', detalle: 'no llegó a subirse al almacén — vuelve a arrastrarlo', actualizado: new Date().toISOString() }).eq('id', r.id) } catch {}
+  }
+
+  if (aReencolar.length === 0) return []
+
+  if (yaReconciliado) {
+    // 2ª pasada: siguen colgados pese al reintento → cerrar como error (terminación dura).
+    for (const r of aReencolar) {
+      try { await sb.from('ocr_manifiesto').update({ estado: 'error', detalle: 'no se pudo procesar tras reintento', actualizado: new Date().toISOString() }).eq('id', r.id) } catch {}
+    }
+    return []
+  }
+
+  // 1ª pasada: reencolar los en_storage no procesados.
+  return aReencolar.map(r => ({ name: r.nombre, type: getMime(r.nombre), storagePath: r.storage_path, esComprimido: esComprimidoExt(r.nombre) }))
+}
+
 async function trabajarSesion(sessionId: string) {
   const sb = createClient(supabaseUrl, serviceKey)
   const { data: ses0 } = await sb.from('ocr_sessions').select('*').eq('id', sessionId).single()
   if (!ses0) return
   let pendientes: any[] = [...((ses0.archivos_pendientes as any[]) || [])]
   const log: any[] = [...((ses0.log as any[]) || [])]
-  const cont = { enviados: ses0.enviados || 0, ok: ses0.ok || 0, dup: ses0.duplicados || 0, pend: ses0.pendientes || 0, err: ses0.errores || 0, ach: ses0.achtung || 0, canc: ses0.cancelados || 0 }
+  const cont = { enviados: ses0.enviados || 0, ok: ses0.ok || 0, dup: ses0.duplicados || 0, pend: ses0.pendientes || 0, err: ses0.errores || 0, ach: ses0.achtung || 0, canc: ses0.cancelados || 0, ign: ses0.ignorados || 0 }
   const fnName = ses0.fn_name || 'ocr-procesar-factura'
   const titular = ses0.titular_id
   let achMsg: string | null = ses0.achtung_mensaje || null
@@ -257,7 +355,7 @@ async function trabajarSesion(sessionId: string) {
     const base: Record<string, any> = {
       archivos_pendientes: pendientes,
       enviados: cont.enviados, ok: cont.ok, duplicados: cont.dup, pendientes: cont.pend,
-      errores: cont.err, achtung: cont.ach, cancelados: cont.canc,
+      errores: cont.err, achtung: cont.ach, cancelados: cont.canc, ignorados: cont.ign,
       log: log.slice(-LOG_MAX), achtung_mensaje: achMsg, achtung_tipo: achTipo, ...extra,
     }
     if (refrescarLatido) base.ultimo_heartbeat = new Date().toISOString()
@@ -268,6 +366,7 @@ async function trabajarSesion(sessionId: string) {
     log.push(r); cont.enviados++
     if (r.status === 'ok') cont.ok++
     else if (r.status === 'duplicado') cont.dup++
+    else if (r.status === 'ignorada') cont.ign++
     else if (r.status === 'pendiente') cont.pend++
     else if (r.status === 'cancelado') cont.canc++
     else if (r.status === 'achtung') {
@@ -278,43 +377,68 @@ async function trabajarSesion(sessionId: string) {
     } else cont.err++
   }
 
-  while (pendientes.length > 0) {
-    const { data: chk } = await sb.from('ocr_sessions').select('cancelar_solicitado, pausar_solicitado').eq('id', sessionId).single()
-    if (chk?.cancelar_solicitado) { pendientes = []; await persistir({ estado: 'cancelada', estado_cola: 'cancelada', completado_en: new Date().toISOString() }); return encadenarSiguiente() }
-    if (chk?.pausar_solicitado) { await persistir({ estado: 'procesando', estado_cola: 'pausada' }); return }
+  // Bucle EXTERNO: tras vaciar la cola, se RECONCILIA contra el manifiesto. Si quedan
+  // filas sin estado final (archivos subidos que nunca se procesaron), se reencolan y se
+  // da otra vuelta. Solo se sale (y se cierra 'completada') con 0 filas sin estado final.
+  let reconciliadoUnaVez = false
+  while (true) {
+    while (pendientes.length > 0) {
+      const { data: chk } = await sb.from('ocr_sessions').select('cancelar_solicitado, pausar_solicitado').eq('id', sessionId).single()
+      if (chk?.cancelar_solicitado) { pendientes = []; await persistir({ estado: 'cancelada', estado_cola: 'cancelada', completado_en: new Date().toISOString() }); return encadenarSiguiente() }
+      if (chk?.pausar_solicitado) { await persistir({ estado: 'procesando', estado_cola: 'pausada' }); return }
 
-    const bloque = pendientes.slice(0, LOTE)
-    pendientes = pendientes.slice(bloque.length)
-    // FIX v20 (A): refrescar el LATIDO al cortar el lote (antes de procesarlo, que puede tardar
-    // >70s). Asi reactivarColgadas() no considera 'colgada' una sesion que en realidad esta
-    // trabajando, y no la reencola para que un 2o worker reprocese los mismos archivos.
-    await persistir({}, true)
+      const bloque = pendientes.slice(0, LOTE)
+      pendientes = pendientes.slice(bloque.length)
+      // FIX v20 (A): refrescar el LATIDO al cortar el lote (antes de procesarlo, que puede tardar
+      // >70s). Asi reactivarColgadas() no considera 'colgada' una sesion que en realidad esta
+      // trabajando, y no la reencola para que un 2o worker reprocese los mismos archivos.
+      await persistir({}, true)
 
-    const normales = bloque.filter(it => !esComprimidoItem(it))
-    const comprimidos = bloque.filter(it => esComprimidoItem(it))
-    const resN = await Promise.all(normales.map(async it => {
-      try { return await conTimeout(procesarItemNormal(sb, it), ARCHIVO_TIMEOUT_MS, 'archivo') }
-      catch (e) { const m = e instanceof Error ? e.message : String(e); return { filename: it.name, status: 'error', detalle: m } }
-    }))
-    for (const r of resN) aplicar(r)
-    for (const it of comprimidos) {
-      try { const rs = await conTimeout(procesarItemComprimido(sb, it, fnName, titular), ARCHIVO_TIMEOUT_MS * 3, 'zip'); for (const r of rs) aplicar(r) }
-      catch (e) { aplicar({ filename: it.name, status: 'error', detalle: e instanceof Error ? e.message : String(e) }) }
-    }
-
-    if (globalAchtung) {
-      const esDrive = (achMsg || '').includes('DRIVE')
-      if (esDrive) {
-        // FIX v21: Drive desconectado NO descarta los pendientes. Se PAUSA conservando
-        // archivos_pendientes (los que faltan) + se pide pausa. En cuanto se reconecte
-        // Drive, con "Reanudar" la sesion CONTINUA por donde iba (no se pierde nada).
-        // Los ya guardados como drive_pendiente suben a Drive solos por la repesca.
-        await persistir({ estado: 'procesando', estado_cola: 'pausada', pausar_solicitado: true })
-        return
+      const normales = bloque.filter(it => !esComprimidoItem(it))
+      const comprimidos = bloque.filter(it => esComprimidoItem(it))
+      const resN = await Promise.all(normales.map(async it => {
+        try { return await conTimeout(procesarItemNormal(sb, it), ARCHIVO_TIMEOUT_MS, 'archivo') }
+        catch (e) { const m = e instanceof Error ? e.message : String(e); return { filename: it.name, status: 'error', detalle: m } }
+      }))
+      // Aplicar + marcar manifiesto FINAL por archivo (orden preservado por Promise.all).
+      for (let i = 0; i < resN.length; i++) {
+        aplicar(resN[i])
+        await marcarManifiesto(sb, sessionId, normales[i].storagePath, resN[i].status, resN[i].detalle)
       }
-      // creditos/api_key/modelo: parON global (no tiene sentido seguir gastando/fallando).
-      pendientes = []; await persistir({ estado: 'error', estado_cola: 'completada', completado_en: new Date().toISOString() }); return encadenarSiguiente()
+      for (const it of comprimidos) {
+        try {
+          const rs = await conTimeout(procesarItemComprimido(sb, it, fnName, titular), ARCHIVO_TIMEOUT_MS * 3, 'zip')
+          for (const r of rs) aplicar(r)
+          const huboErr = rs.some((r: any) => r.status === 'error' || r.status === 'achtung')
+          await marcarManifiesto(sb, sessionId, it.storagePath, huboErr ? 'error' : 'ok', `comprimido: ${rs.length} interno(s)`)
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e)
+          aplicar({ filename: it.name, status: 'error', detalle: m })
+          await marcarManifiesto(sb, sessionId, it.storagePath, 'error', m)
+        }
+      }
+
+      if (globalAchtung) {
+        const esDrive = (achMsg || '').includes('DRIVE')
+        if (esDrive) {
+          // FIX v21: Drive desconectado NO descarta los pendientes. Se PAUSA conservando
+          // archivos_pendientes (los que faltan) + se pide pausa. En cuanto se reconecte
+          // Drive, con "Reanudar" la sesion CONTINUA por donde iba (no se pierde nada).
+          // Los ya guardados como drive_pendiente suben a Drive solos por la repesca.
+          await persistir({ estado: 'procesando', estado_cola: 'pausada', pausar_solicitado: true })
+          return
+        }
+        // creditos/api_key/modelo: parON global (no tiene sentido seguir gastando/fallando).
+        pendientes = []; await persistir({ estado: 'error', estado_cola: 'completada', completado_en: new Date().toISOString() }); return encadenarSiguiente()
+      }
+      await persistir({}, true)
     }
+
+    // VERIFICACIÓN 100% (cero pérdidas): ¿quedan filas de manifiesto sin estado final?
+    const refill = await reconciliarManifiesto(sb, sessionId, reconciliadoUnaVez)
+    if (refill.length === 0) break
+    reconciliadoUnaVez = true
+    pendientes = refill
     await persistir({}, true)
   }
 

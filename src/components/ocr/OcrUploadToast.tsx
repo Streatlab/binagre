@@ -1,7 +1,7 @@
 // OcrUploadToast v11 — aviso visible durante subida (no cerrar a media subida)
 import { useState, useEffect } from 'react'
-import { useOcrUpload } from '@/lib/ocrUploadStore'
-import type { OcrSession } from '@/lib/ocrUploadStore'
+import { useOcrUpload, cargarResumenManifiesto, reintentarPendientes } from '@/lib/ocrUploadStore'
+import type { OcrSession, ResumenManifiesto } from '@/lib/ocrUploadStore'
 
 // C02: inyectar CSS global una sola vez
 const STYLE_ID = 'ocr-toast-styles'
@@ -92,6 +92,64 @@ function MiniToast({ session, onExpandir }: { session: OcrSession; onExpandir: (
       <span style={{ fontSize: 15, color, display: 'inline-block', animation: girando ? 'ocrSpin 1.6s linear infinite' : 'none' }}>{icono}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color, letterSpacing: '0.5px' }}>{session.enviados}/{session.total}</span>
     </button>
+  )
+}
+
+// Panel de cierre "cero pérdidas": lee el manifiesto y muestra la línea de criterio
+// de éxito (Subidos N · Únicos U · Leídos · Lectura manual · Ignorados · Duplicados ·
+// Errores · FALTAN), la lista nombrada de errores/faltantes con motivo, y "Retomar".
+function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
+  const [resumen, setResumen] = useState<ResumenManifiesto | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [retomando, setRetomando] = useState(false)
+
+  async function recargar() {
+    const r = await cargarResumenManifiesto(grupoId)
+    setResumen(r); setCargando(false)
+  }
+  useEffect(() => { recargar() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [grupoId])
+
+  if (cargando) return null
+  if (!resumen || resumen.subidos === 0) return null
+
+  const r = resumen
+  const muted = '#7a8090'
+  const okFaltan = r.faltan === 0
+  const linea = `Subidos ${r.subidos} · Únicos ${r.unicos} · Leídos ${r.leidos} · Lectura manual ${r.lecturaManual} · Ignorados ${r.ignorados} · Duplicados ${r.duplicados} · Errores ${r.errores} · FALTAN ${r.faltan}`
+
+  async function onRetomar() {
+    setRetomando(true)
+    await reintentarPendientes(grupoId)
+    setTimeout(() => { recargar(); setRetomando(false) }, 1500)
+  }
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: okFaltan ? '#EAF7F1' : '#FDECEC', border: `1px solid ${okFaltan ? '#1D9E75' : '#E24B4A'}` }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, letterSpacing: '0.5px', lineHeight: 1.5, color: '#111', fontWeight: 600 }}>
+        {linea}
+      </div>
+      {!okFaltan && r.faltantes.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 10.5, color: '#E24B4A', fontWeight: 700, marginBottom: 4, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            Sin resolver ({r.faltantes.length})
+          </div>
+          <div style={{ maxHeight: 130, overflowY: 'auto' }}>
+            {r.faltantes.slice(0, 50).map((f, i) => (
+              <div key={i} style={{ fontSize: 10.5, color: '#111', lineHeight: 1.4, padding: '2px 0', wordBreak: 'break-word' }}>
+                <span style={{ fontWeight: 600 }}>{f.nombre}</span>
+                <span style={{ color: muted }}> — {f.estado === 'error_subida' ? 'no se subió' : f.estado === 'registrado' || f.estado === 'en_storage' ? 'sin procesar' : 'error'}{f.detalle ? `: ${f.detalle}` : ''}</span>
+              </div>
+            ))}
+          </div>
+          {r.reencolables > 0 && (
+            <button onClick={onRetomar} disabled={retomando}
+              style={{ marginTop: 8, width: '100%', background: retomando ? '#999' : '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 10px', cursor: retomando ? 'default' : 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>
+              {retomando ? 'Retomando…' : `↻ Retomar pendientes (${r.reencolables})`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -190,6 +248,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
         <span style={{ color: '#1D9E75', fontWeight: 500 }}>✓ {session.ok}</span>
         <span style={{ color: '#F26B1F', fontWeight: 500 }}>⏳ {session.pendientes}</span>
         <span style={{ color: textoMuted }}>= {session.duplicados}</span>
+        {session.ignorados > 0 && <span style={{ color: textoMuted }} title="Ignorados (no son factura)">⊝ {session.ignorados}</span>}
         {session.errores > 0 && <span style={{ color: '#E24B4A', fontWeight: 500 }}>✕ {session.errores}</span>}
         {session.achtung > 0 && <span style={{ color: '#B01D23', fontWeight: 700 }}>⚠ {session.achtung}</span>}
         {session.cancelados > 0 && <span style={{ color: textoMuted }}>⊘ {session.cancelados}</span>}
@@ -201,6 +260,9 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
           transition: 'width 0.4s'
         }} />
       </div>
+      {!session.procesando && !session.cancelado && session.grupoId && (
+        <ResumenManifiestoPanel grupoId={session.grupoId} />
+      )}
       {session.log.length > 0 && (
         <>
           <button onClick={() => setExpandido(x => !x)}
@@ -212,7 +274,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
             <div style={{ marginTop: 6, maxHeight: 240, overflowY: 'auto', background: bgSubtle, borderRadius: 6, padding: '8px 10px' }}>
               {[...session.log].reverse().map((entry, idx) => {
                 const colors: Record<string, string> = {
-                  ok: '#1D9E75', duplicado: textoMuted, pendiente: '#F26B1F',
+                  ok: '#1D9E75', duplicado: textoMuted, ignorada: textoMuted, pendiente: '#F26B1F',
                   error: '#E24B4A', achtung: '#B01D23', cancelado: textoMuted,
                 }
                 const esCritico = entry.status === 'error' || entry.status === 'achtung'

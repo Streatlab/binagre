@@ -171,6 +171,47 @@ async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: st
   return false
 }
 
+// Respaldo "cero pérdida" al INICIO del procesado de CADA archivo (no solo en el
+// camino feliz). Sube el documento tal cual al bucket de respaldo y registra la
+// fila en archivo_respaldo (de ahí tira la repesca para llevarlo a Drive). Mismo
+// hash → mismo path → idempotente (no crece el almacén al reprocesar). Best-effort
+// con 3 reintentos: si falla, se loguea visible pero NUNCA rompe el procesado.
+export async function respaldarEnStorage(
+  buffer: Buffer,
+  nombre: string,
+  hash: string,
+): Promise<boolean> {
+  const extMatch = nombre.match(/\.([a-z0-9]+)$/i)
+  const ext = (extMatch ? extMatch[1] : 'bin').toLowerCase()
+  const storagePath = `respaldo-ocr/${hash}.${ext}`
+  const mimeType = mimeTypeParaExtension(ext)
+  let subido = false
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const { error } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .upload(storagePath, buffer, { contentType: mimeType, upsert: true })
+      if (!error) { subido = true; break }
+    } catch { /* reintentar */ }
+    if (intento < 3) await sleep(400 * intento)
+  }
+  // Registrar la fila SIEMPRE (onConflict storage_path → no duplica; no toca drive_id).
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const { error } = await supabaseAdmin
+        .from('archivo_respaldo')
+        .upsert(
+          { hash, storage_path: storagePath, nombre, actualizado: new Date().toISOString() },
+          { onConflict: 'storage_path' },
+        )
+      if (!error) return subido
+    } catch { /* reintentar */ }
+    if (intento < 3) await sleep(300 * intento)
+  }
+  console.error(`[respaldarEnStorage] FALLO registrando respaldo de "${nombre}" (hash ${hash.slice(0, 12)}…) — revisar Storage/BD`)
+  return subido
+}
+
 // Sube un buffer a Drive (con reintentos) dentro de la carpeta indicada.
 async function subirBufferAFolder(
   drive: drive_v3.Drive,
@@ -284,6 +325,15 @@ export async function subirArchivoADrive(
         .from('archivo_respaldo')
         .update({ drive_id: driveId, actualizado: new Date().toISOString() })
         .eq('storage_path', storagePath)
+    } catch { /* el registro de repesca nunca rompe el archivado */ }
+    // Marca también el respaldo inicial por-hash (respaldo-ocr/<hash>) como archivado,
+    // para que la repesca NO suba a Drive una copia redundante del mismo documento.
+    try {
+      await supabaseAdmin
+        .from('archivo_respaldo')
+        .update({ drive_id: driveId, actualizado: new Date().toISOString() })
+        .eq('hash', hashEntrada)
+        .is('drive_id', null)
     } catch { /* el registro de repesca nunca rompe el archivado */ }
   }
 

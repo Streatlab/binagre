@@ -40,10 +40,11 @@ import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { leerFacturaMistral, mistralDisponible, cuadraImportes } from './mistral-ocr.js'
 import { extraerDatosDesdeContenido as leerFacturaAnthropic } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
-import { generarNombreArchivo, subirArchivoADrive } from './google-drive.js'
+import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 
 export type ProcesarEstado =
   | 'duplicada'
+  | 'ignorada'
   | 'error'
   | 'ok'
   | 'lectura_manual'
@@ -183,6 +184,7 @@ async function registrarAuditoria(
     const resultado =
       r.estado === 'ok' ? 'nueva'
       : r.estado === 'duplicada' ? 'duplicada'
+      : r.estado === 'ignorada' ? 'ignorada'
       : r.estado === 'lectura_manual' ? 'lectura_manual'
       : 'error'
     const conciliada = estadoFac ? ESTADOS_CONCILIADA.includes(estadoFac) : false
@@ -214,6 +216,15 @@ export async function procesarArchivo(
 ): Promise<ProcesarResultado[]> {
   const tipo = detectarTipoArchivo(file.nombre, file.mimeType)
   const hashArchivo = createHash('sha256').update(file.buffer).digest('hex')
+
+  // RESPALDO 100% (cero pérdida): se respalda CADA archivo al inicio, pase lo que
+  // pase después (duplicada / ignorada / lectura_manual / error). Best-effort: no
+  // rompe el procesado. La repesca (archivar-pendientes) llevará a Drive lo que falte.
+  try {
+    await respaldarEnStorage(file.buffer, file.nombre, hashArchivo)
+  } catch (e) {
+    console.error('[procesarArchivo] respaldo inicial falló:', e instanceof Error ? e.message : String(e))
+  }
 
   let contenido: ContenidoExtraido
   try {
@@ -545,7 +556,7 @@ async function procesarContenidoPrincipal(
   tipo: TipoArchivo,
 ): Promise<ProcesarResultado | ProcesarResultado[]> {
   if (esNoFactura(file.nombre)) {
-    return { estado: 'duplicada', archivo: file.nombre, motivo: 'no es factura (resumen de ingresos gestoria) — ignorado' }
+    return { estado: 'ignorada', archivo: file.nombre, motivo: 'no es una factura: resumen de ingresos' }
   }
   const hash = createHash('sha256').update(file.buffer).digest('hex')
 
