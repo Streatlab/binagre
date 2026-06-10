@@ -103,6 +103,9 @@ export default function TareasOperativas() {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
+  const [filtroPrioridad, setFiltroPrioridad] = useState<Prioridad | ''>('')
+  const [filtroColumna, setFiltroColumna] = useState<Columna | ''>('')
+  const [filtroAsignado, setFiltroAsignado] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('titulo')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
   const dragId = useRef<string | null>(null)
@@ -236,12 +239,16 @@ export default function TareasOperativas() {
     else { setSortKey(key); setSortDir(1) }
   }
 
-  const tareasFiltradas = tareas.filter(t =>
-    busqueda === '' ||
-    t.titulo.toLowerCase().includes(busqueda.toLowerCase()) ||
-    (t.asignado_a ?? '').toLowerCase().includes(busqueda.toLowerCase()) ||
-    (t.etiqueta ?? '').toLowerCase().includes(busqueda.toLowerCase())
-  )
+  const tareasFiltradas = tareas.filter(t => {
+    if (busqueda !== '' &&
+      !t.titulo.toLowerCase().includes(busqueda.toLowerCase()) &&
+      !(t.asignado_a ?? '').toLowerCase().includes(busqueda.toLowerCase()) &&
+      !(t.etiqueta ?? '').toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (filtroPrioridad !== '' && t.prioridad !== filtroPrioridad) return false
+    if (filtroColumna !== '' && t.columna !== filtroColumna) return false
+    if (filtroAsignado !== '' && !(t.asignado_a ?? '').toLowerCase().includes(filtroAsignado.toLowerCase())) return false
+    return true
+  })
 
   const tareasOrdenadas = [...tareasFiltradas].sort((a, b) => {
     const av = (a[sortKey] ?? '') as string
@@ -397,9 +404,37 @@ export default function TareasOperativas() {
 
       {/* KANBAN */}
       {!loading && vista === 'kanban' && (
+        <div>
+          {/* Filtros kanban */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
+            />
+            <select
+              value={filtroPrioridad}
+              onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
+              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 6, color: filtroPrioridad ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
+            >
+              <option value="">Prioridad</option>
+              <option value="urgente">Urgente</option>
+              <option value="alta">Alta</option>
+              <option value="normal">Normal</option>
+              <option value="baja">Baja</option>
+            </select>
+            {(busqueda || filtroPrioridad) && (
+              <button
+                onClick={() => { setBusqueda(''); setFiltroPrioridad('') }}
+                style={{ background: 'transparent', border: '0.5px solid #383838', color: '#777777', borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+              >Limpiar</button>
+            )}
+          </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', overflowX: 'auto' }}>
           {COL_CONFIG.map(col => {
-            const colTareas = tareas.filter(t => t.columna === col.key)
+            const colTareas = tareasFiltradas.filter(t => t.columna === col.key)
             const isDragTarget = dragOver === col.key
             return (
               <div
@@ -460,12 +495,13 @@ export default function TareasOperativas() {
             )
           })}
         </div>
+        </div>
       )}
 
       {/* LISTA */}
       {!loading && vista === 'lista' && (
         <div>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               type="text"
               placeholder="Buscar por titulo, asignado o etiqueta..."
@@ -474,9 +510,45 @@ export default function TareasOperativas() {
               style={{
                 background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8,
                 color: '#ffffff', fontFamily: FONT.body, fontSize: 13,
-                padding: '8px 12px', width: '100%', maxWidth: 360, outline: 'none',
+                padding: '8px 12px', width: 280, outline: 'none',
               }}
             />
+            <select
+              value={filtroPrioridad}
+              onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
+              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroPrioridad ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+            >
+              <option value="">Todas las prioridades</option>
+              <option value="urgente">Urgente</option>
+              <option value="alta">Alta</option>
+              <option value="normal">Normal</option>
+              <option value="baja">Baja</option>
+            </select>
+            <select
+              value={filtroColumna}
+              onChange={e => setFiltroColumna(e.target.value as Columna | '')}
+              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroColumna ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+            >
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_progreso">En progreso</option>
+              <option value="hecho">Hecho</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Asignado a..."
+              value={filtroAsignado}
+              onChange={e => setFiltroAsignado(e.target.value)}
+              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
+            />
+            {(busqueda || filtroPrioridad || filtroColumna || filtroAsignado) && (
+              <button
+                onClick={() => { setBusqueda(''); setFiltroPrioridad(''); setFiltroColumna(''); setFiltroAsignado('') }}
+                style={{ background: 'transparent', border: '0.5px solid #383838', color: '#777777', borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

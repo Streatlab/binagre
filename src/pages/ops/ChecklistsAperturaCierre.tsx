@@ -199,7 +199,18 @@ export default function ChecklistsAperturaCierre() {
           .eq('activo', true)
           .order('orden')
 
-        const tipedPlant = (plantData ?? []) as Plantilla[]
+        let tipedPlant = (plantData ?? []) as Plantilla[]
+
+        // Seed plantillas a BD si no existen aún para este tipo
+        if (tipedPlant.length === 0) {
+          const seedItems = DEFAULTS[tipo].map((nombre, i) => ({ tipo, nombre, orden: i, activo: true }))
+          const { data: seeded } = await supabase
+            .from('checklist_plantillas')
+            .insert(seedItems)
+            .select()
+          tipedPlant = (seeded ?? []) as Plantilla[]
+        }
+
         const nombres: string[] = tipedPlant.length > 0
           ? tipedPlant.map((p) => p.nombre)
           : DEFAULTS[tipo]
