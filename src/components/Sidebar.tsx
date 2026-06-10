@@ -51,6 +51,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
+      { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '🏛️', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
       { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
