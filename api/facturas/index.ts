@@ -69,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'papelera-info') return papeleraInfo(req, res)
   if (action === 'recuperar-papelera') return recuperarPapelera(req, res)
   if (action === 'archivar-pendientes') return archivarPendientes(req, res)
+  if (action === 'encolar-reproc')     return encolarReproc(res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -647,6 +648,17 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         const resultado = r.estado === 'duplicada' ? 'duplicada' : 'ok'
         ok++
         if (conc) conciliadas++
+        // Propagate OCR learning to other invoices with same NIF
+        const facNif = (fac?.nif_emisor as string) || null
+        const facTotal = fac?.total != null ? Number(fac.total) : null
+        if (facNif && facTotal && facTotal > 0) {
+          await supabaseAdmin.rpc('fn_propagar_aprendizaje_nif', {
+            p_nif: facNif,
+            p_total: facTotal,
+            p_proveedor_nombre: (fac?.proveedor_nombre as string) ?? null,
+            p_categoria: (fac?.categoria_factura as string) ?? null,
+          })
+        }
         lineaInforme = {
           control_id: job.id,
           factura_id: (r.factura_id as string) || (f.id as string),
@@ -945,4 +957,11 @@ async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(200).json({ terminado: restantes === 0, subidas, errores, restantes })
+}
+
+// ── Handler: encolar reprocesado de facturas pendientes ───────────────────
+async function encolarReproc(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.rpc('fn_encolar_reproc_pendientes')
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json({ encoladas: data })
 }
