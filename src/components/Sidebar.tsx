@@ -70,7 +70,8 @@ const SECTIONS: NavSection[] = [
     key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
       { path: '/equipo',          label: 'Personas', emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/horarios', label: 'Horarios', emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/horarios',  label: 'Horarios',  emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia', label: 'Presencia', emoji: '🕐', perfiles: ['admin'] },
     ],
   },
   {

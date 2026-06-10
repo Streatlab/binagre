@@ -96,6 +96,7 @@ import OnboardingDigital from '@/pages/equipo/OnboardingDigital'
 import SgSst from '@/pages/equipo/SgSst'
 import MisVentasMetas from '@/pages/equipo/MisVentasMetas'
 import Horarios from '@/pages/equipo/Horarios'
+import ControlPresencia from '@/pages/equipo/ControlPresencia'
 
 import ClubFidelizacion from '@/pages/clientes/ClubFidelizacion'
 import CrmTiendaPropia from '@/pages/clientes/CrmTiendaPropia'
@@ -214,6 +215,7 @@ function AppRoutes() {
         <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
         <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
         <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
+        <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
         <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
         <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />
         <Route path="equipo/antiguedad" element={<ProtectedRoute solo={['admin']}><BeneficiosAntiguedad /></ProtectedRoute>} />
