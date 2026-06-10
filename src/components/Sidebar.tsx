@@ -125,7 +125,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Control Temperaturas',         emoji: '🌡️' },
   { label: 'BPM / Calidad',                emoji: '✅' },
   { label: 'Daños Material',               emoji: '🔧' },
-  { label: 'Manuales',                     emoji: '📚' },
   { label: 'Novedades',                    emoji: '🔔' },
   { label: 'Mantenimiento Equipos',        emoji: '🔧' },
   { label: 'Organigrama',                  emoji: '🏢' },
