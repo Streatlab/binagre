@@ -63,6 +63,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/ops/checklists', label: 'Checklists',    emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/tareas',     label: 'Tareas',        emoji: '📝', perfiles: ['admin'] },
+      { path: '/ops/manuales',   label: 'Manuales',      emoji: '📚', perfiles: ['admin'] },
       { path: '/ops/reembolsos', label: 'Reclamaciones', emoji: '💸', perfiles: ['admin'] },
     ],
   },

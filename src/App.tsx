@@ -73,6 +73,7 @@ import MarketingEmbudo from '@/pages/MarketingEmbudo'
 import ControlTemperaturas from '@/pages/ops/ControlTemperaturas'
 import ChecklistsAperturaCierre from '@/pages/ops/ChecklistsAperturaCierre'
 import TareasOperativas from '@/pages/ops/TareasOperativas'
+import ManualesOperaciones from '@/pages/ops/ManualesOperaciones'
 import BitacoraNovedades from '@/pages/ops/BitacoraNovedades'
 import LibroEquipos from '@/pages/ops/LibroEquipos'
 import DanosMenaje from '@/pages/ops/DanosMenaje'
@@ -203,6 +204,7 @@ function AppRoutes() {
         <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
         <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
         <Route path="ops/tareas" element={<TareasOperativas />} />
+        <Route path="ops/manuales" element={<ManualesOperaciones />} />
         <Route path="ops/bitacora" element={<BitacoraNovedades />} />
         <Route path="ops/equipos" element={<LibroEquipos />} />
         <Route path="ops/danos" element={<DanosMenaje />} />
