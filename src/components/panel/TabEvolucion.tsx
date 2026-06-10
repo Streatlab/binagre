@@ -17,7 +17,7 @@ const CANALES_IDS = ['uber', 'glovo', 'je', 'web', 'directa'] as const
 
 function netoDeRow(r: RowFacturacion): number {
   return CANALES_IDS.reduce((s, c) => {
-    const bruto = (r as Record<string, number>)[`${c}_bruto`] ?? 0
+    const bruto = (r as unknown as Record<string, number>)[`${c}_bruto`] ?? 0
     return s + bruto * (1 - COMISIONES[c])
   }, 0)
 }

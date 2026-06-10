@@ -173,11 +173,11 @@ export default function EscenariosTesoreria() {
 
       const { data: rpData } = await supabase
         .from('resumenes_plataforma_marca_mensual')
-        .select('plataforma,año,mes,neto_real_cobrado')
+        .select('*')
         .eq('año', yyyy)
         .eq('mes', mes)
 
-      const resRows = (rpData ?? []) as ResumenPlataformaRow[]
+      const resRows = (rpData ?? []) as unknown as ResumenPlataformaRow[]
       const sum = { uber: 0, glovo: 0, je: 0, web: 0, directa: 0 }
       for (const r of resRows) {
         const neto = r.neto_real_cobrado ?? 0
