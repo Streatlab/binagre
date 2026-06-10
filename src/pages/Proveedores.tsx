@@ -279,8 +279,8 @@ export default function Proveedores() {
       })
 
       setProveedores(enriquecidos)
-    } catch (e: { message?: string } & object) {
-      setError(e?.message ?? 'Error cargando proveedores')
+    } catch (e: unknown) {
+      setError((e as {message?:string})?.message ?? 'Error cargando proveedores')
     } finally {
       setLoading(false)
     }
@@ -315,8 +315,8 @@ export default function Proveedores() {
       }
       setModalProv(undefined)
       await cargar()
-    } catch (e: { message?: string } & object) {
-      alert(e?.message ?? 'Error guardando')
+    } catch (e: unknown) {
+      alert((e as {message?:string})?.message ?? 'Error guardando')
     } finally {
       setSaving(false)
     }
@@ -329,8 +329,8 @@ export default function Proveedores() {
       if (error) throw error
       setModalProv(undefined)
       await cargar()
-    } catch (e: { message?: string } & object) {
-      alert(e?.message ?? 'Error eliminando')
+    } catch (e: unknown) {
+      alert((e as {message?:string})?.message ?? 'Error eliminando')
     } finally {
       setSaving(false)
     }
