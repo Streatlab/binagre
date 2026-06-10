@@ -49,6 +49,7 @@ import Gestoria from '@/pages/finanzas/Gestoria'
 import EscenariosTesoreria from '@/pages/finanzas/EscenariosTesoreria'
 
 import PanelGlobal from '@/pages/PanelGlobal'
+import PanelDireccion from '@/pages/PanelDireccion'
 import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
 import Carta from '@/pages/Carta'
@@ -182,6 +183,7 @@ function AppRoutes() {
         <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+        <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
