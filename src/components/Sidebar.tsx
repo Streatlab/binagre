@@ -60,6 +60,8 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', emoji: '🛠️', label: 'Operaciones', perfiles: ['admin'],
     items: [
+      { path: '/ops/checklists', label: 'Checklists',    emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/tareas',     label: 'Tareas',        emoji: '📝', perfiles: ['admin'] },
       { path: '/ops/reembolsos', label: 'Reclamaciones', emoji: '💸', perfiles: ['admin'] },
     ],
   },
@@ -117,8 +119,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Revenue & Ticket',             emoji: '🎫' },
   { label: 'Predicción Demanda',           emoji: '🔮' },
   { label: 'Tesorería',                    emoji: '💳' },
-  { label: 'Checklists Apertura/Cierre',   emoji: '✅' },
-  { label: 'Tareas Operativas',            emoji: '📝' },
   { label: 'Control Temperaturas',         emoji: '🌡️' },
   { label: 'BPM / Calidad',                emoji: '✅' },
   { label: 'Daños Material',               emoji: '🔧' },
