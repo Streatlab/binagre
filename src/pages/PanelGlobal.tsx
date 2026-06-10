@@ -11,6 +11,8 @@ import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabOperaciones from '@/components/panel/TabOperaciones'
 import TabFinanzas from '@/components/panel/TabFinanzas'
 import Cashflow from '@/pages/finanzas/Cashflow'
+import TabMarcas from '@/components/panel/TabMarcas'
+import TabEvolucion from '@/components/panel/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
@@ -235,8 +237,8 @@ export default function PanelGlobal() {
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
       {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
       {activeTab === 'cashflow'    && <Cashflow />}
-      {activeTab === 'evolucion'   && <TabPlaceholder nombre="Evolución" />}
-      {activeTab === 'marcas' && <TabPlaceholder nombre="Marcas" />}
+      {activeTab === 'evolucion'   && <TabEvolucion rowsAll={rowsAll} />}
+      {activeTab === 'marcas' && <TabMarcas rows={rowsPeriodo} />}
     </div>
   )
 }
