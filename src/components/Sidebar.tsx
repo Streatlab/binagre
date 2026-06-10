@@ -107,6 +107,8 @@ const SECTIONS: NavSection[] = [
       { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
+      { path: '/configuracion/aprendizajes',     label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
+      { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',  emoji: '⚖️', perfiles: ['admin'] },
     ],
   },
 ]
