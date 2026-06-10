@@ -63,6 +63,7 @@ const PrediccionDemanda = React.lazy(() => import('@/pages/analytics/PrediccionD
 
 const CocinaRecetas = React.lazy(() => import('@/pages/CocinaRecetas'))
 const MenuEngineering = React.lazy(() => import('@/pages/cocina/MenuEngineering'))
+const CocinaInventario = React.lazy(() => import('@/pages/cocina/CocinaInventario'))
 const Recetario = React.lazy(() => import('@/pages/cocina/Recetario'))
 const Esquemas = React.lazy(() => import('@/pages/cocina/Esquemas'))
 const Produccion = React.lazy(() => import('@/pages/cocina/Produccion'))
@@ -248,7 +249,7 @@ function AppRoutes() {
 
           <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
-          <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
+          <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
           <Route path="cocina/recetario" element={<Recetario />} />
