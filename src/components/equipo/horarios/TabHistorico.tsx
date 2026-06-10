@@ -1,39 +1,61 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import { type Empleado, fmtRangoSemana, numeroSemanaISO } from './utils'
-import { SEMANAS_REALES, getSemanaPorLunes } from './datosReales'
-import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados } from './CuadranteCuadricula'
+import { type Empleado, type Turno, fmtRangoSemana, numeroSemanaISO, lunesDeSemana } from './utils'
+import { getSemanaPorLunes } from './datosReales'
+import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados, isoDeFecha } from './CuadranteCuadricula'
 import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
+import { fetchTurnosDB } from './fetchTurnosDB'
 
 export default function TabHistorico() {
   const { T } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const semanasHistoricas = useMemo(() => SEMANAS_REALES.slice(0, -1).slice().reverse(), [])
-  const [idx, setIdx] = useState(0)
-  const sem = semanasHistoricas[idx]
-  const lunes = useMemo(() => new Date(`${sem.lunes}T00:00:00`), [sem.lunes])
+  const [empLoading, setEmpLoading] = useState(true)
+  // Empieza en la semana anterior a la actual
+  const [lunes, setLunes] = useState<Date>(() => {
+    const l = lunesDeSemana(new Date())
+    l.setDate(l.getDate() - 7)
+    return l
+  })
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [turnosLoading, setTurnosLoading] = useState(false)
 
   useEffect(() => {
     supabase.from('empleados').select('id,nombre,cargo')
-      .then(({ data }) => { setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])); setLoading(false) })
+      .then(({ data }) => { setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])); setEmpLoading(false) })
   }, [])
 
-  const turnos = useMemo(() => {
-    const semData = getSemanaPorLunes(sem.lunes)
-    if (!semData) return []
-    return expandirTurnos(empleados, semData.turnos)
-  }, [sem.lunes, empleados])
+  const cargarTurnos = useCallback(async (lunesDate: Date, emps: Empleado[]) => {
+    if (emps.length === 0) return
+    setTurnosLoading(true)
+    const iso = isoDeFecha(lunesDate)
+    // 1. Datos reales de la BD
+    const turnosBD = await fetchTurnosDB(iso)
+    if (turnosBD.length > 0) {
+      setTurnos(turnosBD); setTurnosLoading(false); return
+    }
+    // 2. Fallback: histórico hardcodeado
+    const semData = getSemanaPorLunes(iso)
+    if (semData) {
+      setTurnos(expandirTurnos(emps, semData.turnos)); setTurnosLoading(false); return
+    }
+    setTurnos([]); setTurnosLoading(false)
+  }, [])
 
-  function navBtn(): React.CSSProperties {
-    return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: T.card, color: T.sec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+  useEffect(() => {
+    if (!empLoading) cargarTurnos(lunes, empleados)
+  }, [lunes, empleados, empLoading, cargarTurnos])
+
+  function navBtn(disabled?: boolean): React.CSSProperties {
+    return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: disabled ? T.group : T.card, color: disabled ? T.mut : T.sec, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }
   }
   function actionBtn(): React.CSSProperties {
     return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
+
+  // Límite: no navegar a semanas futuras desde el histórico (para eso está TabEstaSemana)
+  const esLunesActual = isoDeFecha(lunes) === isoDeFecha(lunesDeSemana(new Date()))
 
   return (
     <div>
@@ -42,15 +64,14 @@ export default function TabHistorico() {
           Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setIdx(i => Math.min(semanasHistoricas.length - 1, i + 1))} disabled={idx >= semanasHistoricas.length - 1} style={navBtn()}><ChevronLeft size={16} /></button>
-          <span style={{ fontFamily: FONT.heading, fontSize: 11, color: T.mut, padding: '0 8px', minWidth: 80, textAlign: 'center' }}>{idx + 1} / {semanasHistoricas.length}</span>
-          <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx <= 0} style={navBtn()}><ChevronRight size={16} /></button>
+          <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() - 7); return n })} style={navBtn()}><ChevronLeft size={16} /></button>
+          <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() + 7); return n })} disabled={esLunesActual} style={navBtn(esLunesActual)}><ChevronRight size={16} /></button>
           <button onClick={() => exportarHorarioPDF(empleados, turnos, lunes, { abrir: true })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
           <button onClick={() => compartirHorarioPDF(empleados, turnos, lunes)} style={actionBtn()}><Share2 size={14} /> Compartir</button>
         </div>
       </div>
 
-      {loading ? (
+      {(empLoading || turnosLoading) ? (
         <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
       ) : (
         <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} />

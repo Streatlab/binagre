@@ -5,8 +5,10 @@ import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import {
   type Empleado, type Turno, REGLAS_DEFAULT,
-  horasSemanaPorEmpleado, fmtHoras,
+  horasSemanaPorEmpleado, fmtHoras, lunesDeSemana,
 } from './utils'
+import { isoDeFecha } from './CuadranteCuadricula'
+import { fetchTurnosDB } from './fetchTurnosDB'
 
 type Col = 'nombre' | 'horas' | 'uso' | 'estado'
 
@@ -30,11 +32,18 @@ export default function TabResumenHoras() {
     useMultiSort<Fila, Col>({ defaultSorts: [{ col: 'horas', dir: 'desc' }] })
 
   useEffect(() => {
-    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo').order('nombre')
-      .then(({ data }) => { setEmpleados((data ?? []) as Empleado[]); setLoading(false) })
+    const lunesISO = isoDeFecha(lunesDeSemana(new Date()))
+    Promise.all([
+      supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo').order('nombre'),
+      fetchTurnosDB(lunesISO),
+    ]).then(([{ data }, turnosBD]) => {
+      setEmpleados((data ?? []) as Empleado[])
+      setTurnos(turnosBD)
+      setLoading(false)
+    })
   }, [])
 
-  // Turnos de la semana en curso se enchufan a tabla `turnos` para el cómputo real.
+  // Turnos de la semana en curso cargados desde BD (tabla `horarios`).
 
   const horasEmp = horasSemanaPorEmpleado(turnos)
   const totalHoras = Object.values(horasEmp).reduce((a, b) => a + b, 0)

@@ -1,38 +1,64 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import {
   type Empleado,
+  type Turno,
   lunesDeSemana, fmtRangoSemana, numeroSemanaISO,
 } from './utils'
 import { getSemanaPorLunes } from './datosReales'
 import { getAsignacionPorLunes, aplicarPlantilla, PLANTILLAS } from './plantillas'
 import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados, isoDeFecha } from './CuadranteCuadricula'
 import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
+import { fetchTurnosDB } from './fetchTurnosDB'
+
+type Fuente = 'bd' | 'historico' | 'plantilla' | 'vacio'
 
 export default function TabEstaSemana() {
   const { T } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [loading, setLoading] = useState(true)
   const [lunes, setLunes] = useState<Date>(() => lunesDeSemana(new Date()))
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [cierres, setCierres] = useState<Partial<Record<string, string>>>({})
+  const [fuente, setFuente] = useState<Fuente>('vacio')
 
   useEffect(() => {
     supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo')
-      .then(({ data }) => { setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])); setLoading(false) })
+      .then(({ data }) => setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])))
   }, [])
 
-  const { turnos, cierres } = useMemo(() => {
+  useEffect(() => {
+    if (empleados.length === 0) return
+    let cancelled = false
+    setLoading(true)
     const iso = isoDeFecha(lunes)
-    const sem = getSemanaPorLunes(iso)
-    if (sem) return { turnos: expandirTurnos(empleados, sem.turnos), cierres: {} }
-    const asig = getAsignacionPorLunes(iso)
-    if (asig && asig.plantilla) {
-      const turnosPila = aplicarPlantilla(asig.plantilla, asig.swapRayAndres)
-      const p = PLANTILLAS[asig.plantilla]
-      return { turnos: expandirTurnos(empleados, turnosPila), cierres: p.cierres }
+
+    async function load() {
+      // 1. Datos reales de la BD
+      const turnosBD = await fetchTurnosDB(iso)
+      if (cancelled) return
+      if (turnosBD.length > 0) {
+        setTurnos(turnosBD); setCierres({}); setFuente('bd'); setLoading(false); return
+      }
+      // 2. Histórico hardcodeado (semanas pasadas ya conocidas)
+      const sem = getSemanaPorLunes(iso)
+      if (sem) {
+        setTurnos(expandirTurnos(empleados, sem.turnos)); setCierres({}); setFuente('historico'); setLoading(false); return
+      }
+      // 3. Plantilla asignada a esa semana
+      const asig = getAsignacionPorLunes(iso)
+      if (asig && asig.plantilla) {
+        const turnosPila = aplicarPlantilla(asig.plantilla, asig.swapRayAndres)
+        const p = PLANTILLAS[asig.plantilla]
+        setTurnos(expandirTurnos(empleados, turnosPila)); setCierres(p.cierres); setFuente('plantilla'); setLoading(false); return
+      }
+      setTurnos([]); setCierres({}); setFuente('vacio'); setLoading(false)
     }
-    return { turnos: [], cierres: {} }
+
+    load()
+    return () => { cancelled = true }
   }, [lunes, empleados])
 
   function navBtn(): React.CSSProperties {
@@ -42,20 +68,32 @@ export default function TabEstaSemana() {
     return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
-  const handleExportar = () => exportarHorarioPDF(empleados, turnos, lunes, { abrir: true })
-  const handleCompartir = () => compartirHorarioPDF(empleados, turnos, lunes)
+  const fuenteLabel: Record<Fuente, string> = {
+    bd: 'Datos reales BD', historico: 'Histórico registrado', plantilla: 'Plantilla estimada', vacio: 'Sin datos',
+  }
+  const fuenteColor: Record<Fuente, string> = {
+    bd: '#1D9E75', historico: '#66aaff', plantilla: '#f5a623', vacio: '#777777',
+  }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: '#B01D23', letterSpacing: '3px', textTransform: 'uppercase' }}>
-          Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: '#B01D23', letterSpacing: '3px', textTransform: 'uppercase' }}>
+            Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
+          </div>
+          {!loading && (
+            <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: fuenteColor[fuente], background: fuenteColor[fuente] + '20', padding: '3px 8px', borderRadius: 4 }}>
+              {fuenteLabel[fuente]}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() - 7); return n })} style={navBtn()}><ChevronLeft size={16} /></button>
+          <button onClick={() => setLunes(lunesDeSemana(new Date()))} style={{ ...navBtn(), width: 'auto', padding: '0 10px', fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>Hoy</button>
           <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() + 7); return n })} style={navBtn()}><ChevronRight size={16} /></button>
-          <button onClick={handleExportar} style={actionBtn()}><FileDown size={14} /> Exportar</button>
-          <button onClick={handleCompartir} style={actionBtn()}><Share2 size={14} /> Compartir</button>
+          <button onClick={() => exportarHorarioPDF(empleados, turnos, lunes, { abrir: true })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
+          <button onClick={() => compartirHorarioPDF(empleados, turnos, lunes)} style={actionBtn()}><Share2 size={14} /> Compartir</button>
         </div>
       </div>
 
