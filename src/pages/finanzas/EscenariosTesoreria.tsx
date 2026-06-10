@@ -26,18 +26,17 @@ interface WeekRow {
   saldo: number
 }
 
-interface ResumenPlataforma {
-  fecha: string
-  uber_neto: number | null
-  glovo_neto: number | null
-  je_neto: number | null
-  web_neto: number | null
-  directa_neto: number | null
+interface ResumenPlataformaRow {
+  plataforma: string
+  año: number
+  mes: number
+  neto_real_cobrado: number | null
 }
 
-interface FacturaGasto {
+interface GastoFijo {
   importe: number | null
   periodicidad: string | null
+  activo: boolean | null
 }
 
 interface AvgWeekly {
@@ -104,13 +103,15 @@ function cobrosEnSemana(weekStart: Date, avg: AvgWeekly, factor: number): number
   return total
 }
 
-function calcGastoSemanal(rows: FacturaGasto[]): number {
+function calcGastoSemanal(rows: GastoFijo[]): number {
   let total = 0
   for (const r of rows) {
+    if (r.activo === false) continue
     const imp = r.importe ?? 0
     if (r.periodicidad === 'semanal') total += imp
     else if (r.periodicidad === 'mensual') total += imp / 4.33
     else if (r.periodicidad === 'quincenal') total += imp / 2.165
+    else if (r.periodicidad === 'anual') total += imp / 52
   }
   return total
 }
@@ -168,23 +169,24 @@ export default function EscenariosTesoreria() {
       const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonth = new Date(firstOfThisMonth.getTime() - 1)
       const yyyy = lastMonth.getFullYear()
-      const mm = String(lastMonth.getMonth() + 1).padStart(2, '0')
-      const mesIso = `${yyyy}-${mm}`
+      const mes = lastMonth.getMonth() + 1
 
       const { data: rpData } = await supabase
         .from('resumenes_plataforma_marca_mensual')
-        .select('fecha,uber_neto,glovo_neto,je_neto,web_neto,directa_neto')
-        .gte('fecha', `${mesIso}-01`)
-        .lte('fecha', `${mesIso}-31`)
+        .select('plataforma,año,mes,neto_real_cobrado')
+        .eq('año', yyyy)
+        .eq('mes', mes)
 
-      const resRows = (rpData ?? []) as ResumenPlataforma[]
+      const resRows = (rpData ?? []) as ResumenPlataformaRow[]
       const sum = { uber: 0, glovo: 0, je: 0, web: 0, directa: 0 }
       for (const r of resRows) {
-        sum.uber += r.uber_neto ?? 0
-        sum.glovo += r.glovo_neto ?? 0
-        sum.je += r.je_neto ?? 0
-        sum.web += r.web_neto ?? 0
-        sum.directa += r.directa_neto ?? 0
+        const neto = r.neto_real_cobrado ?? 0
+        const p = (r.plataforma ?? '').toLowerCase()
+        if (p === 'uber') sum.uber += neto
+        else if (p === 'glovo') sum.glovo += neto
+        else if (p === 'justeat' || p === 'just eat' || p === 'je') sum.je += neto
+        else if (p === 'web') sum.web += neto
+        else if (p === 'directa') sum.directa += neto
       }
       setAvgWeekly({
         uber: sum.uber / 4.33,
@@ -196,9 +198,9 @@ export default function EscenariosTesoreria() {
 
       // Gastos fijos
       const { data: gastosData } = await supabase
-        .from('facturas_gastos')
-        .select('importe,periodicidad')
-      setGastoSemanal(calcGastoSemanal((gastosData ?? []) as FacturaGasto[]))
+        .from('gastos_fijos')
+        .select('importe,periodicidad,activo')
+      setGastoSemanal(calcGastoSemanal((gastosData ?? []) as GastoFijo[]))
     } finally {
       setLoading(false)
     }
