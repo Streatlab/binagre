@@ -230,7 +230,7 @@ function AppRoutes() {
 
         <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
-        <Route path="cocina/inventario" element={<CocinaInventario />} />
+        <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
         <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
         <Route path="cocina/recetario" element={<Recetario />} />
