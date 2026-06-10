@@ -172,7 +172,7 @@ export default function PanelGlobal() {
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([])
 
   useEffect(() => {
-    supabase.from('marcas').select('id,nombre').eq('estado', 'activa').then(({ data }) => {
+    supabase.from('marcas').select('id,nombre').eq('activa', true).then(({ data }) => {
       if (data) setMarcasDisp(data as MarcaItem[])
     })
   }, [])
@@ -228,7 +228,7 @@ export default function PanelGlobal() {
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       {activeTab === 'resumen' && (
-        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} />
+        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} />
       )}
       {activeTab === 'operaciones' && <TabPlaceholder nombre="Operaciones" />}
       {activeTab === 'finanzas'    && <TabPlaceholder nombre="Finanzas" />}

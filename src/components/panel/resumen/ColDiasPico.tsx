@@ -54,11 +54,15 @@ export default function ColDiasPico({ dias: diasProp, media: mediaProp, nombreMe
       inicio = toLocalDateStr(fechaDesde)
       fin = toLocalDateStr(fechaHasta)
 
-      const mismoMes = fechaDesde.getMonth() === fechaHasta.getMonth() && fechaDesde.getFullYear() === fechaHasta.getFullYear()
-      if (mismoMes) {
-        setTituloPeriodo(fmtMes(fechaDesde.getMonth() + 1))
+      if (nombreMes) {
+        setTituloPeriodo(nombreMes)
       } else {
-        setTituloPeriodo(`${fmtMes(fechaDesde.getMonth() + 1)} – ${fmtMes(fechaHasta.getMonth() + 1)}`)
+        const mismoMes = fechaDesde.getMonth() === fechaHasta.getMonth() && fechaDesde.getFullYear() === fechaHasta.getFullYear()
+        if (mismoMes) {
+          setTituloPeriodo(fmtMes(fechaDesde.getMonth() + 1))
+        } else {
+          setTituloPeriodo(`${fmtMes(fechaDesde.getMonth() + 1)} – ${fmtMes(fechaHasta.getMonth() + 1)}`)
+        }
       }
     } else {
       const mesActual = mes ?? (new Date().getMonth() + 1)

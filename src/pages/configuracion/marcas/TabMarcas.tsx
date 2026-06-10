@@ -255,7 +255,7 @@ export default function TabMarcas() {
   async function handleArchivar(marca: MarcaRow) {
     setSaving(true)
     try {
-      await supabase.from('marcas').update({ archivada_at: new Date().toISOString(), estado: 'pausada' }).eq('id', marca.id)
+      await supabase.from('marcas').update({ archivada_at: new Date().toISOString(), estado: 'pausada', activa: false }).eq('id', marca.id)
       await supabase.from('marca_plataforma_acceso').update({ activo: false }).eq('marca_id', marca.id)
       setDelModal(null); setConfirmDelete(null); await refetch(); close()
     } catch (e: any) { setError(e?.message ?? 'Error archivando') } finally { setSaving(false) }

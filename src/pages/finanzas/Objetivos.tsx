@@ -193,6 +193,11 @@ export default function Objetivos() {
   const [presEditing, setPresEditing] = useState<string | null>(null)
   const [presEditVal, setPresEditVal] = useState('')
   const [presSaving, setPresSaving] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   useEffect(() => {
     Promise.all([
@@ -225,12 +230,19 @@ export default function Objetivos() {
   const saveObjetivoGeneral = async (tipo: string, val: number) => {
     const v = Math.round(val)
     const existing = objetivos.find(o => o.tipo === tipo)
-    if (existing) {
-      await supabase.from('objetivos').update({ importe: v }).eq('id', existing.id)
-      setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
-    } else {
-      const { data } = await supabase.from('objetivos').insert({ tipo, importe: v }).select()
-      if (data?.[0]) setObjetivos(prev => [...prev, { tipo, importe: v, id: data[0].id }])
+    try {
+      if (existing) {
+        const { error } = await supabase.from('objetivos').update({ importe: v }).eq('id', existing.id)
+        if (error) throw error
+        setObjetivos(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
+      } else {
+        const { data, error } = await supabase.from('objetivos').insert({ tipo, importe: v }).select()
+        if (error) throw error
+        if (data?.[0]) setObjetivos(prev => [...prev, { tipo, importe: v, id: data[0].id }])
+      }
+      showToast('Objetivo guardado')
+    } catch (e: any) {
+      showToast(e?.message ?? 'Error al guardar', false)
     }
     setEditingId(null)
   }
@@ -247,12 +259,19 @@ export default function Objetivos() {
   const saveDiaSemana = async (dia: number, val: number) => {
     const v = Math.round(val)
     const existing = diasSemana.find(d => d.dia === dia)
-    if (existing) {
-      await supabase.from('objetivos_dia_semana').update({ importe: v }).eq('id', existing.id)
-      setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
-    } else {
-      const { data } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: v }).select()
-      if (data?.[0]) setDiasSemana(prev => [...prev, { dia, importe: v, id: data[0].id }])
+    try {
+      if (existing) {
+        const { error } = await supabase.from('objetivos_dia_semana').update({ importe: v }).eq('id', existing.id)
+        if (error) throw error
+        setDiasSemana(prev => prev.map(o => o.id === existing.id ? { ...o, importe: v } : o))
+      } else {
+        const { data, error } = await supabase.from('objetivos_dia_semana').insert({ dia, importe: v }).select()
+        if (error) throw error
+        if (data?.[0]) setDiasSemana(prev => [...prev, { dia, importe: v, id: data[0].id }])
+      }
+      showToast('Objetivo del día guardado')
+    } catch (e: any) {
+      showToast(e?.message ?? 'Error al guardar', false)
     }
     setEditingId(null)
   }
@@ -260,12 +279,19 @@ export default function Objetivos() {
   const savePresupuesto = async (codigo: string, mes: number, val: number) => {
     setPresSaving(true)
     const existing = presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)
-    if (existing) {
-      await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existing.id)
-      setPresData(prev => prev.map(p => p.id === existing.id ? { ...p, importe: val } : p))
-    } else {
-      const { data } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
-      if (data?.[0]) setPresData(prev => [...prev, { id: data[0].id, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
+    try {
+      if (existing) {
+        const { error } = await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existing.id)
+        if (error) throw error
+        setPresData(prev => prev.map(p => p.id === existing.id ? { ...p, importe: val } : p))
+      } else {
+        const { data, error } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
+        if (error) throw error
+        if (data?.[0]) setPresData(prev => [...prev, { id: data[0].id, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
+      }
+      showToast('Presupuesto guardado')
+    } catch (e: any) {
+      showToast(e?.message ?? 'Error al guardar', false)
     }
     setPresEditing(null); setPresSaving(false)
   }
@@ -477,7 +503,12 @@ export default function Objetivos() {
   void LAYOUT
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%', position: 'relative' }}>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? '#1D9E75' : '#B01D23', color: '#fff', padding: '10px 18px', borderRadius: 8, fontFamily: FONT.body, fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'opacity 0.3s' }}>
+          {toast.msg}
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
