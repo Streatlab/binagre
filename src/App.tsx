@@ -36,6 +36,8 @@ import UsuariosPage from '@/pages/configuracion/usuarios/UsuariosPage'
 import CategoriasFinancierasPage from '@/pages/configuracion/categorias/CategoriasPage'
 import CuentasConfigPage from '@/pages/configuracion/cuentas/CuentasPage'
 import CalendarioPage from '@/pages/configuracion/calendario/CalendarioPage'
+import AprendizajesPage from '@/pages/configuracion/AprendizajesPage'
+import CalcNetoAprendizajePage from '@/pages/configuracion/CalcNetoAprendizajePage'
 
 import Objetivos from '@/pages/finanzas/Objetivos'
 import Running from '@/pages/finanzas/Running'
@@ -43,8 +45,11 @@ import PagosCobros from '@/pages/PagosCobros'
 import ImportarPlataformas from '@/pages/finanzas/ImportarPlataformas'
 import PuntoEquilibrio from '@/pages/finanzas/PuntoEquilibrio'
 import GestionFacturas from '@/pages/finanzas/GestionFacturas'
+import Gestoria from '@/pages/finanzas/Gestoria'
+import EscenariosTesoreria from '@/pages/finanzas/EscenariosTesoreria'
 
 import PanelGlobal from '@/pages/PanelGlobal'
+import PanelDireccion from '@/pages/PanelDireccion'
 import OcrConToast from '@/pages/OcrConToast'
 import Tareas from '@/pages/Tareas'
 import Carta from '@/pages/Carta'
@@ -69,6 +74,7 @@ import MarketingEmbudo from '@/pages/MarketingEmbudo'
 import ControlTemperaturas from '@/pages/ops/ControlTemperaturas'
 import ChecklistsAperturaCierre from '@/pages/ops/ChecklistsAperturaCierre'
 import TareasOperativas from '@/pages/ops/TareasOperativas'
+import ManualesOperaciones from '@/pages/ops/ManualesOperaciones'
 import BitacoraNovedades from '@/pages/ops/BitacoraNovedades'
 import LibroEquipos from '@/pages/ops/LibroEquipos'
 import DanosMenaje from '@/pages/ops/DanosMenaje'
@@ -92,6 +98,7 @@ import OnboardingDigital from '@/pages/equipo/OnboardingDigital'
 import SgSst from '@/pages/equipo/SgSst'
 import MisVentasMetas from '@/pages/equipo/MisVentasMetas'
 import Horarios from '@/pages/equipo/Horarios'
+import ControlPresencia from '@/pages/equipo/ControlPresencia'
 
 import ClubFidelizacion from '@/pages/clientes/ClubFidelizacion'
 import CrmTiendaPropia from '@/pages/clientes/CrmTiendaPropia'
@@ -162,6 +169,8 @@ function AppRoutes() {
         <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
         <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
         <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
+        <Route path="configuracion/aprendizajes" element={<ProtectedRoute solo={['admin']}><AprendizajesPage /></ProtectedRoute>} />
+        <Route path="configuracion/calcneto-aprendizaje" element={<ProtectedRoute solo={['admin']}><CalcNetoAprendizajePage /></ProtectedRoute>} />
 
         <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
         <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
@@ -170,8 +179,11 @@ function AppRoutes() {
         <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
         <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/gestion-facturas" replace />} />
         <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
+        <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
+        <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
 
         <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+        <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
         <Route path="importador" element={<Navigate to="/ocr" replace />} />
         <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
@@ -194,6 +206,7 @@ function AppRoutes() {
         <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
         <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
         <Route path="ops/tareas" element={<TareasOperativas />} />
+        <Route path="ops/manuales" element={<ManualesOperaciones />} />
         <Route path="ops/bitacora" element={<BitacoraNovedades />} />
         <Route path="ops/equipos" element={<LibroEquipos />} />
         <Route path="ops/danos" element={<DanosMenaje />} />
@@ -206,6 +219,7 @@ function AppRoutes() {
         <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
         <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
         <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
+        <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
         <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
         <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />
         <Route path="equipo/antiguedad" element={<ProtectedRoute solo={['admin']}><BeneficiosAntiguedad /></ProtectedRoute>} />
@@ -226,7 +240,7 @@ function AppRoutes() {
 
         <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
-        <Route path="cocina/inventario" element={<CocinaInventario />} />
+        <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
         <Route path="cocina/recetas" element={<CocinaRecetas />} />
         <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
         <Route path="cocina/recetario" element={<Recetario />} />

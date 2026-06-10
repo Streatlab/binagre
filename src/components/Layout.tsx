@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import ToastHost from '@/components/ui/ToastHost'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
@@ -24,6 +25,7 @@ export default function Layout() {
             </svg>
           </button>
           <span className="ml-3 text-[var(--sl-text-primary)] text-sm" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.08em' }}>STREAT LAB · ERP</span>
+          <div style={{ marginLeft: 'auto' }}><ThemeToggle /></div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

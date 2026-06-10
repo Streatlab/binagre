@@ -14,15 +14,22 @@ interface KpiRow {
 
 export function PanelCobertura() {
   const [kpi, setKpi] = useState<KpiRow | null>(null)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    supabase
-      .from('v_kpi_cobertura_conciliacion')
-      .select('*')
-      .then(({ data }) => {
-        if (data && data.length > 0) setKpi(data[0] as KpiRow)
-      })
-  }, [])
+    let alive = true
+    const cargar = () => {
+      supabase
+        .from('v_kpi_cobertura_conciliacion')
+        .select('*')
+        .then(({ data }) => {
+          if (alive && data && data.length > 0) setKpi(data[0] as KpiRow)
+        })
+    }
+    cargar()
+    const t = setInterval(cargar, 30_000)
+    return () => { alive = false; clearInterval(t) }
+  }, [tick])
 
   if (!kpi) return null
 
@@ -96,10 +103,16 @@ export function PanelCobertura() {
         />
       </div>
 
-      <div style={{ marginLeft: 'auto' }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
         <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#6a7890' }}>
           {kpi.facturas_total} facturas totales
         </div>
+        <button
+          onClick={() => setTick(t => t + 1)}
+          style={{ fontFamily: LEXEND, fontSize: 11, color: '#6a7890', background: 'none', border: '0.5px solid #2a3050', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
+        >
+          ↻ Refrescar
+        </button>
       </div>
     </div>
   )

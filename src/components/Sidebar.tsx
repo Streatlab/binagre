@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -44,6 +44,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
+      { path: '/panel-direccion',               label: 'Panel Dirección',     emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
@@ -51,6 +52,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
+      { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '🏛️', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
       { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
@@ -60,6 +62,9 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', emoji: '🛠️', label: 'Operaciones', perfiles: ['admin'],
     items: [
+      { path: '/ops/checklists', label: 'Checklists',    emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/tareas',     label: 'Tareas',        emoji: '📝', perfiles: ['admin'] },
+      { path: '/ops/manuales',   label: 'Manuales',      emoji: '📚', perfiles: ['admin'] },
       { path: '/ops/reembolsos', label: 'Reclamaciones', emoji: '💸', perfiles: ['admin'] },
     ],
   },
@@ -67,7 +72,8 @@ const SECTIONS: NavSection[] = [
     key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
       { path: '/equipo',          label: 'Personas', emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/horarios', label: 'Horarios', emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/horarios',  label: 'Horarios',  emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia', label: 'Presencia', emoji: '🕐', perfiles: ['admin'] },
     ],
   },
   {
@@ -107,6 +113,8 @@ const SECTIONS: NavSection[] = [
       { path: '/configuracion/bancos-y-cuentas', label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',         label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
       { path: '/configuracion/calendario',       label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
+      { path: '/configuracion/aprendizajes',     label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
+      { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',  emoji: '⚖️', perfiles: ['admin'] },
     ],
   },
 ]
@@ -115,12 +123,9 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Revenue & Ticket',             emoji: '🎫' },
   { label: 'Predicción Demanda',           emoji: '🔮' },
   { label: 'Tesorería',                    emoji: '💳' },
-  { label: 'Checklists Apertura/Cierre',   emoji: '✅' },
-  { label: 'Tareas Operativas',            emoji: '📝' },
   { label: 'Control Temperaturas',         emoji: '🌡️' },
   { label: 'BPM / Calidad',                emoji: '✅' },
   { label: 'Daños Material',               emoji: '🔧' },
-  { label: 'Manuales',                     emoji: '📚' },
   { label: 'Novedades',                    emoji: '🔔' },
   { label: 'Mantenimiento Equipos',        emoji: '🔧' },
   { label: 'Organigrama',                  emoji: '🏢' },
@@ -226,7 +231,7 @@ function loadOpenSections(): string[] {
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
-  const { collapsed, toggle } = useSidebarState()
+  const { collapsed: manualCollapsed, toggle } = useSidebarState()
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
@@ -239,6 +244,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
   })
   const [tareasBadge, setTareasBadge] = useState(0)
+  const [ocrBadge, setOcrBadge] = useState(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -257,6 +263,43 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .in('estado', ['pendiente', 'atrasada'])
       .then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
+
+  // Aviso OCR: facturas a las que les falta importe, titular o categoría (las que
+  // hay que completar para llegar al 100%). Cuenta global, todo el histórico.
+  useEffect(() => {
+    if (perfil !== 'admin') return
+    supabase
+      .from('facturas')
+      .select('id', { count: 'exact', head: true })
+      .in('tipo', ['proveedor', 'plataforma'])
+      .or('total.lte.0,titular_id.is.null,categoria_factura.is.null')
+      .then(({ count }) => setOcrBadge(count ?? 0))
+  }, [perfil])
+
+  const [autoCollapsed, setAutoCollapsed] = useState(false)
+  const [peek, setPeek] = useState(false)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const AUTO_COLLAPSE_MS = 20000
+
+  // Auto-colapso: si el menu esta abierto y fijo (no colapsado a mano), a los 20 s
+  // se pliega solo a iconos. Al pasar el raton se asoma (peek); al pulsar una opcion
+  // se vuelve a fijar y reinicia los 20 s.
+  useEffect(() => {
+    if (idleTimer.current) { clearTimeout(idleTimer.current); idleTimer.current = null }
+    if (manualCollapsed || autoCollapsed) return
+    idleTimer.current = setTimeout(() => setAutoCollapsed(true), AUTO_COLLAPSE_MS)
+    return () => { if (idleTimer.current) clearTimeout(idleTimer.current) }
+  }, [manualCollapsed, autoCollapsed])
+
+  const fijarSidebar = () => {
+    setAutoCollapsed(false)
+    if (idleTimer.current) clearTimeout(idleTimer.current)
+    if (!manualCollapsed) idleTimer.current = setTimeout(() => setAutoCollapsed(true), AUTO_COLLAPSE_MS)
+  }
+  const onToggleManual = (e: React.MouseEvent) => { e.stopPropagation(); toggle(); setAutoCollapsed(false); setPeek(false) }
+
+  // Colapsado efectivo: manual o automatico, pero el raton encima (peek) lo abre temporalmente.
+  const collapsed = (manualCollapsed || autoCollapsed) && !peek
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
@@ -293,6 +336,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
+        onMouseEnter={() => setPeek(true)}
+        onMouseLeave={() => setPeek(false)}
+        onClick={fijarSidebar}
         style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
@@ -304,7 +350,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {collapsed ? (
           <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
-            <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Expandir">
+            <button onClick={onToggleManual} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Expandir">
               <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
@@ -314,7 +360,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
-            <button onClick={toggle} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden md:flex" title="Colapsar">«</button>
+            <button onClick={onToggleManual} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
@@ -473,6 +519,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                             <>
                               <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
+                              {item.path === '/ocr' && <SidebarBadge count={ocrBadge} />}
                             </>
                           )}
                         </NavLink>

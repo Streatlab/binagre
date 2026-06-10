@@ -40,10 +40,11 @@ import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { leerFacturaMistral, mistralDisponible, cuadraImportes } from './mistral-ocr.js'
 import { extraerDatosDesdeContenido as leerFacturaAnthropic } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
-import { generarNombreArchivo, subirArchivoADrive } from './google-drive.js'
+import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 
 export type ProcesarEstado =
   | 'duplicada'
+  | 'ignorada'
   | 'error'
   | 'ok'
   | 'lectura_manual'
@@ -68,6 +69,29 @@ const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
+
+// NIF canónico del EMISOR por plataforma delivery. El OCR a veces lee del documento
+// un NIF ajeno (p.ej. una factura de Just Eat con el NIF de Uber, o de Uber con el de
+// Canal Isabel II). La plataforma/proveedor se detecta de forma fiable, así que se
+// FUERZA el NIF correcto del emisor. Con el NIF correcto, la categoría por NIF y el
+// archivado salen bien solos, sin corrección manual.
+const NIF_PLATAFORMA: Record<string, string> = {
+  uber: 'B88515200',     // PORTIER EATS SPAIN, S.L. → cat 1.1.1
+  glovo: 'B67282871',    // Glovoapp Spain Platform S.L. → cat 1.1.2
+  just_eat: 'B86008539', // JUST EAT SPAIN SL → cat 1.1.3
+}
+
+// Devuelve el NIF canónico del emisor si la factura es de una plataforma delivery,
+// detectada por el campo plataforma o por el nombre del proveedor. null si no aplica.
+function nifCanonicoPlataforma(extracted: ExtractedFactura): string | null {
+  const p = extracted.plataforma
+  if (p && NIF_PLATAFORMA[p]) return NIF_PLATAFORMA[p]
+  const nom = (extracted.proveedor_nombre || '').toLowerCase()
+  if (/\buber\b|portier\s*eats/.test(nom)) return NIF_PLATAFORMA.uber
+  if (/\bglovo/.test(nom)) return NIF_PLATAFORMA.glovo
+  if (/just\s*eat/.test(nom)) return NIF_PLATAFORMA.just_eat
+  return null
+}
 
 // Estados de factura que cuentan como conciliada para la auditoría
 const ESTADOS_CONCILIADA = ['conciliada', 'asociada']
@@ -160,6 +184,7 @@ async function registrarAuditoria(
     const resultado =
       r.estado === 'ok' ? 'nueva'
       : r.estado === 'duplicada' ? 'duplicada'
+      : r.estado === 'ignorada' ? 'ignorada'
       : r.estado === 'lectura_manual' ? 'lectura_manual'
       : 'error'
     const conciliada = estadoFac ? ESTADOS_CONCILIADA.includes(estadoFac) : false
@@ -191,6 +216,15 @@ export async function procesarArchivo(
 ): Promise<ProcesarResultado[]> {
   const tipo = detectarTipoArchivo(file.nombre, file.mimeType)
   const hashArchivo = createHash('sha256').update(file.buffer).digest('hex')
+
+  // RESPALDO 100% (cero pérdida): se respalda CADA archivo al inicio, pase lo que
+  // pase después (duplicada / ignorada / lectura_manual / error). Best-effort: no
+  // rompe el procesado. La repesca (archivar-pendientes) llevará a Drive lo que falte.
+  try {
+    await respaldarEnStorage(file.buffer, file.nombre, hashArchivo)
+  } catch (e) {
+    console.error('[procesarArchivo] respaldo inicial falló:', e instanceof Error ? e.message : String(e))
+  }
 
   let contenido: ContenidoExtraido
   try {
@@ -494,14 +528,21 @@ async function aprenderProveedorNif(
       .maybeSingle()
     if (ya) return
     const plantilla = derivarPlantilla(texto, extracted)
+    // patron y tipo_categoria son NOT NULL en reglas_conciliacion: hay que
+    // rellenarlos siempre o el INSERT falla en silencio (la plantilla no se
+    // guardaría y el candado nunca aprendería el proveedor).
     await supabase
       .from('reglas_conciliacion')
       .insert({
+        patron: extracted.proveedor_nombre,
+        tipo_categoria: 'gasto',
         patron_nif: nif,
         razon_social: extracted.proveedor_nombre,
         plantilla_total_label: plantilla.totalLabel,
         plantilla_fecha_formato: plantilla.fechaFormato,
         plantilla_num_label: plantilla.numLabel,
+        activa: true,
+        prioridad: 50,
       })
   } catch (e) {
     console.error('[aprenderProveedorNif]', errMsg(e))
@@ -515,7 +556,7 @@ async function procesarContenidoPrincipal(
   tipo: TipoArchivo,
 ): Promise<ProcesarResultado | ProcesarResultado[]> {
   if (esNoFactura(file.nombre)) {
-    return { estado: 'duplicada', archivo: file.nombre, motivo: 'no es factura (resumen de ingresos gestoria) — ignorado' }
+    return { estado: 'ignorada', archivo: file.nombre, motivo: 'no es una factura: resumen de ingresos' }
   }
   const hash = createHash('sha256').update(file.buffer).digest('hex')
 
@@ -635,6 +676,19 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // PASO 1b (gratis): documentos de TEXTO (word/.doc-HTML de Just Eat, email, txt,
+  // excel). Su contenido ya viene como texto en `contenido.data`; se le aplican las
+  // MISMAS reglas/plantilla por NIF. Sin esto, los .doc nunca pasaban por reglas y
+  // acababan en lectura manual aunque el texto fuera perfectamente legible.
+  if (!extractedReglas && contenido.tipo === 'texto' && typeof contenido.data === 'string') {
+    const textoDoc = contenido.data
+    if (textoDoc && textoDoc.replace(/\s/g, '').length >= 20) {
+      textoPdfCache = textoPdfCache && textoPdfCache.length > textoDoc.length ? textoPdfCache : textoDoc
+      if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
+      extractedReglas = extraerPorReglas(textoDoc, (nif) => diccionario?.get(nif)?.plantilla || null, false)
+    }
+  }
+
   // PASO 2 (gratis): si las reglas no leyeron y es PDF escaneado o imagen/foto,
   // se pasa por OCR Tesseract (0 €) para sacar el texto y reintentar las reglas.
   if (!extractedReglas && OCR_TESSERACT_ACTIVO && (tipo === 'pdf' || tipo === 'imagen')) {
@@ -687,6 +741,11 @@ async function procesarContenidoPrincipal(
     // Datos insuficientes: en vez de error seco, guardar como lectura manual.
     return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
+
+  // Plataforma delivery: forzar el NIF canónico del emisor (corrige NIF ajenos mal
+  // leídos del documento). Con el NIF correcto, la categoría por NIF sale sola.
+  const nifPlat = nifCanonicoPlataforma(extracted)
+  if (nifPlat) extracted.nif_emisor = nifPlat
 
   // F05: validar fecha antes de insert
   const fechaFactura = fechaValida(extracted.fecha_factura)
@@ -1029,6 +1088,9 @@ async function guardarFacturasMulti(
 
     const fechaFactura = fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : new Date().toISOString().slice(0, 10)
     const numFactura = extracted.numero_factura || `SN-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
+    // Plataforma delivery: forzar NIF canónico del emisor (igual que en el flujo simple).
+    const nifPlatMulti = nifCanonicoPlataforma(extracted)
+    if (nifPlatMulti) extracted.nif_emisor = nifPlatMulti
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
 
     const { data: nueva, error: errInsert } = await supabase

@@ -8,6 +8,11 @@ import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
+import TabOperaciones from '@/components/panel/TabOperaciones'
+import TabFinanzas from '@/components/panel/TabFinanzas'
+import Cashflow from '@/pages/finanzas/Cashflow'
+import TabMarcas from '@/components/panel/TabMarcas'
+import TabEvolucion from '@/components/panel/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
@@ -171,7 +176,7 @@ export default function PanelGlobal() {
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([])
 
   useEffect(() => {
-    supabase.from('marcas').select('id,nombre').eq('estado', 'activa').then(({ data }) => {
+    supabase.from('marcas').select('id,nombre').eq('activa', true).then(({ data }) => {
       if (data) setMarcasDisp(data as MarcaItem[])
     })
   }, [])
@@ -227,13 +232,13 @@ export default function PanelGlobal() {
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       {activeTab === 'resumen' && (
-        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} />
+        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} />
       )}
-      {activeTab === 'operaciones' && <TabPlaceholder nombre="Operaciones" />}
-      {activeTab === 'finanzas'    && <TabPlaceholder nombre="Finanzas" />}
-      {activeTab === 'cashflow'    && <TabPlaceholder nombre="Cashflow" />}
-      {activeTab === 'evolucion'   && <TabPlaceholder nombre="Evolución" />}
-      {activeTab === 'marcas' && <TabPlaceholder nombre="Marcas" />}
+      {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
+      {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
+      {activeTab === 'cashflow'    && <Cashflow />}
+      {activeTab === 'evolucion'   && <TabEvolucion rowsAll={rowsAll} />}
+      {activeTab === 'marcas' && <TabMarcas rows={rowsPeriodo} />}
     </div>
   )
 }

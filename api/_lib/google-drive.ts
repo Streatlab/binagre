@@ -155,16 +155,61 @@ function textoLegibleAPdf(texto: string, datos: DriveExtracted): Buffer {
 // Copia de seguridad en Storage propio. Es la garantía de "cero pérdida":
 // pase lo que pase con Drive, el original queda guardado aquí al instante.
 async function guardarRespaldoStorage(path: string, buffer: Buffer, mimeType: string): Promise<boolean> {
-  for (let intento = 1; intento <= 3; intento++) {
+  // 6 intentos con espera creciente: el respaldo en Storage es la garantía de
+  // "cero pérdida" (de él tira la repesca). En lotes grandes el Storage puede dar
+  // errores transitorios (503/timeout); insistir evita que un documento se quede
+  // sin respaldo y, por tanto, sin vía de recuperación.
+  for (let intento = 1; intento <= 6; intento++) {
     try {
       const { error } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
         .upload(path, buffer, { contentType: mimeType, upsert: true })
       if (!error) return true
     } catch { /* reintentar */ }
-    await sleep(400)
+    await sleep(Math.min(400 * intento, 2000))
   }
   return false
+}
+
+// Respaldo "cero pérdida" al INICIO del procesado de CADA archivo (no solo en el
+// camino feliz). Sube el documento tal cual al bucket de respaldo y registra la
+// fila en archivo_respaldo (de ahí tira la repesca para llevarlo a Drive). Mismo
+// hash → mismo path → idempotente (no crece el almacén al reprocesar). Best-effort
+// con 3 reintentos: si falla, se loguea visible pero NUNCA rompe el procesado.
+export async function respaldarEnStorage(
+  buffer: Buffer,
+  nombre: string,
+  hash: string,
+): Promise<boolean> {
+  const extMatch = nombre.match(/\.([a-z0-9]+)$/i)
+  const ext = (extMatch ? extMatch[1] : 'bin').toLowerCase()
+  const storagePath = `respaldo-ocr/${hash}.${ext}`
+  const mimeType = mimeTypeParaExtension(ext)
+  let subido = false
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const { error } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .upload(storagePath, buffer, { contentType: mimeType, upsert: true })
+      if (!error) { subido = true; break }
+    } catch { /* reintentar */ }
+    if (intento < 3) await sleep(400 * intento)
+  }
+  // Registrar la fila SIEMPRE (onConflict storage_path → no duplica; no toca drive_id).
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const { error } = await supabaseAdmin
+        .from('archivo_respaldo')
+        .upsert(
+          { hash, storage_path: storagePath, nombre, actualizado: new Date().toISOString() },
+          { onConflict: 'storage_path' },
+        )
+      if (!error) return subido
+    } catch { /* reintentar */ }
+    if (intento < 3) await sleep(300 * intento)
+  }
+  console.error(`[respaldarEnStorage] FALLO registrando respaldo de "${nombre}" (hash ${hash.slice(0, 12)}…) — revisar Storage/BD`)
+  return subido
 }
 
 // Sube un buffer a Drive (con reintentos) dentro de la carpeta indicada.
@@ -213,8 +258,6 @@ export async function subirArchivoADrive(
   extracted: DriveExtracted,
   ext: string,
 ): Promise<{ id: string; webViewLink: string | null; storagePath: string; driveOk: boolean }> {
-  const drive = await getDriveGlobal()
-
   // Hash del documento TAL Y COMO LLEGA (antes de cualquier conversión). Coincide
   // con el pdf_hash que calcula procesarArchivo, para poder vincular la repesca
   // con su factura.
@@ -248,12 +291,11 @@ export async function subirArchivoADrive(
     throw new Error('No se pudo respaldar el documento en Storage (no se archiva sin copia segura).')
   }
 
-  // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
-  const folderId = await carpetaDestino(drive, niveles)
-  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
-
-  // Registro de repesca: deja constancia del respaldo y de si llegó a Drive. Si
-  // drive_id queda null, el barrido archivar-pendientes lo subirá hasta lograrlo.
+  // Registro de repesca INMEDIATO (drive_id=null), ANTES de tocar Drive. Clave para
+  // "cero pérdida": si Drive está desconectado (getDriveGlobal/upload lanza), la fila
+  // ya existe y el barrido archivar-pendientes encontrará el documento y lo subirá.
+  // Antes el registro iba después de subir a Drive: si Drive fallaba, no quedaba
+  // constancia y la repesca nunca veía el documento.
   try {
     await supabaseAdmin
       .from('archivo_respaldo')
@@ -261,13 +303,39 @@ export async function subirArchivoADrive(
         {
           hash: hashEntrada,
           storage_path: storagePath,
-          drive_id: driveId,
+          drive_id: null,
           nombre,
           actualizado: new Date().toISOString(),
         },
         { onConflict: 'storage_path' },
       )
   } catch { /* el registro de repesca nunca rompe el archivado */ }
+
+  // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
+  // getDriveGlobal() va AQUÍ (no al principio): si Drive está caído lanza, pero el
+  // documento ya está respaldado y registrado arriba, así que la repesca lo recupera.
+  const drive = await getDriveGlobal()
+  const folderId = await carpetaDestino(drive, niveles)
+  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
+
+  // Drive OK: completar la fila de repesca con el drive_id real.
+  if (driveId) {
+    try {
+      await supabaseAdmin
+        .from('archivo_respaldo')
+        .update({ drive_id: driveId, actualizado: new Date().toISOString() })
+        .eq('storage_path', storagePath)
+    } catch { /* el registro de repesca nunca rompe el archivado */ }
+    // Marca también el respaldo inicial por-hash (respaldo-ocr/<hash>) como archivado,
+    // para que la repesca NO suba a Drive una copia redundante del mismo documento.
+    try {
+      await supabaseAdmin
+        .from('archivo_respaldo')
+        .update({ drive_id: driveId, actualizado: new Date().toISOString() })
+        .eq('hash', hashEntrada)
+        .is('drive_id', null)
+    } catch { /* el registro de repesca nunca rompe el archivado */ }
+  }
 
   // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
   // Storage y registrado en archivo_respaldo. La repesca lo subirá a Drive. El

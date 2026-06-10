@@ -29,6 +29,13 @@ export interface PlantillaNif {
 }
 
 export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
+  // HTML disfrazado de .doc (Just Eat y otros exportan la factura como HTML con
+  // extensión .doc). word-extractor/mammoth fallan con esto, así que se detecta y
+  // se extrae el texto quitando etiquetas. Es lo que permite leer las Just Eat .doc.
+  if (pareceHtmlBuffer(buffer)) {
+    const t = htmlBufferATexto(buffer)
+    if (t && t.replace(/\s/g, '').length >= 20) return { tipo: 'texto', data: t }
+  }
   // .docx (OOXML, cabecera 'PK'): mammoth lee bien
   const esDocx = buffer.length > 3 && buffer[0] === 0x50 && buffer[1] === 0x4b
   if (esDocx) {
@@ -51,13 +58,42 @@ export async function extraerWord(buffer: Buffer): Promise<ContenidoExtraido> {
   } catch { /* ultimo recurso abajo */ } finally {
     await unlink(tmp).catch(() => {})
   }
-  // ultimo recurso
+  // ultimo recurso: si el contenido tenía pinta de HTML, intentar el strip aunque
+  // pareceHtmlBuffer no lo detectara en la cabecera.
+  const crudo = buffer.toString('utf-8')
+  if (/<\/?(table|td|tr|div|p|html|body)\b/i.test(crudo)) {
+    const t = htmlBufferATexto(buffer)
+    if (t.trim()) return { tipo: 'texto', data: t }
+  }
   try {
     const result = await mammoth.extractRawText({ buffer })
     return { tipo: 'texto', data: result.value || '' }
   } catch {
     return { tipo: 'texto', data: '' }
   }
+}
+
+// ¿El buffer es HTML? Mira la cabecera en busca de marcadores típicos.
+function pareceHtmlBuffer(buffer: Buffer): boolean {
+  const head = buffer.subarray(0, 4096).toString('utf-8').toLowerCase()
+  return head.includes('<html') || head.includes('<!doctype html') ||
+         head.includes('<table') || head.includes('<body') || head.includes('<td')
+}
+
+// Convierte HTML en texto plano legible para las reglas: separa celdas/filas con
+// espacios y saltos para que etiqueta y valor (p.ej. "Total a pagar" … "30,81€")
+// queden en la misma línea y el lector genérico/plantilla los encuentre.
+function htmlBufferATexto(buffer: Buffer): string {
+  let s = buffer.toString('utf-8')
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  s = s.replace(/<\/(td|th)>/gi, ' ').replace(/<\/(tr|p|div|h[1-6]|li)>/gi, '\n')
+  s = s.replace(/<[^>]+>/g, ' ')
+  s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&euro;/gi, '€')
+       .replace(/&aacute;/gi, 'á').replace(/&eacute;/gi, 'é').replace(/&iacute;/gi, 'í')
+       .replace(/&oacute;/gi, 'ó').replace(/&uacute;/gi, 'ú').replace(/&ntilde;/gi, 'ñ')
+       .replace(/&#?\w+;/g, ' ')
+  s = s.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim()
+  return s
 }
 
 export async function extraerExcel(buffer: Buffer): Promise<ContenidoExtraido> {
@@ -609,6 +645,23 @@ function partirPorMarcadores(
   return dedupeFacturas(out)
 }
 
+// ¿El número de factura leído es PLAUSIBLE (un ref real) y no basura de una página
+// de continuación? Un recibo multipágina (p.ej. Octopus) hace que las páginas 2..n
+// se lean como facturas falsas con número "Periodo", "Fecha", vacío, etc. Exigir un
+// número plausible evita trocear una única factura en varias.
+const PALABRAS_CABECERA_NO_NUMERO = new Set([
+  'periodo', 'fecha', 'total', 'factura', 'cliente', 'importe', 'base', 'iva',
+  'numero', 'número', 'num', 'nº', 'serie', 'pagina', 'página', 'subtotal',
+])
+function numeroFacturaPlausible(numero: string | null | undefined): boolean {
+  if (!numero) return false
+  const n = numero.trim()
+  if (n.length < 4) return false
+  if (!/\d/.test(n)) return false // un ref de factura real lleva al menos un dígito
+  if (PALABRAS_CABECERA_NO_NUMERO.has(n.toLowerCase())) return false
+  return true
+}
+
 // Punto de entrada del partido multi-factura.
 // Devuelve [] si no detecta multi (0 o 1 factura) → el flujo normal sigue igual.
 // Devuelve ≥2 ExtractedFactura si detecta varias facturas distintas en el PDF.
@@ -632,12 +685,18 @@ export function partirEnFacturas(
   // Elegir la pasada que más facturas distintas válidas haya encontrado.
   const mejor = porPaginas.length >= porMarcadores.length ? porPaginas : porMarcadores
 
-  // CONSERVADOR: solo se considera multi-factura si hay ≥2 facturas distintas.
-  // Además, deben tener números de factura distintos entre sí (evita partir una
-  // recapitulativa con subtotales repetidos en varias filas).
+  // CONSERVADOR: solo se considera multi-factura si hay ≥2 facturas con número
+  // PLAUSIBLE y distinto entre sí. Esto:
+  //  - evita partir una recapitulativa con subtotales repetidos, y
+  //  - evita trocear una única factura multipágina (Octopus, etc.) donde las
+  //    páginas de continuación se leen como facturas falsas con número
+  //    "Periodo"/vacío.
   if (mejor.length < 2) return []
-  const numerosDistintos = new Set(mejor.map((f) => (f.numero_factura || '').toUpperCase()).filter(Boolean))
-  if (numerosDistintos.size < 2) return []
+  const plausibles = mejor.filter((f) => numeroFacturaPlausible(f.numero_factura))
+  const numerosPlausibles = new Set(plausibles.map((f) => (f.numero_factura || '').toUpperCase()))
+  if (plausibles.length < 2 || numerosPlausibles.size < 2) return []
 
-  return mejor
+  // Devolver SOLO las sub-facturas con número plausible: nunca se crean entradas
+  // basura de páginas de continuación.
+  return plausibles
 }

@@ -7,14 +7,14 @@ import { supabase } from '@/lib/supabase'
 
 export interface ArchivoLog {
   filename: string
-  status: 'ok' | 'duplicado' | 'pendiente' | 'error' | 'achtung' | 'cancelado'
+  status: 'ok' | 'duplicado' | 'ignorada' | 'pendiente' | 'error' | 'achtung' | 'cancelado'
   detalle: string
   achtungTipo?: 'creditos' | 'api_key' | 'modelo' | 'otro'
 }
 
 export interface OcrSession {
   id: string; total: number; enviados: number; ok: number; pendientes: number
-  duplicados: number; errores: number; achtung: number; cancelados: number
+  duplicados: number; ignorados: number; errores: number; achtung: number; cancelados: number
   achtungMensaje: string | null; achtungTipo: 'creditos' | 'api_key' | 'modelo' | 'otro' | null
   log: ArchivoLog[]; visible: boolean; procesando: boolean; cancelado: boolean; pausada: boolean
   fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto' | null
@@ -167,7 +167,9 @@ async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
   if (['zip', 'rar', '7z'].includes(ext)) { const t = file.type && file.type !== 'application/octet-stream' ? file.type : getMimeTypeBase(ext); return [{ name: file.name, type: t, blob: file, esComprimido: true }] }
   if (['xlsx', 'xls'].includes(ext)) { const csv = await excelACSV(file); return [{ name: file.name.replace(/\.(xlsx|xls)$/i, '.csv'), type: 'text/csv', blob: new Blob([csv], { type: 'text/csv' }), esComprimido: false }] }
   if (ext === 'docx') { const t = await docxATexto(file); return [{ name: file.name.replace(/\.docx$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
-  if (ext === 'doc') { const t = await docATexto(file); return [{ name: file.name.replace(/\.doc$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
+  // .doc: NO se convierte — se sube el original (Drive debe recibir el .doc tal cual).
+  // El backend extrae el texto con word-extractor.
+  if (ext === 'doc') { return [{ name: file.name, type: 'application/msword', blob: file, esComprimido: false }] }
   if (['html', 'htm'].includes(ext)) { const t = await htmlATexto(file); return [{ name: file.name.replace(/\.html?$/i, '.txt'), type: 'text/plain', blob: new Blob([t], { type: 'text/plain' }), esComprimido: false }] }
   // PDF grande -> partir por páginas en el navegador.
   if (ext === 'pdf' && file.size > MAX_BYTES) {
@@ -180,7 +182,7 @@ async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
 
 function dbToSession(s: any): OcrSession {
-  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0, estadoCola: s.estado_cola || null }
+  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, ignorados: s.ignorados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0, estadoCola: s.estado_cola || null }
 }
 
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
@@ -196,7 +198,7 @@ function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
     const primerLote = lotes[0]
     let archivoActual: string | null = null
     if (algunoProcesando) { archivoActual = algunaPausada ? `Pausado en ${enviados} de ${total}` : (totalStorage > 0 && subidosStorage < totalStorage ? `Subiendo ${subidosStorage} de ${totalStorage} al servidor…` : `Procesando ${enviados} de ${total}…`) }
-    return { id: `grp_${grupoId}`, total, enviados, ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0), duplicados: lotes.reduce((a, l) => a + l.duplicados, 0), errores: lotes.reduce((a, l) => a + l.errores, 0), achtung: lotes.reduce((a, l) => a + l.achtung, 0), cancelados: lotes.reduce((a, l) => a + l.cancelados, 0), achtungMensaje: achtungL?.achtungMensaje || null, achtungTipo: achtungL?.achtungTipo || null, log: logAcumulado, visible: lotes.some(l => l.visible), procesando: algunoProcesando, pausada: algunaPausada, cancelado: todosCancelados, fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [], creadoEn: Math.min(...lotes.map(l => l.creadoEn)), completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null, orden: primerLote.orden, archivoActual, grupoId, lotesIds: lotes.map(l => l.id), subidosStorage, totalStorage }
+    return { id: `grp_${grupoId}`, total, enviados, ok: lotes.reduce((a, l) => a + l.ok, 0), pendientes: lotes.reduce((a, l) => a + l.pendientes, 0), duplicados: lotes.reduce((a, l) => a + l.duplicados, 0), ignorados: lotes.reduce((a, l) => a + (l.ignorados || 0), 0), errores: lotes.reduce((a, l) => a + l.errores, 0), achtung: lotes.reduce((a, l) => a + l.achtung, 0), cancelados: lotes.reduce((a, l) => a + l.cancelados, 0), achtungMensaje: achtungL?.achtungMensaje || null, achtungTipo: achtungL?.achtungTipo || null, log: logAcumulado, visible: lotes.some(l => l.visible), procesando: algunoProcesando, pausada: algunaPausada, cancelado: todosCancelados, fnName: primerLote.fnName, titular_id: primerLote.titular_id, archivosPendientes: [], creadoEn: Math.min(...lotes.map(l => l.creadoEn)), completadoEn: todosCompletados ? Math.max(...lotes.map(l => l.completadoEn || 0)) || null : null, orden: primerLote.orden, archivoActual, grupoId, lotesIds: lotes.map(l => l.id), subidosStorage, totalStorage }
   }).filter(Boolean)
   return [...agregadas, ...sueltas].sort((a, b) => a.orden - b.orden)
 }
@@ -227,7 +229,7 @@ async function cargarSesionesActivas() {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase
       .from('ocr_sessions')
-      .select('id,total,enviados,ok,pendientes,duplicados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
+      .select('id,total,enviados,ok,pendientes,duplicados,ignorados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
       .gte('creado_en', cutoff)
       .eq('visible', true)
       .in('estado_cola', ['staging', 'en_espera', 'procesando', 'completada', 'pausada'])
@@ -295,7 +297,7 @@ async function lanzarWorker() {
 
 function ponerPreparando(idLocal: string, total: number, hechos: number, mensaje: string, grupoId?: string) {
   const ya = preparandoLocal.find(s => s.id === idLocal)
-  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, pausada: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje, grupoId: grupoId ?? ya?.grupoId ?? null }
+  const ses: OcrSession = { id: idLocal, total, enviados: hechos, ok: 0, pendientes: 0, duplicados: 0, ignorados: 0, errores: 0, achtung: 0, cancelados: 0, achtungMensaje: null, achtungTipo: null, log: [], visible: true, procesando: true, cancelado: false, pausada: false, fnName: null, titular_id: null, archivosPendientes: [], creadoEn: ya?.creadoEn ?? Date.now(), completadoEn: null, orden: 0, archivoActual: mensaje, grupoId: grupoId ?? ya?.grupoId ?? null }
   if (ya) preparandoLocal = preparandoLocal.map(s => s.id === idLocal ? ses : s); else preparandoLocal = [...preparandoLocal, ses]; emit()
 }
 function quitarPreparando(idLocal: string) { preparandoLocal = preparandoLocal.filter(s => s.id !== idLocal); emit() }
@@ -308,6 +310,92 @@ async function subirAlStorage(grupoId: string, idx: number, name: string, type: 
 async function crearSesionBBDD(sesionId: string, grupoId: string, total: number, fnName: string, titular_id: string | null, ordenCola: number, totalStorage: number): Promise<string | null> {
   const { error } = await supabase.from('ocr_sessions').insert({ id: sesionId, total, enviados: 0, ok: 0, pendientes: 0, duplicados: 0, errores: 0, achtung: 0, cancelados: 0, achtung_mensaje: null, achtung_tipo: null, log: [], visible: true, cancelar_solicitado: false, fn_name: fnName, titular_id: titular_id || null, archivos_pendientes: [], estado: 'staging', estado_cola: 'staging', orden_cola: ordenCola, creado_en: new Date().toISOString(), grupo_id: grupoId, subidos_storage: 0, total_storage: totalStorage })
   if (error) return error.message; return null
+}
+
+// ── MANIFIESTO (cero pérdidas) ─────────────────────────────────────────────
+// Estados finales de una fila de manifiesto.
+const MANIFIESTO_FINALES = ['leida', 'lectura_manual', 'duplicada', 'ignorada', 'error', 'error_subida']
+
+export interface ManifiestoFila { nombre: string; estado: string; detalle: string | null }
+export interface ResumenManifiesto {
+  subidos: number       // N — archivos del manifiesto (lo que se arrastró)
+  leidos: number        // L
+  lecturaManual: number // M
+  ignorados: number     // I
+  duplicados: number    // D
+  errores: number       // E (error + error_subida)
+  unicos: number        // U = L+M+I+D+E
+  faltan: number        // sin estado final (registrado / en_storage)
+  faltantes: ManifiestoFila[]   // errores + faltan, nombrados con motivo
+  reencolables: number  // en_storage no procesados (los que "Retomar" puede relanzar)
+}
+
+// Inserta 1 fila por archivo en el manifiesto ANTES de subir nada al Storage.
+async function insertarManifiesto(rows: any[]) {
+  const CHUNK = 400
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    try {
+      const { error } = await supabase.from('ocr_manifiesto').insert(rows.slice(i, i + CHUNK))
+      if (error) console.error('[OCR manifiesto] insert:', error.message)
+    } catch (e: any) { console.error('[OCR manifiesto] insert excepción:', e?.message || e) }
+  }
+}
+
+// Marca una fila de manifiesto por su storage_path (determinista y único por grupo).
+async function marcarManifiesto(storagePath: string, estado: string, detalle?: string | null) {
+  try {
+    await supabase.from('ocr_manifiesto')
+      .update({ estado, detalle: detalle ?? null, actualizado: new Date().toISOString() })
+      .eq('storage_path', storagePath)
+  } catch { /* el manifiesto nunca rompe la subida */ }
+}
+
+// Lee el manifiesto de un grupo y devuelve el resumen "cero pérdidas".
+export async function cargarResumenManifiesto(grupoId: string): Promise<ResumenManifiesto | null> {
+  const { data, error } = await supabase
+    .from('ocr_manifiesto')
+    .select('nombre,estado,detalle')
+    .eq('grupo_id', grupoId)
+  if (error || !data) return null
+  let leidos = 0, lecturaManual = 0, ignorados = 0, duplicados = 0, errores = 0, faltan = 0, reencolables = 0
+  const faltantes: ManifiestoFila[] = []
+  for (const r of data as any[]) {
+    const est = r.estado as string
+    if (est === 'leida') leidos++
+    else if (est === 'lectura_manual') lecturaManual++
+    else if (est === 'ignorada') ignorados++
+    else if (est === 'duplicada') duplicados++
+    else if (est === 'error' || est === 'error_subida') { errores++; faltantes.push({ nombre: r.nombre, estado: est, detalle: r.detalle ?? null }) }
+    else { // registrado / en_storage → sin estado final = FALTAN
+      faltan++
+      if (est === 'en_storage') reencolables++
+      faltantes.push({ nombre: r.nombre, estado: est, detalle: r.detalle ?? null })
+    }
+  }
+  const unicos = leidos + lecturaManual + ignorados + duplicados + errores
+  return { subidos: data.length, leidos, lecturaManual, ignorados, duplicados, errores, unicos, faltan, faltantes, reencolables }
+}
+
+// "Retomar pendientes": reencola los archivos subidos (en_storage) que nunca se
+// procesaron, reconstruyendo archivos_pendientes por sesión y relanzando el worker.
+export async function reintentarPendientes(grupoId: string): Promise<number> {
+  const { data } = await supabase
+    .from('ocr_manifiesto')
+    .select('sesion_id,nombre,storage_path,estado')
+    .eq('grupo_id', grupoId)
+    .eq('estado', 'en_storage')
+  if (!data || data.length === 0) return 0
+  const porSes: Record<string, any[]> = {}
+  for (const r of data as any[]) { (porSes[r.sesion_id] ??= []).push(r) }
+  for (const [sesId, rows] of Object.entries(porSes)) {
+    const archivos = rows.map(r => ({ name: r.nombre, type: getMimeTypeBase(getExt(r.nombre)), storagePath: r.storage_path, esComprimido: ['zip', 'rar', '7z'].includes(getExt(r.nombre)) }))
+    try {
+      await supabase.from('ocr_sessions').update({ archivos_pendientes: archivos, estado: 'procesando', estado_cola: 'en_espera', pausar_solicitado: false, visible: true }).eq('id', sesId)
+    } catch { /* noop */ }
+  }
+  lanzarWorker()
+  await cargarSesionesActivas()
+  return data.length
 }
 
 async function actualizarProgresoStorage(sesionId: string, subidos: number) {
@@ -472,6 +560,25 @@ export function useOcrUpload() {
       if (err) { setErrorVisible(`Error creando sesión: ${err}`); quitarPreparando(idLocal); return }
       sesionesCreadas.push({ id: sesionId, rangoIni: ini, rangoFin: fin })
     }
+
+    // MANIFIESTO (cero pérdidas): 1 fila por archivo con estado 'registrado' ANTES de
+    // subir nada a Storage. storage_path es determinista (= el que usará subirAlStorage),
+    // así la subida puede marcar cada fila por su ruta. Si el navegador muere ahora, queda
+    // rastro de TODO lo que entró → la sesión podrá retomarse sin perder nada.
+    const manifiestoRows = normalizados.map((norm, idxGlobal) => {
+      const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
+      return {
+        sesion_id: ses.id,
+        grupo_id: grupoId,
+        nombre: norm.name,
+        size: norm.blob.size,
+        hash_cliente: null,
+        storage_path: `${grupoId}/${sanitizeForPath(norm.name, idxGlobal)}`,
+        estado: 'registrado',
+        detalle: null,
+      }
+    })
+    await insertarManifiesto(manifiestoRows)
     await cargarSesionesActivas()
 
     const archivosSubidos: { sesionId: string; name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
@@ -483,8 +590,14 @@ export function useOcrUpload() {
         const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
         archivosSubidos.push({ sesionId: ses.id, name: norm.name, type: norm.type, storagePath: path, esComprimido: norm.esComprimido })
         subidos++
+        marcarManifiesto(path, 'en_storage') // fire-and-forget: subido al almacén
       } catch (e: any) {
-        if ((e?.message || String(e)) !== 'cancelado') { fallos++; console.error(`[OCR] Error subiendo ${norm.name}:`, e?.message || e) }
+        const msg = e?.message || String(e)
+        if (msg !== 'cancelado') {
+          fallos++; console.error(`[OCR] Error subiendo ${norm.name}:`, msg)
+          // NUNCA descartar en silencio: la fila de manifiesto queda 'error_subida' (visible).
+          marcarManifiesto(`${grupoId}/${sanitizeForPath(norm.name, idxGlobal)}`, 'error_subida', String(`subida falló: ${msg}`).slice(0, 500))
+        }
       }
       const hechos = subidos + fallos; ponerPreparando(idLocal, totalReal, hechos, `Subiendo ${hechos} de ${totalReal}…`, grupoId)
       // Guardar rutas incrementalmente cada 5 subidas para permitir reanudación si la pestaña se cierra

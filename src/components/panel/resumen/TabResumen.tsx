@@ -33,6 +33,7 @@ interface Props {
   fechaDesde: Date
   fechaHasta: Date
   canalesFiltro: string[]
+  periodoLabel?: string
   onFiltrarDiaSemana?: (idxDow: number) => void
 }
 
@@ -117,7 +118,7 @@ const GRUPO_DEFAULT_PCT: Record<GrupoGasto, number> = {
 }
 
 export default function TabResumen({
-  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, onFiltrarDiaSemana,
+  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana,
 }: Props) {
   const navigate = useNavigate()
 
@@ -720,7 +721,7 @@ export default function TabResumen({
         <ColDiasPico
           dias={diasPico}
           media={mediaDiariaPico}
-          nombreMes={nombreMes}
+          nombreMes={periodoLabel ?? nombreMes}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
           onClickDia={onFiltrarDiaSemana}

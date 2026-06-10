@@ -21,6 +21,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
+import Cashflow from '@/pages/finanzas/Cashflow'
 
 interface Row {
   fecha: string
@@ -764,114 +765,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {mainTab === 'cashflow' && (
-          <div style={{ padding:'20px 0' }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5" style={{ marginBottom:20 }}>
-
-              <div style={cardStyle(T)}>
-                <div style={{ ...sectionLabelStyle(T), marginBottom:12 }}>Cobros pendientes</div>
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:'Lexend,sans-serif', fontSize:12 }}>
-                    <thead>
-                      <tr>{['Plataforma','Periodo','Bruto','Neto est.','Fecha pago'].map(h => (
-                        <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontFamily:'Oswald,sans-serif', fontSize:9, letterSpacing:'1px', textTransform:'uppercase', color:T.mut, borderBottom:`1px solid ${T.brd}` }}>{h}</th>
-                      ))}</tr>
-                    </thead>
-                    <tbody>
-                      {canalStats.filter(c => c.bruto > 0 && c.id !== 'dir').map(c => {
-                        const diasLiq = c.id === 'uber' ? 14 : c.id === 'glovo' ? 14 : c.id === 'je' ? 28 : 7
-                        return (
-                          <tr key={c.id}>
-                            <td style={{ padding:'6px 8px', color:c.color, fontFamily:'Oswald,sans-serif', borderBottom:`0.5px solid ${T.brd}` }}>{c.label}</td>
-                            <td style={{ padding:'6px 8px', color:T.sec, borderBottom:`0.5px solid ${T.brd}` }}>{fechaLabel}</td>
-                            <td style={{ padding:'6px 8px', color:T.pri, textAlign:'right', borderBottom:`0.5px solid ${T.brd}` }}>{fmtEur(c.bruto)}</td>
-                            <td style={{ padding:'6px 8px', color:NETO_GREEN, textAlign:'right', fontFamily:'Oswald,sans-serif', borderBottom:`0.5px solid ${T.brd}` }}>{fmtEur(c.neto)}</td>
-                            <td style={{ padding:'6px 8px', color:T.mut, borderBottom:`0.5px solid ${T.brd}` }}>~{diasLiq}d</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div style={cardStyle(T)}>
-                <div style={{ ...sectionLabelStyle(T), marginBottom:12 }}>Pagos pendientes</div>
-                <div style={{ fontSize:12, color:T.mut, fontFamily:'Lexend,sans-serif', marginBottom:8 }}>
-                  Pendiente: integrar tabla gastos_fijos y facturas con pagada=false + fecha_vencimiento.
-                </div>
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:'Lexend,sans-serif', fontSize:12 }}>
-                    <thead>
-                      <tr>{['Proveedor','Concepto','Importe','Vencimiento','Tipo'].map(h => (
-                        <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontFamily:'Oswald,sans-serif', fontSize:9, letterSpacing:'1px', textTransform:'uppercase', color:T.mut, borderBottom:`1px solid ${T.brd}` }}>{h}</th>
-                      ))}</tr>
-                    </thead>
-                    <tbody>
-                      <tr><td colSpan={5} style={{ padding:'16px 8px', color:T.mut, textAlign:'center' }}>Sin datos. Conectar gastos_fijos.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5" style={{ marginBottom:20 }}>
-              <div style={cardStyle(T)}>
-                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:T.mut, marginBottom:6 }}>Provisión IVA</div>
-                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:22, fontWeight:600, color:'#66aaff' }}>{fmtEur(netoTotal * 0.21)}</div>
-                <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut, marginTop:4 }}>21% × ingresos netos periodo (estimado)</div>
-              </div>
-              <div style={cardStyle(T)}>
-                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:T.mut, marginBottom:6 }}>Provisión IRPF</div>
-                <div style={{ fontFamily:'Oswald,sans-serif', fontSize:22, fontWeight:600, color:'#9ba8c0' }}>{fmtEur(ventasPeriodo * 0.02)}</div>
-                <div style={{ fontFamily:'Lexend,sans-serif', fontSize:11, color:T.mut, marginTop:4 }}>19% retención alquiler (estimado)</div>
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle(T), marginBottom:14 }}>
-              <div style={{ ...sectionLabelStyle(T), marginBottom:16 }}>Saldo proyectado</div>
-              {(() => {
-                const cobros = netoTotal
-                const puntos = [
-                  { label:'Hoy',  saldo:0 },
-                  { label:'+7d', saldo:cobros * 0.3 },
-                  { label:'+30d', saldo:cobros * 0.9 },
-                  { label:'+3m', saldo:cobros * 0.7 },
-                  { label:'+6m', saldo:cobros * 0.5 },
-                ]
-                const maxSaldo = Math.max(...puntos.map(p => p.saldo), 1)
-                return (
-                  <div style={{ display:'flex', alignItems:'flex-end', height:80, paddingBottom:24, position:'relative' }}>
-                    {puntos.map((p, idx) => {
-                      const h = Math.max(Math.round((p.saldo / maxSaldo) * 60), 4)
-                      return (
-                        <div key={p.label} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                          <span style={{ fontFamily:'Oswald,sans-serif', fontSize:10, color:T.mut }}>{p.saldo > 0 ? fmtEur(p.saldo).replace(' €','') : '—'}</span>
-                          <div style={{ height:60, display:'flex', alignItems:'flex-end', width:'100%', justifyContent:'center' }}>
-                            <div style={{ width:'60%', height:h, background: idx === 0 ? T.brd : NETO_GREEN, borderRadius:'3px 3px 0 0', opacity: p.saldo > 0 ? 0.8 : 0.3 }} />
-                          </div>
-                          <span style={{ fontFamily:'Lexend,sans-serif', fontSize:10, color:T.mut }}>{p.label}</span>
-                        </div>
-                      )
-                    })}
-                    <div style={{ position:'absolute', bottom:24, left:0, right:0, height:1, background:T.brd, pointerEvents:'none' }} />
-                  </div>
-                )
-              })()}
-              <div style={{ fontSize:11, color:T.mut, marginTop:8, fontFamily:'Lexend,sans-serif' }}>
-                Proyección basada en cobros pendientes estimados. Conectar gastos_fijos para mayor precisión.
-              </div>
-            </div>
-
-            <div style={cardStyle(T)}>
-              <div style={{ ...sectionLabelStyle(T), marginBottom:12 }}>Pagos críticos próximos 90 días</div>
-              <div style={{ fontSize:12, color:T.mut, fontFamily:'Lexend,sans-serif' }}>
-                Pendiente: integrar gastos_fijos con fecha_vencimiento para listar pagos &gt;500€.
-              </div>
-            </div>
-          </div>
-        )}
+        {mainTab === 'cashflow' && <Cashflow />}
 
         {mainTab === 'marcas' && (() => {
           const agrupado: Record<string, Record<string, { bruto: number; neto: number; pedidos: number }>> = {}
