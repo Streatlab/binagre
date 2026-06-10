@@ -10,6 +10,7 @@
   ],
   "crons": [
     { "path": "/api/facturas?action=cartero", "schedule": "0 5 * * *" },
-    { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" }
+    { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" },
+    { "path": "/api/facturas?action=reproc", "schedule": "30 * * * *" }
   ]
 }
