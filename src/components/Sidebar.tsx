@@ -62,10 +62,18 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', emoji: '🛠️', label: 'Operaciones', perfiles: ['admin'],
     items: [
-      { path: '/ops/checklists', label: 'Checklists',    emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/tareas',     label: 'Tareas',        emoji: '📝', perfiles: ['admin'] },
-      { path: '/ops/manuales',   label: 'Manuales',      emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos', label: 'Reclamaciones', emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/checklists',          label: 'Checklists',           emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/tareas',              label: 'Tareas',               emoji: '📝', perfiles: ['admin'] },
+      { path: '/ops/manuales',            label: 'Manuales',             emoji: '📚', perfiles: ['admin'] },
+      { path: '/ops/reembolsos',          label: 'Reclamaciones',        emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/pulso',               label: 'Pulso Cocina',         emoji: '📡', perfiles: ['admin'] },
+      { path: '/ops/temperaturas',        label: 'Temperaturas',         emoji: '🌡️', perfiles: ['admin'] },
+      { path: '/ops/bpm',                 label: 'BPM / Calidad',        emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/equipos',             label: 'Libro Equipos',        emoji: '🔧', perfiles: ['admin'] },
+      { path: '/ops/danos',               label: 'Daños Menaje',         emoji: '🍽️', perfiles: ['admin'] },
+      { path: '/ops/pedidos-menaje',      label: 'Pedidos Menaje',       emoji: '📦', perfiles: ['admin'] },
+      { path: '/ops/bitacora',            label: 'Bitácora',             emoji: '🔔', perfiles: ['admin'] },
+      { path: '/ops/reuniones',           label: 'Reuniones Equipo',     emoji: '🤝', perfiles: ['admin'] },
     ],
   },
   {
