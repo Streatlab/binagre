@@ -52,7 +52,7 @@ export function autoCategorizar(
   if (upper.includes('ALQUILER') && upper.includes('MALICIOSA')) return '2.31.1'
 
   for (const rule of KEYWORD_RULES) {
-    if (rule.keywords.some(kw => upper.includes(kw))) {
+    if (rule.keywords.some(kw => new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(upper))) {
       return rule.categoriaId
     }
   }
