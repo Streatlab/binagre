@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed } from 'lucide-react'
+import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, ArrowUp, ArrowDown, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -18,6 +18,16 @@ type Puesto = {
   dedicacion_horas: number | null
   color: string | null
   estado: string
+  es_responsable: boolean
+  mision: string | null
+  hab_duras: string | null
+  hab_blandas: string | null
+  kpis: string | null
+  onboarding: string | null
+  capacitacion: string | null
+  controles: string | null
+  plan_carrera: string | null
+  delegacion: string | null
 }
 
 const NIVELES: { n: number; label: string }[] = [
@@ -27,9 +37,9 @@ const NIVELES: { n: number; label: string }[] = [
   { n: 4, label: 'Externos / colaboradores' },
 ]
 
-function fnList(funciones: string | null): string[] {
-  if (!funciones) return []
-  return funciones.split('|').map(f => f.trim()).filter(Boolean)
+function lst(v: string | null): string[] {
+  if (!v) return []
+  return v.split('|').map(f => f.trim()).filter(Boolean)
 }
 
 function dedicLabel(p: Puesto): string {
@@ -43,7 +53,9 @@ function dedicLabel(p: Puesto): string {
 const EMPTY: Omit<Puesto, 'id'> = {
   orden: 99, nivel: 3, area: 'Cocina', puesto: '', persona: SIN_ASIGNAR,
   reporta_a: '', funciones: '', dedicacion_tipo: 'completa', dedicacion_horas: 40,
-  color: '#f5a623', estado: 'objetivo',
+  color: '#f5a623', estado: 'objetivo', es_responsable: false,
+  mision: '', hab_duras: '', hab_blandas: '', kpis: '', onboarding: '',
+  capacitacion: '', controles: '', plan_carrera: '', delegacion: '',
 }
 
 export default function Organigrama() {
@@ -51,28 +63,23 @@ export default function Organigrama() {
   const [puestos, setPuestos] = useState<Puesto[]>([])
   const [loading, setLoading] = useState(true)
   const [vista, setVista] = useState<'organigrama' | 'tabla'>('organigrama')
-  const [modal, setModal] = useState<{ open: boolean; data: Puesto | null }>({ open: false, data: null })
+  const [detalle, setDetalle] = useState<{ open: boolean; data: Puesto | null; edit: boolean }>({ open: false, data: null, edit: false })
 
-  async function fetch() {
+  async function fetchAll() {
     const { data, error } = await supabase
-      .from('organigrama_puestos')
-      .select('*')
-      .order('nivel').order('orden')
+      .from('organigrama_puestos').select('*').order('nivel').order('orden')
     if (!error) setPuestos((data ?? []) as Puesto[])
     setLoading(false)
   }
-  useEffect(() => { fetch() }, [])
+  useEffect(() => { fetchAll() }, [])
 
   const kpis = useMemo(() => {
     const internos = puestos.filter(p => p.dedicacion_tipo !== 'externo')
     const cubiertos = internos.filter(p => p.persona && p.persona !== SIN_ASIGNAR)
-    const porCubrir = internos.length - cubiertos.length
     const fte = puestos.reduce((s, p) => s + (p.dedicacion_horas ? p.dedicacion_horas / 40 : 0), 0)
     return {
-      total: puestos.length,
-      cubiertos: cubiertos.length,
-      internos: internos.length,
-      porCubrir,
+      total: puestos.length, cubiertos: cubiertos.length, internos: internos.length,
+      porCubrir: internos.length - cubiertos.length,
       pct: internos.length ? Math.round((cubiertos.length / internos.length) * 100) : 0,
       fte: Math.round(fte * 10) / 10,
     }
@@ -83,14 +90,13 @@ export default function Organigrama() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <h1 style={pageTitleStyle(T)}>Organigrama</h1>
         <button
-          onClick={() => setModal({ open: true, data: { id: '', ...EMPTY } as Puesto })}
+          onClick={() => setDetalle({ open: true, data: { id: '', ...EMPTY } as Puesto, edit: true })}
           style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <Plus size={14} /> Nuevo puesto
         </button>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '18px 0 26px' }}>
         <KpiCard T={T} label="Puestos" value={String(kpis.total)} icon={<Users size={15} />} />
         <KpiCard T={T} label="Cubiertos" value={`${kpis.cubiertos} / ${kpis.internos}`} icon={<CheckCircle2 size={15} />} accent="#1D9E75" />
@@ -99,7 +105,6 @@ export default function Organigrama() {
         <KpiCard T={T} label="Dedicación objetivo" value={`${kpis.fte} FTE`} />
       </div>
 
-      {/* Vista toggle */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
         <button onClick={() => setVista('organigrama')} style={vista === 'organigrama' ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
           <LayoutGrid size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Organigrama
@@ -120,22 +125,24 @@ export default function Organigrama() {
               <div key={n}>
                 <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>{label}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-                  {grupo.map(p => <PuestoCard key={p.id} p={p} T={T} isDark={isDark} onClick={() => setModal({ open: true, data: p })} />)}
+                  {grupo.map(p => <PuestoCard key={p.id} p={p} T={T} onClick={() => setDetalle({ open: true, data: p, edit: false })} />)}
                 </div>
               </div>
             )
           })}
         </div>
       ) : (
-        <Tabla puestos={puestos} T={T} isDark={isDark} onRow={p => setModal({ open: true, data: p })} />
+        <Tabla puestos={puestos} T={T} isDark={isDark} onRow={p => setDetalle({ open: true, data: p, edit: false })} />
       )}
 
-      {modal.open && modal.data && (
-        <ModalPuesto
+      {detalle.open && detalle.data && (
+        <DetalleCargo
           T={T} isDark={isDark}
-          data={modal.data}
-          onClose={() => setModal({ open: false, data: null })}
-          onSaved={() => { fetch(); setModal({ open: false, data: null }) }}
+          data={detalle.data}
+          puestos={puestos}
+          editInit={detalle.edit}
+          onClose={() => setDetalle({ open: false, data: null, edit: false })}
+          onSaved={() => { fetchAll(); setDetalle({ open: false, data: null, edit: false }) }}
         />
       )}
     </div>
@@ -145,30 +152,26 @@ export default function Organigrama() {
 function KpiCard({ T, label, value, icon, accent }: { T: any; label: string; value: string; icon?: React.ReactNode; accent?: string }) {
   return (
     <div style={{ ...cardStyle(T), padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
-        {icon}{label}
-      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{icon}{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, color: accent ?? T.pri, lineHeight: 1 }}>{value}</div>
     </div>
   )
 }
 
-function PuestoCard({ p, T, isDark, onClick }: { p: Puesto; T: any; isDark: boolean; onClick: () => void }) {
+function PuestoCard({ p, T, onClick }: { p: Puesto; T: any; onClick: () => void }) {
   const asignado = p.persona && p.persona !== SIN_ASIGNAR
-  const funcs = fnList(p.funciones)
+  const funcs = lst(p.funciones)
   return (
-    <div
-      onClick={onClick}
+    <div onClick={onClick}
       style={{ ...cardStyle(T), width: 270, padding: 0, overflow: 'hidden', cursor: 'pointer', borderTop: `3px solid ${p.color ?? '#B01D23'}` }}
       onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-    >
+      onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>
       <div style={{ padding: '14px 16px' }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: T.pri, lineHeight: 1.25, marginBottom: 8 }}>{p.puesto}</div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 5, fontSize: 12, fontWeight: 600, fontFamily: FONT.body, marginBottom: 10,
-          background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>
-          {p.persona}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: T.pri, lineHeight: 1.25, flex: 1 }}>{p.puesto}</div>
+          {p.es_responsable && <Star size={14} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0, marginTop: 2 }} />}
         </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 5, fontSize: 12, fontWeight: 600, fontFamily: FONT.body, marginBottom: 10, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{p.persona}</div>
         <div style={{ fontSize: 11, color: T.sec, marginBottom: 10 }}>{dedicLabel(p)}</div>
         {funcs.length > 0 && (
           <ul style={{ margin: 0, paddingLeft: 16, color: T.sec, fontSize: 12, lineHeight: 1.5 }}>
@@ -176,6 +179,7 @@ function PuestoCard({ p, T, isDark, onClick }: { p: Puesto; T: any; isDark: bool
             {funcs.length > 3 && <li style={{ color: T.mut, listStyle: 'none', marginLeft: -16 }}>+{funcs.length - 3} más</li>}
           </ul>
         )}
+        <div style={{ marginTop: 12, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: '#B01D23' }}>Ver perfil →</div>
       </div>
     </div>
   )
@@ -188,11 +192,9 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
     <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-              <th style={th}>Puesto</th><th style={th}>Persona</th><th style={th}>Área</th><th style={th}>Dedicación</th><th style={th}>Reporta a</th>
-            </tr>
-          </thead>
+          <thead><tr style={{ borderBottom: `1px solid ${T.brd}` }}>
+            <th style={th}>Puesto</th><th style={th}>Persona</th><th style={th}>Área</th><th style={th}>Dedicación</th><th style={th}>Reporta a</th>
+          </tr></thead>
           <tbody>
             {puestos.map(p => {
               const asignado = p.persona && p.persona !== SIN_ASIGNAR
@@ -200,7 +202,7 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
                 <tr key={p.id} onClick={() => onRow(p)} style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? '#B01D23', marginRight: 8 }} />{p.puesto}</td>
+                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? '#B01D23', marginRight: 8 }} />{p.puesto}{p.es_responsable && <Star size={11} color="#e8b341" fill="#e8b341" style={{ marginLeft: 6, verticalAlign: '-1px' }} />}</td>
                   <td style={{ ...td, color: asignado ? T.pri : T.mut }}>{p.persona}</td>
                   <td style={{ ...td, color: T.sec }}>{p.area}</td>
                   <td style={{ ...td, color: T.sec, fontSize: 12 }}>{dedicLabel(p)}</td>
@@ -215,118 +217,175 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
   )
 }
 
-function ModalPuesto({ T, isDark, data, onClose, onSaved }: { T: any; isDark: boolean; data: Puesto; onClose: () => void; onSaved: () => void }) {
+function Seccion({ T, titulo, children }: { T: any; titulo: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{titulo}</div>
+      {children}
+    </div>
+  )
+}
+
+function Lista({ T, items, dot = '#B01D23' }: { T: any; items: string[]; dot?: string }) {
+  if (!items.length) return <div style={{ color: T.mut, fontSize: 13 }}>—</div>
+  return (
+    <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map((it, i) => (
+        <li key={i} style={{ display: 'flex', gap: 8, color: T.sec, fontSize: 13, lineHeight: 1.45 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot, marginTop: 6, flexShrink: 0 }} />
+          <span>{it}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function DetalleCargo({ T, isDark, data, puestos, editInit, onClose, onSaved }: { T: any; isDark: boolean; data: Puesto; puestos: Puesto[]; editInit: boolean; onClose: () => void; onSaved: () => void }) {
+  const [mode, setMode] = useState<'view' | 'edit'>(editInit ? 'edit' : 'view')
   const [form, setForm] = useState<Puesto>({ ...data })
   const [saving, setSaving] = useState(false)
   const esNuevo = !data.id
-
   function up<K extends keyof Puesto>(k: K, v: Puesto[K]) { setForm(f => ({ ...f, [k]: v })) }
+
+  const subordinados = puestos.filter(p => p.reporta_a && data.puesto && p.reporta_a === data.puesto)
+  const asignado = data.persona && data.persona !== SIN_ASIGNAR
 
   async function guardar() {
     setSaving(true)
-    const payload = {
-      orden: Number(form.orden) || 0,
-      nivel: Number(form.nivel) || 3,
-      area: form.area || 'General',
-      puesto: form.puesto,
-      persona: form.persona || SIN_ASIGNAR,
-      reporta_a: form.reporta_a || null,
-      funciones: form.funciones || null,
-      dedicacion_tipo: form.dedicacion_tipo,
-      dedicacion_horas: form.dedicacion_horas === null || form.dedicacion_horas === undefined || (form.dedicacion_horas as any) === '' ? null : Number(form.dedicacion_horas),
+    const payload: any = {
+      orden: Number(form.orden) || 0, nivel: Number(form.nivel) || 3,
+      area: form.area || 'General', puesto: form.puesto,
+      persona: form.persona || SIN_ASIGNAR, reporta_a: form.reporta_a || null,
+      funciones: form.funciones || null, dedicacion_tipo: form.dedicacion_tipo,
+      dedicacion_horas: form.dedicacion_horas === null || (form.dedicacion_horas as any) === '' ? null : Number(form.dedicacion_horas),
       color: form.color || '#B01D23',
       estado: form.persona && form.persona !== SIN_ASIGNAR ? 'cubierto' : 'objetivo',
+      es_responsable: !!form.es_responsable,
+      mision: form.mision || null, hab_duras: form.hab_duras || null, hab_blandas: form.hab_blandas || null,
+      kpis: form.kpis || null, onboarding: form.onboarding || null, capacitacion: form.capacitacion || null,
+      controles: form.controles || null, plan_carrera: form.plan_carrera || null, delegacion: form.delegacion || null,
     }
     if (esNuevo) await supabase.from('organigrama_puestos').insert(payload)
     else await supabase.from('organigrama_puestos').update(payload).eq('id', data.id)
-    setSaving(false)
-    onSaved()
+    setSaving(false); onSaved()
   }
-
   async function borrar() {
     if (!data.id) return
     if (!confirm('¿Eliminar este puesto del organigrama?')) return
-    await supabase.from('organigrama_puestos').delete().eq('id', data.id)
-    onSaved()
+    await supabase.from('organigrama_puestos').delete().eq('id', data.id); onSaved()
   }
 
   const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6, display: 'block' }
   const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'var(--sl-app)', color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const ta = (lines = 5): React.CSSProperties => ({ ...inp, minHeight: lines * 22, resize: 'vertical' })
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', border: `1px solid ${T.brd}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 22px', borderBottom: `1px solid ${T.brd}` }}>
-          <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: T.pri }}>{esNuevo ? 'Nuevo puesto' : 'Editar puesto'}</span>
-          <X size={20} style={{ cursor: 'pointer', color: T.mut }} onClick={onClose} />
-        </div>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 16, overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? '#B01D23'}` }}>
 
-        <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label style={lbl}>Puesto</label>
-            <input style={inp} value={form.puesto} onChange={e => up('puesto', e.target.value)} placeholder="Ej. Jefe/a de cocina" />
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px', borderBottom: `1px solid ${T.brd}`, gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: T.pri, lineHeight: 1.2 }}>{esNuevo ? 'Nuevo puesto' : data.puesto}</div>
+            {!esNuevo && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{data.persona}</span>
+                <span style={{ fontSize: 12, color: T.sec }}>{data.area} · {dedicLabel(data)}</span>
+                {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#e8b341' }}><Star size={12} fill="#e8b341" />Responsable de área</span>}
+              </div>
+            )}
           </div>
-          <div>
-            <label style={lbl}>Persona asignada</label>
-            <input style={inp} value={form.persona} onChange={e => up('persona', e.target.value)} placeholder={SIN_ASIGNAR} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={lbl}>Área</label>
-              <input style={inp} value={form.area} onChange={e => up('area', e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>Nivel</label>
-              <select style={inp} value={form.nivel} onChange={e => up('nivel', Number(e.target.value))}>
-                {NIVELES.map(n => <option key={n.n} value={n.n}>{n.n} · {n.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>Reporta a</label>
-            <input style={inp} value={form.reporta_a ?? ''} onChange={e => up('reporta_a', e.target.value)} placeholder="Puesto superior" />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={lbl}>Dedicación</label>
-              <select style={inp} value={form.dedicacion_tipo} onChange={e => up('dedicacion_tipo', e.target.value)}>
-                <option value="completa">Jornada completa</option>
-                <option value="parcial">Parcial</option>
-                <option value="variable">Variable</option>
-                <option value="externo">Externo</option>
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Horas / semana</label>
-              <input style={inp} type="number" value={form.dedicacion_horas ?? ''} onChange={e => up('dedicacion_horas', e.target.value === '' ? null : Number(e.target.value))} placeholder="40" />
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>Funciones objetivo (una por línea)</label>
-            <textarea
-              style={{ ...inp, minHeight: 120, resize: 'vertical' }}
-              value={fnList(form.funciones).join('\n')}
-              onChange={e => up('funciones', e.target.value.split('\n').map(l => l.trim()).filter(Boolean).join('|'))}
-              placeholder={'Planificar la producción diaria\nControl de mermas y stock\nApertura y cierre de cocina'}
-            />
-          </div>
-          <div>
-            <label style={lbl}>Color</label>
-            <input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? '#B01D23'} onChange={e => up('color', e.target.value)} />
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {mode === 'view' && (
+              <button onClick={() => setMode('edit')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Pencil size={13} />Editar</button>
+            )}
+            <X size={22} style={{ cursor: 'pointer', color: T.mut }} onClick={onClose} />
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 22px', borderTop: `1px solid ${T.brd}` }}>
-          {!esNuevo ? (
-            <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: '#B01D23', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
-              <Trash2 size={13} /> Eliminar
-            </button>
-          ) : <span />}
-          <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>
-            {saving ? 'Guardando…' : 'Guardar'}
-          </button>
+        <div style={{ padding: 24 }}>
+          {mode === 'view' ? (
+            <>
+              {data.mision && <Seccion T={T} titulo="Misión del puesto"><div style={{ color: T.pri, fontSize: 14, lineHeight: 1.5 }}>{data.mision}</div></Seccion>}
+
+              <Seccion T={T} titulo="Cadena de mando">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: T.sec }}>
+                  <div><span style={{ color: T.mut }}>Depende de: </span><span style={{ color: T.pri }}>{data.reporta_a || '— (cúpula)'}</span></div>
+                  <div><span style={{ color: T.mut }}>Le reportan: </span><span style={{ color: T.pri }}>{subordinados.length ? subordinados.map(s => s.puesto).join(', ') : '—'}</span></div>
+                </div>
+              </Seccion>
+
+              <Seccion T={T} titulo="Funciones"><Lista T={T} items={lst(data.funciones)} /></Seccion>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
+                <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot="#1e2233" /></Seccion>
+                <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot="#66aaff" /></Seccion>
+              </div>
+
+              <Seccion T={T} titulo="Indicadores de desempeño (KPIs)"><Lista T={T} items={lst(data.kpis)} dot="#1D9E75" /></Seccion>
+              <Seccion T={T} titulo="Controles de cumplimiento y rendimiento"><Lista T={T} items={lst(data.controles)} dot="#e8b341" /></Seccion>
+              <Seccion T={T} titulo="Onboarding"><Lista T={T} items={lst(data.onboarding)} dot="#9b6dff" /></Seccion>
+              <Seccion T={T} titulo="Plan de capacitación"><Lista T={T} items={lst(data.capacitacion)} dot="#06C167" /></Seccion>
+
+              {data.plan_carrera && <Seccion T={T} titulo="Plan de carrera / ascenso"><div style={{ color: T.sec, fontSize: 13, lineHeight: 1.5 }}>{data.plan_carrera}</div></Seccion>}
+              {data.delegacion && <Seccion T={T} titulo="Plan de delegación"><div style={{ color: T.sec, fontSize: 13, lineHeight: 1.5 }}>{data.delegacion}</div></Seccion>}
+            </>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div><label style={lbl}>Puesto</label><input style={inp} value={form.puesto} onChange={e => up('puesto', e.target.value)} placeholder="Ej. Jefe/a de cocina" /></div>
+              <div><label style={lbl}>Persona asignada</label><input style={inp} value={form.persona} onChange={e => up('persona', e.target.value)} placeholder={SIN_ASIGNAR} /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div><label style={lbl}>Área</label><input style={inp} value={form.area} onChange={e => up('area', e.target.value)} /></div>
+                <div><label style={lbl}>Nivel</label><select style={inp} value={form.nivel} onChange={e => up('nivel', Number(e.target.value))}>{NIVELES.map(n => <option key={n.n} value={n.n}>{n.n} · {n.label}</option>)}</select></div>
+              </div>
+              <div><label style={lbl}>Reporta a</label><input style={inp} value={form.reporta_a ?? ''} onChange={e => up('reporta_a', e.target.value)} placeholder="Puesto superior" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div><label style={lbl}>Dedicación</label><select style={inp} value={form.dedicacion_tipo} onChange={e => up('dedicacion_tipo', e.target.value)}>
+                  <option value="completa">Jornada completa</option><option value="parcial">Parcial</option><option value="variable">Variable</option><option value="externo">Externo</option>
+                </select></div>
+                <div><label style={lbl}>Horas / semana</label><input style={inp} type="number" value={form.dedicacion_horas ?? ''} onChange={e => up('dedicacion_horas', e.target.value === '' ? null : Number(e.target.value))} placeholder="40" /></div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.pri, cursor: 'pointer' }}>
+                <input type="checkbox" checked={!!form.es_responsable} onChange={e => up('es_responsable', e.target.checked)} />
+                Responsable de área
+              </label>
+              <div><label style={lbl}>Misión del puesto</label><textarea style={ta(2)} value={form.mision ?? ''} onChange={e => up('mision', e.target.value)} /></div>
+              <CampoLista lbl="Funciones (una por línea)" T={T} ta={ta} value={form.funciones} onChange={v => up('funciones', v)} />
+              <CampoLista lbl="Habilidades duras (una por línea)" T={T} ta={ta} value={form.hab_duras} onChange={v => up('hab_duras', v)} />
+              <CampoLista lbl="Habilidades blandas (una por línea)" T={T} ta={ta} value={form.hab_blandas} onChange={v => up('hab_blandas', v)} />
+              <CampoLista lbl="Indicadores de desempeño / KPIs (uno por línea)" T={T} ta={ta} value={form.kpis} onChange={v => up('kpis', v)} />
+              <CampoLista lbl="Controles de cumplimiento (uno por línea)" T={T} ta={ta} value={form.controles} onChange={v => up('controles', v)} />
+              <CampoLista lbl="Onboarding (uno por línea)" T={T} ta={ta} value={form.onboarding} onChange={v => up('onboarding', v)} />
+              <CampoLista lbl="Plan de capacitación (uno por línea)" T={T} ta={ta} value={form.capacitacion} onChange={v => up('capacitacion', v)} />
+              <div><label style={lbl}>Plan de carrera / ascenso</label><textarea style={ta(2)} value={form.plan_carrera ?? ''} onChange={e => up('plan_carrera', e.target.value)} /></div>
+              <div><label style={lbl}>Plan de delegación</label><textarea style={ta(2)} value={form.delegacion ?? ''} onChange={e => up('delegacion', e.target.value)} /></div>
+              <div><label style={lbl}>Color</label><input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? '#B01D23'} onChange={e => up('color', e.target.value)} /></div>
+            </div>
+          )}
         </div>
+
+        {mode === 'edit' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: `1px solid ${T.brd}` }}>
+            {!esNuevo ? (
+              <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: '#B01D23', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={13} /> Eliminar</button>
+            ) : <span />}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {!esNuevo && <button onClick={() => setMode('view')} style={{ padding: '12px 16px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>}
+              <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+function CampoLista({ lbl, T, ta, value, onChange }: { lbl: string; T: any; ta: (n?: number) => React.CSSProperties; value: string | null; onChange: (v: string) => void }) {
+  const labelStyle: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6, display: 'block' }
+  return (
+    <div>
+      <label style={labelStyle}>{lbl}</label>
+      <textarea style={ta(5)} value={lst(value).join('\n')} onChange={e => onChange(e.target.value.split('\n').map(l => l.trim()).filter(Boolean).join('|'))} />
     </div>
   )
 }
