@@ -29,7 +29,7 @@ import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
-import type { ExtractedFactura } from '../_lib/ocr.js'
+import type { ExtractedFactura } from '../_lib/ocr-types.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
