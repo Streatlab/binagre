@@ -74,6 +74,7 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/pedidos-menaje',      label: 'Pedidos Menaje',       emoji: '📦', perfiles: ['admin'] },
       { path: '/ops/bitacora',            label: 'Bitácora',             emoji: '🔔', perfiles: ['admin'] },
       { path: '/ops/reuniones',           label: 'Reuniones Equipo',     emoji: '🤝', perfiles: ['admin'] },
+      { path: '/marcas',                  label: 'Marcas',               emoji: '🏷️', perfiles: ['admin'] },
     ],
   },
   {
