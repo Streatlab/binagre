@@ -62,26 +62,28 @@ export function useConciliacion() {
     ;(async () => {
       setLoading(true); setError(null)
       try {
-        const [movData, reg, cIng, cGas] = await Promise.all([
+        const [movData, reg, cPyg] = await Promise.all([
           fetchAllPaginated<Movimiento>(() =>
             supabase.from('conciliacion')
               .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
               .order('fecha', { ascending: false })
           ),
           supabase.from('reglas_conciliacion').select('id, patron, tipo_categoria, categoria_id, categoria_codigo, activa, prioridad').order('prioridad', { ascending: false }),
-          supabase.from('categorias_contables_ingresos').select('id, codigo, nombre'),
-          supabase.from('categorias_contables_gastos').select('id, codigo, nombre, grupo'),
+          supabase.from('categorias_pyg').select('id, codigo, nombre, nivel, parent_id').eq('nivel', 3),
         ])
         if (cancel) return
         if (reg.error) throw reg.error
-        if (cIng.error) throw cIng.error
-        if (cGas.error) throw cGas.error
+        if (cPyg.error) throw cPyg.error
         setMovimientos(movData)
         setReglas((reg.data ?? []) as Regla[])
-        const cats: CategoriaRef[] = [
-          ...(cIng.data ?? []).map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, tipo_parent: 'ingreso' as const })),
-          ...(cGas.data ?? []).map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, grupo: c.grupo, tipo_parent: 'gasto' as const })),
-        ]
+        // categorias_pyg nivel 3: tipo_parent por prefijo de cuenta contable PGC
+        // Cuentas 7xx = ingresos (grupo 7 PGC); resto = gastos
+        const cats: CategoriaRef[] = (cPyg.data ?? []).map((c: any) => ({
+          id: c.id,
+          codigo: c.codigo,
+          nombre: c.nombre,
+          tipo_parent: String(c.codigo ?? '').startsWith('7') ? ('ingreso' as const) : ('gasto' as const),
+        }))
         setCategorias(cats)
       } catch (e: any) {
         if (!cancel) setError(e.message ?? 'Error cargando conciliación')

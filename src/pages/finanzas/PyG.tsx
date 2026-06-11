@@ -2,15 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
 import { fmtEur, fmtPct } from '@/utils/format'
-
-// Canal commissions (from calcWaterfall.ts canonical values)
-const COMISIONES: Record<string, number> = {
-  uber: 0.30,
-  glovo: 0.30,
-  je: 0.30,
-  web: 0.07,
-  directa: 0.00,
-}
+import { calcNetoPorCanal, loadConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 
 const MESES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -62,6 +54,9 @@ export default function PyG() {
     const lastDay = new Date(year, month, 0).getDate()
     const fechaFin = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
 
+    // Pre-cargar config de canales para que calcNetoPorCanal pueda usarla en modo síncrono
+    await loadConfigCanales()
+
     const [facturacionRes, gastosRes, fijosRes] = await Promise.all([
       supabase
         .from('facturacion_diario')
@@ -89,12 +84,14 @@ export default function PyG() {
         const web = Number(row.web_bruto ?? 0)
         const directa = Number(row.directa_bruto ?? 0)
         brutos += uber + glovo + je + web + directa
+        // Neto calculado por la función central del ERP (calcNetoPorCanal)
+        // pedidos=0 → solo comisión variable sin fees periódicos ni por pedido
         netos +=
-          uber * (1 - COMISIONES.uber) +
-          glovo * (1 - COMISIONES.glovo) +
-          je * (1 - COMISIONES.je) +
-          web * (1 - COMISIONES.web) +
-          directa
+          calcNetoPorCanal('uber', uber, 0).neto +
+          calcNetoPorCanal('glovo', glovo, 0).neto +
+          calcNetoPorCanal('je', je, 0).neto +
+          calcNetoPorCanal('web', web, 0).neto +
+          calcNetoPorCanal('dir', directa, 0).neto
       }
     }
     setIngresosBrutos(brutos)

@@ -43,8 +43,8 @@ export function categoriaToSubcategoria(codigo: string | null | undefined): stri
   return SUBCATEGORIA[codigo] ?? 'ADMIN_GENERALES'
 }
 
-// Grupo se lee preferentemente de categorias_contables_gastos.grupo (ya poblado).
-// Si viene vacío o === 'CONTROLABLES', diferenciamos por código.
+// Grupo se infiere por prefijo de código (categorias_pyg no tiene columna grupo propia).
+// Si viene un grupoDB de otra fuente y no es 'CONTROLABLES', se usa directamente.
 export function grupoFromCategoria(
   codigo: string | null | undefined,
   grupoDB: string | null | undefined,
