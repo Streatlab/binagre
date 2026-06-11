@@ -11,6 +11,8 @@
   "crons": [
     { "path": "/api/facturas?action=cartero", "schedule": "0 5 * * *" },
     { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" },
-    { "path": "/api/facturas?action=reproc", "schedule": "30 * * * *" }
+    { "path": "/api/facturas?action=reproc", "schedule": "30 * * * *" },
+    { "path": "/api/ocr-queue", "schedule": "0 * * * *" },
+    { "path": "/api/ocr-cleanup", "schedule": "0 3 * * 0" }
   ]
 }
