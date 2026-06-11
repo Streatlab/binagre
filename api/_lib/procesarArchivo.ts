@@ -1,21 +1,9 @@
-// procesarArchivo v17 — TITULAR EXACTO POR NIF EN TEXTO (Rubén 03/06/26).
-//                      Toda factura es de Rubén o de Emilio. Se detecta el titular
-//                      buscando su NIF (21669051S / 53484832B) en el texto del
-//                      documento: si aparece uno, el titular es exacto, no estimado.
-//                      Se ELIMINA el default a Rubén: lo que no se detecta queda
-//                      titular NULL + pendiente_titular_manual (nunca colgado a uno).
-// v17 — Capas de pago Anthropic+Mistral con candado por proveedor (Ruben 04/06/26).
-//        Primario=Anthropic Haiku, respaldo=Mistral. Mismo candado: 1 pago/proveedor.
-// v16 — Mistral SOLO arranca proveedor NUEVO (NIF sin ficha en reglas_conciliacion).
-//                      Si el NIF emisor ya está registrado, NUNCA se vuelve a llamar a Mistral.
-// v15 — + PASO 3 Mistral (red de seguridad de pago tras reglas+Tesseract)
-// v14 — auditoría 1-a-1 + plantilla por NIF + OCR GRATIS (Tesseract)
-//                      + PARTIDO MULTI-FACTURA (varias facturas en un PDF)
-// COSTE 0 € SIEMPRE en lectura recurrente. La lectura va por dos vías gratis:
+// procesarArchivo v18 — OCR 100% GRATIS. Eliminadas capas de pago Anthropic+Mistral.
+// COSTE 0 € SIEMPRE. La lectura va por dos vías gratis:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
 //      gratis: saca el texto de la imagen y se reintenta la lectura por reglas.
-// Mistral es la ÚNICA excepción y SOLO como bootstrap de proveedor nuevo.
+// Si ninguna vía lee → estado LECTURA_MANUAL. Sin llamadas a APIs de pago.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -37,8 +25,6 @@ import {
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
-import { leerFacturaMistral, mistralDisponible, cuadraImportes } from './mistral-ocr.js'
-import { extraerDatosDesdeContenido as leerFacturaAnthropic } from './ocr.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 
@@ -56,14 +42,6 @@ const OCR_TESSERACT_ACTIVO = process.env.OCR_DESACTIVAR_TESSERACT !== 'true'
 // Kill-switch opcional del partido multi-factura. Por defecto ENCENDIDO.
 // Para apagarlo: OCR_DESACTIVAR_MULTIFACTURA=true en Vercel.
 const MULTIFACTURA_ACTIVO = process.env.OCR_DESACTIVAR_MULTIFACTURA !== 'true'
-
-// Tope diario de lecturas Mistral (bootstrap de proveedores nuevos). Default 200/día.
-const OCR_MISTRAL_LIMITE_DIARIO = Number(process.env.OCR_MISTRAL_LIMITE_DIARIO) || 200
-
-// Tope diario de lecturas Anthropic (bootstrap de proveedores nuevos). Default 200/dia.
-const OCR_ANTHROPIC_LIMITE_DIARIO = Number(process.env.OCR_ANTHROPIC_LIMITE_DIARIO) || 200
-// Lector de pago primario. 'anthropic' (def) o 'mistral'. El otro queda de respaldo.
-const OCR_LECTOR_PRIMARIO = (process.env.OCR_LECTOR_PRIMARIO === 'mistral' ? 'mistral' : 'anthropic') as 'anthropic' | 'mistral'
 
 const NIF_RUBEN = '21669051S'
 const NIF_EMILIO = '53484832B'
@@ -402,112 +380,7 @@ async function resolverTitular(
   return { titularId, carpeta, pendienteTitularManual: false, nifClienteNorm }
 }
 
-// ¿Queda margen dentro del tope diario de lecturas Mistral? Cuenta las filas de
-// ocr_auditoria con origen_lectura='mistral' creadas hoy. Si falla la cuenta,
-// devuelve false (conservador: no gasta).
-async function dentroDelTopeMistral(supabase: SupabaseClient): Promise<boolean> {
-  try {
-    const hoy = new Date().toISOString().slice(0, 10)
-    const { count } = await supabase
-      .from('ocr_auditoria')
-      .select('id', { count: 'exact', head: true })
-      .eq('origen_lectura', 'mistral')
-      .gte('created_at', `${hoy}T00:00:00`)
-    return (count ?? 0) < OCR_MISTRAL_LIMITE_DIARIO
-  } catch {
-    return false
-  }
-}
-
-function anthropicDisponible(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY
-}
-
-// Tope diario Anthropic (mismo criterio que Mistral). Cuenta filas de ocr_auditoria
-// con origen_lectura='anthropic' creadas hoy. Conservador: si falla, false (no gasta).
-async function dentroDelTopeAnthropic(supabase: SupabaseClient): Promise<boolean> {
-  try {
-    const hoy = new Date().toISOString().slice(0, 10)
-    const { count } = await supabase
-      .from('ocr_auditoria')
-      .select('id', { count: 'exact', head: true })
-      .eq('origen_lectura', 'anthropic')
-      .gte('created_at', `${hoy}T00:00:00`)
-    return (count ?? 0) < OCR_ANTHROPIC_LIMITE_DIARIO
-  } catch {
-    return false
-  }
-}
-
-// Lectura de pago con candado y respaldo. Solo se llama si el proveedor es NUEVO.
-// Intenta el lector primario; si falla o no cuadra, prueba el secundario. Aprende
-// el proveedor por NIF tras el primer acierto -> nunca se vuelve a pagar por el.
-async function leerConCapasDePago(
-  supabase: SupabaseClient,
-  contenido: ContenidoExtraido,
-  // Texto del documento (PDF o el que sacó Tesseract), si lo hay. Se usa para
-  // derivar la plantilla del proveedor nuevo y leer las próximas facturas gratis.
-  texto?: string | null,
-): Promise<{ extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null> {
-  const intentar = async (lector: 'anthropic' | 'mistral'): Promise<ExtractedFactura | null> => {
-    try {
-      if (lector === 'anthropic') {
-        if (!anthropicDisponible() || !(await dentroDelTopeAnthropic(supabase))) return null
-        const a = await leerFacturaAnthropic(contenido)
-        if (a && a.total !== undefined && a.total !== null) {
-          if (!cuadraImportes(a)) a.confianza = 50
-          return a
-        }
-        return null
-      } else {
-        if (!mistralDisponible() || !(await dentroDelTopeMistral(supabase))) return null
-        const m = await leerFacturaMistral(contenido)
-        if (m && m.total !== undefined && m.total !== null) {
-          if (!cuadraImportes(m)) m.confianza = 50
-          return m
-        }
-        return null
-      }
-    } catch (e) {
-      console.error(`[procesarArchivo] lector ${lector} no resolvio:`, errMsg(e))
-      return null
-    }
-  }
-
-  const primario = OCR_LECTOR_PRIMARIO
-  const secundario: 'anthropic' | 'mistral' = primario === 'anthropic' ? 'mistral' : 'anthropic'
-
-  let extracted = await intentar(primario)
-  let origen = primario
-  if (!extracted) {
-    extracted = await intentar(secundario)
-    origen = secundario
-  }
-  if (!extracted) return null
-  await aprenderProveedorNif(supabase, extracted, texto)
-  return { extracted, origen }
-}
-
-// CANDADO BOOTSTRAP (Rubén 02/06/26): ¿el NIF emisor ya tiene ficha en
-// reglas_conciliacion? Si la tiene, el proveedor YA fue dado de alta (bootstrap
-// hecho) → Mistral NO se vuelve a ejecutar para él NUNCA. Sus facturas se leen
-// por reglas/plantilla; si la plantilla no lee, van a lectura manual, jamás otra
-// vez a Mistral. Si falla la consulta, devuelve true (conservador: NO gasta).
-async function nifYaRegistrado(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
-  if (!nif) return false
-  try {
-    const { data } = await supabase
-      .from('reglas_conciliacion')
-      .select('id')
-      .eq('patron_nif', nif)
-      .maybeSingle()
-    return !!data
-  } catch {
-    return true
-  }
-}
-
-// Aprende el proveedor por NIF: si la capa de pago leyó un NIF emisor + razón
+// Aprende el proveedor por NIF: si se leyó un NIF emisor + razón
 // social que aún no está en reglas_conciliacion, lo inserta. Así la próxima factura
 // del mismo proveedor se resuelve gratis por diccionario y la API no vuelve a usarse.
 // Además, si se dispone del texto del documento, DERIVA una plantilla de lectura
@@ -657,7 +530,7 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral' | 'anthropic' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' = 'reglas'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -712,21 +585,8 @@ async function procesarContenidoPrincipal(
   if (extractedReglas) {
     extracted = extractedReglas
   } else {
-    // PASO 3 — CAPAS DE PAGO (Anthropic + Mistral), SOLO PROVEEDOR NUEVO.
-    // Candado: si el NIF emisor ya tiene ficha, NUNCA se paga otra vez por el.
-    const nifEmisorTexto = normalizarNif(textoPdfCache ? extraerNifEmisorLibre(textoPdfCache) : null)
-    const proveedorYaConocido = await nifYaRegistrado(supabase, nifEmisorTexto)
-    let resultadoPago: { extracted: ExtractedFactura; origen: 'anthropic' | 'mistral' } | null = null
-    if (!proveedorYaConocido) {
-      resultadoPago = await leerConCapasDePago(supabase, contenido, textoPdfCache)
-    }
-    if (resultadoPago) {
-      extracted = resultadoPago.extracted
-      origenLectura = resultadoPago.origen
-    } else {
-      // Ni reglas, ni Tesseract, ni capas de pago leyeron. Lectura manual.
-      return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
-    }
+    // PASO 3 — ni reglas ni OCR Tesseract leyeron. Lectura manual (0 €, sin API).
+    return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
   // Resolver nombre por NIF desde el diccionario (reglas dejan el nombre vacío).
@@ -1195,10 +1055,10 @@ async function guardarFacturasMulti(
   return resultados
 }
 
-// Factura que ni reglas ni Tesseract pudieron leer (y, si era proveedor nuevo,
-// tampoco Mistral). Se guarda el PDF en Drive para no perderlo y se inserta con
-// estado 'pendiente_lectura_manual'. NUNCA llama a API. El titular se intenta por
-// el NIF de Rubén/Emilio en el texto; si no aparece, titular NULL (sin default).
+// Factura que ni reglas ni Tesseract pudieron leer. Se guarda el PDF en Drive
+// para no perderlo y se inserta con estado 'pendiente_lectura_manual'.
+// NUNCA llama a API de pago. El titular se intenta por el NIF de Rubén/Emilio
+// en el texto; si no aparece, titular NULL (sin default).
 async function guardarLecturaManual(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
