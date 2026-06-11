@@ -32,11 +32,11 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
 const CANALES = [
-  { id: 'uber', label: 'Uber Eats', color: COLOR.uber, bk: 'uber_bruto', pk: 'uber_pedidos' },
-  { id: 'glovo', label: 'Glovo', color: '#c9a900', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
-  { id: 'je', label: 'Just Eat', color: COLOR.je, bk: 'je_bruto', pk: 'je_pedidos' },
-  { id: 'web', label: 'Web', color: COLOR.webSL, bk: 'web_bruto', pk: 'web_pedidos' },
-  { id: 'dir', label: 'Directa', color: COLOR.directa, bk: 'directa_bruto', pk: 'directa_pedidos' },
+  { id: 'uber', label: 'Uber Eats', color: BADGE_CANAL.uber.bg, bk: 'uber_bruto', pk: 'uber_pedidos' },
+  { id: 'glovo', label: 'Glovo', color: BADGE_CANAL.glovo.bg, bk: 'glovo_bruto', pk: 'glovo_pedidos' },
+  { id: 'je', label: 'Just Eat', color: BADGE_CANAL.je.bg, bk: 'je_bruto', pk: 'je_pedidos' },
+  { id: 'web', label: 'Web', color: BADGE_CANAL.web.bg, bk: 'web_bruto', pk: 'web_pedidos' },
+  { id: 'dir', label: 'Directa', color: BADGE_CANAL.dir.bg, bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
 const FESTIVOS_FALLBACK = [
@@ -100,6 +100,7 @@ export default function Cashflow() {
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [loading, setLoading] = useState(true)
   const [hover, setHover] = useState<number | null>(null)
+  const [hayLiquidaciones, setHayLiquidaciones] = useState(false)
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -117,7 +118,8 @@ export default function Cashflow() {
       supabase.from('festivos').select('fecha'),
       supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA'),
       supabase.from('v_caja_mensual').select('mes,ingresos,gastos,saldo_mes'),
-    ]).then(([rd, rf, rc, rfe, rm, rcm]) => {
+      supabase.from('uber_liquidaciones').select('id', { count: 'exact', head: true }),
+    ]).then(([rd, rf, rc, rfe, rm, rcm, rliq]) => {
       setRows((rd.data as Row[]) ?? [])
       setFacturas(((rf.data as Factura[]) ?? []).filter(f => f.fecha_factura))
       const cm: Record<string, string> = {}
@@ -127,6 +129,7 @@ export default function Cashflow() {
       if (fe.length) setFestivos(new Set(fe.map(x => x.fecha.slice(0, 10))))
       setVentasMarca((rm.data as VentaMarca[]) ?? [])
       setCajaBanco((rcm.data as CajaMes[]) ?? [])
+      setHayLiquidaciones((rliq.count ?? 0) > 0)
       setLoading(false)
     })
   }, [])
@@ -258,9 +261,15 @@ export default function Cashflow() {
     const out: { txt: string; color: string }[] = []
     if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: POS }) }
     if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec }) }
+    // Frase Uber: próximo cobro
+    const proxUber = futuros.find(c => c.canal === 'uber')
+    if (proxUber && proxUber.neto > 0) out.push({ txt: `Esta semana entran ${nf0(proxUber.neto)} € de Uber el ${fmtLarga(proxUber.pago)}.`, color: BADGE_CANAL.uber.bg })
+    // Frase Glovo: próxima quincena
+    const proxGlovo = futuros.find(c => c.canal === 'glovo')
+    if (proxGlovo && proxGlovo.neto > 0) out.push({ txt: `Glovo del ${periodoTxt('glovo', proxGlovo.ini, proxGlovo.fin)} llega el día ${parse(proxGlovo.pago).getDate()}: ${nf0(proxGlovo.neto)} €.`, color: BADGE_CANAL.glovo.texto === '#fff' ? BADGE_CANAL.glovo.bg : AMARILLO })
     if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? POS : WARN })
     return out
-  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
+  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco, futuros])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -343,7 +352,7 @@ export default function Cashflow() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
+          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE, display: 'flex', alignItems: 'baseline', gap: 6 }}>{nf0(hastaFinMes)}{!hayLiquidaciones && <span style={{ fontFamily: OSWALD, fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', background: AMARILLO, color: '#333', borderRadius: 3, padding: '1px 5px', fontWeight: 600, verticalAlign: 'middle', lineHeight: 1.4 }}>estimado</span>}</div></div>
           <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
           <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? AMARILLO : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
         </div>
