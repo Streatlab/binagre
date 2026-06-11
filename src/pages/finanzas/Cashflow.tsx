@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import { COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
+import { COLOR, COLORS, LEXEND, OSWALD, BADGE_CANAL, CARDS } from '@/components/panel/resumen/tokens'
+import { fmtNum } from '@/lib/format'
 import {
   calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,

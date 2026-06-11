@@ -1,6 +1,51 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { fmtEur } from '@/utils/format'
+
+interface DiaFact {
+  fecha: string
+  uber_pedidos: number | null
+  uber_bruto: number | null
+  glovo_pedidos: number | null
+  glovo_bruto: number | null
+  je_pedidos: number | null
+  je_bruto: number | null
+  web_pedidos: number | null
+  web_bruto: number | null
+  directa_pedidos: number | null
+  directa_bruto: number | null
+  total_pedidos: number | null
+  total_bruto: number | null
+}
+
+interface KPI {
+  canal: string
+  color: string
+  pedidos: number
+  bruto: number
+  mediaPedidos: number
+  mediaBruto: number
+}
+
+function localDateStr(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function semanaAnterior(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 7 * n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const CANALES = [
+  { key: 'uber',    label: 'Uber Eats', color: '#06C167' },
+  { key: 'glovo',   label: 'Glovo',     color: '#e8f442' },
+  { key: 'je',      label: 'JustEat',   color: '#f5a623' },
+  { key: 'web',     label: 'Web',       color: '#ff6b70' },
+  { key: 'directa', label: 'Directa',   color: '#66aaff' },
+]
 
 interface FacturacionRow {
   fecha: string

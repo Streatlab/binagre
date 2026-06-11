@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtMes } from '@/lib/format'
 import { COLOR, OSWALD, LEXEND, cardBig, lbl } from './tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
 
 export interface DiaPico {
   idx: number
@@ -33,13 +34,6 @@ const POS_X_BARRA = [15, 80, 145, 210, 275, 340, 405]
 const ETIQUETAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const SVG_BASE = 190
 const SVG_MAX_H = 125
-
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 export default function ColDiasPico({ dias: diasProp, media: mediaProp, nombreMes, mes, año, fechaDesde, fechaHasta, onClickDia }: Props) {
   const [dias, setDias] = useState<DiaPico[]>(diasProp)

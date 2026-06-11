@@ -10,7 +10,6 @@
  *   GET  /api/facturas?action=reasignar-titulares[&n=NN] → relee PDFs y asigna titular por NIF
  *   GET  /api/facturas?action=cartero           → cartero IMAP
  *   GET  /api/facturas?action=reconciliar-pendientes → barrido de pendientes
- *   GET  /api/facturas?action=health-ocr        → diagnóstico claves OCR de pago (Anthropic + Mistral)
  *   GET  /api/facturas?action=purgar[&lote=NN]  → borra facturas NO resueltas + Drive a papelera (lote)
  *   GET  /api/facturas?action=papelera-info[&horas=NN] → cuenta archivos en papelera reciente
  *   GET  /api/facturas?action=recuperar-papelera[&lote=NN&horas=NN] → recupera borrados (lote)
@@ -62,7 +61,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'reasignar-titulares') return reasignarTitulares(req, res)
   if (action === 'cartero')       return cartero(req, res)
   if (action === 'reconciliar-pendientes') return reconciliarPendientes(req, res)
-  if (action === 'health-ocr')    return healthOcr(res)
   if (action === 'upload')        return upload(req, res)
   if (action === 'limpieza')      return limpieza(res)
   if (action === 'purgar')        return purgar(req, res)
@@ -186,51 +184,6 @@ async function resubirDrive(res: VercelResponse) {
     total: data?.length || 0,
     instrucciones: 'Abre cada factura del listado y usa "Re-subir a Drive" desde el modal (Tab Resumen).',
   })
-}
-
-// ── Handler: diagnóstico de claves OCR de pago (Anthropic + Mistral) ───────
-// Hace una llamada mínima a cada proveedor para confirmar EN VIVO que la clave
-// responde y que hay saldo. No procesa ninguna factura. Coste ~0.
-async function healthOcr(res: VercelResponse) {
-  async function pingAnthropic() {
-    const key = process.env.ANTHROPIC_API_KEY
-    if (!key) return { configurada: false, estado: 'sin_clave' }
-    try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] }),
-      })
-      const txt = (await r.text()).toLowerCase()
-      if (r.ok) return { configurada: true, estado: 'ok' }
-      if (txt.includes('credit balance')) return { configurada: true, estado: 'sin_saldo' }
-      if (txt.includes('authentication') || txt.includes('invalid x-api-key')) return { configurada: true, estado: 'clave_invalida' }
-      return { configurada: true, estado: `error_${r.status}` }
-    } catch {
-      return { configurada: true, estado: 'error_red' }
-    }
-  }
-  async function pingMistral() {
-    const key = process.env.MISTRAL_API_KEY || process.env.mistral_api_key
-    if (!key) return { configurada: false, estado: 'sin_clave' }
-    try {
-      const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: 'mistral-small-latest', max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] }),
-      })
-      const txt = (await r.text()).toLowerCase()
-      if (r.ok) return { configurada: true, estado: 'ok' }
-      if (r.status === 402 || txt.includes('payment')) return { configurada: true, estado: 'sin_saldo' }
-      if (r.status === 401 || txt.includes('unauthorized')) return { configurada: true, estado: 'clave_invalida' }
-      return { configurada: true, estado: `error_${r.status}` }
-    } catch {
-      return { configurada: true, estado: 'error_red' }
-    }
-  }
-  const [anthropic, mistral] = await Promise.all([pingAnthropic(), pingMistral()])
-  const algunoOperativo = anthropic.estado === 'ok' || mistral.estado === 'ok'
-  return res.status(200).json({ ok: true, alguno_operativo: algunoOperativo, anthropic, mistral })
 }
 
 // ── Handler: reasignar titulares (no destructivo) ──────────────────────────

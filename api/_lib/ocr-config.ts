@@ -14,7 +14,5 @@ export const LIMITE_CONCILIACION = '2023-07-01'
 // Ambas coexisten porque reglas_ocr tiene campo titular_id que reglas_conciliacion no tiene.
 // TODO: migrar campos útiles de reglas_ocr a reglas_conciliacion y eliminar reglas_ocr.
 
-// H01: NOTA — whitelist de modelos Claude en ocr.ts
-// La whitelist está hardcodeada pero con fallback a default si env inválido.
-// Esto es intencional: evita que un typo en ANTHROPIC_MODEL rompa todo el OCR.
-// Para añadir un modelo nuevo, editar MODELOS_VALIDOS en api/_lib/ocr.ts.
+// H01: NOTA — api/_lib/ocr.ts solo contiene tipos compartidos (ExtractedFactura).
+// Las capas de pago (Anthropic/Mistral) fueron eliminadas por política: OCR 100% gratis.

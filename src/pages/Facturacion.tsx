@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, useMemo, useRef, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtFechaCorta } from '@/styles/tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -18,12 +19,6 @@ const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGroupin
 // Acepta indistintamente coma o punto como separador decimal
 const parseNum = (s: string): number => { const n = parseFloat(String(s ?? '').trim().replace(',', '.')); return isNaN(n) ? 0 : n }
 const parseIntES = (s: string): number => Math.round(parseNum(s))
-const toLocalDateStr = (d: Date): string => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 const fmtBru = fmt2
 const fmtTM  = fmt2
 const fmtKpi = fmt2

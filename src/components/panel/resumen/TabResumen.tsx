@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { COLOR, LEXEND, row3 } from './tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
 import CardVentas from './CardVentas'
 import CardPedidosTM from './CardPedidosTM'
 import CardResultadoPeriodo from './CardResultadoPeriodo'
@@ -46,12 +47,6 @@ const COLORES_DIAS = [
 ]
 const NOMBRES_DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 function parseLocalDate(s: string): Date {
   const [y, m, d] = s.split('-').map(Number)

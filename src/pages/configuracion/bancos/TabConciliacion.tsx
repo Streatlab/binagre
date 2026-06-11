@@ -66,14 +66,20 @@ function PanelCategorias() {
   const [modal, setModal] = useState<{ tipo: 'ingreso' | 'gasto'; editing: any } | null>(null)
 
   const refetch = async () => {
-    const [i, g] = await Promise.all([
-      supabase.from('categorias_contables_ingresos').select('*').order('orden'),
-      supabase.from('categorias_contables_gastos').select('*').order('orden'),
-    ])
-    if (i.error) throw i.error
-    if (g.error) throw g.error
-    setCatsIng((i.data ?? []) as unknown as CategoriaContableIngreso[])
-    setCatsGas((g.data ?? []) as unknown as CategoriaContableGasto[])
+    const { data, error } = await supabase
+      .from('categorias_pyg')
+      .select('id, codigo, nombre, nivel')
+      .eq('nivel', 3)
+      .order('codigo')
+    if (error) throw error
+    const all = (data ?? []) as any[]
+    // Separar ingresos (código empieza por '7' (PGC grupo ingresos)) y gastos (resto) para mantener UI existente
+    setCatsIng(all
+      .filter((c: any) => String(c.codigo ?? '').startsWith('7'))
+      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, canal_abv: null, orden: 0 })) as unknown as CategoriaContableIngreso[])
+    setCatsGas(all
+      .filter((c: any) => !String(c.codigo ?? '').startsWith('7'))
+      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, tipo: 'var' as const, orden: 0 })) as unknown as CategoriaContableGasto[])
   }
 
   useEffect(() => {
@@ -88,13 +94,13 @@ function PanelCategorias() {
 
   const handleDeleteIngreso = async (c: CategoriaContableIngreso) => {
     if (!confirm(`¿Eliminar categoría "${c.nombre}"?`)) return
-    const { error } = await supabase.from('categorias_contables_ingresos').delete().eq('id', c.id)
+    const { error } = await supabase.from('categorias_pyg').delete().eq('id', c.id)
     if (error) { setError(error.message); return }
     await refetch()
   }
   const handleDeleteGasto = async (c: CategoriaContableGasto) => {
     if (!confirm(`¿Eliminar categoría "${c.nombre}"?`)) return
-    const { error } = await supabase.from('categorias_contables_gastos').delete().eq('id', c.id)
+    const { error } = await supabase.from('categorias_pyg').delete().eq('id', c.id)
     if (error) { setError(error.message); return }
     await refetch()
   }
@@ -247,13 +253,10 @@ function CategoriaModal({
   const handleSave = async () => {
     if (!codigo.trim() || !nombre.trim()) return
     setSaving(true); setError(null)
-    const tabla = tipo === 'ingreso' ? 'categorias_contables_ingresos' : 'categorias_contables_gastos'
-    const payload: any = tipo === 'ingreso'
-      ? { codigo: codigo.trim(), nombre: nombre.trim(), canal_abv: canalAbv || null }
-      : { codigo: codigo.trim(), nombre: nombre.trim(), tipo: tipoGasto }
+    const payload: any = { codigo: codigo.trim(), nombre: nombre.trim(), nivel: 3 }
     const q = editing
-      ? supabase.from(tabla).update(payload).eq('id', editing.id)
-      : supabase.from(tabla).insert(payload)
+      ? supabase.from('categorias_pyg').update({ codigo: payload.codigo, nombre: payload.nombre }).eq('id', editing.id)
+      : supabase.from('categorias_pyg').insert(payload)
     const { error } = await q
     setSaving(false)
     if (error) { setError(error.message); return }
@@ -323,17 +326,20 @@ function PanelReglas() {
   const [editing, setEditing] = useState<ReglaConciliacion | null>(null)
 
   const refetch = async () => {
-    const [r, i, g] = await Promise.all([
+    const [r, pyg] = await Promise.all([
       supabase.from('reglas_conciliacion').select('*').order('prioridad', { ascending: false }),
-      supabase.from('categorias_contables_ingresos').select('*').order('orden'),
-      supabase.from('categorias_contables_gastos').select('*').order('orden'),
+      supabase.from('categorias_pyg').select('id, codigo, nombre, nivel').eq('nivel', 3).order('codigo'),
     ])
     if (r.error) throw r.error
-    if (i.error) throw i.error
-    if (g.error) throw g.error
+    if (pyg.error) throw pyg.error
     setReglas((r.data ?? []) as unknown as ReglaConciliacion[])
-    setCatsIng((i.data ?? []) as unknown as CategoriaContableIngreso[])
-    setCatsGas((g.data ?? []) as unknown as CategoriaContableGasto[])
+    const all = (pyg.data ?? []) as any[]
+    setCatsIng(all
+      .filter((c: any) => String(c.codigo ?? '').startsWith('7'))
+      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, canal_abv: null, orden: 0 })) as unknown as CategoriaContableIngreso[])
+    setCatsGas(all
+      .filter((c: any) => !String(c.codigo ?? '').startsWith('7'))
+      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, tipo: 'var' as const, orden: 0 })) as unknown as CategoriaContableGasto[])
   }
 
   useEffect(() => {
@@ -495,7 +501,7 @@ function ReglaModal({
         <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)} style={inputStyle}>
           <option value="">— selecciona —</option>
           {categorias.map(c => (
-            <option key={c.id} value={c.id}>{c.codigo} · {c.nombre}</option>
+            <option key={c.id} value={c.id}>{c.codigo} - {c.nombre}</option>
           ))}
         </select>
       </ConfigField>
