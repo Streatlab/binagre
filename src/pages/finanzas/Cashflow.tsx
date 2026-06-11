@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import { COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
+import { BADGE_CANAL, COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
 import {
   calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
 } from '@/lib/panel/calcNetoPlataforma'
+import { fechaCobroUber, fechaCobroGlovo, fechaCobroJustEat, FESTIVOS_2026 } from '@/lib/festivos'
+import { fmtNum } from '@/lib/format'
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW — pestaña del Panel Global
@@ -18,30 +20,28 @@ type Periodo = 'semana' | 'mes' | 'anio'
 type Comp = 'prev' | 'mes' | 'anio'
 type Sim = -10 | 0 | 10
 
-const VERDE = '#1D9E75'
-const ROJO = '#E24B4A'
-const AMARILLO = '#f5a623'
-const AZUL = '#185FA5'
+const VERDE = COLORS.ok
+const ROJO = COLORS.err
+const AMARILLO = COLORS.warn
+const AZUL = COLORS.directaDark
 const GRIS = '#9ba3af'
-const BORDE = '#d0c8bc'
-const TINTA = '#1e2233'
+const BORDE = COLORS.brd
+const TINTA = COLORS.sidebar
 const POS = VERDE, WARN = AMARILLO, NEG = ROJO
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
 const CANALES = [
-  { id: 'uber', label: 'Uber Eats', color: COLOR.uber, bk: 'uber_bruto', pk: 'uber_pedidos' },
-  { id: 'glovo', label: 'Glovo', color: '#c9a900', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
-  { id: 'je', label: 'Just Eat', color: COLOR.je, bk: 'je_bruto', pk: 'je_pedidos' },
-  { id: 'web', label: 'Web', color: COLOR.webSL, bk: 'web_bruto', pk: 'web_pedidos' },
-  { id: 'dir', label: 'Directa', color: COLOR.directa, bk: 'directa_bruto', pk: 'directa_pedidos' },
+  { id: 'uber', label: 'Uber Eats', color: BADGE_CANAL.uber.bg, bk: 'uber_bruto', pk: 'uber_pedidos' },
+  { id: 'glovo', label: 'Glovo', color: BADGE_CANAL.glovo.bg, bk: 'glovo_bruto', pk: 'glovo_pedidos' },
+  { id: 'je', label: 'Just Eat', color: BADGE_CANAL.je.bg, bk: 'je_bruto', pk: 'je_pedidos' },
+  { id: 'web', label: 'Web', color: BADGE_CANAL.web.bg, bk: 'web_bruto', pk: 'web_pedidos' },
+  { id: 'dir', label: 'Directa', color: BADGE_CANAL.dir.bg, bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
-const FESTIVOS_FALLBACK = [
-  '2026-01-01', '2026-01-06', '2026-04-02', '2026-04-03', '2026-05-01', '2026-05-15',
-  '2026-08-15', '2026-10-12', '2026-11-02', '2026-11-09', '2026-12-07', '2026-12-08', '2026-12-25',
-]
+// Fallback festivos desde festivos.ts (tabla Supabase se carga en runtime)
+const FESTIVOS_FALLBACK = FESTIVOS_2026
 
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
 
@@ -255,11 +255,24 @@ export default function Cashflow() {
 
   const frases = useMemo(() => {
     const out: { txt: string; color: string }[] = []
+    // Frase grueso
     if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: POS }) }
+    // Frase Uber: cobro esta semana
+    const hoyDate = new Date()
+    const lunesHoy = mondayOf(hoyDate)
+    const fechaUberEst = toLocal(fechaCobroUber(lunesHoy, festivos))
+    const cobroUberSemana = futuros.find(c => c.canal === 'uber' && c.pago === fechaUberEst)
+    if (cobroUberSemana) out.push({ txt: `Esta semana entra Uber el ${fmtLarga(cobroUberSemana.pago)}: ${nf0(cobroUberSemana.neto)} neto.`, color: POS })
+    // Frase Glovo: próximo cobro
+    const fechaGlovoEst = toLocal(fechaCobroGlovo(hoyDate, festivos))
+    const cobroGlovo = futuros.find(c => c.canal === 'glovo' && c.pago === fechaGlovoEst)
+    if (cobroGlovo) out.push({ txt: `Glovo llega el ${fmtCorta(cobroGlovo.pago)}: ${nf0(cobroGlovo.neto)} neto.`, color: COLOR.textSec })
+    // Frase top plataforma
     if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec }) }
+    // Frase runway
     if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? POS : WARN })
     return out
-  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
+  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco, futuros, festivos])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -342,7 +355,13 @@ export default function Cashflow() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
+          <div style={kpi}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={kpiL}>Hasta fin de mes</div>
+              {rows.length === 0 && <span style={{ fontFamily: OSWALD, fontSize: 8, letterSpacing: '0.5px', textTransform: 'uppercase', background: COLORS.warn, color: '#fff', padding: '1px 5px', borderRadius: 3 }}>estimado</span>}
+            </div>
+            <div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div>
+          </div>
           <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
           <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? AMARILLO : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
         </div>
