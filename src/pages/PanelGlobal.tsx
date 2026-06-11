@@ -151,13 +151,6 @@ function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`
 }
 
-function TabPlaceholder({ nombre }: { nombre: string }) {
-  return (
-    <div style={{ padding: 40, textAlign: 'center', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
-      {nombre} · Próximamente
-    </div>
-  )
-}
 
 export default function PanelGlobal() {
   const [activeTab, setActiveTab] = useState<TabId>('resumen')

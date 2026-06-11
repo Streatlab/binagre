@@ -542,26 +542,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             )
           })}
 
-          {!collapsed && perfil === 'admin' && (
-            <SidebarProximamente
-              isOpen={proxOpen}
-              onToggle={() => setProxOpen(o => !o)}
-              T={T}
-            />
-          )}
-          {collapsed && perfil === 'admin' && (
-            <button
-              type="button"
-              onClick={() => setProxOpen(o => !o)}
-              title="Próximamente"
-              style={{
-                width: '100%', height: 44, background: 'none', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.6,
-              }}
-            >
-              <Clock size={20} strokeWidth={1.8} color={T.mut} />
-            </button>
-          )}
+          {/* Lista "Próximamente" eliminada — módulos ops ya en navegación real */}
         </nav>
 
         <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
