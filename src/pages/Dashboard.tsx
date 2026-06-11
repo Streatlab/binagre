@@ -22,6 +22,7 @@ import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasP
 import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 import Cashflow from '@/pages/finanzas/Cashflow'
+import { toLocalDateStr } from '@/lib/dateRange'
 
 interface Row {
   fecha: string
@@ -71,12 +72,6 @@ const MAIN_TABS = [
 const DIAS_NOMBRES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const DIAS_COLORES = ['#1E5BCC','#06C167','#f5a623','#B01D23','#66aaff','#F26B1F','#1D9E75']
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 function parseLocalDate(s: string): Date {
   const [y, m, d] = s.split('-').map(Number)

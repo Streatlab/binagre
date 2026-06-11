@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento } from '@/types/conciliacion'
-import { getNewId } from '@/lib/categoryMapping'
+import { getNewId } from '@/lib/categoriaMapping'
 import { cargarMatchingConfig, ventanaFechas, bandaImporte } from '@/lib/matching'
 
 interface CatPyg { id: string; nombre: string; nivel: number; parent_id: string | null }

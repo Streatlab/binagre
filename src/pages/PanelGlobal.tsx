@@ -15,6 +15,7 @@ import TabMarcas from '@/components/panel/TabMarcas'
 import TabEvolucion from '@/components/panel/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
+import { toLocalDateStr } from '@/lib/dateRange'
 
 interface MarcaItem { id: string; nombre: string }
 
@@ -71,12 +72,6 @@ const menuStyle: React.CSSProperties = {
   paddingBottom: 2,
 }
 
-function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 function MultiSelect({
   label, options, selected, onToggle, onAll,
