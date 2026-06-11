@@ -99,10 +99,12 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
   const [showModalCrearEps, setShowModalCrearEps] = useState<ConflictoItem | null>(null)
 
-  const [pvpGlobal, setPvpGlobal] = useState<number>(() => {
-    const saved = ALL_PVP_KEYS.map(k => n((receta as unknown as Record<string, number | null | undefined>)?.[k])).filter(v => v > 0)
-    return saved.length > 0 ? saved[0] : 0
+  const [pvpCanal, setPvpCanal] = useState<Record<CanalKey, number>>(() => {
+    const init = {} as Record<CanalKey, number>
+    ALL_PVP_KEYS.forEach(k => { init[k] = n((receta as unknown as Record<string, number | null | undefined>)?.[k]) || 0 })
+    return init
   })
+  const didAutofillRef = useRef(false)
 
   const [canalesActivos, setCanalesActivos] = useState<string[]>(['uber', 'glovo', 'je'])
   const [lineas, setLineas] = useState<RecetaLinea[]>(
@@ -175,6 +177,28 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
   const costeMP = raciones > 0 ? costeTanda / raciones : 0
 
+  // Autocompletar PVP real de cada canal con su PVP recomendado (solo una vez, si está vacío)
+  useEffect(() => {
+    if (didAutofillRef.current) return
+    if (loadingLineas || costeMP <= 0) return
+    if (!cfg.canales || cfg.canales.length === 0) return
+    const estructura = norm(cfg.estructura_pct ?? 0)
+    setPvpCanal(prev => {
+      const next = { ...prev }
+      let changed = false
+      for (const ch of CHANNELS) {
+        if ((next[ch.pvpKey] || 0) > 0) continue
+        const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
+        const comision = norm(cfgCanal?.comision_pct ?? 0)
+        const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
+        const rec = computeWaterfall(costeMP, 0, comision, estructura, margenDeseado).pvpRecR
+        if (rec > 0) { next[ch.pvpKey] = Math.round(rec * 100) / 100; changed = true }
+      }
+      return changed ? next : prev
+    })
+    didAutofillRef.current = true
+  }, [loadingLineas, costeMP, cfg])
+
   const updateLinea = useCallback((idx: number, patch: Partial<RecetaLinea>) => {
     setIsDirty(true)
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
@@ -236,7 +260,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     setSaving(true)
     try {
       let rid = receta?.id
-      const pvpRecord: Record<CanalKey, number> = { pvp_uber: pvpGlobal, pvp_glovo: pvpGlobal, pvp_je: pvpGlobal, pvp_web: pvpGlobal, pvp_directa: pvpGlobal }
+      const pvpRecord: Record<CanalKey, number> = { pvp_uber: pvpCanal.pvp_uber, pvp_glovo: pvpCanal.pvp_glovo, pvp_je: pvpCanal.pvp_je, pvp_web: pvpCanal.pvp_web, pvp_directa: pvpCanal.pvp_directa }
       const record = { nombre, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord }
       if (rid) { const { error } = await supabase.from('recetas').update(record).eq('id', rid); if (error) throw error }
       else { const { data, error } = await supabase.from('recetas').insert(record).select('id').single(); if (error) throw error; rid = data.id }
@@ -256,7 +280,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     const comision = norm(cfgCanal?.comision_pct ?? 0)
     const estructura = norm(cfg.estructura_pct ?? 0)
     const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
-    const w = computeWaterfall(costeMP, pvpGlobal, comision, estructura, margenDeseado)
+    const w = computeWaterfall(costeMP, pvpCanal[ch.pvpKey] || 0, comision, estructura, margenDeseado)
     return { ch, comision, margenDeseado, w }
   })
 
@@ -375,7 +399,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                     <tbody>
                       <tr style={{ backgroundColor: 'var(--sl-card)', borderTop: '2px solid var(--sl-border-strong)' }}><td style={metricaCellStyle}>Margen deseado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-md-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td><td key={`${d.ch.id}-md-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtPct(d.margenDeseado)}</td></>))}</tr>
                       <tr style={{ backgroundColor: 'var(--sl-card)' }}><td style={metricaCellStyle}>PVP recomendado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td><td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.pvpRecC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: 'var(--sl-card)' }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={pvpGlobal > 0 ? pvpGlobal : ''} onChange={e => setPvpGlobal(parseFloat(e.target.value) || 0)} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: '#2a52a0', background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
+                      <tr style={{ backgroundColor: 'var(--sl-card)' }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: '#2a52a0', background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
                     </tbody>
                     <tbody>
                       <tr style={{ borderTop: '2px solid var(--sl-border-strong)' }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
