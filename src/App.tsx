@@ -11,8 +11,6 @@ const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
 const Conciliacion = React.lazy(() => import('@/pages/Conciliacion'))
 const POS = React.lazy(() => import('@/pages/POS'))
 const Placeholder = React.lazy(() => import('@/pages/Placeholder'))
-const MarcasAdmin = React.lazy(() => import('@/pages/Marcas'))
-
 const MarcasPage = React.lazy(() => import('@/pages/configuracion/marcas/MarcasPage'))
 const TabMarcas = React.lazy(() => import('@/pages/configuracion/marcas/TabMarcas'))
 const TabCanales = React.lazy(() => import('@/pages/configuracion/marcas/TabCanales'))
@@ -227,8 +225,6 @@ function AppRoutes() {
           <Route path="ops/bpm" element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
           <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
-          <Route path="marcas" element={<ProtectedRoute solo={['admin']}><MarcasAdmin /></ProtectedRoute>} />
-
           <Route path="marcas" element={<ProtectedRoute solo={['admin']}><MarcasSimple /></ProtectedRoute>} />
 
           <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
