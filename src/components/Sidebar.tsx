@@ -80,9 +80,10 @@ const SECTIONS: NavSection[] = [
   {
     key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
     items: [
-      { path: '/equipo',          label: 'Personas', emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/horarios',  label: 'Horarios',  emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia', label: 'Presencia', emoji: '🕐', perfiles: ['admin'] },
+      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
+      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
     ],
   },
   {
@@ -137,7 +138,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Daños Material',               emoji: '🔧' },
   { label: 'Novedades',                    emoji: '🔔' },
   { label: 'Mantenimiento Equipos',        emoji: '🔧' },
-  { label: 'Organigrama',                  emoji: '🏢' },
   { label: 'Almacén',                      emoji: '🏭' },
   { label: 'Stock Mínimo Alertas',         emoji: '⚠️' },
   { label: 'Movimientos Stock',            emoji: '🔄' },
