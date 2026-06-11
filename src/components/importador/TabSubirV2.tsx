@@ -205,6 +205,9 @@ export default function TabSubirV2() {
       }
     } else {
       // Extracto bancario — simular parseo
+      // TODO: dedup real con hash(fecha + importe + concepto + orden_linea); usar calcularDedupKey de src/lib/normalizar.ts
+      // La columna orden_linea ya existe en BD. El importador real debe pasar el índice de línea del extracto.
+      // Titular: si no se detecta → null (no inventar)
       tipoDetectado = 'Extracto bancario'
       estadoFinal = { tag: 'asociada' }
       estadoLog = 'procesado'

@@ -13,6 +13,9 @@
 
 import { supabase } from '@/lib/supabase'
 
+// NOTA (0.3): este motor no produce acciones de tipo 'borrar'. Las reglas de conciliación
+// con acción 'borrar' se procesan en useConciliacion.insertMovimientos (líneas 133-149),
+// que ya guarda los movimientos descartados en la tabla movimientos_descartados (bandeja_estado).
 export interface AccionRecomendada {
   tipo: 'pausa' | 'sube_precio' | 'refuerza_marketing' | 'info'
   prioridad: 'alta' | 'media' | 'baja'

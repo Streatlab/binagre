@@ -85,6 +85,7 @@ function generarMeses(desdeISO: string): {valor: string; label: string}[] {
   return meses
 }
 
+// TODO: migrar a v_estado_documento — leer estado de facturas desde la vista en vez de la columna estado directa
 function colorEstado(estado: string|null): {bg:string;col:string;lbl:string} {
   switch (estado) {
     case 'asociada':                 return {bg:'#e8f5ec',col:COLORS.ok,   lbl:'CONCILIADA'}
