@@ -247,6 +247,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
+  // Color de texto reforzado para los módulos principales: más oscuro en modo claro
+  // para que se lean mejor; en modo oscuro se mantiene el color primario del tema.
+  const mainLabelColor = isDark ? T.pri : '#15192a'
+
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
@@ -326,11 +330,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '6px 10px 6px 16px',
+    padding: '4px 10px 4px 14px',
     margin: '1px 8px',
     borderRadius: 6,
     fontFamily: FONT.body,
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: 500,
     color: isActive ? activeTextColor : T.pri,
     background: isActive ? '#B01D23' : 'transparent',
@@ -390,13 +394,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 gap: 10,
-                padding: '8px 14px 8px 12px',
+                padding: '6px 14px 6px 12px',
                 fontFamily: FONT.heading,
-                fontSize: 14,
-                fontWeight: 700,
+                fontSize: 14.5,
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                letterSpacing: '0.02em',
-                color: isActive ? '#ffffff' : T.pri,
+                letterSpacing: '0.04em',
+                color: isActive ? '#ffffff' : mainLabelColor,
                 textDecoration: 'none',
                 transition: 'background 150ms',
               })}
@@ -435,13 +439,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 gap: 10,
-                padding: '8px 14px 8px 12px',
+                padding: '6px 14px 6px 12px',
                 fontFamily: FONT.heading,
-                fontSize: 14,
-                fontWeight: 700,
+                fontSize: 14.5,
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                letterSpacing: '0.02em',
-                color: isActive ? '#ffffff' : T.pri,
+                letterSpacing: '0.04em',
+                color: isActive ? '#ffffff' : mainLabelColor,
                 textDecoration: 'none',
                 transition: 'background 150ms',
               })}
@@ -500,10 +504,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     style={{
                       width: '100%', background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 14px 8px 12px',
-                      fontFamily: FONT.heading, fontSize: 14, fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.02em',
-                      color: isOpen ? T.pri : T.pri,
+                      padding: '6px 14px 6px 12px',
+                      fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                      color: mainLabelColor,
                       transition: 'color 200ms',
                     }}
                   >
