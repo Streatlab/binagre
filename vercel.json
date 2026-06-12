@@ -8,5 +8,12 @@
     { "source": "/api/oauth/google/callback", "destination": "/api/oauth/google?action=callback" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/facturas?action=cartero", "schedule": "0 5 * * *" },
+    { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" },
+    { "path": "/api/facturas?action=reproc", "schedule": "30 6 * * *" },
+    { "path": "/api/ocr-queue", "schedule": "0 7 * * *" },
+    { "path": "/api/ocr-cleanup", "schedule": "0 3 * * 0" }
   ]
 }
