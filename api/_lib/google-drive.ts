@@ -257,7 +257,7 @@ export async function subirArchivoADrive(
   nombre: string,
   extracted: DriveExtracted,
   ext: string,
-): Promise<{ id: string; webViewLink: string | null; storagePath: string; driveOk: boolean }> {
+): Promise<{ id: string; webViewLink: string; storagePath: string; driveOk: boolean }> {
   // Hash del documento TAL Y COMO LLEGA (antes de cualquier conversión). Coincide
   // con el pdf_hash que calcula procesarArchivo, para poder vincular la repesca
   // con su factura.
@@ -340,7 +340,7 @@ export async function subirArchivoADrive(
   // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
   // Storage y registrado en archivo_respaldo. La repesca lo subirá a Drive. El
   // documento NO se pierde y acaba SIEMPRE en Drive (en el momento o por repesca).
-  return { id: driveId || '', webViewLink, storagePath, driveOk: !!driveId }
+  return { id: driveId || '', webViewLink: webViewLink ?? '', storagePath, driveOk: !!driveId }
 }
 
 // Repesca: sube a Drive un documento que está en el respaldo de Storage (porque
