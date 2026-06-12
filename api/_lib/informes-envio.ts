@@ -207,7 +207,7 @@ export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: s
       headers: WAHA_API_KEY ? { 'X-Api-Key': WAHA_API_KEY } : {},
     })
     if (!res.ok) return { conectado: false, mensaje: `WAHA ${res.status}` }
-    const json = await res.json()
+    const json: any = await res.json()
     const status = json.status || json.engine?.status || 'unknown'
     return { conectado: status === 'WORKING' || status === 'CONNECTED', mensaje: status }
   } catch (err) {
