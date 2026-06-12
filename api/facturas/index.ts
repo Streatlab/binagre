@@ -542,7 +542,9 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     .order('fecha_factura', { ascending: true })
 
   if (soloSinLeer) {
-    q = q.or('total.is.null,total.eq.0,nif_emisor.is.null').range(0, LOTE_REPROC - 1)
+    // Excluye lectura manual: re-OCRear en bucle PDFs ya clasificados como
+    // ilegibles quema recursos (Drive + Tesseract + invocaciones) sin resultado.
+    q = q.neq('estado', 'pendiente_lectura_manual').or('total.is.null,total.eq.0,nif_emisor.is.null').range(0, LOTE_REPROC - 1)
   } else {
     q = q.range(offset, offset + LOTE_REPROC - 1)
   }
@@ -659,9 +661,13 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   }
 
   const nuevoOffset = offset + facturas.length
+  // Guarda anti-bucle: si el lote completo falló (0 ok), el job se corta.
+  // Evita el auto-encadenado infinito sobre PDFs que nunca se podrán leer.
+  const sinProgreso = ok === 0 && errores === facturas.length
   const terminado =
     facturas.length < LOTE_REPROC ||
-    (soloSinLeer && (objetivo <= 0 || procesadasAcum >= objetivo))
+    (soloSinLeer && (objetivo <= 0 || procesadasAcum >= objetivo)) ||
+    sinProgreso
 
   await supabaseAdmin.from('reproc_control').update({
     activo: !terminado,
@@ -846,8 +852,8 @@ async function recuperarPapelera(req: VercelRequest, res: VercelResponse) {
 // ── Handler: repesca — sube a Drive lo que aún no esté ─────────────────────
 // Recorre archivo_respaldo (registro de cada documento respaldado en Storage) y
 // sube a Drive todo lo que aún no tenga drive_id. Vincula la factura por hash.
-// Auto-encadenado: se vuelve a llamar mientras queden pendientes, de modo que
-// TODO documento acaba en Drive sí o sí (el "infinito hasta lograrlo").
+// Auto-encadenado SOLO con progreso: si el lote entero falla, se corta y lo
+// reintenta el cron diario (evita bucles infinitos de invocaciones).
 async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
   const lote = Math.min(Math.max(Number(req.query.lote) || 10, 1), 30)
 
@@ -900,8 +906,9 @@ async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
     .is('drive_id', null)
   const restantes = count ?? 0
 
-  // Auto-encadena mientras queden pendientes: la repesca insiste hasta lograrlo.
-  if (restantes > 0) {
+  // Auto-encadena SOLO si hubo progreso en este lote. Si todo falló (Drive
+  // rechazando subidas), cortar aquí: el cron diario volverá a intentarlo.
+  if (restantes > 0 && subidas > 0) {
     const host = req.headers.host
     const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
     if (host) {
