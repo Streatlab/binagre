@@ -15,7 +15,6 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useSidebarState } from '@/hooks/useSidebarState'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
@@ -254,7 +253,6 @@ function loadOpenSections(): string[] {
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
-  const { collapsed: manualCollapsed, toggle } = useSidebarState()
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
 
@@ -299,51 +297,37 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .then(({ count }) => setOcrBadge(count ?? 0))
   }, [perfil])
 
-  // ── Mecánica de colapso/expansión del sidebar ──────────────────────────
-  // CLIC en cualquier opción/grupo → fija el sidebar abierto 20 s y luego colapsa solo.
-  // HOVER (ratón encima) → asoma mientras el ratón está encima; al salir, vuelve a colapsar.
-  //   El hover NO reinicia el temporizador de 20 s (así no se queda abierto tras pasar el ratón).
-  const [autoCollapsed, setAutoCollapsed] = useState(false)
+  // ── Mecánica de colapso/expansión ────────────────────────────────────────
+  // Estado de reposo: COLAPSADO (solo iconos).
+  // CLIC en cualquier opción/grupo del sidebar → "fijado" abierto 20 s exactos,
+  //   independientemente de dónde esté el ratón; pasados los 20 s se colapsa solo.
+  // HOVER (ratón encima) → se abre mientras el ratón está encima; al salir se colapsa
+  //   (salvo que esté fijado por un clic reciente).
+  const [pinned, setPinned] = useState(false)
   const [peek, setPeek] = useState(false)
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const AUTO_COLLAPSE_MS = 20000
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const PIN_MS = 20000
 
-  const armarTimer = () => {
-    if (idleTimer.current) { clearTimeout(idleTimer.current); idleTimer.current = null }
-    if (manualCollapsed) return
-    idleTimer.current = setTimeout(() => setAutoCollapsed(true), AUTO_COLLAPSE_MS)
+  const pin = () => {
+    setPinned(true)
+    if (pinTimer.current) clearTimeout(pinTimer.current)
+    pinTimer.current = setTimeout(() => setPinned(false), PIN_MS)
   }
-
-  // Al montar / cambiar el colapsado manual: si está fijo (no colapsado a mano), arranca los 20 s.
-  useEffect(() => {
-    if (manualCollapsed || autoCollapsed) {
-      if (idleTimer.current) { clearTimeout(idleTimer.current); idleTimer.current = null }
-      return
-    }
-    armarTimer()
-    return () => { if (idleTimer.current) clearTimeout(idleTimer.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualCollapsed, autoCollapsed])
-
-  // CLIC dentro del sidebar (navegar, abrir grupo): re-fija y reinicia los 20 s.
-  const fijarSidebar = () => {
-    setAutoCollapsed(false)
-    armarTimer()
-  }
-
-  // HOVER: solo abre temporalmente; NO toca el temporizador.
-  const onMouseEnter = () => setPeek(true)
-  const onMouseLeave = () => setPeek(false)
-
-  const onToggleManual = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    toggle()
-    setAutoCollapsed(false)
+  const unpin = () => {
+    if (pinTimer.current) { clearTimeout(pinTimer.current); pinTimer.current = null }
+    setPinned(false)
     setPeek(false)
   }
 
-  // Colapsado efectivo: manual o automático; el hover (peek) lo abre temporalmente.
-  const collapsed = (manualCollapsed || autoCollapsed) && !peek
+  // Al cargar: se muestra fijado 20 s y luego se colapsa solo.
+  useEffect(() => {
+    pin()
+    return () => { if (pinTimer.current) clearTimeout(pinTimer.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Colapsado salvo que esté fijado por clic o que el ratón esté encima.
+  const collapsed = !pinned && !peek
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
@@ -381,9 +365,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        onClick={fijarSidebar}
+        onMouseEnter={() => setPeek(true)}
+        onMouseLeave={() => setPeek(false)}
+        onClick={pin}
         style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
@@ -395,7 +379,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {collapsed ? (
           <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
-            <button onClick={onToggleManual} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Expandir">
+            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
               <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
@@ -405,7 +389,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
-            <button onClick={onToggleManual} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden md:flex" title="Colapsar">«</button>
+            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
