@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import ToastHost from '@/components/ui/ToastHost'
+import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 
@@ -33,6 +34,7 @@ export default function Layout() {
         </main>
       </div>
       <ToastHost />
+      <ResponsiveTables />
       <OcrUploadToast />
       <OcrCompletadoGlobal />
     </div>
