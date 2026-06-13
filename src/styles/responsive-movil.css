@@ -1,0 +1,38 @@
+/* ============================================================
+   RESPONSIVE GLOBAL — MÓVIL (≤768px)
+   Capa transversal: aplica a TODOS los módulos del ERP sin
+   tocar cada página. Solo afecta a pantallas estrechas.
+   Pasada 1: baseline usable. No rompe escritorio.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* 1. Márgenes laterales compactos en el área de contenido */
+  main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* 2. Cualquier rejilla multi-columna baja a 1 columna (cards apiladas) */
+  main [class*="grid-cols-"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 3. Tablas: red de seguridad — scroll horizontal interno,
+        nunca desbordan el viewport. Las anchas se convertirán
+        a cards apiladas en pasadas siguientes. */
+  main table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 4. Imágenes y media nunca desbordan */
+  main img,
+  main video,
+  main canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
