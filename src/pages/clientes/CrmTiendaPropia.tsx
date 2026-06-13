@@ -4,23 +4,19 @@ import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components
 import { fmtEur, fmtNumES } from '@/utils/format'
 
 /* ═════════════ CRM STREAT LAB ═════════════
-   Tokens y estilos canónicos Binagre (Panel Global).
-   Pestañas: Embudo (gráfico real) · Campañas · Calendario · Públicos · Clientes
+   Tokens y estilos canónicos Binagre (Panel Global / Evolución).
+   Pestañas: Embudo (gráfico real, datos reales) · Campañas · Calendario · Públicos · Clientes
 */
 
 type Cliente = { id: string; nombre: string | null; email: string | null; telefono: string | null; marca_preferida: string | null; canal_captacion: string; consentimiento_rgpd: boolean; fecha_alta: string; ultima_compra: string | null; num_pedidos: number; gasto_total: number; baja: boolean }
 type Publico = { id: number; marca: string; publico_objetivo: string; propuesta_valor: string; momentos_consumo: string | null; mensajes_clave: string | null; ticket_medio_objetivo: number | null; plataforma_principal: string | null }
 type Campana = { id: number; nombre: string; marca: string | null; producto: string | null; canal: string; tipo: string; mecanica_plataforma: string | null; objetivo_smart: string; kpi_principal: string; kpi_meta: number | null; codigo_promo: string | null; mecanica: string | null; fecha_inicio: string; fecha_fin: string | null; presupuesto: number; coste_real: number; estado: string; resultado_real: number | null; aprendizaje: string | null; veredicto: string | null }
 type Metrica = { id: number; campana_id: number; fecha: string; pedidos: number; ventas: number; nuevos_clientes: number; canjes_codigo: number; coste: number }
-type EmbudoEvento = { id: number; fecha: string; canal: string; marca: string | null; etapa: string; valor: number }
 
-const CANAL_LABEL: Record<string, string> = { uber_eats: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', web: 'Web', qr_bolsa: 'QR Bolsa', email: 'Email', rrss: 'RRSS', directo: 'Directa', encuesta: 'Encuesta', UE: 'Uber Eats', GL: 'Glovo', JE: 'Just Eat' }
-const CANAL_COLOR: Record<string, string> = { uber_eats: COLORS.uber, glovo: COLORS.glovo, just_eat: COLORS.je, web: COLORS.web, qr_bolsa: COLORS.directa, email: COLORS.modal, rrss: COLORS.lun, UE: COLORS.uber, GL: COLORS.glovo, JE: COLORS.je }
-const CANAL_TXT: Record<string, string> = { glovo: COLORS.glovoText, GL: COLORS.glovoText }
-const MECANICA_LABEL: Record<string, string> = { '2x1_bogo': '2x1 (BOGO)', descuento_item: '% dto. producto', pct_pedido: '% dto. pedido', nuevo_usuario: 'Oferta nuevo usuario', envio_gratis: 'Envío gratis', sellos: 'Tarjeta de sellos' }
-const ETAPAS = ['exposicion', 'descubrimiento', 'consideracion', 'conversion', 'relacion', 'retencion'] as const
-const ETAPA_LABEL: Record<string, string> = { exposicion: 'Exposición', descubrimiento: 'Descubrimiento', consideracion: 'Consideración', conversion: 'Conversión', relacion: 'Relación', retencion: 'Retención' }
-const ETAPA_COLOR: Record<string, string> = { exposicion: '#B01D23', descubrimiento: '#f5a623', consideracion: '#1E5BCC', conversion: '#F26B1F', relacion: '#7B4FA8', retencion: '#1D9E75' }
+const CANAL_LABEL: Record<string, string> = { uber_eats: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', web: 'Web propia', qr_bolsa: 'QR Bolsa', email: 'Email', rrss: 'RRSS', directo: 'Directa', encuesta: 'Encuesta', ads_posicion: 'Uber Eats Ads' }
+const CANAL_COLOR: Record<string, string> = { uber_eats: COLORS.uber, glovo: COLORS.glovo, just_eat: COLORS.je, web: COLORS.web, qr_bolsa: COLORS.directa, email: COLORS.modal, rrss: COLORS.lun }
+const CANAL_TXT: Record<string, string> = { glovo: COLORS.glovoText }
+const MECANICA_LABEL: Record<string, string> = { '2x1_bogo': '2x1 (BOGO)', descuento_item: '% descuento', pct_pedido: '% sobre pedido', nuevo_usuario: 'Oferta nuevo cliente', envio_gratis: 'Envío gratis', sellos: 'Tarjeta de sellos', ads_posicion: 'Ads / posición' }
 const ESTADOS = ['borrador', 'activa', 'pausada', 'cerrada']
 const ESTADO_COLOR: Record<string, string> = { borrador: COLORS.mut, activa: COLORS.ok, pausada: COLORS.warn, cerrada: COLORS.err }
 const VEREDICTO_COLOR: Record<string, string> = { exito: COLORS.ok, parcial: COLORS.warn, fracaso: COLORS.err }
@@ -39,24 +35,21 @@ export default function CrmTiendaPropia() {
   const [publicos, setPublicos] = useState<Publico[]>([])
   const [campanas, setCampanas] = useState<Campana[]>([])
   const [metricas, setMetricas] = useState<Metrica[]>([])
-  const [embudo, setEmbudo] = useState<EmbudoEvento[]>([])
   const [cargando, setCargando] = useState(true)
   const [msg, setMsg] = useState('')
 
   async function cargar() {
     setCargando(true)
-    const [c, p, ca, m, e] = await Promise.all([
+    const [c, p, ca, m] = await Promise.all([
       supabase.from('crm_clientes').select('*').eq('baja', false).order('fecha_alta', { ascending: false }),
       supabase.from('crm_publicos_marca').select('*').order('marca'),
       supabase.from('crm_campanas').select('*').order('fecha_inicio', { ascending: false }),
       supabase.from('crm_campanas_metricas').select('*'),
-      supabase.from('crm_embudo_eventos').select('*').order('fecha', { ascending: false }).limit(3000),
     ])
     setClientes((c.data as Cliente[]) || [])
     setPublicos((p.data as Publico[]) || [])
     setCampanas((ca.data as Campana[]) || [])
     setMetricas((m.data as Metrica[]) || [])
-    setEmbudo((e.data as EmbudoEvento[]) || [])
     setCargando(false)
   }
   useEffect(() => { cargar() }, [])
@@ -66,7 +59,7 @@ export default function CrmTiendaPropia() {
     <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>CRM STREAT LAB</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Clientes propios · Campañas medibles · Embudo por canal · Marcas reales por plataforma</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Embudo de captación · campañas reales por plataforma · clientes propios</div>
       </div>
 
       <div style={TABS_PILL.container}>
@@ -81,7 +74,7 @@ export default function CrmTiendaPropia() {
         <div style={{ color: COLORS.mut, fontSize: 14, padding: 24 }}>Cargando CRM...</div>
       ) : (
         <div style={{ marginTop: 14 }}>
-          {tab === 'embudo' && <TabEmbudo embudo={embudo} onSaved={() => { cargar(); flash('Embudo actualizado') }} />}
+          {tab === 'embudo' && <TabEmbudo />}
           {tab === 'campanas' && <TabCampanas campanas={campanas} metricas={metricas} onSaved={(t: string) => { cargar(); flash(t) }} />}
           {tab === 'calendario' && <TabCalendario campanas={campanas} metricas={metricas} />}
           {tab === 'publicos' && <TabPublicos publicos={publicos} onSaved={() => { cargar(); flash('Público actualizado') }} />}
@@ -98,6 +91,7 @@ const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, bord
 const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
 const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
+const lblXsLocal: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase', letterSpacing: '1px', color: COLORS.mut }
 
 function semColor(pct: number) { if (pct >= 80) return COLORS.ok; if (pct >= 50) return COLORS.warn; return COLORS.err }
 
@@ -115,133 +109,185 @@ function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
   return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? '#fff', textTransform: 'uppercase' }}>{text}</span>
 }
 
-/* ═════════════ TAB EMBUDO (gráfico SVG real) ═════════════ */
-function TabEmbudo({ embudo, onSaved }: { embudo: EmbudoEvento[]; onSaved: () => void }) {
-  const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
-  const [f, setF] = useState({ fecha: new Date().toISOString().slice(0, 10), canal: 'todos', etapa: 'exposicion', valor: '' })
+/* ═════════════ TAB EMBUDO — gráfico real alimentado de pedidos reales ═════════════ */
+const ETAPAS_EMBUDO = [
+  { key: 'impresiones', label: 'Impresiones en app', color: '#484f66', sub: 'estimado' },
+  { key: 'visitas', label: 'Visitas al menú', color: '#1E5BCC', sub: 'estimado' },
+  { key: 'pedidos', label: 'Pedidos', color: '#B01D23', sub: 'dato real · facturación' },
+  { key: 'recompra', label: 'Recompra (30d)', color: '#1D9E75', sub: 'estimado' },
+] as const
 
-  const totals = useMemo(() => {
-    const t: Record<string, number> = {}
-    ETAPAS.forEach(e => (t[e] = 0))
-    embudo.forEach(ev => { if (ev.fecha >= hace30 && t[ev.etapa] !== undefined) t[ev.etapa] += Number(ev.valor) || 0 })
-    return t
-  }, [embudo])
+const CANALES_EMBUDO = ['uber_eats', 'glovo', 'just_eat', 'web'] as const
+type TasaCanal = { iv: number; vp: number; pr: number }
 
-  const maxV = Math.max(...ETAPAS.map(e => totals[e]), 1)
-  const hayDatos = ETAPAS.some(e => totals[e] > 0)
+function TabEmbudo() {
+  const [ped, setPed] = useState<Record<string, number>>({ uber_eats: 0, glovo: 0, just_eat: 0, web: 0 })
+  const [tasas, setTasas] = useState<Record<string, TasaCanal>>({})
+  const [cargando, setCargando] = useState(true)
+  const [editando, setEditando] = useState(false)
+  const [draft, setDraft] = useState<Record<string, TasaCanal>>({})
 
-  const W = 720, segH = 64, gap = 8, topW = 560, botW = 150
-  const H = ETAPAS.length * (segH + gap)
-  function trap(i: number) {
-    const t = ETAPAS.length - 1
-    const w1 = topW - (topW - botW) * (i / (t + 1))
-    const w2 = topW - (topW - botW) * ((i + 1) / (t + 1))
-    const cx = W / 2, y = i * (segH + gap)
-    const x1a = cx - w1 / 2, x1b = cx + w1 / 2
-    const x2a = cx - w2 / 2, x2b = cx + w2 / 2
-    return { points: `${x1a},${y} ${x1b},${y} ${x2b},${y + segH} ${x2a},${y + segH}`, y, cy: y + segH / 2 }
+  async function cargar() {
+    setCargando(true)
+    const desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const [f, t] = await Promise.all([
+      supabase.from('facturacion_diario').select('uber_pedidos,glovo_pedidos,je_pedidos,web_pedidos,directa_pedidos').gte('fecha', desde),
+      supabase.from('crm_embudo_tasas').select('*'),
+    ])
+    const acc: Record<string, number> = { uber_eats: 0, glovo: 0, just_eat: 0, web: 0 }
+    ;((f.data as any[]) || []).forEach(r => {
+      acc.uber_eats += r.uber_pedidos || 0
+      acc.glovo += r.glovo_pedidos || 0
+      acc.just_eat += r.je_pedidos || 0
+      acc.web += (r.web_pedidos || 0) + (r.directa_pedidos || 0)
+    })
+    setPed(acc)
+    const tt: Record<string, TasaCanal> = {}
+    ;((t.data as any[]) || []).forEach(x => { tt[x.canal] = { iv: Number(x.impresion_a_visita), vp: Number(x.visita_a_pedido), pr: Number(x.pedido_a_recompra) } })
+    setTasas(tt)
+    setCargando(false)
+  }
+  useEffect(() => { cargar() }, [])
+
+  function tasaDe(c: string): TasaCanal { return tasas[c] || { iv: 0.25, vp: 0.10, pr: 0.30 } }
+  function etapasCanal(c: string) {
+    const p = ped[c] || 0
+    const t = tasaDe(c)
+    const visitas = t.vp > 0 ? p / t.vp : 0
+    const impresiones = t.iv > 0 ? visitas / t.iv : 0
+    return { impresiones, visitas, pedidos: p, recompra: p * t.pr }
   }
 
-  async function guardar() {
-    if (!f.valor) return
-    const canales = f.canal === 'todos' ? ['uber_eats', 'glovo', 'just_eat', 'web'] : [f.canal]
-    const val = Number(f.valor) / canales.length
-    for (const c of canales) {
-      await supabase.from('crm_embudo_eventos').upsert({ fecha: f.fecha, canal: c, marca: null, etapa: f.etapa, valor: val, fuente: 'manual' }, { onConflict: 'fecha,canal,marca,etapa' })
+  const agg = useMemo(() => {
+    const a: Record<string, number> = { impresiones: 0, visitas: 0, pedidos: 0, recompra: 0 }
+    CANALES_EMBUDO.forEach(c => { const e = etapasCanal(c); a.impresiones += e.impresiones; a.visitas += e.visitas; a.pedidos += e.pedidos; a.recompra += e.recompra })
+    return a
+  }, [ped, tasas])
+
+  async function guardarTasas() {
+    for (const c of CANALES_EMBUDO) {
+      const d = draft[c]
+      if (!d) continue
+      await supabase.from('crm_embudo_tasas').upsert({ canal: c, impresion_a_visita: d.iv, visita_a_pedido: d.vp, pedido_a_recompra: d.pr }, { onConflict: 'canal' })
     }
-    setF({ ...f, valor: '' })
-    onSaved()
+    setEditando(false)
+    cargar()
   }
 
-  function conv(i: number): number | null {
-    if (i === 0) return null
-    const prev = totals[ETAPAS[i - 1]], cur = totals[ETAPAS[i]]
-    return prev > 0 ? Math.round((cur / prev) * 100) : null
-  }
+  if (cargando) return <div style={{ color: COLORS.mut, fontSize: 14, padding: 24 }}>Cargando embudo...</div>
+
+  const vals = ETAPAS_EMBUDO.map(e => agg[e.key])
+  const maxVal = vals[0] || 1
+  const sinPedidos = agg.pedidos === 0
+
+  // Geometría embudo SVG (bandas de ancho proporcional al valor, con suelo visual)
+  const W = 860, bandH = 76, gap = 6, maxW = 660
+  const H = ETAPAS_EMBUDO.length * (bandH + gap)
+  const anchoDe = (v: number) => (0.20 + 0.80 * (maxVal > 0 ? v / maxVal : 0)) * maxW
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>
-        Embudo de marketing agregado · últimos 30 días. Las plataformas (Uber Eats, Glovo, Just Eat) sólo ceden datos agregados de sus paneles (no identidad del cliente); el embudo cliente a cliente sólo existe en canal propio.
+        Embudo de captación · últimos 30 días. La etapa <b style={{ color: COLORS.redSL }}>Pedidos</b> es dato real de tu facturación; las plataformas no ceden impresiones ni visitas por API, así que se estiman aplicando tasas de conversión del sector (editables). El recorrido cliente a cliente completo solo existe en canal propio.
       </div>
 
+      {/* KPIs cabecera */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <KpiCard label="Pedidos (30d)" value={fmtNumES(agg.pedidos)} sub="dato real" color={COLORS.redSL} />
+        <KpiCard label="Visitas estimadas" value={fmtNumES(Math.round(agg.visitas))} sub={`conv. visita→pedido ${agg.visitas > 0 ? Math.round(agg.pedidos / agg.visitas * 100) : 0}%`} color={COLORS.lun} />
+        <KpiCard label="Impresiones estimadas" value={fmtNumES(Math.round(agg.impresiones))} sub={`conv. total ${agg.impresiones > 0 ? (agg.pedidos / agg.impresiones * 100).toFixed(1) : 0}%`} color={COLORS.modal} />
+        <KpiCard label="Recompra estimada (30d)" value={fmtNumES(Math.round(agg.recompra))} sub={`${agg.pedidos > 0 ? Math.round(agg.recompra / agg.pedidos * 100) : 0}% repite`} color={COLORS.ok} />
+      </div>
+
+      {/* GRÁFICO DE EMBUDO */}
       <div style={CARDS.big}>
-        <div style={{ ...lbl, marginBottom: 16 }}>Embudo Streat Lab — Exposición → Retención</div>
-        {!hayDatos ? (
-          <div style={{ padding: 30, textAlign: 'center', color: COLORS.mut, fontSize: 14 }}>
-            Sin datos todavía. Registra abajo las cifras de cada etapa (visitas de menú, pedidos, etc.) desde los paneles de plataforma.
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={lbl}>Embudo Streat Lab — del descubrimiento al pedido</div>
+          <button onClick={() => { setDraft(Object.fromEntries(CANALES_EMBUDO.map(c => [c, tasaDe(c)]))); setEditando(e => !e) }} style={btnGhost}>{editando ? 'Cerrar' : 'Ajustar tasas'}</button>
+        </div>
+
+        {sinPedidos ? (
+          <div style={{ padding: 30, textAlign: 'center', color: COLORS.mut, fontSize: 14 }}>Sin pedidos en los últimos 30 días.</div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 720, height: 'auto' }}>
-              {ETAPAS.map((et, i) => {
-                const g = trap(i)
-                const val = totals[et]
-                const cnv = conv(i)
-                const pctBar = Math.round((val / maxV) * 100)
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto' }}>
+              {ETAPAS_EMBUDO.map((et, i) => {
+                const v = vals[i]
+                const wTop = anchoDe(v)
+                const wBot = i < ETAPAS_EMBUDO.length - 1 ? anchoDe(vals[i + 1]) : wTop * 0.82
+                const y = i * (bandH + gap)
+                const cx = W / 2
+                const pts = `${cx - wTop / 2},${y} ${cx + wTop / 2},${y} ${cx + wBot / 2},${y + bandH} ${cx - wBot / 2},${y + bandH}`
+                const conv = i > 0 && vals[i - 1] > 0 ? Math.round(v / vals[i - 1] * 100) : null
                 return (
-                  <g key={et}>
-                    <polygon points={g.points} fill={ETAPA_COLOR[et]} opacity={0.92} />
-                    <text x={W / 2} y={g.cy - 6} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={17} fontWeight={600} fill="#fff" style={{ textTransform: 'uppercase' as const, letterSpacing: '1px' }}>{ETAPA_LABEL[et]}</text>
-                    <text x={W / 2} y={g.cy + 14} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={15} fontWeight={600} fill="#fff">{fmtNumES(val)}</text>
-                    {cnv !== null && (
-                      <text x={W - 6} y={g.y - gap / 2} textAnchor="end" fontFamily="Lexend, sans-serif" fontSize={11} fill={COLORS.mut}>▼ {cnv}%</text>
+                  <g key={et.key}>
+                    <polygon points={pts} fill={et.color} opacity={0.94} />
+                    <text x={cx} y={y + bandH / 2 - 8} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={15} fontWeight={600} fill="#fff" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>{et.label}</text>
+                    <text x={cx} y={y + bandH / 2 + 14} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={22} fontWeight={600} fill="#fff">{fmtNumES(Math.round(v))}</text>
+                    <text x={cx} y={y + bandH / 2 + 30} textAnchor="middle" fontFamily="Lexend, sans-serif" fontSize={10} fill="rgba(255,255,255,0.75)">{et.sub}</text>
+                    {conv !== null && (
+                      <text x={W - 8} y={y - gap / 2 + 2} textAnchor="end" fontFamily="Oswald, sans-serif" fontSize={13} fontWeight={600} fill={COLORS.sec}>▼ {conv}%</text>
                     )}
-                    <text x={6} y={g.cy + 4} fontFamily="Lexend, sans-serif" fontSize={10} fill={COLORS.mut}>{pctBar}%</text>
                   </g>
                 )
               })}
             </svg>
           </div>
         )}
+
+        {editando && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${COLORS.group}` }}>
+            <div style={{ ...lblSm, marginBottom: 10 }}>Tasas de conversión por canal (estimación del sector)</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr><th style={th}>Canal</th><th style={th}>Impresión → Visita</th><th style={th}>Visita → Pedido</th><th style={th}>Pedido → Recompra</th></tr></thead>
+                <tbody>
+                  {CANALES_EMBUDO.map(c => {
+                    const d = draft[c] || tasaDe(c)
+                    const upd = (k: keyof TasaCanal, val: string) => setDraft(p => ({ ...p, [c]: { ...d, [k]: Number(val) } }))
+                    return (
+                      <tr key={c}>
+                        <td style={{ ...td, color: CANAL_TXT[c] || CANAL_COLOR[c], fontWeight: 600 }}>{CANAL_LABEL[c]}</td>
+                        <td style={td}><input type="number" step="0.01" value={d.iv} onChange={e => upd('iv', e.target.value)} style={{ ...inp, width: 90 }} /></td>
+                        <td style={td}><input type="number" step="0.01" value={d.vp} onChange={e => upd('vp', e.target.value)} style={{ ...inp, width: 90 }} /></td>
+                        <td style={td}><input type="number" step="0.01" value={d.pr} onChange={e => upd('pr', e.target.value)} style={{ ...inp, width: 90 }} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 12 }}><button onClick={guardarTasas} style={btnPri}>Guardar tasas</button></div>
+          </div>
+        )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
-        {(['uber_eats', 'glovo', 'just_eat', 'web'] as const).map(c => {
-          const porEtapa: Record<string, number> = {}
-          ETAPAS.forEach(e => (porEtapa[e] = 0))
-          embudo.forEach(ev => { if (ev.fecha >= hace30 && ev.canal === c && porEtapa[ev.etapa] !== undefined) porEtapa[ev.etapa] += Number(ev.valor) || 0 })
-          const mx = Math.max(...ETAPAS.map(e => porEtapa[e]), 1)
-          const expo = porEtapa.exposicion, conver = porEtapa.conversion
-          const tasa = expo > 0 ? Math.round((conver / expo) * 100) : null
+      {/* DESGLOSE POR CANAL */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 14 }}>
+        {CANALES_EMBUDO.map(c => {
+          const e = etapasCanal(c)
+          const orden = [e.impresiones, e.visitas, e.pedidos, e.recompra]
+          const mx = orden[0] || 1
+          const convTotal = e.impresiones > 0 ? (e.pedidos / e.impresiones * 100) : 0
           return (
-            <div key={c} style={CARDS.std}>
+            <div key={c} style={{ ...CARDS.std, opacity: e.pedidos > 0 ? 1 : 0.55 }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: CANAL_TXT[c] || CANAL_COLOR[c], marginBottom: 10 }}>{CANAL_LABEL[c]}</div>
-              {ETAPAS.map((et, i) => (
-                <div key={et} style={{ marginBottom: 6 }}>
+              {ETAPAS_EMBUDO.map((et, i) => (
+                <div key={et.key} style={{ marginBottom: 7 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT.body, fontSize: 11, color: COLORS.sec, marginBottom: 2 }}>
-                    <span>{ETAPA_LABEL[et]}</span><span style={{ fontWeight: 600, color: COLORS.pri }}>{fmtNumES(porEtapa[et])}</span>
+                    <span>{et.label}</span><span style={{ fontWeight: 600, color: COLORS.pri }}>{fmtNumES(Math.round(orden[i]))}</span>
                   </div>
-                  <div style={{ height: 6, background: COLORS.group, borderRadius: 3 }}>
-                    <div style={{ height: 6, width: `${(porEtapa[et] / mx) * 100}%`, background: ETAPA_COLOR[et], borderRadius: 3, opacity: 1 - i * 0.1 }} />
+                  <div style={{ height: 7, background: COLORS.group, borderRadius: 4 }}>
+                    <div style={{ height: 7, width: `${Math.max(2, (orden[i] / mx) * 100)}%`, background: et.color, borderRadius: 4 }} />
                   </div>
                 </div>
               ))}
               <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 8 }}>
-                {tasa !== null ? `Conversión exposición→pedido: ${tasa}%` : 'Sin datos de exposición'}
+                {e.pedidos > 0 ? `Conversión total: ${convTotal.toFixed(1)}%` : 'Sin pedidos en 30 días'}
               </div>
             </div>
           )
         })}
-      </div>
-
-      <div style={CARDS.std}>
-        <div style={{ ...lblSm, marginBottom: 12 }}>Registrar dato de embudo (desde los paneles de plataforma)</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, alignItems: 'center' }}>
-          <input type="date" value={f.fecha} onChange={e => setF({ ...f, fecha: e.target.value })} style={inp} />
-          <select value={f.canal} onChange={e => setF({ ...f, canal: e.target.value })} style={inp}>
-            <option value="todos">Todos los canales</option>
-            <option value="uber_eats">Uber Eats</option>
-            <option value="glovo">Glovo</option>
-            <option value="just_eat">Just Eat</option>
-            <option value="web">Web</option>
-          </select>
-          <select value={f.etapa} onChange={e => setF({ ...f, etapa: e.target.value })} style={inp}>
-            {ETAPAS.map(e => <option key={e} value={e}>{ETAPA_LABEL[e]}</option>)}
-          </select>
-          <input type="number" placeholder="Valor" value={f.valor} onChange={e => setF({ ...f, valor: e.target.value })} style={inp} />
-          <button onClick={guardar} style={btnPri}>Guardar</button>
-        </div>
       </div>
     </div>
   )
@@ -253,6 +299,7 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
   const [reg, setReg] = useState({ fecha: new Date().toISOString().slice(0, 10), pedidos: '', ventas: '', nuevos_clientes: '', canjes_codigo: '', coste: '' })
   const [cierreId, setCierreId] = useState<number | null>(null)
   const [cierre, setCierre] = useState({ resultado_real: '', veredicto: 'exito', aprendizaje: '' })
+  const [filtroEstado, setFiltroEstado] = useState('todas')
 
   const agg = useMemo(() => {
     const m: Record<number, { pedidos: number; ventas: number; nuevos: number; canjes: number; coste: number }> = {}
@@ -280,36 +327,37 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
     return Math.round((realKpi(c) / Number(c.kpi_meta)) * 100)
   }
 
-  async function cambiarEstado(c: Campana, estado: string) {
-    await supabase.from('crm_campanas').update({ estado }).eq('id', c.id)
-    onSaved(`Campaña ${estado}`)
-  }
+  async function cambiarEstado(c: Campana, estado: string) { await supabase.from('crm_campanas').update({ estado }).eq('id', c.id); onSaved(`Campaña ${estado}`) }
   async function guardarMetrica() {
     if (!regId) return
     await supabase.from('crm_campanas_metricas').upsert({ campana_id: regId, fecha: reg.fecha, pedidos: Number(reg.pedidos) || 0, ventas: Number(reg.ventas) || 0, nuevos_clientes: Number(reg.nuevos_clientes) || 0, canjes_codigo: Number(reg.canjes_codigo) || 0, coste: Number(reg.coste) || 0 }, { onConflict: 'campana_id,fecha' })
-    setRegId(null); setReg({ fecha: new Date().toISOString().slice(0, 10), pedidos: '', ventas: '', nuevos_clientes: '', canjes_codigo: '', coste: '' })
-    onSaved('Métricas registradas')
+    setRegId(null); setReg({ fecha: new Date().toISOString().slice(0, 10), pedidos: '', ventas: '', nuevos_clientes: '', canjes_codigo: '', coste: '' }); onSaved('Métricas registradas')
   }
   async function guardarCierre() {
     if (!cierreId) return
     await supabase.from('crm_campanas').update({ estado: 'cerrada', resultado_real: Number(cierre.resultado_real) || null, veredicto: cierre.veredicto, aprendizaje: cierre.aprendizaje || null }).eq('id', cierreId)
-    setCierreId(null); setCierre({ resultado_real: '', veredicto: 'exito', aprendizaje: '' })
-    onSaved('Campaña cerrada con aprendizaje')
+    setCierreId(null); setCierre({ resultado_real: '', veredicto: 'exito', aprendizaje: '' }); onSaved('Campaña cerrada')
   }
 
+  const lista = campanas.filter(c => filtroEstado === 'todas' || c.estado === filtroEstado)
   const activas = campanas.filter(c => c.estado === 'activa').length
-  const totalPresup = campanas.reduce((s, c) => s + Number(c.presupuesto || 0), 0)
   const ventasTot = Object.values(agg).reduce((s, a) => s + a.ventas, 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <KpiCard label="Campañas" value={String(campanas.length)} sub={`${activas} activas`} />
-        <KpiCard label="Presupuesto total" value={fmtEur(totalPresup)} />
+        <KpiCard label="En cartera" value={String(campanas.filter(c => c.estado === 'borrador').length)} sub="listas para lanzar" color={COLORS.mut} />
         <KpiCard label="Ventas atribuidas" value={fmtEur(ventasTot)} color={COLORS.ok} />
       </div>
 
-      {campanas.map(c => {
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {['todas', ...ESTADOS].map(e => (
+          <button key={e} onClick={() => setFiltroEstado(e)} style={filtroEstado === e ? { ...btnGhost, border: `0.5px solid ${COLORS.accent}`, color: COLORS.accent, fontWeight: 600 } : btnGhost}>{e}</button>
+        ))}
+      </div>
+
+      {lista.map(c => {
         const a = agg[c.id]
         const pct = progreso(c)
         const roi = a && a.coste > 0 ? Math.round(((a.ventas - a.coste) / a.coste) * 100) : null
@@ -325,7 +373,6 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
                 </div>
                 {c.marca && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, marginBottom: 2 }}>Marca: <b>{c.marca}</b>{c.producto ? ` · ${c.producto}` : ''}</div>}
                 <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, marginBottom: 4 }}>{c.objetivo_smart}</div>
-                {c.mecanica && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Mecánica: {c.mecanica}</div>}
                 <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>
                   {c.fecha_inicio}{c.fecha_fin ? ` → ${c.fecha_fin}` : ''} · Presupuesto {fmtEur(Number(c.presupuesto))}{c.codigo_promo ? ` · Código ${c.codigo_promo}` : ''}
                 </div>
@@ -338,7 +385,7 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
                 )}
               </div>
               <div style={{ minWidth: 230 }}>
-                <div style={{ ...lblSm }}>KPI: {c.kpi_principal} · Meta {fmtNumES(c.kpi_meta ?? 0)}</div>
+                <div style={lblSm}>KPI: {c.kpi_principal} · Meta {fmtNumES(c.kpi_meta ?? 0)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
                   <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 3 }}>
                     <div style={{ height: 6, width: `${Math.min(pct, 100)}%`, background: semColor(pct), borderRadius: 3, transition: 'width 0.4s' }} />
@@ -378,7 +425,7 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
                     <option value="fracaso">Fracaso (no repetir)</option>
                   </select>
                 </div>
-                <textarea placeholder="¿Qué aprendimos? ¿Qué repetir o cambiar la próxima vez?" value={cierre.aprendizaje} onChange={e => setCierre({ ...cierre, aprendizaje: e.target.value })} style={{ ...inp, minHeight: 52 }} />
+                <textarea placeholder="¿Qué aprendimos? ¿Qué repetir o cambiar?" value={cierre.aprendizaje} onChange={e => setCierre({ ...cierre, aprendizaje: e.target.value })} style={{ ...inp, minHeight: 52 }} />
                 <div><button onClick={guardarCierre} style={btnPri}>Cerrar campaña</button></div>
               </div>
             )}
@@ -390,6 +437,7 @@ function TabCampanas({ campanas, metricas, onSaved }: { campanas: Campana[]; met
 }
 
 /* ═════════════ TAB CALENDARIO ═════════════ */
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 function TabCalendario({ campanas, metricas }: { campanas: Campana[]; metricas: Metrica[] }) {
   const aggVentas = useMemo(() => {
     const m: Record<number, number> = {}
@@ -398,36 +446,42 @@ function TabCalendario({ campanas, metricas }: { campanas: Campana[]; metricas: 
   }, [metricas])
 
   const fechas = campanas.flatMap(c => [c.fecha_inicio, c.fecha_fin].filter(Boolean) as string[])
-  if (fechas.length === 0) return <div style={{ color: COLORS.mut, padding: 24 }}>Sin campañas programadas.</div>
+  if (fechas.length === 0) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Sin campañas programadas.</div>
   const min = fechas.reduce((a, b) => (a < b ? a : b))
   const max = fechas.reduce((a, b) => (a > b ? a : b))
   const minD = new Date(min + 'T00:00:00'), maxD = new Date(max + 'T00:00:00')
-  const totalDays = Math.max(1, Math.round((maxD.getTime() - minD.getTime()) / 86400000))
+  const totalMs = Math.max(1, maxD.getTime() - minD.getTime())
+  const pos = (d: string) => ((new Date(d + 'T00:00:00').getTime() - minD.getTime()) / totalMs) * 100
 
-  function pos(d: string) { return Math.round(((new Date(d + 'T00:00:00').getTime() - minD.getTime()) / 86400000 / totalDays) * 100) }
+  const meses: { label: string; left: number }[] = []
+  const cur = new Date(minD.getFullYear(), minD.getMonth(), 1)
+  while (cur <= maxD) {
+    meses.push({ label: `${MESES[cur.getMonth()]} ${String(cur.getFullYear()).slice(2)}`, left: Math.max(0, ((cur.getTime() - minD.getTime()) / totalMs) * 100) })
+    cur.setMonth(cur.getMonth() + 1)
+  }
   const ordenadas = [...campanas].sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>
-        Calendario de campañas por marca, producto y plataforma. Cada barra es una campaña con su duración real. Color = plataforma.
-      </div>
+      <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Cada barra es una campaña con su duración real. Color = plataforma. Etiqueta = mecánica.</div>
 
       <div style={CARDS.big}>
-        <div style={{ ...lbl, marginBottom: 6 }}>Cronograma de campañas</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginBottom: 12 }}>
-          <span>{min}</span><span>{max}</span>
+        <div style={{ ...lbl, marginBottom: 12 }}>Cronograma de campañas</div>
+        <div style={{ position: 'relative', height: 18, marginLeft: 210, marginBottom: 6 }}>
+          {meses.map((m, i) => (
+            <span key={i} style={{ position: 'absolute', left: `${m.left}%`, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut }}>{m.label}</span>
+          ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {ordenadas.map(c => {
-            const x1 = pos(c.fecha_inicio), x2 = c.fecha_fin ? pos(c.fecha_fin) : x1 + 4
+            const x1 = pos(c.fecha_inicio), x2 = c.fecha_fin ? pos(c.fecha_fin) : x1 + 5
             return (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 200, flexShrink: 0, fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {c.marca || 'Multi'} · <span style={{ color: COLORS.mut }}>{c.nombre}</span>
+                  <span style={{ color: CANAL_TXT[c.canal] || CANAL_COLOR[c.canal], fontWeight: 600 }}>{c.marca || 'Multi'}</span> <span style={{ color: COLORS.mut }}>· {c.producto || c.tipo}</span>
                 </div>
-                <div style={{ flex: 1, position: 'relative', height: 22, background: COLORS.group, borderRadius: 6 }}>
-                  <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(3, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
+                <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 6 }}>
+                  <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden' }}>
                     <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || '#fff', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
                   </div>
                 </div>
@@ -450,7 +504,7 @@ function TabCalendario({ campanas, metricas }: { campanas: Campana[]; metricas: 
                   <td style={td}>{c.marca || 'Multi'}{c.producto ? <div style={{ fontSize: 11, color: COLORS.mut }}>{c.producto}</div> : null}</td>
                   <td style={td}><Pill text={CANAL_LABEL[c.canal] || c.canal} bg={CANAL_COLOR[c.canal] || COLORS.mut} txt={CANAL_TXT[c.canal]} /></td>
                   <td style={td}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || '—'}</td>
-                  <td style={{ ...td, maxWidth: 280 }}>{c.objetivo_smart}</td>
+                  <td style={{ ...td, maxWidth: 300, fontSize: 12 }}>{c.objetivo_smart}</td>
                   <td style={td}>{c.fecha_inicio.slice(5)} → {c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</td>
                   <td style={td}><span style={{ color: ESTADO_COLOR[c.estado], fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase' }}>{c.estado}</span></td>
                   <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(aggVentas[c.id] || 0)}</td>
@@ -507,7 +561,6 @@ function TabPublicos({ publicos, onSaved }: { publicos: Publico[]; onSaved: () =
     </div>
   )
 }
-const lblXsLocal: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase', letterSpacing: '1px', color: COLORS.mut }
 
 /* ═════════════ TAB CLIENTES ═════════════ */
 function TabClientes({ clientes, onSaved }: { clientes: Cliente[]; onSaved: () => void }) {
