@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
+
+const BG_OPS = '#111111'
 
 interface Reunion {
   id: string
@@ -22,10 +26,8 @@ function fmtFecha(d: string): string {
   return `${day}/${m}/${y}`
 }
 
-const EMPTY_FORM = {
-  fecha: new Date().toISOString().split('T')[0],
-  asistentes: '',
-  acta: '',
+function getEmptyForm() {
+  return { fecha: toLocalDateStr(new Date()), asistentes: '', acta: '' }
 }
 
 export default function ReunionesEquipo() {
@@ -33,7 +35,7 @@ export default function ReunionesEquipo() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(getEmptyForm())
   const [acuerdosForm, setAcuerdosForm] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -74,7 +76,7 @@ export default function ReunionesEquipo() {
       acuerdos: acuerdosArr.length > 0 ? acuerdosArr : null,
     })
     if (!e) {
-      setForm(EMPTY_FORM)
+      setForm(getEmptyForm())
       setAcuerdosForm('')
       setShowForm(false)
       await loadData()
@@ -102,7 +104,7 @@ export default function ReunionesEquipo() {
   )
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>REUNIONES EQUIPO</h1>
@@ -171,7 +173,7 @@ export default function ReunionesEquipo() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addReunion} disabled={saving}
-              style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
             <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>

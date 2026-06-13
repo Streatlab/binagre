@@ -191,7 +191,7 @@ export default function Cashflow() {
     return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
-  const futuros = useMemo(() => cobros.filter(c => c.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
+  const futuros = useMemo(() => cobros.filter(c => c.pago >= hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
   const porCobrarTotal = useMemo(() => futuros.reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
   const hastaFinMes = useMemo(() => futuros.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [futuros, finMesStr, factor])

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+
+const BG_OPS = '#111111'
 
 interface Equipo {
   id: string
@@ -34,8 +37,8 @@ function fmtFechaHora(iso: string): string {
 
 function semaforo(temp: number, min: number | null, max: number | null): { color: string; label: string } {
   if (min === null || max === null) return { color: '#777777', label: '?' }
-  if (temp >= min && temp <= max) return { color: '#1D9E75', label: 'OK' }
-  return { color: '#B01D23', label: 'ALERTA' }
+  if (temp >= min && temp <= max) return { color: COLORS.ok, label: 'OK' }
+  return { color: COLORS.redSL, label: 'ALERTA' }
 }
 
 export default function ControlTemperaturas() {
@@ -115,9 +118,9 @@ export default function ControlTemperaturas() {
   }
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
+        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
         <span style={{ fontSize: 13, color: '#777777' }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
       </div>
 

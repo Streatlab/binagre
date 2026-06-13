@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+
+const BG_OPS = '#111111'
 
 interface FacturacionRow {
   fecha: string
@@ -21,7 +24,7 @@ const CHANNELS = [
   { key: 'uber',    label: 'Uber Eats', color: '#06C167', revKey: 'uber_neto',    ordKey: 'uber_pedidos' },
   { key: 'glovo',   label: 'Glovo',     color: '#e8f442', revKey: 'glovo_neto',   ordKey: 'glovo_pedidos' },
   { key: 'je',      label: 'JustEat',   color: '#f5a623', revKey: 'je_neto',      ordKey: 'je_pedidos' },
-  { key: 'web',     label: 'Web',       color: '#B01D23', revKey: 'web_neto',     ordKey: 'web_pedidos' },
+  { key: 'web',     label: 'Web',       color: COLORS.redSL, revKey: 'web_neto',     ordKey: 'web_pedidos' },
   { key: 'directa', label: 'Directa',   color: '#66aaff', revKey: 'directa_neto', ordKey: 'directa_pedidos' },
 ]
 
@@ -94,14 +97,14 @@ export default function PulsoCocina() {
   const DeltaBadge = ({ val, avg }: { val: number; avg: number }) => {
     if (avg === 0) return <span style={{ color: '#555555' }}>—</span>
     const d = ((val - avg) / avg) * 100
-    return <span style={{ color: d >= 0 ? '#1D9E75' : '#B01D23', fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{d >= 0 ? '▲' : '▼'} {Math.abs(d).toFixed(1)}%</span>
+    return <span style={{ color: d >= 0 ? COLORS.ok : COLORS.redSL, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{d >= 0 ? '▲' : '▼'} {Math.abs(d).toFixed(1)}%</span>
   }
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>PULSO COCINA</h1>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>PULSO COCINA</h1>
           <span style={{ fontSize: 13, color: '#777777' }}>
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
             {' · '}Actualizado {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
@@ -124,7 +127,7 @@ export default function PulsoCocina() {
                 <div style={{ fontFamily: FONT.heading, fontSize: 32, fontWeight: 600, lineHeight: 1 }}>{kpi.val}</div>
                 <div style={{ fontSize: 12, color: '#555555', marginTop: 6 }}>{kpi.avg}</div>
                 {kpi.delta !== null && (
-                  <div style={{ fontFamily: FONT.heading, fontSize: 13, marginTop: 6, color: kpi.delta >= 0 ? '#1D9E75' : '#B01D23', fontWeight: 600 }}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 13, marginTop: 6, color: kpi.delta >= 0 ? COLORS.ok : COLORS.redSL, fontWeight: 600 }}>
                     {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta).toFixed(1)}% vs media
                   </div>
                 )}

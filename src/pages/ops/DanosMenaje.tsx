@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
+
+const BG_OPS = '#111111'
 
 interface DanoMenaje {
   id: string
@@ -32,7 +36,7 @@ export default function DanosMenaje() {
   const [danos, setDanos] = useState<DanoMenaje[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: new Date().toISOString().split('T')[0] })
+  const [form, setForm] = useState({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: toLocalDateStr(new Date()) })
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -64,7 +68,7 @@ export default function DanosMenaje() {
       descripcion: form.descripcion || null, fecha: form.fecha,
     })
     if (!e) {
-      setForm({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: new Date().toISOString().split('T')[0] })
+      setForm({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: toLocalDateStr(new Date()) })
       setShowForm(false)
       await loadData()
     }
@@ -76,10 +80,10 @@ export default function DanosMenaje() {
   const kpiTotal = danos.reduce((s, d) => s + (d.coste_total ?? 0), 0)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>DAÑOS MENAJE</h1>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>DAÑOS MENAJE</h1>
           <span style={{ fontSize: 13, color: '#777777' }}>Registro de rotura y pérdida de menaje</span>
         </div>
         <button onClick={() => setShowForm(s => !s)}
@@ -94,7 +98,7 @@ export default function DanosMenaje() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
         <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '16px 20px' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 6 }}>Coste Este Mes</div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: '#B01D23' }}>{fmtEurLocal(kpiMes)}</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: COLORS.redSL }}>{fmtEurLocal(kpiMes)}</div>
         </div>
         <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '16px 20px' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 6 }}>Coste Total Histórico</div>
@@ -120,7 +124,7 @@ export default function DanosMenaje() {
               </div>
             ))}
             <button onClick={addDano} disabled={saving}
-              style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
             <button onClick={() => setShowForm(false)}
@@ -147,7 +151,7 @@ export default function DanosMenaje() {
                   <td style={{ padding: '10px 14px', color: '#ffffff', fontWeight: 500 }}>{d.item}</td>
                   <td style={{ padding: '10px 14px', color: '#cccccc' }}>{d.cantidad}</td>
                   <td style={{ padding: '10px 14px', color: '#cccccc' }}>{fmtEurLocal(d.coste_unitario)}</td>
-                  <td style={{ padding: '10px 14px', color: '#B01D23', fontWeight: 600 }}>{fmtEurLocal(d.coste_total)}</td>
+                  <td style={{ padding: '10px 14px', color: COLORS.redSL, fontWeight: 600 }}>{fmtEurLocal(d.coste_total)}</td>
                   <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>{d.descripcion ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: '#777777', whiteSpace: 'nowrap' }}>{fmtFecha(d.fecha)}</td>
                 </tr>

@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:neto": "tsx scripts/test-coherencia-neto.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",

@@ -124,10 +124,7 @@ export default function Conciliacion() {
         factura_id: m.factura_id ?? null,
         factura_data: m.factura_data ?? null,
         titular_id: m.titular_id ?? null,
-        // TODO: migrar a v_estado_documento — leer desde la vista en vez de la columna directa en conciliacion
-        doc_estado:
-          ((m as unknown as { doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null }).doc_estado) ??
-          'falta',
+        doc_estado: m.doc_estado_real ?? 'falta',
       })),
     [movimientosBD],
   )

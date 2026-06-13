@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+
+const BG_OPS = '#111111'
 
 type TipoBpm = 'apertura' | 'cierre' | 'BPM'
 
@@ -59,9 +62,9 @@ function fmtHora(iso: string | null): string {
 }
 
 function progressColor(pct: number): string {
-  if (pct < 30) return '#B01D23'
+  if (pct < 30) return COLORS.redSL
   if (pct < 70) return '#f5a623'
-  return '#1D9E75'
+  return COLORS.ok
 }
 
 export default function BpmCalidad() {
@@ -157,9 +160,9 @@ export default function BpmCalidad() {
   const pct = totalItems > 0 ? Math.round((completados / totalItems) * 100) : 0
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>BPM / CALIDAD</h1>
+        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>BPM / CALIDAD</h1>
         <span style={{ fontSize: 13, color: '#777777' }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
       </div>
 
@@ -191,11 +194,11 @@ export default function BpmCalidad() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
             {items.map(item => (
               <div key={item.id} onClick={() => toggleItem(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${item.completado ? '#1D9E7530' : '#2a2a2a'}`, background: item.completado ? '#1D9E7515' : '#141414', cursor: 'pointer', userSelect: 'none' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, border: `2px solid ${item.completado ? '#1D9E75' : '#383838'}`, background: item.completado ? '#1D9E75' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, border: `2px solid ${item.completado ? COLORS.ok : '#383838'}`, background: item.completado ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {item.completado && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L6 11L12 3" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                 </div>
                 <span style={{ flex: 1, fontSize: 14, color: item.completado ? '#777777' : '#ffffff', textDecoration: item.completado ? 'line-through' : 'none' }}>{item.item_nombre}</span>
-                {item.completado_at && <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#1D9E75' }}>{fmtHora(item.completado_at)}</span>}
+                {item.completado_at && <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLORS.ok }}>{fmtHora(item.completado_at)}</span>}
               </div>
             ))}
           </div>
@@ -210,14 +213,14 @@ export default function BpmCalidad() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442', margin: 0 }}>EDITANDO — {TIPO_LABELS[activeTab].toUpperCase()}</h2>
-            <button onClick={() => setModoEdicion(false)} style={{ padding: '7px 16px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cerrar</button>
+            <button onClick={() => setModoEdicion(false)} style={{ padding: '7px 16px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cerrar</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {plantillas.map((p, idx) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#777777', minWidth: 24, textAlign: 'right' }}>{idx + 1}</span>
                 <span style={{ flex: 1, fontSize: 13, color: '#cccccc' }}>{p.nombre}</span>
-                <button onClick={() => deleteItemPlantilla(p.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
+                <button onClick={() => deleteItemPlantilla(p.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #B01D23', color: COLORS.redSL, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
               </div>
             ))}
           </div>

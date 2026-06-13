@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+
+const BG_OPS = '#111111'
 
 interface Equipo {
   id: string
@@ -95,10 +98,10 @@ export default function LibroEquipos() {
   const costAcum = eqMantenimientos.reduce((s, m) => s + (m.coste ?? 0), 0)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>LIBRO EQUIPOS</h1>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>LIBRO EQUIPOS</h1>
           <span style={{ fontSize: 13, color: '#777777' }}>Gestión y mantenimiento de equipos</span>
         </div>
         <button onClick={() => { setEditData(EMPTY_EQUIPO); setShowForm(true) }}
@@ -135,7 +138,7 @@ export default function LibroEquipos() {
               <button onClick={() => { setShowForm(false); setEditData(EMPTY_EQUIPO) }}
                 style={{ padding: '8px 16px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
               <button onClick={saveEquipo} disabled={saving}
-                style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
@@ -152,7 +155,7 @@ export default function LibroEquipos() {
                 const coste = mants.reduce((s, m) => s + (m.coste ?? 0), 0)
                 return (
                   <div key={eq.id} onClick={() => setSelectedId(eq.id === selectedId ? null : eq.id)}
-                    style={{ background: selectedId === eq.id ? '#1a1f2e' : '#141414', border: `1px solid ${selectedId === eq.id ? '#B01D23' : '#2a2a2a'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
+                    style={{ background: selectedId === eq.id ? '#1a1f2e' : '#141414', border: `1px solid ${selectedId === eq.id ? COLORS.redSL : '#2a2a2a'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', color: '#ffffff', marginBottom: 4 }}>{eq.nombre}</div>
@@ -162,13 +165,13 @@ export default function LibroEquipos() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? '#1D9E7520' : '#B01D2320', color: (eq.estado === 'activo' || eq.activo) ? '#1D9E75' : '#B01D23', border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? '#1D9E75' : '#B01D23'}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
+                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? '#1D9E7520' : '#B01D2320', color: (eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL, border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
                           {eq.estado ?? (eq.activo ? 'ACTIVO' : 'INACTIVO')}
                         </span>
                         <button onClick={e => { e.stopPropagation(); setEditData({ ...eq }); setShowForm(true) }}
                           style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #383838', color: '#cccccc', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
                         <button onClick={e => { e.stopPropagation(); toggleActivo(eq) }}
-                          style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? '#B01D23' : '#1D9E75'}`, color: eq.activo ? '#B01D23' : '#1D9E75', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                          style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? COLORS.redSL : COLORS.ok}`, color: eq.activo ? COLORS.redSL : COLORS.ok, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
                           {eq.activo ? 'Desactivar' : 'Activar'}
                         </button>
                       </div>

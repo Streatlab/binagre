@@ -25,7 +25,8 @@ export function matchProveedor(concepto: string, aliases: AliasRow[]): string | 
   if (!concepto) return null
   const c = concepto.toLowerCase()
   for (const a of aliases) {
-    if (c.includes(a.alias.toLowerCase())) return a.proveedor_canonico
+    const escaped = a.alias.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    if (new RegExp(`\\b${escaped}\\b`, 'i').test(c)) return a.proveedor_canonico
   }
   return null
 }
