@@ -12,6 +12,7 @@ import {
   BellRing,
   FileText,
   ClipboardList,
+  Megaphone,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useSidebarState } from '@/hooks/useSidebarState'
@@ -40,6 +41,9 @@ interface SectionIconConfig {
   color: string
 }
 
+// Orden solicitado: Panel Global, Tareas, Finanzas, Cocina, Operaciones,
+// Stock & Compras, Informes, Equipo, MKT, Configuración.
+// Panel Global y Tareas son enlaces directos (fuera de SECTIONS).
 const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
@@ -57,6 +61,18 @@ const SECTIONS: NavSection[] = [
       { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
+    items: [
+      { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/lista-compra',     label: 'Lista de Compra',      emoji: '🛒', perfiles: ['admin', 'cocina'] },
+      { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
+      { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/esquemas',         label: 'Esquemas',             emoji: '🗂️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/produccion',       label: 'Producción',           emoji: '📋', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -78,27 +94,6 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
-    items: [
-      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
-      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'cocina', emoji: '🍳', label: 'Cocina', perfiles: ['admin', 'cocina'],
-    items: [
-      { path: '/escandallo',              label: 'Escandallo',           emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/lista-compra',     label: 'Lista de Compra',      emoji: '🛒', perfiles: ['admin', 'cocina'] },
-      { path: '/carta',                   label: 'Carta',                emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering', label: 'Menú Engineering',     emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/cocina/recetario',        label: 'Recetario',            emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/esquemas',         label: 'Esquemas',             emoji: '🗂️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/produccion',       label: 'Producción',           emoji: '📋', perfiles: ['admin', 'cocina'] },
-    ],
-  },
-  {
     key: 'stock', emoji: '📦', label: 'Stock & Compras', perfiles: ['admin'],
     items: [
       { path: '/stock/inventario',  label: 'Inventario',  emoji: '📦', perfiles: ['admin'] },
@@ -113,6 +108,24 @@ const SECTIONS: NavSection[] = [
       { path: '/informes/destinatarios', label: 'Destinatarios',    emoji: '👥', perfiles: ['admin'] },
       { path: '/informes/historial',     label: 'Historial envíos', emoji: '🕒', perfiles: ['admin'] },
       { path: '/informes/configuracion', label: 'Configuración',    emoji: '⚙️', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'equipo', emoji: '👥', label: 'Equipo', perfiles: ['admin'],
+    items: [
+      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
+      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'mkt', emoji: '📣', label: 'MKT', perfiles: ['admin'],
+    items: [
+      { path: '/clientes/crm',    label: 'CRM Streat Lab',   emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/clientes/club',   label: 'Club Fidelización', emoji: '🎖️', perfiles: ['admin'] },
+      { path: '/clientes/resenas',label: 'Panel Reseñas',     emoji: '⭐', perfiles: ['admin'] },
+      { path: '/marketing/embudo',label: 'Embudo Marketing',  emoji: '🔻', perfiles: ['admin'] },
     ],
   },
   {
@@ -216,11 +229,12 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    color: '#06C167' },
-  operaciones:   { icon: ClipboardList, color: '#e8b341' },
-  equipo:        { icon: Users,         color: '#66aaff' },
   cocina:        { icon: ChefHat,       color: '#f5a623' },
+  operaciones:   { icon: ClipboardList, color: '#e8b341' },
   stock:         { icon: ShoppingCart,  color: '#B01D23' },
   informes:      { icon: FileText,      color: '#e8b341' },
+  equipo:        { icon: Users,         color: '#66aaff' },
+  mkt:           { icon: Megaphone,     color: '#B01D23' },
   configuracion: { icon: Settings,      color: '#9ba8c0' },
 }
 
@@ -247,8 +261,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
 
-  // Color de texto reforzado para los módulos principales: más oscuro en modo claro
-  // para que se lean mejor; en modo oscuro se mantiene el color primario del tema.
   const mainLabelColor = isDark ? T.pri : '#15192a'
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
@@ -277,8 +289,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
 
-  // Aviso OCR: facturas a las que les falta importe, titular o categoría (las que
-  // hay que completar para llegar al 100%). Cuenta global, todo el histórico.
   useEffect(() => {
     if (perfil !== 'admin') return
     supabase
@@ -289,29 +299,50 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .then(({ count }) => setOcrBadge(count ?? 0))
   }, [perfil])
 
+  // ── Mecánica de colapso/expansión del sidebar ──────────────────────────
+  // CLIC en cualquier opción/grupo → fija el sidebar abierto 20 s y luego colapsa solo.
+  // HOVER (ratón encima) → asoma mientras el ratón está encima; al salir, vuelve a colapsar.
+  //   El hover NO reinicia el temporizador de 20 s (así no se queda abierto tras pasar el ratón).
   const [autoCollapsed, setAutoCollapsed] = useState(false)
   const [peek, setPeek] = useState(false)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const AUTO_COLLAPSE_MS = 20000
 
-  // Auto-colapso: si el menu esta abierto y fijo (no colapsado a mano), a los 20 s
-  // se pliega solo a iconos. Al pasar el raton se asoma (peek); al pulsar una opcion
-  // se vuelve a fijar y reinicia los 20 s.
-  useEffect(() => {
+  const armarTimer = () => {
     if (idleTimer.current) { clearTimeout(idleTimer.current); idleTimer.current = null }
-    if (manualCollapsed || autoCollapsed) return
+    if (manualCollapsed) return
     idleTimer.current = setTimeout(() => setAutoCollapsed(true), AUTO_COLLAPSE_MS)
+  }
+
+  // Al montar / cambiar el colapsado manual: si está fijo (no colapsado a mano), arranca los 20 s.
+  useEffect(() => {
+    if (manualCollapsed || autoCollapsed) {
+      if (idleTimer.current) { clearTimeout(idleTimer.current); idleTimer.current = null }
+      return
+    }
+    armarTimer()
     return () => { if (idleTimer.current) clearTimeout(idleTimer.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualCollapsed, autoCollapsed])
 
+  // CLIC dentro del sidebar (navegar, abrir grupo): re-fija y reinicia los 20 s.
   const fijarSidebar = () => {
     setAutoCollapsed(false)
-    if (idleTimer.current) clearTimeout(idleTimer.current)
-    if (!manualCollapsed) idleTimer.current = setTimeout(() => setAutoCollapsed(true), AUTO_COLLAPSE_MS)
+    armarTimer()
   }
-  const onToggleManual = (e: React.MouseEvent) => { e.stopPropagation(); toggle(); setAutoCollapsed(false); setPeek(false) }
 
-  // Colapsado efectivo: manual o automatico, pero el raton encima (peek) lo abre temporalmente.
+  // HOVER: solo abre temporalmente; NO toca el temporizador.
+  const onMouseEnter = () => setPeek(true)
+  const onMouseLeave = () => setPeek(false)
+
+  const onToggleManual = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    toggle()
+    setAutoCollapsed(false)
+    setPeek(false)
+  }
+
+  // Colapsado efectivo: manual o automático; el hover (peek) lo abre temporalmente.
   const collapsed = (manualCollapsed || autoCollapsed) && !peek
 
   const toggleSection = (key: string) => {
@@ -350,8 +381,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
-        onMouseEnter={() => setPeek(true)}
-        onMouseLeave={() => setPeek(false)}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         onClick={fijarSidebar}
         style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
@@ -547,7 +578,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             )
           })}
 
-          {/* Lista "Próximamente" eliminada — módulos ops ya en navegación real */}
+          {!collapsed && perfil === 'admin' && (
+            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} T={T} />
+          )}
         </nav>
 
         <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
