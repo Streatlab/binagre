@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Trash2, Upload, Plane, FileText as FileIcon, Wallet } from 'lucide-react'
+import { X, Trash2, Upload, FileText as FileIcon, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -10,6 +10,8 @@ interface DatosPersonales {
   email?: string
   contrato?: string
   numero_ss?: string
+  nacionalidad?: string
+  lugar_nacimiento?: string
 }
 
 export interface Empleado {
@@ -31,6 +33,7 @@ export interface Empleado {
 interface Vacacion { id: string; fecha_inicio: string; fecha_fin: string; dias: number; estado: string; nota: string | null }
 interface Permiso { id: string; tipo: string; fecha_inicio: string; fecha_fin: string | null; dias: number; retribuido: boolean; estado: string; nota: string | null }
 interface Anticipo { id: string; fecha: string; importe: number; mes_descuento: string | null; estado: string; nota: string | null }
+interface Documento { id: string; tipo: string; nombre: string; url: string | null; fecha: string | null }
 
 interface Props { empleado: Empleado | null; onClose: () => void; onSaved: () => void }
 
@@ -44,7 +47,7 @@ function estadoColor(e: string): string {
   return '#66aaff'
 }
 
-type TabKey = 'personales' | 'laborales' | 'foto' | 'vacaciones' | 'permisos' | 'anticipos'
+type TabKey = 'personales' | 'laborales' | 'foto' | 'documentos' | 'vacaciones' | 'permisos' | 'anticipos'
 
 export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
   const { T, isDark } = useTheme()
@@ -75,18 +78,21 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
   const [vacaciones, setVacaciones] = useState<Vacacion[]>([])
   const [permisos, setPermisos] = useState<Permiso[]>([])
   const [anticipos, setAnticipos] = useState<Anticipo[]>([])
+  const [documentos, setDocumentos] = useState<Documento[]>([])
   const [uploading, setUploading] = useState(false)
 
   async function fetchHijos() {
     if (!empId) return
-    const [v, p, a] = await Promise.all([
+    const [v, p, a, d] = await Promise.all([
       supabase.from('empleado_vacaciones').select('*').eq('empleado_id', empId).order('fecha_inicio', { ascending: false }),
       supabase.from('empleado_permisos').select('*').eq('empleado_id', empId).order('fecha_inicio', { ascending: false }),
       supabase.from('empleado_anticipos').select('*').eq('empleado_id', empId).order('fecha', { ascending: false }),
+      supabase.from('empleado_documentos').select('*').eq('empleado_id', empId).order('fecha', { ascending: false }),
     ])
     setVacaciones((v.data ?? []) as Vacacion[])
     setPermisos((p.data ?? []) as Permiso[])
     setAnticipos((a.data ?? []) as Anticipo[])
+    setDocumentos((d.data ?? []) as Documento[])
   }
   useEffect(() => { fetchHijos() }, [empId])
 
@@ -123,6 +129,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
     setSaving(true); setError(null)
     try {
       const datosPersonales: DatosPersonales = {
+        ...(empleado?.datos_personales ?? {}),
         fecha_nacimiento: fechaNac || undefined, direccion: direccion || undefined,
         telefono: telefono || undefined, email: emailEmp || undefined,
         contrato: contrato || undefined, numero_ss: ss || undefined,
@@ -146,14 +153,14 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
     finally { setSaving(false) }
   }
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: '#1e1e1e', border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
-  const labelStyle: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 4, display: 'block' }
-  const calcStyle: React.CSSProperties = { background: '#152d1f', border: '1px solid #1D9E75', color: '#7fe0b0', padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const calcStyle: React.CSSProperties = { background: '#1D9E7520', border: '1px solid #1D9E75', color: '#1D9E75', padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'personales', label: 'Personales' },
     { key: 'laborales', label: 'Laborales' },
-    { key: 'foto', label: 'Foto / Docs' },
+    { key: 'foto', label: 'Foto' },
+    { key: 'documentos', label: 'Documentos' },
     { key: 'vacaciones', label: 'Vacaciones' },
     { key: 'permisos', label: 'Permisos' },
     { key: 'anticipos', label: 'Anticipos' },
@@ -163,8 +170,8 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
   const needsSave = isNew
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, padding: 16, overflowY: 'auto' }}>
-      <div style={{ background: '#1a1a1a', borderRadius: 12, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, padding: 16, overflowY: 'auto' }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
@@ -198,7 +205,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
           {tab === 'personales' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Field label="Nombre completo *"><input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre y apellidos" /></Field>
-              <Field label="NIF / DNI"><input style={inputStyle} value={nif} onChange={e => setNif(e.target.value)} placeholder="12345678X" /></Field>
+              <Field label="NIF / DNI / NIE"><input style={inputStyle} value={nif} onChange={e => setNif(e.target.value)} placeholder="12345678X" /></Field>
               <Field label="Fecha de nacimiento"><input type="date" style={inputStyle} value={fechaNac} onChange={e => setFechaNac(e.target.value)} /></Field>
               <Field label="Dirección"><input style={inputStyle} value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="Calle, número, ciudad" /></Field>
               <Field label="Teléfono"><input style={inputStyle} value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" /></Field>
@@ -212,10 +219,10 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
               <Field label="Fecha de alta"><input type="date" style={inputStyle} value={fechaAlta} onChange={e => setFechaAlta(e.target.value)} /></Field>
               {fechaAlta && <Field label="Antigüedad (calculada)"><div style={calcStyle}>{antiguedad ?? '—'}</div></Field>}
               <Field label="Estado"><select style={inputStyle} value={estado} onChange={e => setEstado(e.target.value as typeof ESTADOS[number])}>{ESTADOS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}</select></Field>
-              <Field label="Salario bruto mensual (€)"><input type="number" step="0.01" style={inputStyle} value={salario} onChange={e => setSalario(e.target.value)} placeholder="0.00" /></Field>
+              <Field label="Salario bruto mensual (€)"><input type="number" step="0.01" style={inputStyle} value={salario} onChange={e => setSalario(e.target.value)} placeholder="Según convenio si vacío" /></Field>
               <Field label="IBAN"><input style={inputStyle} value={iban} onChange={e => setIban(e.target.value)} placeholder="ES00 0000 0000 0000 0000 0000" /></Field>
               <Field label="Tipo de contrato"><input style={inputStyle} value={contrato} onChange={e => setContrato(e.target.value)} placeholder="Indefinido / Temporal / Fijo discontinuo..." /></Field>
-              <Field label="Número Seguridad Social"><input style={inputStyle} value={ss} onChange={e => setSs(e.target.value)} placeholder="28/00000000/00" /></Field>
+              <Field label="Número Seguridad Social"><input style={inputStyle} value={ss} onChange={e => setSs(e.target.value)} placeholder="00/00000000/00" /></Field>
               <Field label="Días de vacaciones al año"><input type="number" style={inputStyle} value={diasVac} onChange={e => setDiasVac(e.target.value)} placeholder="30" /></Field>
             </div>
           )}
@@ -229,11 +236,17 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
                 <Upload size={14} />{uploading ? 'Subiendo…' : 'Subir foto'}
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }} />
               </label>
-              <div style={{ textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 12, lineHeight: 1.6, borderTop: `1px solid ${T.brd}`, paddingTop: 16, width: '100%' }}>
-                Documentos (contrato, nóminas, bajas) en Google Drive.<br />
-                Carpeta sugerida: <code style={{ background: '#1e1e1e', padding: '2px 6px', borderRadius: 4 }}>Equipo/{(nif || 'NIF')}_{(nombre.replace(/\s+/g, '_') || 'Nombre')}</code>
-              </div>
+              {needsSave && <div style={{ textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>Guarda primero el empleado para fijar la foto.</div>}
             </div>
+          )}
+
+          {tab === 'documentos' && (
+            needsSave ? <SaveFirst T={T} /> : (
+              <div>
+                <AltaDocumento empId={empId!} onSaved={fetchHijos} inputStyle={inputStyle} T={T} setError={setError} />
+                <ListaDocumentos T={T} docs={documentos} onDel={async (id) => { await supabase.from('empleado_documentos').delete().eq('id', id); fetchHijos() }} />
+              </div>
+            )
           )}
 
           {tab === 'vacaciones' && (
@@ -283,7 +296,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: `1px solid ${T.brd}`, background: '#222', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
           <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : isNew ? 'Crear empleado' : 'Guardar cambios'}</button>
         </div>
       </div>
@@ -302,7 +315,7 @@ function Chip({ children, color }: { children: React.ReactNode; color: string })
 
 function MiniKpi({ T, label, value, accent }: { T: any; label: string; value: string; accent?: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 110, background: '#222', border: `1px solid ${T.brd}`, borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ flex: 1, minWidth: 110, background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8, padding: '10px 12px' }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: accent ?? T.pri }}>{value}</div>
     </div>
@@ -318,7 +331,7 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {filas.map(f => (
-        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#222', border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{f.izq} · <span style={{ color: T.sec }}>{f.centro}</span></div>
             {f.nota && <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{f.nota}</div>}
@@ -327,6 +340,60 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
           <button onClick={f.onDel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 4 }}><Trash2 size={14} /></button>
         </div>
       ))}
+    </div>
+  )
+}
+
+function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel: (id: string) => void }) {
+  if (!docs.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Sin documentos. Sube el contrato, nóminas, bajas…</div>
+  const tipoColor: Record<string, string> = { Contrato: '#66aaff', 'Nómina': '#1D9E75', Baja: '#e8b341', Otro: '#888' }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+      {docs.map(d => (
+        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+          <FileIcon size={16} style={{ color: T.mut, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.nombre}</div>
+            <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{d.fecha ?? ''}</div>
+          </div>
+          <Chip color={tipoColor[d.tipo] ?? '#888'}>{d.tipo}</Chip>
+          {d.url && <a href={d.url} target="_blank" rel="noreferrer" style={{ color: '#66aaff', display: 'flex', padding: 4 }}><ExternalLink size={14} /></a>}
+          <button onClick={() => onDel(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 4 }}><Trash2 size={14} /></button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function AltaDocumento({ empId, onSaved, inputStyle, T, setError }: { empId: string; onSaved: () => void; inputStyle: React.CSSProperties; T: any; setError: (s: string | null) => void }) {
+  const [tipo, setTipo] = useState('Contrato')
+  const [nombre, setNombre] = useState('')
+  const [fecha, setFecha] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+  async function subir(file: File) {
+    setSubiendo(true); setError(null)
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${empId}/${Date.now()}_${safe}`
+      const { error: upErr } = await supabase.storage.from('empleados-docs').upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('empleados-docs').getPublicUrl(path)
+      await supabase.from('empleado_documentos').insert({ empleado_id: empId, tipo, nombre: nombre.trim() || file.name, url: data.publicUrl, fecha: fecha || new Date().toISOString().slice(0, 10) })
+      setNombre(''); setFecha(''); onSaved()
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setSubiendo(false) }
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems: 'end' }}>
+      <div><label style={lblMini(T)}>Tipo</label><select style={inputStyle} value={tipo} onChange={e => setTipo(e.target.value)}>{['Contrato', 'Nómina', 'Baja', 'Otro'].map(t => <option key={t}>{t}</option>)}</select></div>
+      <div><label style={lblMini(T)}>Fecha</label><input type="date" style={inputStyle} value={fecha} onChange={e => setFecha(e.target.value)} /></div>
+      <div style={{ gridColumn: '1 / -1' }}><label style={lblMini(T)}>Nombre (opcional)</label><input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Nómina mayo 2026" /></div>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, background: '#e8f442', color: '#111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+          <Upload size={14} />{subiendo ? 'Subiendo…' : 'Subir documento'}
+          <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subir(f) }} />
+        </label>
+      </div>
     </div>
   )
 }
