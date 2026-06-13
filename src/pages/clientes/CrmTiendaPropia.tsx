@@ -109,12 +109,12 @@ function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
   return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? '#fff', textTransform: 'uppercase' }}>{text}</span>
 }
 
-/* ═════════════ TAB EMBUDO — gráfico real alimentado de pedidos reales ═════════════ */
+/* ═════════════ TAB EMBUDO — embudo real alimentado de pedidos reales ═════════════ */
 const ETAPAS_EMBUDO = [
   { key: 'impresiones', label: 'Impresiones en app', color: '#484f66', sub: 'estimado' },
   { key: 'visitas', label: 'Visitas al menú', color: '#1E5BCC', sub: 'estimado' },
-  { key: 'pedidos', label: 'Pedidos', color: '#B01D23', sub: 'dato real · facturación' },
-  { key: 'recompra', label: 'Recompra (30d)', color: '#1D9E75', sub: 'estimado' },
+  { key: 'pedidos', label: 'Pedidos', color: '#B01D23', sub: 'dato real' },
+  { key: 'recompra', label: 'Recompra 30d', color: '#1D9E75', sub: 'estimado' },
 ] as const
 
 const CANALES_EMBUDO = ['uber_eats', 'glovo', 'just_eat', 'web'] as const
@@ -179,29 +179,25 @@ function TabEmbudo() {
   const vals = ETAPAS_EMBUDO.map(e => agg[e.key])
   const maxVal = vals[0] || 1
   const sinPedidos = agg.pedidos === 0
-
-  // Geometría embudo SVG (bandas de ancho proporcional al valor, con suelo visual)
-  const W = 860, bandH = 76, gap = 6, maxW = 660
-  const H = ETAPAS_EMBUDO.length * (bandH + gap)
-  const anchoDe = (v: number) => (0.20 + 0.80 * (maxVal > 0 ? v / maxVal : 0)) * maxW
+  const anchoDe = (v: number) => 34 + 66 * (maxVal > 0 ? v / maxVal : 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>
-        Embudo de captación · últimos 30 días. La etapa <b style={{ color: COLORS.redSL }}>Pedidos</b> es dato real de tu facturación; las plataformas no ceden impresiones ni visitas por API, así que se estiman aplicando tasas de conversión del sector (editables). El recorrido cliente a cliente completo solo existe en canal propio.
+        Embudo de captación · últimos 30 días. <b style={{ color: COLORS.redSL }}>Pedidos</b> es dato real de tu facturación; impresiones y visitas se estiman con tasas de conversión del sector (editables), porque las plataformas no las ceden por API.
       </div>
 
-      {/* KPIs cabecera */}
+      {/* KPIs cabecera — estilo canónico */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <KpiCard label="Pedidos (30d)" value={fmtNumES(agg.pedidos)} sub="dato real" color={COLORS.redSL} />
         <KpiCard label="Visitas estimadas" value={fmtNumES(Math.round(agg.visitas))} sub={`conv. visita→pedido ${agg.visitas > 0 ? Math.round(agg.pedidos / agg.visitas * 100) : 0}%`} color={COLORS.lun} />
         <KpiCard label="Impresiones estimadas" value={fmtNumES(Math.round(agg.impresiones))} sub={`conv. total ${agg.impresiones > 0 ? (agg.pedidos / agg.impresiones * 100).toFixed(1) : 0}%`} color={COLORS.modal} />
-        <KpiCard label="Recompra estimada (30d)" value={fmtNumES(Math.round(agg.recompra))} sub={`${agg.pedidos > 0 ? Math.round(agg.recompra / agg.pedidos * 100) : 0}% repite`} color={COLORS.ok} />
+        <KpiCard label="Recompra estimada" value={fmtNumES(Math.round(agg.recompra))} sub={`${agg.pedidos > 0 ? Math.round(agg.recompra / agg.pedidos * 100) : 0}% repite`} color={COLORS.ok} />
       </div>
 
-      {/* GRÁFICO DE EMBUDO */}
+      {/* GRÁFICO DE EMBUDO — bandas centradas que decrecen con los datos */}
       <div style={CARDS.big}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div style={lbl}>Embudo Streat Lab — del descubrimiento al pedido</div>
           <button onClick={() => { setDraft(Object.fromEntries(CANALES_EMBUDO.map(c => [c, tasaDe(c)]))); setEditando(e => !e) }} style={btnGhost}>{editando ? 'Cerrar' : 'Ajustar tasas'}</button>
         </div>
@@ -209,34 +205,32 @@ function TabEmbudo() {
         {sinPedidos ? (
           <div style={{ padding: 30, textAlign: 'center', color: COLORS.mut, fontSize: 14 }}>Sin pedidos en los últimos 30 días.</div>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto' }}>
-              {ETAPAS_EMBUDO.map((et, i) => {
-                const v = vals[i]
-                const wTop = anchoDe(v)
-                const wBot = i < ETAPAS_EMBUDO.length - 1 ? anchoDe(vals[i + 1]) : wTop * 0.82
-                const y = i * (bandH + gap)
-                const cx = W / 2
-                const pts = `${cx - wTop / 2},${y} ${cx + wTop / 2},${y} ${cx + wBot / 2},${y + bandH} ${cx - wBot / 2},${y + bandH}`
-                const conv = i > 0 && vals[i - 1] > 0 ? Math.round(v / vals[i - 1] * 100) : null
-                return (
-                  <g key={et.key}>
-                    <polygon points={pts} fill={et.color} opacity={0.94} />
-                    <text x={cx} y={y + bandH / 2 - 8} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={15} fontWeight={600} fill="#fff" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>{et.label}</text>
-                    <text x={cx} y={y + bandH / 2 + 14} textAnchor="middle" fontFamily="Oswald, sans-serif" fontSize={22} fontWeight={600} fill="#fff">{fmtNumES(Math.round(v))}</text>
-                    <text x={cx} y={y + bandH / 2 + 30} textAnchor="middle" fontFamily="Lexend, sans-serif" fontSize={10} fill="rgba(255,255,255,0.75)">{et.sub}</text>
-                    {conv !== null && (
-                      <text x={W - 8} y={y - gap / 2 + 2} textAnchor="end" fontFamily="Oswald, sans-serif" fontSize={13} fontWeight={600} fill={COLORS.sec}>▼ {conv}%</text>
-                    )}
-                  </g>
-                )
-              })}
-            </svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {ETAPAS_EMBUDO.map((et, i) => {
+              const v = vals[i]
+              const conv = i > 0 && vals[i - 1] > 0 ? Math.round(v / vals[i - 1] * 100) : null
+              return (
+                <div key={et.key}>
+                  {conv !== null && (
+                    <div style={{ textAlign: 'center', fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, letterSpacing: '1px', color: COLORS.mut, padding: '6px 0' }}>▼ {conv}%</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ width: `${anchoDe(v)}%`, minWidth: 220, background: et.color, borderRadius: 12, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      <div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.88)' }}>{et.label}</div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 600, color: '#fff', lineHeight: 1.1, marginTop: 2 }}>{fmtNumES(Math.round(v))}</div>
+                      </div>
+                      <div style={{ fontFamily: FONT.body, fontSize: 11, color: 'rgba(255,255,255,0.8)', textAlign: 'right', whiteSpace: 'nowrap' }}>{et.sub}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {editando && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${COLORS.group}` }}>
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${COLORS.group}` }}>
             <div style={{ ...lblSm, marginBottom: 10 }}>Tasas de conversión por canal (estimación del sector)</div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -492,23 +486,26 @@ function TabCalendario({ campanas, metricas }: { campanas: Campana[]; metricas: 
       </div>
 
       <div style={CARDS.std}>
-        <div style={{ ...lbl, marginBottom: 12 }}>Plan de campañas — objetivo, duración y resultado</div>
+        <div style={{ ...lbl, marginBottom: 12 }}>Plan de campañas — campaña, producto, duración y objetivo</div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>
-              <th style={th}>Marca</th><th style={th}>Plataforma</th><th style={th}>Mecánica</th><th style={th}>Objetivo</th><th style={th}>Duración</th><th style={th}>Estado</th><th style={{ ...th, textAlign: 'right' }}>Ventas</th><th style={th}>Veredicto</th>
+              <th style={th}>Campaña</th><th style={th}>Producto</th><th style={th}>Plataforma</th><th style={th}>Mecánica</th><th style={th}>Duración</th><th style={th}>Objetivo</th><th style={th}>Estado</th><th style={{ ...th, textAlign: 'right' }}>Ventas</th>
             </tr></thead>
             <tbody>
               {ordenadas.map(c => (
                 <tr key={c.id}>
-                  <td style={td}>{c.marca || 'Multi'}{c.producto ? <div style={{ fontSize: 11, color: COLORS.mut }}>{c.producto}</div> : null}</td>
+                  <td style={td}>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: COLORS.pri }}>{c.nombre}</div>
+                    <div style={{ fontSize: 11, color: COLORS.mut }}>{c.marca || 'Multi'}</div>
+                  </td>
+                  <td style={td}>{c.producto || '—'}</td>
                   <td style={td}><Pill text={CANAL_LABEL[c.canal] || c.canal} bg={CANAL_COLOR[c.canal] || COLORS.mut} txt={CANAL_TXT[c.canal]} /></td>
                   <td style={td}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || '—'}</td>
-                  <td style={{ ...td, maxWidth: 300, fontSize: 12 }}>{c.objetivo_smart}</td>
-                  <td style={td}>{c.fecha_inicio.slice(5)} → {c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</td>
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{c.fecha_inicio.slice(5)} → {c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</td>
+                  <td style={{ ...td, maxWidth: 280, fontSize: 12 }}>{c.objetivo_smart}</td>
                   <td style={td}><span style={{ color: ESTADO_COLOR[c.estado], fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase' }}>{c.estado}</span></td>
                   <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(aggVentas[c.id] || 0)}</td>
-                  <td style={td}>{c.veredicto ? <span style={{ color: VEREDICTO_COLOR[c.veredicto], fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase' }}>{c.veredicto}</span> : '—'}</td>
                 </tr>
               ))}
             </tbody>
