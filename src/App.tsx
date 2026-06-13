@@ -59,6 +59,7 @@ const MargenCanal = React.lazy(() => import('@/pages/analytics/MargenCanal'))
 const VentasMarca = React.lazy(() => import('@/pages/analytics/VentasMarca'))
 const RankingProductos = React.lazy(() => import('@/pages/analytics/RankingProductos'))
 const PrediccionDemanda = React.lazy(() => import('@/pages/analytics/PrediccionDemanda'))
+const ParetoVentas = React.lazy(() => import('@/pages/analytics/ParetoVentas'))
 
 const CocinaRecetas = React.lazy(() => import('@/pages/CocinaRecetas'))
 const MenuEngineering = React.lazy(() => import('@/pages/cocina/MenuEngineering'))
@@ -67,6 +68,7 @@ const Recetario = React.lazy(() => import('@/pages/cocina/Recetario'))
 const Esquemas = React.lazy(() => import('@/pages/cocina/Esquemas'))
 const Produccion = React.lazy(() => import('@/pages/cocina/Produccion'))
 const ListaCompra = React.lazy(() => import('@/pages/cocina/ListaCompra'))
+const ParetoIngredientes = React.lazy(() => import('@/pages/cocina/ParetoIngredientes'))
 
 
 const ControlTemperaturas = React.lazy(() => import('@/pages/ops/ControlTemperaturas'))
@@ -211,6 +213,7 @@ function AppRoutes() {
           <Route path="analytics/ventas-marca" element={<ProtectedRoute solo={['admin']}><VentasMarca /></ProtectedRoute>} />
           <Route path="analytics/ranking" element={<ProtectedRoute solo={['admin']}><RankingProductos /></ProtectedRoute>} />
           <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
+          <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
@@ -258,6 +261,7 @@ function AppRoutes() {
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
           <Route path="cocina/lista-compra" element={<ListaCompra />} />
+          <Route path="cocina/pareto-ingredientes" element={<ProtectedRoute solo={['admin']}><ParetoIngredientes /></ProtectedRoute>} />
 
           <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="ops/:slug" element={<Placeholder />} />
