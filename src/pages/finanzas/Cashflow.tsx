@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import { COLOR, COLORS, LEXEND, OSWALD, BADGE_CANAL, CARDS } from '@/components/panel/resumen/tokens'
-import { fmtNum } from '@/lib/format'
+import { COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
 import {
   calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
@@ -10,9 +9,10 @@ import {
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW — pestaña del Panel Global
-   Cobros (fechas de pago reales por plataforma) · Caja por mes
+   Cobros (fechas de pago LEY por plataforma) · Caja por mes
    (banco real) con línea de saldo · Saldo banco + Runway reales ·
-   Ingresos pendientes · Gastos del mes · Caja por marca · Simulador.
+   Ingresos pendientes · Gastos del mes · Caja por marca (todas las
+   activas de configuración) · Simulador.
    ════════════════════════════════════════════════════════════ */
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -32,11 +32,11 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
 const CANALES = [
-  { id: 'uber', label: 'Uber Eats', color: BADGE_CANAL.uber.bg, bk: 'uber_bruto', pk: 'uber_pedidos' },
-  { id: 'glovo', label: 'Glovo', color: BADGE_CANAL.glovo.bg, bk: 'glovo_bruto', pk: 'glovo_pedidos' },
-  { id: 'je', label: 'Just Eat', color: BADGE_CANAL.je.bg, bk: 'je_bruto', pk: 'je_pedidos' },
-  { id: 'web', label: 'Web', color: BADGE_CANAL.web.bg, bk: 'web_bruto', pk: 'web_pedidos' },
-  { id: 'dir', label: 'Directa', color: BADGE_CANAL.dir.bg, bk: 'directa_bruto', pk: 'directa_pedidos' },
+  { id: 'uber', label: 'Uber Eats', color: COLOR.uber, bk: 'uber_bruto', pk: 'uber_pedidos' },
+  { id: 'glovo', label: 'Glovo', color: '#c9a900', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
+  { id: 'je', label: 'Just Eat', color: COLOR.je, bk: 'je_bruto', pk: 'je_pedidos' },
+  { id: 'web', label: 'Web', color: COLOR.webSL, bk: 'web_bruto', pk: 'web_pedidos' },
+  { id: 'dir', label: 'Directa', color: COLOR.directa, bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
 const FESTIVOS_FALLBACK = [
@@ -95,12 +95,12 @@ export default function Cashflow() {
   const [catNombres, setCatNombres] = useState<Record<string, string>>({})
   const [ventasMarca, setVentasMarca] = useState<VentaMarca[]>([])
   const [cajaBanco, setCajaBanco] = useState<CajaMes[]>([])
+  const [marcasActivas, setMarcasActivas] = useState<string[]>([])
   const [festivos, setFestivos] = useState<Set<string>>(new Set(FESTIVOS_FALLBACK))
   const [config, setConfig] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [loading, setLoading] = useState(true)
   const [hover, setHover] = useState<number | null>(null)
-  const [hayLiquidaciones, setHayLiquidaciones] = useState(false)
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -118,8 +118,8 @@ export default function Cashflow() {
       supabase.from('festivos').select('fecha'),
       supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA'),
       supabase.from('v_caja_mensual').select('mes,ingresos,gastos,saldo_mes'),
-      supabase.from('uber_liquidaciones').select('id', { count: 'exact', head: true }),
-    ]).then(([rd, rf, rc, rfe, rm, rcm, rliq]) => {
+      supabase.from('marcas').select('nombre,estado').eq('estado', 'activa'),
+    ]).then(([rd, rf, rc, rfe, rm, rcm, rma]) => {
       setRows((rd.data as Row[]) ?? [])
       setFacturas(((rf.data as Factura[]) ?? []).filter(f => f.fecha_factura))
       const cm: Record<string, string> = {}
@@ -129,7 +129,7 @@ export default function Cashflow() {
       if (fe.length) setFestivos(new Set(fe.map(x => x.fecha.slice(0, 10))))
       setVentasMarca((rm.data as VentaMarca[]) ?? [])
       setCajaBanco((rcm.data as CajaMes[]) ?? [])
-      setHayLiquidaciones((rliq.count ?? 0) > 0)
+      setMarcasActivas(((rma.data as { nombre: string }[]) ?? []).map(x => x.nombre))
       setLoading(false)
     })
   }, [])
@@ -191,7 +191,7 @@ export default function Cashflow() {
     return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
-  const futuros = useMemo(() => cobros.filter(c => c.pago >= hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
+  const futuros = useMemo(() => cobros.filter(c => c.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
   const porCobrarTotal = useMemo(() => futuros.reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
   const hastaFinMes = useMemo(() => futuros.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [futuros, finMesStr, factor])
@@ -252,24 +252,19 @@ export default function Cashflow() {
   const runwaySem = useMemo(() => (burnMensual > 0 ? saldoBanco / (burnMensual / 4.345) : 0), [saldoBanco, burnMensual])
 
   const porMarca = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const v of ventasMarca) m.set(v.marca, (m.get(v.marca) ?? 0) + Number(v.neto || 0))
-    return [...m.entries()].map(([marca, neto]) => ({ marca, neto })).sort((a, b) => b.neto - a.neto).slice(0, 6)
-  }, [ventasMarca])
+    const ventas = new Map<string, number>()
+    for (const v of ventasMarca) ventas.set(v.marca, (ventas.get(v.marca) ?? 0) + Number(v.neto || 0))
+    const base = marcasActivas.length ? marcasActivas : [...ventas.keys()]
+    return base.map(marca => ({ marca, neto: ventas.get(marca) ?? 0 })).sort((a, b) => b.neto - a.neto)
+  }, [ventasMarca, marcasActivas])
 
   const frases = useMemo(() => {
     const out: { txt: string; color: string }[] = []
     if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: POS }) }
     if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec }) }
-    // Frase Uber: próximo cobro
-    const proxUber = futuros.find(c => c.canal === 'uber')
-    if (proxUber && proxUber.neto > 0) out.push({ txt: `Esta semana entran ${nf0(proxUber.neto)} € de Uber el ${fmtLarga(proxUber.pago)}.`, color: BADGE_CANAL.uber.bg })
-    // Frase Glovo: próxima quincena
-    const proxGlovo = futuros.find(c => c.canal === 'glovo')
-    if (proxGlovo && proxGlovo.neto > 0) out.push({ txt: `Glovo del ${periodoTxt('glovo', proxGlovo.ini, proxGlovo.fin)} llega el día ${parse(proxGlovo.pago).getDate()}: ${nf0(proxGlovo.neto)} €.`, color: BADGE_CANAL.glovo.texto === '#fff' ? BADGE_CANAL.glovo.bg : AMARILLO })
     if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? POS : WARN })
     return out
-  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco, futuros])
+  }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
 
   const cTabs = periodo === 'semana'
     ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
@@ -352,7 +347,7 @@ export default function Cashflow() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE, display: 'flex', alignItems: 'baseline', gap: 6 }}>{nf0(hastaFinMes)}{!hayLiquidaciones && <span style={{ fontFamily: OSWALD, fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', background: AMARILLO, color: '#333', borderRadius: 3, padding: '1px 5px', fontWeight: 600, verticalAlign: 'middle', lineHeight: 1.4 }}>estimado</span>}</div></div>
+          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
           <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
           <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? AMARILLO : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
         </div>
@@ -409,17 +404,16 @@ export default function Cashflow() {
           <div style={ex}>Datos reales · neto con la calculadora central (comisión + fees + IVA).</div>
         </div>
         <div style={card}>
-          <div style={lblS}>Caja por marca · 90d</div>
-          {porMarca.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>Sin datos por marca.</div> : (() => { const max = Math.max(...porMarca.map(m => m.neto), 1); return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {porMarca.map((m, i) => (
+          <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
+          {porMarca.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>Sin marcas activas.</div> : (() => { const max = Math.max(...porMarca.map(m => m.neto), 1); return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
+              {porMarca.map((m, i) => { const sin = m.neto <= 0; return (
                 <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 11.5, marginBottom: 3 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLOR.textSec }}>{m.marca}</span><span style={{ fontFamily: OSWALD, fontWeight: 700, color: VERDE }}>{nf0(m.neto)}</span></div>
-                  <div style={{ height: 7, background: '#ece8e1', borderRadius: 4 }}><div style={{ height: 7, width: `${(m.neto / max) * 100}%`, background: VERDE, borderRadius: 4 }} /></div>
-                </div>
-              ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 11, marginBottom: 3, gap: 6 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: sin ? COLOR.textMut : COLOR.textSec }}>{m.marca}</span><span style={{ fontFamily: OSWALD, fontWeight: 700, color: sin ? GRIS : VERDE }}>{nf0(m.neto)}</span></div>
+                  <div style={{ height: 6, background: '#ece8e1', borderRadius: 4 }}><div style={{ height: 6, width: `${(m.neto / max) * 100}%`, background: sin ? '#e0dccf' : VERDE, borderRadius: 4 }} /></div>
+                </div>) })}
             </div>) })()}
-          <div style={ex}>Neto últimos 90 días.</div>
+          <div style={ex}>Neto últimos 90 días · todas las marcas activas en configuración.</div>
         </div>
       </div>
 
