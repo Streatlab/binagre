@@ -11,8 +11,8 @@ import {
    CASH FLOW — pestaña del Panel Global
    Cobros (fechas de pago LEY por plataforma) · Caja por mes
    (banco real) con línea de saldo · Saldo banco + Runway reales ·
-   Ingresos pendientes · Gastos del mes · Caja por marca (todas las
-   activas de configuración) · Simulador.
+   Ingresos pendientes · Gastos del mes · Caja por marca (marcas
+   activas en vivo desde configuración) · Simulador.
    ════════════════════════════════════════════════════════════ */
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -118,7 +118,7 @@ export default function Cashflow() {
       supabase.from('festivos').select('fecha'),
       supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA'),
       supabase.from('v_caja_mensual').select('mes,ingresos,gastos,saldo_mes'),
-      supabase.from('marcas').select('nombre,estado').eq('estado', 'activa'),
+      supabase.from('v_marcas_activas').select('nombre'),
     ]).then(([rd, rf, rc, rfe, rm, rcm, rma]) => {
       setRows((rd.data as Row[]) ?? [])
       setFacturas(((rf.data as Factura[]) ?? []).filter(f => f.fecha_factura))
@@ -413,7 +413,7 @@ export default function Cashflow() {
                   <div style={{ height: 6, background: '#ece8e1', borderRadius: 4 }}><div style={{ height: 6, width: `${(m.neto / max) * 100}%`, background: sin ? '#e0dccf' : VERDE, borderRadius: 4 }} /></div>
                 </div>) })}
             </div>) })()}
-          <div style={ex}>Neto últimos 90 días · todas las marcas activas en configuración.</div>
+          <div style={ex}>Neto últimos 90 días · marcas activas en vivo desde configuración.</div>
         </div>
       </div>
 
