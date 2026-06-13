@@ -28,6 +28,7 @@ type Puesto = {
   controles: string | null
   plan_carrera: string | null
   delegacion: string | null
+  empleado_id?: string | null
 }
 
 const NIVELES: { n: number; label: string }[] = [
@@ -50,28 +51,46 @@ function dedicLabel(p: Puesto): string {
   return p.dedicacion_tipo
 }
 
+function iniciales(nombre: string): string {
+  return nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
 const EMPTY: Omit<Puesto, 'id'> = {
   orden: 99, nivel: 3, area: 'Cocina', puesto: '', persona: SIN_ASIGNAR,
   reporta_a: '', funciones: '', dedicacion_tipo: 'completa', dedicacion_horas: 40,
   color: '#f5a623', estado: 'objetivo', es_responsable: false,
   mision: '', hab_duras: '', hab_blandas: '', kpis: '', onboarding: '',
-  capacitacion: '', controles: '', plan_carrera: '', delegacion: '',
+  capacitacion: '', controles: '', plan_carrera: '', delegacion: '', empleado_id: null,
 }
 
 export default function Organigrama() {
   const { T, isDark } = useTheme()
   const [puestos, setPuestos] = useState<Puesto[]>([])
+  const [empById, setEmpById] = useState<Record<string, { foto: string | null; nombre: string }>>({})
+  const [empByNombre, setEmpByNombre] = useState<Record<string, { foto: string | null }>>({})
   const [loading, setLoading] = useState(true)
   const [vista, setVista] = useState<'organigrama' | 'tabla'>('organigrama')
   const [detalle, setDetalle] = useState<{ open: boolean; data: Puesto | null; edit: boolean }>({ open: false, data: null, edit: false })
 
   async function fetchAll() {
-    const { data, error } = await supabase
-      .from('organigrama_puestos').select('*').order('nivel').order('orden')
-    if (!error) setPuestos((data ?? []) as Puesto[])
+    const [pz, emps] = await Promise.all([
+      supabase.from('organigrama_puestos').select('*').order('nivel').order('orden'),
+      supabase.from('empleados').select('id, nombre, foto_url'),
+    ])
+    if (!pz.error) setPuestos((pz.data ?? []) as Puesto[])
+    const byId: Record<string, { foto: string | null; nombre: string }> = {}
+    const byNom: Record<string, { foto: string | null }> = {}
+    ;(emps.data ?? []).forEach((e: any) => { byId[e.id] = { foto: e.foto_url ?? null, nombre: e.nombre }; byNom[e.nombre] = { foto: e.foto_url ?? null } })
+    setEmpById(byId); setEmpByNombre(byNom)
     setLoading(false)
   }
   useEffect(() => { fetchAll() }, [])
+
+  function fotoDe(p: Puesto): string | null {
+    if (p.empleado_id && empById[p.empleado_id]) return empById[p.empleado_id].foto
+    if (empByNombre[p.persona]) return empByNombre[p.persona].foto
+    return null
+  }
 
   const kpis = useMemo(() => {
     const internos = puestos.filter(p => p.dedicacion_tipo !== 'externo')
@@ -118,7 +137,7 @@ export default function Organigrama() {
         <div style={{ ...cardStyle(T), padding: 32, textAlign: 'center', color: T.mut }}>Cargando organigrama…</div>
       ) : vista === 'organigrama' ? (
         <div style={{ ...cardStyle(T), padding: '34px 18px', overflowX: 'auto' }}>
-          <Arbol puestos={puestos} T={T} onPick={p => setDetalle({ open: true, data: p, edit: false })} />
+          <Arbol puestos={puestos} T={T} getFoto={fotoDe} onPick={p => setDetalle({ open: true, data: p, edit: false })} />
         </div>
       ) : (
         <Tabla puestos={puestos} T={T} isDark={isDark} onRow={p => setDetalle({ open: true, data: p, edit: false })} />
@@ -140,7 +159,7 @@ export default function Organigrama() {
 
 /* ════════════════ ÁRBOL / ORGANIGRAMA CLÁSICO ════════════════ */
 
-function Arbol({ puestos, T, onPick }: { puestos: Puesto[]; T: any; onPick: (p: Puesto) => void }) {
+function Arbol({ puestos, T, getFoto, onPick }: { puestos: Puesto[]; T: any; getFoto: (p: Puesto) => string | null; onPick: (p: Puesto) => void }) {
   const byOrden = (a: Puesto, b: Puesto) => a.orden - b.orden
   const dir = puestos.filter(p => p.nivel === 1).sort(byOrden)
   const resp = puestos.filter(p => p.nivel === 2).sort(byOrden)
@@ -150,10 +169,10 @@ function Arbol({ puestos, T, onPick }: { puestos: Puesto[]; T: any; onPick: (p: 
   const line = T.brd
   const css = `
     .oc{display:flex;flex-direction:column;align-items:center;min-width:max-content;margin:0 auto}
-    .oc-lbl{font-family:Oswald,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${T.mut};margin:0 0 12px}
-    .oc-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+    .oc-lbl{font-family:Oswald,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${T.mut};margin:0 0 14px}
+    .oc-row{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
     .oc-stem{width:2px;height:26px;background:${line}}
-    .oc-fan{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;position:relative;padding-top:26px}
+    .oc-fan{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;position:relative;padding-top:26px}
     .oc-fan::before{content:'';position:absolute;top:0;left:12%;right:12%;height:2px;background:${line}}
     .oc-fan>.ocw{position:relative}
     .oc-fan>.ocw::before{content:'';position:absolute;top:-26px;left:50%;width:2px;height:26px;background:${line};transform:translateX(-50%)}
@@ -164,48 +183,64 @@ function Arbol({ puestos, T, onPick }: { puestos: Puesto[]; T: any; onPick: (p: 
       <style>{css}</style>
       <div className="oc">
         <div className="oc-lbl">Dirección</div>
-        <div className="oc-row">{dir.map(p => <OcNode key={p.id} p={p} T={T} onClick={() => onPick(p)} />)}</div>
+        <div className="oc-row">{dir.map(p => <OcNode key={p.id} p={p} T={T} foto={getFoto(p)} onClick={() => onPick(p)} />)}</div>
 
         {resp.length > 0 && <>
           <div className="oc-stem" />
-          <div className="oc-row">{resp.map(p => <OcNode key={p.id} p={p} T={T} onClick={() => onPick(p)} />)}</div>
+          <div className="oc-row">{resp.map(p => <OcNode key={p.id} p={p} T={T} foto={getFoto(p)} onClick={() => onPick(p)} />)}</div>
         </>}
 
         {base.length > 0 && <>
           <div className="oc-stem" />
-          <div className="oc-fan">{base.map(p => <div className="ocw" key={p.id}><OcNode p={p} T={T} onClick={() => onPick(p)} /></div>)}</div>
+          <div className="oc-fan">{base.map(p => <div className="ocw" key={p.id}><OcNode p={p} T={T} foto={getFoto(p)} onClick={() => onPick(p)} /></div>)}</div>
         </>}
       </div>
 
       {ext.length > 0 && (
         <div className="oc-ext">
           <div className="oc-lbl">Colaboradores externos</div>
-          <div className="oc-row">{ext.map(p => <OcNode key={p.id} p={p} T={T} dashed onClick={() => onPick(p)} />)}</div>
+          <div className="oc-row">{ext.map(p => <OcNode key={p.id} p={p} T={T} foto={getFoto(p)} dashed onClick={() => onPick(p)} />)}</div>
         </div>
       )}
     </>
   )
 }
 
-function OcNode({ p, T, onClick, dashed }: { p: Puesto; T: any; onClick: () => void; dashed?: boolean }) {
+function OrgAvatar({ nombre, foto, color }: { nombre: string; foto: string | null; color: string }) {
+  return (
+    <div style={{
+      width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+      background: color, overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: '#ffffff',
+    }}>
+      {foto ? <img src={foto} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (iniciales(nombre) || '—')}
+    </div>
+  )
+}
+
+function OcNode({ p, T, onClick, foto, dashed }: { p: Puesto; T: any; onClick: () => void; foto: string | null; dashed?: boolean }) {
   const asignado = p.persona && p.persona !== SIN_ASIGNAR
-  const color = p.color ?? '#B01D23'
+  const color = asignado ? (p.color ?? '#B01D23') : (T.mut as string)
   return (
     <div onClick={onClick}
       style={{
-        width: 210, background: T.card, borderRadius: 10,
-        border: `${dashed ? '1px dashed' : '1px solid'} ${T.brd}`,
-        borderTop: `3px solid ${color}`, padding: '12px 14px', cursor: 'pointer',
+        ...cardStyle(T), width: 240, padding: '14px 16px', cursor: 'pointer',
+        borderStyle: dashed ? 'dashed' : 'solid',
         transition: 'transform 120ms, box-shadow 120ms',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.18)' }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.16)' }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, color: T.pri, lineHeight: 1.25, flex: 1, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{p.puesto}</div>
-        {p.es_responsable && <Star size={13} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0, marginTop: 2 }} />}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <OrgAvatar nombre={asignado ? p.persona : p.puesto} foto={foto} color={color} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: asignado ? T.pri : T.mut, lineHeight: 1.2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asignado ? p.persona : 'Por asignar'}</div>
+            {p.es_responsable && <Star size={13} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0 }} />}
+          </div>
+          <div style={{ fontSize: 12, color: T.sec, marginTop: 3, lineHeight: 1.3 }}>{p.puesto}</div>
+        </div>
       </div>
-      <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, fontFamily: FONT.body, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{p.persona}</div>
-      <div style={{ fontSize: 11, color: T.sec, marginTop: 8 }}>{dedicLabel(p)}</div>
     </div>
   )
 }
@@ -366,7 +401,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
             </>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div><label style={lbl}>Puesto</label><input style={inp} value={form.puesto} onChange={e => up('puesto', e.target.value)} placeholder="Ej. Jefe/a de cocina" /></div>
+              <div><label style={lbl}>Puesto</label><input style={inp} value={form.puesto} onChange={e => up('puesto', e.target.value)} placeholder="Ej. Responsable de cocina" /></div>
               <div><label style={lbl}>Persona asignada</label><input style={inp} value={form.persona} onChange={e => up('persona', e.target.value)} placeholder={SIN_ASIGNAR} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div><label style={lbl}>Área</label><input style={inp} value={form.area} onChange={e => up('area', e.target.value)} /></div>
@@ -393,7 +428,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
               <CampoLista lbl="Plan de capacitación (uno por línea)" T={T} ta={ta} value={form.capacitacion} onChange={v => up('capacitacion', v)} />
               <div><label style={lbl}>Plan de carrera / ascenso</label><textarea style={ta(2)} value={form.plan_carrera ?? ''} onChange={e => up('plan_carrera', e.target.value)} /></div>
               <div><label style={lbl}>Plan de delegación</label><textarea style={ta(2)} value={form.delegacion ?? ''} onChange={e => up('delegacion', e.target.value)} /></div>
-              <div><label style={lbl}>Color</label><input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? '#B01D23'} onChange={e => up('color', e.target.value)} /></div>
+              <div><label style={lbl}>Color de acento</label><input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? '#B01D23'} onChange={e => up('color', e.target.value)} /></div>
             </div>
           )}
         </div>
