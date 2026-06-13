@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
 import { fmt, n, getProveedor } from './types'
 import { useTheme, FONT, groupStyle } from '@/styles/tokens'
+import { useEsMovil } from '@/hooks/useEsMovil'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -22,6 +23,7 @@ function semaforoColor(usos: number): string {
 
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const { T } = useTheme()
+  const movil = useEsMovil()
   const [filter, setFilter] = useState<Filter>('todos')
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
@@ -89,12 +91,58 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         </div>
       )}
 
-      <div style={groupStyle(T)}>
-        {!filtered.length ? (
+      {!filtered.length ? (
+        <div style={groupStyle(T)}>
           <p style={{ color: T.mut, fontFamily: FONT.body, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
-        ) : (
+        </div>
+      ) : movil ? (
+        /* ===== MÓVIL: lista de cards (nombre · precio · proveedor · usos). Tocar = ficha completa ===== */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filtered.map(i => {
+            const usos = n(i.usos)
+            return (
+              <button
+                key={i.id}
+                onClick={() => onSelect?.(i)}
+                style={{
+                  textAlign: 'left',
+                  width: '100%',
+                  background: T.card,
+                  border: `1px solid ${T.brd}`,
+                  borderRadius: 12,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                  <span style={{ fontFamily: FONT.body, fontSize: 15, fontWeight: 600, color: T.pri }}>
+                    {i.nombre_base ?? i.nombre ?? '—'}
+                  </span>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: T.accent, whiteSpace: 'nowrap' }}>
+                    {fmt(i.precio_activo ?? i.ultimo_precio)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
+                    {getProveedor(i.abv)}{i.marca ? ` · ${i.marca}` : ''}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block' }} />
+                    <span style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 600, color: T.pri }}>{usos} usos</span>
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        /* ===== ESCRITORIO: tabla completa ===== */
+        <div style={groupStyle(T)}>
           <div style={{ overflowX: 'auto', borderRadius: 8, border: `0.5px solid ${T.brd}` }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
               <thead>
@@ -147,8 +195,8 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
