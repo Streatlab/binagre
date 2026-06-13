@@ -22,17 +22,17 @@ function calcAntiguedad(fechaAlta?: string | null): string {
   return `${months} mes${months !== 1 ? 'es' : ''}`
 }
 
-function Avatar({ nombre, color }: { nombre: string; color?: string }) {
+function Avatar({ nombre, color, foto }: { nombre: string; color?: string; foto?: string | null }) {
   const initials = nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
   return (
     <div style={{
       width: 36, height: 36, borderRadius: '50%',
-      background: color ?? '#B01D23',
+      background: color ?? '#B01D23', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: '#ffffff',
       flexShrink: 0,
     }}>
-      {initials}
+      {foto ? <img src={foto} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
     </div>
   )
 }
@@ -46,7 +46,7 @@ export default function TabEmpleados() {
   async function fetch() {
     const { data, error } = await supabase
       .from('empleados')
-      .select('id, nombre, nif, iban, salario, fecha_alta, estado, datos_personales, drive_folder_id, cargo, email')
+      .select('id, nombre, nif, iban, salario, fecha_alta, estado, datos_personales, drive_folder_id, cargo, email, foto_url, dias_vacaciones_anuales')
       .order('nombre')
     if (!error) setEmpleados((data ?? []) as Empleado[])
     setLoading(false)
@@ -110,7 +110,7 @@ export default function TabEmpleados() {
                 >
                   <td style={tdSticky}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar nombre={emp.nombre} color={emp.estado === 'despedido' ? '#444' : undefined} />
+                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={emp.estado === 'despedido' ? '#444' : undefined} />
                       <div>
                         <div style={{ fontWeight: 600, color: T.pri }}>{emp.nombre}</div>
                         <div style={{ fontSize: 11, color: T.mut }}>{emp.datos_personales?.email || emp.email || '—'}</div>
