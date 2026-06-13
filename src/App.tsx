@@ -68,7 +68,6 @@ const Esquemas = React.lazy(() => import('@/pages/cocina/Esquemas'))
 const Produccion = React.lazy(() => import('@/pages/cocina/Produccion'))
 const ListaCompra = React.lazy(() => import('@/pages/cocina/ListaCompra'))
 
-const MarketingEmbudo = React.lazy(() => import('@/pages/MarketingEmbudo'))
 
 const ControlTemperaturas = React.lazy(() => import('@/pages/ops/ControlTemperaturas'))
 const ChecklistsAperturaCierre = React.lazy(() => import('@/pages/ops/ChecklistsAperturaCierre'))
@@ -248,7 +247,6 @@ function AppRoutes() {
 
           <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
 
-          <Route path="marketing/embudo" element={<MarketingEmbudo />} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
           <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
