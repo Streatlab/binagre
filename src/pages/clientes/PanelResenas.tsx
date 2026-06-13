@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, kpiBig, TABS_PILL } from '@/components/panel/resumen/tokens'
+import { COLORS, FONT, CARDS, lbl, lblSm, kpiBig, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
 import { fmtNumES } from '@/utils/format'
 
 /* ═════════════ PANEL DE RESEÑAS STREAT LAB ═════════════
-   Tokens y estilos canónicos Binagre (Panel Global).
-   Registro periódico de valoración por marca real y plataforma (UE/GL/JE).
-   Tablas: crm_resenas_registro · marca_plataforma_acceso (marcas reales por plataforma)
+   Tokens y estilos canónicos Binagre (Panel Global / Evolución).
+   Resumen en COLUMNAS VERTICALES por plataforma (UE · Glovo · Just Eat),
+   cada columna con sus marcas reales y su nota. Datos visibles desde el inicio.
 */
 
 type Registro = { id: number; fecha: string; marca: string; plataforma: string; rating: number; num_resenas: number; num_nuevas: number; comentario: string | null }
@@ -55,7 +55,7 @@ export default function PanelResenas() {
     <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>PANEL DE RESEÑAS</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Valoración por marca real y plataforma · registra cada pocos días para ver evolución</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Valoración de cada marca por plataforma · actualiza las notas cada pocos días</div>
       </div>
 
       <div style={TABS_PILL.container}>
@@ -69,7 +69,7 @@ export default function PanelResenas() {
       ) : (
         <div style={{ marginTop: 14 }}>
           {tab === 'resumen' && <TabResumen registros={registros} />}
-          {tab === 'registro' && <TabRegistro accesos={accesos} onSaved={() => { cargar(); flash('Valoración registrada') }} />}
+          {tab === 'registro' && <TabRegistro accesos={accesos} registros={registros} onSaved={() => { cargar(); flash('Valoración registrada') }} />}
           {tab === 'historico' && <TabHistorico registros={registros} />}
         </div>
       )}
@@ -83,7 +83,7 @@ function ultimoPorClave(registros: Registro[]) {
   return m
 }
 
-/* ═════════════ RESUMEN ═════════════ */
+/* ═════════════ RESUMEN — columnas verticales por plataforma ═════════════ */
 function TabResumen({ registros }: { registros: Registro[] }) {
   const ultimos = useMemo(() => ultimoPorClave(registros), [registros])
   const valores = Object.values(ultimos)
@@ -92,84 +92,76 @@ function TabResumen({ registros }: { registros: Registro[] }) {
   const totalResenas = valores.reduce((s, r) => s + (r.num_resenas || 0), 0)
 
   const porPlat = PLATAFORMAS.map(p => {
-    const v = valores.filter(r => r.plataforma === p)
+    const v = valores.filter(r => r.plataforma === p).sort((a, b) => Number(b.rating) - Number(a.rating))
     const media = v.length ? v.reduce((s, r) => s + Number(r.rating), 0) / v.length : 0
     const res = v.reduce((s, r) => s + (r.num_resenas || 0), 0)
-    return { plataforma: p, media, res, n: v.length }
+    return { plataforma: p, media, res, marcas: v }
   })
 
-  const porMarca: Record<string, { suma: number; n: number; res: number }> = {}
-  valores.forEach(r => { if (!porMarca[r.marca]) porMarca[r.marca] = { suma: 0, n: 0, res: 0 }; porMarca[r.marca].suma += Number(r.rating); porMarca[r.marca].n++; porMarca[r.marca].res += r.num_resenas || 0 })
-  const ranking = Object.entries(porMarca).map(([marca, v]) => ({ marca, media: v.suma / v.n, res: v.res })).sort((a, b) => b.media - a.media)
-
-  if (valores.length === 0) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Sin valoraciones registradas todavía. Ve a "Registrar" e introduce la nota actual de cada marca en cada plataforma.</div>
+  if (valores.length === 0) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Sin valoraciones todavía. Ve a "Registrar" e introduce la nota de cada marca.</div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ ...CARDS.big, flex: 1, minWidth: 200 }}>
-          <div style={lbl}>Media global</div>
-          <div style={{ ...kpiBig, marginTop: 6, color: ratingColor(mediaGlobal) }}>{mediaGlobal.toFixed(2)}</div>
-          <div style={{ fontFamily: FONT.body, fontSize: 13, color: ratingColor(mediaGlobal) }}>{estrellas(mediaGlobal)}</div>
+        <div style={{ ...CARDS.big, flex: 1, minWidth: 220 }}>
+          <div style={lbl}>Media global Streat Lab</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
+            <span style={{ ...kpiBig, color: ratingColor(mediaGlobal) }}>{mediaGlobal.toFixed(2)}</span>
+            <span style={{ fontFamily: FONT.body, fontSize: 16, color: ratingColor(mediaGlobal) }}>{estrellas(mediaGlobal)}</span>
+          </div>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>{fmtNumES(totalResenas)} reseñas · {valores.length} fichas marca×plataforma</div>
         </div>
         {porPlat.map(p => (
-          <div key={p.plataforma} style={{ ...CARDS.std, flex: 1, minWidth: 150 }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || PLAT_COLOR[p.plataforma], fontWeight: 600 }}>{PLAT_LABEL[p.plataforma]}</div>
+          <div key={p.plataforma} style={{ ...CARDS.std, flex: 1, minWidth: 150, borderTop: `3px solid ${PLAT_COLOR[p.plataforma]}` }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 14, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || PLAT_COLOR[p.plataforma], fontWeight: 600 }}>{PLAT_LABEL[p.plataforma]}</div>
             <div style={{ ...kpiMid, marginTop: 6, color: ratingColor(p.media) }}>{p.media ? p.media.toFixed(2) : '—'}</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>{fmtNumES(p.res)} reseñas · {p.n} marcas</div>
+            <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>{fmtNumES(p.res)} reseñas · {p.marcas.length} marcas</div>
           </div>
         ))}
       </div>
 
-      <div style={CARDS.std}>
-        <div style={{ ...lbl, marginBottom: 14 }}>Ranking de marcas por valoración</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {ranking.map(m => (
-            <div key={m.marca} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 200, flexShrink: 0, fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.marca}</div>
-              <div style={{ flex: 1, height: 14, background: COLORS.group, borderRadius: 7, position: 'relative' }}>
-                <div style={{ height: 14, width: `${(m.media / 5) * 100}%`, background: ratingColor(m.media), borderRadius: 7 }} />
-              </div>
-              <div style={{ width: 90, textAlign: 'right', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: ratingColor(m.media) }}>{m.media.toFixed(2)}</div>
-              <div style={{ width: 80, textAlign: 'right', fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>{fmtNumES(m.res)} res.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, alignItems: 'start' }}>
+        {porPlat.map(p => (
+          <div key={p.plataforma} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+            <div style={{ background: PLAT_COLOR[p.plataforma], padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || '#fff' }}>{PLAT_LABEL[p.plataforma]}</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: PLAT_TXT[p.plataforma] || '#fff' }}>{p.media ? p.media.toFixed(2) : '—'}</span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={CARDS.std}>
-        <div style={{ ...lbl, marginBottom: 12 }}>Matriz marca × plataforma (última nota)</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Marca</th>{PLATAFORMAS.map(p => <th key={p} style={{ ...th, textAlign: 'center' }}>{PLAT_LABEL[p]}</th>)}</tr></thead>
-            <tbody>
-              {ranking.map(({ marca }) => (
-                <tr key={marca}>
-                  <td style={td}>{marca}</td>
-                  {PLATAFORMAS.map(p => {
-                    const r = ultimos[`${marca}|${p}`]
-                    return <td key={p} style={{ ...td, textAlign: 'center', fontFamily: FONT.heading, fontWeight: 600, color: r ? ratingColor(Number(r.rating)) : COLORS.mut }}>{r ? Number(r.rating).toFixed(1) : '—'}</td>
-                  })}
-                </tr>
+            <div style={{ padding: '6px 0' }}>
+              {p.marcas.length === 0 ? (
+                <div style={{ padding: '14px 16px', color: COLORS.mut, fontSize: 13 }}>Sin marcas registradas.</div>
+              ) : p.marcas.map((m, i) => (
+                <div key={m.marca} style={{ padding: '10px 16px', borderBottom: i < p.marcas.length - 1 ? `1px solid ${COLORS.group}` : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{m.marca}</span>
+                    <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: ratingColor(Number(m.rating)) }}>{Number(m.rating).toFixed(1)}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 3 }}>
+                      <div style={{ height: 6, width: `${(Number(m.rating) / 5) * 100}%`, background: ratingColor(Number(m.rating)), borderRadius: 3 }} />
+                    </div>
+                    <span style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, whiteSpace: 'nowrap' }}>{fmtNumES(m.num_resenas)} res.</span>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
 /* ═════════════ REGISTRO ═════════════ */
-function TabRegistro({ accesos, onSaved }: { accesos: Acceso[]; onSaved: () => void }) {
+function TabRegistro({ accesos, registros, onSaved }: { accesos: Acceso[]; registros: Registro[]; onSaved: () => void }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const [fecha, setFecha] = useState(hoy)
   const [valores, setValores] = useState<Record<string, { rating: string; num_resenas: string }>>({})
+  const ultimos = useMemo(() => ultimoPorClave(registros), [registros])
 
   const marcasPorPlat = useMemo(() => {
     const m: Record<string, string[]> = { UE: [], GL: [], JE: [] }
-    accesos.forEach(a => { if (m[a.plataforma]) m[a.plataforma].push(a.marca) })
+    accesos.forEach(a => { if (m[a.plataforma] && !m[a.plataforma].includes(a.marca)) m[a.plataforma].push(a.marca) })
     Object.keys(m).forEach(k => m[k].sort())
     return m
   }, [accesos])
@@ -185,9 +177,7 @@ function TabRegistro({ accesos, onSaved }: { accesos: Acceso[]; onSaved: () => v
       return { fecha, marca, plataforma, rating: Number(v.rating), num_resenas: Number(v.num_resenas) || 0, num_nuevas: 0 }
     })
     if (rows.length === 0) return
-    for (const row of rows) {
-      await supabase.from('crm_resenas_registro').upsert(row, { onConflict: 'fecha,marca,plataforma' })
-    }
+    for (const row of rows) await supabase.from('crm_resenas_registro').upsert(row, { onConflict: 'fecha,marca,plataforma' })
     setValores({}); onSaved()
   }
 
@@ -198,32 +188,39 @@ function TabRegistro({ accesos, onSaved }: { accesos: Acceso[]; onSaved: () => v
           <div style={lblSm}>Fecha del registro</div>
           <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inp, width: 180 }} />
           <button onClick={guardarTodo} style={btnPri}>Guardar todas</button>
-          <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Rellena solo lo que quieras actualizar. Nota 0-5 (decimales con punto).</span>
+          <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Rellena solo lo que cambie. Se muestra la última nota registrada.</span>
         </div>
       </div>
 
-      {PLATAFORMAS.map(p => (
-        <div key={p} style={CARDS.std}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || PLAT_COLOR[p], fontWeight: 600, marginBottom: 12 }}>{PLAT_LABEL[p]}</div>
-          {marcasPorPlat[p].length === 0 ? (
-            <div style={{ color: COLORS.mut, fontSize: 13 }}>Sin marcas activas en esta plataforma.</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 10 }}>
-              {marcasPorPlat[p].map(marca => {
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, alignItems: 'start' }}>
+        {PLATAFORMAS.map(p => (
+          <div key={p} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+            <div style={{ background: PLAT_COLOR[p], padding: '12px 16px' }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || '#fff' }}>{PLAT_LABEL[p]}</span>
+            </div>
+            <div style={{ padding: '6px 0' }}>
+              {marcasPorPlat[p].length === 0 ? (
+                <div style={{ padding: '14px 16px', color: COLORS.mut, fontSize: 13 }}>Sin marcas activas.</div>
+              ) : marcasPorPlat[p].map((marca, i) => {
                 const k = `${marca}|${p}`
                 const v = valores[k] || { rating: '', num_resenas: '' }
+                const prev = ultimos[k]
                 return (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-                    <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{marca}</div>
-                    <input type="number" step="0.1" min="0" max="5" placeholder="Nota" value={v.rating} onChange={e => setVal(marca, p, 'rating', e.target.value)} style={{ ...inp, width: 80 }} />
-                    <input type="number" placeholder="Nº reseñas" value={v.num_resenas} onChange={e => setVal(marca, p, 'num_resenas', e.target.value)} style={{ ...inp, width: 100 }} />
+                  <div key={k} style={{ padding: '8px 16px', borderBottom: i < marcasPorPlat[p].length - 1 ? `1px solid ${COLORS.group}` : 'none' }}>
+                    <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, marginBottom: 4 }}>
+                      {marca}{prev ? <span style={{ color: COLORS.mut, fontSize: 11 }}> · ahora {Number(prev.rating).toFixed(1)}</span> : ''}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="number" step="0.1" min="0" max="5" placeholder="Nota" value={v.rating} onChange={e => setVal(marca, p, 'rating', e.target.value)} style={{ ...inp, width: 80 }} />
+                      <input type="number" placeholder="Nº reseñas" value={v.num_resenas} onChange={e => setVal(marca, p, 'num_resenas', e.target.value)} style={{ ...inp, flex: 1 }} />
+                    </div>
                   </div>
                 )
               })}
             </div>
-          )}
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -233,13 +230,8 @@ function TabHistorico({ registros }: { registros: Registro[] }) {
   const [marcaSel, setMarcaSel] = useState('')
   const marcas = useMemo(() => Array.from(new Set(registros.map(r => r.marca))).sort(), [registros])
   const marca = marcaSel || marcas[0] || ''
-
-  const serie = useMemo(() => {
-    return registros.filter(x => x.marca === marca).sort((a, b) => a.fecha.localeCompare(b.fecha))
-  }, [registros, marca])
-
+  const serie = useMemo(() => registros.filter(x => x.marca === marca).sort((a, b) => a.fecha.localeCompare(b.fecha)), [registros, marca])
   const fechas = Array.from(new Set(serie.map(s => s.fecha))).sort()
-  const maxR = 5
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -259,17 +251,14 @@ function TabHistorico({ registros }: { registros: Registro[] }) {
           <div style={{ ...lbl, marginBottom: 16 }}>Evolución de nota — {marca}</div>
           {PLATAFORMAS.map(p => {
             const puntos = fechas.map(f => { const reg = serie.find(s => s.fecha === f && s.plataforma === p); return reg ? Number(reg.rating) : null })
-            const hayDatos = puntos.some(x => x !== null)
-            if (!hayDatos) return null
+            if (!puntos.some(x => x !== null)) return null
             return (
               <div key={p} style={{ marginBottom: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || PLAT_COLOR[p] }}>{PLAT_LABEL[p]}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || PLAT_COLOR[p] }}>{PLAT_LABEL[p]}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80, marginTop: 6 }}>
                   {fechas.map((f, i) => {
                     const val = puntos[i]
-                    const h = val !== null ? Math.max(4, (val / maxR) * 72) : 0
+                    const h = val !== null ? Math.max(4, (val / 5) * 72) : 0
                     return (
                       <div key={f} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                         {val !== null ? <span style={{ fontFamily: FONT.body, fontSize: 9, color: COLORS.mut }}>{val.toFixed(1)}</span> : <span style={{ fontSize: 9, color: COLORS.group }}>—</span>}
