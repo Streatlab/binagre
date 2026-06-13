@@ -1,9 +1,12 @@
-// procesarArchivo v18 — OCR 100% GRATIS. Eliminadas capas de pago Anthropic+Mistral.
-// COSTE 0 € SIEMPRE. La lectura va por dos vías gratis:
+// procesarArchivo v19 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// La lectura va, en orden:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
-//   2) Si las reglas no leen (PDF escaneado, foto, formato raro) → OCR Tesseract
-//      gratis: saca el texto de la imagen y se reintenta la lectura por reglas.
-// Si ninguna vía lee → estado LECTURA_MANUAL. Sin llamadas a APIs de pago.
+//   2) Si las reglas no leen (escaneo/foto/formato raro) → OCR Tesseract gratis.
+//   3) Si Tesseract tampoco lee → BOOTSTRAP Mistral (pago acotado, regla 3 bis):
+//      UNA pasada para sacar el texto y, vía el MISMO parser gratis, fabricar la
+//      plantilla por NIF. La 2ª factura de ese proveedor ya se lee gratis y nunca
+//      vuelve a Mistral (candado natural por NIF + kill-switch OCR_BOOTSTRAP_API).
+// Si ninguna vía lee → estado LECTURA_MANUAL con el PDF guardado en Drive.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -25,6 +28,7 @@ import {
 import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
+import { ocrMistralTexto, bootstrapApiActivo } from './ocr-mistral.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 
@@ -305,6 +309,18 @@ async function cargarDiccionarioNif(
   return dic
 }
 
+// ¿Este NIF emisor ya tiene plantilla/ficha en reglas_conciliacion? Candado del
+// bootstrap: si ya existe, NUNCA se vuelve a pagar API para ese proveedor.
+async function nifTienePlantilla(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
+  if (!nif) return false
+  const { data } = await supabase
+    .from('reglas_conciliacion')
+    .select('id')
+    .eq('patron_nif', nif)
+    .maybeSingle()
+  return !!data?.id
+}
+
 // Sube el PDF a Drive con un nombre lo más correcto posible y devuelve los datos
 // de Drive. Best-effort: si falla, devuelve null (no rompe el flujo).
 async function guardarEnDriveBestEffort(
@@ -530,7 +546,7 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' = 'reglas'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -582,10 +598,32 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // PASO 3 (BOOTSTRAP de pago acotado — regla 3 bis): si ni reglas ni Tesseract
+  // leyeron, y el bootstrap está permitido (OCR_BOOTSTRAP_API=true + clave Mistral),
+  // se hace UNA pasada de Mistral para sacar el texto. Ese texto pasa por el MISMO
+  // parser gratis; si saca NIF+total, abajo se aprende la plantilla por NIF y la
+  // próxima factura del proveedor se lee gratis (candado natural por NIF).
+  if (!extractedReglas && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const textoMistral = await ocrMistralTexto(file.buffer, tipo === 'imagen' ? 'imagen' : 'pdf')
+      if (textoMistral && textoMistral.replace(/\s/g, '').length >= 30) {
+        textoPdfCache = textoPdfCache && textoPdfCache.length > textoMistral.length ? textoPdfCache : textoMistral
+        if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
+        const extractedMistral = extraerPorReglas(textoMistral, (nif) => diccionario?.get(nif)?.plantilla || null, false)
+        if (extractedMistral) {
+          extractedReglas = extractedMistral
+          origenLectura = 'mistral_bootstrap'
+        }
+      }
+    } catch (mistralErr) {
+      console.error('[procesarArchivo] bootstrap Mistral no resolvió:', errMsg(mistralErr))
+    }
+  }
+
   if (extractedReglas) {
     extracted = extractedReglas
   } else {
-    // PASO 3 — ni reglas ni OCR Tesseract leyeron. Lectura manual (0 €, sin API).
+    // PASO 4 — ninguna vía leyó. Lectura manual con el PDF guardado en Drive.
     return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
   }
 
@@ -748,6 +786,12 @@ async function procesarContenidoPrincipal(
         ...(pendienteTitularManual ? { estado: 'pendiente_titular_manual' } : {}),
       })
       .eq('id', nueva.id)
+
+    // APRENDIZAJE DE PLANTILLA POR NIF: tras leer bien (por la vía que sea), si el
+    // proveedor aún no está en reglas_conciliacion, se crea su plantilla. Esto es lo
+    // que cierra el candado del bootstrap: la próxima factura del proveedor se lee
+    // gratis y Mistral no vuelve a tocarse. Best-effort, idempotente por NIF.
+    await aprenderProveedorNif(supabase, extracted, textoPdfCache)
 
     // F11: batch insert plataforma_detalle
     if (extracted.tipo === 'plataforma' && extracted.plataforma_detalle?.length) {
@@ -1022,6 +1066,9 @@ async function guardarFacturasMulti(
         })
         .eq('id', nueva.id)
 
+      // Aprender plantilla por NIF también en multi-factura (best-effort).
+      await aprenderProveedorNif(supabase, extracted, textoCombinado)
+
       // Matching
       try {
         const resultadoMatch = await matchFactura(supabase, { ...extracted, id: nueva.id, total: extracted.total, titular_id: tit.titularId })
@@ -1057,8 +1104,8 @@ async function guardarFacturasMulti(
 
 // Factura que ni reglas ni Tesseract pudieron leer. Se guarda el PDF en Drive
 // para no perderlo y se inserta con estado 'pendiente_lectura_manual'.
-// NUNCA llama a API de pago. El titular se intenta por el NIF de Rubén/Emilio
-// en el texto; si no aparece, titular NULL (sin default).
+// El titular se intenta por el NIF de Rubén/Emilio en el texto; si no aparece,
+// titular NULL (sin default).
 async function guardarLecturaManual(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
@@ -1127,8 +1174,8 @@ async function guardarLecturaManual(
       pdf_drive_url: drive?.webViewLink ?? null,
       pdf_filename: drive?.nombre ?? null,
       error_mensaje: drive
-        ? 'No se pudo leer ni con plantilla ni con OCR. Añade la plantilla del NIF y reprocesa (0 €, sin API).'
-        : 'No se pudo leer y Drive no disponible. Reintenta (0 €, sin API).',
+        ? 'No se pudo leer con plantilla, Tesseract ni bootstrap. Revisa la plantilla del NIF o lectura manual.'
+        : 'No se pudo leer y Drive no disponible. Reintenta.',
     })
     .select('*')
     .maybeSingle()
@@ -1148,8 +1195,8 @@ async function guardarLecturaManual(
     factura_id: (nueva?.id as string) || undefined,
     factura: (nueva as Record<string, unknown>) || undefined,
     motivo: nifEmisor
-      ? `lectura manual: sin plantilla NIF ${nifEmisor} (0 €, sin API)`
-      : 'lectura manual: ni reglas ni OCR leyeron (0 €, sin API)',
+      ? `lectura manual: sin plantilla NIF ${nifEmisor}`
+      : 'lectura manual: ninguna vía leyó',
   }
 }
 
