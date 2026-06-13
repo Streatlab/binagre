@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, ArrowUp, ArrowDown, Star } from 'lucide-react'
+import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 
@@ -117,19 +117,8 @@ export default function Organigrama() {
       {loading ? (
         <div style={{ ...cardStyle(T), padding: 32, textAlign: 'center', color: T.mut }}>Cargando organigrama…</div>
       ) : vista === 'organigrama' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-          {NIVELES.map(({ n, label }) => {
-            const grupo = puestos.filter(p => p.nivel === n)
-            if (!grupo.length) return null
-            return (
-              <div key={n}>
-                <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 12 }}>{label}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-                  {grupo.map(p => <PuestoCard key={p.id} p={p} T={T} onClick={() => setDetalle({ open: true, data: p, edit: false })} />)}
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ ...cardStyle(T), padding: '34px 18px', overflowX: 'auto' }}>
+          <Arbol puestos={puestos} T={T} onPick={p => setDetalle({ open: true, data: p, edit: false })} />
         </div>
       ) : (
         <Tabla puestos={puestos} T={T} isDark={isDark} onRow={p => setDetalle({ open: true, data: p, edit: false })} />
@@ -149,38 +138,83 @@ export default function Organigrama() {
   )
 }
 
+/* ════════════════ ÁRBOL / ORGANIGRAMA CLÁSICO ════════════════ */
+
+function Arbol({ puestos, T, onPick }: { puestos: Puesto[]; T: any; onPick: (p: Puesto) => void }) {
+  const byOrden = (a: Puesto, b: Puesto) => a.orden - b.orden
+  const dir = puestos.filter(p => p.nivel === 1).sort(byOrden)
+  const resp = puestos.filter(p => p.nivel === 2).sort(byOrden)
+  const base = puestos.filter(p => p.nivel === 3).sort(byOrden)
+  const ext = puestos.filter(p => p.nivel === 4).sort(byOrden)
+
+  const line = T.brd
+  const css = `
+    .oc{display:flex;flex-direction:column;align-items:center;min-width:max-content;margin:0 auto}
+    .oc-lbl{font-family:Oswald,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${T.mut};margin:0 0 12px}
+    .oc-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+    .oc-stem{width:2px;height:26px;background:${line}}
+    .oc-fan{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;position:relative;padding-top:26px}
+    .oc-fan::before{content:'';position:absolute;top:0;left:12%;right:12%;height:2px;background:${line}}
+    .oc-fan>.ocw{position:relative}
+    .oc-fan>.ocw::before{content:'';position:absolute;top:-26px;left:50%;width:2px;height:26px;background:${line};transform:translateX(-50%)}
+    .oc-ext{margin-top:34px;padding-top:24px;border-top:1px dashed ${line};width:100%;display:flex;flex-direction:column;align-items:center}
+  `
+  return (
+    <>
+      <style>{css}</style>
+      <div className="oc">
+        <div className="oc-lbl">Dirección</div>
+        <div className="oc-row">{dir.map(p => <OcNode key={p.id} p={p} T={T} onClick={() => onPick(p)} />)}</div>
+
+        {resp.length > 0 && <>
+          <div className="oc-stem" />
+          <div className="oc-row">{resp.map(p => <OcNode key={p.id} p={p} T={T} onClick={() => onPick(p)} />)}</div>
+        </>}
+
+        {base.length > 0 && <>
+          <div className="oc-stem" />
+          <div className="oc-fan">{base.map(p => <div className="ocw" key={p.id}><OcNode p={p} T={T} onClick={() => onPick(p)} /></div>)}</div>
+        </>}
+      </div>
+
+      {ext.length > 0 && (
+        <div className="oc-ext">
+          <div className="oc-lbl">Colaboradores externos</div>
+          <div className="oc-row">{ext.map(p => <OcNode key={p.id} p={p} T={T} dashed onClick={() => onPick(p)} />)}</div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function OcNode({ p, T, onClick, dashed }: { p: Puesto; T: any; onClick: () => void; dashed?: boolean }) {
+  const asignado = p.persona && p.persona !== SIN_ASIGNAR
+  const color = p.color ?? '#B01D23'
+  return (
+    <div onClick={onClick}
+      style={{
+        width: 210, background: T.card, borderRadius: 10,
+        border: `${dashed ? '1px dashed' : '1px solid'} ${T.brd}`,
+        borderTop: `3px solid ${color}`, padding: '12px 14px', cursor: 'pointer',
+        transition: 'transform 120ms, box-shadow 120ms',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.18)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
+        <div style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, color: T.pri, lineHeight: 1.25, flex: 1, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{p.puesto}</div>
+        {p.es_responsable && <Star size={13} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0, marginTop: 2 }} />}
+      </div>
+      <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, fontFamily: FONT.body, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{p.persona}</div>
+      <div style={{ fontSize: 11, color: T.sec, marginTop: 8 }}>{dedicLabel(p)}</div>
+    </div>
+  )
+}
+
 function KpiCard({ T, label, value, icon, accent }: { T: any; label: string; value: string; icon?: React.ReactNode; accent?: string }) {
   return (
     <div style={{ ...cardStyle(T), padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{icon}{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, color: accent ?? T.pri, lineHeight: 1 }}>{value}</div>
-    </div>
-  )
-}
-
-function PuestoCard({ p, T, onClick }: { p: Puesto; T: any; onClick: () => void }) {
-  const asignado = p.persona && p.persona !== SIN_ASIGNAR
-  const funcs = lst(p.funciones)
-  return (
-    <div onClick={onClick}
-      style={{ ...cardStyle(T), width: 270, padding: 0, overflow: 'hidden', cursor: 'pointer', borderTop: `3px solid ${p.color ?? '#B01D23'}` }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: T.pri, lineHeight: 1.25, flex: 1 }}>{p.puesto}</div>
-          {p.es_responsable && <Star size={14} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0, marginTop: 2 }} />}
-        </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 5, fontSize: 12, fontWeight: 600, fontFamily: FONT.body, marginBottom: 10, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{p.persona}</div>
-        <div style={{ fontSize: 11, color: T.sec, marginBottom: 10 }}>{dedicLabel(p)}</div>
-        {funcs.length > 0 && (
-          <ul style={{ margin: 0, paddingLeft: 16, color: T.sec, fontSize: 12, lineHeight: 1.5 }}>
-            {funcs.slice(0, 3).map((f, i) => <li key={i}>{f}</li>)}
-            {funcs.length > 3 && <li style={{ color: T.mut, listStyle: 'none', marginLeft: -16 }}>+{funcs.length - 3} más</li>}
-          </ul>
-        )}
-        <div style={{ marginTop: 12, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: '#B01D23' }}>Ver perfil →</div>
-      </div>
     </div>
   )
 }
@@ -240,7 +274,7 @@ function Lista({ T, items, dot = '#B01D23' }: { T: any; items: string[]; dot?: s
   )
 }
 
-function DetalleCargo({ T, isDark, data, puestos, editInit, onClose, onSaved }: { T: any; isDark: boolean; data: Puesto; puestos: Puesto[]; editInit: boolean; onClose: () => void; onSaved: () => void }) {
+function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any; isDark: boolean; data: Puesto; puestos: Puesto[]; editInit: boolean; onClose: () => void; onSaved: () => void }) {
   const [mode, setMode] = useState<'view' | 'edit'>(editInit ? 'edit' : 'view')
   const [form, setForm] = useState<Puesto>({ ...data })
   const [saving, setSaving] = useState(false)
@@ -276,12 +310,12 @@ function DetalleCargo({ T, isDark, data, puestos, editInit, onClose, onSaved }: 
   }
 
   const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6, display: 'block' }
-  const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'var(--sl-app)', color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
   const ta = (lines = 5): React.CSSProperties => ({ ...inp, minHeight: lines * 22, resize: 'vertical' })
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 16, overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? '#B01D23'}` }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 16, overflowY: 'auto' }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? '#B01D23'}` }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px', borderBottom: `1px solid ${T.brd}`, gap: 12 }}>
@@ -318,8 +352,8 @@ function DetalleCargo({ T, isDark, data, puestos, editInit, onClose, onSaved }: 
               <Seccion T={T} titulo="Funciones"><Lista T={T} items={lst(data.funciones)} /></Seccion>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
-                <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot="#1e2233" /></Seccion>
-                <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot="#66aaff" /></Seccion>
+                <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot="#66aaff" /></Seccion>
+                <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot="#9b6dff" /></Seccion>
               </div>
 
               <Seccion T={T} titulo="Indicadores de desempeño (KPIs)"><Lista T={T} items={lst(data.kpis)} dot="#1D9E75" /></Seccion>
