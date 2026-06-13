@@ -1,115 +1,108 @@
 /* ============================================================
-   RESPONSIVE GLOBAL — MÓVIL (≤768px)
-   Capa transversal: aplica a TODOS los módulos del ERP sin
-   tocar cada página. Solo afecta a pantallas estrechas.
-   Pasada 1: baseline usable. No rompe escritorio.
+   RESPONSIVE GLOBAL — MÓVIL
+   Capa transversal: aplica a TODOS los módulos del ERP sin tocar
+   cada página. Se activa con <html class="sl-movil">, que pone el
+   JS (ResponsiveTables) cuando detecta un dispositivo móvil real
+   — funciona aunque el navegador esté en modo "Sitio de escritorio".
+   No afecta a escritorio.
    ============================================================ */
 
-@media (max-width: 768px) {
+/* 1. Márgenes laterales compactos en el área de contenido */
+html.sl-movil main {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
 
-  /* 1. Márgenes laterales compactos en el área de contenido */
-  main {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-  }
+/* 2. Cualquier rejilla multi-columna baja a 1 columna (apila) */
+html.sl-movil main [class*="grid-cols-"] {
+  grid-template-columns: 1fr !important;
+}
 
-  /* 2. Cualquier rejilla multi-columna baja a 1 columna (cards apiladas) */
-  main [class*="grid-cols-"] {
-    grid-template-columns: 1fr !important;
-  }
+/* 3. Tablas: red de seguridad — scroll horizontal interno,
+      nunca desbordan. Las que se convierten a cards usan .sl-cards. */
+html.sl-movil main table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
-  /* 3. Tablas: red de seguridad — scroll horizontal interno,
-        nunca desbordan el viewport. Las anchas se convertirán
-        a cards apiladas en pasadas siguientes. */
-  main table {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* 4. Imágenes y media nunca desbordan */
-  main img,
-  main video,
-  main canvas {
-    max-width: 100%;
-    height: auto;
-  }
+/* 4. Imágenes y media nunca desbordan */
+html.sl-movil main img,
+html.sl-movil main video,
+html.sl-movil main canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ============================================================
-   PASADA 2 — TABLAS A CARDS APILADAS (≤768px)
-   El convertidor global (ResponsiveTables) añade la clase
-   .sl-cards a cada tabla y etiqueta cada celda con el nombre
-   de su columna (data-label). Aquí se hace el volcado visual:
-   cabecera oculta, cada fila = card, cada celda = etiqueta+valor.
-   Las tablas marcadas [data-no-cards] quedan excluidas y
-   mantienen el scroll horizontal de la Pasada 1 (matrices).
+   TABLAS → CARDS APILADAS
+   El convertidor añade .sl-cards a cada tabla y etiqueta cada
+   celda con el nombre de su columna (data-label). Aquí el volcado
+   visual: cabecera oculta, cada fila = card, cada celda = etiqueta+valor.
+   Tablas marcadas [data-no-cards] quedan excluidas (mantienen scroll).
    ============================================================ */
 
-@media (max-width: 768px) {
+html.sl-movil main table.sl-cards {
+  display: block !important;
+  width: 100% !important;
+  overflow: visible !important;
+  border: none !important;
+}
 
-  main table.sl-cards {
-    display: block !important;
-    width: 100% !important;
-    overflow: visible !important;
-    border: none !important;
-  }
+html.sl-movil main table.sl-cards thead {
+  display: none !important;
+}
 
-  main table.sl-cards thead {
-    display: none !important;
-  }
+html.sl-movil main table.sl-cards tbody {
+  display: block !important;
+}
 
-  main table.sl-cards tbody {
-    display: block !important;
-  }
+/* Cada fila = una card */
+html.sl-movil main table.sl-cards tbody tr {
+  display: block !important;
+  background: var(--sl-card) !important;
+  border: 1px solid var(--sl-border) !important;
+  border-radius: 10px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden !important;
+  box-shadow: var(--sl-shadow-sm);
+}
 
-  /* Cada fila = una card */
-  main table.sl-cards tbody tr {
-    display: block !important;
-    background: var(--sl-card) !important;
-    border: 1px solid var(--sl-border) !important;
-    border-radius: 10px !important;
-    margin-bottom: 10px !important;
-    overflow: hidden !important;
-    box-shadow: var(--sl-shadow-sm);
-  }
+/* Cada celda = fila etiqueta (izq) + valor (der) */
+html.sl-movil main table.sl-cards tbody td {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: auto !important;
+  padding: 8px 13px !important;
+  border: none !important;
+  border-bottom: 0.5px solid var(--sl-border) !important;
+  white-space: normal !important;
+  text-align: right !important;
+  font-size: 13px !important;
+}
 
-  /* Cada celda = fila etiqueta (izq) + valor (der) */
-  main table.sl-cards tbody td {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 14px !important;
-    width: auto !important;
-    padding: 8px 13px !important;
-    border: none !important;
-    border-bottom: 0.5px solid var(--sl-border) !important;
-    white-space: normal !important;
-    text-align: right !important;
-    font-size: 13px !important;
-  }
+html.sl-movil main table.sl-cards tbody td:last-child {
+  border-bottom: none !important;
+}
 
-  main table.sl-cards tbody td:last-child {
-    border-bottom: none !important;
-  }
+/* Etiqueta = nombre de la columna */
+html.sl-movil main table.sl-cards tbody td::before {
+  content: attr(data-label);
+  flex: 0 0 42%;
+  text-align: left;
+  font-family: "Oswald", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--sl-text-muted);
+  font-weight: 600;
+}
 
-  /* Etiqueta = nombre de la columna */
-  main table.sl-cards tbody td::before {
-    content: attr(data-label);
-    flex: 0 0 42%;
-    text-align: left;
-    font-family: "Oswald", sans-serif;
-    font-size: 10px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: var(--sl-text-muted);
-    font-weight: 600;
-  }
-
-  /* Celdas sin etiqueta (columnas de acción): valor a ancho completo */
-  main table.sl-cards tbody td:not([data-label])::before {
-    content: "";
-    flex: 0;
-  }
+/* Celdas sin etiqueta (columnas de acción): valor a ancho completo */
+html.sl-movil main table.sl-cards tbody td:not([data-label])::before {
+  content: "";
+  flex: 0;
 }
