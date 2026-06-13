@@ -28,6 +28,7 @@ export interface Movimiento {
   factura_id?: string | null
   factura_data?: { pdf_drive_url: string | null; pdf_filename: string | null } | null
   doc_estado?: 'tiene' | 'falta' | 'no_requiere' | null
+  doc_estado_real?: 'tiene' | 'falta' | 'no_requiere' | null
 }
 
 export interface Regla {
@@ -62,7 +63,7 @@ export function useConciliacion() {
     ;(async () => {
       setLoading(true); setError(null)
       try {
-        const [movData, reg, cPyg] = await Promise.all([
+        const [movData, reg, cPyg, estadoRows] = await Promise.all([
           fetchAllPaginated<Movimiento>(() =>
             supabase.from('conciliacion')
               .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)')
@@ -70,11 +71,15 @@ export function useConciliacion() {
           ),
           supabase.from('reglas_conciliacion').select('id, patron, tipo_categoria, categoria_id, categoria_codigo, activa, prioridad').order('prioridad', { ascending: false }),
           supabase.from('categorias_pyg').select('id, codigo, nombre, nivel, parent_id').eq('nivel', 3),
+          fetchAllPaginated<{ conciliacion_id: string; estado_doc: string }>(() =>
+            supabase.from('v_estado_documento').select('conciliacion_id, estado_doc')
+          ),
         ])
         if (cancel) return
         if (reg.error) throw reg.error
         if (cPyg.error) throw cPyg.error
-        setMovimientos(movData)
+        const estadoMap = new Map(estadoRows.map(r => [r.conciliacion_id, r.estado_doc as 'tiene' | 'falta' | 'no_requiere']))
+        setMovimientos(movData.map(m => ({ ...m, doc_estado_real: estadoMap.get(m.id) ?? 'falta' as const })))
         setReglas((reg.data ?? []) as Regla[])
         // categorias_pyg nivel 3: tipo_parent por prefijo de cuenta contable PGC
         // Cuentas 7xx = ingresos (grupo 7 PGC); resto = gastos

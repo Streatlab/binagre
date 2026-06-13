@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
+
+const BG_OPS = '#111111'
 interface Equipo {
   id: string
   nombre: string
@@ -95,14 +98,14 @@ export default function LibroEquipos() {
   const costAcum = eqMantenimientos.reduce((s, m) => s + (m.coste ?? 0), 0)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>LIBRO EQUIPOS</h1>
-          <span style={{ fontSize: 13, color: '#777777' }}>Gestión y mantenimiento de equipos</span>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>LIBRO EQUIPOS</h1>
+          <span style={{ fontSize: 13, color: COLOR.textMut }}>Gestión y mantenimiento de equipos</span>
         </div>
         <button onClick={() => { setEditData(EMPTY_EQUIPO); setShowForm(true) }}
-          style={{ padding: '8px 18px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Añadir equipo
         </button>
       </div>
@@ -124,7 +127,7 @@ export default function LibroEquipos() {
               { label: 'Descripción', key: 'descripcion', type: 'text' },
             ].map(f => (
               <div key={f.key} style={{ marginBottom: 12 }}>
-                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>{f.label}</label>
+                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, display: 'block', marginBottom: 4 }}>{f.label}</label>
                 <input type={f.type}
                   value={(editData as Record<string, unknown>)[f.key] as string ?? ''}
                   onChange={e => setEditData(p => ({ ...p, [f.key]: f.type === 'number' ? (e.target.value ? parseFloat(e.target.value) : null) : e.target.value }))}
@@ -135,7 +138,7 @@ export default function LibroEquipos() {
               <button onClick={() => { setShowForm(false); setEditData(EMPTY_EQUIPO) }}
                 style={{ padding: '8px 16px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
               <button onClick={saveEquipo} disabled={saving}
-                style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
@@ -143,7 +146,7 @@ export default function LibroEquipos() {
         </div>
       )}
 
-      {loading ? <div style={{ color: '#777777', fontSize: 13 }}>Cargando…</div> : (
+      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
         <div style={{ display: 'grid', gridTemplateColumns: selectedId ? '1fr 1fr' : '1fr', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -152,23 +155,23 @@ export default function LibroEquipos() {
                 const coste = mants.reduce((s, m) => s + (m.coste ?? 0), 0)
                 return (
                   <div key={eq.id} onClick={() => setSelectedId(eq.id === selectedId ? null : eq.id)}
-                    style={{ background: selectedId === eq.id ? '#1a1f2e' : '#141414', border: `1px solid ${selectedId === eq.id ? '#B01D23' : '#2a2a2a'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
+                    style={{ background: selectedId === eq.id ? '#1a1f2e' : '#141414', border: `1px solid ${selectedId === eq.id ? COLORS.redSL : '#2a2a2a'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', color: '#ffffff', marginBottom: 4 }}>{eq.nombre}</div>
-                        <div style={{ fontSize: 12, color: '#777777' }}>
+                        <div style={{ fontSize: 12, color: COLOR.textMut }}>
                           {eq.tipo && <span style={{ marginRight: 10 }}>{eq.tipo}</span>}
                           {eq.temp_min !== null && eq.temp_max !== null && <span>Rango: {eq.temp_min}°C – {eq.temp_max}°C</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? '#1D9E7520' : '#B01D2320', color: (eq.estado === 'activo' || eq.activo) ? '#1D9E75' : '#B01D23', border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? '#1D9E75' : '#B01D23'}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
+                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? '#1D9E7520' : '#B01D2320', color: (eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL, border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
                           {eq.estado ?? (eq.activo ? 'ACTIVO' : 'INACTIVO')}
                         </span>
                         <button onClick={e => { e.stopPropagation(); setEditData({ ...eq }); setShowForm(true) }}
                           style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #383838', color: '#cccccc', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
                         <button onClick={e => { e.stopPropagation(); toggleActivo(eq) }}
-                          style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? '#B01D23' : '#1D9E75'}`, color: eq.activo ? '#B01D23' : '#1D9E75', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                          style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? COLORS.redSL : COLORS.ok}`, color: eq.activo ? COLORS.redSL : COLORS.ok, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
                           {eq.activo ? 'Desactivar' : 'Activar'}
                         </button>
                       </div>
@@ -180,18 +183,18 @@ export default function LibroEquipos() {
                   </div>
                 )
               })}
-              {equipos.length === 0 && <div style={{ color: '#777777', fontSize: 13 }}>Sin equipos registrados aún.</div>}
+              {equipos.length === 0 && <div style={{ color: COLOR.textMut, fontSize: 13 }}>Sin equipos registrados aún.</div>}
             </div>
           </div>
 
           {selectedEquipo && (
             <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px' }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 12 }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
                 HISTORIAL — {selectedEquipo.nombre}
               </div>
               <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
                 <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', flex: 1 }}>
-                  <div style={{ fontSize: 11, color: '#777777', marginBottom: 4, fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Coste Acumulado</div>
+                  <div style={{ fontSize: 11, color: COLOR.textMut, marginBottom: 4, fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Coste Acumulado</div>
                   <div style={{ fontFamily: FONT.heading, fontSize: 22, color: '#ffffff' }}>{fmtEurLocal(costAcum)}</div>
                 </div>
               </div>
@@ -201,9 +204,9 @@ export default function LibroEquipos() {
                 <div key={m.id} style={{ borderBottom: '1px solid #222222', padding: '10px 0', fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                     <span style={{ color: '#cccccc' }}>{m.descripcion ?? '—'}</span>
-                    <span style={{ color: '#777777', whiteSpace: 'nowrap' }}>{fmtFecha(m.fecha)}</span>
+                    <span style={{ color: COLOR.textMut, whiteSpace: 'nowrap' }}>{fmtFecha(m.fecha)}</span>
                   </div>
-                  {m.coste !== null && <div style={{ color: '#e8f442', fontSize: 12, marginTop: 2 }}>{fmtEurLocal(m.coste)}</div>}
+                  {m.coste !== null && <div style={{ color: COLORS.glovo, fontSize: 12, marginTop: 2 }}>{fmtEurLocal(m.coste)}</div>}
                 </div>
               ))}
             </div>

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
+
+const BG_OPS = '#111111'
 interface Equipo {
   id: string
   nombre: string
@@ -33,9 +36,9 @@ function fmtFechaHora(iso: string): string {
 }
 
 function semaforo(temp: number, min: number | null, max: number | null): { color: string; label: string } {
-  if (min === null || max === null) return { color: '#777777', label: '?' }
-  if (temp >= min && temp <= max) return { color: '#1D9E75', label: 'OK' }
-  return { color: '#B01D23', label: 'ALERTA' }
+  if (min === null || max === null) return { color: COLOR.textMut, label: '?' }
+  if (temp >= min && temp <= max) return { color: COLORS.ok, label: 'OK' }
+  return { color: COLORS.redSL, label: 'ALERTA' }
 }
 
 export default function ControlTemperaturas() {
@@ -115,10 +118,10 @@ export default function ControlTemperaturas() {
   }
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
-        <span style={{ fontSize: 13, color: '#777777' }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
+        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
+        <span style={{ fontSize: 13, color: COLOR.textMut }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
       </div>
 
       {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
@@ -136,59 +139,59 @@ export default function ControlTemperaturas() {
 
       {/* Formulario añadir */}
       <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px', marginBottom: 24 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 14 }}>Nuevo Registro</div>
+        <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 14 }}>Nuevo Registro</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777' }}>Equipo</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Equipo</label>
             <select value={form.equipo_id} onChange={e => setForm(p => ({ ...p, equipo_id: e.target.value }))}
               style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13 }}>
               {equipos.map(eq => <option key={eq.id} value={eq.id}>{eq.nombre}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777' }}>Temperatura (°C)</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Temperatura (°C)</label>
             <input type="number" step="0.1" value={form.temperatura} onChange={e => setForm(p => ({ ...p, temperatura: e.target.value }))}
               style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, width: 120 }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777' }}>Nota</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Nota</label>
             <input type="text" value={form.nota} onChange={e => setForm(p => ({ ...p, nota: e.target.value }))}
               placeholder="Opcional..." style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13 }} />
           </div>
           <button onClick={addRegistro} disabled={saving}
-            style={{ padding: '8px 18px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Guardando…' : '+ Añadir'}
           </button>
         </div>
       </div>
 
-      {loading ? <div style={{ color: '#777777', fontSize: 13 }}>Cargando…</div> : (
+      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
         <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#0a0a0a' }}>
                 {['Equipo', 'Temperatura', 'Rango', 'Estado', 'Nota', 'Fecha/Hora'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {registros.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '20px 14px', color: '#777777', textAlign: 'center' }}>Sin registros aún</td></tr>
+                <tr><td colSpan={6} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin registros aún</td></tr>
               ) : registros.map((r, i) => {
                 const sem = semaforo(r.temperatura, r.equipo_temp_min ?? null, r.equipo_temp_max ?? null)
                 return (
-                  <tr key={r.id} style={{ background: i % 2 === 0 ? '#111111' : '#141414', borderBottom: '1px solid #1e1e1e' }}>
+                  <tr key={r.id} style={{ background: i % 2 === 0 ? BG_OPS : '#141414', borderBottom: '1px solid #1e1e1e' }}>
                     <td style={{ padding: '10px 14px', color: '#cccccc' }}>{r.equipo_nombre ?? '—'}</td>
                     <td style={{ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: sem.color }}>{r.temperatura}°C</td>
-                    <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>
+                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>
                       {r.equipo_temp_min !== null && r.equipo_temp_max !== null ? `${r.equipo_temp_min}°C – ${r.equipo_temp_max}°C` : '—'}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{ background: sem.color + '22', color: sem.color, border: `1px solid ${sem.color}`, padding: '2px 8px', borderRadius: 10, fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px' }}>{sem.label}</span>
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>{r.nota ?? '—'}</td>
-                    <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFechaHora(r.fecha_hora)}</td>
+                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>{r.nota ?? '—'}</td>
+                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFechaHora(r.fecha_hora)}</td>
                   </tr>
                 )
               })}

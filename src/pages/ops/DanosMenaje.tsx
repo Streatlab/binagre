@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
+import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
+
+const BG_OPS = '#111111'
 interface DanoMenaje {
   id: string
   item: string
@@ -32,7 +36,7 @@ export default function DanosMenaje() {
   const [danos, setDanos] = useState<DanoMenaje[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: new Date().toISOString().split('T')[0] })
+  const [form, setForm] = useState({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: toLocalDateStr(new Date()) })
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -64,7 +68,7 @@ export default function DanosMenaje() {
       descripcion: form.descripcion || null, fecha: form.fecha,
     })
     if (!e) {
-      setForm({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: new Date().toISOString().split('T')[0] })
+      setForm({ item: '', cantidad: '1', coste_unitario: '', descripcion: '', fecha: toLocalDateStr(new Date()) })
       setShowForm(false)
       await loadData()
     }
@@ -76,14 +80,14 @@ export default function DanosMenaje() {
   const kpiTotal = danos.reduce((s, d) => s + (d.coste_total ?? 0), 0)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>DAÑOS MENAJE</h1>
-          <span style={{ fontSize: 13, color: '#777777' }}>Registro de rotura y pérdida de menaje</span>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>DAÑOS MENAJE</h1>
+          <span style={{ fontSize: 13, color: COLOR.textMut }}>Registro de rotura y pérdida de menaje</span>
         </div>
         <button onClick={() => setShowForm(s => !s)}
-          style={{ padding: '8px 18px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Añadir daño
         </button>
       </div>
@@ -93,11 +97,11 @@ export default function DanosMenaje() {
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
         <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '16px 20px' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 6 }}>Coste Este Mes</div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: '#B01D23' }}>{fmtEurLocal(kpiMes)}</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Coste Este Mes</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: COLORS.redSL }}>{fmtEurLocal(kpiMes)}</div>
         </div>
         <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '16px 20px' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 6 }}>Coste Total Histórico</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Coste Total Histórico</div>
           <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: '#ffffff' }}>{fmtEurLocal(kpiTotal)}</div>
         </div>
       </div>
@@ -114,13 +118,13 @@ export default function DanosMenaje() {
               { label: 'Fecha', key: 'fecha', type: 'date', flex: 1 },
             ].map(f => (
               <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: f.flex, minWidth: 120 }}>
-                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777' }}>{f.label}</label>
+                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>{f.label}</label>
                 <input type={f.type} value={(form as Record<string, string>)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                   style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13 }} />
               </div>
             ))}
             <button onClick={addDano} disabled={saving}
-              style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
             <button onClick={() => setShowForm(false)}
@@ -129,27 +133,27 @@ export default function DanosMenaje() {
         </div>
       )}
 
-      {loading ? <div style={{ color: '#777777', fontSize: 13 }}>Cargando…</div> : (
+      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
         <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#0a0a0a' }}>
                 {['Ítem', 'Cantidad', 'Coste Unit.', 'Coste Total', 'Descripción', 'Fecha'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {danos.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '20px 14px', color: '#777777', textAlign: 'center' }}>Sin registros aún</td></tr>
+                <tr><td colSpan={6} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin registros aún</td></tr>
               ) : danos.map((d, i) => (
-                <tr key={d.id} style={{ background: i % 2 === 0 ? '#111111' : '#141414', borderBottom: '1px solid #1e1e1e' }}>
+                <tr key={d.id} style={{ background: i % 2 === 0 ? BG_OPS : '#141414', borderBottom: '1px solid #1e1e1e' }}>
                   <td style={{ padding: '10px 14px', color: '#ffffff', fontWeight: 500 }}>{d.item}</td>
                   <td style={{ padding: '10px 14px', color: '#cccccc' }}>{d.cantidad}</td>
                   <td style={{ padding: '10px 14px', color: '#cccccc' }}>{fmtEurLocal(d.coste_unitario)}</td>
-                  <td style={{ padding: '10px 14px', color: '#B01D23', fontWeight: 600 }}>{fmtEurLocal(d.coste_total)}</td>
-                  <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>{d.descripcion ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: '#777777', whiteSpace: 'nowrap' }}>{fmtFecha(d.fecha)}</td>
+                  <td style={{ padding: '10px 14px', color: COLORS.redSL, fontWeight: 600 }}>{fmtEurLocal(d.coste_total)}</td>
+                  <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>{d.descripcion ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: COLOR.textMut, whiteSpace: 'nowrap' }}>{fmtFecha(d.fecha)}</td>
                 </tr>
               ))}
             </tbody>

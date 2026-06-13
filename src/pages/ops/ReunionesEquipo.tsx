@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { toLocalDateStr } from '@/lib/dateRange'
+import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
+
+const BG_OPS = '#111111'
 interface Reunion {
   id: string
   fecha: string
@@ -22,10 +26,8 @@ function fmtFecha(d: string): string {
   return `${day}/${m}/${y}`
 }
 
-const EMPTY_FORM = {
-  fecha: new Date().toISOString().split('T')[0],
-  asistentes: '',
-  acta: '',
+function getEmptyForm() {
+  return { fecha: toLocalDateStr(new Date()), asistentes: '', acta: '' }
 }
 
 export default function ReunionesEquipo() {
@@ -33,7 +35,7 @@ export default function ReunionesEquipo() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(getEmptyForm())
   const [acuerdosForm, setAcuerdosForm] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -74,7 +76,7 @@ export default function ReunionesEquipo() {
       acuerdos: acuerdosArr.length > 0 ? acuerdosArr : null,
     })
     if (!e) {
-      setForm(EMPTY_FORM)
+      setForm(getEmptyForm())
       setAcuerdosForm('')
       setShowForm(false)
       await loadData()
@@ -102,14 +104,14 @@ export default function ReunionesEquipo() {
   )
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>REUNIONES EQUIPO</h1>
-          <span style={{ fontSize: 13, color: '#777777' }}>Actas y acuerdos de reuniones</span>
+          <span style={{ fontSize: 13, color: COLOR.textMut }}>Actas y acuerdos de reuniones</span>
         </div>
         <button onClick={() => setShowForm(s => !s)}
-          style={{ padding: '8px 18px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nueva reunion
         </button>
       </div>
@@ -147,31 +149,31 @@ export default function ReunionesEquipo() {
         <div style={{ background: '#141414', border: '1px solid #383838', borderRadius: 10, padding: '20px', marginBottom: 24 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>Fecha</label>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, display: 'block', marginBottom: 4 }}>Fecha</label>
               <input type="date" value={form.fecha} onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))}
                 style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13, boxSizing: 'border-box' }} />
             </div>
             <div>
-              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>Asistentes (separados por coma)</label>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, display: 'block', marginBottom: 4 }}>Asistentes (separados por coma)</label>
               <input type="text" value={form.asistentes} onChange={e => setForm(p => ({ ...p, asistentes: e.target.value }))}
                 placeholder="Nombre1, Nombre2..."
                 style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13, boxSizing: 'border-box' }} />
             </div>
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>Acta</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, display: 'block', marginBottom: 4 }}>Acta</label>
             <textarea rows={4} value={form.acta} onChange={e => setForm(p => ({ ...p, acta: e.target.value }))}
               style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13, resize: 'vertical', fontFamily: FONT.body, boxSizing: 'border-box' }} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>Acuerdos (uno por linea)</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, display: 'block', marginBottom: 4 }}>Acuerdos (uno por linea)</label>
             <textarea rows={4} value={acuerdosForm} onChange={e => setAcuerdosForm(e.target.value)}
               placeholder="Acuerdo 1&#10;Acuerdo 2..."
               style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13, resize: 'vertical', fontFamily: FONT.body, boxSizing: 'border-box' }} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addReunion} disabled={saving}
-              style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
             <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
@@ -179,10 +181,10 @@ export default function ReunionesEquipo() {
         </div>
       )}
 
-      {loading ? <div style={{ color: '#777777', fontSize: 13 }}>Cargando...</div> : (
+      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando...</div> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {reuniones.length === 0 ? (
-            <div style={{ color: '#777777', fontSize: 13 }}>Sin reuniones registradas.</div>
+            <div style={{ color: COLOR.textMut, fontSize: 13 }}>Sin reuniones registradas.</div>
           ) : reuniones.map(r => {
             const acuerdosR = r.acuerdos ?? []
             const pendientesR = acuerdosR.filter(a => !a.hecho).length
@@ -193,7 +195,7 @@ export default function ReunionesEquipo() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div>
                       <div style={{ fontFamily: FONT.heading, fontSize: 14, letterSpacing: '1px', color: '#ffffff', marginBottom: 2 }}>{fmtFecha(r.fecha)}</div>
-                      {r.asistentes && <div style={{ fontSize: 12, color: '#777777' }}>{r.asistentes.join(', ')}</div>}
+                      {r.asistentes && <div style={{ fontSize: 12, color: COLOR.textMut }}>{r.asistentes.join(', ')}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -209,21 +211,21 @@ export default function ReunionesEquipo() {
                   <div style={{ padding: '0 18px 18px', borderTop: '1px solid #1e1e1e' }}>
                     {r.acta && (
                       <div style={{ marginTop: 14 }}>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 6 }}>Acta</div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Acta</div>
                         <p style={{ margin: 0, fontSize: 13, color: '#cccccc', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.acta}</p>
                       </div>
                     )}
                     {acuerdosR.length > 0 && (
                       <div style={{ marginTop: 14 }}>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 8 }}>Acuerdos</div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 8 }}>Acuerdos</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {acuerdosR.map((a, idx) => (
                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}
                               onClick={e => { e.stopPropagation(); toggleAcuerdo(r, idx) }}>
                               <div style={{
                                 width: 20, height: 20, borderRadius: 4, flexShrink: 0, cursor: 'pointer',
-                                border: `2px solid ${a.hecho ? '#22c55e' : '#383838'}`,
-                                background: a.hecho ? '#22c55e' : 'transparent',
+                                border: `2px solid ${a.hecho ? COLORS.ok : '#383838'}`,
+                                background: a.hecho ? COLORS.ok : 'transparent',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                               }}>
                                 {a.hecho && (
