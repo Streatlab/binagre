@@ -1,2 +1,2 @@
 // lectura
-export const _r = 5
+export const _r = 6
