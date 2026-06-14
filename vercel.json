@@ -9,6 +9,20 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
   "crons": [
     { "path": "/api/facturas?action=cartero", "schedule": "0 5 * * *" },
     { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" },
