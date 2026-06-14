@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 /**
- * Responsive móvil del ERP + indicador de diagnóstico temporal.
+ * Responsive móvil del ERP (capa transversal).
  *
- * Detecta dispositivo móvil real (no se fía del ancho que reporta el
- * navegador) y marca <html class="sl-movil">. Muestra un recuadro con
- * lo que detecta para diagnosticar en pantalla real. QUITAR tras validar.
+ * Detecta dispositivo móvil real — no se fía del ancho que reporta el
+ * navegador (el modo "Sitio de escritorio" miente): usa también puntero
+ * táctil + tamaño físico de pantalla. Marca <html class="sl-movil"> para
+ * activar el CSS móvil (márgenes, 1 columna, media contenida, scroll
+ * seguro de tablas). Las cards por módulo se deciden con useEsMovil.
  */
 
 function esMovil(): boolean {
@@ -20,43 +22,15 @@ function syncMovil() {
 }
 
 export default function ResponsiveTables() {
-  const [info, setInfo] = useState('')
-
   useEffect(() => {
-    const upd = () => {
-      syncMovil()
-      const coarse = window.matchMedia('(pointer: coarse)').matches
-      setInfo(
-        `${esMovil() ? 'MÓVIL ✓' : 'ESCRITORIO ✗'} · vp ${window.innerWidth}×${window.innerHeight} · scr ${window.screen.width}×${window.screen.height} · ${coarse ? 'táctil' : 'ratón'}`
-      )
-    }
-    upd()
-    window.addEventListener('resize', upd)
-    window.addEventListener('orientationchange', upd)
+    syncMovil()
+    window.addEventListener('resize', syncMovil)
+    window.addEventListener('orientationchange', syncMovil)
     return () => {
-      window.removeEventListener('resize', upd)
-      window.removeEventListener('orientationchange', upd)
+      window.removeEventListener('resize', syncMovil)
+      window.removeEventListener('orientationchange', syncMovil)
     }
   }, [])
 
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 8,
-        left: 8,
-        zIndex: 2147483647,
-        background: 'rgba(176,29,35,0.94)',
-        color: '#fff',
-        font: '700 10px/1.3 monospace',
-        padding: '6px 9px',
-        borderRadius: 6,
-        pointerEvents: 'none',
-        maxWidth: '92vw',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-      }}
-    >
-      SL· {info}
-    </div>
-  )
+  return null
 }
