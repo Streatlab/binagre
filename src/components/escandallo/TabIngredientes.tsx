@@ -25,6 +25,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   const { T } = useTheme()
   const movil = useEsMovil()
   const [filter, setFilter] = useState<Filter>('todos')
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
     const base = ingredientes.filter(i =>
@@ -50,29 +51,68 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
   }, [ingredientes, filter, busqueda])
 
+  // Agrupación por proveedor (móvil)
+  const grupos = useMemo(() => {
+    const m = new Map<string, Ingrediente[]>()
+    for (const i of filtered) {
+      const k = getProveedor(i.abv) || '—'
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(i)
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => (a.nombre_base ?? a.nombre ?? '').localeCompare(b.nombre_base ?? b.nombre ?? '', 'es'))
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'))
+  }, [filtered])
+
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
+  const toggleGrupo = (k: string) => setAbiertos(prev => {
+    const next = new Set(prev)
+    if (next.has(k)) next.delete(k); else next.add(k)
+    return next
+  })
 
   const thStyle: CSSProperties = {
-    fontFamily: FONT.heading,
-    fontSize: 11,
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    color: T.mut,
-    padding: '10px 12px',
-    textAlign: 'left',
-    whiteSpace: 'nowrap',
-    borderBottom: `1px solid ${T.brd}`,
-    background: T.card,
+    fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase',
+    color: T.mut, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap',
+    borderBottom: `1px solid ${T.brd}`, background: T.card,
+  }
+  const tdStyle: CSSProperties = {
+    fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 12px',
+    borderBottom: `0.5px solid ${T.brd}`, whiteSpace: 'nowrap',
   }
 
-  const tdStyle: CSSProperties = {
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: T.pri,
-    padding: '10px 12px',
-    borderBottom: `0.5px solid ${T.brd}`,
-    whiteSpace: 'nowrap',
+  // Fila compacta de 1 línea (móvil): nombre + semáforo + precio. Tap = ficha.
+  const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
+    const usos = n(i.usos)
+    return (
+      <button
+        key={i.id}
+        onClick={() => onSelect?.(i)}
+        style={{
+          textAlign: 'left', width: '100%', background: 'transparent', border: 'none',
+          borderBottom: conBorde ? `0.5px solid ${T.brd}` : 'none',
+          padding: '11px 13px', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', gap: 10, cursor: 'pointer',
+        }}
+      >
+        <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {i.nombre_base ?? i.nombre ?? '—'}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block' }} />
+          <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, color: T.accent }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
+        </span>
+      </button>
+    )
   }
+
+  const chevron = (open: boolean) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? T.accent : T.mut} strokeWidth="2.5"
+      style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
 
   return (
     <div className="space-y-4">
@@ -98,47 +138,37 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           </p>
         </div>
       ) : movil ? (
-        /* ===== MÓVIL: lista de cards (nombre · precio · proveedor · usos). Tocar = ficha completa ===== */
+        /* ===== MÓVIL: buscando = lista compacta; sin buscar = grupos por proveedor plegados ===== */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(i => {
-            const usos = n(i.usos)
-            return (
-              <button
-                key={i.id}
-                onClick={() => onSelect?.(i)}
-                style={{
-                  textAlign: 'left',
-                  width: '100%',
-                  background: T.card,
-                  border: `1px solid ${T.brd}`,
-                  borderRadius: 12,
-                  padding: '12px 14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 15, fontWeight: 600, color: T.pri }}>
-                    {i.nombre_base ?? i.nombre ?? '—'}
-                  </span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: T.accent, whiteSpace: 'nowrap' }}>
-                    {fmt(i.precio_activo ?? i.ultimo_precio)}
-                  </span>
+          {busqueda.trim() ? (
+            <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 11, overflow: 'hidden' }}>
+              {filtered.map((i, idx) => filaCompacta(i, idx < filtered.length - 1))}
+            </div>
+          ) : (
+            grupos.map(([prov, items]) => {
+              const open = abiertos.has(prov)
+              return (
+                <div key={prov} style={{ background: T.card, border: `1px solid ${open ? T.accent : T.brd}`, borderRadius: 11, overflow: 'hidden' }}>
+                  <button
+                    onClick={() => toggleGrupo(prov)}
+                    style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
+                      padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                      {chevron(open)}
+                      <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: T.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prov}</span>
+                    </span>
+                    <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, background: T.app, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+                  </button>
+                  {open && (
+                    <div style={{ borderTop: `0.5px solid ${T.brd}` }}>
+                      {items.map((i, idx) => filaCompacta(i, idx < items.length - 1))}
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
-                    {getProveedor(i.abv)}{i.marca ? ` · ${i.marca}` : ''}
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block' }} />
-                    <span style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 600, color: T.pri }}>{usos} usos</span>
-                  </span>
-                </div>
-              </button>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       ) : (
         /* ===== ESCRITORIO: tabla completa ===== */
@@ -166,11 +196,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                 {filtered.map(i => {
                   const usos = n(i.usos)
                   return (
-                    <tr
-                      key={i.id}
-                      onClick={() => onSelect?.(i)}
-                      style={{ cursor: onSelect ? 'pointer' : 'default' }}
-                    >
+                    <tr key={i.id} onClick={() => onSelect?.(i)} style={{ cursor: onSelect ? 'pointer' : 'default' }}>
                       <td style={{ ...tdStyle, color: T.accent, fontWeight: 600 }}>{i.iding ?? '—'}</td>
                       <td style={{ ...tdStyle, color: T.sec }}>{i.categoria ?? '—'}</td>
                       <td style={{ ...tdStyle, fontWeight: 500 }}>{i.nombre_base ?? '—'}</td>
