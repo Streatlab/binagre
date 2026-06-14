@@ -1,17 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
- * Responsive móvil del ERP (capa transversal).
+ * Responsive móvil del ERP + indicador de diagnóstico temporal.
  *
- * Detecta si el dispositivo es móvil real — NO se fía del ancho que
- * reporta el navegador, porque el modo "Sitio de escritorio" miente.
- * Marca <html class="sl-movil"> para activar el CSS móvil (márgenes,
- * 1 columna, media contenida y scroll seguro de tablas).
- *
- * NO convierte tablas a cards de forma automática: el volcado en bruto
- * de todas las columnas queda ilegible en tablas densas. Las cards
- * móviles buenas se diseñan por módulo (campos clave + detalle al tocar)
- * y se marcan explícitamente. Por defecto, tabla densa = scroll seguro.
+ * Detecta dispositivo móvil real (no se fía del ancho que reporta el
+ * navegador) y marca <html class="sl-movil">. Muestra un recuadro con
+ * lo que detecta para diagnosticar en pantalla real. QUITAR tras validar.
  */
 
 function esMovil(): boolean {
@@ -26,15 +20,43 @@ function syncMovil() {
 }
 
 export default function ResponsiveTables() {
+  const [info, setInfo] = useState('')
+
   useEffect(() => {
-    syncMovil()
-    window.addEventListener('resize', syncMovil)
-    window.addEventListener('orientationchange', syncMovil)
+    const upd = () => {
+      syncMovil()
+      const coarse = window.matchMedia('(pointer: coarse)').matches
+      setInfo(
+        `${esMovil() ? 'MÓVIL ✓' : 'ESCRITORIO ✗'} · vp ${window.innerWidth}×${window.innerHeight} · scr ${window.screen.width}×${window.screen.height} · ${coarse ? 'táctil' : 'ratón'}`
+      )
+    }
+    upd()
+    window.addEventListener('resize', upd)
+    window.addEventListener('orientationchange', upd)
     return () => {
-      window.removeEventListener('resize', syncMovil)
-      window.removeEventListener('orientationchange', syncMovil)
+      window.removeEventListener('resize', upd)
+      window.removeEventListener('orientationchange', upd)
     }
   }, [])
 
-  return null
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 8,
+        left: 8,
+        zIndex: 2147483647,
+        background: 'rgba(176,29,35,0.94)',
+        color: '#fff',
+        font: '700 10px/1.3 monospace',
+        padding: '6px 9px',
+        borderRadius: 6,
+        pointerEvents: 'none',
+        maxWidth: '92vw',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+      }}
+    >
+      SL· {info}
+    </div>
+  )
 }
