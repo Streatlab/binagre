@@ -15,7 +15,7 @@ interface Props {
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
 // Semáforo de usos: rojo 0 / amarillo 1-4 / verde 5+
-function semaforoColor(usos: number): string {
+function semaforoUsos(usos: number): string {
   if (usos === 0) return '#dc2626'
   if (usos <= 4) return '#f59e0b'
   return '#16a34a'
@@ -51,11 +51,11 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
   }, [ingredientes, filter, busqueda])
 
-  // Agrupación por proveedor (móvil)
+  // Agrupación por categoría (móvil)
   const grupos = useMemo(() => {
     const m = new Map<string, Ingrediente[]>()
     for (const i of filtered) {
-      const k = getProveedor(i.abv) || '—'
+      const k = (i.categoria ?? '').trim() || 'Sin categoría'
       if (!m.has(k)) m.set(k, [])
       m.get(k)!.push(i)
     }
@@ -100,7 +100,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           {i.nombre_base ?? i.nombre ?? '—'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: semaforoUsos(usos), display: 'inline-block' }} />
           <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, color: T.accent }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
         </span>
       </button>
@@ -138,27 +138,27 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           </p>
         </div>
       ) : movil ? (
-        /* ===== MÓVIL: buscando = lista compacta; sin buscar = grupos por proveedor plegados ===== */
+        /* ===== MÓVIL: buscando = lista compacta; sin buscar = categorías desplegables ===== */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {busqueda.trim() ? (
             <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 11, overflow: 'hidden' }}>
               {filtered.map((i, idx) => filaCompacta(i, idx < filtered.length - 1))}
             </div>
           ) : (
-            grupos.map(([prov, items]) => {
-              const open = abiertos.has(prov)
+            grupos.map(([cat, items]) => {
+              const open = abiertos.has(cat)
               return (
-                <div key={prov} style={{ background: T.card, border: `1px solid ${open ? T.accent : T.brd}`, borderRadius: 11, overflow: 'hidden' }}>
+                <div key={cat} style={{ background: T.card, border: `1px solid ${open ? T.accent : T.brd}`, borderRadius: 11, overflow: 'hidden' }}>
                   <button
-                    onClick={() => toggleGrupo(prov)}
+                    onClick={() => toggleGrupo(cat)}
                     style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
                       padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
                       {chevron(open)}
-                      <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: T.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prov}</span>
+                      <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: T.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
                     </span>
-                    <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, background: T.app, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+                    <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.sec, background: T.group, padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
                   </button>
                   {open && (
                     <div style={{ borderTop: `0.5px solid ${T.brd}` }}>
@@ -207,7 +207,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                       <td style={{ ...tdStyle, color: T.sec }}>{i.formato ?? '—'}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoColor(usos), display: 'inline-block', flexShrink: 0 }} />
+                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoUsos(usos), display: 'inline-block', flexShrink: 0 }} />
                           <span style={{ fontWeight: 600, color: T.pri }}>{usos}</span>
                         </span>
                       </td>
