@@ -62,37 +62,38 @@ function CardsResumen({ kpi }: { kpi: KpiRow | null }) {
   )
 }
 
-// ── Batería de frases (estilo Cashflow/Evolución, versión breve) ───────────
+// ── Frases (mismo patrón que Cashflow: titular grande + 1 frase de apoyo
+//     que cambia según los datos). Texto propio de Documentación. ───────────
 function FrasesDocumentacion({ kpi }: { kpi: KpiRow | null }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
   const pctColor = pct >= 80 ? COLORS.ok : pct >= 50 ? COLORS.warn : COLORS.err
 
-  const titular = pct >= 80
-    ? 'Casi todo cuadrado, vas muy bien.'
-    : pct >= 50
-      ? 'Vas por buen camino, aún queda parte por cuadrar.'
-      : 'Hay bastante por conciliar todavía.'
-
-  const frases: { texto: string; color: string }[] = []
-  if (kpi.facturas_sin_categoria > 0) frases.push({ texto: `${kpi.facturas_sin_categoria} factura${kpi.facturas_sin_categoria > 1 ? 's' : ''} sin categoría: clasifícalas para que el P&L cuadre.`, color: COLORS.warn })
-  else frases.push({ texto: 'Todas las facturas están categorizadas.', color: COLORS.ok })
-
-  if (kpi.facturas_posible_duplicado > 0) frases.push({ texto: `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando revisión.`, color: COLORS.warn })
-  if (kpi.facturas_aviso_aritmetica > 0) frases.push({ texto: `${kpi.facturas_aviso_aritmetica} factura${kpi.facturas_aviso_aritmetica > 1 ? 's' : ''} con aviso de IVA por revisar.`, color: COLORS.err })
-  if (kpi.facturas_posible_duplicado === 0 && kpi.facturas_aviso_aritmetica === 0) frases.push({ texto: 'Sin duplicados ni avisos de IVA pendientes.', color: COLORS.ok })
+  // Frase de apoyo: el dato operativo más urgente ahora mismo.
+  let apoyo: string
+  let apoyoColor: string
+  if (kpi.facturas_sin_categoria > 0) {
+    apoyo = `Te quedan ${kpi.facturas_sin_categoria} factura${kpi.facturas_sin_categoria > 1 ? 's' : ''} sin categoría por clasificar.`
+    apoyoColor = COLORS.warn
+  } else if (kpi.facturas_posible_duplicado > 0) {
+    apoyo = `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando que los revises.`
+    apoyoColor = COLORS.warn
+  } else if (kpi.facturas_aviso_aritmetica > 0) {
+    apoyo = `${kpi.facturas_aviso_aritmetica} factura${kpi.facturas_aviso_aritmetica > 1 ? 's' : ''} con el IVA descuadrado por revisar.`
+    apoyoColor = COLORS.err
+  } else {
+    apoyo = pct >= 80 ? 'Documentación al día, casi todo cuadrado.' : 'Sin pendientes sueltos: sigue subiendo lo que falte.'
+    apoyoColor = pct >= 80 ? COLORS.ok : COLORS.sec
+  }
 
   return (
-    <div style={{ ...CARDS.big, marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: OSWALD, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLORS.mut }}>Conciliado</span>
-        <span style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: pctColor, lineHeight: 1 }}>{pct.toFixed(0)}%</span>
+    <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
+      <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4vw,42px)', fontWeight: 600, lineHeight: 1.05 }}>
+        CONCILIADO <span style={{ color: pctColor }}>{pct.toFixed(0)}%</span>
+        <span style={{ color: COLORS.mut, fontSize: '0.42em', marginLeft: 10 }}>· {kpi.movimientos_con_factura}/{kpi.movimientos_total} movimientos con factura</span>
       </div>
-      <div style={{ fontFamily: OSWALD, fontSize: 20, fontWeight: 500, color: pctColor, marginTop: 8 }}>{titular}</div>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {frases.map((f, i) => (
-          <div key={i} style={{ fontFamily: LEXEND, fontSize: 14, color: f.color }}>{f.texto}</div>
-        ))}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: apoyoColor, letterSpacing: '0.3px' }}>{apoyo}</div>
       </div>
     </div>
   )
