@@ -1,4 +1,4 @@
-// OcrConToast v5 — toast único + bump refresh sin desmontar
+// OcrConToast v6 — toast único + bump refresh sin desmontar; acepta periodo externo (supermódulo Documentación)
 import { useEffect, useState } from 'react'
 import Ocr from '@/pages/Ocr'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
@@ -6,7 +6,7 @@ import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
 import { supabase } from '@/lib/supabase'
 
-export default function OcrConToast() {
+export default function OcrConToast({ periodoExterno }: { periodoExterno?: { desde: Date; hasta: Date } }) {
   const { errorVisible } = useOcrUpload()
   const [, setRefreshNonce] = useState(0)
 
@@ -26,7 +26,7 @@ export default function OcrConToast() {
 
   return (
     <>
-      <Ocr />
+      <Ocr periodoExterno={periodoExterno} />
       <OcrUploadToast />
     </>
   )
