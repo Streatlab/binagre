@@ -47,16 +47,12 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/finanzas/documentacion',        label: 'Documentación',       emoji: '📂', perfiles: ['admin'] },
-      { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
+      { path: '/finanzas/documentacion',        label: 'Documentación',       emoji: '🗂️', perfiles: ['admin'] },
+      { path: '/facturacion',                   label: 'Facturación',         emoji: '🧾', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
-      { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
-      { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
-      { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/analytics/pareto-ventas',       label: 'Pareto Ventas',       emoji: '🎯', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
@@ -550,7 +546,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                             <>
                               <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
-                              {item.path === '/ocr' && <SidebarBadge count={ocrBadge} />}
+                              {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                             </>
                           )}
                         </NavLink>
