@@ -1,4 +1,4 @@
-// procesarArchivo v19 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// procesarArchivo v20 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
 // La lectura va, en orden:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (escaneo/foto/formato raro) → OCR Tesseract gratis.
@@ -319,6 +319,24 @@ async function nifTienePlantilla(supabase: SupabaseClient, nif: string | null): 
     .eq('patron_nif', nif)
     .maybeSingle()
   return !!data?.id
+}
+
+// CATEGORÍA SIEMPRE: la categoría del gasto se fija por el NIF del emisor desde
+// reglas_conciliacion (categoria_codigo). Si el proveedor tiene regla con categoría,
+// la factura entra ya categorizada. Si aún no hay regla con categoría para ese NIF,
+// queda null hasta que exista (y el trigger de BD la rellena en cuanto se cree).
+async function categoriaPorNif(supabase: SupabaseClient, nif: string | null): Promise<string | null> {
+  if (!nif) return null
+  const { data } = await supabase
+    .from('reglas_conciliacion')
+    .select('categoria_codigo')
+    .eq('patron_nif', nif)
+    .eq('activa', true)
+    .not('categoria_codigo', 'is', null)
+    .order('prioridad', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data?.categoria_codigo as string) || null
 }
 
 // Sube el PDF a Drive con un nombre lo más correcto posible y devuelve los datos
@@ -773,7 +791,7 @@ async function procesarContenidoPrincipal(
         titular_id: titularId,
         nif_cliente: nifClienteNorm,
         nif_emisor: nifEmisorNorm,
-        categoria_factura: null,
+        categoria_factura: await categoriaPorNif(supabase, nifEmisorNorm),
         base_4: extracted.base_4,
         iva_4: extracted.iva_4,
         base_10: extracted.base_10,
@@ -1052,7 +1070,7 @@ async function guardarFacturasMulti(
           titular_id: tit.titularId,
           nif_cliente: tit.nifClienteNorm,
           nif_emisor: nifEmisorNorm,
-          categoria_factura: null,
+          categoria_factura: await categoriaPorNif(supabase, nifEmisorNorm),
           base_4: extracted.base_4, iva_4: extracted.iva_4,
           base_10: extracted.base_10, iva_10: extracted.iva_10,
           base_21: extracted.base_21, iva_21: extracted.iva_21,
