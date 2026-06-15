@@ -210,7 +210,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = supabase
       .from('conciliacion')
-      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename)', { count: 'exact' })
+      .select('*, factura_data:facturas(pdf_drive_url, pdf_filename), facturas_gastos(factura:facturas(pdf_drive_url, pdf_filename))', { count: 'exact' })
       .gte('fecha', periodoDesdeStr)
       .lte('fecha', periodoHastaStr)
 
@@ -265,7 +265,10 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         contraparte: m.proveedor ?? '',
         gasto_id:    m.gasto_id ?? null,
         factura_id:  m.factura_id ?? null,
-        factura_data: m.factura_data ?? null,
+        factura_data: m.factura_data ?? (Array.isArray(m.facturas_gastos)
+          ? (m.facturas_gastos.find((g: { factura?: { pdf_drive_url?: string | null } }) => g.factura?.pdf_drive_url)?.factura
+             ?? m.facturas_gastos[0]?.factura ?? null)
+          : null),
         titular_id:  m.titular_id ?? null,
         doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
       }))
