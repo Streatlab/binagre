@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { Download, Upload, ChevronDown, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -153,9 +153,8 @@ export default function TabNominas() {
                   const key = `${r.anio}-${r.mes}`
                   const open = expanded === key
                   return (
-                    <>
+                    <Fragment key={key}>
                       <tr
-                        key={key}
                         onClick={() => setExpanded(open ? null : key)}
                         style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
                       >
@@ -168,7 +167,7 @@ export default function TabNominas() {
                         <td style={{ ...td, textAlign: 'right', fontWeight: 700, fontSize: 14, color: T.pri }}>{fmtEur(r.adeudado)}</td>
                       </tr>
                       {open && (
-                        <tr key={key + '-d'}>
+                        <tr>
                           <td colSpan={5} style={{ padding: '12px 16px', background: T.group }}>
                             {(['ingreso_plataforma', 'gasto_negocio', 'ignorado'] as const).map(clase => {
                               const items = detalleMes(r.anio, r.mes, clase)
@@ -191,7 +190,7 @@ export default function TabNominas() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })}
               </tbody>
