@@ -69,11 +69,13 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       .eq('id', 1)
       .maybeSingle()
 
-    setS({
+    const stats: Stats = {
       facturas,
       resumenes,
       buzonConectado: estadoBuzon?.buzon_conectado ?? false,
-    })
+    }
+    setS(stats)
+    return stats
   }
 
   // Barrido manual: trae al instante lo que haya en el buzón (no espera al cron 07:00).
@@ -87,9 +89,8 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       const j = await r.json()
       if (j.ok) {
         const n = j.nuevas ?? 0, d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
-        const liq = j.liquidaciones_plataforma ?? 0
-        setAviso(`Facturas: ${n} nuevas · ${d} ya estaban · ${m} a revisar · Resúmenes: ${liq}`)
-        await cargar()
+        const st = await cargar()
+        setAviso(`Facturas nuevas: ${n} · ${d} ya estaban · ${m} a revisar. Resúmenes en el periodo: ${st.resumenes}`)
         onBarrido?.()
       } else {
         setAviso(j.error || 'No se pudo recoger el correo')
