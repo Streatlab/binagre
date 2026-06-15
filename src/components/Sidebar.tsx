@@ -47,7 +47,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/panel-direccion',               label: 'Panel Dirección',     emoji: '🎯', perfiles: ['admin'] },
+      { path: '/finanzas/documentacion',        label: 'Documentación',       emoji: '📂', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🗂️', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/facturacion/conciliacion',      label: 'Conciliación',        emoji: '🏦', perfiles: ['admin'] },
@@ -55,7 +55,6 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/gestion-facturas',     label: 'Gestor Documental',   emoji: '📁', perfiles: ['admin'] },
-      { path: '/finanzas/gestoria',             label: 'Gestoría',            emoji: '🏛️', perfiles: ['admin'] },
       { path: '/ocr',                           label: 'OCR',                 emoji: '📥', perfiles: ['admin'] },
       { path: '/importar-ventas',               label: 'Importar ventas',     emoji: '📈', perfiles: ['admin'] },
       { path: '/analytics/pareto-ventas',       label: 'Pareto Ventas',       emoji: '🎯', perfiles: ['admin'] },
