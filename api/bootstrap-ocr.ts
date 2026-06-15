@@ -6,23 +6,43 @@ import { matchFactura, aplicarMatching } from './_lib/matching.js'
 
 export const config = { maxDuration: 300 }
 
-// BOOTSTRAP OCR (backfill de pago acotado) — lee al 100% por Mistral toda factura
-// incompleta que el lector gratis (reglas + Tesseract) no resolvió:
+// BOOTSTRAP OCR (de pago acotado) — lee al 100% por Mistral toda factura incompleta
+// que el lector gratis (reglas + Tesseract) no resolvió:
 //   (a) sin importe (total null/0), o
 //   (b) marcada pendiente_releer_ocr=true (p.ej. nombre = NIF / sin categoría).
-// Por cada una: Mistral OCR -> extracción estructurada (cualquier idioma) -> escribe
+//
+// GATILLO (importante): NO trabaja en bucle. Solo procesa cuando hay una subida de
+// facturas reciente (sesión OCR creada en los últimos MINUTOS_VENTANA) o cuando se le
+// llama con ?manual=1 (backfill puntual). Cualquier toque periódico en vacío sale sin
+// hacer nada y sin coste. Así Mistral solo se gasta cuando el usuario sube facturas.
+//
+// Por cada factura: Mistral OCR -> extracción estructurada (cualquier idioma) -> escribe
 // los datos que falten, aprende la plantilla por NIF (resto del proveedor gratis) y
 // concilia. SEGURIDAD FISCAL: si la factura YA tenía importe e IVA español desglosado
-// (4/10/21), se conserva ese desglose y Mistral solo rellena lo ausente
-// (proveedor, NIF, nº, fecha). Time-budget en una sola llamada; el disparador espaciado
-// lo reanuda. Candado por NIF.
+// (4/10/21), se conserva ese desglose y Mistral solo rellena lo ausente. Candado por NIF.
 
 const PRESUPUESTO_MS = 250_000
 const LOTE_DB = 6
+const MINUTOS_VENTANA = 30
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!bootstrapApiActivo()) {
     return res.status(200).json({ ok: false, motivo: 'bootstrap desactivado (faltan OCR_BOOTSTRAP_API o MISTRAL_API_KEY)' })
+  }
+
+  // GATILLO: solo tras subida reciente de facturas, o disparo manual explícito.
+  const manualTrigger = req.query?.manual === '1' || req.query?.manual === 'true'
+  if (!manualTrigger) {
+    const desde = new Date(Date.now() - MINUTOS_VENTANA * 60 * 1000).toISOString()
+    const { count: subidaReciente } = await supabaseAdmin
+      .from('ocr_sessions').select('id', { count: 'exact', head: true })
+      .gte('creado_en', desde)
+    if (!subidaReciente) {
+      return res.status(200).json({
+        ok: true, en_espera: true,
+        motivo: 'sin subida reciente; el OCR Mistral solo se ejecuta tras subir facturas (o con ?manual=1)',
+      })
+    }
   }
 
   const arranque = Date.now()
@@ -147,8 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }).eq('id', ctrlId)
 
     if (okEsta === 0 && manualTanda >= lote.length) {
-      // Tanda entera a manual: posible problema (clave/saldo). Salir de esta llamada;
-      // el disparador espaciado reintentará.
+      // Tanda entera a manual: posible problema (clave/saldo). Salir de esta llamada.
       break
     }
   }
