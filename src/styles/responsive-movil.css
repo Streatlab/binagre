@@ -16,6 +16,15 @@ html.sl-movil main [class*="grid-cols-"] {
   grid-template-columns: 1fr !important;
 }
 
+/* 2b. Rejillas con columnas definidas en estilo inline (React).
+   El navegador en modo escritorio miente con el ancho (980px), así que
+   los grids que fijan gridTemplateColumns por inline (Panel Global:
+   filas POR CANAL, KPIs, ratios...) tampoco se apilan solos. Forzamos
+   1 columna; !important gana al estilo inline. */
+html.sl-movil main [style*="grid-template-columns"] {
+  grid-template-columns: 1fr !important;
+}
+
 /* 3. Tablas: red de seguridad — scroll horizontal interno */
 html.sl-movil main table {
   display: block;
