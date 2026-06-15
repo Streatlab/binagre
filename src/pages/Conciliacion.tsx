@@ -13,9 +13,6 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { normalizarConcepto, matchPatron, inicializarStopwords } from '@/lib/normalizarConcepto'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import { PanelCobertura } from '@/components/conciliacion/PanelCobertura'
-import { BandejaPropuestas } from '@/components/conciliacion/BandejaPropuestas'
-import { BandejaPendiente } from '@/components/conciliacion/BandejaPendiente'
-import { CierreCuatroPiezas } from '@/components/conciliacion/CierreCuatroPiezas'
 
 type PeriodoKey = 'mes' | 'mes_anterior' | 'trimestre' | '30d' | 'personalizado' | string
 
@@ -24,12 +21,12 @@ const ModalAddGasto = ({ open, onClose, onSaved }: { open: boolean; onClose: () 
 
 const TAB_STORAGE_KEY = 'conciliacion:tab'
 
-type Tab = 'resumen' | 'movimientos' | 'propuestas' | 'cierre'
+type Tab = 'resumen' | 'movimientos'
 
 function loadTab(): Tab {
   try {
     const raw = sessionStorage.getItem(TAB_STORAGE_KEY)
-    if (raw === 'movimientos' || raw === 'resumen' || raw === 'propuestas' || raw === 'cierre')
+    if (raw === 'movimientos' || raw === 'resumen')
       return raw
   } catch { /* swallow */ }
   return 'resumen'
@@ -337,8 +334,6 @@ export default function Conciliacion() {
         tabs={[
           { id: 'resumen', label: 'Resumen' },
           { id: 'movimientos', label: 'Movimientos' },
-          { id: 'propuestas', label: 'Propuestas de cuadre' },
-          { id: 'cierre', label: 'Cierre ventas' },
         ]}
         activeId={tab}
         onChange={(id) => setTab(id as Tab)}
@@ -360,19 +355,6 @@ export default function Conciliacion() {
           periodoDesde={periodoDesde}
           periodoHasta={periodoHasta}
         />
-      )}
-
-      {tab === 'propuestas' && (
-        <div style={{ marginTop: 16 }}>
-          <BandejaPropuestas />
-          <BandejaPendiente />
-        </div>
-      )}
-
-      {tab === 'cierre' && (
-        <div style={{ marginTop: 16 }}>
-          <CierreCuatroPiezas />
-        </div>
       )}
 
       <ModalAddGasto
