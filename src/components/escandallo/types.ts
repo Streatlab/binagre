@@ -81,6 +81,7 @@ export interface EPS {
   coste_rac: number
   usos?: number
   fecha?: string
+  preparacion?: string | null
 }
 
 export interface EPSLinea {
