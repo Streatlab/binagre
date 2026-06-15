@@ -49,6 +49,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [gamaSel, setGamaSel] = useState<string>('')
   const [alergMap, setAlergMap] = useState<Record<string, string[]>>({})
   const [gestionGamas, setGestionGamas] = useState(false)
+  const [costesReales, setCostesReales] = useState<Record<string, { tanda: number; rac: number }>>({})
 
   useEffect(() => { cargar(); setGamaSel('') }, [tipo])
   useEffect(() => { cargarAlergenos() }, [])
@@ -72,6 +73,15 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     const { data } = await q.order('codigo')
     const list = (data as Ficha[]) ?? []
     setFichas(list)
+    const mapaCostes: Record<string, { tanda: number; rac: number }> = {}
+    const [epsRes, recRes] = await Promise.all([
+      supabase.from('eps').select('codigo, coste_tanda, coste_rac'),
+      supabase.from('recetas').select('codigo, coste_tanda, coste_rac'),
+    ])
+    ;[...(epsRes.data ?? []), ...(recRes.data ?? [])].forEach((r: any) => {
+      if (r.codigo) mapaCostes[r.codigo] = { tanda: Number(r.coste_tanda) || 0, rac: Number(r.coste_rac) || 0 }
+    })
+    setCostesReales(mapaCostes)
     setSel(prev => prev ? (list.find(f => f.id === prev.id) ?? list[0] ?? null) : (list[0] ?? null))
     setLoading(false)
   }
@@ -164,7 +174,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             })}
           </div>
         </div>
-        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} gamasAll={gamasAll} onSaved={cargar} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
+        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} gamasAll={gamasAll} onSaved={cargar} costeReal={sel.codigo ? costesReales[sel.codigo] : undefined} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
       </div>
     </div>
   )
@@ -178,9 +188,10 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void }) {
-  const costeTanda = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
-  const costeRac = f.raciones ? costeTanda / f.raciones : 0
+function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number } }) {
+  const costeTandaCalc = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
+  const costeTanda = costeReal && costeReal.tanda > 0 ? costeReal.tanda : costeTandaCalc
+  const costeRac = costeReal && costeReal.rac > 0 ? costeReal.rac : (f.raciones ? costeTanda / f.raciones : 0)
   const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const esReceta = f.tipo === 'receta'
   const [editando, setEditando] = useState(false)
