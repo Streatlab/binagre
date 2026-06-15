@@ -18,9 +18,8 @@ interface Props {
 }
 
 interface Stats {
-  recibidas: number
-  conciliadas: number
-  pendientes: number
+  facturas: number
+  resumenes: number
   buzonConectado: boolean
 }
 
@@ -29,6 +28,7 @@ const TITULO: Record<Tipo, string> = {
   factura: 'Por correo',
   ventas: 'Ventas por correo',
 }
+const TABLAS_LIQUIDACION = ['uber_liquidaciones', 'glovo_liquidaciones', 'justeat_liquidaciones']
 
 export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick, onBarrido }: Props) {
   const [s, setS] = useState<Stats | null>(null)
@@ -36,36 +36,31 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
   const [aviso, setAviso] = useState<string | null>(null)
 
   async function cargar() {
-    // FUENTE REAL: facturas marcadas como origen-correo en el periodo. El cartero
-    // IMAP marca cada factura recogida en facturas_origen_correo. Antes esta card
-    // leía de ocr_sessions (grupo g_correo_) que el cartero nuevo ya no escribe:
-    // por eso mostraba un número viejo fijo y no filtraba.
+    // TODOS los documentos llegados por correo en el periodo, SEPARADOS:
+    //  - Facturas: facturas marcadas como origen-correo (facturas_origen_correo).
+    //  - Resúmenes: liquidaciones de plataforma (uber/glovo/justeat) por fecha del resumen.
     const d0 = desde || HOY()
     const hBase = hasta || HOY()
     const hNext = new Date(hBase); hNext.setDate(hNext.getDate() + 1)
     const d1 = hNext.toISOString().slice(0, 10)
 
-    // 1) IDs de facturas origen-correo marcadas en el periodo
+    // 1) Facturas origen-correo marcadas en el periodo
     const { data: oc } = await supabase
       .from('facturas_origen_correo')
       .select('factura_id, marcado_en')
       .gte('marcado_en', d0 + 'T00:00:00')
       .lt('marcado_en', d1 + 'T00:00:00')
+    const facturas = (oc || []).length
 
-    const ids = (oc || []).map((r: any) => r.factura_id)
-    let conciliadas = 0
-    let pendientes = 0
-
-    if (ids.length > 0) {
-      // 2) Estado real de esas facturas desde la fuente única (v_estado_factura)
-      const { data: estados } = await supabase
-        .from('v_estado_factura')
-        .select('factura_id, estado_real')
-        .in('factura_id', ids)
-      for (const e of estados || []) {
-        if ((e as any).estado_real === 'conciliada') conciliadas++
-        else pendientes++
-      }
+    // 2) Resúmenes de plataforma cuyo periodo cae dentro del rango (por fecha_fin_periodo)
+    let resumenes = 0
+    for (const tabla of TABLAS_LIQUIDACION) {
+      const { count } = await supabase
+        .from(tabla)
+        .select('id', { count: 'exact', head: true })
+        .gte('fecha_fin_periodo', d0)
+        .lte('fecha_fin_periodo', hBase)
+      resumenes += count || 0
     }
 
     const { data: estadoBuzon } = await supabase
@@ -75,9 +70,8 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       .maybeSingle()
 
     setS({
-      recibidas: ids.length,
-      conciliadas,
-      pendientes,
+      facturas,
+      resumenes,
       buzonConectado: estadoBuzon?.buzon_conectado ?? false,
     })
   }
@@ -93,7 +87,8 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       const j = await r.json()
       if (j.ok) {
         const n = j.nuevas ?? 0, d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
-        setAviso(`Recogidas: ${n} nuevas · ${d} ya estaban · ${m} a revisar`)
+        const liq = j.liquidaciones_plataforma ?? 0
+        setAviso(`Facturas: ${n} nuevas · ${d} ya estaban · ${m} a revisar · Resúmenes: ${liq}`)
         await cargar()
         onBarrido?.()
       } else {
@@ -103,7 +98,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       setAviso(err?.message || 'Error de red')
     } finally {
       setRecogiendo(false)
-      setTimeout(() => setAviso(null), 6000)
+      setTimeout(() => setAviso(null), 8000)
     }
   }
 
@@ -114,14 +109,13 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo, desde, hasta])
 
-  const recibidas = s?.recibidas ?? 0
-  const conciliadas = s?.conciliadas ?? 0
-  const pendientes = s?.pendientes ?? 0
-  const total = conciliadas + pendientes
-  const pctOk = total > 0 ? (conciliadas / total) * 100 : 0
-  const pctPend = total > 0 ? (pendientes / total) * 100 : 0
+  const facturas = s?.facturas ?? 0
+  const resumenes = s?.resumenes ?? 0
+  const total = facturas + resumenes
+  const pctFac = total > 0 ? (facturas / total) * 100 : 0
+  const pctRes = total > 0 ? (resumenes / total) * 100 : 0
   const buzonOk = s?.buzonConectado ?? false
-  const rangoTxt = desde || hasta ? 'en el periodo' : 'recibidas hoy'
+  const rangoTxt = desde || hasta ? 'documentos en el periodo' : 'documentos hoy'
 
   return (
     <div
@@ -140,16 +134,16 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: buzonOk ? '#1D9E75' : '#E24B4A', flexShrink: 0, marginTop: 2 }} title={buzonOk ? 'Buzón conectado' : 'Buzón caído'} />
       </div>
 
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{recibidas}</div>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{total}</div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4, marginBottom: 12 }}>{rangoTxt}</div>
 
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Conciliadas</span><span style={{ color: '#1D9E75', fontWeight: 500 }}>{conciliadas}</span></div>
-        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctOk}%`, height: '100%', background: '#1D9E75' }} /></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Facturas</span><span style={{ color: '#B01D23', fontWeight: 500 }}>{facturas}</span></div>
+        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctFac}%`, height: '100%', background: '#B01D23' }} /></div>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Pendientes</span><span style={{ color: '#F26B1F', fontWeight: 500 }}>{pendientes}</span></div>
-        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctPend}%`, height: '100%', background: '#F26B1F' }} /></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Resúmenes de ventas</span><span style={{ color: '#1D6FE2', fontWeight: 500 }}>{resumenes}</span></div>
+        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctRes}%`, height: '100%', background: '#1D6FE2' }} /></div>
       </div>
 
       <button
