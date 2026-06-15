@@ -214,11 +214,42 @@ async function borrarDelStorage(sb: any, storagePath: string, resultados: any[])
 
 function esComprimidoItem(item: any): boolean { const ext = getExt(item.name || ''); return item.esComprimido || ['zip','rar','7z'].includes(ext) }
 
-async function procesarItemNormal(sb: any, item: any) {
+async function procesarExtractoRemoto(item: { name: string; type: string; base64: string }, titular_id: string | null) {
+  try {
+    const resp = await conTimeout(fetch(`${supabaseUrl}/functions/v1/ocr-procesar-extracto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+      body: JSON.stringify({ fileBase64: item.base64, filename: item.name, mimeType: item.type, titular_id }),
+    }), 120000, 'extracto')
+    const texto = await resp.text()
+    if (!resp.ok) {
+      if (esRateLimit(texto)) return { filename: item.name, status: 'error', detalle: `429 rate limit: ${texto.slice(0, 120)}` }
+      return { filename: item.name, status: 'error', detalle: texto.slice(0, 200) || `HTTP ${resp.status}` }
+    }
+    let data: any = {}
+    try { data = JSON.parse(texto) } catch { /* respuesta no-JSON */ }
+    const ins = Number(data?.insertados ?? 0)
+    const tot = Number(data?.total ?? 0)
+    const salt = Number(data?.saltados ?? 0)
+    if (ins === 0 && tot === 0) return { filename: item.name, status: 'pendiente', detalle: 'No se detectaron movimientos en el extracto' }
+    if (ins === 0 && salt > 0) return { filename: item.name, status: 'duplicado', detalle: `Extracto ya importado (${salt} movimiento(s))` }
+    return { filename: item.name, status: 'ok', detalle: `Extracto: ${ins} movimiento(s)${salt ? `, ${salt} ya existían` : ''}` }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (esDuplicadoContenido(msg)) return { filename: item.name, status: 'duplicado', detalle: 'Ya existe (mismo contenido)' }
+    return { filename: item.name, status: 'error', detalle: msg }
+  }
+}
+
+async function procesarItemNormal(sb: any, item: any, fnName: string, titular: string | null) {
   try {
     const buf = await descargarStorage(sb, item.storagePath)
     const base64 = toBase64(buf)
-    const result = await procesarConReintentos({ name: item.name, type: item.type, base64 })
+    // Enrutado por origen: la pestaña de Extractos bancarios SIEMPRE procesa como extracto,
+    // nunca como factura. Cualquier otra pestaña usa el pipeline de factura.
+    const result = fnName === 'ocr-procesar-extracto'
+      ? await procesarExtractoRemoto({ name: item.name, type: item.type, base64 }, titular)
+      : await procesarConReintentos({ name: item.name, type: item.type, base64 })
     if (item.storagePath) await borrarDelStorage(sb, item.storagePath, [result])
     return result
   } catch (err) {
@@ -238,7 +269,7 @@ async function procesarItemComprimido(sb: any, item: any, fnName: string, titula
       const internos = await descomprimirZip(buf)
       for (let i = 0; i < internos.length; i += PARALELO) {
         const blk = internos.slice(i, i + PARALELO)
-        const rs = await Promise.all(blk.map(ai => procesarConReintentos(ai)))
+        const rs = await Promise.all(blk.map(ai => fnName === 'ocr-procesar-extracto' ? procesarExtractoRemoto(ai, titular) : procesarConReintentos(ai)))
         out.push(...rs)
       }
       if (item.storagePath) await borrarDelStorage(sb, item.storagePath, out)
@@ -397,7 +428,7 @@ async function trabajarSesion(sessionId: string) {
       const normales = bloque.filter(it => !esComprimidoItem(it))
       const comprimidos = bloque.filter(it => esComprimidoItem(it))
       const resN = await Promise.all(normales.map(async it => {
-        try { return await conTimeout(procesarItemNormal(sb, it), ARCHIVO_TIMEOUT_MS, 'archivo') }
+        try { return await conTimeout(procesarItemNormal(sb, it, fnName, titular), ARCHIVO_TIMEOUT_MS, 'archivo') }
         catch (e) { const m = e instanceof Error ? e.message : String(e); return { filename: it.name, status: 'error', detalle: m } }
       }))
       // Aplicar + marcar manifiesto FINAL por archivo (orden preservado por Promise.all).
