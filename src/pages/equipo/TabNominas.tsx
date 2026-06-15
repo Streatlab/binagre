@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from 'react'
 import { Download, Upload, ChevronDown, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle } from '@/styles/tokens'
+import { useTheme, FONT, cardStyle, sectionLabelStyle, dividerStyle } from '@/styles/tokens'
 import { fmtEur, fmtDate } from '@/utils/format'
 
 interface Empleado { id: string; nombre: string }
@@ -42,7 +42,8 @@ export default function TabNominas() {
   const [nominas, setNominas] = useState<Nomina[]>([])
   const [calc, setCalc] = useState<NominaCalc[]>([])
   const [detalle, setDetalle] = useState<NominaDetalle[]>([])
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [expandedEmp, setExpandedEmp] = useState<string | null>(null)
+  const [selMes, setSelMes] = useState<number | null>(null)
   const [selectedEmp, setSelectedEmp] = useState<string>('all')
   const [selectedAnio, setSelectedAnio] = useState<number>(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
@@ -65,6 +66,8 @@ export default function TabNominas() {
   useEffect(() => { fetchAll() }, [])
 
   const empsFiltrados = selectedEmp === 'all' ? empleados : empleados.filter(e => e.id === selectedEmp)
+  const emilio = empleados.find(e => /emilio/i.test(e.nombre))
+  const emilioId = emilio?.id ?? null
 
   function getNomina(empId: string, mes: number): Nomina | undefined {
     return nominas.find(n => n.empleado_id === empId && n.mes === mes && n.anio === selectedAnio)
@@ -91,6 +94,11 @@ export default function TabNominas() {
     }
   }
 
+  function toggleEmp(empId: string) {
+    setSelMes(null)
+    setExpandedEmp(expandedEmp === empId ? null : empId)
+  }
+
   const th: React.CSSProperties = {
     padding: '10px 12px', fontFamily: FONT.heading, fontSize: 10,
     textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
@@ -100,109 +108,107 @@ export default function TabNominas() {
 
   const anios = [selectedAnio - 1, selectedAnio, selectedAnio + 1]
 
-  // ---- Cálculo automático sueldo Emilio ----
-  const calcAnio = calc
-    .filter(r => r.anio === selectedAnio)
-    .sort((a, b) => b.mes - a.mes)
-
-  function detalleMes(anio: number, mes: number, clase: string) {
+  const calcAnio = calc.filter(r => r.anio === selectedAnio).sort((a, b) => a.mes - b.mes)
+  function detalleMes(mes: number, clase: string) {
     return detalle
-      .filter(d => d.anio === anio && d.mes === mes && d.clase === clase)
-      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+      .filter(d => d.anio === selectedAnio && d.mes === mes && d.clase === clase)
+      .sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
+  }
+  const labelClase: Record<string, string> = {
+    ingreso_plataforma: 'Ingresos plataforma',
+    gasto_negocio: 'Gastos del negocio',
+    ignorado: 'No computan (traspasos a sueldo · Hacienda)',
   }
 
-  const labelClase: Record<string, string> = {
-    ingreso_plataforma: 'Ingresos plataforma (Uber / Glovo / Just Eat)',
-    gasto_negocio: 'Gastos del negocio',
-    ignorado: 'Ignorados (no cuentan)',
+  // ---- Línea de desglose dentro de card mensual ----
+  function Linea({ label, val, color, signo }: { label: string; val: number; color: string; signo?: string }) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 0' }}>
+        <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>{label}</span>
+        <span style={{ fontFamily: FONT.body, fontSize: 12, color, fontVariantNumeric: 'tabular-nums' }}>{signo}{fmtEur(val)}</span>
+      </div>
+    )
+  }
+
+  // ---- Bloque cálculo Emilio (dentro de su fila) ----
+  function PanelEmilio() {
+    if (calcAnio.length === 0) {
+      return (
+        <div style={{ padding: '20px 16px', color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
+          Sin movimientos de {selectedAnio}. En cuanto se importe el extracto del mes, aparece aquí.
+        </div>
+      )
+    }
+    return (
+      <div style={{ padding: '18px 16px' }}>
+        <div style={{ ...sectionLabelStyle(T), marginBottom: 4 }}>Sueldo · cálculo automático {selectedAnio}</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 16, maxWidth: 620 }}>
+          Base 1.200 € − ingresos Uber / Glovo / Just Eat + gastos del negocio (Mercadona, proveedores…) = adeudado. Los traspasos a sueldo y Hacienda no cuentan. Pulsa un mes para ver el detalle.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(178px,1fr))', gap: 12 }}>
+          {calcAnio.map(r => {
+            const active = selMes === r.mes
+            return (
+              <div
+                key={r.mes}
+                onClick={() => setSelMes(active ? null : r.mes)}
+                style={{
+                  ...cardStyle(T), cursor: 'pointer',
+                  border: `1px solid ${active ? '#B01D23' : T.brd}`,
+                  boxShadow: active ? '0 0 0 1px #B01D23' : 'none',
+                  transition: 'border-color 150ms, box-shadow 150ms',
+                }}
+              >
+                <div style={{ ...sectionLabelStyle(T), fontSize: 11 }}>{MESES[r.mes - 1]} {r.anio}</div>
+                <div style={{ fontFamily: FONT.heading, fontWeight: 600, fontSize: '1.9rem', lineHeight: 1, color: '#B01D23', margin: '8px 0 2px' }}>
+                  {fmtEur(r.adeudado)}
+                </div>
+                <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>
+                  Adeudado a Emilio
+                </div>
+                <div style={dividerStyle(T)} />
+                <Linea label="Ingresos plataforma" val={r.ingresos_plataforma} color="#1D9E75" signo="− " />
+                <Linea label="Gastos negocio" val={r.gastos_negocio} color="#1D9E75" signo="+ " />
+                <Linea label="Base" val={r.base} color={T.sec} />
+              </div>
+            )
+          })}
+        </div>
+
+        {selMes && (
+          <div style={{ ...cardStyle(T), marginTop: 14, padding: '14px 16px' }}>
+            <div style={{ ...sectionLabelStyle(T), marginBottom: 10 }}>Detalle · {MESES[selMes - 1]} {selectedAnio}</div>
+            {(['ingreso_plataforma', 'gasto_negocio', 'ignorado'] as const).map(clase => {
+              const items = detalleMes(selMes, clase)
+              if (items.length === 0) return null
+              const subtotal = items.reduce((s, it) => s + Math.abs(it.importe), 0)
+              return (
+                <div key={clase} style={{ marginBottom: 14, opacity: clase === 'ignorado' ? 0.55 : 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>{labelClase[clase]}</span>
+                    <span style={{ fontFamily: FONT.heading, fontSize: 11, color: clase === 'gasto_negocio' ? '#1D9E75' : clase === 'ingreso_plataforma' ? '#1D9E75' : T.mut, fontVariantNumeric: 'tabular-nums' }}>
+                      {clase === 'ignorado' ? '' : clase === 'ingreso_plataforma' ? '− ' : '+ '}{fmtEur(subtotal)}
+                    </span>
+                  </div>
+                  {items.map(it => (
+                    <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: FONT.body, fontSize: 11.5, color: T.pri, padding: '2px 0' }}>
+                      <span style={{ color: T.mut, minWidth: 58 }}>{fmtDate(it.fecha)}</span>
+                      <span style={{ flex: 1 }}>{it.proveedor || it.concepto}</span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums', color: it.importe < 0 ? '#B01D23' : '#1D9E75' }}>{fmtEur(it.importe)}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
     <div>
-      {/* ============ PANEL SUELDO EMILIO ============ */}
-      <div style={{ ...cardStyle(T), padding: 18, marginBottom: 22 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
-          <h3 style={{ margin: 0, fontFamily: FONT.heading, fontSize: 15, color: T.pri, textTransform: 'uppercase', letterSpacing: '1px' }}>
-            Sueldo Emilio · cálculo automático
-          </h3>
-          <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-            Base 1.200 € − ingresos plataforma + gastos negocio = adeudado
-          </span>
-        </div>
-
-        {loading ? (
-          <div style={{ padding: 24, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
-        ) : calcAnio.length === 0 ? (
-          <div style={{ padding: 24, textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>
-            Sin movimientos de Emilio en {selectedAnio}. En cuanto se importe el extracto del mes, aparece aquí.
-          </div>
-        ) : (
-          <div style={{ marginTop: 14, overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-                  <th style={{ ...th, textAlign: 'left', width: 36 }}></th>
-                  <th style={{ ...th, textAlign: 'left' }}>Mes</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Ingresos plataforma</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Gastos negocio</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Adeudado a Emilio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calcAnio.map(r => {
-                  const key = `${r.anio}-${r.mes}`
-                  const open = expanded === key
-                  return (
-                    <Fragment key={key}>
-                      <tr
-                        onClick={() => setExpanded(open ? null : key)}
-                        style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
-                      >
-                        <td style={{ ...td, textAlign: 'center', color: T.mut }}>
-                          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </td>
-                        <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{MESES[r.mes - 1]} {r.anio}</td>
-                        <td style={{ ...td, textAlign: 'right', color: '#1D9E75' }}>+ {fmtEur(r.ingresos_plataforma)}</td>
-                        <td style={{ ...td, textAlign: 'right', color: '#B01D23' }}>+ {fmtEur(r.gastos_negocio)}</td>
-                        <td style={{ ...td, textAlign: 'right', fontWeight: 700, fontSize: 14, color: T.pri }}>{fmtEur(r.adeudado)}</td>
-                      </tr>
-                      {open && (
-                        <tr>
-                          <td colSpan={5} style={{ padding: '12px 16px', background: T.group }}>
-                            {(['ingreso_plataforma', 'gasto_negocio', 'ignorado'] as const).map(clase => {
-                              const items = detalleMes(r.anio, r.mes, clase)
-                              if (items.length === 0) return null
-                              return (
-                                <div key={clase} style={{ marginBottom: 12 }}>
-                                  <div style={{ fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, marginBottom: 6 }}>
-                                    {labelClase[clase]}
-                                  </div>
-                                  {items.map(it => (
-                                    <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: FONT.body, fontSize: 11.5, color: T.pri, padding: '3px 0', opacity: clase === 'ignorado' ? 0.5 : 1 }}>
-                                      <span style={{ color: T.mut, minWidth: 64 }}>{fmtDate(it.fecha)}</span>
-                                      <span style={{ flex: 1 }}>{it.proveedor || it.concepto}</span>
-                                      <span style={{ fontVariantNumeric: 'tabular-nums', color: it.importe < 0 ? '#B01D23' : '#1D9E75' }}>{fmtEur(it.importe)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )
-                            })}
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-            <p style={{ marginTop: 10, fontSize: 10.5, color: T.mut, fontFamily: FONT.body }}>
-              Ingresos = abonos Uber / Glovo / Just Eat en su cuenta. Gastos = compras del negocio (Mercadona, proveedores…). Traspasos entre sus cuentas y sueldos no cuentan. Abre cada mes para ver el detalle.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* ============ GRID NÓMINAS PDF ============ */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <select
           value={selectedEmp}
@@ -228,47 +234,77 @@ export default function TabNominas() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-                <th style={{ ...th, textAlign: 'left', minWidth: 160 }}>Empleado</th>
+                <th style={{ ...th, textAlign: 'left', minWidth: 190 }}>Empleado</th>
                 {MESES.map((m, i) => <th key={i} style={th}>{m}</th>)}
               </tr>
             </thead>
             <tbody>
               {empsFiltrados.length === 0 ? (
                 <tr><td colSpan={13} style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin empleados activos.</td></tr>
-              ) : empsFiltrados.map(emp => (
-                <tr key={emp.id} style={{ borderBottom: `1px solid ${T.brd}` }}>
-                  <td style={{ ...td, textAlign: 'left', fontWeight: 600, padding: '12px 14px' }}>{emp.nombre}</td>
-                  {MESES.map((_m, i) => {
-                    const mes = i + 1
-                    const nom = getNomina(emp.id, mes)
-                    const key = `${emp.id}-${mes}`
-                    return (
-                      <td key={mes} style={td}>
-                        {nom ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <span style={{ fontSize: 11, color: '#1D9E75' }}>{fmtEur(nom.importe_neto)}</span>
-                            {nom.pdf_url && (
-                              <a href={nom.pdf_url} target="_blank" rel="noreferrer"
-                                style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#66aaff', fontSize: 10, textDecoration: 'none' }}>
-                                <Download size={10} /> PDF
-                              </a>
-                            )}
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleUpload(emp.id, mes)}
-                            disabled={uploading === key}
-                            title={`Subir nómina ${MESES[i]} ${selectedAnio}`}
-                            style={{ background: 'none', border: `1px dashed ${T.brd}`, borderRadius: 4, padding: '3px 6px', cursor: 'pointer', color: T.mut, fontSize: 10 }}
-                          >
-                            {uploading === key ? '…' : <Upload size={10} />}
-                          </button>
-                        )}
+              ) : empsFiltrados.map(emp => {
+                const open = expandedEmp === emp.id
+                const tieneCalc = emp.id === emilioId
+                return (
+                  <Fragment key={emp.id}>
+                    <tr style={{ borderBottom: `1px solid ${T.brd}`, background: open ? T.group : 'transparent' }}>
+                      <td
+                        onClick={() => toggleEmp(emp.id)}
+                        style={{ ...td, textAlign: 'left', fontWeight: 600, padding: '12px 14px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ color: T.mut }}>{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
+                          {emp.nombre}
+                          {tieneCalc && (
+                            <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: '#B01D23', border: '1px solid #B01D23', borderRadius: 4, padding: '1px 5px' }}>
+                              Cálculo auto
+                            </span>
+                          )}
+                        </span>
                       </td>
-                    )
-                  })}
-                </tr>
-              ))}
+                      {MESES.map((_m, i) => {
+                        const mes = i + 1
+                        const nom = getNomina(emp.id, mes)
+                        const key = `${emp.id}-${mes}`
+                        return (
+                          <td key={mes} style={td}>
+                            {nom ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                <span style={{ fontSize: 11, color: '#1D9E75' }}>{fmtEur(nom.importe_neto)}</span>
+                                {nom.pdf_url && (
+                                  <a href={nom.pdf_url} target="_blank" rel="noreferrer"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#66aaff', fontSize: 10, textDecoration: 'none' }}>
+                                    <Download size={10} /> PDF
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleUpload(emp.id, mes)}
+                                disabled={uploading === key}
+                                title={`Subir nómina ${MESES[i]} ${selectedAnio}`}
+                                style={{ background: 'none', border: `1px dashed ${T.brd}`, borderRadius: 4, padding: '3px 6px', cursor: 'pointer', color: T.mut, fontSize: 10 }}
+                              >
+                                {uploading === key ? '…' : <Upload size={10} />}
+                              </button>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    {open && (
+                      <tr>
+                        <td colSpan={13} style={{ padding: 0, background: T.group, borderBottom: `1px solid ${T.brd}` }}>
+                          {tieneCalc ? <PanelEmilio /> : (
+                            <div style={{ padding: '18px 16px', fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+                              {emp.nombre} cobra por nómina fija. Sube el PDF de cada mes en las celdas de arriba.
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
