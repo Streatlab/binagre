@@ -14,7 +14,6 @@ interface KpiRow {
 
 export function PanelCobertura() {
   const [kpi, setKpi] = useState<KpiRow | null>(null)
-  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -29,7 +28,7 @@ export function PanelCobertura() {
     cargar()
     const t = setInterval(cargar, 30_000)
     return () => { alive = false; clearInterval(t) }
-  }, [tick])
+  }, [])
 
   if (!kpi) return null
 
@@ -51,8 +50,8 @@ export function PanelCobertura() {
         boxShadow: '0 1px 3px rgba(30,34,51,0.06)',
       }}
     >
-      {/* % cobertura grande */}
-      <div style={{ textAlign: 'center', minWidth: 110 }}>
+      {/* % cobertura grande (movimientos con factura) */}
+      <div style={{ textAlign: 'center', minWidth: 120 }}>
         <div
           style={{
             fontFamily: OSWALD,
@@ -63,14 +62,12 @@ export function PanelCobertura() {
             marginBottom: 4,
           }}
         >
-          COBERTURA
+          MOVIMIENTOS CON FACTURA
         </div>
         <div style={{ fontFamily: OSWALD, fontSize: 48, fontWeight: 700, color: barColor, lineHeight: 1 }}>
           {pct.toFixed(1)}%
         </div>
-        <div
-          style={{ height: 5, borderRadius: 3, background: '#ece9e3', marginTop: 8, overflow: 'hidden' }}
-        >
+        <div style={{ height: 5, borderRadius: 3, background: '#ece9e3', marginTop: 8, overflow: 'hidden' }}>
           <div
             style={{
               width: `${Math.min(pct, 100)}%`,
@@ -85,50 +82,41 @@ export function PanelCobertura() {
 
       <div style={{ width: 1, height: 52, background: '#e5e2dc', flexShrink: 0 }} />
 
-      {/* KPIs */}
+      {/* Bloque MOVIMIENTOS */}
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-        <StatOscura label="Cuadrados" value={`${kpi.movimientos_con_factura} / ${kpi.movimientos_total}`} color="#1e2233" />
-        <StatOscura
-          label="Sin categoría"
-          value={kpi.facturas_sin_categoria}
-          color={kpi.facturas_sin_categoria > 0 ? COLORS.warn : COLORS.ok}
-        />
-        <StatOscura
-          label="Posibles dup."
-          value={kpi.facturas_posible_duplicado}
-          color={kpi.facturas_posible_duplicado > 0 ? COLORS.warn : COLORS.ok}
-        />
-        <StatOscura
-          label="Aviso aritmética"
-          value={kpi.facturas_aviso_aritmetica}
-          color={kpi.facturas_aviso_aritmetica > 0 ? COLORS.err : COLORS.ok}
+        <Stat
+          label="Mov. cuadrados"
+          value={`${kpi.movimientos_con_factura} / ${kpi.movimientos_total}`}
+          color="#1e2233"
         />
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090' }}>
-          {kpi.facturas_total} facturas totales
-        </div>
-        <button
-          onClick={() => setTick(t => t + 1)}
-          style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090', background: 'none', border: '1px solid #e5e2dc', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
-        >
-          ↻ Refrescar
-        </button>
+      <div style={{ width: 1, height: 52, background: '#e5e2dc', flexShrink: 0 }} />
+
+      {/* Bloque FACTURAS (otro universo: el módulo de Facturas/OCR) */}
+      <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+        <Stat label="Facturas totales" value={kpi.facturas_total} color="#1e2233" />
+        <Stat
+          label="Facturas sin categoría"
+          value={kpi.facturas_sin_categoria}
+          color={kpi.facturas_sin_categoria > 0 ? COLORS.warn : COLORS.ok}
+        />
+        <Stat
+          label="Facturas duplicadas"
+          value={kpi.facturas_posible_duplicado}
+          color={kpi.facturas_posible_duplicado > 0 ? COLORS.warn : COLORS.ok}
+        />
+        <Stat
+          label="Facturas aviso IVA"
+          value={kpi.facturas_aviso_aritmetica}
+          color={kpi.facturas_aviso_aritmetica > 0 ? COLORS.err : COLORS.ok}
+        />
       </div>
     </div>
   )
 }
 
-function StatOscura({
-  label,
-  value,
-  color,
-}: {
-  label: string
-  value: string | number
-  color: string
-}) {
+function Stat({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
     <div>
       <div
