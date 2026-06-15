@@ -7,7 +7,9 @@
 export interface LiquidacionPlataforma {
   plataforma: 'uber' | 'glovo' | 'justeat'
   tabla: 'uber_liquidaciones' | 'glovo_liquidaciones' | 'justeat_liquidaciones'
-  marca: string | null
+  marca: string
+  referencia_pago: string
+  fecha_deposito: string       // YYYY-MM-DD (estimada por reglas de cobro)
   fecha_inicio_periodo: string // YYYY-MM-DD
   fecha_fin_periodo: string    // YYYY-MM-DD
   num_pedidos: number | null
@@ -40,6 +42,16 @@ function fechaUS(s: string): string | null {
   return `${anio}-${mes}-${dia}`
 }
 
+// Próximo lunes posterior a una fecha (regla de cobro Uber: periodo lun-dom,
+// pago el lunes siguiente). Si la fecha ya es lunes, devuelve el lunes siguiente.
+function lunesSiguiente(iso: string): string {
+  const d = new Date(iso + 'T00:00:00Z')
+  const dow = d.getUTCDay() // 0=domingo … 1=lunes
+  const sumar = ((8 - dow) % 7) || 7
+  d.setUTCDate(d.getUTCDate() + sumar)
+  return d.toISOString().slice(0, 10)
+}
+
 // HTML → texto plano simple (conserva labels y números).
 function stripHtml(html: string): string {
   return html
@@ -61,7 +73,7 @@ function buscar(txt: string, re: RegExp): string | null {
 
 function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null {
   const esUber = /uber\s*eats/i.test(texto) || /uber/i.test(asunto)
-  const esResumen = /resumen de pagos/i.test(asunto) || /resumen de pagos/i.test(texto)
+  const esResumen = /resumen de pagos?/i.test(asunto) || /resumen de pagos?/i.test(texto)
   if (!esUber || !esResumen) return null
 
   // Periodo: del asunto preferentemente, si no del cuerpo.
@@ -74,7 +86,6 @@ function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null 
   const fin = fechaUS(periodos[2])
   if (!ini || !fin) return null
 
-  // Fila "Total  <pedidos>  <ventas> €"
   const totalLinea = texto.match(/Total\s+(\d+)\s+([\d.,]+)\s*€/i)
   const num_pedidos = totalLinea ? parseInt(totalLinea[1], 10) : null
   const ventas_bruto = totalLinea ? num(totalLinea[2]) : null
@@ -87,20 +98,30 @@ function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null 
   const promo = num(buscar(texto, /Promociones de art[ií]culos\s*-?\s*([\d.,]+)/i))
   const canje = num(buscar(texto, /canje de ofertas[^\d-]*-?\s*([\d.,]+)/i))
 
-  // "Pago total" puede salir 2 veces (cabecera + desglose): tomar el último.
   const pagos = [...texto.matchAll(/Pago total\s*-?\s*([\d.,]+)\s*€/gi)]
   const pago_neto = pagos.length ? num(pagos[pagos.length - 1][1]) : null
 
-  // Marca: del saludo "Hola <marca> ,"
-  const marca = (buscar(texto, /Hola\s+(.+?)\s*,/i) || '').trim() || null
+  // Sin pago neto el resumen no sirve (campo obligatorio).
+  if (pago_neto == null) return null
+
+  // Marca: del saludo "Hola <marca> ,". Fallback obligatorio (columna NOT NULL).
+  const marcaDetectada = (buscar(texto, /Hola\s+(.+?)\s*,/i) || '').trim()
+  const marca = marcaDetectada || 'Streat Lab'
 
   const comision_uber = (precioUber || 0) + (ivaPrecio || 0) || null
   const ajustes = (suscripcion || 0) + (varios || 0) || null
+
+  // Referencia única determinista (sirve de clave anti-duplicado).
+  const referencia_pago = `uber_${marca}_${ini}_${fin}`.replace(/\s+/g, '').toLowerCase()
+  // Cobro Uber: periodo lun-dom → pago el lunes siguiente (estimado).
+  const fecha_deposito = lunesSiguiente(fin)
 
   return {
     plataforma: 'uber',
     tabla: 'uber_liquidaciones',
     marca,
+    referencia_pago,
+    fecha_deposito,
     fecha_inicio_periodo: ini,
     fecha_fin_periodo: fin,
     num_pedidos,
