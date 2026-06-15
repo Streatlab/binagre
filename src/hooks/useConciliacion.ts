@@ -15,6 +15,7 @@ export interface Movimiento {
   importe: number
   tipo: 'ingreso' | 'gasto' | null
   categoria: string | null
+  categoria_id: string | null
   proveedor: string | null
   factura: string | null
   mes: string | null
@@ -79,7 +80,9 @@ export function useConciliacion() {
         if (reg.error) throw reg.error
         if (cPyg.error) throw cPyg.error
         const estadoMap = new Map(estadoRows.map(r => [r.conciliacion_id, r.estado_doc as 'tiene' | 'falta' | 'no_requiere']))
-        setMovimientos(movData.map(m => ({ ...m, doc_estado_real: estadoMap.get(m.id) ?? 'falta' as const })))
+        // categoria_id se deriva de la columna real `categoria` de BD (no existe categoria_id en la tabla);
+        // así la lógica de UI (pendientes, filtros) que lee categoria_id refleja la categoría real.
+        setMovimientos(movData.map(m => ({ ...m, categoria_id: m.categoria, doc_estado_real: estadoMap.get(m.id) ?? 'falta' as const })))
         setReglas((reg.data ?? []) as Regla[])
         // categorias_pyg nivel 3: tipo_parent por prefijo de cuenta contable PGC
         // Cuentas 7xx = ingresos (grupo 7 PGC); resto = gastos
