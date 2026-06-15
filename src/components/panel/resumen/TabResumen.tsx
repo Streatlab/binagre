@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { COLOR, LEXEND, row3 } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
+import { useEsMovil } from '@/hooks/useEsMovil'
 import CardVentas from './CardVentas'
 import CardPedidosTM from './CardPedidosTM'
 import CardResultadoPeriodo from './CardResultadoPeriodo'
@@ -138,18 +139,12 @@ export default function TabResumen({
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
   const [toasts, setToasts] = useState<ToastMsg[]>([])
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 1024)
+  const isMobile = useEsMovil()
 
   const showToast = useCallback((msg: string, type: 'success' | 'warning') => {
     const id = Date.now()
     setToasts(p => [...p, { id, msg, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000)
-  }, [])
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 1024)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
@@ -655,7 +650,7 @@ export default function TabResumen({
       <div style={{
         ...row3,
         marginBottom: 14,
-        gridTemplateColumns: isMobile ? (window.innerWidth < 640 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(3, 1fr)',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
       }}>
         <CardVentas
           bruto={ventasPeriodo}
@@ -705,7 +700,7 @@ export default function TabResumen({
       <div style={{
         ...row3,
         marginBottom: 14,
-        gridTemplateColumns: isMobile ? (window.innerWidth < 640 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(3, 1fr)',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
       }}>
         <ColFacturacionCanal canales={canalStats} />
         <ColGruposGasto
@@ -726,7 +721,7 @@ export default function TabResumen({
       <div style={{
         ...row3,
         marginBottom: 14,
-        gridTemplateColumns: isMobile ? (window.innerWidth < 640 ? '1fr' : 'repeat(2, 1fr)') : 'repeat(3, 1fr)',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
       }}>
         <CardSaldo />
         <CardRatio
