@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
 import { fmtEur, fmtDate } from '@/utils/format'
+import { useEsMovil } from '@/hooks/useEsMovil'
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface Proveedor {
@@ -231,6 +232,8 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
 /* ─── Main Component ────────────────────────────────────── */
 export default function Proveedores() {
   const { T } = useTheme()
+  const movil = useEsMovil()
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
   const [proveedores, setProveedores] = useState<ProveedorEnriquecido[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -347,6 +350,23 @@ export default function Proveedores() {
     )
   })
 
+  // Agrupación por categoría (móvil)
+  const gruposCat = (() => {
+    const m = new Map<string, ProveedorEnriquecido[]>()
+    for (const p of filtrados) {
+      const k = (p.categoria ?? '').trim() || 'Sin categoría'
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(p)
+    }
+    for (const arr of m.values()) arr.sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es'))
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'))
+  })()
+  const toggleGrupo = (k: string) => setAbiertos(prev => {
+    const next = new Set(prev)
+    if (next.has(k)) next.delete(k); else next.add(k)
+    return next
+  })
+
   /* ── Estilos ── */
   const th: CSSProperties = {
     padding: '8px 14px',
@@ -379,7 +399,9 @@ export default function Proveedores() {
             padding: '8px 14px',
             fontSize: 13,
             fontFamily: FONT.body,
-            width: 320,
+            flex: '1 1 220px',
+            minWidth: 0,
+            maxWidth: 360,
           }}
         />
         <span style={{ color: '#777777', fontSize: 12 }}>{filtrados.length} proveedores</span>
@@ -414,7 +436,18 @@ export default function Proveedores() {
         <div style={{ color: '#777777', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Cargando proveedores…</div>
       )}
 
-      {!loading && (
+      {!loading && movil && (
+        <VistaMovilProveedores
+          buscando={!!busqueda}
+          filtrados={filtrados}
+          grupos={gruposCat}
+          abiertos={abiertos}
+          toggleGrupo={toggleGrupo}
+          onSelect={openModal}
+        />
+      )}
+
+      {!loading && !movil && (
         <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -498,6 +531,87 @@ export default function Proveedores() {
           saving={saving}
         />
       )}
+    </div>
+  )
+}
+
+/* ─── Vista móvil: categorías plegables + filas compactas ─── */
+interface VistaMovilProps {
+  buscando: boolean
+  filtrados: ProveedorEnriquecido[]
+  grupos: [string, ProveedorEnriquecido[]][]
+  abiertos: Set<string>
+  toggleGrupo: (k: string) => void
+  onSelect: (p: Proveedor) => void
+}
+
+function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGrupo, onSelect }: VistaMovilProps) {
+  const fila = (p: ProveedorEnriquecido, conBorde: boolean) => (
+    <button
+      key={p.id}
+      onClick={() => onSelect(p)}
+      style={{
+        textAlign: 'left', width: '100%', background: 'transparent', border: 'none',
+        borderBottom: conBorde ? '0.5px solid #1e1e1e' : 'none',
+        padding: '11px 13px', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', gap: 10, cursor: 'pointer',
+      }}
+    >
+      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
+        {p.abv && <span style={{ fontSize: 11, color: '#777777' }}>{p.abv}</span>}
+      </span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {p.total_comprado > 0 && (
+          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 12, fontWeight: 700, color: '#cccccc' }}>{fmtEur(p.total_comprado)}</span>
+        )}
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.activo ? '#1D9E75' : '#B01D23', display: 'inline-block' }} />
+      </span>
+    </button>
+  )
+
+  if (filtrados.length === 0) {
+    return (
+      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 40, textAlign: 'center', color: '#777777', fontSize: 13 }}>
+        {buscando ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
+      </div>
+    )
+  }
+
+  if (buscando) {
+    return (
+      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+        {filtrados.map((p, idx) => fila(p, idx < filtrados.length - 1))}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {grupos.map(([cat, items]) => {
+        const open = abiertos.has(cat)
+        return (
+          <div key={cat} style={{ background: '#1a1a1a', border: `1px solid ${open ? '#e8f442' : '#2a2a2a'}`, borderRadius: 10, overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleGrupo(cat)}
+              style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? '#e8f442' : '#777777'} strokeWidth="2.5" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+                <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
+              </span>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: '#cccccc', background: '#222222', padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+            </button>
+            {open && (
+              <div style={{ borderTop: '0.5px solid #2a2a2a' }}>
+                {items.map((p, idx) => fila(p, idx < items.length - 1))}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
