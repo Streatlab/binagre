@@ -1,12 +1,10 @@
 import { useMemo, useState, useEffect } from 'react'
-import { fmtEur, fmtDate } from '@/utils/format'
-import { useTheme, FONT, fmtFechaCorta } from '@/styles/tokens'
+import { useTheme, fmtFechaCorta } from '@/styles/tokens'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
 import { useAniosDisponibles } from '@/hooks/useAniosDisponibles'
 import { toast } from '@/lib/toastStore'
 import type { Movimiento } from '@/types/conciliacion'
 import { useConciliacion } from '@/hooks/useConciliacion'
-import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabMovimientos from '@/components/conciliacion/TabMovimientos'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
@@ -16,7 +14,7 @@ import { PanelCobertura } from '@/components/conciliacion/PanelCobertura'
 
 type PeriodoKey = 'mes' | 'mes_anterior' | 'trimestre' | '30d' | 'personalizado' | string
 
-const ModalAddGasto = ({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) =>
+const ModalAddGasto = ({ open }: { open: boolean; onClose: () => void; onSaved: () => void }) =>
   open ? null : null
 
 const TAB_STORAGE_KEY = 'conciliacion:tab'
@@ -29,78 +27,42 @@ function loadTab(): Tab {
     if (raw === 'movimientos' || raw === 'resumen')
       return raw
   } catch { /* swallow */ }
-  return 'resumen'
+  return 'movimientos'
 }
 
 function saveTab(t: Tab) {
   try { sessionStorage.setItem(TAB_STORAGE_KEY, t) } catch { /* swallow */ }
 }
 
-function colorContraparte(nombre: string): string | null {
-  const n = nombre.toLowerCase().trim()
-  if (n.includes('uber')) return '#06C167'
-  if (n.includes('glovo')) return '#e8f442'
-  if (n.includes('just eat') || n === 'just eat' || n.includes('justeat')) return '#f5a623'
-  if (n.includes('rushour') || n.includes('web') || n.includes('tienda')) return '#B01D23'
-  return null
-}
-
-function calcularLabelPeriodo(periodo: string, customDesde?: string, customHasta?: string): string {
-  const now = new Date()
-  const mes = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-  if (periodo === 'mes') return mes.toUpperCase()
-  if (periodo === 'mes_anterior') {
-    const ma = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    return ma.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()
-  }
-  if (periodo === 'trimestre') return 'ÚLTIMOS 3 MESES'
-  if (periodo.startsWith('anio_')) return `AÑO ${periodo.slice(5)}`
-  if (periodo === 'personalizado' && customDesde && customHasta) {
-    return `${customDesde} — ${customHasta}`
-  }
-  return 'ÚLTIMOS 31 DÍAS'
-}
-
 type FiltroRapido = 'pendientes' | 'asociadas' | 'faltantes' | 'duplicadas' | 'sin_titular' | null
 
-export default function Conciliacion() {
-  const { T, isDark } = useTheme()
+export default function Conciliacion({ periodoExterno }: { periodoExterno?: { desde: Date; hasta: Date } } = {}) {
+  // Modo integrado: dentro del supermódulo Documentación. La cabecera, el selector
+  // de fechas, la card gigante de cobertura y la pestaña Resumen viven fuera (en
+  // Documentación). Aquí queda solo la tabla de Movimientos.
+  const integrado = !!periodoExterno
+  const { isDark } = useTheme()
   const [tab, setTab] = useState<Tab>(loadTab())
-  const [periodo, setPeriodo] = useState<PeriodoKey>('mes')
-  const [customDesde, setCustomDesde] = useState<string>('')
-  const [customHasta, setCustomHasta] = useState<string>('')
-  const aniosDisponibles = useAniosDisponibles()
+  const [periodo] = useState<PeriodoKey>('mes')
+  const [customDesde] = useState<string>('')
+  const [customHasta] = useState<string>('')
+  useAniosDisponibles()
   useEffect(() => { saveTab(tab) }, [tab])
   useEffect(() => { inicializarStopwords() }, [])
-  const [periodoDesde, setPeriodoDesde] = useState<Date>(() => {
+  const [periodoDesdeInt, setPeriodoDesdeInt] = useState<Date>(() => {
     const h = new Date(); h.setDate(1); h.setHours(0, 0, 0, 0); return h
   })
-  const [periodoHasta, setPeriodoHasta] = useState<Date>(() => {
+  const [periodoHastaInt, setPeriodoHastaInt] = useState<Date>(() => {
     const h = new Date(); h.setHours(23, 59, 59, 999); return h
   })
   const [periodoLabelSFU, setPeriodoLabelSFU] = useState('Mes en curso')
-  const [catFiltro, setCatFiltro] = useState<string>('todas')
-  const [busqueda, setBusqueda] = useState('')
+  const periodoDesde = periodoExterno?.desde ?? periodoDesdeInt
+  const periodoHasta = periodoExterno?.hasta ?? periodoHastaInt
   const [filtroCard, setFiltroCard] = useState<'pendientes' | 'ingreso' | 'gasto' | null>(null)
-  const toggleFiltroCard = (k: 'pendientes' | 'ingreso' | 'gasto') => {
-    setFiltroCard(prev => (prev === k ? null : k))
-  }
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>(null)
   const [modalGastoOpen, setModalGastoOpen] = useState(false)
-  const toggleFiltroRapido = (k: NonNullable<FiltroRapido>) => {
-    setFiltroRapido(prev => (prev === k ? null : k))
-  }
   const [ultimaPropagacion, setUltimaPropagacion] = useState<string[] | null>(null)
-  const { movimientos: movimientosBD, updateCategoria, categorias: categoriasBD, loading: loadingBD } = useConciliacion()
-
-  const dropdownGroups = useMemo(() => {
-    const ingresos = categoriasBD.filter(c => c.tipo_parent === 'ingreso')
-    const gastos = categoriasBD.filter(c => c.tipo_parent === 'gasto')
-    const porGrupo: Record<string, typeof gastos> = {}
-    for (const c of gastos) { const k = c.grupo ?? 'OTROS'; (porGrupo[k] = porGrupo[k] || []).push(c) }
-    const gruposOrdenados = Object.keys(porGrupo).sort()
-    return { ingresos, gastosPorGrupo: gruposOrdenados.map(g => ({ grupo: g, items: porGrupo[g] })) }
-  }, [categoriasBD])
+  const { movimientos: movimientosBD, updateCategoria, categorias: categoriasBD } = useConciliacion()
 
   const tipoPorCodigo = useMemo(() => {
     const m: Record<string, 'ingreso' | 'gasto'> = {}
@@ -126,50 +88,7 @@ export default function Conciliacion() {
     [movimientosBD],
   )
 
-  const handleCategorizar = async (movId: string, catId: string, concepto: string) => {
-    const normalizedCat = catId === '' ? null : catId
-    const tipo: 'ingreso' | 'gasto' | null = !normalizedCat ? null : (tipoPorCodigo[normalizedCat] ?? null)
-    try { await updateCategoria(movId, normalizedCat, tipo) } catch (err) { console.error('Error guardando categoría:', err); return }
-
-    if (!normalizedCat) return
-
-    const patron = normalizarConcepto(concepto)
-    if (!patron) return
-
-    const similares = movimientos.filter(
-      m => m.id !== movId && !m.categoria_id && matchPatron(normalizarConcepto(m.concepto), patron),
-    )
-
-    if (similares.length === 0) return
-
-    const ok = window.confirm(
-      `Se encontraron ${similares.length} movimiento${similares.length > 1 ? 's' : ''} sin categoría con patrón "${patron}".\n¿Categorizar también?`,
-    )
-    if (!ok) return
-
-    const propagados: string[] = []
-    for (const s of similares) {
-      try {
-        await updateCategoria(s.id, normalizedCat, tipo)
-        propagados.push(s.id)
-      } catch (err) { console.error('Error propagando categoría:', err) }
-    }
-
-    if (propagados.length > 0) setUltimaPropagacion(propagados)
-  }
-
-  const handleDeshacerPropagacion = async () => {
-    if (!ultimaPropagacion) return
-    for (const movId of ultimaPropagacion) {
-      try { await updateCategoria(movId, null, null) } catch {}
-    }
-    setUltimaPropagacion(null)
-    toast.success(
-      `${ultimaPropagacion.length} movimiento${ultimaPropagacion.length > 1 ? 's' : ''} revertido${ultimaPropagacion.length > 1 ? 's' : ''}`,
-    )
-  }
-
-  const { rangoActual, rangoAnterior, rangoFechasLegible } = useMemo(() => {
+  const { rangoActual, rangoAnterior } = useMemo(() => {
     const hoy = new Date(); hoy.setHours(23, 59, 59, 999)
     let inicio: Date; let fin: Date = new Date(hoy)
     if (periodo === 'mes') { inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1) }
@@ -189,11 +108,9 @@ export default function Conciliacion() {
     const duracionMs = fin.getTime() - inicio.getTime()
     const finAnt = new Date(inicio.getTime() - 24 * 60 * 60 * 1000); finAnt.setHours(23, 59, 59, 999)
     const inicioAnt = new Date(finAnt.getTime() - duracionMs); inicioAnt.setHours(0, 0, 0, 0)
-    const fmt = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
     return {
       rangoActual: { inicio, fin },
       rangoAnterior: { inicio: inicioAnt, fin: finAnt },
-      rangoFechasLegible: `${fmt(inicio)} — ${fmt(fin)} ${fin.getFullYear()}`,
     }
   }, [periodo, customDesde, customHasta])
 
@@ -211,17 +128,6 @@ export default function Conciliacion() {
       .filter(m => {
         const f = new Date(m.fecha + 'T12:00:00')
         return f >= rangoActual.inicio && f <= rangoActual.fin
-      })
-      .filter(m => catFiltro === 'todas' || m.categoria_id === catFiltro)
-      .filter(m => {
-        if (!busqueda) return true
-        const q = busqueda.toLowerCase()
-        return (
-          m.concepto.toLowerCase().includes(q) ||
-          (m.contraparte && m.contraparte.toLowerCase().includes(q)) ||
-          (m.factura_id && m.factura_id.toLowerCase().includes(q)) ||
-          String(Math.abs(m.importe)).includes(q)
-        )
       })
       .filter(m => {
         if (filtroCard === 'pendientes') return !m.categoria_id
@@ -242,7 +148,7 @@ export default function Conciliacion() {
         return true
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [movimientos, catFiltro, busqueda, rangoActual, filtroCard, filtroRapido, dedupKeys])
+  }, [movimientos, rangoActual, filtroCard, filtroRapido, dedupKeys])
 
   const movimientosAnterior = useMemo(() => {
     return movimientos.filter(m => {
@@ -251,20 +157,16 @@ export default function Conciliacion() {
     })
   }, [movimientos, rangoAnterior])
 
-  const datos = useMemo(() => {
-    const ingresos = movimientosFiltrados.filter(m => m.importe > 0)
-    const gastos = movimientosFiltrados.filter(m => m.importe < 0)
-    const sumIng = ingresos.reduce((s, m) => s + m.importe, 0)
-    const sumGst = Math.abs(gastos.reduce((s, m) => s + m.importe, 0))
-    return {
-      ingresos,
-      gastos,
-      sumIng,
-      sumGst,
-      balance: sumIng - sumGst,
-      pendientes: movimientosFiltrados.filter(m => !m.categoria_id).length,
+  const handleDeshacerPropagacion = async () => {
+    if (!ultimaPropagacion) return
+    for (const movId of ultimaPropagacion) {
+      try { await updateCategoria(movId, null, null) } catch {}
     }
-  }, [movimientosFiltrados])
+    setUltimaPropagacion(null)
+    toast.success(
+      `${ultimaPropagacion.length} movimiento${ultimaPropagacion.length > 1 ? 's' : ''} revertido${ultimaPropagacion.length > 1 ? 's' : ''}`,
+    )
+  }
 
   const hoyDate = new Date()
   const mesNombreRaw = hoyDate.toLocaleDateString('es-ES', { month: 'long' })
@@ -274,72 +176,46 @@ export default function Conciliacion() {
   const diasRestantes = Math.max(0, ultimoDiaMes - hoyDate.getDate())
 
   return (
-    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
-      {/* Cabecera */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          marginBottom: 18,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              color: '#B01D23',
-              fontFamily: 'Oswald, sans-serif',
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: '3px',
-              margin: 0,
-              textTransform: 'uppercase',
-            }}
-          >
-            CONCILIACIÓN
-          </h2>
-          <span
-            style={{
-              fontFamily: 'Lexend, sans-serif',
-              fontSize: 13,
-              color: '#7a8090',
-              display: 'block',
-              marginTop: 4,
-            }}
-          >
-            {fmtFechaCorta(fechaLocalStr(periodoDesde))} —{' '}
-            {fmtFechaCorta(fechaLocalStr(periodoHasta))}
-          </span>
+    <div style={{ background: integrado ? 'transparent' : '#f5f3ef', padding: integrado ? 0 : '24px 28px' }}>
+      {!integrado && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
+              CONCILIACIÓN
+            </h2>
+            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }}>
+              {fmtFechaCorta(fechaLocalStr(periodoDesde))} — {fmtFechaCorta(fechaLocalStr(periodoHasta))}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <SelectorFechaUniversal
+              nombreModulo="conciliacion"
+              defaultOpcion="mes_en_curso"
+              onChange={(desde, hasta, label) => {
+                setPeriodoDesdeInt(desde)
+                setPeriodoHastaInt(hasta)
+                setPeriodoLabelSFU(label)
+              }}
+            />
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SelectorFechaUniversal
-            nombreModulo="conciliacion"
-            defaultOpcion="mes_en_curso"
-            onChange={(desde, hasta, label) => {
-              setPeriodoDesde(desde)
-              setPeriodoHasta(hasta)
-              setPeriodoLabelSFU(label)
-            }}
-          />
-        </div>
-      </div>
+      )}
 
-      {/* Panel de cobertura — siempre visible */}
-      <PanelCobertura />
+      {/* Card gigante de cobertura y pestaña Resumen: solo en modo standalone */}
+      {!integrado && <PanelCobertura />}
 
-      {/* Tabs */}
-      <TabsPastilla
-        tabs={[
-          { id: 'resumen', label: 'Resumen' },
-          { id: 'movimientos', label: 'Movimientos' },
-        ]}
-        activeId={tab}
-        onChange={(id) => setTab(id as Tab)}
-      />
+      {!integrado && (
+        <TabsPastilla
+          tabs={[
+            { id: 'resumen', label: 'Resumen' },
+            { id: 'movimientos', label: 'Movimientos' },
+          ]}
+          activeId={tab}
+          onChange={(id) => setTab(id as Tab)}
+        />
+      )}
 
-      {tab === 'resumen' && (
+      {!integrado && tab === 'resumen' && (
         <ResumenDashboard
           movimientos={movimientosFiltrados}
           movimientosAnterior={movimientosAnterior}
@@ -349,9 +225,9 @@ export default function Conciliacion() {
         />
       )}
 
-      {tab === 'movimientos' && (
+      {(integrado || tab === 'movimientos') && (
         <TabMovimientos
-          periodoLabel={periodoLabelSFU}
+          periodoLabel={integrado ? '' : periodoLabelSFU}
           periodoDesde={periodoDesde}
           periodoHasta={periodoHasta}
         />
@@ -363,63 +239,11 @@ export default function Conciliacion() {
         onSaved={() => { setModalGastoOpen(false) }}
       />
 
-      {/* Deshacer propagación de categorías */}
       {ultimaPropagacion && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#1e2233',
-            color: '#fff',
-            borderRadius: 10,
-            padding: '10px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            zIndex: 200,
-            fontFamily: 'Lexend, sans-serif',
-            fontSize: 13,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-          }}
-        >
-          <span>
-            {ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''}{' '}
-            categorizados
-          </span>
-          <button
-            onClick={handleDeshacerPropagacion}
-            style={{
-              background: '#e8f442',
-              color: '#1e2233',
-              border: 'none',
-              borderRadius: 6,
-              padding: '5px 12px',
-              fontFamily: 'Oswald, sans-serif',
-              fontSize: 11,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            Deshacer
-          </button>
-          <button
-            onClick={() => setUltimaPropagacion(null)}
-            style={{
-              background: 'transparent',
-              color: '#aaa',
-              border: 'none',
-              fontSize: 16,
-              cursor: 'pointer',
-              padding: 0,
-              lineHeight: 1,
-            }}
-          >
-            ×
-          </button>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1e2233', color: '#fff', borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+          <span>{ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''} categorizados</span>
+          <button onClick={handleDeshacerPropagacion} style={{ background: '#e8f442', color: '#1e2233', border: 'none', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
+          <button onClick={() => setUltimaPropagacion(null)} style={{ background: 'transparent', color: '#aaa', border: 'none', fontSize: 16, cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
         </div>
       )}
     </div>
