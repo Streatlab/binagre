@@ -6,18 +6,19 @@ import { matchFactura, aplicarMatching } from './_lib/matching.js'
 
 export const config = { maxDuration: 300 }
 
-// BOOTSTRAP OCR (backfill de pago acotado) — resuelve el atraso de facturas que el
-// lector gratis (reglas + Tesseract) no pudo leer, sin tocar el flujo normal.
-// Por cada factura sin importe: Mistral OCR → extracción estructurada (cualquier
-// idioma) → si saca total, escribe los datos, aprende la plantilla por NIF (para que
-// las demás del proveedor se concilien gratis) y concilia. Si no, queda en manual.
-// Time-budget en una sola llamada; una red espaciada lo reanuda. Candado por NIF:
-// salta facturas cuyo NIF ya tiene plantilla (esas se leen gratis por reproc normal).
+// BOOTSTRAP OCR (backfill de pago acotado) — lee al 100% por Mistral toda factura
+// incompleta que el lector gratis (reglas + Tesseract) no resolvió:
+//   (a) sin importe (total null/0), o
+//   (b) marcada pendiente_releer_ocr=true (p.ej. nombre = NIF / sin categoría).
+// Por cada una: Mistral OCR -> extracción estructurada (cualquier idioma) -> escribe
+// los datos que falten, aprende la plantilla por NIF (resto del proveedor gratis) y
+// concilia. SEGURIDAD FISCAL: si la factura YA tenía importe e IVA español desglosado
+// (4/10/21), se conserva ese desglose y Mistral solo rellena lo ausente
+// (proveedor, NIF, nº, fecha). Time-budget en una sola llamada; el disparador espaciado
+// lo reanuda. Candado por NIF.
 
 const PRESUPUESTO_MS = 250_000
 const LOTE_DB = 6
-
-interface Ctrl { id: string }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!bootstrapApiActivo()) {
@@ -27,15 +28,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const arranque = Date.now()
   const ctrlId = 'bootstrap-ocr'
 
+  // Conjunto objetivo: con PDF en Drive y (sin importe O marcada para releer).
+  const FILTRO_OBJETIVO = 'total.is.null,total.eq.0,pendiente_releer_ocr.eq.true'
+
   // Control de progreso (reutiliza reproc_control como tabla de estado).
   let { data: job } = await supabaseAdmin
     .from('reproc_control').select('*').eq('id', ctrlId).maybeSingle()
   if (!job) {
     const { count } = await supabaseAdmin
       .from('facturas').select('id', { count: 'exact', head: true })
-      .or('total.is.null,total.eq.0')
+      .or(FILTRO_OBJETIVO)
       .not('pdf_drive_id', 'is', null)
-      .in('estado', ['sin_match', 'pendiente_lectura_manual'])
     await supabaseAdmin.from('reproc_control').insert({
       id: ctrlId, activo: true, solo_sin_leer: true,
       total_objetivo: count ?? 0, procesadas: 0, ok: 0, errores: 0, conciliadas: 0,
@@ -55,10 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   while (Date.now() - arranque < PRESUPUESTO_MS) {
     const { data: lote, error } = await supabaseAdmin
       .from('facturas')
-      .select('id, pdf_drive_id, pdf_original_name, nif_emisor')
-      .or('total.is.null,total.eq.0')
+      .select('id, pdf_drive_id, pdf_original_name, nif_emisor, total, base_4, iva_4, base_10, iva_10, base_21, iva_21, categoria_factura')
+      .or(FILTRO_OBJETIVO)
       .not('pdf_drive_id', 'is', null)
-      .in('estado', ['sin_match', 'pendiente_lectura_manual'])
       .order('fecha_factura', { ascending: true })
       .limit(LOTE_DB)
     if (error) return res.status(500).json({ error: error.message })
@@ -72,28 +74,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ext = texto ? await extraerFacturaMistral(texto) : null
 
         if (!ext || !ext.total || ext.total <= 0) {
-          // No legible ni por Mistral: dejar en manual y SALIR del conjunto.
+          // No legible ni por Mistral: dejar en manual y desmarcar la cola.
           await supabaseAdmin.from('facturas')
-            .update({ estado: 'pendiente_lectura_manual', error_mensaje: 'Ni Tesseract ni Mistral pudieron leer. Lectura manual.' })
+            .update({ estado: 'pendiente_lectura_manual', pendiente_releer_ocr: false, error_mensaje: 'Ni Tesseract ni Mistral pudieron leer. Lectura manual.' })
             .eq('id', f.id as string)
           manual++; manualTanda++; procesadas++
           continue
         }
 
         const nifEmisor = ext.nif_emisor
-        // Escribir los datos leídos en la factura.
-        await supabaseAdmin.from('facturas').update({
+
+        // ¿La factura ya tenía importe e IVA español desglosado? Entonces preservar
+        // todo el bloque fiscal y que Mistral solo aporte identidad del proveedor.
+        const teniaImporte = Number(f.total) > 0
+        const teniaDesglose = (Number(f.base_4) + Number(f.iva_4) + Number(f.base_10) + Number(f.iva_10) + Number(f.base_21) + Number(f.iva_21)) > 0
+        const preservarFiscal = teniaImporte && teniaDesglose
+
+        const update: Record<string, unknown> = {
           proveedor_nombre: ext.proveedor_nombre,
           numero_factura: ext.numero_factura || null,
-          fecha_factura: ext.fecha_factura,
           nif_emisor: nifEmisor,
-          base_21: ext.base_21, iva_21: ext.iva_21,
-          total: ext.total,
           ocr_confianza: ext.confianza,
-          ocr_raw: { ...ext, origen_lectura: 'mistral_bootstrap' },
           error_mensaje: null,
-          estado: 'procesando',
-        }).eq('id', f.id as string)
+          pendiente_releer_ocr: false,
+        }
+        if (preservarFiscal) {
+          // Mantener total, fecha y desglose existentes (no pisar IVA correcto).
+          update.ocr_raw = { ...ext, origen_lectura: 'mistral_bootstrap_solo_identidad', fiscal_preservado: true }
+          update.estado = 'procesando'
+        } else {
+          update.fecha_factura = ext.fecha_factura
+          update.base_21 = ext.base_21
+          update.iva_21 = ext.iva_21
+          update.total = ext.total
+          update.ocr_raw = { ...ext, origen_lectura: 'mistral_bootstrap' }
+          update.estado = 'procesando'
+        }
+
+        await supabaseAdmin.from('facturas').update(update).eq('id', f.id as string)
 
         // Aprender plantilla por NIF (candado): si el NIF no está, se inserta.
         if (nifEmisor && ext.proveedor_nombre) {
@@ -107,9 +125,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // Conciliar (admite titular NULL).
+        // Conciliar (admite titular NULL). Usa el total efectivo (preservado o nuevo).
         try {
-          const r = await matchFactura(supabaseAdmin, { ...ext, id: f.id as string, total: ext.total, titular_id: null })
+          const totalEfectivo = preservarFiscal ? Number(f.total) : ext.total
+          const r = await matchFactura(supabaseAdmin, { ...ext, id: f.id as string, total: totalEfectivo, titular_id: null })
           await aplicarMatching(supabaseAdmin, f.id as string, r, { proveedor_nombre: ext.proveedor_nombre, nif_emisor: nifEmisor })
           if (['conciliada', 'asociada'].includes(r.estado)) conciliadas++
         } catch { /* matching best-effort */ }
@@ -117,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         leidas++; okEsta++; okTanda++; procesadas++
       } catch (e) {
         await supabaseAdmin.from('facturas')
-          .update({ estado: 'pendiente_lectura_manual', error_mensaje: `Bootstrap error: ${e instanceof Error ? e.message : String(e)}` })
+          .update({ estado: 'pendiente_lectura_manual', pendiente_releer_ocr: false, error_mensaje: `Bootstrap error: ${e instanceof Error ? e.message : String(e)}` })
           .eq('id', f.id as string)
         manual++; manualTanda++; procesadas++
       }
@@ -128,8 +147,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }).eq('id', ctrlId)
 
     if (okEsta === 0 && manualTanda >= lote.length) {
-      // Tanda entera a manual: posible problema (clave/saldo). No cortar el job,
-      // pero salir de esta llamada; la red espaciada reintentará.
+      // Tanda entera a manual: posible problema (clave/saldo). Salir de esta llamada;
+      // el disparador espaciado reintentará.
       break
     }
   }
