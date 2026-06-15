@@ -50,6 +50,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [alergMap, setAlergMap] = useState<Record<string, string[]>>({})
   const [gestionGamas, setGestionGamas] = useState(false)
   const [costesReales, setCostesReales] = useState<Record<string, { tanda: number; rac: number }>>({})
+  const [lineasReales, setLineasReales] = useState<Record<string, { ingrediente: string; cant: string; ud: string }[]>>({})
 
   useEffect(() => { cargar(); setGamaSel('') }, [tipo])
   useEffect(() => { cargarAlergenos() }, [])
@@ -82,6 +83,25 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
       if (r.codigo) mapaCostes[r.codigo] = { tanda: Number(r.coste_tanda) || 0, rac: Number(r.coste_rac) || 0 }
     })
     setCostesReales(mapaCostes)
+    const mapaLineas: Record<string, { ingrediente: string; cant: string; ud: string }[]> = {}
+    const [epsLinRes, recLinRes, epsCodRes, recCodRes] = await Promise.all([
+      supabase.from('eps_lineas').select('eps_id, ingrediente_nombre, cantidad, unidad'),
+      supabase.from('recetas_lineas').select('receta_id, ingrediente_nombre, cantidad, unidad'),
+      supabase.from('eps').select('id, codigo'),
+      supabase.from('recetas').select('id, codigo'),
+    ])
+    const epsCod: Record<string, string> = {}
+    ;(epsCodRes.data ?? []).forEach((e: any) => { if (e.codigo) epsCod[e.id] = e.codigo })
+    const recCod: Record<string, string> = {}
+    ;(recCodRes.data ?? []).forEach((r: any) => { if (r.codigo) recCod[r.id] = r.codigo })
+    const pushLinea = (cod: string | undefined, l: any) => {
+      if (!cod) return
+      const nombre = (l.ingrediente_nombre ?? '').replace(/_[A-Z]+$/, '').trim()
+      ;(mapaLineas[cod] = mapaLineas[cod] || []).push({ ingrediente: nombre, cant: l.cantidad != null ? String(l.cantidad) : '', ud: l.unidad ?? '' })
+    }
+    ;(epsLinRes.data ?? []).forEach((l: any) => pushLinea(epsCod[l.eps_id], l))
+    ;(recLinRes.data ?? []).forEach((l: any) => pushLinea(recCod[l.receta_id], l))
+    setLineasReales(mapaLineas)
     setSel(prev => prev ? (list.find(f => f.id === prev.id) ?? list[0] ?? null) : (list[0] ?? null))
     setLoading(false)
   }
@@ -174,7 +194,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             })}
           </div>
         </div>
-        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} gamasAll={gamasAll} onSaved={cargar} costeReal={sel.codigo ? costesReales[sel.codigo] : undefined} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
+        {sel ? <FichaDetalle ficha={sel} alergMap={alergMap} gamasAll={gamasAll} onSaved={cargar} costeReal={sel.codigo ? costesReales[sel.codigo] : undefined} lineasEP={sel.codigo ? lineasReales[sel.codigo] : undefined} /> : <div className="text-[var(--sl-text-muted)] text-sm py-10">Sin fichas.</div>}
       </div>
     </div>
   )
@@ -188,17 +208,21 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number } }) {
-  const costeTandaCalc = f.ingredientes.reduce((s, i) => s + costeLinea(i), 0)
+function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineasEP }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number }; lineasEP?: { ingrediente: string; cant: string; ud: string }[] }) {
+  const tienePropios = (f.ingredientes ?? []).some(i => i.ingrediente && i.cant)
+  const ingredientes: IngLinea[] = tienePropios
+    ? f.ingredientes
+    : (lineasEP ?? []).map(l => ({ cant: l.cant, ud: l.ud, ingrediente: l.ingrediente, equivalencia: '', match: { iding: '', nombre: l.ingrediente, precio: 0, prov: 'EP' } }))
+  const costeTandaCalc = ingredientes.reduce((s, i) => s + costeLinea(i), 0)
   const costeTanda = costeReal && costeReal.tanda > 0 ? costeReal.tanda : costeTandaCalc
   const costeRac = costeReal && costeReal.rac > 0 ? costeReal.rac : (f.raciones ? costeTanda / f.raciones : 0)
-  const sinEnlazar = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
+  const sinEnlazar = ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const esReceta = f.tipo === 'receta'
   const [editando, setEditando] = useState(false)
 
   const alergAuto = useMemo(() => {
     const set = new Set<string>()
-    f.ingredientes.forEach(i => {
+    ingredientes.forEach(i => {
       const k = (i.ingrediente || '').replace(/_[A-Z]+$/, '').trim().toLowerCase()
       const al = alergMap[k]
       if (al) al.forEach(a => set.add(a))
@@ -224,11 +248,11 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal }: { fi
 
   const grupos = useMemo(() => {
     const g: Record<number, IngLinea[]> = {}
-    f.ingredientes.forEach(i => { const k = i.grupo ?? 1; (g[k] = g[k] || []).push(i) })
+    ingredientes.forEach(i => { const k = i.grupo ?? 1; (g[k] = g[k] || []).push(i) })
     return Object.entries(g).sort((a, b) => Number(a[0]) - Number(b[0]))
   }, [f])
   const hayGrupos = grupos.length > 1
-  const totalIng = f.ingredientes.length
+  const totalIng = ingredientes.length
   const colsIng = totalIng >= 28 ? 3 : totalIng >= 14 ? 2 : 1
 
   function tiempoMetodo(metodo: string): { texto: string; especial?: string } {
@@ -343,7 +367,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal }: { fi
         <div className="ficha-section sec-prep">
           <div className="ficha-seclabel">Preparación</div>
           <ol className="ficha-steps">
-            {f.pasos.length ? f.pasos.map((p, idx) => <li key={idx}>{resaltarIngredientes(p, f.ingredientes)}</li>) : <li style={{ listStyle: 'none', marginLeft: -22, color: 'var(--text-muted)' }}>—</li>}
+            {f.pasos.length ? f.pasos.map((p, idx) => <li key={idx}>{resaltarIngredientes(p, ingredientes)}</li>) : <li style={{ listStyle: 'none', marginLeft: -22, color: 'var(--text-muted)' }}>—</li>}
           </ol>
         </div>
 
