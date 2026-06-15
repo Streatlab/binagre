@@ -6,16 +6,20 @@ import ToastHost from '@/components/ui/ToastHost'
 import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
+import { useEsMovil } from '@/hooks/useEsMovil'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const movil = useEsMovil()
 
   return (
     <div className="flex h-screen bg-[var(--sl-app)] text-[var(--sl-text-primary)] font-sans">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] md:hidden">
+        <header
+          className={`h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] ${movil ? '' : 'md:hidden'}`}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)]"
