@@ -43,7 +43,7 @@ export default function TabNominas() {
   const [calc, setCalc] = useState<NominaCalc[]>([])
   const [detalle, setDetalle] = useState<NominaDetalle[]>([])
   const [expandedEmp, setExpandedEmp] = useState<string | null>(null)
-  const [selMes, setSelMes] = useState<number | null>(null)
+  const [hoverMes, setHoverMes] = useState<number | null>(null)
   const [selectedEmp, setSelectedEmp] = useState<string>('all')
   const [selectedAnio, setSelectedAnio] = useState<number>(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
@@ -95,7 +95,7 @@ export default function TabNominas() {
   }
 
   function toggleEmp(empId: string) {
-    setSelMes(null)
+    setHoverMes(null)
     setExpandedEmp(expandedEmp === empId ? null : empId)
   }
 
@@ -117,7 +117,6 @@ export default function TabNominas() {
   const labelClase: Record<string, string> = {
     ingreso_plataforma: 'Ingresos plataforma',
     gasto_negocio: 'Gastos del negocio',
-    ignorado: 'No computan (traspasos a sueldo · Hacienda)',
   }
 
   // ---- Línea de desglose dentro de card mensual ----
@@ -142,21 +141,22 @@ export default function TabNominas() {
     return (
       <div style={{ padding: '18px 16px' }}>
         <div style={{ ...sectionLabelStyle(T), marginBottom: 4 }}>Sueldo · cálculo automático {selectedAnio}</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 16, maxWidth: 620 }}>
-          Base 1.200 € − ingresos Uber / Glovo / Just Eat + gastos del negocio (Mercadona, proveedores…) = adeudado. Los traspasos a sueldo y Hacienda no cuentan. Pulsa un mes para ver el detalle.
+        <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginBottom: 16, maxWidth: 640 }}>
+          Base 1.350 € − ingresos Uber / Glovo / Just Eat + gastos del negocio (Mercadona, proveedores…) = adeudado. Los traspasos a sueldo y Hacienda no cuentan. Pasa el ratón por un mes para ver sus ingresos y gastos.
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(178px,1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(178px,1fr))', gap: 12, alignItems: 'start' }}>
           {calcAnio.map(r => {
-            const active = selMes === r.mes
+            const hov = hoverMes === r.mes
             return (
               <div
                 key={r.mes}
-                onClick={() => setSelMes(active ? null : r.mes)}
+                onMouseEnter={() => setHoverMes(r.mes)}
+                onMouseLeave={() => setHoverMes(m => (m === r.mes ? null : m))}
                 style={{
-                  ...cardStyle(T), cursor: 'pointer',
-                  border: `1px solid ${active ? '#B01D23' : T.brd}`,
-                  boxShadow: active ? '0 0 0 1px #B01D23' : 'none',
+                  ...cardStyle(T),
+                  border: `1px solid ${hov ? '#B01D23' : T.brd}`,
+                  boxShadow: hov ? '0 0 0 1px #B01D23' : 'none',
                   transition: 'border-color 150ms, box-shadow 150ms',
                 }}
               >
@@ -171,38 +171,34 @@ export default function TabNominas() {
                 <Linea label="Ingresos plataforma" val={r.ingresos_plataforma} color="#1D9E75" signo="− " />
                 <Linea label="Gastos negocio" val={r.gastos_negocio} color="#1D9E75" signo="+ " />
                 <Linea label="Base" val={r.base} color={T.sec} />
+
+                {hov && (
+                  <>
+                    <div style={dividerStyle(T)} />
+                    {(['ingreso_plataforma', 'gasto_negocio'] as const).map(clase => {
+                      const items = detalleMes(r.mes, clase)
+                      if (items.length === 0) return null
+                      return (
+                        <div key={clase} style={{ marginTop: 6 }}>
+                          <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, marginBottom: 3 }}>
+                            {labelClase[clase]}
+                          </div>
+                          {items.map(it => (
+                            <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontFamily: FONT.body, fontSize: 10.5, color: T.pri, padding: '1px 0' }}>
+                              <span style={{ color: T.mut, whiteSpace: 'nowrap' }}>{fmtDate(it.fecha)}</span>
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.proveedor || it.concepto}</span>
+                              <span style={{ fontVariantNumeric: 'tabular-nums', color: it.importe < 0 ? '#B01D23' : '#1D9E75' }}>{fmtEur(it.importe)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             )
           })}
         </div>
-
-        {selMes && (
-          <div style={{ ...cardStyle(T), marginTop: 14, padding: '14px 16px' }}>
-            <div style={{ ...sectionLabelStyle(T), marginBottom: 10 }}>Detalle · {MESES[selMes - 1]} {selectedAnio}</div>
-            {(['ingreso_plataforma', 'gasto_negocio', 'ignorado'] as const).map(clase => {
-              const items = detalleMes(selMes, clase)
-              if (items.length === 0) return null
-              const subtotal = items.reduce((s, it) => s + Math.abs(it.importe), 0)
-              return (
-                <div key={clase} style={{ marginBottom: 14, opacity: clase === 'ignorado' ? 0.55 : 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>{labelClase[clase]}</span>
-                    <span style={{ fontFamily: FONT.heading, fontSize: 11, color: clase === 'gasto_negocio' ? '#1D9E75' : clase === 'ingreso_plataforma' ? '#1D9E75' : T.mut, fontVariantNumeric: 'tabular-nums' }}>
-                      {clase === 'ignorado' ? '' : clase === 'ingreso_plataforma' ? '− ' : '+ '}{fmtEur(subtotal)}
-                    </span>
-                  </div>
-                  {items.map(it => (
-                    <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: FONT.body, fontSize: 11.5, color: T.pri, padding: '2px 0' }}>
-                      <span style={{ color: T.mut, minWidth: 58 }}>{fmtDate(it.fecha)}</span>
-                      <span style={{ flex: 1 }}>{it.proveedor || it.concepto}</span>
-                      <span style={{ fontVariantNumeric: 'tabular-nums', color: it.importe < 0 ? '#B01D23' : '#1D9E75' }}>{fmtEur(it.importe)}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
     )
   }
