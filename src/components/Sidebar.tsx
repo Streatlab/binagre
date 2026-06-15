@@ -19,6 +19,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
+import { useEsMovil } from '@/hooks/useEsMovil'
 
 interface NavItem {
   path: string
@@ -251,6 +252,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { usuario, logout } = useAuth()
   const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
+  const esMovilDisp = useEsMovil()
 
   const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
@@ -323,7 +325,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }, [])
 
   // Colapsado salvo que esté fijado por clic o que el ratón esté encima.
-  const collapsed = !pinned && !peek
+  // En móvil (táctil): SIEMPRE expandido, sin rail de iconos ni timer de 20 s.
+  const collapsed = esMovilDisp ? false : (!pinned && !peek)
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
