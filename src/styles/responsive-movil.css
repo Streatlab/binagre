@@ -1,10 +1,8 @@
 /* ============================================================
    RESPONSIVE GLOBAL — MÓVIL
-   Capa transversal: aplica a TODOS los módulos del ERP sin tocar
-   cada página. Se activa con <html class="sl-movil">, que pone el
-   JS (ResponsiveTables) cuando detecta un dispositivo móvil real
-   — funciona aunque el navegador esté en modo "Sitio de escritorio".
-   No afecta a escritorio.
+   Se activa con <html class="sl-movil">, que pone el JS cuando
+   detecta un dispositivo táctil real. Funciona aunque el navegador
+   esté en modo "Sitio de escritorio". No afecta a escritorio.
    ============================================================ */
 
 /* 1. Márgenes laterales compactos en el área de contenido */
@@ -18,8 +16,7 @@ html.sl-movil main [class*="grid-cols-"] {
   grid-template-columns: 1fr !important;
 }
 
-/* 3. Tablas: red de seguridad — scroll horizontal interno,
-      nunca desbordan. Las que se convierten a cards usan .sl-cards. */
+/* 3. Tablas: red de seguridad — scroll horizontal interno */
 html.sl-movil main table {
   display: block;
   width: 100%;
@@ -36,11 +33,30 @@ html.sl-movil main canvas {
 }
 
 /* ============================================================
-   TABLAS → CARDS APILADAS
-   El convertidor añade .sl-cards a cada tabla y etiqueta cada
-   celda con el nombre de su columna (data-label). Aquí el volcado
-   visual: cabecera oculta, cada fila = card, cada celda = etiqueta+valor.
-   Tablas marcadas [data-no-cards] quedan excluidas (mantienen scroll).
+   ARMAZÓN MÓVIL — saca el sidebar del flujo
+   En modo escritorio el navegador miente con el ancho (980px) y la
+   app dibuja el sidebar fijo de ordenador, comiéndose la pantalla.
+   Aquí lo convertimos en cajón lateral: oculto por defecto, y entra
+   cuando se abre con la hamburguesa. El contenido queda a pantalla
+   completa. Solo en dispositivo táctil (sl-movil).
+   ============================================================ */
+
+html.sl-movil aside {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 40 !important;
+  transform: translateX(-100%) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Cuando la app marca el sidebar como abierto (hamburguesa), entra */
+html.sl-movil aside.translate-x-0 {
+  transform: translateX(0) !important;
+}
+
+/* ============================================================
+   TABLAS → CARDS APILADAS (.sl-cards lo añade el convertidor)
    ============================================================ */
 
 html.sl-movil main table.sl-cards {
@@ -58,7 +74,6 @@ html.sl-movil main table.sl-cards tbody {
   display: block !important;
 }
 
-/* Cada fila = una card */
 html.sl-movil main table.sl-cards tbody tr {
   display: block !important;
   background: var(--sl-card) !important;
@@ -69,7 +84,6 @@ html.sl-movil main table.sl-cards tbody tr {
   box-shadow: var(--sl-shadow-sm);
 }
 
-/* Cada celda = fila etiqueta (izq) + valor (der) */
 html.sl-movil main table.sl-cards tbody td {
   display: flex !important;
   justify-content: space-between !important;
@@ -88,7 +102,6 @@ html.sl-movil main table.sl-cards tbody td:last-child {
   border-bottom: none !important;
 }
 
-/* Etiqueta = nombre de la columna */
 html.sl-movil main table.sl-cards tbody td::before {
   content: attr(data-label);
   flex: 0 0 42%;
@@ -101,7 +114,6 @@ html.sl-movil main table.sl-cards tbody td::before {
   font-weight: 600;
 }
 
-/* Celdas sin etiqueta (columnas de acción): valor a ancho completo */
 html.sl-movil main table.sl-cards tbody td:not([data-label])::before {
   content: "";
   flex: 0;
