@@ -39,7 +39,8 @@ export function PanelCobertura() {
   return (
     <div
       style={{
-        background: COLORS.sidebar,
+        background: '#ffffff',
+        border: '1px solid #e5e2dc',
         borderRadius: 14,
         padding: '20px 28px',
         marginBottom: 18,
@@ -47,6 +48,7 @@ export function PanelCobertura() {
         gap: 32,
         alignItems: 'center',
         flexWrap: 'wrap',
+        boxShadow: '0 1px 3px rgba(30,34,51,0.06)',
       }}
     >
       {/* % cobertura grande */}
@@ -56,7 +58,7 @@ export function PanelCobertura() {
             fontFamily: OSWALD,
             fontSize: 10,
             letterSpacing: '2px',
-            color: '#6a7890',
+            color: '#7a8090',
             textTransform: 'uppercase',
             marginBottom: 4,
           }}
@@ -67,7 +69,7 @@ export function PanelCobertura() {
           {pct.toFixed(1)}%
         </div>
         <div
-          style={{ height: 5, borderRadius: 3, background: '#2a3050', marginTop: 8, overflow: 'hidden' }}
+          style={{ height: 5, borderRadius: 3, background: '#ece9e3', marginTop: 8, overflow: 'hidden' }}
         >
           <div
             style={{
@@ -81,11 +83,11 @@ export function PanelCobertura() {
         </div>
       </div>
 
-      <div style={{ width: 1, height: 52, background: '#2a3050', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 52, background: '#e5e2dc', flexShrink: 0 }} />
 
       {/* KPIs */}
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-        <StatOscura label="Cuadrados" value={`${kpi.movimientos_con_factura} / ${kpi.movimientos_total}`} color="#e0e8f0" />
+        <StatOscura label="Cuadrados" value={`${kpi.movimientos_con_factura} / ${kpi.movimientos_total}`} color="#1e2233" />
         <StatOscura
           label="Sin categoría"
           value={kpi.facturas_sin_categoria}
@@ -104,12 +106,12 @@ export function PanelCobertura() {
       </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#6a7890' }}>
+        <div style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090' }}>
           {kpi.facturas_total} facturas totales
         </div>
         <button
           onClick={() => setTick(t => t + 1)}
-          style={{ fontFamily: LEXEND, fontSize: 11, color: '#6a7890', background: 'none', border: '0.5px solid #2a3050', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
+          style={{ fontFamily: LEXEND, fontSize: 11, color: '#7a8090', background: 'none', border: '1px solid #e5e2dc', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
         >
           ↻ Refrescar
         </button>
@@ -134,7 +136,7 @@ function StatOscura({
           fontFamily: OSWALD,
           fontSize: 10,
           letterSpacing: '1.5px',
-          color: '#6a7890',
+          color: '#7a8090',
           textTransform: 'uppercase',
         }}
       >
