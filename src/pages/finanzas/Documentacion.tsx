@@ -160,7 +160,7 @@ export default function Documentacion() {
         {tab === 'facturas' && <OcrConToast periodoExterno={{ desde, hasta }} />}
         {tab === 'documental' && <GestionFacturas />}
         {tab === 'ventas' && <ImportarVentas />}
-        {tab === 'conciliacion' && <Conciliacion />}
+        {tab === 'conciliacion' && <Conciliacion periodoExterno={{ desde, hasta }} />}
       </Suspense>
     </div>
   )
