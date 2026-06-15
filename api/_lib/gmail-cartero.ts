@@ -166,9 +166,7 @@ export async function recogerFacturasDelCorreo(
       const { data: existe } = await supabaseAdmin
         .from(datos.tabla)
         .select('id')
-        .eq('plataforma', datos.plataforma)
-        .eq('fecha_inicio_periodo', datos.fecha_inicio_periodo)
-        .eq('fecha_fin_periodo', datos.fecha_fin_periodo)
+        .eq('referencia_pago', datos.referencia_pago)
         .limit(1)
         .maybeSingle()
       if (!existe) {
@@ -187,6 +185,47 @@ export async function recogerFacturasDelCorreo(
       await client.messageMove(uidsLiquidacion, CARPETA_PROCESADAS, { uid: true })
     } catch { /* best-effort */ } finally { lock3.release() }
   }
+
+  // ── Ampliación: buscar resúmenes de plataforma en TODO el buzón ──
+  // Incluye archivados/etiquetados (fuera de INBOX). Solo se GUARDAN (no se
+  // mueven, para no tocar correos archivados). Con tope de seguridad y tiempo.
+  try {
+    const buzones = await client.list()
+    const todos = buzones.find((b) => b.specialUse === '\\All' || /all mail|todos los correos|todos/i.test(b.path))
+    if (todos) {
+      const lockAll = await client.getMailboxLock(todos.path)
+      try {
+        const encontrados = await client.search(
+          { or: [{ subject: 'resumen de pagos' }, { subject: 'resumen de pago' }] },
+          { uid: true },
+        )
+        const uids = (Array.isArray(encontrados) ? encontrados : []).slice(-300)
+        const t0 = Date.now()
+        for (const uid of uids) {
+          if (Date.now() - t0 > 12000) break // time-budget 12s (protege el resto del barrido)
+          try {
+            const msg2 = await client.fetchOne(uid, { source: true }, { uid: true })
+            if (!msg2 || !msg2.source) continue
+            const parsed2 = await simpleParser(msg2.source as Buffer)
+            const liq2 = parseLiquidacionPlataforma(parsed2.text as string, parsed2.html as string, parsed2.subject || null)
+            if (!liq2) continue
+            const { data: existe2 } = await supabaseAdmin
+              .from(liq2.tabla)
+              .select('id')
+              .eq('referencia_pago', liq2.referencia_pago)
+              .limit(1)
+              .maybeSingle()
+            if (!existe2) {
+              const fila2: Record<string, unknown> = { ...liq2 }
+              delete fila2.tabla
+              const { error: e2 } = await supabaseAdmin.from(liq2.tabla).insert(fila2)
+              if (!e2) liquidacionesGuardadas++
+            }
+          } catch { /* siguiente mensaje */ }
+        }
+      } finally { lockAll.release() }
+    }
+  } catch { /* best-effort: si falla la ampliación no rompe el barrido */ }
 
   // Closure para mover a Procesadas los UIDs procesados con éxito.
   const _mover = async (messageIds: string[]): Promise<void> => {
