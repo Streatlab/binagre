@@ -7,6 +7,7 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
 const ImportarVentas = lazy(() => import('@/pages/ImportarVentas'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
+const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
 
 type Tab = 'bandeja' | 'facturas' | 'documental' | 'ventas' | 'conciliacion'
 
@@ -83,12 +84,7 @@ export default function Documentacion() {
           />
         )}
         {tab === 'facturas' && <OcrConToast />}
-        {tab === 'documental' && (
-          <Placeholder
-            titulo="Gestor documental"
-            nota="Próxima fase: se reubica aquí el gestor documental actual, con acceso tal cual hasta ahora."
-          />
-        )}
+        {tab === 'documental' && <GestionFacturas />}
         {tab === 'ventas' && <ImportarVentas />}
         {tab === 'conciliacion' && <Conciliacion />}
       </Suspense>
