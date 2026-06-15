@@ -16,6 +16,7 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import type { Attachment } from 'mailparser'
 import { supabaseAdmin } from './supabase-admin.js'
+import { parseLiquidacionPlataforma, type LiquidacionPlataforma } from './parsers-plataforma.js'
 
 export interface AdjuntoCorreo {
   nombre: string
@@ -82,6 +83,8 @@ async function cargarCredenciales(): Promise<{ email: string; appPassword: strin
 export interface CarteroResultado {
   adjuntos: AdjuntoCorreo[]
   mensajesRevisados: number
+  // Nº de liquidaciones de plataforma (resúmenes de pago) guardadas en este barrido.
+  liquidaciones: number
   // En IMAP el "marcar procesado" se hace dentro del barrido (mover a Procesadas).
   // Estos campos se mantienen por compatibilidad con el handler.
   labelId: null
@@ -116,6 +119,7 @@ export async function recogerFacturasDelCorreo(
   const adjuntos: AdjuntoCorreo[] = []
   const uidConAdjunto: number[] = []
   let revisados = 0
+  const liquidacionesDetectadas: { uid: number; datos: LiquidacionPlataforma }[] = []
 
   const lock = await client.getMailboxLock('INBOX')
   try {
@@ -126,6 +130,9 @@ export async function recogerFacturasDelCorreo(
         const parsed = await simpleParser(msg.source as Buffer)
         const remitente = parsed.from?.text || null
         const asunto = parsed.subject || null
+        // ¿Es un resumen de pagos de plataforma (Uber/Glovo/Just Eat) en el cuerpo?
+        const liq = parseLiquidacionPlataforma(parsed.text as string, parsed.html as string, asunto)
+        if (liq) liquidacionesDetectadas.push({ uid: msg.uid, datos: liq })
         let tieneFactura = false
         for (const att of parsed.attachments || []) {
           const nombre = att.filename || 'adjunto'
@@ -150,6 +157,37 @@ export async function recogerFacturasDelCorreo(
     lock.release()
   }
 
+  // ── Liquidaciones de plataforma (resúmenes de pago en el cuerpo) ──
+  // Se guardan en su tabla *_liquidaciones y el mensaje se archiva.
+  let liquidacionesGuardadas = 0
+  const uidsLiquidacion: number[] = []
+  for (const { uid, datos } of liquidacionesDetectadas) {
+    try {
+      const { data: existe } = await supabaseAdmin
+        .from(datos.tabla)
+        .select('id')
+        .eq('plataforma', datos.plataforma)
+        .eq('fecha_inicio_periodo', datos.fecha_inicio_periodo)
+        .eq('fecha_fin_periodo', datos.fecha_fin_periodo)
+        .limit(1)
+        .maybeSingle()
+      if (!existe) {
+        const fila: Record<string, unknown> = { ...datos }
+        delete fila.tabla
+        const { error: errIns } = await supabaseAdmin.from(datos.tabla).insert(fila)
+        if (!errIns) liquidacionesGuardadas++
+      }
+      uidsLiquidacion.push(uid)
+    } catch { /* best-effort: no romper el flujo de facturas */ }
+  }
+  if (uidsLiquidacion.length) {
+    const lock3 = await client.getMailboxLock('INBOX')
+    try {
+      await client.messageFlagsAdd(uidsLiquidacion, ['\\Seen'], { uid: true })
+      await client.messageMove(uidsLiquidacion, CARPETA_PROCESADAS, { uid: true })
+    } catch { /* best-effort */ } finally { lock3.release() }
+  }
+
   // Closure para mover a Procesadas los UIDs procesados con éxito.
   const _mover = async (messageIds: string[]): Promise<void> => {
     const uids = messageIds.map(Number).filter((n) => Number.isFinite(n))
@@ -166,7 +204,7 @@ export async function recogerFacturasDelCorreo(
     }
   }
 
-  return { adjuntos, mensajesRevisados: revisados, labelId: null, gmail: null, _mover }
+  return { adjuntos, mensajesRevisados: revisados, liquidaciones: liquidacionesGuardadas, labelId: null, gmail: null, _mover }
 }
 
 /**
