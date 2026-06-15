@@ -11,10 +11,13 @@ export const config = { maxDuration: 300 }
 //   (a) sin importe (total null/0), o
 //   (b) marcada pendiente_releer_ocr=true (p.ej. nombre = NIF / sin categoría).
 //
-// GATILLO (importante): NO trabaja en bucle. Solo procesa cuando hay una subida de
-// facturas reciente (sesión OCR creada en los últimos MINUTOS_VENTANA) o cuando se le
-// llama con ?manual=1 (backfill puntual). Cualquier toque periódico en vacío sale sin
-// hacer nada y sin coste. Así Mistral solo se gasta cuando el usuario sube facturas.
+// GATILLO: NO trabaja en bucle. Solo procesa cuando hay una subida de facturas reciente
+// (sesión OCR creada en los últimos MINUTOS_VENTANA) o cuando se le llama con ?manual=1.
+// Cualquier toque periódico en vacío sale sin hacer nada y sin coste.
+//
+// AUTO-ENCADENADO: una sola pulsación procesa TODO. Cada pasada trabaja un time-budget
+// y, si quedan facturas, dispara sola la siguiente pasada; cuando no queda ninguna, para
+// por sí misma. El usuario no tiene que repetir clics.
 //
 // Por cada factura: Mistral OCR -> extracción estructurada (cualquier idioma) -> escribe
 // los datos que falten, aprende la plantilla por NIF (resto del proveedor gratis) y
@@ -176,8 +179,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     activo: !agotadas, ultimo_run: new Date().toISOString(),
   }).eq('id', ctrlId)
 
+  // AUTO-ENCADENADO: si quedan facturas y esta tanda avanzó, dispara la siguiente pasada
+  // sin esperar su respuesta. Cuando el lote sale vacío (agotadas) NO se reencadena: para
+  // sola. La guarda okTanda>0 evita bucles si nada progresa.
+  if (!agotadas && okTanda > 0) {
+    const host = (req.headers['x-forwarded-host'] as string) || (req.headers.host as string)
+    if (host) {
+      const self = `https://${host}/api/bootstrap-ocr?manual=1`
+      try { void fetch(self, { method: 'GET' }).catch(() => {}) } catch { /* noop */ }
+      await new Promise((r) => setTimeout(r, 600))
+    }
+  }
+
   return res.status(200).json({
-    ok: true, terminado: agotadas,
+    ok: true, terminado: agotadas, autocontinua: !agotadas && okTanda > 0,
     leidas_tanda: okTanda, manual_tanda: manualTanda,
     leidas_total: leidas, manual_total: manual, conciliadas_total: conciliadas, procesadas,
   })
