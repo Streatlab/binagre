@@ -51,6 +51,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const [unidad, setUnidad] = useState(eps?.unidad ?? 'gr.')
   const [fecha, setFecha] = useState(eps?.fecha ?? todayISO)
   const [fechaOriginal] = useState(eps?.fecha ?? todayISO)
+  const [preparacion, setPreparacion] = useState(eps?.preparacion ?? '')
   const [isDirty, setIsDirty] = useState(false)
 
   // Dictado
@@ -235,6 +236,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
         coste_tanda: costeTanda,
         coste_rac: costeRac,
         unidad,
+        preparacion: preparacion || null,
         fecha: isDirty ? todayISO : (fechaOriginal || null),
       }
       if (epsId) {
@@ -415,6 +417,21 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Preparación */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] text-[var(--sl-text-muted)] uppercase tracking-wider">Preparación</p>
+              </div>
+              <textarea
+                value={preparacion}
+                onChange={e => { setIsDirty(true); setPreparacion(e.target.value) }}
+                placeholder="Escribe los pasos de elaboración de esta EP…"
+                rows={8}
+                className="w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border-strong)] rounded-md px-3 py-2 text-[13px] text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent font-sans"
+                style={{ resize: 'vertical', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}
+              />
             </div>
           </div>
 
