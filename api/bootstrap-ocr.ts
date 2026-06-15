@@ -25,7 +25,7 @@ export const config = { maxDuration: 300 }
 // (4/10/21), se conserva ese desglose y Mistral solo rellena lo ausente. Candado por NIF.
 
 const PRESUPUESTO_MS = 250_000
-const LOTE_DB = 6
+const LOTE_DB = 8
 const MINUTOS_VENTANA = 30
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
