@@ -268,6 +268,18 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
   function imprimir() { window.print() }
 
+  const colHead: React.CSSProperties = { padding: '0 0 5px', fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--sl-text-muted)' }
+  const theadIng = (
+    <thead>
+      <tr>
+        <th style={{ ...colHead, textAlign: 'left' }}>Ingrediente</th>
+        <th style={{ ...colHead, textAlign: 'right', width: 64 }}>Cantidad</th>
+        <th style={{ ...colHead, textAlign: 'right', width: 78 }}>Equivalencia</th>
+        <th className="no-print" style={{ width: 86 }} />
+      </tr>
+    </thead>
+  )
+
   const filaIng = (i: IngLinea, idx: number) => (
     <tr key={idx} className="ficha-tr">
       <td style={{ padding: '5px 0' }}>
@@ -340,7 +352,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
               grupos.map(([gk, items]) => (
                 <div key={gk} style={{ marginBottom: 8 }}>
                   {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
-                  <table className="ficha-table"><tbody>{items.map(filaIng)}</tbody></table>
+                  <table className="ficha-table">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
                 </div>
               ))
             ) : (
@@ -348,7 +360,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 {grupos.map(([gk, items]) => (
                   <div key={gk} style={{ breakInside: 'avoid', marginBottom: 8 }}>
                     {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
-                    <table className="ficha-table"><tbody>{items.map(filaIng)}</tbody></table>
+                    <table className="ficha-table">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
                   </div>
                 ))}
               </div>
@@ -505,6 +517,7 @@ const FICHA_CSS = `
   .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
   .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
   .print-ficha .ficha-table td { color: #111 !important; }
+  .print-ficha .ficha-table th { color: #555 !important; }
   .print-ficha .ficha-equiv { color: #777 !important; }
   .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: #111 !important; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
