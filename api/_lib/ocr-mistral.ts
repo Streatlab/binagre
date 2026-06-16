@@ -20,6 +20,11 @@ const MISTRAL_OCR_MODEL = 'mistral-ocr-latest'
 const MISTRAL_CHAT_MODEL = 'mistral-small-latest'
 const TIMEOUT_MS = 90000
 
+// NIF de los clientes (Rubén / Emilio). NUNCA pueden ser el emisor: son quienes
+// reciben la factura. Si una vía de lectura los devuelve como emisor (error que
+// generó 140 facturas mal marcadas), se descarta el NIF emisor.
+const NIF_CLIENTES = new Set(['21669051S', '53484832B'])
+
 export function bootstrapApiActivo(): boolean {
   return process.env.OCR_BOOTSTRAP_API === 'true' && !!process.env.MISTRAL_API_KEY
 }
@@ -105,7 +110,11 @@ export async function extraerFacturaMistral(textoOcr: string): Promise<Extracted
     const total = numero(j.total)
     if (total === null || total <= 0) return null  // sin total no sirve
 
-    const nifEmisor = limpiarNif(j.nif_emisor)
+    let nifEmisor = limpiarNif(j.nif_emisor)
+    // BLINDAJE: el emisor jamás puede ser un cliente (Rubén/Emilio). Si la IA lo
+    // confunde, se descarta el NIF (la factura entra sin emisor y se resuelve por
+    // nombre/aprendizaje, en vez de quedar marcada como "tu DNI como emisor").
+    if (nifEmisor && NIF_CLIENTES.has(nifEmisor)) nifEmisor = null
     const base = numero(j.base_imponible)
     const iva = numero(j.iva_total)
 
