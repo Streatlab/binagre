@@ -38,12 +38,16 @@ const fmtF = (s: string | null) => {
   return `${d}/${m}/${y.slice(2)}`
 }
 
-// Color por plataforma (coherente con el resto del ERP)
-const COLOR_PLAT: Record<string, string> = {
-  'Uber Eats': '#06C167', 'UberEats': '#06C167', 'Uber': '#06C167',
-  'Glovo': '#F2D200', 'Just Eat': '#FF8000', 'JustEat': '#FF8000',
-  'Web': '#B01D23', 'Directa': '#B01D23',
+// La BD guarda el código de plataforma ('uber'/'glovo'/'just_eat'). Estos mapas lo
+// muestran con su nombre y color de marca correctos.
+const NOMBRE_PLAT: Record<string, string> = {
+  uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', rushour: 'Rushour', desconocido: 'Desconocido',
 }
+const COLOR_PLAT: Record<string, string> = {
+  uber: '#06C167', glovo: '#F2D200', just_eat: '#FF8000', rushour: '#1e2233', web: '#B01D23', directa: '#B01D23',
+}
+const nombrePlat = (p: string) => NOMBRE_PLAT[p] || p
+const colorPlat = (p: string) => COLOR_PLAT[p] || COLORS.mut
 
 function CardsResumen({ rows }: { rows: VentaRow[] }) {
   const t = useMemo(() => {
@@ -105,11 +109,11 @@ function TablaDetalle({ rows, cargando }: { rows: VentaRow[]; cargando: boolean 
           </thead>
           <tbody>
             {rows.map(r => {
-              const cp = COLOR_PLAT[r.plataforma] || COLORS.mut
+              const cp = colorPlat(r.plataforma)
               return (
                 <tr key={r.id}>
                   <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
-                  <td style={tdL}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: cp }} />{r.plataforma}</span></td>
+                  <td style={tdL}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: cp }} />{nombrePlat(r.plataforma)}</span></td>
                   <td style={tdL}>{r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
                   <td style={tdR}>{fmtEur(r.bruto)}</td>
                   <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(r.neto)}</td>
