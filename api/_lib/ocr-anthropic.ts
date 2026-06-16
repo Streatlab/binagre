@@ -22,6 +22,11 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5'
 const TIMEOUT_MS = 90000
 
+// NIF de los clientes (Rubén / Emilio). NUNCA pueden ser el emisor: son quienes
+// reciben la factura. Si la IA los devuelve como emisor (error que generó 140
+// facturas mal marcadas como "tu DNI como emisor"), se descarta ese NIF.
+const NIF_CLIENTES = new Set(['21669051S', '53484832B'])
+
 // ¿Está permitido usar Anthropic como escalón de bootstrap?
 export function anthropicBootstrapActivo(): boolean {
   return process.env.OCR_BOOTSTRAP_API === 'true' && !!process.env.ANTHROPIC_API_KEY
@@ -93,8 +98,14 @@ export async function extraerFacturaAnthropic(
     const total = numero(j.total)
     if (total === null || total <= 0) return null
 
-    const nifEmisor = limpiarNif(j.nif_emisor)
-    const nifCliente = limpiarNif(j.nif_cliente)
+    let nifEmisor = limpiarNif(j.nif_emisor)
+    let nifCliente = limpiarNif(j.nif_cliente)
+    // BLINDAJE: el emisor jamás puede ser un cliente (Rubén/Emilio). Si la IA lo
+    // confunde, se descarta como emisor y, si no estaba ya, se registra como cliente.
+    if (nifEmisor && NIF_CLIENTES.has(nifEmisor)) {
+      if (!nifCliente) nifCliente = nifEmisor
+      nifEmisor = null
+    }
 
     const fac: ExtractedFactura = {
       proveedor_nombre: String(j.proveedor_nombre || '').trim() || (nifEmisor ? `NIF ${nifEmisor}` : 'PROVEEDOR'),
