@@ -1,15 +1,14 @@
-// procesarArchivo v21 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// procesarArchivo v22 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// v22: cascada de lectura COMPLETA con Anthropic como último escalón:
+//      1) Reglas/plantilla por NIF (gratis)
+//      2) OCR Tesseract (gratis) + reglas
+//      3) Mistral bootstrap (pago acotado) — texto + reglas
+//      3b) Anthropic bootstrap (último recurso) — extracción estructurada con
+//          desglose de IVA. Tras leer, se aprende la plantilla por NIF (candado).
+//      Si NINGUNA vía lee → estado LECTURA_MANUAL con el PDF guardado en Drive.
 // v21: antes de tratar un PDF como factura, se comprueba si es un RESUMEN de ventas
-//      de plataforma (Uber/Glovo/Just Eat). Si lo es, va a ventas_plataforma (módulo
-//      Ventas) y NO se crea factura.
-// La lectura de facturas va, en orden:
-//   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
-//   2) Si las reglas no leen (escaneo/foto/formato raro) → OCR Tesseract gratis.
-//   3) Si Tesseract tampoco lee → BOOTSTRAP Mistral (pago acotado, regla 3 bis):
-//      UNA pasada para sacar el texto y, vía el MISMO parser gratis, fabricar la
-//      plantilla por NIF. La 2ª factura de ese proveedor ya se lee gratis y nunca
-//      vuelve a Mistral (candado natural por NIF + kill-switch OCR_BOOTSTRAP_API).
-// Si ninguna vía lee → estado LECTURA_MANUAL con el PDF guardado en Drive.
+//      de plataforma (Uber/Glovo/Just Eat). Si lo es, va a ventas_plataforma y NO
+//      se crea factura.
 import { createHash, randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectarTipoArchivo, extensionDeNombre } from './detectarTipo.js'
@@ -32,6 +31,7 @@ import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { ocrMistralTexto, bootstrapApiActivo } from './ocr-mistral.js'
+import { extraerFacturaAnthropic, anthropicBootstrapActivo } from './ocr-anthropic.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
@@ -676,7 +676,7 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' | 'anthropic_bootstrap' = 'reglas'
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -747,6 +747,27 @@ async function procesarContenidoPrincipal(
       }
     } catch (mistralErr) {
       console.error('[procesarArchivo] bootstrap Mistral no resolvió:', errMsg(mistralErr))
+    }
+  }
+
+  // PASO 3b (BOOTSTRAP Anthropic — ÚLTIMO recurso de la cascada): si ni reglas, ni
+  // Tesseract, ni Mistral leyeron, y el bootstrap está permitido (OCR_BOOTSTRAP_API
+  // + ANTHROPIC_API_KEY), se hace UNA pasada de Anthropic con visión directa sobre
+  // el PDF/imagen. Devuelve extracción estructurada CON desglose de IVA. Tras leer,
+  // abajo se aprende la plantilla por NIF y la próxima factura se lee gratis.
+  if (!extractedReglas && anthropicBootstrapActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const facAnthropic = await extraerFacturaAnthropic(
+        file.buffer,
+        tipo === 'imagen' ? 'imagen' : 'pdf',
+        file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'),
+      )
+      if (facAnthropic) {
+        extractedReglas = facAnthropic
+        origenLectura = 'anthropic_bootstrap'
+      }
+    } catch (anthropicErr) {
+      console.error('[procesarArchivo] bootstrap Anthropic no resolvió:', errMsg(anthropicErr))
     }
   }
 
@@ -920,7 +941,7 @@ async function procesarContenidoPrincipal(
     // APRENDIZAJE DE PLANTILLA POR NIF: tras leer bien (por la vía que sea), si el
     // proveedor aún no está en reglas_conciliacion, se crea su plantilla. Esto es lo
     // que cierra el candado del bootstrap: la próxima factura del proveedor se lee
-    // gratis y Mistral no vuelve a tocarse. Best-effort, idempotente por NIF.
+    // gratis y Mistral/Anthropic no vuelven a tocarse. Best-effort, idempotente por NIF.
     await aprenderProveedorNif(supabase, extracted, textoPdfCache)
 
     // F11: batch insert plataforma_detalle
@@ -1304,7 +1325,7 @@ async function guardarLecturaManual(
       pdf_drive_url: drive?.webViewLink ?? null,
       pdf_filename: drive?.nombre ?? null,
       error_mensaje: drive
-        ? 'No se pudo leer con plantilla, Tesseract ni bootstrap. Revisa la plantilla del NIF o lectura manual.'
+        ? 'No se pudo leer con plantilla, Tesseract, Mistral ni Anthropic. Revisa la plantilla del NIF o lectura manual.'
         : 'No se pudo leer y Drive no disponible. Reintenta.',
     })
     .select('*')
