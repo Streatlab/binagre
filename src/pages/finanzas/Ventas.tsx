@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, Suspense, lazy } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react'
+import { ChevronDown } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
@@ -39,15 +40,98 @@ const fmtF = (s: string | null) => {
 }
 
 // La BD guarda el código de plataforma ('uber'/'glovo'/'just_eat'). Estos mapas lo
-// muestran con su nombre y color de marca correctos.
+// muestran con su nombre y colores canónicos de marca.
 const NOMBRE_PLAT: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', rushour: 'Rushour', desconocido: 'Desconocido',
 }
-const COLOR_PLAT: Record<string, string> = {
-  uber: '#06C167', glovo: '#F2D200', just_eat: '#FF8000', rushour: '#1e2233', web: '#B01D23', directa: '#B01D23',
+// Pastilla de color por plataforma (estilo etiqueta de Facturación): fondo suave + texto legible.
+const PILL_PLAT: Record<string, { bg: string; tx: string }> = {
+  uber:     { bg: '#06C16722', tx: '#05833f' },
+  glovo:    { bg: '#F2D20033', tx: '#8a7400' },
+  just_eat: { bg: '#FF800022', tx: '#c25e00' },
+  rushour:  { bg: '#1e223318', tx: '#1e2233' },
+  desconocido: { bg: '#9aa0ad22', tx: '#6b7280' },
 }
 const nombrePlat = (p: string) => NOMBRE_PLAT[p] || p
-const colorPlat = (p: string) => COLOR_PLAT[p] || COLORS.mut
+const pillPlat = (p: string) => PILL_PLAT[p] || PILL_PLAT.desconocido
+
+function PastillaPlataforma({ plataforma }: { plataforma: string }) {
+  const c = pillPlat(plataforma)
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '3px 10px', borderRadius: 999,
+      background: c.bg, color: c.tx,
+      fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px',
+      whiteSpace: 'nowrap',
+    }}>{nombrePlat(plataforma)}</span>
+  )
+}
+
+// ── Multi-selector (mismo patrón que Panel Global) ─────────────────────────
+const dropdownBtn: React.CSSProperties = {
+  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  background: '#ffffff', fontSize: 13, fontFamily: 'Lexend, sans-serif', color: '#111111',
+  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', position: 'relative',
+}
+const menuStyle: React.CSSProperties = {
+  position: 'absolute', top: 38, right: 0, background: '#ffffff', border: '0.5px solid #d0c8bc',
+  borderRadius: 8, width: 260, fontSize: 12, color: '#3a4050', boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  zIndex: 100, maxHeight: 360, overflowY: 'auto', paddingTop: 2, paddingBottom: 2,
+}
+
+function MultiSelect({
+  label, options, selected, onToggle, onAll,
+}: {
+  label: string
+  options: Array<{ id: string; label: string }>
+  selected: string[]
+  onToggle: (id: string) => void
+  onAll: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function click(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', click)
+    return () => document.removeEventListener('mousedown', click)
+  }, [])
+  const displayLabel = selected.length === 0 || selected.length === options.length ? label : `${selected.length} sel.`
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button style={dropdownBtn} onClick={() => setOpen(o => !o)}>
+        <span>{displayLabel}</span>
+        <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+      </button>
+      {open && (
+        <div style={menuStyle}>
+          <button
+            style={{
+              display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+              background: 'transparent', border: 'none', fontSize: 13, fontFamily: 'Lexend, sans-serif',
+              color: '#7a8090', cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2',
+            }}
+            onClick={() => { onAll(); setOpen(false) }}
+          >Todos</button>
+          {options.length === 0 && (
+            <div style={{ padding: '8px 12px', color: '#9aa0ad', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>Sin datos</div>
+          )}
+          {options.map(o => (
+            <label key={o.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
+              background: selected.includes(o.id) ? '#FF475715' : 'transparent',
+              color: selected.includes(o.id) ? '#FF4757' : '#7a8090',
+              fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
+            }}>
+              <input type="checkbox" checked={selected.includes(o.id)} onChange={() => onToggle(o.id)} style={{ accentColor: '#FF4757' }} />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function CardsResumen({ rows }: { rows: VentaRow[] }) {
   const t = useMemo(() => {
@@ -108,21 +192,18 @@ function TablaDetalle({ rows, cargando }: { rows: VentaRow[]; cargando: boolean 
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => {
-              const cp = colorPlat(r.plataforma)
-              return (
-                <tr key={r.id}>
-                  <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
-                  <td style={tdL}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: cp }} />{nombrePlat(r.plataforma)}</span></td>
-                  <td style={tdL}>{r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
-                  <td style={tdR}>{fmtEur(r.bruto)}</td>
-                  <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(r.neto)}</td>
-                  <td style={tdR}>{nf0(r.pedidos)}</td>
-                  <td style={tdR}>{fmtEur(r.ticket_medio)}</td>
-                  <td style={tdL}>{fmtF(r.fecha_pago)}</td>
-                </tr>
-              )
-            })}
+            {rows.map(r => (
+              <tr key={r.id}>
+                <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
+                <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
+                <td style={tdL}>{r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
+                <td style={tdR}>{fmtEur(r.bruto)}</td>
+                <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(r.neto)}</td>
+                <td style={tdR}>{nf0(r.pedidos)}</td>
+                <td style={tdR}>{fmtEur(r.ticket_medio)}</td>
+                <td style={tdL}>{fmtF(r.fecha_pago)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -139,11 +220,14 @@ export default function Ventas() {
   const [rows, setRows] = useState<VentaRow[]>([])
   const [cargando, setCargando] = useState(true)
 
+  // Filtros (mismo patrón que Panel Global): marcas + canales/plataformas.
+  const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
+  const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
+
   useEffect(() => {
     let alive = true
     setCargando(true)
     const d = fechaLocalStr(desde), h = fechaLocalStr(hasta)
-    // Solapamiento de periodos con el rango elegido
     supabase
       .from('ventas_plataforma')
       .select('id, fecha_inicio_periodo, fecha_fin_periodo, plataforma, marca, bruto, neto, pedidos, ticket_medio, ingreso_colaborador, fecha_pago')
@@ -154,14 +238,45 @@ export default function Ventas() {
     return () => { alive = false }
   }, [desde, hasta])
 
+  // Opciones de los filtros, derivadas de los datos del periodo.
+  const marcasOpts = useMemo(() => {
+    const set = new Map<string, string>()
+    for (const r of rows) {
+      const id = r.marca || 'SIN_MARCA'
+      set.set(id, id === 'SIN_MARCA' ? 'Sin marca' : id)
+    }
+    return Array.from(set, ([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
+  }, [rows])
+
+  const canalesOpts = useMemo(() => {
+    const presentes = Array.from(new Set(rows.map(r => r.plataforma)))
+    const orden = ['uber', 'glovo', 'just_eat', 'rushour', 'desconocido']
+    return presentes
+      .sort((a, b) => orden.indexOf(a) - orden.indexOf(b))
+      .map(p => ({ id: p, label: nombrePlat(p) }))
+  }, [rows])
+
+  const rowsFiltradas = useMemo(() => rows.filter(r =>
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) &&
+    (marcasFiltro.length === 0 || marcasFiltro.includes(r.marca || 'SIN_MARCA'))
+  ), [rows, canalesFiltro, marcasFiltro])
+
   return (
     <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>VENTAS</h2>
-        <SelectorFechaUniversal nombreModulo="ventas" defaultOpcion="este_mes" onChange={(d, h) => { setDesde(d); setHasta(h) }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <SelectorFechaUniversal nombreModulo="ventas" defaultOpcion="este_mes" onChange={(d, h) => { setDesde(d); setHasta(h) }} />
+          <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
+            onToggle={id => setMarcasFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
+            onAll={() => setMarcasFiltro([])} />
+          <MultiSelect label="Canales" options={canalesOpts} selected={canalesFiltro}
+            onToggle={id => setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
+            onAll={() => setCanalesFiltro([])} />
+        </div>
       </div>
 
-      {tab === 'detalle' && <CardsResumen rows={rows} />}
+      {tab === 'detalle' && <CardsResumen rows={rowsFiltradas} />}
 
       <TabsPastilla
         tabs={[{ id: 'detalle', label: 'Detalle ventas' }, { id: 'pareto', label: 'Pareto Ventas' }]}
@@ -170,7 +285,7 @@ export default function Ventas() {
       />
 
       <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
-        {tab === 'detalle' && <TablaDetalle rows={rows} cargando={cargando} />}
+        {tab === 'detalle' && <TablaDetalle rows={rowsFiltradas} cargando={cargando} />}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
     </div>
