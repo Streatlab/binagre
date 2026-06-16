@@ -374,6 +374,80 @@ function buscarTotal(texto: string, plantilla?: PlantillaNif | null): number | n
   return Math.max(...candidatos)
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// DESGLOSE DE IVA POR REGLAS (gratis, sin IA) — CONSERVADOR
+// Saca base y cuota por tipo (4/10/21) del texto. Solo acepta un par (base,
+// cuota) si la aritmética cuadra: cuota ≈ base × tipo. Y solo devuelve el
+// desglose si la suma de bases + cuotas cuadra con el total (±0,05). Si algo no
+// cuadra, devuelve TODO a 0 (igual que antes) para no inventar un IVA erróneo.
+// ──────────────────────────────────────────────────────────────────────────
+export interface DesgloseIVA {
+  base_4: number; iva_4: number
+  base_10: number; iva_10: number
+  base_21: number; iva_21: number
+}
+const IVA_CERO: DesgloseIVA = { base_4: 0, iva_4: 0, base_10: 0, iva_10: 0, base_21: 0, iva_21: 0 }
+
+function round2(n: number): number { return Math.round(n * 100) / 100 }
+
+// Dada una línea con ≥2 importes y un tipo, intenta encontrar el par (base, cuota)
+// cuya cuota ≈ base × tipo/100. Tolerancia pequeña (céntimos de redondeo).
+function parBaseCuota(importes: number[], tipo: number): { base: number; cuota: number } | null {
+  for (let i = 0; i < importes.length; i++) {
+    for (let j = 0; j < importes.length; j++) {
+      if (i === j) continue
+      const base = importes[i]
+      const cuota = importes[j]
+      if (base <= 0 || cuota <= 0 || cuota >= base) continue
+      const esperado = base * tipo / 100
+      const tol = Math.max(0.02, base * 0.004)
+      if (Math.abs(cuota - esperado) <= tol) return { base, cuota }
+    }
+  }
+  return null
+}
+
+function buscarDesgloseIVA(texto: string, total: number | null): DesgloseIVA {
+  if (!texto) return IVA_CERO
+  const lineas = texto.split(/\n+/)
+  const tipos = [4, 10, 21] as const
+  const hallados: Partial<Record<number, { base: number; cuota: number }>> = {}
+
+  for (const t of tipos) {
+    // Línea que menciona explícitamente el tipo de IVA (ej "21%", "I.V.A. 21 %").
+    const reTipo = new RegExp(`(?<!\\d)${t}\\s*%`)
+    for (const ln of lineas) {
+      if (!reTipo.test(ln)) continue
+      const imps = importesDeLinea(ln)
+      if (imps.length < 2) continue
+      const par = parBaseCuota(imps, t)
+      if (par) { hallados[t] = par; break }
+    }
+  }
+
+  let sumaBase = 0, sumaCuota = 0, hay = false
+  for (const t of tipos) {
+    const h = hallados[t]
+    if (h) { sumaBase += h.base; sumaCuota += h.cuota; hay = true }
+  }
+  if (!hay) return IVA_CERO
+
+  // Validación global: base + IVA debe cuadrar con el total leído (±0,05).
+  // Si no cuadra, NO se arriesga ningún desglose parcial.
+  if (typeof total === 'number' && total > 0 && Math.abs((sumaBase + sumaCuota) - total) > 0.05) {
+    return IVA_CERO
+  }
+
+  return {
+    base_4: hallados[4] ? round2(hallados[4]!.base) : 0,
+    iva_4: hallados[4] ? round2(hallados[4]!.cuota) : 0,
+    base_10: hallados[10] ? round2(hallados[10]!.base) : 0,
+    iva_10: hallados[10] ? round2(hallados[10]!.cuota) : 0,
+    base_21: hallados[21] ? round2(hallados[21]!.base) : 0,
+    iva_21: hallados[21] ? round2(hallados[21]!.cuota) : 0,
+  }
+}
+
 function buscarFecha(texto: string, plantilla?: PlantillaNif | null): string | null {
   const formato = plantilla?.fechaFormato || null
 
@@ -489,6 +563,9 @@ export function extraerPorReglas(
   const fechaOk = esFechaValida(fecha)
   if (!fechaOk && requireFecha) return null
 
+  // Desglose de IVA por reglas (validado por aritmética; si no cuadra, queda a 0).
+  const iva = buscarDesgloseIVA(texto, total)
+
   return {
     proveedor_nombre: '',
     numero_factura: buscarNumeroFactura(texto, plantilla) || '',
@@ -503,12 +580,12 @@ export function extraerPorReglas(
     nif_cliente: nifCliente,
     nif_emisor: nifEmisor,
     nombre_cliente: null,
-    base_4: 0,
-    iva_4: 0,
-    base_10: 0,
-    iva_10: 0,
-    base_21: 0,
-    iva_21: 0,
+    base_4: iva.base_4,
+    iva_4: iva.iva_4,
+    base_10: iva.base_10,
+    iva_10: iva.iva_10,
+    base_21: iva.base_21,
+    iva_21: iva.iva_21,
     total,
     // Confianza menor cuando la fecha quedó por defecto: queda marcada como menos
     // fiable para una posible revisión, pero la factura se procesa (no va a manual).
