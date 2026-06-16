@@ -32,12 +32,37 @@ interface FacturaCandidata {
   diff_dias: number
 }
 
+// Datos enriquecidos del extracto bancario (punto 25). Vienen de la tabla
+// conciliacion; se cargan al abrir el modal para mostrarlos sin tocar el tipo
+// Movimiento ni el mapeo de la tabla.
+interface DatosExtracto {
+  saldo: number | null
+  fecha_valor: string | null
+  tipo_mov: string | null
+  referencia: string | null
+  no_conciliable: boolean
+  motivo_no_conciliable: string | null
+}
+
 interface Props {
   movimiento: Movimiento | null
   categoriasPyg: CatPyg[]
   titulares: Titular[]
   onClose: () => void
   onSaved: (m: Movimiento) => void
+}
+
+// Etiqueta legible del tipo de movimiento del extracto.
+const TIPO_MOV_LABEL: Record<string, string> = {
+  tarjeta: 'Tarjeta',
+  transferencia_recibida: 'Transferencia recibida',
+  transferencia_emitida: 'Transferencia emitida',
+  adeudo: 'Adeudo / recibo',
+  traspaso: 'Traspaso entre cuentas',
+  bizum: 'Bizum',
+  recarga: 'Recarga',
+  comision: 'Comisión bancaria',
+  otro: 'Otro',
 }
 
 // Calcula diferencia en días usando fechas locales (evita desfase UTC — D-12)
@@ -54,6 +79,11 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
   const [noRequiere, setNoRequiere] = useState(false)
   const [contraparte, setContraparte] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Punto 25 + 9/10: datos del extracto y marca "no conciliable".
+  const [extracto, setExtracto] = useState<DatosExtracto | null>(null)
+  const [noConciliable, setNoConciliable] = useState(false)
+  const [motivoNoConc, setMotivoNoConc] = useState('')
 
   const [facturasAsociadas, setFacturasAsociadas] = useState<FacturaAsociada[]>([])
   const [mostrarBuscador, setMostrarBuscador] = useState(false)
@@ -87,6 +117,33 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     setFacturasAsociadas(mapped)
   }, [])
 
+  // Carga los datos enriquecidos del extracto (punto 25) al abrir el modal.
+  const cargarExtracto = useCallback(async (movId: string) => {
+    const { data } = await supabase
+      .from('conciliacion')
+      .select('saldo, fecha_valor, tipo_mov, referencia, no_conciliable, motivo_no_conciliable')
+      .eq('id', movId)
+      .maybeSingle()
+    if (data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = data as any
+      setExtracto({
+        saldo: d.saldo != null ? Number(d.saldo) : null,
+        fecha_valor: d.fecha_valor ?? null,
+        tipo_mov: d.tipo_mov ?? null,
+        referencia: d.referencia ?? null,
+        no_conciliable: !!d.no_conciliable,
+        motivo_no_conciliable: d.motivo_no_conciliable ?? null,
+      })
+      setNoConciliable(!!d.no_conciliable)
+      setMotivoNoConc(d.motivo_no_conciliable ?? '')
+    } else {
+      setExtracto(null)
+      setNoConciliable(false)
+      setMotivoNoConc('')
+    }
+  }, [])
+
   useEffect(() => {
     if (!movimiento) return
 
@@ -117,7 +174,8 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     setNoRequiere(movimiento.doc_estado === 'no_requiere')
     setContraparte(movimiento.contraparte ?? '')
     cargarAsociadas(movimiento.id)
-  }, [movimiento, categoriasPyg, cargarAsociadas])
+    cargarExtracto(movimiento.id)
+  }, [movimiento, categoriasPyg, cargarAsociadas, cargarExtracto])
 
   useEffect(() => {
     if (!movimiento || !mostrarBuscador) return
@@ -261,6 +319,9 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       const updates: Record<string, unknown> = {
         titular_id: titularId || null,
         doc_estado: docEstado,
+        // Puntos 9/10: marca "no conciliable" + motivo, definidos a mano por el usuario.
+        no_conciliable: noConciliable,
+        motivo_no_conciliable: noConciliable ? (motivoNoConc.trim() || 'Marcado manualmente') : null,
       }
       if (selectedDetalle) updates.categoria = selectedDetalle
       // Contraparte/proveedor NO se edita aquí: viene del banco
@@ -313,6 +374,9 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
     }
   }
 
+  const tipoMovLabel = extracto?.tipo_mov ? (TIPO_MOV_LABEL[extracto.tipo_mov] ?? extracto.tipo_mov) : null
+  const hayDatosExtracto = !!(extracto && (extracto.saldo != null || extracto.fecha_valor || extracto.tipo_mov || extracto.referencia))
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(17,17,17,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
@@ -347,6 +411,31 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
             {fmtEur(totalAsociado)} / {fmtEur(restante)}
           </div>
         </div>
+
+        {/* Punto 25: datos enriquecidos del extracto bancario */}
+        {hayDatosExtracto && (
+          <div style={{ marginBottom: 22, padding: '12px 14px', background: '#fafaf7', border: '0.5px solid #ebe8e2', borderRadius: 10 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 10 }}>Datos del extracto</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>
+              {extracto?.fecha_valor && (<>
+                <div style={{ color: '#7a8090' }}>Fecha valor</div>
+                <div style={{ color: '#111', textAlign: 'right' }}>{fmtDate(extracto.fecha_valor)}</div>
+              </>)}
+              {tipoMovLabel && (<>
+                <div style={{ color: '#7a8090' }}>Tipo de movimiento</div>
+                <div style={{ color: '#111', textAlign: 'right' }}>{tipoMovLabel}</div>
+              </>)}
+              {extracto?.saldo != null && (<>
+                <div style={{ color: '#7a8090' }}>Saldo tras el movimiento</div>
+                <div style={{ color: '#111', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontWeight: 500 }}>{fmtEur(extracto.saldo)}</div>
+              </>)}
+              {extracto?.referencia && (<>
+                <div style={{ color: '#7a8090' }}>Referencia</div>
+                <div style={{ color: '#111', textAlign: 'right', wordBreak: 'break-all' }}>{extracto.referencia}</div>
+              </>)}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 18 }}>
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase', marginBottom: 8 }}>Categoría</label>
@@ -491,11 +580,25 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           )}
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', marginBottom: 22, padding: '10px 12px', background: '#f5f3ef', borderRadius: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer', marginBottom: 12, padding: '10px 12px', background: '#f5f3ef', borderRadius: 8 }}>
           <input type="checkbox" checked={noRequiere} onChange={e => setNoRequiere(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: '#FF4757', margin: 0 }} />
           <span>No requiere documento</span>
         </label>
+
+        {/* Puntos 9/10: marcar el movimiento como NO conciliable (comisión banco, traspaso…) */}
+        <div style={{ marginBottom: 22, padding: '10px 12px', background: noConciliable ? '#8a7df010' : '#f5f3ef', border: noConciliable ? '0.5px solid #8a7df0' : '0.5px solid transparent', borderRadius: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: 'pointer' }}>
+            <input type="checkbox" checked={noConciliable} onChange={e => setNoConciliable(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#8a7df0', margin: 0 }} />
+            <span>No conciliable (no se cruza con factura: comisión del banco, traspaso entre cuentas…)</span>
+          </label>
+          {noConciliable && (
+            <input type="text" value={motivoNoConc} onChange={e => setMotivoNoConc(e.target.value)}
+              placeholder="Motivo (ej. traspaso entre cuentas, comisión bancaria)"
+              style={{ width: '100%', marginTop: 10, padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+          )}
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose}
