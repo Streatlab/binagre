@@ -50,11 +50,11 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/finanzas/documentacion',        label: 'Documentación',       emoji: '📥', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',         emoji: '🧾', perfiles: ['admin'] },
+      { path: '/finanzas/ventas',               label: 'Ventas',              emoji: '💰', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',           emoji: '🎯', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio', emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running',             emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',      emoji: '💳', perfiles: ['admin'] },
-      { path: '/analytics/pareto-ventas',       label: 'Pareto Ventas',       emoji: '🎯', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',           emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería',emoji: '🔮', perfiles: ['admin'] },
     ],
