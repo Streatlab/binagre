@@ -3,7 +3,7 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
-import { COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen/tokens'
+import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen/tokens'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
@@ -34,6 +34,8 @@ interface KpiRow {
   facturas_aviso_aritmetica: number
 }
 
+const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
+
 // ── Cards-resumen comunes (estilo canónico Panel Global) ───────────────────
 function CardsResumen({ kpi }: { kpi: KpiRow | null }) {
   if (!kpi) return null
@@ -50,7 +52,7 @@ function CardsResumen({ kpi }: { kpi: KpiRow | null }) {
   ]
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 12 }}>
       {cards.map((c) => (
         <div key={c.label} style={{ ...CARDS.std }}>
           <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
@@ -62,38 +64,48 @@ function CardsResumen({ kpi }: { kpi: KpiRow | null }) {
   )
 }
 
-// ── Frases (mismo patrón que Cashflow: titular grande + 1 frase de apoyo
-//     que cambia según los datos). Texto propio de Documentación. ───────────
-function FrasesDocumentacion({ kpi }: { kpi: KpiRow | null }) {
+// ── Frase-cabecera (MISMO estilo que Cashflow: titular gigante Oswald + frases
+//    Oswald color semáforo). Batería propia, 2 frases: una grande, una pequeña. ──
+function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
-  const pctColor = pct >= 80 ? COLORS.ok : pct >= 50 ? COLORS.warn : COLORS.err
+  const POS = COLORS.ok, WARN = COLORS.warn, NEG = COLORS.err
+  const pctColor = pct >= 80 ? POS : pct >= 50 ? WARN : NEG
 
-  // Frase de apoyo: el dato operativo más urgente ahora mismo.
-  let apoyo: string
-  let apoyoColor: string
+  // Frase grande: cómo va la conciliación.
+  const grande = pct >= 80
+    ? 'Casi todo cuadrado, el papeleo te va al día.'
+    : pct >= 50
+      ? 'Vas por buen camino, todavía queda parte por casar.'
+      : 'Aún queda bastante por conciliar este periodo.'
+  const grandeColor = pctColor
+
+  // Frase pequeña: lo más urgente pendiente (o todo en orden).
+  let pequena: string
+  let pequenaColor: string
   if (kpi.facturas_sin_categoria > 0) {
-    apoyo = `Te quedan ${kpi.facturas_sin_categoria} factura${kpi.facturas_sin_categoria > 1 ? 's' : ''} sin categoría por clasificar.`
-    apoyoColor = COLORS.warn
+    pequena = `${kpi.facturas_sin_categoria} sin categoría por clasificar para que el P&L cuadre.`
+    pequenaColor = WARN
   } else if (kpi.facturas_posible_duplicado > 0) {
-    apoyo = `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando que los revises.`
-    apoyoColor = COLORS.warn
+    pequena = `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando que los revises.`
+    pequenaColor = WARN
   } else if (kpi.facturas_aviso_aritmetica > 0) {
-    apoyo = `${kpi.facturas_aviso_aritmetica} factura${kpi.facturas_aviso_aritmetica > 1 ? 's' : ''} con el IVA descuadrado por revisar.`
-    apoyoColor = COLORS.err
+    pequena = `${kpi.facturas_aviso_aritmetica} con aviso de IVA por revisar.`
+    pequenaColor = NEG
   } else {
-    apoyo = pct >= 80 ? 'Documentación al día, casi todo cuadrado.' : 'Sin pendientes sueltos: sigue subiendo lo que falte.'
-    apoyoColor = pct >= 80 ? COLORS.ok : COLORS.sec
+    pequena = 'Sin nada pendiente: ni sin categoría, ni duplicados, ni avisos.'
+    pequenaColor = POS
   }
 
   return (
-    <div style={{ background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 16, padding: '16px 18px', marginBottom: 14 }}>
+    <div style={{ ...CARDS.big, marginBottom: 12 }}>
       <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4vw,42px)', fontWeight: 600, lineHeight: 1.05 }}>
         CONCILIADO <span style={{ color: pctColor }}>{pct.toFixed(0)}%</span>
-        <span style={{ color: COLORS.mut, fontSize: '0.42em', marginLeft: 10 }}>· {kpi.movimientos_con_factura}/{kpi.movimientos_total} movimientos con factura</span>
+        <span style={{ color: COLORS.mut, fontSize: '0.42em', marginLeft: 10 }}>· {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</span>
       </div>
-      <div style={{ marginTop: 8 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: apoyoColor, letterSpacing: '0.3px' }}>{apoyo}</div>
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: grandeColor, letterSpacing: '0.3px' }}>{grande}</div>
+        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 500, color: pequenaColor, letterSpacing: '0.3px' }}>{pequena}</div>
       </div>
     </div>
   )
@@ -127,7 +139,7 @@ export default function Documentacion() {
   const hastaStr = fechaLocalStr(hasta)
 
   return (
-    <div style={{ background: COLORS.bg, padding: '24px 28px', minHeight: '100%' }}>
+    <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
       {/* Cabecera con selector de fechas global (idéntico a Panel Global) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
@@ -140,9 +152,9 @@ export default function Documentacion() {
         />
       </div>
 
-      {/* Cards-resumen comunes + frases */}
+      {/* Frase-cabecera (estilo Cashflow) + cards-resumen comunes */}
+      <FraseCabecera kpi={kpi} />
       <CardsResumen kpi={kpi} />
-      <FrasesDocumentacion kpi={kpi} />
 
       <TabsPastilla
         tabs={[
