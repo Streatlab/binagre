@@ -3,11 +3,12 @@
 // Glovo y Just Eat se añadirán con un ejemplo real de cada uno.
 //
 // Salida normalizada al esquema de la tabla ventas_plataforma (la que alimenta
-// el módulo Ventas). Devuelve null si el texto NO es un resumen de plataforma,
+// el módulo Ventas). plataforma usa los códigos que admite la tabla:
+// 'uber' | 'glovo' | 'just_eat'. Devuelve null si el texto NO es un resumen,
 // para que el motor siga con su flujo normal de factura.
 
 export interface ResumenVentaPlataforma {
-  plataforma: 'Uber Eats' | 'Glovo' | 'Just Eat'
+  plataforma: 'uber' | 'glovo' | 'just_eat'
   marca: string
   fecha_inicio_periodo: string // YYYY-MM-DD
   fecha_fin_periodo: string    // YYYY-MM-DD
@@ -104,7 +105,7 @@ function parseUberResumen(texto: string): ResumenVentaPlataforma | null {
   }
 
   return {
-    plataforma: 'Uber Eats',
+    plataforma: 'uber',
     marca,
     fecha_inicio_periodo: periodo.ini,
     fecha_fin_periodo: periodo.fin,
