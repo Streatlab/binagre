@@ -60,6 +60,21 @@ function buscar(txt: string, re: RegExp): string | null {
   return m ? m[1] : null
 }
 
+// Marca del local: aparece SIEMPRE justo antes de la dirección ("Calle …",
+// "Avenida …", "Plaza …", "C/ …"). Tomamos el texto inmediatamente anterior a la
+// primera dirección y le quitamos "Resumen mensual" y el "Mes AAAA" del encabezado.
+function extraerMarca(texto: string): string {
+  const mDir = texto.match(/\b(?:Calle|Avenida|Av\.|Plaza|C\/)\s/i)
+  if (!mDir || mDir.index === undefined || mDir.index <= 0) return 'SIN_MARCA'
+  let antes = texto.slice(Math.max(0, mDir.index - 90), mDir.index).replace(/\s+/g, ' ').trim()
+  antes = antes.replace(/.*resumen\s+mensual\s*/i, '')   // quita "…Resumen mensual "
+  antes = antes.replace(/^[A-Za-z]{3,}\.?\s+\d{4}\s+/, '') // quita "May 2026 "
+  antes = antes.replace(/^#?\d+\s+/, '')                   // quita un nº residual
+  const palabras = antes.split(' ').filter(Boolean)
+  const marca = palabras.slice(-6).join(' ').trim()
+  return marca || 'SIN_MARCA'
+}
+
 // ── Uber Eats: "Resumen mensual unificado" ─────────────────────────────────
 function parseUberResumen(texto: string): ResumenVentaPlataforma | null {
   const esUber = /uber/i.test(texto) || /tasas de mercado/i.test(texto) || /precios de uber/i.test(texto)
@@ -85,13 +100,7 @@ function parseUberResumen(texto: string): ResumenVentaPlataforma | null {
   // Sin neto ni bruto, no es aprovechable.
   if (neto == null || bruto == null) return null
 
-  // Marca: aparece en la cabecera, justo antes de la dirección "Calle ...".
-  // Tomamos la línea anterior a "Calle" / "Avenida" / "Plaza".
-  let marca = 'SIN_MARCA'
-  const marcaCab = texto.match(/(?:resumen\s+mensual\s*)?([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ' .]{2,60})\s*\n?\s*(?:Calle|Avenida|Av\.|Plaza|C\/)/i)
-  if (marcaCab) marca = marcaCab[1].replace(/\s+/g, ' ').trim()
-  // Limpieza: si arrastró palabras del encabezado, cortar.
-  marca = marca.replace(/^(resumen mensual|may|jun|jul|ene|feb|mar|abr|ago|sep|oct|nov|dic)\b.*$/i, '').trim() || 'SIN_MARCA'
+  const marca = extraerMarca(texto)
 
   // Nº de resumen como referencia.
   const referencia = buscar(texto, /n[úu]mero del resumen\s*#?\s*(\d+)/i)
