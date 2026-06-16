@@ -74,6 +74,11 @@ type Agregados = {
 
 type SortColumn = 'fecha' | 'concepto' | 'contraparte' | 'importe' | 'categoria' | 'doc' | 'estado' | 'titular'
 
+// Lee la marca "no conciliable" del movimiento (punto 9/10), sin tocar el tipo Movimiento.
+function esNoConciliable(m: Movimiento): boolean {
+  return (m as unknown as { no_conciliable?: boolean }).no_conciliable === true
+}
+
 function calcularEstado(m: Movimiento): 'conciliado' | 'parcial' | 'pendiente' {
   if (m.estado_real) return m.estado_real
   // fallback legacy solo si la RPC no respondió
@@ -271,6 +276,8 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           : null),
         titular_id:  m.titular_id ?? null,
         doc_estado:  (m.doc_estado ?? 'falta') as 'tiene' | 'falta' | 'no_requiere',
+        // Campo extra (punto 9/10) para el badge; no forma parte del tipo Movimiento.
+        ...(({ no_conciliable: m.no_conciliable ?? false }) as Record<string, unknown>),
       }))
 
       // Enriquecer con estado_real desde la RPC (una vez por periodo+refreshTick)
@@ -708,6 +715,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                     const tdBase: React.CSSProperties = { padding: '8px 12px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle', lineHeight: 1.4 }
                     const catInfo = getBadgeCategoria(m, categoriasPyg)
                     const estado = calcularEstado(m)
+                    const noConc = esNoConciliable(m)
                     const titNombre = titulares.find(t => t.id === m.titular_id)?.nombre?.toLowerCase() ?? ''
                     const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
                     const isEmilio = titNombre.includes('emilio')
@@ -776,9 +784,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               fontSize: 22, lineHeight: 1, color: '#0F6E56',
                             }}>📎</div>
                           </td>
-                        ) : m.doc_estado === 'no_requiere' ? (
+                        ) : m.doc_estado === 'no_requiere' || noConc ? (
                           <td style={{ ...tdDocBase, padding: '8px 16px' }}>
-                            <span style={{ color: '#1D9E75', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
+                            <span style={{ color: '#7a8090', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
                           </td>
                         ) : (
                           <td style={tdDocBase}>
@@ -790,7 +798,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                           </td>
                         )}
                         <td style={tdBase}>
-                          {estado === 'conciliado' ? (
+                          {noConc ? (
+                            <span title={(m as unknown as { motivo_no_conciliable?: string }).motivo_no_conciliable ?? 'No conciliable'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#8a7df015', color: '#6a5acd' }}>
+                              No conciliable
+                            </span>
+                          ) : estado === 'conciliado' ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#0F6E5615', color: '#0F6E56' }}>
                               Conciliado
                             </span>
