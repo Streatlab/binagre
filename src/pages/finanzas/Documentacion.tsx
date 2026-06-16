@@ -12,14 +12,14 @@ const ImportarVentas = lazy(() => import('@/pages/ImportarVentas'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
 
-type Tab = 'bandeja' | 'facturas' | 'documental' | 'ventas' | 'conciliacion'
+type Tab = 'bandeja' | 'facturas' | 'ventas' | 'conciliacion' | 'documental'
 
 const STORAGE_KEY = 'documentacion:tab'
 
 function loadTab(): Tab {
   try {
     const r = sessionStorage.getItem(STORAGE_KEY)
-    if (r === 'bandeja' || r === 'facturas' || r === 'documental' || r === 'ventas' || r === 'conciliacion') return r
+    if (r === 'bandeja' || r === 'facturas' || r === 'ventas' || r === 'conciliacion' || r === 'documental') return r
   } catch { /* swallow */ }
   return 'bandeja'
 }
@@ -72,15 +72,12 @@ function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
   const POS = COLORS.ok, WARN = COLORS.warn, NEG = COLORS.err
   const pctColor = pct >= 80 ? POS : pct >= 50 ? WARN : NEG
 
-  // Frase grande: cómo va la conciliación.
   const grande = pct >= 80
     ? 'Casi todo cuadrado, el papeleo te va al día.'
     : pct >= 50
       ? 'Vas por buen camino, todavía queda parte por casar.'
       : 'Aún queda bastante por conciliar este periodo.'
-  const grandeColor = pctColor
 
-  // Frase pequeña: lo más urgente pendiente (o todo en orden).
   let pequena: string
   let pequenaColor: string
   if (kpi.facturas_sin_categoria > 0) {
@@ -104,7 +101,7 @@ function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
         <span style={{ color: COLORS.mut, fontSize: '0.42em', marginLeft: 10 }}>· {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</span>
       </div>
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: grandeColor, letterSpacing: '0.3px' }}>{grande}</div>
+        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: pctColor, letterSpacing: '0.3px' }}>{grande}</div>
         <div style={{ fontFamily: OSWALD, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 500, color: pequenaColor, letterSpacing: '0.3px' }}>{pequena}</div>
       </div>
     </div>
@@ -115,8 +112,6 @@ export default function Documentacion() {
   const [tab, setTab] = useState<Tab>(loadTab())
   const cambiar = (t: Tab) => { setTab(t); try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* swallow */ } }
 
-  // Periodo global (selector copiado de Panel Global). Persiste y se comparte con
-  // los módulos internos vía la clave global del propio SelectorFechaUniversal.
   const [desde, setDesde] = useState<Date>(new Date())
   const [hasta, setHasta] = useState<Date>(new Date())
 
@@ -140,7 +135,6 @@ export default function Documentacion() {
 
   return (
     <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
-      {/* Cabecera con selector de fechas global (idéntico a Panel Global) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
           DOCUMENTACIÓN
@@ -152,7 +146,6 @@ export default function Documentacion() {
         />
       </div>
 
-      {/* Frase-cabecera (estilo Cashflow) + cards-resumen comunes */}
       <FraseCabecera kpi={kpi} />
       <CardsResumen kpi={kpi} />
 
@@ -160,9 +153,9 @@ export default function Documentacion() {
         tabs={[
           { id: 'bandeja', label: 'Bandeja entrada' },
           { id: 'facturas', label: 'Facturas' },
-          { id: 'documental', label: 'Gestor documental' },
           { id: 'ventas', label: 'Ventas' },
           { id: 'conciliacion', label: 'Conciliación' },
+          { id: 'documental', label: 'Gestor documental' },
         ]}
         activeId={tab}
         onChange={(id) => cambiar(id as Tab)}
@@ -171,9 +164,9 @@ export default function Documentacion() {
       <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
         {tab === 'bandeja' && <BandejaEntrada desde={desdeStr} hasta={hastaStr} onProcesado={() => setReloadTick(x => x + 1)} />}
         {tab === 'facturas' && <OcrConToast periodoExterno={{ desde, hasta }} />}
-        {tab === 'documental' && <GestionFacturas />}
         {tab === 'ventas' && <ImportarVentas />}
         {tab === 'conciliacion' && <Conciliacion periodoExterno={{ desde, hasta }} />}
+        {tab === 'documental' && <GestionFacturas />}
       </Suspense>
     </div>
   )
