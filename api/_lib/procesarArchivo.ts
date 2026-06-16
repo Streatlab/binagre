@@ -1,5 +1,8 @@
-// procesarArchivo v20 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
-// La lectura va, en orden:
+// procesarArchivo v21 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// v21: antes de tratar un PDF como factura, se comprueba si es un RESUMEN de ventas
+//      de plataforma (Uber/Glovo/Just Eat). Si lo es, va a ventas_plataforma (módulo
+//      Ventas) y NO se crea factura.
+// La lectura de facturas va, en orden:
 //   1) Reglas/plantilla por NIF sobre el texto del PDF (PDF con capa de texto).
 //   2) Si las reglas no leen (escaneo/foto/formato raro) → OCR Tesseract gratis.
 //   3) Si Tesseract tampoco lee → BOOTSTRAP Mistral (pago acotado, regla 3 bis):
@@ -31,6 +34,8 @@ import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { ocrMistralTexto, bootstrapApiActivo } from './ocr-mistral.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
+import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
+import type { ResumenVentaPlataforma } from './parser-resumen-plataforma.js'
 
 export type ProcesarEstado =
   | 'duplicada'
@@ -144,6 +149,17 @@ export interface ProcesarResultado {
   factura_existente?: Record<string, unknown>
   error?: string
   motivo?: string
+  // Tipo de documento detectado, para el toast informativo (punto 6 del plan).
+  // 'factura' (por defecto) | 'resumen_ventas' | 'extracto'
+  tipo_documento?: 'factura' | 'resumen_ventas'
+  resumen_ventas?: {
+    plataforma: string
+    marca: string
+    periodo: string
+    bruto: number
+    neto: number
+    pedidos: number
+  }
 }
 
 export interface ArchivoEntrada {
@@ -456,6 +472,83 @@ async function aprenderProveedorNif(
   }
 }
 
+// ── Guardado de un RESUMEN de ventas de plataforma en ventas_plataforma ────
+// Va al módulo Ventas, NO a facturas. Dedup por (periodo+plataforma+marca):
+// si ya existe esa venta, se actualiza (último gana) sin duplicar.
+async function guardarResumenPlataforma(
+  supabase: SupabaseClient,
+  file: ArchivoEntrada,
+  r: ResumenVentaPlataforma,
+): Promise<ProcesarResultado> {
+  const ticket = r.pedidos > 0 ? r.bruto / r.pedidos : 0
+  const resumenInfo = {
+    plataforma: r.plataforma,
+    marca: r.marca,
+    periodo: `${r.fecha_inicio_periodo} → ${r.fecha_fin_periodo}`,
+    bruto: r.bruto,
+    neto: r.neto,
+    pedidos: r.pedidos,
+  }
+
+  const { data: existe } = await supabase
+    .from('ventas_plataforma')
+    .select('id')
+    .eq('fecha_inicio_periodo', r.fecha_inicio_periodo)
+    .eq('fecha_fin_periodo', r.fecha_fin_periodo)
+    .eq('plataforma', r.plataforma)
+    .eq('marca', r.marca)
+    .maybeSingle()
+
+  if (existe) {
+    await supabase
+      .from('ventas_plataforma')
+      .update({
+        bruto: r.bruto,
+        neto: r.neto,
+        pedidos: r.pedidos,
+        ticket_medio: ticket,
+        ...(r.fecha_pago ? { fecha_pago: r.fecha_pago } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existe.id as string)
+    return {
+      estado: 'duplicada',
+      archivo: file.nombre,
+      tipo_documento: 'resumen_ventas',
+      resumen_ventas: resumenInfo,
+      motivo: `resumen de ventas ${r.plataforma} · ${r.marca} · ya existía, actualizado`,
+    }
+  }
+
+  const { error } = await supabase
+    .from('ventas_plataforma')
+    .insert({
+      fecha_inicio_periodo: r.fecha_inicio_periodo,
+      fecha_fin_periodo: r.fecha_fin_periodo,
+      plataforma: r.plataforma,
+      marca: r.marca,
+      bruto: r.bruto,
+      neto: r.neto,
+      pedidos: r.pedidos,
+      ticket_medio: ticket,
+      ingreso_colaborador: 0,
+      ...(r.fecha_pago ? { fecha_pago: r.fecha_pago } : {}),
+      facturas_origen: r.referencia ? [r.referencia] : [],
+    })
+
+  if (error) {
+    return { estado: 'error', archivo: file.nombre, error: `resumen de ventas: ${error.message}` }
+  }
+
+  return {
+    estado: 'ok',
+    archivo: file.nombre,
+    tipo_documento: 'resumen_ventas',
+    resumen_ventas: resumenInfo,
+    motivo: `resumen de ventas ${r.plataforma} · ${r.marca} · ${r.fecha_inicio_periodo} → Ventas`,
+  }
+}
+
 async function procesarContenidoPrincipal(
   supabase: SupabaseClient,
   file: ArchivoEntrada,
@@ -466,6 +559,25 @@ async function procesarContenidoPrincipal(
     return { estado: 'ignorada', archivo: file.nombre, motivo: 'no es una factura: resumen de ingresos' }
   }
   const hash = createHash('sha256').update(file.buffer).digest('hex')
+
+  // ── RESUMEN DE VENTAS DE PLATAFORMA (Uber/Glovo/Just Eat) subido a mano ──
+  // ANTES de tratarlo como factura: si el PDF es un resumen mensual de ventas, va
+  // a ventas_plataforma (módulo Ventas), NO a facturas. Va antes del multi-factura
+  // para que un resumen de varias páginas no se parta como si fueran facturas.
+  if (tipo === 'pdf') {
+    try {
+      const textoResumen = await extraerTextoPDF(file.buffer)
+      if (pdfTieneTexto(textoResumen)) {
+        const resumen = parseResumenPlataforma(textoResumen)
+        if (resumen) {
+          // Idempotencia: si este mismo PDF ya entró como factura, no duplicar tabla.
+          return await guardarResumenPlataforma(supabase, file, resumen)
+        }
+      }
+    } catch (e) {
+      console.error('[procesarArchivo] chequeo resumen plataforma falló:', errMsg(e))
+    }
+  }
 
   const { data: existente } = await supabase
     .from('facturas')
