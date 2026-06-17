@@ -40,7 +40,7 @@ const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const topRef=useRef<HTMLDivElement>(null)
 const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,objetivosMensuales,loading}=useRunningAnual(año,null)
-useEffect(()=>{(async()=>{const{data}=await supabase.from('resumenes_plataforma_marca_mensual').select('*').eq('año',año);sRes((data||[])as ResRow[])})()},[año])
+useEffect(()=>{(async()=>{const{data}=await supabase.from('ventas_plataforma').select('plataforma, fecha_fin_periodo, bruto, neto, pedidos').gte('fecha_fin_periodo',`${año}-01-01`).lte('fecha_fin_periodo',`${año}-12-31`);const denorm:Record<string,string>={uber:'uber',glovo:'glovo',je:'just_eat',just_eat:'just_eat',justeat:'just_eat',web:'web',dir:'directa',directa:'directa'};const mapped=(data||[]).filter((r:any)=>r.neto!=null).map((r:any)=>{const d=new Date((r.fecha_fin_periodo as string)+'T00:00:00');const p=(r.plataforma||'').toLowerCase().trim();return{plataforma:denorm[p]??p,mes:d.getMonth()+1,año:d.getFullYear(),bruto:Number(r.bruto??0),comisiones:0,fees:0,cargos_promocion:0,neto_real_cobrado:Number(r.neto??0),pedidos:Number(r.pedidos??0)}});sRes(mapped as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const top=topRef.current;if(!main||!top)return
 let src:HTMLDivElement|null=null
