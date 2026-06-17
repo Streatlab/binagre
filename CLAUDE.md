@@ -3,6 +3,11 @@
 Este archivo es la Constitución del proyecto. Máx 30 líneas.
 Para detalle, ver `.claude/rules/` y `.claude/plans/active-plan.md`.
 
+## ⛔ SOLO LOCALHOST (regla fija, prioritaria)
+- Trabajar y probar SIEMPRE en local.
+- NO publicar/desplegar a producción (push a main / deploy Vercel) hasta que Rubén diga explícitamente "publica" o "sube a producción".
+- Mientras tanto: cambios solo en local, sin push a producción.
+
 ## Stack
 - Next.js + Supabase + Tailwind v4 + Vercel
 - URL prod: https://binagre.vercel.app
