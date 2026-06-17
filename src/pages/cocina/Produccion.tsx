@@ -22,6 +22,9 @@ interface Partida { id: string; seccion_id: string; nombre: string; orden: numbe
 interface Seccion { id: string; nombre: string; orden: number; activa: boolean }
 interface EntradaProduccion { id: string; partida_id: string; semana_iso: string; dia: Dia; hoy: string; ssp: string }
 interface BloqueImpresion { sec: Seccion; cont: boolean; parts: Partida[] }
+interface InvItem { id: string; ubicacion: string; ord_ubi: number; categoria: string; ord_cat: number; nombre: string; min_seguridad: number | null; ord_item: number }
+interface InvCat { nombre: string; items: InvItem[] }
+interface InvUbi { nombre: string; cats: InvCat[] }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +90,18 @@ function conBiberones(parts: Partida[]): FilaItem[] {
     out.push({ kind: 'part', part: p })
   }
   return out
+}
+
+function agruparInventario(items: InvItem[]): InvUbi[] {
+  const ubis: InvUbi[] = []
+  for (const it of items) {
+    let u = ubis.find(x => x.nombre === it.ubicacion)
+    if (!u) { u = { nombre: it.ubicacion, cats: [] }; ubis.push(u) }
+    let c = u.cats.find(x => x.nombre === it.categoria)
+    if (!c) { c = { nombre: it.categoria, items: [] }; u.cats.push(c) }
+    c.items.push(it)
+  }
+  return ubis
 }
 
 // ─── GENERACIÓN DE PDF REAL (descarga directa, sin diálogo de impresión) ───────
@@ -227,6 +242,7 @@ function drawColsLines(doc: jsPDF, M: number, y: number, rowH: number, wProd: nu
   doc.line(x, y, x, y + rowH)
 }
 
+// Carteles de cámara: una sola columna por balda, letra grande ajustada al alto disponible
 function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const PW = doc.internal.pageSize.getWidth()
@@ -251,32 +267,34 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
       doc.text(sec.nombre, x0 + 4, top + 6)
 
       const filas = conBiberones(parts)
-      const muchos = parts.length > 12
-      const fsBase = muchos ? 13.5 : 17
-      const lh = muchos ? 6.2 : 8
+      const nF = filas.length || 1
       const innerTop = top + 12
       const innerH = colH - 12
-      const subColW = muchos ? colW / 2 : colW
-      const maxTextW = (muchos ? subColW : colW) - 8
-      const filasPorCol = muchos ? Math.ceil(filas.length / 2) : filas.length
-      let idx = 0
+      const lh = Math.min(8.5, innerH / nF)
+      const fsBase = Math.max(9, Math.min(18, lh * 2.4))
+      const maxTextW = colW - 8
+      let fy = innerTop + lh * 0.7
+      let prevBib = false
       for (const f of filas) {
-        const sub = muchos ? Math.floor(idx / filasPorCol) : 0
-        const posEnCol = muchos ? idx % filasPorCol : idx
-        const fx = x0 + 4 + sub * subColW
-        const fy = innerTop + posEnCol * lh + 4
-        if (fy > innerTop + innerH) { idx++; continue }
+        if (fy > innerTop + innerH) break
         if (f.kind === 'sub') {
           doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED_DARK)
           fitFont(doc, f.label, maxTextW, fsBase, 8)
-          doc.text(f.label, fx, fy)
+          doc.text(f.label, x0 + 4, fy)
           doc.setFont('helvetica', 'normal')
-        } else {
-          doc.setTextColor(20)
-          fitFont(doc, f.part.nombre, maxTextW, fsBase, 8)
-          doc.text(f.part.nombre, fx, fy)
+          fy += lh
+          continue
         }
-        idx++
+        // raya roja al terminar los biberones
+        if (prevBib && !f.part.biberon) {
+          doc.setDrawColor(...RED); doc.setLineWidth(0.7)
+          doc.line(x0 + 4, fy - lh * 0.55, x0 + colW - 4, fy - lh * 0.55)
+        }
+        prevBib = !!f.part.biberon
+        doc.setTextColor(20)
+        fitFont(doc, f.part.nombre, maxTextW, fsBase, 9)
+        doc.text(f.part.nombre, x0 + 4, fy)
+        fy += lh
       }
     })
     doc.setDrawColor(...RED).setLineWidth(0.8); doc.rect(M, M, PW - M * 2, PH - M * 2)
@@ -288,30 +306,98 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
   construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
 }
 
+// Inventario permanente: una hoja A4 apaisada por ubicación, categorías en 3 columnas,
+// cada producto con su stock mínimo y una zona amplia para anotar a mano.
+function construirInventarioPDF(ubi: InvUbi): jsPDF {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const PW = doc.internal.pageSize.getWidth()
+  const PH = doc.internal.pageSize.getHeight()
+  const M = 10
+  const usableW = PW - M * 2
+
+  doc.setFillColor(...RED_SOFT); doc.rect(M, M, usableW, 14, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...RED_DARK)
+  doc.text(ubi.nombre, M + 5, M + 9.5)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
+  doc.text('INVENTARIO PERMANENTE     FECHA: ___ / ___ / ______', PW - M - 4, M + 9.5, { align: 'right' })
+
+  const top = M + 18
+  const nCols = 3
+  const colGap = 4
+  const colW = (usableW - colGap * (nCols - 1)) / nCols
+  const xCol = [M, M + colW + colGap, M + (colW + colGap) * 2]
+  const cursores = [top, top, top]
+  const headH = 7
+  const itemH = 8
+
+  for (const cat of ubi.cats) {
+    let ci = 0
+    for (let k = 1; k < nCols; k++) if (cursores[k] < cursores[ci]) ci = k
+    let y = cursores[ci]
+    const x = xCol[ci]
+
+    doc.setFillColor(250, 240, 241); doc.rect(x, y, colW, headH, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED_DARK)
+    doc.text(cat.nombre.toUpperCase(), x + 3, y + 4.8)
+    y += headH
+
+    doc.setFont('helvetica', 'normal')
+    for (const it of cat.items) {
+      doc.setTextColor(30)
+      fitFont(doc, it.nombre, colW * 0.5, 11, 8)
+      doc.text(it.nombre, x + 3, y + 5.2)
+      if (it.min_seguridad != null) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED)
+        doc.text(String(it.min_seguridad), x + colW * 0.57, y + 5.2, { align: 'center' })
+        doc.setFont('helvetica', 'normal')
+      }
+      doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.25)
+      doc.line(x + colW * 0.63, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
+      doc.setDrawColor(236, 236, 239); doc.setLineWidth(0.1)
+      doc.line(x, y + itemH, x + colW, y + itemH)
+      doc.setFontSize(11)
+      y += itemH
+    }
+    y += 3
+    cursores[ci] = y
+  }
+
+  doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
+  return doc
+}
+
+function descargarInventarioPDF(ubi: InvUbi) {
+  construirInventarioPDF(ubi).save(`inventario-${safe(ubi.nombre)}.pdf`)
+}
+
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 
 export default function Produccion() {
   const { T, isDark } = useTheme()
-  const [activeTab, setActiveTab] = useState<'lista' | 'camara'>('lista')
+  const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario'>('lista')
   const [secciones, setSecciones] = useState<Seccion[]>([])
   const [partidas, setPartidas] = useState<Partida[]>([])
+  const [inventario, setInventario] = useState<InvItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { cargarBase() }, [])
   async function cargarBase() {
     setLoading(true)
-    const [{ data: secs }, { data: parts }] = await Promise.all([
+    const [{ data: secs }, { data: parts }, { data: inv }] = await Promise.all([
       supabase.from('produccion_secciones').select('*').eq('activa', true).order('orden'),
       supabase.from('produccion_partidas').select('*').eq('activa', true).order('orden'),
+      supabase.from('inventario_permanente').select('*').eq('activo', true).order('ord_ubi').order('ord_cat').order('ord_item'),
     ])
     setSecciones((secs as Seccion[]) ?? [])
     setPartidas((parts as Partida[]) ?? [])
+    setInventario((inv as InvItem[]) ?? [])
     setLoading(false)
   }
 
   const tabs = [
     { key: 'lista', label: 'Lista de Producción' },
     { key: 'camara', label: 'Ordenación de Cámara' },
+    { key: 'inventario', label: 'Inventario Permanente' },
   ]
 
   return (
@@ -325,7 +411,7 @@ export default function Produccion() {
 
       <div style={tabsContainerStyle()} className="no-print">
         {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara')}
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario')}
             style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
             {tab.label}
           </button>
@@ -336,8 +422,10 @@ export default function Produccion() {
         <div style={{ padding: 24, color: T.sec, fontFamily: FONT.body }}>Cargando producción…</div>
       ) : activeTab === 'lista' ? (
         <TabListaProduccion T={T} secciones={secciones} partidas={partidas} onChanged={cargarBase} />
-      ) : (
+      ) : activeTab === 'camara' ? (
         <TabOrdenacionCamara T={T} secciones={secciones} partidas={partidas} />
+      ) : (
+        <TabInventarioPermanente T={T} inventario={inventario} />
       )}
     </div>
   )
@@ -538,16 +626,22 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
             <div className="camara-cols" style={{ gridTemplateColumns: `repeat(${g.secs.length}, 1fr)` }}>
               {g.secs.map(sec => {
                 const parts = partidas.filter(p => p.seccion_id === sec.id)
-                const muchos = parts.length > 12
+                const filas = conBiberones(parts)
                 return (
                   <div key={sec.id} className="camara-balda">
                     <div className="camara-balda-head">{sec.nombre}</div>
-                    <ul className={`camara-balda-list ${muchos ? 'dos-cols' : ''}`}>
-                      {conBiberones(parts).map((f, i) =>
-                        f.kind === 'sub'
-                          ? <li key={`sub-${i}`} className="camara-bib-head">{f.label}</li>
-                          : <li key={f.part.id} className="camara-balda-item">{f.part.nombre}</li>
-                      )}
+                    <ul className="camara-balda-list">
+                      {filas.map((f, i) => {
+                        if (f.kind === 'sub') return <li key={`sub-${i}`} className="camara-bib-head">{f.label}</li>
+                        const prev = filas[i - 1]
+                        const sep = prev && prev.kind === 'part' && prev.part.biberon && !f.part.biberon
+                        return (
+                          <React.Fragment key={f.part.id}>
+                            {sep && <li className="camara-sep" />}
+                            <li className="camara-balda-item">{f.part.nombre}</li>
+                          </React.Fragment>
+                        )
+                      })}
                     </ul>
                   </div>
                 )
@@ -555,6 +649,59 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
             </div>
           </div>
         ))}
+      </div>
+    </>
+  )
+}
+
+// ─── TAB: INVENTARIO PERMANENTE ────────────────────────────────────────────────
+
+function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTheme>['T']; inventario: InvItem[] }) {
+  const ubis = useMemo(() => agruparInventario(inventario), [inventario])
+  const [activa, setActiva] = useState(0)
+
+  if (!ubis.length) {
+    return <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin inventario todavía.</div>
+  }
+  const ubi = ubis[Math.min(activa, ubis.length - 1)]
+
+  return (
+    <>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div className="inv-pills">
+          {ubis.map((u, i) => (
+            <button key={u.nombre} onClick={() => setActiva(i)} className={`inv-pill ${i === activa ? 'on' : ''}`}>{u.nombre}</button>
+          ))}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => imprimirDesdePDF(construirInventarioPDF(ubi))} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={() => descargarInventarioPDF(ubi)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+        </div>
+      </div>
+
+      <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.sec, marginBottom: 12 }}>
+        <span className="inv-mintag">mín 2</span> = stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar.
+      </div>
+
+      <div className="inv-hoja">
+        <div className="inv-head">
+          <span>{ubi.nombre}</span>
+          <span className="inv-head-sub">INVENTARIO PERMANENTE · FECHA __ / __ / ____</span>
+        </div>
+        <div className="inv-cats">
+          {ubi.cats.map(cat => (
+            <div className="inv-cat" key={cat.nombre}>
+              <div className="inv-cat-head">{cat.nombre}</div>
+              {cat.items.map(it => (
+                <div className="inv-row" key={it.id}>
+                  <span className="inv-name">{it.nombre}</span>
+                  <span className="inv-min">{it.min_seguridad != null ? <b>{it.min_seguridad}</b> : <em>—</em>}</span>
+                  <span className="inv-write" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </>
   )
@@ -700,7 +847,7 @@ const FICHA_CSS = `
 
 .vista-impresion { display: none; }
 
-/* Carteles cámara — preview en pantalla */
+/* Carteles cámara — preview en pantalla (1 columna) */
 .camara-wrap { display: flex; flex-direction: column; gap: 22px; }
 .hoja-camara { border: 2px solid #B01D23; border-radius: 12px; overflow: hidden; background: var(--bg-card); }
 .camara-lado-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.05em; text-transform: uppercase; color: #fff; background: #B01D23; padding: 14px 22px; }
@@ -709,10 +856,28 @@ const FICHA_CSS = `
 .camara-balda:last-child { border-right: none; }
 .camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
 .camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
-.camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 21px; line-height: 1.55; color: var(--text-primary); }
+.camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 21px; line-height: 1.5; color: var(--text-primary); }
 .camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 19px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
-.camara-balda-list.dos-cols { column-count: 2; column-gap: 24px; }
-.camara-balda-list.dos-cols .camara-balda-item, .camara-balda-list.dos-cols .camara-bib-head { break-inside: avoid; }
+.camara-sep { height: 0; border-top: 2px solid #B01D23; margin: 8px 4px 8px 0; list-style: none; }
+
+/* Inventario permanente — preview apaisada */
+.inv-pills { display: flex; gap: 7px; flex-wrap: wrap; }
+.inv-pill { font-family: 'Oswald', sans-serif; letter-spacing: 0.03em; text-transform: uppercase; font-size: 12px; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--sl-border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.inv-pill.on { background: #B01D23; border-color: #B01D23; color: #fff; }
+.inv-mintag { display: inline-flex; align-items: center; background: #B01D23; color: #fff; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; margin-right: 4px; }
+.inv-hoja { border: 2px solid #B01D23; border-radius: 10px; overflow: hidden; background: var(--bg-card); }
+.inv-head { background: rgba(176,29,35,0.10); color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 22px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #B01D23; }
+.inv-head-sub { font-size: 12px; font-weight: 500; }
+.inv-cats { column-count: 2; column-gap: 0; }
+.inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
+.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #8a1a22; background: rgba(176,29,35,0.06); padding: 7px 14px; border-bottom: 2px solid rgba(176,29,35,0.25); }
+.inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
+.inv-name { flex: 0 0 210px; display: flex; align-items: center; padding: 4px 12px; font-size: 17px; font-weight: 500; color: var(--text-primary); }
+.inv-min { flex: 0 0 52px; display: flex; align-items: center; justify-content: center; border-left: 1px dashed rgba(176,29,35,0.25); border-right: 1px dashed rgba(176,29,35,0.25); }
+.inv-min b { font-family: 'Oswald', sans-serif; color: #B01D23; font-size: 16px; }
+.inv-min em { color: var(--text-muted); font-style: normal; font-size: 14px; }
+.inv-write { flex: 1 1 auto; background: repeating-linear-gradient(transparent, transparent 31px, var(--sl-border) 31px, var(--sl-border) 32px); }
+@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { flex-basis: 150px; font-size: 15px; } }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
@@ -756,10 +921,8 @@ const FICHA_CSS = `
   .camara-balda:last-child { border-right: none; }
   .camara-balda-head { font-size: 22px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 7px 14px !important; flex: 0 0 auto; }
   .camara-balda-list { padding: 8px 16px !important; flex: 1 1 auto; }
-  .camara-balda-item { font-size: 30px !important; line-height: 1.5 !important; color: #111 !important; }
+  .camara-balda-item { font-size: 30px !important; line-height: 1.4 !important; color: #111 !important; }
   .camara-bib-head { font-size: 25px !important; color: #8a1a22 !important; margin-top: 4px; }
-  .camara-balda-list.dos-cols { column-count: 2; column-gap: 16px; padding: 8px 14px !important; }
-  .camara-balda-list.dos-cols .camara-balda-item { font-size: 24px !important; line-height: 1.35 !important; break-inside: avoid; }
-  .camara-balda-list.dos-cols .camara-bib-head { font-size: 22px !important; break-inside: avoid; }
+  .camara-sep { border-top: 3px solid #B01D23 !important; margin: 6px 6px 6px 0 !important; }
 }
 `
