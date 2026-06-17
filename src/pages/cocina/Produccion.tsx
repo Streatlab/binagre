@@ -315,9 +315,8 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
   construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
 }
 
-// Inventario: UNA sola hoja A4 apaisada por ubicación, replicando el mockup aprobado:
-// 2 columnas equilibradas, filas compactas, casilla de stock mínimo propia (bordes punteados)
-// y zona rayada amplia a la derecha para anotar a mano.
+// Inventario: UNA sola hoja A4 apaisada por ubicación. 2 columnas equilibradas, filas compactas,
+// stock mínimo entre paréntesis pegado al nombre (en rojo) y zona rayada amplia a la derecha para anotar.
 function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
@@ -362,8 +361,7 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   let itemH = (alturaDisp - catsEnMax * (headH + gap)) / maxItems
   itemH = Math.max(6.2, Math.min(10, itemH))
 
-  const nameW = colW * 0.42
-  const minW = 13
+  const zonaNombreW = colW * 0.5
 
   for (let k = 0; k < nCols; k++) {
     const x = xCol[k]
@@ -376,27 +374,26 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
       y += headH
 
       for (const it of cat.items) {
-        // nombre
-        doc.setFont('helvetica', 'normal'); doc.setTextColor(35)
-        const fs = fitFont(doc, it.nombre, nameW - 5, 11.5, 7)
+        // nombre + stock mínimo entre paréntesis, pegado al nombre, en rojo
+        const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
+        doc.setFont('helvetica', 'bold')
+        const fs = fitFont(doc, it.nombre + sufijo, zonaNombreW - 4, 11.5, 7)
         const baseY = y + itemH * 0.5 + fs * 0.13
-        doc.setFontSize(fs)
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(35); doc.setFontSize(fs)
         doc.text(it.nombre, x + 3, baseY)
-        // casilla del stock mínimo (bordes punteados rojos suaves)
-        doc.setLineDashPattern([0.7, 0.7], 0); doc.setDrawColor(...DASH_RED); doc.setLineWidth(0.25)
-        doc.line(x + nameW, y + 1, x + nameW, y + itemH - 1)
-        doc.line(x + nameW + minW, y + 1, x + nameW + minW, y + itemH - 1)
-        doc.setLineDashPattern([], 0)
         if (it.min_seguridad != null) {
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...RED)
-          doc.text(String(it.min_seguridad), x + nameW + minW / 2, baseY, { align: 'center' })
-        } else {
-          doc.setFontSize(10); doc.setTextColor(180)
-          doc.text('—', x + nameW + minW / 2, baseY, { align: 'center' })
+          const wN = doc.getTextWidth(it.nombre + ' ')
+          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED)
+          doc.text(`(${it.min_seguridad})`, x + 3 + wN, baseY)
+          doc.setFont('helvetica', 'normal')
         }
+        // separador punteado entre la zona del nombre y la zona de anotación
+        doc.setLineDashPattern([0.7, 0.7], 0); doc.setDrawColor(...DASH_RED); doc.setLineWidth(0.2)
+        doc.line(x + zonaNombreW, y + 1, x + zonaNombreW, y + itemH - 1)
+        doc.setLineDashPattern([], 0)
         // línea base tenue para anotar en la zona de la derecha
         doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.2)
-        doc.line(x + nameW + minW + 2, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
+        doc.line(x + zonaNombreW + 2, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
         // separador inferior de la fila
         doc.setDrawColor(236, 236, 240); doc.setLineWidth(0.15)
         doc.line(x, y + itemH, x + colW, y + itemH)
@@ -738,7 +735,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
       </div>
 
       <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.sec, marginBottom: 12 }}>
-        <span className="inv-mintag">mín 2</span> = stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar. La zona rayada de la derecha es para tus anotaciones.
+        El número <span className="inv-mintag">(2)</span> junto al nombre es el stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar. La zona rayada de la derecha es para tus anotaciones.
       </div>
 
       <div className="inv-hoja">
@@ -752,8 +749,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
               <div className="inv-cat-head">{cat.nombre}</div>
               {cat.items.map(it => (
                 <div className="inv-row" key={it.id}>
-                  <span className="inv-name">{it.nombre}</span>
-                  <span className="inv-min">{it.min_seguridad != null ? <b>{it.min_seguridad}</b> : <em>—</em>}</span>
+                  <span className="inv-name">{it.nombre}{it.min_seguridad != null && <span className="inv-min-inline"> ({it.min_seguridad})</span>}</span>
                   <span className="inv-write" />
                 </div>
               ))}
@@ -918,11 +914,11 @@ const FICHA_CSS = `
 .camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 19px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
 .camara-sep { height: 0; border-top: 2px solid #B01D23; margin: 8px 4px 8px 0; list-style: none; }
 
-/* Inventario permanente — réplica del mockup aprobado (2 columnas, casilla de stock, zona rayada) */
+/* Inventario permanente — 2 columnas, stock entre paréntesis pegado al nombre, zona rayada para anotar */
 .inv-pills { display: flex; gap: 7px; flex-wrap: wrap; }
 .inv-pill { font-family: 'Oswald', sans-serif; letter-spacing: 0.03em; text-transform: uppercase; font-size: 12px; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--sl-border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .inv-pill.on { background: #B01D23; border-color: #B01D23; color: #fff; }
-.inv-mintag { display: inline-flex; align-items: center; background: #B01D23; color: #fff; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+.inv-mintag { display: inline-flex; align-items: center; background: #B01D23; color: #fff; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 5px; }
 .inv-hoja { border: 2px solid #B01D23; border-radius: 10px; overflow: hidden; background: var(--bg-card); }
 .inv-head { background: rgba(176,29,35,0.10); color: #8a1a22; font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 24px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #B01D23; }
 .inv-head-sub { font-size: 13px; font-weight: 500; }
@@ -930,12 +926,10 @@ const FICHA_CSS = `
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
 .inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #8a1a22; background: rgba(176,29,35,0.06); padding: 7px 14px; border-bottom: 2px solid rgba(176,29,35,0.30); }
 .inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
-.inv-name { flex: 0 0 220px; display: flex; align-items: center; padding: 4px 12px; font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 500; color: var(--text-primary); }
-.inv-min { flex: 0 0 56px; display: flex; align-items: center; justify-content: center; border-left: 1px dashed rgba(176,29,35,0.35); border-right: 1px dashed rgba(176,29,35,0.35); }
-.inv-min b { font-family: 'Oswald', sans-serif; color: #B01D23; font-size: 16px; }
-.inv-min em { color: var(--text-muted); font-style: normal; font-size: 14px; }
-.inv-write { flex: 1 1 auto; background: repeating-linear-gradient(transparent, transparent 32px, var(--sl-border) 32px, var(--sl-border) 33px); }
-@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { flex-basis: 150px; font-size: 16px; } }
+.inv-name { flex: 0 0 50%; display: flex; align-items: center; padding: 4px 12px; font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 500; color: var(--text-primary); }
+.inv-min-inline { color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
+.inv-write { flex: 1 1 auto; border-left: 1px dashed rgba(176,29,35,0.30); background: repeating-linear-gradient(transparent, transparent 32px, var(--sl-border) 32px, var(--sl-border) 33px); }
+@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 16px; } }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
