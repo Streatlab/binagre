@@ -101,14 +101,12 @@ function safe(name: string) {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
 }
 
-// Abre el PDF generado en una pestaña nueva y lanza el diálogo de impresión desde el visor
-// (evita la cola colgada de la impresora WiFi al imprimir directo desde la web)
-function imprimirDesdePDF(doc: jsPDF) {
-  const url = doc.output('bloburl')
-  const win = window.open(url as unknown as string, '_blank')
-  if (win) {
-    win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* el usuario imprime desde el visor */ } })
-  }
+// Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
+function fitFont(doc: jsPDF, text: string, maxWidth: number, base: number, min: number): number {
+  let fs = base
+  doc.setFontSize(fs)
+  while (fs > min && doc.getTextWidth(text) > maxWidth) { fs -= 0.5; doc.setFontSize(fs) }
+  return fs
 }
 
 function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): jsPDF {
@@ -164,9 +162,11 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
         }
         x = M + wProd
         DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
-        doc.setFontSize(10); doc.setTextColor(20)
+        doc.setTextColor(20)
+        fitFont(doc, f.part.nombre, wProd - 2.5, 10, 6.5)
         doc.text(f.part.nombre, M + 1.5, y + 3.7)
         doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.7)
+        doc.setFontSize(10)
         drawColsLines(doc, M, y, rowH, wProd, wCelda)
         y += rowH
       })
@@ -222,12 +222,12 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
       const filas = conBiberones(parts)
       const muchos = parts.length > 12
-      const fs = muchos ? 13.5 : 17
+      const fsBase = muchos ? 13.5 : 17
       const lh = muchos ? 6.2 : 8
-      doc.setFontSize(fs)
       const innerTop = top + 12
       const innerH = colH - 12
       const subColW = muchos ? colW / 2 : colW
+      const maxTextW = (muchos ? subColW : colW) - 8
       const filasPorCol = muchos ? Math.ceil(filas.length / 2) : filas.length
       let idx = 0
       for (const f of filas) {
@@ -238,10 +238,12 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
         if (fy > innerTop + innerH) { idx++; continue }
         if (f.kind === 'sub') {
           doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED_DARK)
+          fitFont(doc, f.label, maxTextW, fsBase, 8)
           doc.text(f.label, fx, fy)
           doc.setFont('helvetica', 'normal')
         } else {
           doc.setTextColor(20)
+          fitFont(doc, f.part.nombre, maxTextW, fsBase, 8)
           doc.text(f.part.nombre, fx, fy)
         }
         idx++
