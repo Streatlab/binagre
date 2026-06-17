@@ -98,7 +98,7 @@ const RED_SOFT2: [number, number, number] = [245, 226, 227]
 const GREY_LINE: [number, number, number] = [201, 201, 201]
 
 function safe(name: string) {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
+  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
 }
 
 // Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
@@ -256,6 +256,13 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
 function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
   construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
+}
+
+function imprimirDesdePDF(doc: jsPDF) {
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url)
+  if (win) win.onload = () => { win.focus(); win.print() }
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
