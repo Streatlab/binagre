@@ -313,7 +313,10 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
   construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
 }
 
-// Pinta una ubicación de inventario en la página actual del doc.
+// Inventario: UNA sola hoja A4 apaisada por ubicación. Reparte las categorías en columnas
+// y estira la altura de fila para llenar la hoja, dejando a la derecha de cada nombre la
+// mayor zona en blanco posible para tachar/anotar a mano. El nombre se recorta si hace falta
+// para no salirse del margen.
 function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
@@ -321,54 +324,75 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const usableW = PW - M * 2
 
   doc.setFillColor(...RED_SOFT); doc.rect(M, M, usableW, 14, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...RED_DARK)
-  doc.text(ubi.nombre, M + 5, M + 9.5)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
-  doc.text('INVENTARIO PERMANENTE     FECHA: ___ / ___ / ______', PW - M - 4, M + 9.5, { align: 'right' })
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(...RED_DARK)
+  doc.text(ubi.nombre, M + 5, M + 9.3)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5)
+  doc.text('INVENTARIO PERMANENTE     FECHA: ___ / ___ / ______', PW - M - 4, M + 9.3, { align: 'right' })
+  doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
 
   const top = M + 18
-  const nCols = 3
-  const colGap = 4
-  const colW = (usableW - colGap * (nCols - 1)) / nCols
-  const xCol = [M, M + colW + colGap, M + (colW + colGap) * 2]
-  const cursores = [top, top, top]
-  const headH = 7
-  const itemH = 11 // fila alta: deja sitio amplio para tachar/anotar a mano
+  const bottom = PH - M
+  const alturaDisp = bottom - top
+  const headH = 7.5
+  const gap = 3
 
+  const totalItems = ubi.cats.reduce((a, c) => a + c.items.length, 0)
+  const nCols = totalItems <= 16 ? 2 : 3
+  const colGap = 5
+  const colW = (usableW - colGap * (nCols - 1)) / nCols
+  const xCol: number[] = []
+  for (let k = 0; k < nCols; k++) xCol.push(M + k * (colW + colGap))
+
+  // reparto equilibrado de categorías en columnas (sin partir una categoría)
+  const cols: InvCat[][] = Array.from({ length: nCols }, () => [])
+  const carga = new Array(nCols).fill(0)
   for (const cat of ubi.cats) {
     let ci = 0
-    for (let k = 1; k < nCols; k++) if (cursores[k] < cursores[ci]) ci = k
-    let y = cursores[ci]
-    const x = xCol[ci]
-
-    doc.setFillColor(250, 240, 241); doc.rect(x, y, colW, headH, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED_DARK)
-    doc.text(cat.nombre.toUpperCase(), x + 3, y + 4.8)
-    y += headH
-
-    for (const it of cat.items) {
-      // nombre del producto
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(30)
-      fitFont(doc, it.nombre, colW * 0.7, 12, 8)
-      doc.text(it.nombre, x + 3, y + 5.4)
-      // stock mínimo entre paréntesis, pegado al nombre, en rojo
-      if (it.min_seguridad != null) {
-        const wN = doc.getTextWidth(it.nombre)
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...RED)
-        doc.text(`(${it.min_seguridad})`, x + 3 + wN + 2, y + 5.4)
-        doc.setFont('helvetica', 'normal')
-      }
-      // línea base al pie de la fila para anotar encima
-      doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.25)
-      doc.line(x + 3, y + itemH - 1.8, x + colW - 2, y + itemH - 1.8)
-      doc.setFontSize(12)
-      y += itemH
-    }
-    y += 3
-    cursores[ci] = y
+    for (let k = 1; k < nCols; k++) if (carga[k] < carga[ci]) ci = k
+    cols[ci].push(cat)
+    carga[ci] += cat.items.length + 0.8
   }
 
-  doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
+  // altura de fila para que la columna más cargada llene toda la hoja
+  let maxItems = 1, catsEnMax = 1, peor = -1
+  for (let k = 0; k < nCols; k++) {
+    const its = cols[k].reduce((a, c) => a + c.items.length, 0)
+    if (carga[k] > peor) { peor = carga[k]; maxItems = Math.max(its, 1); catsEnMax = Math.max(cols[k].length, 1) }
+  }
+  let itemH = (alturaDisp - catsEnMax * (headH + gap)) / maxItems
+  itemH = Math.max(6.5, Math.min(17, itemH))
+
+  for (let k = 0; k < nCols; k++) {
+    const x = xCol[k]
+    let y = top
+    for (const cat of cols[k]) {
+      doc.setFillColor(250, 240, 241); doc.rect(x, y, colW, headH, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED_DARK)
+      doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 2.5)
+      y += headH
+      const zonaNombreW = colW * 0.46
+      for (const it of cat.items) {
+        const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
+        doc.setFont('helvetica', 'bold')
+        const fs = fitFont(doc, it.nombre + sufijo, zonaNombreW - 3, 12.5, 7)
+        const baseY = y + itemH / 2 + fs * 0.13
+        doc.setTextColor(35); doc.setFontSize(fs)
+        doc.text(it.nombre, x + 3, baseY)
+        if (it.min_seguridad != null) {
+          const wN = doc.getTextWidth(it.nombre + ' ')
+          doc.setTextColor(...RED)
+          doc.text(`(${it.min_seguridad})`, x + 3 + wN, baseY)
+        }
+        // separador vertical entre el nombre y la zona de anotación
+        doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.2)
+        doc.line(x + zonaNombreW, y + 1.5, x + zonaNombreW, y + itemH - 1.5)
+        // línea inferior de la fila
+        doc.line(x, y + itemH, x + colW, y + itemH)
+        y += itemH
+      }
+      y += gap
+    }
+  }
 }
 
 function construirInventarioPDF(ubi: InvUbi): jsPDF {
@@ -702,7 +726,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
       </div>
 
       <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.sec, marginBottom: 12 }}>
-        El número <span className="inv-mintag">(2)</span> junto al nombre es el stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar.
+        El número <span className="inv-mintag">(2)</span> junto al nombre es el stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar. El espacio a la derecha es para tus anotaciones.
       </div>
 
       <div className="inv-hoja">
@@ -717,6 +741,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
               {cat.items.map(it => (
                 <div className="inv-row" key={it.id}>
                   <span className="inv-name">{it.nombre}{it.min_seguridad != null && <span className="inv-min-inline">({it.min_seguridad})</span>}</span>
+                  <span className="inv-write" />
                 </div>
               ))}
             </div>
@@ -891,10 +916,11 @@ const FICHA_CSS = `
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
 .inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #8a1a22; background: rgba(176,29,35,0.06); padding: 7px 14px; border-bottom: 2px solid rgba(176,29,35,0.25); }
-.inv-row { display: flex; align-items: flex-start; border-bottom: 1px solid var(--sl-border); min-height: 50px; padding: 8px 14px; }
-.inv-name { font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 46px; }
+.inv-name { flex: 0 0 46%; display: flex; align-items: center; padding: 6px 12px; font-family: 'Lexend', sans-serif; font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .inv-min-inline { color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; margin-left: 7px; }
-@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 16px; } }
+.inv-write { flex: 1 1 auto; border-left: 1px dashed rgba(176,29,35,0.30); }
+@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 15px; } }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
