@@ -155,8 +155,8 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
       filas.forEach(f => {
         if (f.kind === 'sub') {
           doc.setFillColor(247, 238, 239); doc.rect(M, y, usableW, rowH, 'F')
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...RED_DARK)
-          doc.text(f.label.toUpperCase(), M + 6, y + 3.5)
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...RED_DARK)
+          doc.text(f.label.toUpperCase(), M + 6, y + 3.7)
           doc.setFont('helvetica', 'normal')
           drawColsLines(doc, M, y, rowH, wProd, wCelda)
           y += rowH
@@ -164,9 +164,9 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
         }
         x = M + wProd
         DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
-        doc.setFontSize(7.5); doc.setTextColor(20)
-        doc.text(f.part.nombre, M + 1.5, y + 3.4)
-        doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.4)
+        doc.setFontSize(10); doc.setTextColor(20)
+        doc.text(f.part.nombre, M + 1.5, y + 3.7)
+        doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.7)
         drawColsLines(doc, M, y, rowH, wProd, wCelda)
         y += rowH
       })
@@ -222,7 +222,7 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
       const filas = conBiberones(parts)
       const muchos = parts.length > 12
-      const fs = muchos ? 11 : 14
+      const fs = muchos ? 13.5 : 17
       const lh = muchos ? 6.2 : 8
       doc.setFontSize(fs)
       const innerTop = top + 12
@@ -656,13 +656,13 @@ const FICHA_CSS = `
 .td-seccion { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #B01D23; padding: 5px 8px; background: rgba(176,29,35,0.07); }
 .td-bib { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a1a22; padding: 3px 8px 3px 20px; background: rgba(176,29,35,0.04); }
 
-.td-partida { font-family: 'Lexend', sans-serif; font-size: 13.5px; color: var(--text-primary); padding: 1px 8px; white-space: nowrap; background: var(--bg-card); }
+.td-partida { font-family: 'Lexend', sans-serif; font-size: 14.5px; color: var(--text-primary); padding: 0 8px; white-space: nowrap; background: var(--bg-card); }
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
 .td-partida-fin { text-align: right; }
 .td-celda { padding: 0; }
 .td-celda-hoy { background: var(--bg-card); }
 .td-celda-ssp { background: rgba(176,29,35,0.06); }
-.celda-input { width: 100%; min-width: 34px; background: transparent; border: none; outline: none; font-family: 'Lexend', sans-serif; font-size: 14px; color: var(--text-primary); padding: 1px 3px; text-align: center; }
+.celda-input { width: 100%; min-width: 34px; background: transparent; border: none; outline: none; font-family: 'Lexend', sans-serif; font-size: 15px; color: var(--text-primary); padding: 0 3px; text-align: center; }
 .celda-ssp { color: var(--text-muted); }
 .celda-print { display: none; }
 
@@ -677,8 +677,8 @@ const FICHA_CSS = `
 .camara-balda:last-child { border-right: none; }
 .camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
 .camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
-.camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 18px; line-height: 1.7; color: var(--text-primary); }
-.camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
+.camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 21px; line-height: 1.55; color: var(--text-primary); }
+.camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 19px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
 .camara-balda-list.dos-cols { column-count: 2; column-gap: 24px; }
 .camara-balda-list.dos-cols .camara-balda-item, .camara-balda-list.dos-cols .camara-bib-head { break-inside: avoid; }
 
@@ -707,12 +707,12 @@ const FICHA_CSS = `
   .prod-table-print .th-sub-empty { background: #f0d8da !important; position: static !important; }
   .prod-table-print .th-sub-hoy { background: #f0d8da !important; color: #8a1a22 !important; font-size: 9.5px; }
   .prod-table-print .th-sub-ssp { background: #e6c7ca !important; color: #7a1419 !important; font-size: 9.5px; }
-  .prod-table-print .td-partida { color: #111 !important; background: #fff !important; padding: 2px 6px !important; position: static !important; font-size: 11px; }
-  .prod-table-print .td-bib { color: #8a1a22 !important; background: #f7eeef !important; font-size: 10px; padding: 2px 6px 2px 18px !important; }
+  .prod-table-print .td-partida { color: #111 !important; background: #fff !important; padding: 1px 6px !important; position: static !important; font-size: 13px; }
+  .prod-table-print .td-bib { color: #8a1a22 !important; background: #f7eeef !important; font-size: 11.5px; padding: 1px 6px 1px 18px !important; }
   .prod-table-print .td-celda { padding: 0 !important; height: 20px; }
   .prod-table-print .td-celda-hoy { background: #fff !important; }
   .prod-table-print .td-celda-ssp { background: #f7eeef !important; }
-  .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 11px; padding: 0 2px; }
+  .prod-table-print .celda-print { display: inline !important; color: #111 !important; font-size: 13px; padding: 0 2px; }
 
   /* ---- Ordenación de cámara: 1 hoja A4 horizontal por lado ---- */
   .camara-wrap { display: block; position: absolute; left: 0; top: 0; width: 100%; }
@@ -723,11 +723,11 @@ const FICHA_CSS = `
   .camara-balda { border-right: 2px solid #d9b3b6 !important; padding: 0; display: flex; flex-direction: column; min-height: 0; }
   .camara-balda:last-child { border-right: none; }
   .camara-balda-head { font-size: 22px !important; color: #8a1a22 !important; background: #faf0f1 !important; border-bottom: 2px solid #e0bcc0 !important; padding: 7px 14px !important; flex: 0 0 auto; }
-  .camara-balda-list { padding: 10px 16px !important; flex: 1 1 auto; }
-  .camara-balda-item { font-size: 26px !important; line-height: 1.7 !important; color: #111 !important; }
-  .camara-bib-head { font-size: 22px !important; color: #8a1a22 !important; margin-top: 4px; }
-  .camara-balda-list.dos-cols { column-count: 2; column-gap: 16px; padding: 10px 14px !important; }
-  .camara-balda-list.dos-cols .camara-balda-item { font-size: 21px !important; line-height: 1.5 !important; break-inside: avoid; }
-  .camara-balda-list.dos-cols .camara-bib-head { font-size: 19px !important; break-inside: avoid; }
+  .camara-balda-list { padding: 8px 16px !important; flex: 1 1 auto; }
+  .camara-balda-item { font-size: 30px !important; line-height: 1.5 !important; color: #111 !important; }
+  .camara-bib-head { font-size: 25px !important; color: #8a1a22 !important; margin-top: 4px; }
+  .camara-balda-list.dos-cols { column-count: 2; column-gap: 16px; padding: 8px 14px !important; }
+  .camara-balda-list.dos-cols .camara-balda-item { font-size: 24px !important; line-height: 1.35 !important; break-inside: avoid; }
+  .camara-balda-list.dos-cols .camara-bib-head { font-size: 22px !important; break-inside: avoid; }
 }
 `
