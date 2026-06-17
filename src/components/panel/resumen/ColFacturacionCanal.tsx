@@ -1,7 +1,7 @@
 /**
  * ColFacturacionCanal — fórmula unificada
- * - Si hay OCR con neto_real_cobrado: usa ese valor (es el real cobrado)
- * - Si no hay OCR o falta: usa el neto del prop canales (ya calculado con fórmula completa en TabResumen vía calcNetoPorCanal)
+ * - Si hay liquidación real (ventas_plataforma) del mes: usa ese neto real cobrado
+ * - Si no hay real: usa el neto del prop canales (ya REAL-FIRST en TabResumen vía calcNetoPorCanal)
  * - Nunca calcula con fórmula simple (sin fees periódicos)
  */
 import { useEffect, useState } from 'react'
@@ -27,22 +27,28 @@ interface DatosCanal {
 type CanalId = 'uber' | 'glovo' | 'just_eat' | 'web' | 'directa'
 
 async function getNetoRealOCR(canal: CanalId, mes: number, año: number): Promise<{ bruto: number; neto: number } | null> {
+  const denorm: Record<CanalId, string[]> = {
+    uber: ['uber'], glovo: ['glovo'], just_eat: ['je','just_eat','justeat'], web: ['web'], directa: ['dir','directa'],
+  }
+  const lastDay = new Date(año, mes, 0).getDate()
+  const ini = `${año}-${String(mes).padStart(2,'0')}-01`
+  const fin = `${año}-${String(mes).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
   const { data, error } = await supabase
-    .from('resumenes_plataforma_marca_mensual')
-    .select('bruto, neto_real_cobrado')
-    .eq('plataforma', canal)
-    .eq('mes', mes)
-    .eq('año', año)
+    .from('ventas_plataforma')
+    .select('bruto, neto, plataforma')
+    .gte('fecha_fin_periodo', ini)
+    .lte('fecha_fin_periodo', fin)
 
   if (error || !data || data.length === 0) return null
 
-  type Row = { bruto: number | null; neto_real_cobrado: number | null }
-  const rows = data as Row[]
-  const tieneRealCobrado = rows.some(d => d.neto_real_cobrado !== null && d.neto_real_cobrado !== undefined)
+  type Row = { bruto: number | null; neto: number | null; plataforma: string | null }
+  const acept = denorm[canal]
+  const rows = (data as Row[]).filter(d => acept.includes((d.plataforma ?? '').toLowerCase().trim()))
+  const tieneRealCobrado = rows.some(d => d.neto !== null && d.neto !== undefined)
   if (!tieneRealCobrado) return null
 
   const bruto = rows.reduce((s, d) => s + (d.bruto ?? 0), 0)
-  const neto = rows.reduce((s, d) => s + (d.neto_real_cobrado ?? 0), 0)
+  const neto = rows.reduce((s, d) => s + (d.neto ?? 0), 0)
   return { bruto, neto }
 }
 
