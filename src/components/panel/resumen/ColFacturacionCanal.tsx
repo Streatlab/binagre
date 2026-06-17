@@ -1,7 +1,7 @@
 /**
  * ColFacturacionCanal — fórmula unificada
- * - Si hay liquidación real (ventas_plataforma) del mes: usa ese neto real cobrado
- * - Si no hay real: usa el neto del prop canales (ya REAL-FIRST en TabResumen vía calcNetoPorCanal)
+ * - Si hay liquidación real (ventas_plataforma) del mes: usa neto real cobrado
+ * - Si no: usa el neto del prop canales (calculado en TabResumen vía calcNetoPorCanal, ya REAL MANDA)
  * - Nunca calcula con fórmula simple (sin fees periódicos)
  */
 import { useEffect, useState } from 'react'
