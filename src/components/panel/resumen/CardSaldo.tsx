@@ -91,26 +91,29 @@ export default function CardSaldo(_props: Props) {
       })
   }, [])
 
-  // FIX 78: cobros estimados (simplificado — tabla resumenes puede estar vacía)
+  // FIX 78: cobros estimados desde liquidaciones reales (ventas_plataforma) del mes
   useEffect(() => {
     const hoy = new Date()
     const mes = hoy.getMonth() + 1
     const año = hoy.getFullYear()
+    const lastDay = new Date(año, mes, 0).getDate()
+    const ini = `${año}-${String(mes).padStart(2,'0')}-01`
+    const fin = `${año}-${String(mes).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
 
     supabase
-      .from('resumenes_plataforma_marca_mensual')
-      .select('neto_real_cobrado, plataforma')
-      .eq('mes', mes)
-      .eq('año', año)
+      .from('ventas_plataforma')
+      .select('neto, plataforma')
+      .gte('fecha_fin_periodo', ini)
+      .lte('fecha_fin_periodo', fin)
       .then(({ data }) => {
         if (!data || data.length === 0) {
           setCobros7d(null)
           setCobros30d(null)
           return
         }
-        type Row = { neto_real_cobrado: number | null; plataforma: string }
+        type Row = { neto: number | null; plataforma: string }
         const rows = data as Row[]
-        const totalNeto = rows.reduce((a, r) => a + (r.neto_real_cobrado ?? 0), 0)
+        const totalNeto = rows.reduce((a, r) => a + (r.neto ?? 0), 0)
         // Estimación proporcional: cobros7d ≈ totalNeto * 7/30
         setCobros7d(totalNeto * 7 / 30)
         setCobros30d(totalNeto)
