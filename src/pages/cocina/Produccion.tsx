@@ -101,6 +101,16 @@ function safe(name: string) {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
 }
 
+// Abre el PDF generado en una pestaña nueva y lanza el diálogo de impresión desde el visor
+// (evita la cola colgada de la impresora WiFi al imprimir directo desde la web)
+function imprimirDesdePDF(doc: jsPDF) {
+  const url = doc.output('bloburl')
+  const win = window.open(url as unknown as string, '_blank')
+  if (win) {
+    win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* el usuario imprime desde el visor */ } })
+  }
+}
+
 // Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
 function fitFont(doc: jsPDF, text: string, maxWidth: number, base: number, min: number): number {
   let fs = base
