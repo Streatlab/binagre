@@ -98,7 +98,7 @@ const RED_SOFT2: [number, number, number] = [245, 226, 227]
 const GREY_LINE: [number, number, number] = [201, 201, 201]
 
 function safe(name: string) {
-  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
 }
 
 // Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
@@ -114,8 +114,9 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
   const PW = doc.internal.pageSize.getWidth()
   const M = 12
   const usableW = PW - M * 2
-  const wProd = 26
-  const wCelda = (usableW - wProd * 2) / 14
+  // Columnas HOY/SSP estrechas (solo media aspa); el ancho sobrante va al nombre del producto
+  const wCelda = 8
+  const wProd = (usableW - wCelda * 14) / 2
   const rowH = 5.2
 
   paginas.forEach((bloques, pi) => {
@@ -163,10 +164,10 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
         x = M + wProd
         DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
         doc.setTextColor(20)
-        fitFont(doc, f.part.nombre, wProd - 2.5, 10, 6.5)
+        fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
         doc.text(f.part.nombre, M + 1.5, y + 3.7)
         doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.7)
-        doc.setFontSize(10)
+        doc.setFontSize(11)
         drawColsLines(doc, M, y, rowH, wProd, wCelda)
         y += rowH
       })
@@ -256,13 +257,6 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
 function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
   construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
-}
-
-function imprimirDesdePDF(doc: jsPDF) {
-  const blob = doc.output('blob')
-  const url = URL.createObjectURL(blob)
-  const win = window.open(url)
-  if (win) win.onload = () => { win.focus(); win.print() }
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
