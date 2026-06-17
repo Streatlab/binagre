@@ -36,16 +36,17 @@ export default function TabEstaSemana() {
     const iso = isoDeFecha(lunes)
 
     async function load() {
-      // 1. Datos reales de la BD
+      // 1. Histórico hardcodeado (semanas registradas o con override puntual) — MANDA sobre la BD
+      const sem = getSemanaPorLunes(iso)
+      if (sem) {
+        if (cancelled) return
+        setTurnos(expandirTurnos(empleados, sem.turnos)); setCierres({}); setFuente('historico'); setLoading(false); return
+      }
+      // 2. Datos reales de la BD
       const turnosBD = await fetchTurnosDB(iso)
       if (cancelled) return
       if (turnosBD.length > 0) {
         setTurnos(turnosBD); setCierres({}); setFuente('bd'); setLoading(false); return
-      }
-      // 2. Histórico hardcodeado (semanas pasadas ya conocidas)
-      const sem = getSemanaPorLunes(iso)
-      if (sem) {
-        setTurnos(expandirTurnos(empleados, sem.turnos)); setCierres({}); setFuente('historico'); setLoading(false); return
       }
       // 3. Plantilla asignada a esa semana
       const asig = getAsignacionPorLunes(iso)
