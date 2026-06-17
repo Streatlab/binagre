@@ -171,22 +171,25 @@ export default function EscenariosTesoreria() {
       const yyyy = lastMonth.getFullYear()
       const mes = lastMonth.getMonth() + 1
 
+      const lastDayLM = new Date(yyyy, mes, 0).getDate()
+      const iniLM = `${yyyy}-${String(mes).padStart(2,'0')}-01`
+      const finLM = `${yyyy}-${String(mes).padStart(2,'0')}-${String(lastDayLM).padStart(2,'0')}`
       const { data: rpData } = await supabase
-        .from('resumenes_plataforma_marca_mensual')
-        .select('*')
-        .eq('año', yyyy)
-        .eq('mes', mes)
+        .from('ventas_plataforma')
+        .select('plataforma, neto, bruto, fecha_fin_periodo')
+        .gte('fecha_fin_periodo', iniLM)
+        .lte('fecha_fin_periodo', finLM)
 
       const resRows = (rpData ?? []) as unknown as ResumenPlataformaRow[]
       const sum = { uber: 0, glovo: 0, je: 0, web: 0, directa: 0 }
       for (const r of resRows) {
-        const neto = r.neto_real_cobrado ?? 0
-        const p = (r.plataforma ?? '').toLowerCase()
+        const neto = (r as any).neto ?? 0
+        const p = ((r.plataforma ?? '') as string).toLowerCase().trim()
         if (p === 'uber') sum.uber += neto
         else if (p === 'glovo') sum.glovo += neto
         else if (p === 'justeat' || p === 'just eat' || p === 'je') sum.je += neto
         else if (p === 'web') sum.web += neto
-        else if (p === 'directa') sum.directa += neto
+        else if (p === 'directa' || p === 'dir') sum.directa += neto
       }
       setAvgWeekly({
         uber: sum.uber / 4.33,
