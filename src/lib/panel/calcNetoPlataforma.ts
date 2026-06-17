@@ -122,6 +122,84 @@ let cacheConfig: Record<string, CanalConfig> | null = null
 let cacheMarcasPorCanal: MarcasPorCanal | null = null
 let realtimeInit = false
 
+/* ════════════════════════════════════════════════════════════════════════
+ * REAL MANDA · liquidaciones reales (ventas_plataforma) + autoalimentación
+ * El neto real que entra por Documentación → Ventas manda sobre el estimado.
+ * El ratio neto/bruto empírico por canal se afina solo según entran ventas.
+ * ════════════════════════════════════════════════════════════════════════ */
+const MIN_PEDIDOS_CALIBRACION = 120
+const MIN_PERIODOS_CALIBRACION = 3
+
+interface LiqRealCanal {
+  canal: string; marca: string; ini: number; fin: number
+  bruto: number; neto: number; pedidos: number
+}
+export interface RatioCanalReal {
+  canal: string; ratio: number; brutoAcum: number; netoAcum: number
+  pedidosAcum: number; periodos: number; fiable: boolean
+}
+
+let cacheLiqReal: LiqRealCanal[] | null = null
+let cacheRatiosReales: Record<string, RatioCanalReal> | null = null
+
+function normMarcaReal(m: string): string { return (m || '').toLowerCase().trim() }
+function diaEpoch(d: Date): number { return Math.floor(d.getTime() / 86400000) }
+
+export async function loadVentasRealesIndex(): Promise<LiqRealCanal[]> {
+  if (cacheLiqReal) return cacheLiqReal
+  const { data, error } = await supabase
+    .from('ventas_plataforma')
+    .select('plataforma, marca, fecha_inicio_periodo, fecha_fin_periodo, bruto, neto, pedidos')
+  if (error || !data) { cacheLiqReal = []; cacheRatiosReales = null; return cacheLiqReal }
+  const out: LiqRealCanal[] = []
+  for (const row of data as any[]) {
+    if (row.neto == null || row.bruto == null) continue
+    if (!row.fecha_inicio_periodo || !row.fecha_fin_periodo) continue
+    out.push({
+      canal: normalizarCanalId(String(row.plataforma || '').toLowerCase().trim()),
+      marca: normMarcaReal(row.marca),
+      ini: diaEpoch(new Date(row.fecha_inicio_periodo + 'T00:00:00')),
+      fin: diaEpoch(new Date(row.fecha_fin_periodo + 'T00:00:00')),
+      bruto: Number(row.bruto) || 0,
+      neto: Number(row.neto) || 0,
+      pedidos: Number(row.pedidos) || 0,
+    })
+  }
+  cacheLiqReal = out
+  cacheRatiosReales = null
+  return cacheLiqReal
+}
+
+export async function loadRatiosRealesCanal(): Promise<Record<string, RatioCanalReal>> {
+  if (cacheRatiosReales) return cacheRatiosReales
+  const liq = await loadVentasRealesIndex()
+  const acc: Record<string, { b: number; n: number; p: number; per: number }> = {}
+  for (const l of liq) {
+    if (!acc[l.canal]) acc[l.canal] = { b: 0, n: 0, p: 0, per: 0 }
+    acc[l.canal].b += l.bruto; acc[l.canal].n += l.neto
+    acc[l.canal].p += l.pedidos; acc[l.canal].per += 1
+  }
+  const out: Record<string, RatioCanalReal> = {}
+  for (const [canal, v] of Object.entries(acc)) {
+    out[canal] = {
+      canal, ratio: v.b > 0 ? v.n / v.b : 0,
+      brutoAcum: v.b, netoAcum: v.n, pedidosAcum: v.p, periodos: v.per,
+      fiable: v.p >= MIN_PEDIDOS_CALIBRACION || v.per >= MIN_PERIODOS_CALIBRACION,
+    }
+  }
+  cacheRatiosReales = out
+  return out
+}
+
+/** Liquidaciones reales del canal cuyo periodo cae DENTRO de [desde,hasta]. */
+function realesContenidas(canalId: string, desde?: Date, hasta?: Date, marca?: string): LiqRealCanal[] {
+  if (!cacheLiqReal || !desde || !hasta) return []
+  const dIni = diaEpoch(desde), dFin = diaEpoch(hasta)
+  const c = normalizarCanalId((canalId || '').toLowerCase())
+  const m = marca ? normMarcaReal(marca) : undefined
+  return cacheLiqReal.filter(l => l.canal === c && l.ini >= dIni && l.fin <= dFin && (m ? l.marca === m : true))
+}
+
 const MAP_ID_CANAL: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat',
   web: 'Web Propia', dir: 'Venta Directa',
@@ -164,10 +242,25 @@ function ensureRealtime() {
       }
     )
     .subscribe()
+  supabase
+    .channel('ventas_plataforma_neto_changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'ventas_plataforma' },
+      async () => {
+        cacheLiqReal = null
+        cacheRatiosReales = null
+        await loadVentasRealesIndex()
+        await loadRatiosRealesCanal()
+        window.dispatchEvent(new CustomEvent('config_canales:changed'))
+      }
+    )
+    .subscribe()
 }
 
 export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> {
   ensureRealtime()
+  // Prime índice de liquidaciones reales para que calcNetoPorCanal (síncrono) aplique REAL MANDA
+  await Promise.all([loadVentasRealesIndex(), loadRatiosRealesCanal()])
   if (cacheConfig) return cacheConfig
   const { data, error } = await supabase
     .from('config_canales')
@@ -314,6 +407,53 @@ export function calcNetoPorCanal(
   configOverrideLegacy?: Record<string, CanalConfig>,
   promoSubvencionadaLegacy?: number,
 ): NetoResult {
+  // Parse opciones para saber modo + periodo + marca
+  let modo: ModoNeto = 'agregado_canal'
+  let desde: Date | undefined = fechaDesdeLegacy
+  let hasta: Date | undefined = fechaHastaLegacy
+  let marca: string | undefined
+  if (opcsOrLegacyMarcas && typeof opcsOrLegacyMarcas === 'object' && !Array.isArray(opcsOrLegacyMarcas) && (
+    'modo' in opcsOrLegacyMarcas || 'fechaDesde' in opcsOrLegacyMarcas || 'configCanales' in opcsOrLegacyMarcas || 'diasConDatos' in opcsOrLegacyMarcas || 'marca' in (opcsOrLegacyMarcas as any)
+  )) {
+    const o = opcsOrLegacyMarcas as OpcionesCalcNeto & { marca?: string }
+    modo = o.modo ?? 'agregado_canal'
+    desde = o.fechaDesde ?? desde
+    hasta = o.fechaHasta ?? hasta
+    marca = o.marca
+  }
+
+  // REAL MANDA solo a nivel agregado de canal con periodo definido.
+  // Modo 'plato' / 'subset_marca' o sin fechas → estimado puro (economía unitaria).
+  if (modo === 'agregado_canal' && desde && hasta) {
+    const reales = realesContenidas(canalId, desde, hasta, marca)
+    const brutoReal = reales.reduce((s, l) => s + l.bruto, 0)
+    if (brutoReal > 0) {
+      const netoReal = reales.reduce((s, l) => s + l.neto, 0)
+      const pedReal = reales.reduce((s, l) => s + l.pedidos, 0)
+      const brutoResidual = Math.max(0, bruto - brutoReal)
+      const pedResidual = Math.max(0, pedidos - pedReal)
+      let netoResidual = 0
+      if (brutoResidual > 0.005) {
+        const c = normalizarCanalId((canalId || '').toLowerCase())
+        const ratio = cacheRatiosReales?.[c]
+        if (ratio && ratio.fiable && ratio.ratio > 0) {
+          netoResidual = brutoResidual * ratio.ratio   // estimado afinado con histórico real
+        } else {
+          netoResidual = calcDesglosePorCanal(canalId, brutoResidual, pedResidual, opcsOrLegacyMarcas, fechaDesdeLegacy, fechaHastaLegacy, configOverrideLegacy, promoSubvencionadaLegacy).neto
+        }
+      }
+      const neto = netoReal + netoResidual
+      return { neto, margenPct: bruto > 0 ? (neto / bruto) * 100 : 0 }
+    }
+    // Sin real para este periodo: estimado, pero afinado con ratio empírico si es fiable
+    const c = normalizarCanalId((canalId || '').toLowerCase())
+    const ratio = cacheRatiosReales?.[c]
+    if (ratio && ratio.fiable && ratio.ratio > 0 && bruto > 0) {
+      const neto = bruto * ratio.ratio
+      return { neto, margenPct: (neto / bruto) * 100 }
+    }
+  }
+
   const desg = calcDesglosePorCanal(canalId, bruto, pedidos, opcsOrLegacyMarcas, fechaDesdeLegacy, fechaHastaLegacy, configOverrideLegacy, promoSubvencionadaLegacy)
   return { neto: desg.neto, margenPct: bruto > 0 ? (desg.neto / bruto) * 100 : 0 }
 }
