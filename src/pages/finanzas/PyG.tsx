@@ -77,22 +77,26 @@ export default function PyG() {
     // Ingresos
     let brutos = 0, netos = 0
     if (facturacionRes.data) {
+      let bUber = 0, bGlovo = 0, bJe = 0, bWeb = 0, bDir = 0
       for (const row of facturacionRes.data) {
-        const uber = Number(row.uber_bruto ?? 0)
-        const glovo = Number(row.glovo_bruto ?? 0)
-        const je = Number(row.je_bruto ?? 0)
-        const web = Number(row.web_bruto ?? 0)
-        const directa = Number(row.directa_bruto ?? 0)
-        brutos += uber + glovo + je + web + directa
-        // Neto calculado por la función central del ERP (calcNetoPorCanal)
-        // pedidos=0 → solo comisión variable sin fees periódicos ni por pedido
-        netos +=
-          calcNetoPorCanal('uber', uber, 0).neto +
-          calcNetoPorCanal('glovo', glovo, 0).neto +
-          calcNetoPorCanal('je', je, 0).neto +
-          calcNetoPorCanal('web', web, 0).neto +
-          calcNetoPorCanal('dir', directa, 0).neto
+        bUber  += Number(row.uber_bruto ?? 0)
+        bGlovo += Number(row.glovo_bruto ?? 0)
+        bJe    += Number(row.je_bruto ?? 0)
+        bWeb   += Number(row.web_bruto ?? 0)
+        bDir   += Number(row.directa_bruto ?? 0)
       }
+      brutos = bUber + bGlovo + bJe + bWeb + bDir
+      // REAL MANDA: agregado de canal con periodo del mes → usa liquidación real
+      // si existe; si no, estimado central (config_canales).
+      const dDesde = new Date(`${fechaIni}T00:00:00`)
+      const dHasta = new Date(`${fechaFin}T00:00:00`)
+      const opt = { modo: 'agregado_canal' as const, fechaDesde: dDesde, fechaHasta: dHasta }
+      netos =
+        calcNetoPorCanal('uber',  bUber,  0, opt).neto +
+        calcNetoPorCanal('glovo', bGlovo, 0, opt).neto +
+        calcNetoPorCanal('je',    bJe,    0, opt).neto +
+        calcNetoPorCanal('web',   bWeb,   0, opt).neto +
+        calcNetoPorCanal('dir',   bDir,   0, opt).neto
     }
     setIngresosBrutos(brutos)
     setIngresosNetos(netos)
