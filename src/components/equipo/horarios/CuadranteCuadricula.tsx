@@ -8,10 +8,21 @@ import {
   DIAS, type DiaKey, type Empleado, type Turno,
   horasSemanaPorEmpleado,
   horasReales, tramosTexto,
-  fmtHoras, colorEmpleado,
+  colorEmpleado,
 } from './utils'
 
 const FESTIVO_ROJO = '#B01D23'
+
+/** Semana con override puntual: en ella las celdas sin turno van en gris sin la palabra "Libre". */
+const SEMANA_SIN_LIBRE = '2026-06-15'
+
+/** Formatea horas reales como "6h 45min" (vista). Si son horas justas, "8h". */
+function fmtHM(h: number): string {
+  const totalMin = Math.round(h * 60)
+  const hh = Math.floor(totalMin / 60)
+  const mm = totalMin % 60
+  return mm === 0 ? `${hh}h` : `${hh}h ${mm}min`
+}
 
 export function nombrePila(nombre: string): string {
   return nombre.trim().split(/\s+/)[0]
@@ -81,6 +92,7 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
     return m
   }, [empleados])
   const dias = useMemo(() => fechasSemana(lunes), [lunes])
+  const ocultarLibre = isoDeFecha(lunes) === SEMANA_SIN_LIBRE
   const turnoDe = (empId: string, dia: DiaKey) => turnos.find(t => t.empleado_id === empId && t.dia === dia)
   const cols = `120px repeat(7, minmax(0,1fr)) 100px`
 
@@ -114,7 +126,7 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
             return (
               <FilaEmpleado
                 key={emp.id} emp={emp} col={col} total={total}
-                dias={dias} turnoDe={turnoDe} T={T}
+                dias={dias} turnoDe={turnoDe} T={T} ocultarLibre={ocultarLibre}
               />
             )
           })}
@@ -143,7 +155,7 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
 }
 
 function FilaEmpleado({
-  emp, col, total, dias, turnoDe, T,
+  emp, col, total, dias, turnoDe, T, ocultarLibre,
 }: {
   emp: Empleado
   col: { bg: string; text: string }
@@ -151,6 +163,7 @@ function FilaEmpleado({
   dias: ReturnType<typeof fechasSemana>
   turnoDe: (id: string, dia: DiaKey) => Turno | undefined
   T: ReturnType<typeof useTheme>['T']
+  ocultarLibre: boolean
 }) {
   return (
     <>
@@ -162,20 +175,22 @@ function FilaEmpleado({
         const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={dia} style={{ background: T.group, borderRadius: 5, minHeight: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }} />
+            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 12, fontStyle: 'italic', minHeight: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+              {ocultarLibre ? '' : 'Libre'}
+            </div>
           )
         }
         const real = horasReales(t)
         return (
           <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
             <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</span>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>{fmtHoras(real)}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>{fmtHM(real)}</span>
           </div>
         )
       })}
 
       <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 700 }}>{fmtHoras(total)}</span>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 700 }}>{fmtHM(total)}</span>
       </div>
     </>
   )
