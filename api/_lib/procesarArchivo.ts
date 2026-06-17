@@ -32,7 +32,7 @@ import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { ocrMistralTexto, bootstrapApiActivo } from './ocr-mistral.js'
-import { extraerFacturaAnthropic, anthropicBootstrapActivo } from './ocr-anthropic.js'
+import { extraerFacturaAnthropic, anthropicBootstrapActivo, extraerFacturaAnthropicVisionUltimoRecurso } from './ocr-anthropic.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
@@ -336,6 +336,31 @@ async function nifTienePlantilla(supabase: SupabaseClient, nif: string | null): 
     .eq('patron_nif', nif)
     .maybeSingle()
   return !!data?.id
+}
+
+// Candado de VISIÓN por NIF: ¿este proveedor ya gastó su única lectura por visión?
+async function nifVisionUsada(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
+  if (!nif) return false
+  const { data } = await supabase
+    .from('reglas_conciliacion')
+    .select('vision_usada')
+    .eq('patron_nif', nif)
+    .eq('vision_usada', true)
+    .maybeSingle()
+  return !!data
+}
+
+// Marca el NIF como ya-visado: a partir de aquí ese proveedor solo se lee por plantilla.
+async function marcarVisionUsada(supabase: SupabaseClient, nif: string | null): Promise<void> {
+  if (!nif) return
+  try {
+    await supabase
+      .from('reglas_conciliacion')
+      .update({ vision_usada: true, vision_fecha: new Date().toISOString() })
+      .eq('patron_nif', nif)
+  } catch (e) {
+    console.error('[marcarVisionUsada]', errMsg(e))
+  }
 }
 
 // CATEGORÍA SIEMPRE: la categoría del gasto se fija por el NIF del emisor desde
@@ -677,7 +702,8 @@ async function procesarContenidoPrincipal(
   // plantilla del NIF si existe en el diccionario. Solo PDF con capa de texto.
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' | 'anthropic_bootstrap' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' | 'anthropic_bootstrap' | 'anthropic_vision' = 'reglas'
+  let visionUsadaNif: string | null = null
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -771,6 +797,30 @@ async function procesarContenidoPrincipal(
       }
     } catch (anthropicErr) {
       console.error('[procesarArchivo] bootstrap Anthropic no resolvió:', errMsg(anthropicErr))
+    }
+  }
+
+  // PASO 3c (VISIÓN Anthropic — ÚLTIMO RECURSO, con candado por NIF): si NADA leyó,
+  // se rasteriza el documento con visión UNA sola vez por proveedor. Si el NIF ya
+  // gastó su visión (vision_usada=true), NO se repite: queda a lectura manual.
+  if (!extractedReglas && (tipo === 'pdf' || tipo === 'imagen')) {
+    const nifCand = textoPdfCache ? normalizarNif(extraerNifEmisorLibre(textoPdfCache)) : null
+    const yaGastoVision = nifCand ? await nifVisionUsada(supabase, nifCand) : false
+    if (!yaGastoVision) {
+      try {
+        const facVision = await extraerFacturaAnthropicVisionUltimoRecurso(
+          file.buffer,
+          tipo === 'imagen' ? 'imagen' : 'pdf',
+          file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'),
+        )
+        if (facVision) {
+          extractedReglas = facVision
+          origenLectura = 'anthropic_vision'
+          visionUsadaNif = normalizarNif(facVision.nif_emisor) || nifCand
+        }
+      } catch (visErr) {
+        console.error('[procesarArchivo] visión último recurso no resolvió:', errMsg(visErr))
+      }
     }
   }
 
@@ -946,6 +996,10 @@ async function procesarContenidoPrincipal(
     // que cierra el candado del bootstrap: la próxima factura del proveedor se lee
     // gratis y Mistral/Anthropic no vuelven a tocarse. Best-effort, idempotente por NIF.
     await aprenderProveedorNif(supabase, extracted, textoPdfCache)
+    // Cerrar el candado de visión: este proveedor ya no podrá volver a usar visión.
+    if (origenLectura === 'anthropic_vision') {
+      await marcarVisionUsada(supabase, visionUsadaNif || normalizarNif(extracted.nif_emisor))
+    }
 
     // F11: batch insert plataforma_detalle
     if (extracted.tipo === 'plataforma' && extracted.plataforma_detalle?.length) {
