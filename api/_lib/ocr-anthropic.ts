@@ -134,6 +134,48 @@ export async function extraerFacturaAnthropic(
   }
 }
 
+// VISIÓN de ÚLTIMO RECURSO (rasteriza el PDF/imagen con el modelo). Solo la invoca
+// procesarArchivo cuando plantilla + Tesseract + Mistral + Anthropic-texto fallaron
+// Y el NIF aún no ha gastado su visión (candado vision_usada por NIF en
+// reglas_conciliacion). El control de coste es ese candado: MÁX 1 visión por
+// proveedor. Kill-switch: OCR_VISION_ULTIMO_RECURSO='false' lo apaga del todo.
+export async function extraerFacturaAnthropicVisionUltimoRecurso(
+  buffer: Buffer,
+  tipo: 'pdf' | 'imagen',
+  mimeType: string,
+): Promise<ExtractedFactura | null> {
+  if (process.env.OCR_VISION_ULTIMO_RECURSO === 'false') return null
+  if (!process.env.ANTHROPIC_API_KEY) return null
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  const b64 = buffer.toString('base64')
+  const bloqueDoc = tipo === 'pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+    : { type: 'image', source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: b64 } }
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
+  try {
+    const resp = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: [bloqueDoc, { type: 'text', text: PROMPT }] }],
+      }),
+      signal: ctrl.signal,
+    })
+    if (!resp.ok) { console.error('[anthropicVisionUR] HTTP', resp.status); return null }
+    const data = await resp.json() as { content?: Array<{ text?: string }> }
+    const raw = (data.content || []).map((c) => c.text || '').join('').trim()
+    return parsearFactura(raw)
+  } catch (err) {
+    console.error('[anthropicVisionUR] fallo:', err instanceof Error ? err.message : String(err))
+    return null
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 function parsearFactura(raw: string): ExtractedFactura | null {
   let j: Record<string, unknown>
   try { j = JSON.parse(raw.replace(/```json|```/g, '').trim()) } catch { return null }
@@ -182,7 +224,7 @@ function fechaIso(v: unknown): string {
   if (!v) return hoy
   const s = String(v).trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/)
+  const m = s.match(/^(\d{1,2})[\/\-.]( \d{1,2})[\/\-.]( \d{2,4})$/)
   if (m) { let [, d, mo, y] = m; if (y.length === 2) y = '20' + y; return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}` }
   return hoy
 }
