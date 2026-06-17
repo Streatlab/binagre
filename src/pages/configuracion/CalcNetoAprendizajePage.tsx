@@ -150,24 +150,29 @@ export default function CalcNetoAprendizajePage() {
         loadMarcasPorCanal(),
       ])
 
+      // FUENTE REAL ÚNICA: liquidaciones que entran por Documentación → Ventas.
+      const desdeAnio = `${anio}-01-01`
+      const hastaAnio = `${anio}-12-31`
       const { data, error: err } = await supabase
-        .from('resumenes_plataforma_marca_mensual')
-        .select('plataforma, mes, año, bruto, comisiones, fees, cargos_promocion, neto_real_cobrado, pedidos')
-        .eq('año', anio)
+        .from('ventas_plataforma')
+        .select('plataforma, marca, fecha_inicio_periodo, fecha_fin_periodo, bruto, neto, pedidos')
+        .gte('fecha_fin_periodo', desdeAnio)
+        .lte('fecha_fin_periodo', hastaAnio)
 
       if (err) throw new Error(err.message)
       if (!data || data.length === 0) { setFilas([]); setLoading(false); return }
 
-      /* agrupar por canal + mes */
+      /* agrupar por canal + mes (mes = mes de fin de periodo de la liquidación) */
       const agr: Record<string, { bruto: number; pedidos: number; netoReal: number }> = {}
       for (const row of data as any[]) {
+        if (row.neto == null) continue
         const canal = normCanal(row.plataforma)
-        const mes = Number(row.mes)
+        const mes = new Date((row.fecha_fin_periodo as string) + 'T00:00:00').getMonth() + 1
         const key = `${canal}_${mes}`
         if (!agr[key]) agr[key] = { bruto: 0, pedidos: 0, netoReal: 0 }
         agr[key].bruto    += Number(row.bruto ?? 0)
         agr[key].pedidos  += Number(row.pedidos ?? 0)
-        agr[key].netoReal += Number(row.neto_real_cobrado ?? 0)
+        agr[key].netoReal += Number(row.neto ?? 0)
       }
 
       const resultado: FilaCalculo[] = []
