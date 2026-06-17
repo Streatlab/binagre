@@ -124,11 +124,18 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
   const PW = doc.internal.pageSize.getWidth()
   const M = 12
   const usableW = PW - M * 2
-  // Columnas HOY/SSP estrechas (solo media aspa); el ancho sobrante va al nombre del producto
-  const wCelda = 8
-  const wProd = (usableW - wCelda * 14) / 2
-  const xProdDer = M + wProd + wCelda * 14
   const rowH = 5.2
+  // Columna Producto ajustada al nombre más largo (no ocupa todo el sobrante);
+  // el resto del ancho se reparte entre las casillas HOY/SSP.
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11)
+  let maxNombreW = 0
+  paginas.forEach(bloques => bloques.forEach(b => b.parts.forEach(p => {
+    const w = doc.getTextWidth(p.nombre)
+    if (w > maxNombreW) maxNombreW = w
+  })))
+  const wProd = Math.min(Math.max(maxNombreW + 5, 28), 60)
+  const wCelda = (usableW - wProd * 2) / 14
+  const xProdDer = M + wProd + wCelda * 14
 
   paginas.forEach((bloques, pi) => {
     if (pi > 0) doc.addPage()
