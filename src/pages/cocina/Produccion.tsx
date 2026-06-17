@@ -127,6 +127,7 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
   // Columnas HOY/SSP estrechas (solo media aspa); el ancho sobrante va al nombre del producto
   const wCelda = 8
   const wProd = (usableW - wCelda * 14) / 2
+  const xProdDer = M + wProd + wCelda * 14
   const rowH = 5.2
 
   paginas.forEach((bloques, pi) => {
@@ -143,16 +144,18 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
 
     bloques.forEach(b => {
       const filas = conBiberones(b.parts)
+      const tituloSec = `${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`
       doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 6, 'F')
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...RED_DARK)
-      doc.text(`${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`, M + 2, y + 4)
+      doc.text(tituloSec, M + 2, y + 4)
+      doc.text(tituloSec, xProdDer + 2, y + 4)
       y += 6
       doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 5, 'F')
       doc.setFontSize(7); doc.setTextColor(...RED_DARK)
       doc.text('Producto', M + 1.5, y + 3.3)
       let x = M + wProd
       DIAS.forEach(dia => { doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' }); x += wCelda * 2 })
-      doc.text('Producto', M + wProd + wCelda * 14 + 1.5, y + 3.3)
+      doc.text('Producto', xProdDer + 1.5, y + 3.3)
       y += 5
       doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 3.6, 'F')
       doc.setFontSize(5.5)
@@ -161,22 +164,31 @@ function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): j
       y += 3.6
 
       doc.setFont('helvetica', 'normal')
+      let prevBib = false
       filas.forEach(f => {
         if (f.kind === 'sub') {
           doc.setFillColor(247, 238, 239); doc.rect(M, y, usableW, rowH, 'F')
           doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...RED_DARK)
           doc.text(f.label.toUpperCase(), M + 6, y + 3.7)
+          doc.text(f.label.toUpperCase(), xProdDer + 6, y + 3.7)
           doc.setFont('helvetica', 'normal')
           drawColsLines(doc, M, y, rowH, wProd, wCelda)
           y += rowH
+          prevBib = false
           return
         }
+        // franja roja de separación al terminar los biberones
+        if (prevBib && !f.part.biberon) {
+          doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 2.6, 'F')
+          y += 2.6
+        }
+        prevBib = !!f.part.biberon
         x = M + wProd
         DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
         doc.setTextColor(20)
         fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
         doc.text(f.part.nombre, M + 1.5, y + 3.7)
-        doc.text(f.part.nombre, M + wProd + wCelda * 14 + 1.5, y + 3.7)
+        doc.text(f.part.nombre, xProdDer + 1.5, y + 3.7)
         doc.setFontSize(11)
         drawColsLines(doc, M, y, rowH, wProd, wCelda)
         y += rowH
