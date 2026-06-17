@@ -91,7 +91,7 @@ export default function CardSaldo(_props: Props) {
       })
   }, [])
 
-  // FIX 78: cobros estimados — fuente REAL (ventas_plataforma), no la tabla mensual vacía
+  // FIX 78: cobros estimados desde liquidaciones reales del mes (ventas_plataforma)
   useEffect(() => {
     const hoy = new Date()
     const mes = hoy.getMonth() + 1
