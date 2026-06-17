@@ -162,9 +162,7 @@ function FilaEmpleado({
         const t = turnoDe(emp.id, dia)
         if (!t) {
           return (
-            <div key={dia} style={{ background: T.group, color: T.mut, borderRadius: 5, fontSize: 12, fontStyle: 'italic', minHeight: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
-              Libre
-            </div>
+            <div key={dia} style={{ background: T.group, borderRadius: 5, minHeight: 78, display: 'flex', alignItems: 'center', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }} />
           )
         }
         const real = horasReales(t)
