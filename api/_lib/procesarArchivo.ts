@@ -38,6 +38,7 @@ import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './
 import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
 import type { ResumenVentaPlataforma } from './parser-resumen-plataforma.js'
 import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
+import { ingestarPedidosPlataforma } from './ingestaPlatos.js'
 
 export type ProcesarEstado =
   | 'duplicada'
@@ -590,7 +591,8 @@ async function procesarContenidoPrincipal(
   // ── DOCUMENTO DE PLATAFORMA (Glovo/Uber/Just Eat/Sincro) ──────────────────
   // Un CSV/Excel de pedidos/platos NO es una factura: se detecta por su cabecera
   // y se saca del flujo de facturas para que NO acabe creando una factura basura.
-  // (La ingesta real a Ventas/Neto es el siguiente paso; aquí solo se enruta.)
+  // Si trae detalle de platos, se vuelca plato-a-plato a pedidos_plataforma
+  // (alimenta Ventas por plato y franja). Los resúmenes agregados no traen platos.
   try {
     let textoDet = typeof contenido.data === 'string' ? contenido.data : ''
     if (tipo === 'pdf' && !textoDet) {
@@ -598,11 +600,24 @@ async function procesarContenidoPrincipal(
     }
     const det = detectarDocumentoPlataforma(file.nombre, textoDet)
     if (det.esPedidos) {
+      let ingestados = 0
+      if (det.tipo === 'glovo_bill_csv' || det.tipo === 'glovo_orderdetails_csv' ||
+          det.tipo === 'uber_articulo_csv' || det.tipo === 'sincro_sold_products') {
+        try {
+          const buf = tipo === 'excel' ? file.buffer : null
+          const res = await ingestarPedidosPlataforma(supabase, det.tipo, textoDet, buf, file.nombre)
+          ingestados = res.insertados
+        } catch (e) {
+          console.error('[procesarArchivo] ingesta de platos falló:', errMsg(e))
+        }
+      }
       return {
         estado: 'ok',
         archivo: file.nombre,
         tipo_documento: 'resumen_ventas',
-        motivo: `documento ${det.plataforma} (${det.tipo}) → Ventas (ingesta pendiente)`,
+        motivo: ingestados > 0
+          ? `documento ${det.plataforma} (${det.tipo}) → ${ingestados} platos a Ventas`
+          : `documento ${det.plataforma} (${det.tipo}) → Ventas`,
       }
     }
   } catch (e) {
