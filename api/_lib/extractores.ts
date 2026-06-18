@@ -356,29 +356,22 @@ function buscarTotal(texto: string, plantilla?: PlantillaNif | null): number | n
   }
   if (prioridad.length > 0) return Math.max(...prioridad)
 
-  // 2) Genérico RESTRINGIDO a la palabra "total" (la línea del total real).
-  //    BLINDAJE: NO se usan "importe"/"a pagar" sueltos ni se coge el número más
-  //    alto al azar de la página. Eso era lo que "inventaba" el total y dejaba el
-  //    mismo importe congelado en todas las facturas de un proveedor.
-  const candTotal: number[] = []
+  // 2) Genérico: total/importe/a pagar (+ línea siguiente si va a secas)
+  const candidatos: number[] = []
   for (let i = 0; i < lineas.length; i++) {
-    if (/\btotal\b/i.test(lineas[i])) {
-      const enLinea = importesDeLinea(lineas[i])
+    const linea = lineas[i]
+    if (/total|importe|a\s*pagar/i.test(linea)) {
+      const enLinea = importesDeLinea(linea)
       if (enLinea.length > 0) {
-        candTotal.push(...enLinea)
+        candidatos.push(...enLinea)
       } else if (i + 1 < lineas.length) {
         const sig = importesDeLinea(lineas[i + 1])
-        if (sig.length > 0) candTotal.push(sig[0])
+        if (sig.length > 0) candidatos.push(sig[0])
       }
     }
   }
-  if (candTotal.length > 0) return Math.max(...candTotal)
-
-  // 3) Sin etiqueta fiable de total → NO se inventa NUNCA. Se devuelve null para
-  //    que la cascada escale a una lectura buena (Anthropic, una sola vez) y
-  //    aprenda la etiqueta correcta del proveedor para las próximas. Es preferible
-  //    una lectura buena de pago puntual a congelar un importe equivocado.
-  return null
+  if (candidatos.length === 0) return null
+  return Math.max(...candidatos)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
