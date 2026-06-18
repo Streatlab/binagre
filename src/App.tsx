@@ -47,6 +47,7 @@ const GestionFacturas = React.lazy(() => import('@/pages/finanzas/GestionFactura
 const Gestoria = React.lazy(() => import('@/pages/finanzas/Gestoria'))
 const EscenariosTesoreria = React.lazy(() => import('@/pages/finanzas/EscenariosTesoreria'))
 const Documentacion = React.lazy(() => import('@/pages/finanzas/Documentacion'))
+const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
 const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
@@ -191,6 +192,7 @@ function AppRoutes() {
           <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
           <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
           <Route path="finanzas/documentacion" element={<ProtectedRoute solo={['admin']}><Documentacion /></ProtectedRoute>} />
+          <Route path="finanzas/pendientes" element={<ProtectedRoute solo={['admin']}><BandejaPendientes /></ProtectedRoute>} />
           <Route path="finanzas/ventas" element={<ProtectedRoute solo={['admin']}><Ventas /></ProtectedRoute>} />
           <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
           <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/gestion-facturas" replace />} />
