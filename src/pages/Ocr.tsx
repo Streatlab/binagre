@@ -12,6 +12,7 @@ import ExtractosTabla from '@/components/ocr/ExtractosTabla'
 import VentasTab from '@/components/ocr/VentasTab'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
 import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
+import ChuletaPlataformas from '@/components/ChuletaPlataformas'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { DocBadge } from '@/components/ocr/DocBadgeV2'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
@@ -503,6 +504,7 @@ export default function Ocr({ periodoExterno }: { periodoExterno?: { desde: Date
           {tab === 'facturas' && (<CardSaludOcr />)}
         </div>
         )}
+        {!integrado && tab === 'facturas' && (<ChuletaPlataformas />)}
         {!integrado && (
         <div style={{ marginBottom: 14 }}>
           <BtnSubirSplit label={tab === 'facturas' ? 'Subir facturas' : 'Subir documentos'} accept={tab === 'facturas' ? ACCEPT_FACTURAS : ACCEPT_OTROS} extensiones={tab === 'facturas' ? EXT_ACEPTADAS_FACTURAS : EXT_ACEPTADAS_OTROS} preparando={preparando} setPreparando={setPreparando} onArchivos={(r) => { setVerRechazados(false); setModalConfirmarSubida({ archivos: r.aceptados, comprimidos: r.comprimidos, totalOriginal: r.totalOriginal, rechazados: r.rechazados, expandidosZip: r.expandidosZip, comprimidosServidor: r.comprimidosServidor, visible: true, fnName: 'ocr-procesar-factura' }) }} />
