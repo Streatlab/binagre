@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
 import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
+import ChuletaPlataformas from '@/components/ChuletaPlataformas'
 
 // ── Bandeja de entrada — FUENTE ÚNICA DE SUBIDA ────────────────────────────
 // Diseño definitivo (simple y 100% efectivo): CERO clasificación manual.
@@ -128,6 +129,9 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         <CardFacturasCorreo tipo="factura" desde={desde} hasta={hasta} onBarrido={() => onProcesado?.()} />
         <CardSaludOcr />
       </div>
+
+      {/* Chuleta: qué subir por plataforma (Glovo / Uber / Just Eat) */}
+      <ChuletaPlataformas />
 
       {/* Modal documentos */}
       {modalDoc.visible && (
