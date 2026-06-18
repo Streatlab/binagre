@@ -37,6 +37,7 @@ import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
 import type { ResumenVentaPlataforma } from './parser-resumen-plataforma.js'
+import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
 
 export type ProcesarEstado =
   | 'duplicada'
@@ -585,6 +586,28 @@ async function procesarContenidoPrincipal(
     return { estado: 'ignorada', archivo: file.nombre, motivo: 'no es una factura: resumen de ingresos' }
   }
   const hash = createHash('sha256').update(file.buffer).digest('hex')
+
+  // ── DOCUMENTO DE PLATAFORMA (Glovo/Uber/Just Eat/Sincro) ──────────────────
+  // Un CSV/Excel de pedidos/platos NO es una factura: se detecta por su cabecera
+  // y se saca del flujo de facturas para que NO acabe creando una factura basura.
+  // (La ingesta real a Ventas/Neto es el siguiente paso; aquí solo se enruta.)
+  try {
+    let textoDet = typeof contenido.data === 'string' ? contenido.data : ''
+    if (tipo === 'pdf' && !textoDet) {
+      try { textoDet = await extraerTextoPDF(file.buffer) } catch {}
+    }
+    const det = detectarDocumentoPlataforma(file.nombre, textoDet)
+    if (det.esPedidos) {
+      return {
+        estado: 'ok',
+        archivo: file.nombre,
+        tipo_documento: 'resumen_ventas',
+        motivo: `documento ${det.plataforma} (${det.tipo}) → Ventas (ingesta pendiente)`,
+      }
+    }
+  } catch (e) {
+    console.error('[procesarArchivo] detección de documento de plataforma falló:', errMsg(e))
+  }
 
   // ── RESUMEN DE VENTAS DE PLATAFORMA (Uber/Glovo/Just Eat) subido a mano ──
   // ANTES de tratarlo como factura: si el PDF es un resumen mensual de ventas, va
