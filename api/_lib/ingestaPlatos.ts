@@ -1,18 +1,19 @@
 // ingestaPlatos — motor de ingesta de PEDIDOS/PLATOS a la tabla pedidos_plataforma.
 //
-// Convierte los exports de pedidos de cada plataforma (Glovo / Uber / Sincro→Just Eat)
+// Convierte los exports de pedidos de cada plataforma (Glovo / Uber / Sincro)
 // en filas plato-a-plato con su fecha, hora, importe y marca. Esas filas alimentan
 // las vistas v_ventas_plato / v_ventas_franja y el módulo "Ventas por plato y franja".
 //
 // Principios:
 //   · Lee por NOMBRE de columna (no por posición): tolerante a reordenaciones.
 //   · Defensivo: si no encuentra plato o fecha en una fila, la salta (no inventa).
-//   · Limpia el nombre del plato: corta modificadores, excluye bebidas/cargos,
-//     y unifica variantes (mayúsculas/puntos) para que el ranking salga limpio.
+//   · CONSERVA TODO en Sincro: productos, modificadores y cargos — nada se descarta.
+//     (Glovo/Uber nativos sí cortan modificadores en MAYÚSCULAS pegados al plato.)
 //   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
-//   · Antiduplicados entre fuentes: cada fila lleva 'fuente' (propia | sincro). Tras
-//     insertar se llama fn_dedupe_pedidos_plataforma: donde haya datos propios
-//     (Glovo/Uber nativos) se descartan los de Sincro de ese mismo día y plataforma.
+//   · Antiduplicados PEDIDO A PEDIDO: cada fila lleva 'fuente' (propia | sincro). Tras
+//     insertar se llama fn_dedupe_pedidos_plataforma, que cruza por huella de pedido
+//     (plataforma + fecha + hora al minuto + importe) y, donde haya dato propio,
+//     descarta el de Sincro. Lo que solo está en Sincro (Just Eat, días sin propio) se conserva.
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
 import * as XLSX from 'xlsx'
@@ -80,27 +81,19 @@ function parseFechaHora(s: string | undefined | null): { fecha: string | null; h
 }
 
 // ── Limpieza del nombre de plato ────────────────────────────────────────────
+// Bebidas/extras que en Glovo/Uber se descartan del ranking de platos.
 const EXCLUIR = [
   'coca cola', 'cocacola', 'coca-cola', 'fanta', 'sprite', 'nestea', 'aquarius',
   'agua', 'refresco', 'bebida', 'cerveza', 'mahou', 'estrella',
   'pan para', 'pan de', 'cubiertos', 'servilleta', 'bolsa', 'palillos',
 ]
-// Conceptos que NO son plato (cargos, tarifas, promos) — frecuentes en Sincro/Just Eat.
-const EXCLUIR_CARGOS = [
-  'gastos de envio', 'otros cargos', 'gastos de gestion', 'tarifa', 'propina',
-  'recargo', 'suplemento de envio', 'promos', 'promocion', 'service fee', 'delivery fee',
-]
-// Líneas de MODIFICADOR/opción que Just Eat exporta como si fueran productos.
-const MODIF = [
-  'tamaño', 'tamano', 'al punto', 'recomendado', 'punto de coccion', 'viva el parmesano',
-  'selecciona', 'guarnicion a elegir', 'salsa a elegir', 'aderezo', 'elige ', 'escoge', '¿',
-]
 
-// cortarMayusculas=true (Glovo/Uber): los modificadores van en MAYÚSCULAS pegados
-// al plato → se cortan. false (Sincro/Just Eat): el plato puede venir entero en
-// mayúsculas, así que NO se corta; en su lugar se excluyen modificadores comunes y
-// se pasa a Capitalizado para unificar variantes del mismo plato.
-export function limpiarPlato(raw: string, cortarMayusculas = true): string | null {
+// limpiarPlato(raw, cortarMayusculas, excluir)
+//   · cortarMayusculas=true (Glovo/Uber): corta modificadores en MAYÚSCULAS pegados al plato.
+//   · excluir=true (Glovo/Uber): descarta bebidas/extras del ranking.
+//   · excluir=false (SINCRO): CONSERVA TODO — productos, modificadores y cargos. Solo
+//     normaliza el formato (quita ".." y unifica MAYÚSCULAS a Capitalizado para no fragmentar).
+export function limpiarPlato(raw: string, cortarMayusculas = true, excluir = true): string | null {
   if (!raw) return null
   let s = String(raw).trim()
   const corch = s.indexOf('[')
@@ -114,15 +107,12 @@ export function limpiarPlato(raw: string, cortarMayusculas = true): string | nul
   s = s.replace(/^\s*\d+\s*[x×]\s*/i, '').replace(/^\s*[x×]\s*\d+\s*/i, '').trim()
   if (s.length < 2) return null
   const n = norm(s)
-  if (n.startsWith('sin ') || n.startsWith('extra ') || n.startsWith('con extra')) return null
-  if (EXCLUIR.some(e => n.includes(e)) || n === 'pan') return null
-  if (EXCLUIR_CARGOS.some(e => n.includes(e))) return null
-  if (!cortarMayusculas) {
-    if (MODIF.some(e => n.includes(e))) return null
-    // TODO en mayúsculas → Capitalizado (unifica "PATATAS FRITAS.." con "Patatas Fritas")
-    if (s === s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(s)) {
-      s = s.toLowerCase().split(' ').map(w => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ')
-    }
+  if (excluir) {
+    if (EXCLUIR.some(e => n.includes(e)) || n === 'pan') return null
+  }
+  // TODO en mayúsculas → Capitalizado (unifica "PATATAS FRITAS.." con "Patatas Fritas")
+  if (!cortarMayusculas && s === s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(s)) {
+    s = s.toLowerCase().split(' ').map(w => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ')
   }
   return s
 }
@@ -303,8 +293,8 @@ function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
 //   MARKET = canal/plataforma (JustEat, Glovo…)   ← NO es la marca del restaurante
 //   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
 //   CREATION TIME = fecha+hora del pedido
-// OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
-// Se marca fuente='sincro': el dedupe descartará sus Glovo/Uber donde haya export propio.
+// CONSERVA TODO: productos, modificadores y cargos (excluir=false). No trae marca → "Sin marca".
+// fuente='sincro': el dedupe pedido-a-pedido descartará lo que coincida con dato propio.
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
@@ -315,7 +305,8 @@ function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const iCant = col(t.header, 'quantity', 'qty', 'cantidad', 'units')
   const out: FilaPedido[] = []
   for (const f of t.filas) {
-    const plato = limpiarPlato(val(f, iPlato), false); if (!plato) continue
+    // excluir=false → conserva TODO (productos, modificadores, cargos).
+    const plato = limpiarPlato(val(f, iPlato), false, false); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha))
     if (!fh.fecha) continue
     // Plataforma desde MARKET (JustEat / Glovo / Uber). Por defecto just_eat.
@@ -375,9 +366,9 @@ export async function ingestarPedidosPlataforma(
     if (!error) insertados += lote.length
   }
 
-  // ANTIDUPLICADOS ENTRE FUENTES: donde haya datos propios (Glovo/Uber nativos),
-  // se descartan los de Sincro de ese mismo día y plataforma. Just Eat se conserva
-  // siempre (solo viene de Sincro). Determinista, en cualquier orden de subida.
+  // ANTIDUPLICADOS PEDIDO A PEDIDO: cruza por huella (plataforma + fecha + hora al
+  // minuto + importe). Donde haya dato propio (Glovo/Uber nativo) se descarta el de
+  // Sincro coincidente. Lo que solo está en Sincro se conserva. En cualquier orden de subida.
   try {
     await supabase.rpc('fn_dedupe_pedidos_plataforma')
   } catch { /* best-effort: si la función no estuviera, no se rompe la ingesta */ }
