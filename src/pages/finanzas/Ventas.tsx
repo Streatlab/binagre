@@ -10,12 +10,16 @@ import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen
 // Pareto Ventas ya existe como página; se monta aquí como pestaña sin tocar su lógica.
 const ParetoVentas = lazy(() => import('@/pages/analytics/ParetoVentas'))
 
-type Tab = 'detalle' | 'pareto'
+type Tab = 'resumen' | 'platos' | 'pareto'
 const STORAGE_KEY = 'ventas:tab'
 
 function loadTab(): Tab {
-  try { const r = sessionStorage.getItem(STORAGE_KEY); if (r === 'detalle' || r === 'pareto') return r } catch { /* */ }
-  return 'detalle'
+  try {
+    const r = sessionStorage.getItem(STORAGE_KEY)
+    if (r === 'resumen' || r === 'platos' || r === 'pareto') return r
+    if (r === 'detalle') return 'resumen' // compat con el nombre anterior
+  } catch { /* */ }
+  return 'resumen'
 }
 
 interface VentaRow {
@@ -30,6 +34,16 @@ interface VentaRow {
   ticket_medio: number
   ingreso_colaborador: number
   fecha_pago: string | null
+}
+
+// Filas de las vistas de pedidos por plato / franja (alimentadas por pedidos_plataforma).
+interface PlatoRow {
+  plataforma: string; marca: string; plato: string; fecha: string
+  lineas: number; importe_bruto: number; promo: number
+}
+interface FranjaRow {
+  plataforma: string; marca: string; fecha: string; hora: number
+  pedidos: number; importe_bruto: number
 }
 
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES')
@@ -211,6 +225,134 @@ function TablaDetalle({ rows, cargando }: { rows: VentaRow[]; cargando: boolean 
   )
 }
 
+// ── PESTAÑA "POR PLATO Y FRANJA" ────────────────────────────────────────────
+// Lee de las vistas v_ventas_plato y v_ventas_franja (alimentadas por la ingesta de
+// pedidos de Glovo/Uber/Sincro). Muestra el ranking de platos del periodo y las
+// ventas por hora del día.
+
+function MiniCards({ unidades, platos, horaPico }: { unidades: number; platos: number; horaPico: string }) {
+  const cards = [
+    { label: 'Unidades vendidas', value: nf0(unidades), color: COLORS.pri },
+    { label: 'Platos distintos', value: nf0(platos), color: COLORS.pri },
+    { label: 'Franja pico', value: horaPico, color: COLORS.redSL },
+  ]
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+      {cards.map(c => (
+        <div key={c.label} style={{ ...CARDS.std }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function FranjasHorarias({ rows }: { rows: FranjaRow[] }) {
+  const porHora = useMemo(() => {
+    const arr = Array.from({ length: 24 }, (_, h) => ({ hora: h, pedidos: 0 }))
+    for (const r of rows) { if (r.hora >= 0 && r.hora < 24) arr[r.hora].pedidos += r.pedidos || 0 }
+    return arr
+  }, [rows])
+  const max = Math.max(1, ...porHora.map(x => x.pedidos))
+
+  return (
+    <div style={{ ...CARDS.std, marginBottom: 14 }}>
+      <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginBottom: 14 }}>Ventas por franja horaria</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 150 }}>
+        {porHora.map(b => (
+          <div key={b.hora} title={`${String(b.hora).padStart(2, '0')}:00 · ${nf0(b.pedidos)} pedidos`}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+            <div style={{
+              width: '100%', height: `${(b.pedidos / max) * 100}%`, minHeight: b.pedidos > 0 ? 3 : 0,
+              background: b.pedidos === max ? COLORS.redSL : '#d9b6b8', borderRadius: '3px 3px 0 0',
+            }} />
+            <span style={{ fontFamily: OSWALD, fontSize: 9, color: COLORS.mut }}>{b.hora % 2 === 0 ? b.hora : ''}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RankingPlatos({ rows }: { rows: PlatoRow[] }) {
+  const grouped = useMemo(() => {
+    const m = new Map<string, { plato: string; plataforma: string; marca: string; unidades: number; importe: number }>()
+    for (const r of rows) {
+      const k = `${r.plato}|${r.plataforma}|${r.marca}`
+      const g = m.get(k) || { plato: r.plato, plataforma: r.plataforma, marca: r.marca, unidades: 0, importe: 0 }
+      g.unidades += r.lineas || 0
+      g.importe += r.importe_bruto || 0
+      m.set(k, g)
+    }
+    return Array.from(m.values()).sort((a, b) => b.unidades - a.unidades)
+  }, [rows])
+
+  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
+  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
+  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+
+  if (grouped.length === 0) return (
+    <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
+      <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin platos en este periodo</div>
+      <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Sube los pedidos de Glovo / Uber / Sincro en Documentación → Bandeja</div>
+    </div>
+  )
+
+  return (
+    <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left', width: 44 }}>#</th>
+              <th style={{ ...th, textAlign: 'left' }}>Plato</th>
+              <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
+              <th style={{ ...th, textAlign: 'left' }}>Marca</th>
+              <th style={{ ...th, textAlign: 'right' }}>Unidades</th>
+              <th style={{ ...th, textAlign: 'right' }}>Importe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {grouped.map((g, i) => (
+              <tr key={`${g.plato}|${g.plataforma}|${g.marca}|${i}`}>
+                <td style={{ ...tdR, textAlign: 'left', color: COLORS.mut }}>{i + 1}</td>
+                <td style={tdL}>{g.plato}</td>
+                <td style={tdL}><PastillaPlataforma plataforma={g.plataforma} /></td>
+                <td style={tdL}>{!g.marca || g.marca === 'Sin marca' || g.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : g.marca}</td>
+                <td style={tdR}>{nf0(g.unidades)}</td>
+                <td style={tdR}>{fmtEur(g.importe)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function TabPlatosFranja({ platos, franja, cargando }: { platos: PlatoRow[]; franja: FranjaRow[]; cargando: boolean }) {
+  const resumen = useMemo(() => {
+    const unidades = platos.reduce((a, r) => a + (r.lineas || 0), 0)
+    const distintos = new Set(platos.map(r => r.plato)).size
+    const porHora = Array.from({ length: 24 }, (_, h) => ({ hora: h, pedidos: 0 }))
+    for (const r of franja) { if (r.hora >= 0 && r.hora < 24) porHora[r.hora].pedidos += r.pedidos || 0 }
+    const pico = porHora.reduce((best, x) => (x.pedidos > best.pedidos ? x : best), { hora: -1, pedidos: 0 })
+    const horaPico = pico.hora < 0 ? '—' : `${String(pico.hora).padStart(2, '0')}–${String((pico.hora + 1) % 24).padStart(2, '0')}h`
+    return { unidades, distintos, horaPico }
+  }, [platos, franja])
+
+  if (cargando) return <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+
+  return (
+    <>
+      <MiniCards unidades={resumen.unidades} platos={resumen.distintos} horaPico={resumen.horaPico} />
+      <FranjasHorarias rows={franja} />
+      <RankingPlatos rows={platos} />
+    </>
+  )
+}
+
 export default function Ventas() {
   const [tab, setTab] = useState<Tab>(loadTab())
   const cambiar = (t: Tab) => { setTab(t); try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* */ } }
@@ -220,10 +362,16 @@ export default function Ventas() {
   const [rows, setRows] = useState<VentaRow[]>([])
   const [cargando, setCargando] = useState(true)
 
+  // Datos de la pestaña "Por plato y franja".
+  const [platos, setPlatos] = useState<PlatoRow[]>([])
+  const [franja, setFranja] = useState<FranjaRow[]>([])
+  const [cargandoPlatos, setCargandoPlatos] = useState(true)
+
   // Filtros (mismo patrón que Panel Global): marcas + canales/plataformas.
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
 
+  // Resúmenes de liquidación por periodo (pestaña Resumen).
   useEffect(() => {
     let alive = true
     setCargando(true)
@@ -238,28 +386,61 @@ export default function Ventas() {
     return () => { alive = false }
   }, [desde, hasta])
 
-  // Opciones de los filtros, derivadas de los datos del periodo.
+  // Pedidos por plato y por franja del periodo (pestaña Por plato y franja).
+  useEffect(() => {
+    let alive = true
+    setCargandoPlatos(true)
+    const d = fechaLocalStr(desde), h = fechaLocalStr(hasta)
+    Promise.all([
+      supabase.from('v_ventas_plato').select('*').gte('fecha', d).lte('fecha', h),
+      supabase.from('v_ventas_franja').select('*').gte('fecha', d).lte('fecha', h),
+    ]).then(([p, f]) => {
+      if (!alive) return
+      setPlatos((p.data as PlatoRow[]) ?? [])
+      setFranja((f.data as FranjaRow[]) ?? [])
+      setCargandoPlatos(false)
+    })
+    return () => { alive = false }
+  }, [desde, hasta])
+
+  // Opciones de los filtros: unión de lo que haya en ambas fuentes del periodo.
   const marcasOpts = useMemo(() => {
     const set = new Map<string, string>()
-    for (const r of rows) {
-      const id = r.marca || 'SIN_MARCA'
-      set.set(id, id === 'SIN_MARCA' ? 'Sin marca' : id)
+    const add = (m: string | undefined) => {
+      const id = m || 'SIN_MARCA'
+      const norm = id === 'SIN_MARCA' || id === 'Sin marca' ? 'SIN_MARCA' : id
+      set.set(norm, norm === 'SIN_MARCA' ? 'Sin marca' : norm)
     }
+    for (const r of rows) add(r.marca)
+    for (const r of platos) add(r.marca)
     return Array.from(set, ([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
-  }, [rows])
+  }, [rows, platos])
 
   const canalesOpts = useMemo(() => {
-    const presentes = Array.from(new Set(rows.map(r => r.plataforma)))
+    const presentes = Array.from(new Set([...rows.map(r => r.plataforma), ...platos.map(r => r.plataforma)]))
     const orden = ['uber', 'glovo', 'just_eat', 'rushour', 'desconocido']
     return presentes
       .sort((a, b) => orden.indexOf(a) - orden.indexOf(b))
       .map(p => ({ id: p, label: nombrePlat(p) }))
-  }, [rows])
+  }, [rows, platos])
+
+  const coincideMarca = (m: string | undefined) => {
+    if (marcasFiltro.length === 0) return true
+    const id = !m || m === 'Sin marca' || m === 'SIN_MARCA' ? 'SIN_MARCA' : m
+    return marcasFiltro.includes(id)
+  }
 
   const rowsFiltradas = useMemo(() => rows.filter(r =>
-    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) &&
-    (marcasFiltro.length === 0 || marcasFiltro.includes(r.marca || 'SIN_MARCA'))
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
   ), [rows, canalesFiltro, marcasFiltro])
+
+  const platosFiltrados = useMemo(() => platos.filter(r =>
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
+  ), [platos, canalesFiltro, marcasFiltro])
+
+  const franjaFiltrada = useMemo(() => franja.filter(r =>
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
+  ), [franja, canalesFiltro, marcasFiltro])
 
   return (
     <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
@@ -276,16 +457,21 @@ export default function Ventas() {
         </div>
       </div>
 
-      {tab === 'detalle' && <CardsResumen rows={rowsFiltradas} />}
+      {tab === 'resumen' && <CardsResumen rows={rowsFiltradas} />}
 
       <TabsPastilla
-        tabs={[{ id: 'detalle', label: 'Detalle ventas' }, { id: 'pareto', label: 'Pareto Ventas' }]}
+        tabs={[
+          { id: 'resumen', label: 'Resumen ventas' },
+          { id: 'platos', label: 'Por plato y franja' },
+          { id: 'pareto', label: 'Pareto Ventas' },
+        ]}
         activeId={tab}
         onChange={(id) => cambiar(id as Tab)}
       />
 
       <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
-        {tab === 'detalle' && <TablaDetalle rows={rowsFiltradas} cargando={cargando} />}
+        {tab === 'resumen' && <TablaDetalle rows={rowsFiltradas} cargando={cargando} />}
+        {tab === 'platos' && <TabPlatosFranja platos={platosFiltrados} franja={franjaFiltrada} cargando={cargandoPlatos} />}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
     </div>
