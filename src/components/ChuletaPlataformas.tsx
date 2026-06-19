@@ -1,21 +1,23 @@
-// ChuletaPlataformas — card grande "Qué subir por plataforma".
-// Diseñada para ocupar UNA columna (1/3) en la Bandeja de entrada, a la derecha
-// de las cards de correo y salud OCR. Estilo ERP Binagre: card blanca, header
-// Oswald, acento rojo #B01D23, items en wash beige #edecea. height:100% para
-// igualar la altura de las cards vecinas.
+import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 
-const ITEMS: { marca: string; color: string; docs: string[] }[] = [
-  { marca: 'Glovo', color: '#FFC244', docs: ['Factura (PDF)', 'CSV de la factura'] },
-  { marca: 'Uber Eats', color: '#06C167', docs: ['Factura (PDF)', 'Detalle de ganancias nivel artículo', 'Resumen de ganancias'] },
-  { marca: 'Just Eat', color: '#FF8000', docs: ['Factura (PDF)', 'Sincro · Sold Products'] },
+// ChuletaPlataformas — card "Qué subir por plataforma".
+// Misma factura visual que CardSaludOcr / CardFacturasCorreo (Panel Global):
+// fondo blanco, borde 0.5px #d0c8bc, radio 14, header Oswald 11/2px, cuerpo
+// Lexend en gris mut. Limpio, sin cajas de colores. height:100% para igualar
+// la altura de las dos cards vecinas en la fila de 3 columnas.
+
+const ITEMS: { marca: string; color: string; borde?: string; docs: string[] }[] = [
+  { marca: 'Glovo', color: COLORS.glovo, borde: COLORS.glovoDark, docs: ['Factura (PDF)', 'CSV de la factura'] },
+  { marca: 'Uber Eats', color: COLORS.uber, docs: ['Factura (PDF)', 'Detalle de ganancias nivel artículo', 'Resumen de ganancias'] },
+  { marca: 'Just Eat', color: COLORS.je, docs: ['Factura (PDF)', 'Sincro · Sold Products'] },
 ]
 
 export default function ChuletaPlataformas() {
   return (
     <div
       style={{
-        background: '#fff',
-        border: '0.5px solid #d0c8bc',
+        background: COLORS.card,
+        border: `0.5px solid ${COLORS.brd}`,
         borderRadius: 14,
         padding: '16px 16px',
         height: '100%',
@@ -24,59 +26,35 @@ export default function ChuletaPlataformas() {
         flexDirection: 'column',
       }}
     >
-      <div
-        style={{
-          fontFamily: 'Oswald, sans-serif',
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          color: '#7a8090',
-          marginBottom: 12,
-        }}
-      >
-        Qué subir por plataforma
+      <div style={{ marginBottom: 10 }}>
+        <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: COLORS.mut, textTransform: 'uppercase' }}>
+          Qué subir por plataforma
+        </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-        {ITEMS.map((p) => (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {ITEMS.map((p, i) => (
           <div
             key={p.marca}
             style={{
-              background: '#edecea',
-              borderRadius: 10,
-              padding: '10px 12px',
-              borderLeft: `3px solid ${p.color}`,
+              paddingTop: i === 0 ? 0 : 10,
+              paddingBottom: i === ITEMS.length - 1 ? 0 : 10,
+              borderTop: i === 0 ? 'none' : `0.5px solid ${COLORS.group}`,
             }}
           >
-            <div
-              style={{
-                fontFamily: 'Oswald, sans-serif',
-                fontWeight: 600,
-                fontSize: 14,
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                color: '#B01D23',
-                marginBottom: 4,
-              }}
-            >
-              {p.marca}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0, border: p.borde ? `0.5px solid ${p.borde}` : 'none' }} />
+              <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLORS.sec }}>
+                {p.marca}
+              </span>
             </div>
-            <ul style={{ margin: 0, paddingLeft: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingLeft: 15 }}>
               {p.docs.map((d) => (
-                <li
-                  key={d}
-                  style={{
-                    fontFamily: 'Lexend, sans-serif',
-                    fontSize: 12.5,
-                    color: '#3a4050',
-                    lineHeight: 1.55,
-                  }}
-                >
+                <span key={d} style={{ fontFamily: FONT.body, fontSize: 11.5, color: COLORS.mut, lineHeight: 1.4 }}>
                   {d}
-                </li>
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
         ))}
       </div>
