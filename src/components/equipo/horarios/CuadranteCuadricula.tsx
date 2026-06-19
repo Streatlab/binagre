@@ -12,6 +12,8 @@ import {
 } from './utils'
 
 const FESTIVO_ROJO = '#B01D23'
+/** Luz roja: día de cocinero que supera 9h reales. */
+const ALERTA_ROJO = '#E24B4A'
 
 /** Semana con override puntual: en ella las celdas sin turno van en gris sin la palabra "Libre". */
 const SEMANA_SIN_LIBRE = '2026-06-15'
@@ -181,10 +183,13 @@ function FilaEmpleado({
           )
         }
         const real = horasReales(t)
+        const pila = nombrePila(emp.nombre)
+        const excedeDia = (pila === 'Ray' || pila === 'Andrés') && real > 9
         return (
-          <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+          <div key={dia} title={excedeDia ? `${fmtHM(real)} — supera 9h/día` : undefined} style={{ position: 'relative', background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: excedeDia ? `2px solid ${ALERTA_ROJO}` : festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+            {excedeDia && <span style={{ position: 'absolute', top: 5, right: 5, width: 9, height: 9, borderRadius: '50%', background: ALERTA_ROJO, boxShadow: '0 0 0 2px #fff' }} />}
             <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</span>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>{fmtHM(real)}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 700, marginTop: 4, color: excedeDia ? ALERTA_ROJO : undefined, opacity: excedeDia ? 1 : 0.7 }}>{fmtHM(real)}</span>
           </div>
         )
       })}
