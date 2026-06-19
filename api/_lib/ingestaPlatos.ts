@@ -7,8 +7,8 @@
 // Principios:
 //   · Lee por NOMBRE de columna (no por posición): tolerante a reordenaciones.
 //   · Defensivo: si no encuentra plato o fecha en una fila, la salta (no inventa).
-//   · Limpia el nombre del plato: corta modificadores en MAYÚSCULAS y en "[",
-//     y excluye bebidas/pan/extras para que el ranking de platos salga limpio.
+//   · Limpia el nombre del plato: corta modificadores, excluye bebidas/cargos,
+//     y unifica variantes (mayúsculas/puntos) para que el ranking salga limpio.
 //   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
@@ -76,31 +76,50 @@ function parseFechaHora(s: string | undefined | null): { fecha: string | null; h
 }
 
 // ── Limpieza del nombre de plato ────────────────────────────────────────────
-// Reglas: los modificadores van SIEMPRE en MAYÚSCULAS → se cortan. También se
-// corta en "[" (opciones). Y se descartan bebidas/pan/extras (no son plato).
 const EXCLUIR = [
   'coca cola', 'cocacola', 'coca-cola', 'fanta', 'sprite', 'nestea', 'aquarius',
   'agua', 'refresco', 'bebida', 'cerveza', 'mahou', 'estrella',
   'pan para', 'pan de', 'cubiertos', 'servilleta', 'bolsa', 'palillos',
 ]
+// Conceptos que NO son plato (cargos, tarifas, promos) — frecuentes en Sincro/Just Eat.
+const EXCLUIR_CARGOS = [
+  'gastos de envio', 'otros cargos', 'gastos de gestion', 'tarifa', 'propina',
+  'recargo', 'suplemento de envio', 'promos', 'promocion', 'service fee', 'delivery fee',
+]
+// Líneas de MODIFICADOR/opción que Just Eat exporta como si fueran productos.
+const MODIF = [
+  'tamaño', 'tamano', 'al punto', 'recomendado', 'punto de coccion', 'viva el parmesano',
+  'selecciona', 'guarnicion a elegir', 'salsa a elegir', 'aderezo', 'elige ', 'escoge', '¿',
+]
 
-export function limpiarPlato(raw: string): string | null {
+// cortarMayusculas=true (Glovo/Uber): los modificadores van en MAYÚSCULAS pegados
+// al plato → se cortan. false (Sincro/Just Eat): el plato puede venir entero en
+// mayúsculas, así que NO se corta; en su lugar se excluyen modificadores comunes y
+// se pasa a Capitalizado para unificar variantes del mismo plato.
+export function limpiarPlato(raw: string, cortarMayusculas = true): string | null {
   if (!raw) return null
   let s = String(raw).trim()
-  // Cortar opciones entre corchetes y todo lo que les siga
   const corch = s.indexOf('[')
   if (corch >= 0) s = s.slice(0, corch)
-  // Cortar en el primer bloque de MAYÚSCULAS (modificadores). Se exige ≥3 letras
-  // mayúsculas seguidas para no cortar siglas cortas dentro del nombre.
-  const mayus = s.match(/[A-ZÁÉÍÓÚÑ]{3,}/)
-  if (mayus && mayus.index !== undefined && mayus.index > 2) s = s.slice(0, mayus.index)
-  // Quitar separadores colgantes y espacios
-  s = s.replace(/[\s|·•\-–—:,;]+$/g, '').trim()
-  // Quitar cantidad inicial tipo "1x ", "2 x ", "x1 "
+  if (cortarMayusculas) {
+    const mayus = s.match(/[A-ZÁÉÍÓÚÑ]{3,}/)
+    if (mayus && mayus.index !== undefined && mayus.index > 2) s = s.slice(0, mayus.index)
+  }
+  // Colapsar "..", quitar puntuación/separadores colgantes, y cantidad inicial.
+  s = s.replace(/\.{2,}/g, '').replace(/[\s|·•\-–—:,;.]+$/g, '').trim()
   s = s.replace(/^\s*\d+\s*[x×]\s*/i, '').replace(/^\s*[x×]\s*\d+\s*/i, '').trim()
   if (s.length < 2) return null
   const n = norm(s)
+  if (n.startsWith('sin ') || n.startsWith('extra ') || n.startsWith('con extra')) return null
   if (EXCLUIR.some(e => n.includes(e)) || n === 'pan') return null
+  if (EXCLUIR_CARGOS.some(e => n.includes(e))) return null
+  if (!cortarMayusculas) {
+    if (MODIF.some(e => n.includes(e))) return null
+    // TODO en mayúsculas → Capitalizado (unifica "PATATAS FRITAS.." con "Patatas Fritas")
+    if (s === s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(s)) {
+      s = s.toLowerCase().split(' ').map(w => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ')
+    }
+  }
   return s
 }
 
@@ -118,7 +137,6 @@ function detectarSep(linea: string): string {
 
 function partirLinea(linea: string, sep: string): string[] {
   if (sep === ' | ') return linea.split(' | ').map(c => c.trim())
-  // CSV con comillas
   const out: string[] = []
   let cur = '', dentro = false
   for (let i = 0; i < linea.length; i++) {
@@ -215,7 +233,7 @@ function parseGlovoOrderDetails(texto: string, origen: string): FilaPedido[] {
     const idPedido = val(f, iId) || null
     const crudo = val(f, iArt)
     const items = crudo.split(/\n|\s\|\s|;/).map(x => x.trim()).filter(Boolean)
-    const limpios = items.map(limpiarPlato).filter((x): x is string => !!x)
+    const limpios = items.map(x => limpiarPlato(x)).filter((x): x is string => !!x)
     const n = limpios.length || 0
     for (const plato of limpios) {
       out.push({
@@ -282,6 +300,7 @@ function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
 //   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
 //   CREATION TIME = fecha+hora del pedido
 // OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
+// Y mezcla platos con modificadores/cargos: se limpia en modo Just Eat (sin cortar mayúsculas).
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
@@ -292,7 +311,7 @@ function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const iCant = col(t.header, 'quantity', 'qty', 'cantidad', 'units')
   const out: FilaPedido[] = []
   for (const f of t.filas) {
-    const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
+    const plato = limpiarPlato(val(f, iPlato), false); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha))
     if (!fh.fecha) continue
     // Plataforma desde MARKET (JustEat / Glovo / Uber). Por defecto just_eat.
