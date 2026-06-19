@@ -1,5 +1,5 @@
 /**
- * Datos reales horarios — S18-S22 + S25 (override puntual). DiaKey capitalizado (Lun..Dom).
+ * Datos reales horarios — S18-S22 + S25-S26 (override puntual). DiaKey capitalizado (Lun..Dom).
  */
 import type { DiaKey, Tramo } from '@/components/equipo/horarios/utils'
 
@@ -188,6 +188,16 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
         'Sáb': [{ entrada: '12:00', salida: '23:15' }],
         Dom: [{ entrada: '12:00', salida: '23:15' }],
       }, horas: 43.25 },
+    },
+  },
+  {
+    semana: 'S26', lunes: '2026-06-22',
+    emps: {
+      'ANDRÉS': { turnos: {
+        'Mié': [{ entrada: '13:00', salida: '23:15' }],
+        Jue: [{ entrada: '13:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
+      }, horas: 29.25 },
     },
   },
 ]
