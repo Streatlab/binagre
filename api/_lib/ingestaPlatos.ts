@@ -9,6 +9,7 @@
 //   · Defensivo: si no encuentra plato o fecha en una fila, la salta (no inventa).
 //   · Limpia el nombre del plato: corta modificadores en MAYÚSCULAS y en "[",
 //     y excluye bebidas/pan/extras para que el ranking de platos salga limpio.
+//   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
 import * as XLSX from 'xlsx'
@@ -28,6 +29,7 @@ export interface FilaPedido {
 // ── Normalización de texto para comparar cabeceras y nombres ────────────────
 function norm(s: string): string {
   return (s || '')
+    .replace(/^\ufeff/, '')                          // quita BOM inicial
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
     .replace(/\s+/g, ' ')
@@ -50,7 +52,8 @@ function parseImporte(s: string | undefined | null): number | null {
   return isNaN(n) ? null : n
 }
 
-// ── Fecha/hora desde una celda ("2026-06-03 18:59", "03/06/2026 18:59", etc.) ──
+// ── Fecha/hora desde una celda ──────────────────────────────────────────────
+// Soporta: "2026-06-03 18:59", "03/06/2026 18:59", "04/06/26 22:22" (año 2 díg).
 function parseFechaHora(s: string | undefined | null): { fecha: string | null; hora: string | null } {
   if (!s) return { fecha: null, hora: null }
   const txt = String(s).trim()
@@ -60,6 +63,11 @@ function parseFechaHora(s: string | undefined | null): { fecha: string | null; h
   if (!fecha) {
     m = txt.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)          // DD-MM-YYYY
     if (m) fecha = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  }
+  if (!fecha) {
+    // Año de 2 dígitos (export de Uber: "04/06/26") → 20YY
+    m = txt.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/)
+    if (m) fecha = `20${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
   }
   let hora: string | null = null
   const h = txt.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/)
@@ -146,14 +154,15 @@ function col(header: string[], ...terminos: string[]): number {
 }
 function val(fila: string[], i: number): string { return i >= 0 && i < fila.length ? (fila[i] || '').trim() : '' }
 
-// Texto plano de un xlsx (para Sincro Sold Products). Reusa SheetJS.
+// Texto plano de un xlsx (Sincro Sold Products). cellDates + dateNF ISO para que
+// CREATION TIME salga como "2024-05-25 12:44:02" y la fecha se lea sin ambigüedad.
 function xlsxATexto(buffer: Buffer): string {
   try {
-    const wb = XLSX.read(buffer, { type: 'buffer' })
+    const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
     let out = ''
     for (const name of wb.SheetNames) {
       const sh = wb.Sheets[name]
-      if (sh) out += XLSX.utils.sheet_to_csv(sh, { FS: ' | ' }) + '\n'
+      if (sh) out += XLSX.utils.sheet_to_csv(sh, { FS: ' | ', dateNF: 'yyyy-mm-dd hh:mm:ss' }) + '\n'
     }
     return out
   } catch { return '' }
@@ -220,46 +229,74 @@ function parseGlovoOrderDetails(texto: string, origen: string): FilaPedido[] {
   return out
 }
 
-// Uber "Detalle de ganancias nivel artículo": una fila por artículo.
+// Uber "Detalle de pagos / ganancias" (a nivel artículo). Estructura REAL:
+// el export mezcla DOS tipos de fila que comparten "Id. del flujo de trabajo":
+//   · Fila de PEDIDO   → trae "Nombre de la tienda" (la marca), sin artículo.
+//   · Fila de ARTÍCULO → trae "Nombre del artículo" (el plato) y su cantidad/ventas,
+//     pero la tienda viene VACÍA. La marca se hereda del pedido por el flujo de trabajo.
 function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
+  const iWf = col(t.header, 'flujo de trabajo', 'workflow')
+  const iTienda = col(t.header, 'nombre de la tienda', 'tienda', 'restaurante', 'marca')
   const iPlato = col(t.header, 'nombre del articulo', 'articulo', 'item')
-  const iMarca = col(t.header, 'nombre del restaurante', 'restaurante', 'tienda', 'marca')
-  const iPrecio = col(t.header, 'precio de venta', 'precio del articulo', 'ventas', 'precio', 'importe', 'total')
-  const iFecha = col(t.header, 'fecha del pedido', 'fecha', 'hora a la que se acepto')
+  const iFecha = col(t.header, 'fecha del pedido', 'fecha')
   const iHora = col(t.header, 'hora a la que se acepto el pedido', 'hora del pedido', 'hora')
-  const iId = col(t.header, 'id del pedido', 'numero de pedido', 'pedido')
+  const iCant = col(t.header, 'cantidad final', 'cantidad solicitada', 'cantidad', 'recuento final')
+  const iPrecio = col(t.header, 'ventas (con iva)', 'ventas (sin iva)', 'precio unitario', 'precio')
+  const iPromo = col(t.header, 'promociones en articulos (con iva)', 'promociones en articulos', 'promocion')
+
+  // 1) Mapa flujo de trabajo → marca, desde las filas de PEDIDO (las que traen tienda).
+  const marcaPorWf = new Map<string, string>()
+  for (const f of t.filas) {
+    const wf = val(f, iWf)
+    const tienda = val(f, iTienda)
+    if (wf && tienda) marcaPorWf.set(wf, tienda)
+  }
+
+  // 2) Filas de ARTÍCULO: una unidad por cantidad vendida.
   const out: FilaPedido[] = []
   for (const f of t.filas) {
     const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha) + ' ' + val(f, iHora))
     if (!fh.fecha) continue
-    out.push({
-      fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
-      marca: val(f, iMarca) || 'Sin marca', plato,
-      precio_bruto: parseImporte(val(f, iPrecio)), promo: null,
-      glovo_id: val(f, iId) || null, factura_origen: origen,
-    })
+    const wf = val(f, iWf)
+    const marca = (wf && marcaPorWf.get(wf)) || val(f, iTienda) || 'Sin marca'
+    const cant = Math.max(1, Math.min(50, parseInt(val(f, iCant) || '1', 10) || 1))
+    const ventaLinea = parseImporte(val(f, iPrecio))
+    const promoLinea = parseImporte(val(f, iPromo))
+    const precioUnit = ventaLinea != null ? Math.round((ventaLinea / cant) * 100) / 100 : null
+    const promoUnit = promoLinea != null ? Math.round((promoLinea / cant) * 100) / 100 : null
+    for (let k = 0; k < cant; k++) {
+      out.push({
+        fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
+        marca, plato, precio_bruto: precioUnit, promo: promoUnit,
+        glovo_id: wf || null, factura_origen: origen,
+      })
+    }
   }
   return out
 }
 
-// Sincro "Sold Products" (Just Eat y otras): una fila por producto vendido.
+// Sincro "Sold Products" (Just Eat / Glovo agregadas). Columnas reales:
+//   MARKET = canal/plataforma (JustEat, Glovo…)   ← NO es la marca del restaurante
+//   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
+//   CREATION TIME = fecha+hora del pedido
+// OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
-  const iMarca = col(t.header, 'market', 'brand', 'marca', 'selling point', 'punto de venta')
+  const iCanal = col(t.header, 'market', 'channel', 'platform', 'plataforma')
+  const iMarca = col(t.header, 'brand', 'marca', 'selling point', 'punto de venta', 'restaurant')
   const iPrecio = col(t.header, 'total line price', 'line price', 'price', 'importe', 'total')
-  const iFecha = col(t.header, 'date', 'fecha', 'order date')
+  const iFecha = col(t.header, 'creation time', 'date', 'fecha', 'order date')
   const iCant = col(t.header, 'quantity', 'qty', 'cantidad', 'units')
-  const iPlat = col(t.header, 'channel', 'platform', 'plataforma')
   const out: FilaPedido[] = []
   for (const f of t.filas) {
     const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha))
     if (!fh.fecha) continue
-    // Plataforma real del canal Sincro: si la fila dice glovo/uber, respétalo; por defecto just_eat.
-    const canal = norm(val(f, iPlat))
+    // Plataforma desde MARKET (JustEat / Glovo / Uber). Por defecto just_eat.
+    const canal = norm(val(f, iCanal))
     const plataforma = canal.includes('glovo') ? 'glovo' : canal.includes('uber') ? 'uber' : 'just_eat'
     const cant = Math.max(1, Math.min(50, parseInt(val(f, iCant) || '1', 10) || 1))
     const precioTotal = parseImporte(val(f, iPrecio))
@@ -291,13 +328,22 @@ export async function ingestarPedidosPlataforma(
     case 'glovo_orderdetails_csv': filas = parseGlovoOrderDetails(texto, nombreArchivo); break
     case 'uber_articulo_csv':      filas = parseUberArticulo(texto, nombreArchivo); break
     case 'sincro_sold_products': {
-      // Si el texto venía vacío (xlsx puro) lo releemos desde el buffer.
-      const txt = (texto && texto.length > 40) ? texto : (buffer ? xlsxATexto(buffer) : '')
+      // Sincro es xlsx: se relee SIEMPRE desde el buffer para controlar el formato
+      // de fecha (ISO). Solo si no hay buffer se cae al texto ya extraído.
+      const txt = buffer ? xlsxATexto(buffer) : ((texto && texto.length > 40) ? texto : '')
       filas = parseSincroSold(txt, nombreArchivo); break
     }
     default: return { insertados: 0 }
   }
   if (filas.length === 0) return { insertados: 0 }
+
+  // CANDADO DE DUPLICADOS (idempotencia): re-subir el mismo archivo REEMPLAZA sus
+  // ventas en vez de sumarlas. Se borra lo previo de este mismo archivo y se reinserta.
+  // Solo se borra si el re-parseo SÍ produjo filas (arriba ya cortamos si vino vacío),
+  // así un parseo fallido nunca destruye los datos buenos que ya había.
+  try {
+    await supabase.from('pedidos_plataforma').delete().eq('factura_origen', nombreArchivo)
+  } catch { /* best-effort: si falla el borrado, se sigue insertando */ }
 
   let insertados = 0
   for (let i = 0; i < filas.length; i += 500) {

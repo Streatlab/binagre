@@ -1,5 +1,5 @@
 /**
- * Datos reales horarios — S18-S22 + S25 (override puntual). DiaKey capitalizado (Lun..Dom).
+ * Datos reales horarios — S18-S22 + S25-S30 (override puntual). DiaKey capitalizado (Lun..Dom).
  */
 import type { DiaKey, Tramo } from '@/components/equipo/horarios/utils'
 
@@ -188,6 +188,164 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
         'Sáb': [{ entrada: '12:00', salida: '23:15' }],
         Dom: [{ entrada: '12:00', salida: '23:15' }],
       }, horas: 43.25 },
+    },
+  },
+  {
+    semana: 'S26', lunes: '2026-06-22',
+    emps: {
+      'RAY': { turnos: {
+        'Mié': [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
+        Dom: [{ entrada: '13:30', salida: '23:15' }],
+      }, horas: 39.25 },
+      'ANDRÉS': { turnos: {
+        'Mié': [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '13:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Dom: [{ entrada: '13:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 41.25 },
+      'EMILIO': { turnos: {
+        Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Vie: [{ entrada: '14:00', salida: '16:00' }],
+        'Sáb': [{ entrada: '13:00', salida: '16:00' }],
+        Dom: [{ entrada: '12:30', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+      }, horas: 20.5 },
+      'RUBÉN': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '23:15' }],
+        Mar: [{ entrada: '12:00', salida: '23:15' }],
+        Vie: [{ entrada: '20:00', salida: '23:00' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }],
+        Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:00' }],
+      }, horas: 37.5 },
+    },
+  },
+  {
+    semana: 'S27', lunes: '2026-06-29',
+    emps: {
+      'RAY': { turnos: {
+        Lun: [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '14:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:00', salida: '23:15' }],
+        Dom: [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 41.75 },
+      'ANDRÉS': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Mar: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '19:30', salida: '23:15' }],
+        Dom: [{ entrada: '13:00', salida: '23:15' }],
+      }, horas: 40.75 },
+      'EMILIO': { turnos: {
+        Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        'Mié': [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Jue: [{ entrada: '13:00', salida: '16:30' }],
+        Vie: [{ entrada: '13:00', salida: '16:00' }],
+      }, horas: 16.5 },
+      'RUBÉN': { turnos: {
+        Mar: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Mié': [{ entrada: '12:00', salida: '23:15' }],
+        Jue: [{ entrada: '16:30', salida: '23:15' }],
+      }, horas: 25.75 },
+    },
+  },
+  {
+    semana: 'S28', lunes: '2026-07-06',
+    emps: {
+      'RAY': { turnos: {
+        Lun: [{ entrada: '13:30', salida: '23:15' }],
+        Mar: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
+        Dom: [{ entrada: '14:30', salida: '23:15' }],
+      }, horas: 41.25 },
+      'ANDRÉS': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '16:30' }, { entrada: '19:30', salida: '23:15' }],
+        Mar: [{ entrada: '13:30', salida: '23:15' }],
+        'Mié': [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:30' }, { entrada: '19:30', salida: '23:15' }],
+        Dom: [{ entrada: '12:30', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 40.75 },
+      'EMILIO': { turnos: {
+        'Mié': [{ entrada: '13:00', salida: '16:00' }],
+        Jue: [{ entrada: '13:30', salida: '16:30' }],
+        Vie: [{ entrada: '13:00', salida: '16:30' }],
+        'Sáb': [{ entrada: '13:00', salida: '16:00' }, { entrada: '21:00', salida: '22:30' }],
+        Dom: [{ entrada: '14:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+      }, horas: 18 },
+      'RUBÉN': { turnos: {
+        'Mié': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Jue: [{ entrada: '16:30', salida: '23:15' }],
+        Vie: [{ entrada: '16:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '22:30' }],
+      }, horas: 36 },
+    },
+  },
+  {
+    semana: 'S29', lunes: '2026-07-13',
+    emps: {
+      'RAY': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Mar: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
+        Dom: [{ entrada: '13:30', salida: '23:15' }],
+      }, horas: 41.25 },
+      'ANDRÉS': { turnos: {
+        Lun: [{ entrada: '13:30', salida: '23:15' }],
+        Mar: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Mié': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '13:00', salida: '23:15' }],
+      }, horas: 40.75 },
+      'EMILIO': { turnos: {
+        'Mié': [{ entrada: '13:00', salida: '16:30' }],
+        Jue: [{ entrada: '13:00', salida: '16:30' }],
+        'Sáb': [{ entrada: '13:00', salida: '16:00' }, { entrada: '21:00', salida: '22:30' }],
+        Dom: [{ entrada: '14:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+      }, horas: 15.5 },
+      'RUBÉN': { turnos: {
+        'Mié': [{ entrada: '16:30', salida: '23:15' }],
+        Jue: [{ entrada: '16:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 29 },
+    },
+  },
+  {
+    semana: 'S30', lunes: '2026-07-20',
+    emps: {
+      'RAY': { turnos: {
+        'Mié': [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Jue: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '14:00', salida: '23:15' }],
+        Dom: [{ entrada: '13:30', salida: '23:15' }],
+      }, horas: 41.25 },
+      'ANDRÉS': { turnos: {
+        'Mié': [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '13:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Dom: [{ entrada: '13:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 39.25 },
+      'EMILIO': { turnos: {
+        Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '13:30', salida: '16:30' }],
+        Dom: [{ entrada: '20:00', salida: '23:00' }],
+      }, horas: 18.5 },
+      'RUBÉN': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '23:15' }],
+        Mar: [{ entrada: '12:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }],
+        Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '22:30' }],
+      }, horas: 34 },
     },
   },
 ]

@@ -32,6 +32,7 @@
 
 ## 7. DESCANSOS JORNADA PARTIDA
 - Mínimo 3h entre tramos.
+- Andrés mínimo 3h entre tramos (ej. 16:30 → 19:30).
 - Ray mínimo 3,5h (vive lejos).
 - Mínimo 12h entre jornadas.
 

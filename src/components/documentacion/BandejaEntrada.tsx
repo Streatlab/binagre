@@ -124,14 +124,12 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         </div>
       </div>
 
-      {/* Cartero + Salud OCR */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+      {/* Tres columnas iguales (33/33/33): correo · salud OCR · chuleta plataformas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'stretch' }}>
         <CardFacturasCorreo tipo="factura" desde={desde} hasta={hasta} onBarrido={() => onProcesado?.()} />
         <CardSaludOcr />
+        <ChuletaPlataformas />
       </div>
-
-      {/* Chuleta: qué subir por plataforma (Glovo / Uber / Just Eat) */}
-      <ChuletaPlataformas />
 
       {/* Modal documentos */}
       {modalDoc.visible && (
