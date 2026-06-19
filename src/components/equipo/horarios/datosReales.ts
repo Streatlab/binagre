@@ -193,11 +193,34 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
   {
     semana: 'S26', lunes: '2026-06-22',
     emps: {
+      'RAY': { turnos: {
+        'Mié': [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
+        Jue: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
+        Dom: [{ entrada: '13:30', salida: '23:15' }],
+      }, horas: 41.75 },
       'ANDRÉS': { turnos: {
         'Mié': [{ entrada: '13:00', salida: '23:15' }],
         Jue: [{ entrada: '13:00', salida: '23:15' }],
-        'Sáb': [{ entrada: '13:30', salida: '23:15' }],
-      }, horas: 29.25 },
+        Vie: [{ entrada: '13:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Dom: [{ entrada: '13:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+      }, horas: 42.75 },
+      'EMILIO': { turnos: {
+        Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Vie: [{ entrada: '13:30', salida: '16:00' }],
+        'Sáb': [{ entrada: '12:30', salida: '16:00' }],
+        Dom: [{ entrada: '12:30', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+      }, horas: 21.5 },
+      'RUBÉN': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '23:00' }],
+        Mar: [{ entrada: '12:00', salida: '23:00' }],
+        Vie: [{ entrada: '20:00', salida: '23:00' }],
+        'Sáb': [{ entrada: '12:30', salida: '16:00' }, { entrada: '20:00', salida: '22:30' }],
+        Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '22:30' }],
+      }, horas: 38 },
     },
   },
 ]
