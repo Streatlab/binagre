@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { FONT, useTheme } from '@/styles/tokens'
 import { fmtDate, fmtNumES } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
+import VentasPlatosFranjas from '@/components/ocr/VentasPlatosFranjas'
 
 interface Liquidacion {
   id: string
@@ -344,7 +345,8 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           ))}
         </div>
       )}
-      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
+      <VentasPlatosFranjas fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
+      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden', marginTop: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr>
