@@ -210,10 +210,10 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
       'EMILIO': { turnos: {
         Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
         Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
-        Vie: [{ entrada: '13:30', salida: '16:00' }],
-        'Sáb': [{ entrada: '12:30', salida: '16:00' }],
+        Vie: [{ entrada: '14:00', salida: '16:00' }],
+        'Sáb': [{ entrada: '13:00', salida: '16:00' }],
         Dom: [{ entrada: '12:30', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
-      }, horas: 21.5 },
+      }, horas: 20.5 },
       'RUBÉN': { turnos: {
         Lun: [{ entrada: '12:00', salida: '23:00' }],
         Mar: [{ entrada: '12:00', salida: '23:00' }],
