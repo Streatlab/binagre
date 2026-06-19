@@ -10,6 +10,9 @@
 //   · Limpia el nombre del plato: corta modificadores, excluye bebidas/cargos,
 //     y unifica variantes (mayúsculas/puntos) para que el ranking salga limpio.
 //   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
+//   · Antiduplicados entre fuentes: cada fila lleva 'fuente' (propia | sincro). Tras
+//     insertar se llama fn_dedupe_pedidos_plataforma: donde haya datos propios
+//     (Glovo/Uber nativos) se descartan los de Sincro de ese mismo día y plataforma.
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
 import * as XLSX from 'xlsx'
@@ -24,6 +27,7 @@ export interface FilaPedido {
   promo: number | null
   glovo_id: string | null
   factura_origen: string | null
+  fuente: string           // 'propia' (export nativo) | 'sincro' (agregador)
 }
 
 // ── Normalización de texto para comparar cabeceras y nombres ────────────────
@@ -207,7 +211,7 @@ function parseGlovoBill(texto: string, origen: string): FilaPedido[] {
       fecha: fh.fecha, hora: fh.hora, plataforma: 'glovo',
       marca: val(f, iMarca) || 'Sin marca', plato,
       precio_bruto: parseImporte(val(f, iPrecio)), promo: parseImporte(val(f, iPromo)),
-      glovo_id: val(f, iId) || null, factura_origen: origen,
+      glovo_id: val(f, iId) || null, factura_origen: origen, fuente: 'propia',
     })
   }
   return out
@@ -240,7 +244,7 @@ function parseGlovoOrderDetails(texto: string, origen: string): FilaPedido[] {
         fecha: fh.fecha, hora: fh.hora, plataforma: 'glovo', marca, plato,
         precio_bruto: bruto != null && n > 0 ? Math.round((bruto / n) * 100) / 100 : null,
         promo: promo != null && n > 0 ? Math.round((promo / n) * 100) / 100 : null,
-        glovo_id: idPedido, factura_origen: origen,
+        glovo_id: idPedido, factura_origen: origen, fuente: 'propia',
       })
     }
   }
@@ -288,19 +292,19 @@ function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
       out.push({
         fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
         marca, plato, precio_bruto: precioUnit, promo: promoUnit,
-        glovo_id: wf || null, factura_origen: origen,
+        glovo_id: wf || null, factura_origen: origen, fuente: 'propia',
       })
     }
   }
   return out
 }
 
-// Sincro "Sold Products" (Just Eat / Glovo agregadas). Columnas reales:
+// Sincro "Sold Products" (Just Eat / Glovo / Uber agregadas). Columnas reales:
 //   MARKET = canal/plataforma (JustEat, Glovo…)   ← NO es la marca del restaurante
 //   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
 //   CREATION TIME = fecha+hora del pedido
 // OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
-// Y mezcla platos con modificadores/cargos: se limpia en modo Just Eat (sin cortar mayúsculas).
+// Se marca fuente='sincro': el dedupe descartará sus Glovo/Uber donde haya export propio.
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
@@ -324,7 +328,7 @@ function parseSincroSold(texto: string, origen: string): FilaPedido[] {
       out.push({
         fecha: fh.fecha, hora: fh.hora, plataforma,
         marca: val(f, iMarca) || 'Sin marca', plato,
-        precio_bruto: precioUnit, promo: null, glovo_id: null, factura_origen: origen,
+        precio_bruto: precioUnit, promo: null, glovo_id: null, factura_origen: origen, fuente: 'sincro',
       })
     }
   }
@@ -370,5 +374,13 @@ export async function ingestarPedidosPlataforma(
     const { error } = await supabase.from('pedidos_plataforma').insert(lote)
     if (!error) insertados += lote.length
   }
+
+  // ANTIDUPLICADOS ENTRE FUENTES: donde haya datos propios (Glovo/Uber nativos),
+  // se descartan los de Sincro de ese mismo día y plataforma. Just Eat se conserva
+  // siempre (solo viene de Sincro). Determinista, en cualquier orden de subida.
+  try {
+    await supabase.rpc('fn_dedupe_pedidos_plataforma')
+  } catch { /* best-effort: si la función no estuviera, no se rompe la ingesta */ }
+
   return { insertados }
 }
