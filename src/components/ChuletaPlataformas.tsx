@@ -1,11 +1,13 @@
-// ChuletaPlataformas — recordatorio breve de qué subir por plataforma.
-// Se coloca en Bandeja de entrada (OCR), junto a las cards de correo/OCR.
-// Sin lógica: solo el nombre exacto del documento a sacar de cada plataforma.
+// ChuletaPlataformas — card grande "Qué subir por plataforma".
+// Diseñada para ocupar UNA columna (1/3) en la Bandeja de entrada, a la derecha
+// de las cards de correo y salud OCR. Estilo ERP Binagre: card blanca, header
+// Oswald, acento rojo #B01D23, items en wash beige #edecea. height:100% para
+// igualar la altura de las cards vecinas.
 
-const ITEMS: { marca: string; docs: string[] }[] = [
-  { marca: 'Glovo', docs: ['Factura (PDF)', 'CSV de la factura'] },
-  { marca: 'Uber Eats', docs: ['Factura (PDF)', 'Detalle de ganancias nivel artículo', 'Resumen de ganancias'] },
-  { marca: 'Just Eat', docs: ['Factura (PDF)', 'Sincro · Sold Products'] },
+const ITEMS: { marca: string; color: string; docs: string[] }[] = [
+  { marca: 'Glovo', color: '#FFC244', docs: ['Factura (PDF)', 'CSV de la factura'] },
+  { marca: 'Uber Eats', color: '#06C167', docs: ['Factura (PDF)', 'Detalle de ganancias nivel artículo', 'Resumen de ganancias'] },
+  { marca: 'Just Eat', color: '#FF8000', docs: ['Factura (PDF)', 'Sincro · Sold Products'] },
 ]
 
 export default function ChuletaPlataformas() {
@@ -13,47 +15,49 @@ export default function ChuletaPlataformas() {
     <div
       style={{
         background: '#fff',
-        border: '1px solid rgba(30,34,51,0.10)',
-        borderRadius: 12,
-        padding: '14px 16px',
-        marginTop: 16,
+        border: '0.5px solid #d0c8bc',
+        borderRadius: 14,
+        padding: '16px 16px',
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <div
         style={{
           fontFamily: 'Oswald, sans-serif',
-          fontSize: 13,
-          letterSpacing: 0.4,
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: '2px',
           textTransform: 'uppercase',
-          color: '#1e2233',
-          marginBottom: 10,
+          color: '#7a8090',
+          marginBottom: 12,
         }}
       >
         Qué subir por plataforma
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 12,
-        }}
-      >
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
         {ITEMS.map((p) => (
           <div
             key={p.marca}
             style={{
               background: '#edecea',
-              borderRadius: 8,
+              borderRadius: 10,
               padding: '10px 12px',
+              borderLeft: `3px solid ${p.color}`,
             }}
           >
             <div
               style={{
                 fontFamily: 'Oswald, sans-serif',
                 fontWeight: 600,
-                fontSize: 15,
+                fontSize: 14,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
                 color: '#B01D23',
-                marginBottom: 6,
+                marginBottom: 4,
               }}
             >
               {p.marca}
@@ -64,9 +68,9 @@ export default function ChuletaPlataformas() {
                   key={d}
                   style={{
                     fontFamily: 'Lexend, sans-serif',
-                    fontSize: 13,
-                    color: '#1e2233',
-                    lineHeight: 1.6,
+                    fontSize: 12.5,
+                    color: '#3a4050',
+                    lineHeight: 1.55,
                   }}
                 >
                   {d}
