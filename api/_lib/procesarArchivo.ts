@@ -1,3 +1,7 @@
+// procesarArchivo v23 — CANDADO ÚNICO DE PAGO POR PROVEEDOR (Rubén 20/06/26):
+//      cualquier motor de pago (Mistral / Anthropic texto / Anthropic visión) se usa
+//      como MÁXIMO UNA VEZ por NIF. Esa lectura aprende la plantilla; después el
+//      proveedor se lee gratis por reglas o va a lectura MANUAL, nunca más a pago.
 // procesarArchivo v22 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
 // v22: cascada de lectura COMPLETA con Anthropic como último escalón:
 //      1) Reglas/plantilla por NIF (gratis)
@@ -793,12 +797,21 @@ async function procesarContenidoPrincipal(
     }
   }
 
+  // CANDADO ÚNICO DE PAGO POR PROVEEDOR (Rubén 20/06/26): cualquier motor de pago
+  // (Mistral, Anthropic texto, Anthropic visión) se usa COMO MÁXIMO UNA VEZ por
+  // proveedor (NIF). Esa única lectura sirve para APRENDER la plantilla; a partir de
+  // ahí el proveedor se lee gratis por reglas, y si la plantilla fallara, va a
+  // lectura MANUAL — JAMÁS se vuelve a pagar para ese NIF. El flag vision_usada de
+  // reglas_conciliacion actúa como candado unificado de "pago ya consumido".
+  const nifCandPago = textoPdfCache ? normalizarNif(extraerNifEmisorLibre(textoPdfCache)) : null
+  const pagoYaUsado = nifCandPago ? await nifVisionUsada(supabase, nifCandPago) : false
+
   // PASO 3 (BOOTSTRAP de pago acotado — regla 3 bis): si ni reglas ni Tesseract
-  // leyeron, y el bootstrap está permitido (OCR_BOOTSTRAP_API=true + clave Mistral),
-  // se hace UNA pasada de Mistral para sacar el texto. Ese texto pasa por el MISMO
-  // parser gratis; si saca NIF+total, abajo se aprende la plantilla por NIF y la
-  // próxima factura del proveedor se lee gratis (candado natural por NIF).
-  if (!extractedReglas && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+  // leyeron, el bootstrap está permitido y el proveedor NO ha gastado aún su única
+  // lectura de pago, se hace UNA pasada de Mistral para sacar el texto. Ese texto
+  // pasa por el MISMO parser gratis; si saca NIF+total, abajo se aprende la plantilla
+  // por NIF y la próxima factura del proveedor se lee gratis.
+  if (!extractedReglas && !pagoYaUsado && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
     try {
       const textoMistral = await ocrMistralTexto(file.buffer, tipo === 'imagen' ? 'imagen' : 'pdf')
       if (textoMistral && textoMistral.replace(/\s/g, '').length >= 30) {
@@ -816,12 +829,12 @@ async function procesarContenidoPrincipal(
   }
 
   // PASO 3b (BOOTSTRAP Anthropic — ÚLTIMO recurso de la cascada): si ni reglas, ni
-  // Tesseract, ni Mistral leyeron, y el bootstrap está permitido (OCR_BOOTSTRAP_API
-  // + ANTHROPIC_API_KEY), se hace UNA pasada de Anthropic SOBRE EL TEXTO ya extraído
-  // (textoPdfCache) — lectura barata, sin visión sobre el PDF. Devuelve extracción
-  // estructurada CON desglose de IVA. Tras leer, abajo se aprende la plantilla por
-  // NIF y la próxima factura se lee gratis.
-  if (!extractedReglas && anthropicBootstrapActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+  // Tesseract, ni Mistral leyeron, el bootstrap está permitido Y el proveedor NO ha
+  // gastado aún su única lectura de pago, se hace UNA pasada de Anthropic SOBRE EL
+  // TEXTO ya extraído (textoPdfCache) — lectura barata, sin visión sobre el PDF.
+  // Devuelve extracción estructurada CON desglose de IVA. Tras leer, abajo se aprende
+  // la plantilla por NIF y se cierra el candado de pago: la próxima factura se lee gratis.
+  if (!extractedReglas && !pagoYaUsado && anthropicBootstrapActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
     try {
       const facAnthropic = await extraerFacturaAnthropic(
         file.buffer,
@@ -838,27 +851,24 @@ async function procesarContenidoPrincipal(
     }
   }
 
-  // PASO 3c (VISIÓN Anthropic — ÚLTIMO RECURSO, con candado por NIF): si NADA leyó,
-  // se rasteriza el documento con visión UNA sola vez por proveedor. Si el NIF ya
-  // gastó su visión (vision_usada=true), NO se repite: queda a lectura manual.
-  if (!extractedReglas && (tipo === 'pdf' || tipo === 'imagen')) {
-    const nifCand = textoPdfCache ? normalizarNif(extraerNifEmisorLibre(textoPdfCache)) : null
-    const yaGastoVision = nifCand ? await nifVisionUsada(supabase, nifCand) : false
-    if (!yaGastoVision) {
-      try {
-        const facVision = await extraerFacturaAnthropicVisionUltimoRecurso(
-          file.buffer,
-          tipo === 'imagen' ? 'imagen' : 'pdf',
-          file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'),
-        )
-        if (facVision) {
-          extractedReglas = facVision
-          origenLectura = 'anthropic_vision'
-          visionUsadaNif = normalizarNif(facVision.nif_emisor) || nifCand
-        }
-      } catch (visErr) {
-        console.error('[procesarArchivo] visión último recurso no resolvió:', errMsg(visErr))
+  // PASO 3c (VISIÓN Anthropic — ÚLTIMO RECURSO, mismo candado de pago por NIF): si
+  // NADA leyó y el proveedor NO ha gastado aún su única lectura de pago, se rasteriza
+  // el documento con visión UNA sola vez. Tras leer, se cierra el candado y ese NIF
+  // no vuelve a pagar: sus siguientes facturas se leen gratis o van a manual.
+  if (!extractedReglas && !pagoYaUsado && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const facVision = await extraerFacturaAnthropicVisionUltimoRecurso(
+        file.buffer,
+        tipo === 'imagen' ? 'imagen' : 'pdf',
+        file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'),
+      )
+      if (facVision) {
+        extractedReglas = facVision
+        origenLectura = 'anthropic_vision'
+        visionUsadaNif = normalizarNif(facVision.nif_emisor) || nifCandPago
       }
+    } catch (visErr) {
+      console.error('[procesarArchivo] visión último recurso no resolvió:', errMsg(visErr))
     }
   }
 
@@ -1034,8 +1044,10 @@ async function procesarContenidoPrincipal(
     // que cierra el candado del bootstrap: la próxima factura del proveedor se lee
     // gratis y Mistral/Anthropic no vuelven a tocarse. Best-effort, idempotente por NIF.
     await aprenderProveedorNif(supabase, extracted, textoPdfCache)
-    // Cerrar el candado de visión: este proveedor ya no podrá volver a usar visión.
-    if (origenLectura === 'anthropic_vision') {
+    // Cerrar el candado de PAGO: tras cualquier lectura de pago (Mistral, Anthropic
+    // texto o visión) este proveedor queda bloqueado; sus próximas facturas se leen
+    // gratis por plantilla o van a manual, nunca más a un motor de pago.
+    if (origenLectura === 'mistral_bootstrap' || origenLectura === 'anthropic_bootstrap' || origenLectura === 'anthropic_vision') {
       await marcarVisionUsada(supabase, visionUsadaNif || normalizarNif(extracted.nif_emisor))
     }
 
