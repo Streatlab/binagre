@@ -250,8 +250,7 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
         Mar: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
         'Mié': [{ entrada: '12:00', salida: '23:15' }],
         Jue: [{ entrada: '16:30', salida: '23:15' }],
-        Vie: [{ entrada: '20:00', salida: '23:00' }],
-      }, horas: 28.75 },
+      }, horas: 25.75 },
     },
   },
   {
@@ -339,9 +338,8 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
         Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
         Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
         Vie: [{ entrada: '13:30', salida: '16:30' }],
-        'Sáb': [{ entrada: '13:00', salida: '16:30' }],
         Dom: [{ entrada: '20:00', salida: '23:00' }],
-      }, horas: 22 },
+      }, horas: 18.5 },
       'RUBÉN': { turnos: {
         Lun: [{ entrada: '12:00', salida: '23:15' }],
         Mar: [{ entrada: '12:00', salida: '23:15' }],
