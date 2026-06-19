@@ -19,7 +19,14 @@ export default function TabEstaSemana() {
   const { T } = useTheme()
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [loading, setLoading] = useState(true)
-  const [lunes, setLunes] = useState<Date>(() => lunesDeSemana(new Date()))
+  const [lunes, setLunes] = useState<Date>(() => {
+    const guardado = typeof localStorage !== 'undefined' ? localStorage.getItem('horarios_semana_lunes') : null
+    if (guardado) {
+      const d = new Date(`${guardado}T00:00:00`)
+      if (!isNaN(d.getTime())) return d
+    }
+    return lunesDeSemana(new Date())
+  })
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [cierres, setCierres] = useState<Partial<Record<string, string>>>({})
   const [fuente, setFuente] = useState<Fuente>('vacio')
@@ -28,6 +35,10 @@ export default function TabEstaSemana() {
     supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo')
       .then(({ data }) => setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])))
   }, [])
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem('horarios_semana_lunes', isoDeFecha(lunes))
+  }, [lunes])
 
   useEffect(() => {
     if (empleados.length === 0) return
