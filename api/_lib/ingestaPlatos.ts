@@ -154,14 +154,15 @@ function col(header: string[], ...terminos: string[]): number {
 }
 function val(fila: string[], i: number): string { return i >= 0 && i < fila.length ? (fila[i] || '').trim() : '' }
 
-// Texto plano de un xlsx (para Sincro Sold Products). Reusa SheetJS.
+// Texto plano de un xlsx (Sincro Sold Products). cellDates + dateNF ISO para que
+// CREATION TIME salga como "2024-05-25 12:44:02" y la fecha se lea sin ambigüedad.
 function xlsxATexto(buffer: Buffer): string {
   try {
-    const wb = XLSX.read(buffer, { type: 'buffer' })
+    const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
     let out = ''
     for (const name of wb.SheetNames) {
       const sh = wb.Sheets[name]
-      if (sh) out += XLSX.utils.sheet_to_csv(sh, { FS: ' | ' }) + '\n'
+      if (sh) out += XLSX.utils.sheet_to_csv(sh, { FS: ' | ', dateNF: 'yyyy-mm-dd hh:mm:ss' }) + '\n'
     }
     return out
   } catch { return '' }
@@ -276,22 +277,26 @@ function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
   return out
 }
 
-// Sincro "Sold Products" (Just Eat y otras): una fila por producto vendido.
+// Sincro "Sold Products" (Just Eat / Glovo agregadas). Columnas reales:
+//   MARKET = canal/plataforma (JustEat, Glovo…)   ← NO es la marca del restaurante
+//   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
+//   CREATION TIME = fecha+hora del pedido
+// OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
-  const iMarca = col(t.header, 'market', 'brand', 'marca', 'selling point', 'punto de venta')
+  const iCanal = col(t.header, 'market', 'channel', 'platform', 'plataforma')
+  const iMarca = col(t.header, 'brand', 'marca', 'selling point', 'punto de venta', 'restaurant')
   const iPrecio = col(t.header, 'total line price', 'line price', 'price', 'importe', 'total')
-  const iFecha = col(t.header, 'date', 'fecha', 'order date')
+  const iFecha = col(t.header, 'creation time', 'date', 'fecha', 'order date')
   const iCant = col(t.header, 'quantity', 'qty', 'cantidad', 'units')
-  const iPlat = col(t.header, 'channel', 'platform', 'plataforma')
   const out: FilaPedido[] = []
   for (const f of t.filas) {
     const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha))
     if (!fh.fecha) continue
-    // Plataforma real del canal Sincro: si la fila dice glovo/uber, respétalo; por defecto just_eat.
-    const canal = norm(val(f, iPlat))
+    // Plataforma desde MARKET (JustEat / Glovo / Uber). Por defecto just_eat.
+    const canal = norm(val(f, iCanal))
     const plataforma = canal.includes('glovo') ? 'glovo' : canal.includes('uber') ? 'uber' : 'just_eat'
     const cant = Math.max(1, Math.min(50, parseInt(val(f, iCant) || '1', 10) || 1))
     const precioTotal = parseImporte(val(f, iPrecio))
@@ -323,8 +328,9 @@ export async function ingestarPedidosPlataforma(
     case 'glovo_orderdetails_csv': filas = parseGlovoOrderDetails(texto, nombreArchivo); break
     case 'uber_articulo_csv':      filas = parseUberArticulo(texto, nombreArchivo); break
     case 'sincro_sold_products': {
-      // Si el texto venía vacío (xlsx puro) lo releemos desde el buffer.
-      const txt = (texto && texto.length > 40) ? texto : (buffer ? xlsxATexto(buffer) : '')
+      // Sincro es xlsx: se relee SIEMPRE desde el buffer para controlar el formato
+      // de fecha (ISO). Solo si no hay buffer se cae al texto ya extraído.
+      const txt = buffer ? xlsxATexto(buffer) : ((texto && texto.length > 40) ? texto : '')
       filas = parseSincroSold(txt, nombreArchivo); break
     }
     default: return { insertados: 0 }
