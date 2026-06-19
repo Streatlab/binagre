@@ -29,6 +29,7 @@ export interface FilaPedido {
 // ── Normalización de texto para comparar cabeceras y nombres ────────────────
 function norm(s: string): string {
   return (s || '')
+    .replace(/^\ufeff/, '')                          // quita BOM inicial
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
     .replace(/\s+/g, ' ')
@@ -51,7 +52,8 @@ function parseImporte(s: string | undefined | null): number | null {
   return isNaN(n) ? null : n
 }
 
-// ── Fecha/hora desde una celda ("2026-06-03 18:59", "03/06/2026 18:59", etc.) ──
+// ── Fecha/hora desde una celda ──────────────────────────────────────────────
+// Soporta: "2026-06-03 18:59", "03/06/2026 18:59", "04/06/26 22:22" (año 2 díg).
 function parseFechaHora(s: string | undefined | null): { fecha: string | null; hora: string | null } {
   if (!s) return { fecha: null, hora: null }
   const txt = String(s).trim()
@@ -61,6 +63,11 @@ function parseFechaHora(s: string | undefined | null): { fecha: string | null; h
   if (!fecha) {
     m = txt.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)          // DD-MM-YYYY
     if (m) fecha = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  }
+  if (!fecha) {
+    // Año de 2 dígitos (export de Uber: "04/06/26") → 20YY
+    m = txt.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/)
+    if (m) fecha = `20${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
   }
   let hora: string | null = null
   const h = txt.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/)
@@ -221,26 +228,50 @@ function parseGlovoOrderDetails(texto: string, origen: string): FilaPedido[] {
   return out
 }
 
-// Uber "Detalle de ganancias nivel artículo": una fila por artículo.
+// Uber "Detalle de pagos / ganancias" (a nivel artículo). Estructura REAL:
+// el export mezcla DOS tipos de fila que comparten "Id. del flujo de trabajo":
+//   · Fila de PEDIDO   → trae "Nombre de la tienda" (la marca), sin artículo.
+//   · Fila de ARTÍCULO → trae "Nombre del artículo" (el plato) y su cantidad/ventas,
+//     pero la tienda viene VACÍA. La marca se hereda del pedido por el flujo de trabajo.
 function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
+  const iWf = col(t.header, 'flujo de trabajo', 'workflow')
+  const iTienda = col(t.header, 'nombre de la tienda', 'tienda', 'restaurante', 'marca')
   const iPlato = col(t.header, 'nombre del articulo', 'articulo', 'item')
-  const iMarca = col(t.header, 'nombre del restaurante', 'restaurante', 'tienda', 'marca')
-  const iPrecio = col(t.header, 'precio de venta', 'precio del articulo', 'ventas', 'precio', 'importe', 'total')
-  const iFecha = col(t.header, 'fecha del pedido', 'fecha', 'hora a la que se acepto')
+  const iFecha = col(t.header, 'fecha del pedido', 'fecha')
   const iHora = col(t.header, 'hora a la que se acepto el pedido', 'hora del pedido', 'hora')
-  const iId = col(t.header, 'id del pedido', 'numero de pedido', 'pedido')
+  const iCant = col(t.header, 'cantidad final', 'cantidad solicitada', 'cantidad', 'recuento final')
+  const iPrecio = col(t.header, 'ventas (con iva)', 'ventas (sin iva)', 'precio unitario', 'precio')
+  const iPromo = col(t.header, 'promociones en articulos (con iva)', 'promociones en articulos', 'promocion')
+
+  // 1) Mapa flujo de trabajo → marca, desde las filas de PEDIDO (las que traen tienda).
+  const marcaPorWf = new Map<string, string>()
+  for (const f of t.filas) {
+    const wf = val(f, iWf)
+    const tienda = val(f, iTienda)
+    if (wf && tienda) marcaPorWf.set(wf, tienda)
+  }
+
+  // 2) Filas de ARTÍCULO: una unidad por cantidad vendida.
   const out: FilaPedido[] = []
   for (const f of t.filas) {
     const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha) + ' ' + val(f, iHora))
     if (!fh.fecha) continue
-    out.push({
-      fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
-      marca: val(f, iMarca) || 'Sin marca', plato,
-      precio_bruto: parseImporte(val(f, iPrecio)), promo: null,
-      glovo_id: val(f, iId) || null, factura_origen: origen,
-    })
+    const wf = val(f, iWf)
+    const marca = (wf && marcaPorWf.get(wf)) || val(f, iTienda) || 'Sin marca'
+    const cant = Math.max(1, Math.min(50, parseInt(val(f, iCant) || '1', 10) || 1))
+    const ventaLinea = parseImporte(val(f, iPrecio))
+    const promoLinea = parseImporte(val(f, iPromo))
+    const precioUnit = ventaLinea != null ? Math.round((ventaLinea / cant) * 100) / 100 : null
+    const promoUnit = promoLinea != null ? Math.round((promoLinea / cant) * 100) / 100 : null
+    for (let k = 0; k < cant; k++) {
+      out.push({
+        fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
+        marca, plato, precio_bruto: precioUnit, promo: promoUnit,
+        glovo_id: wf || null, factura_origen: origen,
+      })
+    }
   }
   return out
 }
