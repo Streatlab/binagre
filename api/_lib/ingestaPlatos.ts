@@ -9,6 +9,7 @@
 //   · Defensivo: si no encuentra plato o fecha en una fila, la salta (no inventa).
 //   · Limpia el nombre del plato: corta modificadores en MAYÚSCULAS y en "[",
 //     y excluye bebidas/pan/extras para que el ranking de platos salga limpio.
+//   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
 import * as XLSX from 'xlsx'
@@ -298,6 +299,14 @@ export async function ingestarPedidosPlataforma(
     default: return { insertados: 0 }
   }
   if (filas.length === 0) return { insertados: 0 }
+
+  // CANDADO DE DUPLICADOS (idempotencia): re-subir el mismo archivo REEMPLAZA sus
+  // ventas en vez de sumarlas. Se borra lo previo de este mismo archivo y se reinserta.
+  // Solo se borra si el re-parseo SÍ produjo filas (arriba ya cortamos si vino vacío),
+  // así un parseo fallido nunca destruye los datos buenos que ya había.
+  try {
+    await supabase.from('pedidos_plataforma').delete().eq('factura_origen', nombreArchivo)
+  } catch { /* best-effort: si falla el borrado, se sigue insertando */ }
 
   let insertados = 0
   for (let i = 0; i < filas.length; i += 500) {
