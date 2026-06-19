@@ -10,14 +10,14 @@ import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen
 // Pareto Ventas ya existe como página; se monta aquí como pestaña sin tocar su lógica.
 const ParetoVentas = lazy(() => import('@/pages/analytics/ParetoVentas'))
 
-type Tab = 'resumen' | 'platos' | 'pareto'
+type Tab = 'resumen' | 'detalle' | 'pareto'
 const STORAGE_KEY = 'ventas:tab'
 
 function loadTab(): Tab {
   try {
     const r = sessionStorage.getItem(STORAGE_KEY)
-    if (r === 'resumen' || r === 'platos' || r === 'pareto') return r
-    if (r === 'detalle') return 'resumen' // compat con el nombre anterior
+    if (r === 'resumen' || r === 'detalle' || r === 'pareto') return r
+    if (r === 'platos') return 'detalle' // compat
   } catch { /* */ }
   return 'resumen'
 }
@@ -36,15 +36,8 @@ interface VentaRow {
   fecha_pago: string | null
 }
 
-// Filas de las vistas de pedidos por plato / franja (alimentadas por pedidos_plataforma).
-interface PlatoRow {
-  plataforma: string; marca: string; plato: string; fecha: string
-  lineas: number; importe_bruto: number; promo: number
-}
-interface FranjaRow {
-  plataforma: string; marca: string; fecha: string; hora: number
-  pedidos: number; importe_bruto: number
-}
+// Fila que devuelve la RPC fn_detalle_ventas (agrupada por la dimensión elegida).
+interface DetalleRow { etiqueta: string; plataforma: string; unidades: number; importe: number }
 
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES')
 const fmtF = (s: string | null) => {
@@ -53,12 +46,9 @@ const fmtF = (s: string | null) => {
   return `${d}/${m}/${y.slice(2)}`
 }
 
-// La BD guarda el código de plataforma ('uber'/'glovo'/'just_eat'). Estos mapas lo
-// muestran con su nombre y colores canónicos de marca.
 const NOMBRE_PLAT: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', rushour: 'Rushour', desconocido: 'Desconocido',
 }
-// Pastilla de color por plataforma (estilo etiqueta de Facturación): fondo suave + texto legible.
 const PILL_PLAT: Record<string, { bg: string; tx: string }> = {
   uber:     { bg: '#06C16722', tx: '#05833f' },
   glovo:    { bg: '#F2D20033', tx: '#8a7400' },
@@ -73,11 +63,9 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
   const c = pillPlat(plataforma)
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      padding: '3px 10px', borderRadius: 999,
-      background: c.bg, color: c.tx,
-      fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px',
-      whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999,
+      background: c.bg, color: c.tx, fontFamily: OSWALD, fontSize: 12, fontWeight: 600,
+      letterSpacing: '0.3px', whiteSpace: 'nowrap',
     }}>{nombrePlat(plataforma)}</span>
   )
 }
@@ -176,7 +164,7 @@ function CardsResumen({ rows }: { rows: VentaRow[] }) {
   )
 }
 
-function TablaDetalle({ rows, cargando }: { rows: VentaRow[]; cargando: boolean }) {
+function TablaResumen({ rows, cargando }: { rows: VentaRow[]; cargando: boolean }) {
   const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
   const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
   const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
@@ -225,130 +213,144 @@ function TablaDetalle({ rows, cargando }: { rows: VentaRow[]; cargando: boolean 
   )
 }
 
-// ── PESTAÑA "POR PLATO Y FRANJA" ────────────────────────────────────────────
-// Lee de las vistas v_ventas_plato y v_ventas_franja (alimentadas por la ingesta de
-// pedidos de Glovo/Uber/Sincro). Muestra el ranking de platos del periodo y las
-// ventas por hora del día.
+// ── PESTAÑA "DETALLE VENTAS" ────────────────────────────────────────────────
+// Detalle granular de los pedidos (tabla pedidos_plataforma). El usuario elige por
+// qué dimensión ver: plato, día, hora, marca, plataforma o tipo de línea. Y puede
+// filtrar por tipo (solo platos, modificadores, cargos o bebidas). Todo vía la RPC
+// fn_detalle_ventas, que agrupa en la BD y respeta los filtros de marca/canal de arriba.
 
-function MiniCards({ unidades, platos, horaPico }: { unidades: number; platos: number; horaPico: string }) {
-  const cards = [
-    { label: 'Unidades vendidas', value: nf0(unidades), color: COLORS.pri },
-    { label: 'Platos distintos', value: nf0(platos), color: COLORS.pri },
-    { label: 'Franja pico', value: horaPico, color: COLORS.redSL },
-  ]
+const DIM_OPTS: Array<{ id: string; label: string }> = [
+  { id: 'plato', label: 'Plato' },
+  { id: 'dia', label: 'Día' },
+  { id: 'hora', label: 'Hora' },
+  { id: 'marca', label: 'Marca' },
+  { id: 'plataforma', label: 'Plataforma' },
+  { id: 'tipo', label: 'Tipo' },
+]
+const TIPO_OPTS: Array<{ id: string; label: string }> = [
+  { id: '', label: 'Todo' },
+  { id: 'plato', label: 'Solo platos' },
+  { id: 'modificador', label: 'Modificadores' },
+  { id: 'cargo', label: 'Cargos' },
+  { id: 'bebida', label: 'Bebidas' },
+]
+
+function Pildora({ activo, children, onClick }: { activo: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
-      {cards.map(c => (
-        <div key={c.label} style={{ ...CARDS.std }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
-          <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
-        </div>
-      ))}
-    </div>
+    <button onClick={onClick} style={{
+      padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
+      border: `0.5px solid ${activo ? COLORS.redSL : COLORS.brd}`,
+      background: activo ? COLORS.redSL : '#ffffff',
+      color: activo ? '#ffffff' : COLORS.sec,
+      fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', whiteSpace: 'nowrap',
+    }}>{children}</button>
   )
 }
 
-function FranjasHorarias({ rows }: { rows: FranjaRow[] }) {
-  const porHora = useMemo(() => {
-    const arr = Array.from({ length: 24 }, (_, h) => ({ hora: h, pedidos: 0 }))
-    for (const r of rows) { if (r.hora >= 0 && r.hora < 24) arr[r.hora].pedidos += r.pedidos || 0 }
-    return arr
-  }, [rows])
-  const max = Math.max(1, ...porHora.map(x => x.pedidos))
+function DetalleVentas({
+  desde, hasta, marcasFiltro, canalesFiltro,
+}: { desde: Date; hasta: Date; marcasFiltro: string[]; canalesFiltro: string[] }) {
+  const [dim, setDim] = useState<string>('plato')
+  const [tipo, setTipo] = useState<string>('')
+  const [rows, setRows] = useState<DetalleRow[]>([])
+  const [cargando, setCargando] = useState(true)
 
-  return (
-    <div style={{ ...CARDS.std, marginBottom: 14 }}>
-      <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginBottom: 14 }}>Ventas por franja horaria</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 150 }}>
-        {porHora.map(b => (
-          <div key={b.hora} title={`${String(b.hora).padStart(2, '0')}:00 · ${nf0(b.pedidos)} pedidos`}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-            <div style={{
-              width: '100%', height: `${(b.pedidos / max) * 100}%`, minHeight: b.pedidos > 0 ? 3 : 0,
-              background: b.pedidos === max ? COLORS.redSL : '#d9b6b8', borderRadius: '3px 3px 0 0',
-            }} />
-            <span style={{ fontFamily: OSWALD, fontSize: 9, color: COLORS.mut }}>{b.hora % 2 === 0 ? b.hora : ''}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+  useEffect(() => {
+    let alive = true
+    setCargando(true)
+    const d = fechaLocalStr(desde), h = fechaLocalStr(hasta)
+    const marcas = marcasFiltro.length ? marcasFiltro.map(m => (m === 'SIN_MARCA' ? 'Sin marca' : m)) : null
+    const plats = canalesFiltro.length ? canalesFiltro : null
+    supabase
+      .rpc('fn_detalle_ventas', { p_desde: d, p_hasta: h, p_dim: dim, p_tipo: tipo || null, p_marcas: marcas, p_plats: plats })
+      .then(({ data }) => { if (alive) { setRows((data as DetalleRow[]) ?? []); setCargando(false) } })
+    return () => { alive = false }
+  }, [desde, hasta, dim, tipo, marcasFiltro, canalesFiltro])
 
-function RankingPlatos({ rows }: { rows: PlatoRow[] }) {
-  const grouped = useMemo(() => {
-    const m = new Map<string, { plato: string; plataforma: string; marca: string; unidades: number; importe: number }>()
-    for (const r of rows) {
-      const k = `${r.plato}|${r.plataforma}|${r.marca}`
-      const g = m.get(k) || { plato: r.plato, plataforma: r.plataforma, marca: r.marca, unidades: 0, importe: 0 }
-      g.unidades += r.lineas || 0
-      g.importe += r.importe_bruto || 0
-      m.set(k, g)
-    }
-    return Array.from(m.values()).sort((a, b) => b.unidades - a.unidades)
-  }, [rows])
+  const total = useMemo(() => ({
+    unidades: rows.reduce((a, r) => a + (r.unidades || 0), 0),
+    importe: rows.reduce((a, r) => a + (Number(r.importe) || 0), 0),
+    items: rows.length,
+  }), [rows])
+
+  const maxU = Math.max(1, ...rows.map(r => r.unidades || 0))
+  const dimLabel = DIM_OPTS.find(o => o.id === dim)?.label || 'Plato'
+  const mostrarPlat = dim === 'plato' || dim === 'dia' || dim === 'hora'
 
   const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
   const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
   const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
 
-  if (grouped.length === 0) return (
-    <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
-      <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin platos en este periodo</div>
-      <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Sube los pedidos de Glovo / Uber / Sincro en Documentación → Bandeja</div>
-    </div>
-  )
-
-  return (
-    <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
-          <thead>
-            <tr>
-              <th style={{ ...th, textAlign: 'left', width: 44 }}>#</th>
-              <th style={{ ...th, textAlign: 'left' }}>Plato</th>
-              <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
-              <th style={{ ...th, textAlign: 'left' }}>Marca</th>
-              <th style={{ ...th, textAlign: 'right' }}>Unidades</th>
-              <th style={{ ...th, textAlign: 'right' }}>Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {grouped.map((g, i) => (
-              <tr key={`${g.plato}|${g.plataforma}|${g.marca}|${i}`}>
-                <td style={{ ...tdR, textAlign: 'left', color: COLORS.mut }}>{i + 1}</td>
-                <td style={tdL}>{g.plato}</td>
-                <td style={tdL}><PastillaPlataforma plataforma={g.plataforma} /></td>
-                <td style={tdL}>{!g.marca || g.marca === 'Sin marca' || g.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : g.marca}</td>
-                <td style={tdR}>{nf0(g.unidades)}</td>
-                <td style={tdR}>{fmtEur(g.importe)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-function TabPlatosFranja({ platos, franja, cargando }: { platos: PlatoRow[]; franja: FranjaRow[]; cargando: boolean }) {
-  const resumen = useMemo(() => {
-    const unidades = platos.reduce((a, r) => a + (r.lineas || 0), 0)
-    const distintos = new Set(platos.map(r => r.plato)).size
-    const porHora = Array.from({ length: 24 }, (_, h) => ({ hora: h, pedidos: 0 }))
-    for (const r of franja) { if (r.hora >= 0 && r.hora < 24) porHora[r.hora].pedidos += r.pedidos || 0 }
-    const pico = porHora.reduce((best, x) => (x.pedidos > best.pedidos ? x : best), { hora: -1, pedidos: 0 })
-    const horaPico = pico.hora < 0 ? '—' : `${String(pico.hora).padStart(2, '0')}–${String((pico.hora + 1) % 24).padStart(2, '0')}h`
-    return { unidades, distintos, horaPico }
-  }, [platos, franja])
-
-  if (cargando) return <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
-
   return (
     <>
-      <MiniCards unidades={resumen.unidades} platos={resumen.distintos} horaPico={resumen.horaPico} />
-      <FranjasHorarias rows={franja} />
-      <RankingPlatos rows={platos} />
+      {/* Mini-resumen del periodo */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+        {[
+          { label: 'Unidades', value: nf0(total.unidades), color: COLORS.pri },
+          { label: dimLabel + 's distintos', value: nf0(total.items), color: COLORS.pri },
+          { label: 'Importe', value: fmtEur(total.importe), color: COLORS.ok },
+        ].map(c => (
+          <div key={c.label} style={{ ...CARDS.std }}>
+            <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Selectores: ver por (dimensión) + filtro por tipo de línea */}
+      <div style={{ ...CARDS.std, marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginRight: 2 }}>Ver por</span>
+          {DIM_OPTS.map(o => <Pildora key={o.id} activo={dim === o.id} onClick={() => setDim(o.id)}>{o.label}</Pildora>)}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginRight: 2 }}>Tipo</span>
+          {TIPO_OPTS.map(o => <Pildora key={o.id || 'todo'} activo={tipo === o.id} onClick={() => setTipo(o.id)}>{o.label}</Pildora>)}
+        </div>
+      </div>
+
+      {cargando ? (
+        <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin datos en este periodo</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Sube los pedidos de Glovo / Uber / Sincro en Documentación → Bandeja</div>
+        </div>
+      ) : (
+        <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 640 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, textAlign: 'left', width: 44 }}>#</th>
+                  <th style={{ ...th, textAlign: 'left' }}>{dimLabel}</th>
+                  {mostrarPlat && <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>}
+                  <th style={{ ...th, textAlign: 'right' }}>Unidades</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Peso</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={`${r.etiqueta}|${i}`}>
+                    <td style={{ ...tdR, textAlign: 'left', color: COLORS.mut }}>{i + 1}</td>
+                    <td style={tdL}>{dim === 'plataforma' ? <PastillaPlataforma plataforma={r.etiqueta} /> : (r.etiqueta || <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin valor</span>)}</td>
+                    {mostrarPlat && <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>}
+                    <td style={tdR}>{nf0(r.unidades)}</td>
+                    <td style={{ ...tdR, width: 120 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                        <div style={{ height: 6, width: `${(r.unidades / maxU) * 60}px`, background: COLORS.redSL, borderRadius: 3 }} />
+                        <span style={{ color: COLORS.mut, fontSize: 11 }}>{Math.round((r.unidades / total.unidades) * 100)}%</span>
+                      </div>
+                    </td>
+                    <td style={tdR}>{Number(r.importe) ? fmtEur(Number(r.importe)) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -362,12 +364,10 @@ export default function Ventas() {
   const [rows, setRows] = useState<VentaRow[]>([])
   const [cargando, setCargando] = useState(true)
 
-  // Datos de la pestaña "Por plato y franja".
-  const [platos, setPlatos] = useState<PlatoRow[]>([])
-  const [franja, setFranja] = useState<FranjaRow[]>([])
-  const [cargandoPlatos, setCargandoPlatos] = useState(true)
+  // Marcas/plataformas presentes en los pedidos del periodo (para poblar los filtros).
+  const [marcasPed, setMarcasPed] = useState<string[]>([])
+  const [platsPed, setPlatsPed] = useState<string[]>([])
 
-  // Filtros (mismo patrón que Panel Global): marcas + canales/plataformas.
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
 
@@ -386,61 +386,42 @@ export default function Ventas() {
     return () => { alive = false }
   }, [desde, hasta])
 
-  // Pedidos por plato y por franja del periodo (pestaña Por plato y franja).
+  // Opciones de marca/plataforma para los filtros, desde los pedidos del periodo.
   useEffect(() => {
     let alive = true
-    setCargandoPlatos(true)
     const d = fechaLocalStr(desde), h = fechaLocalStr(hasta)
     Promise.all([
-      supabase.from('v_ventas_plato').select('*').gte('fecha', d).lte('fecha', h),
-      supabase.from('v_ventas_franja').select('*').gte('fecha', d).lte('fecha', h),
-    ]).then(([p, f]) => {
+      supabase.rpc('fn_detalle_ventas', { p_desde: d, p_hasta: h, p_dim: 'marca' }),
+      supabase.rpc('fn_detalle_ventas', { p_desde: d, p_hasta: h, p_dim: 'plataforma' }),
+    ]).then(([m, p]) => {
       if (!alive) return
-      setPlatos((p.data as PlatoRow[]) ?? [])
-      setFranja((f.data as FranjaRow[]) ?? [])
-      setCargandoPlatos(false)
+      setMarcasPed(((m.data as DetalleRow[]) ?? []).map(r => r.etiqueta))
+      setPlatsPed(((p.data as DetalleRow[]) ?? []).map(r => r.etiqueta))
     })
     return () => { alive = false }
   }, [desde, hasta])
 
-  // Opciones de los filtros: unión de lo que haya en ambas fuentes del periodo.
   const marcasOpts = useMemo(() => {
     const set = new Map<string, string>()
     const add = (m: string | undefined) => {
-      const id = m || 'SIN_MARCA'
-      const norm = id === 'SIN_MARCA' || id === 'Sin marca' ? 'SIN_MARCA' : id
-      set.set(norm, norm === 'SIN_MARCA' ? 'Sin marca' : norm)
+      const id = !m || m === 'SIN_MARCA' || m === 'Sin marca' ? 'SIN_MARCA' : m
+      set.set(id, id === 'SIN_MARCA' ? 'Sin marca' : id)
     }
     for (const r of rows) add(r.marca)
-    for (const r of platos) add(r.marca)
+    for (const m of marcasPed) add(m)
     return Array.from(set, ([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
-  }, [rows, platos])
+  }, [rows, marcasPed])
 
   const canalesOpts = useMemo(() => {
-    const presentes = Array.from(new Set([...rows.map(r => r.plataforma), ...platos.map(r => r.plataforma)]))
+    const presentes = Array.from(new Set([...rows.map(r => r.plataforma), ...platsPed]))
     const orden = ['uber', 'glovo', 'just_eat', 'rushour', 'desconocido']
-    return presentes
-      .sort((a, b) => orden.indexOf(a) - orden.indexOf(b))
-      .map(p => ({ id: p, label: nombrePlat(p) }))
-  }, [rows, platos])
-
-  const coincideMarca = (m: string | undefined) => {
-    if (marcasFiltro.length === 0) return true
-    const id = !m || m === 'Sin marca' || m === 'SIN_MARCA' ? 'SIN_MARCA' : m
-    return marcasFiltro.includes(id)
-  }
+    return presentes.sort((a, b) => orden.indexOf(a) - orden.indexOf(b)).map(p => ({ id: p, label: nombrePlat(p) }))
+  }, [rows, platsPed])
 
   const rowsFiltradas = useMemo(() => rows.filter(r =>
-    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) &&
+    (marcasFiltro.length === 0 || marcasFiltro.includes(r.marca || 'SIN_MARCA'))
   ), [rows, canalesFiltro, marcasFiltro])
-
-  const platosFiltrados = useMemo(() => platos.filter(r =>
-    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
-  ), [platos, canalesFiltro, marcasFiltro])
-
-  const franjaFiltrada = useMemo(() => franja.filter(r =>
-    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) && coincideMarca(r.marca)
-  ), [franja, canalesFiltro, marcasFiltro])
 
   return (
     <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
@@ -462,7 +443,7 @@ export default function Ventas() {
       <TabsPastilla
         tabs={[
           { id: 'resumen', label: 'Resumen ventas' },
-          { id: 'platos', label: 'Por plato y franja' },
+          { id: 'detalle', label: 'Detalle ventas' },
           { id: 'pareto', label: 'Pareto Ventas' },
         ]}
         activeId={tab}
@@ -470,8 +451,8 @@ export default function Ventas() {
       />
 
       <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
-        {tab === 'resumen' && <TablaDetalle rows={rowsFiltradas} cargando={cargando} />}
-        {tab === 'platos' && <TabPlatosFranja platos={platosFiltrados} franja={franjaFiltrada} cargando={cargandoPlatos} />}
+        {tab === 'resumen' && <TablaResumen rows={rowsFiltradas} cargando={cargando} />}
+        {tab === 'detalle' && <DetalleVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
     </div>
