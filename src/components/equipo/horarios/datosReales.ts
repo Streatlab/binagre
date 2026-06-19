@@ -1,5 +1,5 @@
 /**
- * Datos reales horarios — S18-S22 + S25-S26 (override puntual). DiaKey capitalizado (Lun..Dom).
+ * Datos reales horarios — S18-S22 + S25-S27 (override puntual). DiaKey capitalizado (Lun..Dom).
  */
 import type { DiaKey, Tramo } from '@/components/equipo/horarios/utils'
 
@@ -221,6 +221,38 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
         'Sáb': [{ entrada: '12:30', salida: '16:00' }, { entrada: '20:00', salida: '22:30' }],
         Dom: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '22:30' }],
       }, horas: 38 },
+    },
+  },
+  {
+    semana: 'S27', lunes: '2026-06-29',
+    emps: {
+      'RAY': { turnos: {
+        Lun: [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Vie: [{ entrada: '14:00', salida: '23:15' }],
+        'Sáb': [{ entrada: '13:00', salida: '23:15' }],
+        Dom: [{ entrada: '12:00', salida: '16:00' }, { entrada: '19:30', salida: '23:15' }],
+      }, horas: 42.25 },
+      'ANDRÉS': { turnos: {
+        Lun: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
+        Mar: [{ entrada: '13:30', salida: '23:15' }],
+        Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:30', salida: '23:15' }],
+        'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '19:30', salida: '23:15' }],
+        Dom: [{ entrada: '13:00', salida: '23:15' }],
+      }, horas: 40.75 },
+      'EMILIO': { turnos: {
+        Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        'Mié': [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Jue: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
+        Vie: [{ entrada: '13:00', salida: '16:00' }],
+      }, horas: 18 },
+      'RUBÉN': { turnos: {
+        Lun: [{ entrada: '20:00', salida: '23:00' }],
+        Mar: [{ entrada: '12:00', salida: '23:00' }],
+        'Mié': [{ entrada: '12:00', salida: '23:00' }],
+        Jue: [{ entrada: '16:30', salida: '23:00' }],
+        Vie: [{ entrada: '20:00', salida: '23:00' }],
+      }, horas: 34.5 },
     },
   },
 ]
