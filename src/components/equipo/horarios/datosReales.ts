@@ -195,18 +195,18 @@ const RAW: Array<{ semana: string; lunes: string; emps: Record<string, { turnos:
     emps: {
       'RAY': { turnos: {
         'Mié': [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
-        Jue: [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '12:00', salida: '16:00' }, { entrada: '20:00', salida: '23:15' }],
         Vie: [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
         'Sáb': [{ entrada: '13:30', salida: '23:15' }],
         Dom: [{ entrada: '13:30', salida: '23:15' }],
-      }, horas: 41.75 },
+      }, horas: 39.25 },
       'ANDRÉS': { turnos: {
-        'Mié': [{ entrada: '13:00', salida: '23:15' }],
-        Jue: [{ entrada: '13:00', salida: '23:15' }],
+        'Mié': [{ entrada: '13:30', salida: '23:15' }],
+        Jue: [{ entrada: '13:30', salida: '23:15' }],
         Vie: [{ entrada: '13:00', salida: '23:15' }],
         'Sáb': [{ entrada: '12:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
         Dom: [{ entrada: '13:00', salida: '16:30' }, { entrada: '20:00', salida: '23:15' }],
-      }, horas: 42.75 },
+      }, horas: 41.75 },
       'EMILIO': { turnos: {
         Lun: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
         Mar: [{ entrada: '13:00', salida: '16:00' }, { entrada: '20:00', salida: '22:00' }],
