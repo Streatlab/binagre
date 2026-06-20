@@ -6,6 +6,8 @@ import { fmtNumES } from '../../../utils/format'
 // Lee la vista única v_salud_ocr (creada en BD). Solo lectura.
 // Muestra, del total de facturas que han entrado, cuántas están bien en cada eje
 // (número + % sobre el total). Números con separador de miles y SIN símbolo de euro.
+// Se refresca SOLA: al entrar o salir cualquier factura (evento 'facturas:changed')
+// y, como red de seguridad, cada 30 s.
 interface Salud {
   facturas_total: number
   pct_conciliado: number
@@ -42,8 +44,15 @@ export default function CardSaludOcr() {
 
   useEffect(() => {
     cargar()
-    const t = setInterval(cargar, 60_000)
-    return () => clearInterval(t)
+    // Refresco inmediato cada vez que entra o sale una factura.
+    const onCambio = () => { cargar() }
+    window.addEventListener('facturas:changed', onCambio)
+    // Red de seguridad: refresco periódico por si algún cambio no emitió evento.
+    const t = setInterval(cargar, 30_000)
+    return () => {
+      window.removeEventListener('facturas:changed', onCambio)
+      clearInterval(t)
+    }
   }, [])
 
   const total = s?.facturas_total ?? 0
