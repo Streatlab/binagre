@@ -112,7 +112,6 @@ const RED_DARK: [number, number, number] = [138, 26, 34]
 const RED_SOFT: [number, number, number] = [240, 216, 218]
 const RED_SOFT2: [number, number, number] = [245, 226, 227]
 const GREY_LINE: [number, number, number] = [201, 201, 201]
-const DASH_RED: [number, number, number] = [225, 180, 184]
 const WRITE_LINE: [number, number, number] = [201, 201, 210]
 
 function safe(name: string) {
@@ -317,7 +316,7 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 }
 
 // Inventario: UNA sola hoja A4 apaisada por ubicación. 2 columnas equilibradas, filas compactas,
-// stock mínimo entre paréntesis pegado al nombre (en rojo) y zona rayada amplia a la derecha para anotar.
+// stock mínimo entre paréntesis pegado al nombre (en rojo) y línea continua a la derecha para anotar.
 function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
@@ -365,8 +364,6 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   let itemH = (alturaDisp - catsEnMax * (headH + gap)) / maxItems
   itemH = Math.max(3, Math.min(9.5, itemH))
 
-  const zonaNombreW = colW * 0.5
-
   for (let k = 0; k < nCols; k++) {
     const x = xCol[k]
     let y = top
@@ -380,24 +377,20 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
       for (const it of cat.items) {
         // nombre + stock mínimo entre paréntesis, pegado al nombre, en rojo
         const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
-        doc.setFont('helvetica', 'bold')
-        const fs = fitFont(doc, it.nombre + sufijo, zonaNombreW - 4, 11.5, 7)
+        const fs = fitFont(doc, it.nombre + sufijo, colW * 0.62, 11.5, 7)
         const baseY = y + itemH * 0.5 + fs * 0.13
         doc.setFont('helvetica', 'normal'); doc.setTextColor(35); doc.setFontSize(fs)
         doc.text(it.nombre, x + 3, baseY)
+        let endX = x + 3 + doc.getTextWidth(it.nombre)
         if (it.min_seguridad != null) {
-          const wN = doc.getTextWidth(it.nombre + ' ')
           doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED)
-          doc.text(`(${it.min_seguridad})`, x + 3 + wN, baseY)
+          doc.text(`  (${it.min_seguridad})`, endX, baseY)
+          endX += doc.getTextWidth(`  (${it.min_seguridad})`)
           doc.setFont('helvetica', 'normal')
         }
-        // separador punteado entre la zona del nombre y la zona de anotación
-        doc.setLineDashPattern([0.7, 0.7], 0); doc.setDrawColor(...DASH_RED); doc.setLineWidth(0.2)
-        doc.line(x + zonaNombreW, y + 1, x + zonaNombreW, y + itemH - 1)
-        doc.setLineDashPattern([], 0)
-        // línea base tenue para anotar en la zona de la derecha
-        doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.2)
-        doc.line(x + zonaNombreW + 2, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
+        // línea continua de anotación justo tras el stock (sin puntos ni hueco)
+        doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.3)
+        doc.line(endX + 3, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
         // separador inferior de la fila
         doc.setDrawColor(236, 236, 240); doc.setLineWidth(0.15)
         doc.line(x, y + itemH, x + colW, y + itemH)
