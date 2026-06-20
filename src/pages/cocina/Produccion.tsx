@@ -333,16 +333,19 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
 
   const top = M + 17
-  const bottom = PH - M
+  const bottom = PH - M - 3
   const alturaDisp = bottom - top
   const headH = 7
   const gap = 2.5
 
-  // 2 columnas fijas (como el mockup)
+  // 2 columnas fijas, con margen interior para no pisar el borde rojo
   const nCols = 2
   const colGap = 5
-  const colW = (usableW - colGap) / nCols
-  const xCol = [M, M + colW + colGap]
+  const innerPad = 4
+  const contentW = usableW - innerPad * 2
+  const colW = (contentW - colGap) / nCols
+  const x0c = M + innerPad
+  const xCol = [x0c, x0c + colW + colGap]
 
   // reparto equilibrado de categorías enteras entre las 2 columnas
   const cols: InvCat[][] = [[], []]
@@ -360,7 +363,7 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     if (carga[k] > peor) { peor = carga[k]; maxItems = Math.max(its, 1); catsEnMax = Math.max(cols[k].length, 1) }
   }
   let itemH = (alturaDisp - catsEnMax * (headH + gap)) / maxItems
-  itemH = Math.max(6.2, Math.min(10, itemH))
+  itemH = Math.max(3, Math.min(9.5, itemH))
 
   const zonaNombreW = colW * 0.5
 
