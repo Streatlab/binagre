@@ -334,8 +334,8 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const top = M + 17
   const bottom = PH - M - 3
   const alturaDisp = bottom - top
-  const headH = 7
-  const gap = 2.5
+  const headH = 5.5
+  const gap = 1.4
 
   // 2 columnas fijas, con margen interior para no pisar el borde rojo
   const nCols = 2
@@ -371,17 +371,20 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
       // cabecera de categoría
       doc.setFillColor(250, 240, 241); doc.rect(x, y, colW, headH, 'F')
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED_DARK)
-      doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 2.3)
+      doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 1.8)
       y += headH
 
       for (const it of cat.items) {
         // nombre + stock mínimo entre paréntesis, pegado al nombre, en rojo
         const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
-        const fs = fitFont(doc, it.nombre + sufijo, colW * 0.62, 11.5, 7)
+        // letra lo más grande posible que llene ~90% de la altura de la fila,
+        // reduciéndose solo si no cabe en el ancho (deja sitio para la raya)
+        const fsAltura = Math.min(16, itemH * 2.7)
+        const fs = fitFont(doc, it.nombre + sufijo, colW * 0.7, fsAltura, 7)
         const baseY = y + itemH * 0.5 + fs * 0.13
         doc.setFont('helvetica', 'normal'); doc.setTextColor(35); doc.setFontSize(fs)
-        doc.text(it.nombre, x + 3, baseY)
-        let endX = x + 3 + doc.getTextWidth(it.nombre)
+        doc.text(it.nombre, x + 2.5, baseY)
+        let endX = x + 2.5 + doc.getTextWidth(it.nombre)
         if (it.min_seguridad != null) {
           doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED)
           doc.text(`  (${it.min_seguridad})`, endX, baseY)
@@ -390,7 +393,7 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
         }
         // línea continua de anotación justo tras el stock (sin puntos ni hueco)
         doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.3)
-        doc.line(endX + 3, y + itemH - 1.6, x + colW - 2, y + itemH - 1.6)
+        doc.line(endX + 3, y + itemH - 1.4, x + colW - 2, y + itemH - 1.4)
         // separador inferior de la fila
         doc.setDrawColor(236, 236, 240); doc.setLineWidth(0.15)
         doc.line(x, y + itemH, x + colW, y + itemH)
