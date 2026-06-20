@@ -3,6 +3,8 @@ import { ChevronDown, Calendar as CalendarIcon } from 'lucide-react'
 import { fmtFechaCorta } from '@/styles/tokens'
 
 type Opcion =
+  | 'hoy'
+  | 'ayer'
   | 'esta_semana'
   | 'semana_pasada'
   | 'ultimos_7'
@@ -124,6 +126,8 @@ function buildSemanasList(): SemanaItem[] {
 function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
   switch (opcion) {
+    case 'hoy': { return { desde: hoy, hasta: hoy } }
+    case 'ayer': { const d = new Date(hoy); d.setDate(hoy.getDate() - 1); return { desde: d, hasta: d } }
     case 'esta_semana': {
       const dow = hoy.getDay() || 7
       const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow + 1)
@@ -152,6 +156,8 @@ function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
 }
 
 const OPCIONES: { id: Opcion; label: string }[] = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'ayer', label: 'Ayer' },
   { id: 'esta_semana', label: 'Esta semana' },
   { id: 'semana_pasada', label: 'La semana pasada' },
   { id: 'ultimos_7', label: 'Últimos 7 días' },
