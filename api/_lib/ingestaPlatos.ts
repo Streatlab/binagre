@@ -1,15 +1,19 @@
 // ingestaPlatos — motor de ingesta de PEDIDOS/PLATOS a la tabla pedidos_plataforma.
 //
-// Convierte los exports de pedidos de cada plataforma (Glovo / Uber / Sincro→Just Eat)
+// Convierte los exports de pedidos de cada plataforma (Glovo / Uber / Sincro)
 // en filas plato-a-plato con su fecha, hora, importe y marca. Esas filas alimentan
 // las vistas v_ventas_plato / v_ventas_franja y el módulo "Ventas por plato y franja".
 //
 // Principios:
 //   · Lee por NOMBRE de columna (no por posición): tolerante a reordenaciones.
 //   · Defensivo: si no encuentra plato o fecha en una fila, la salta (no inventa).
-//   · Limpia el nombre del plato: corta modificadores en MAYÚSCULAS y en "[",
-//     y excluye bebidas/pan/extras para que el ranking de platos salga limpio.
+//   · CONSERVA TODO en Sincro: productos, modificadores y cargos — nada se descarta.
+//     (Glovo/Uber nativos sí cortan modificadores en MAYÚSCULAS pegados al plato.)
 //   · Idempotente: re-subir el mismo archivo REEMPLAZA sus ventas (no las suma).
+//   · Antiduplicados PEDIDO A PEDIDO: cada fila lleva 'fuente' (propia | sincro). Tras
+//     insertar se llama fn_dedupe_pedidos_plataforma, que cruza por huella de pedido
+//     (plataforma + fecha + hora al minuto + importe) y, donde haya dato propio,
+//     descarta el de Sincro. Lo que solo está en Sincro (Just Eat, días sin propio) se conserva.
 //   · No crea facturas: esto es exclusivamente ventas por plato/franja.
 
 import * as XLSX from 'xlsx'
@@ -24,6 +28,7 @@ export interface FilaPedido {
   promo: number | null
   glovo_id: string | null
   factura_origen: string | null
+  fuente: string           // 'propia' (export nativo) | 'sincro' (agregador)
 }
 
 // ── Normalización de texto para comparar cabeceras y nombres ────────────────
@@ -76,31 +81,39 @@ function parseFechaHora(s: string | undefined | null): { fecha: string | null; h
 }
 
 // ── Limpieza del nombre de plato ────────────────────────────────────────────
-// Reglas: los modificadores van SIEMPRE en MAYÚSCULAS → se cortan. También se
-// corta en "[" (opciones). Y se descartan bebidas/pan/extras (no son plato).
+// Bebidas/extras que en Glovo/Uber se descartan del ranking de platos.
 const EXCLUIR = [
   'coca cola', 'cocacola', 'coca-cola', 'fanta', 'sprite', 'nestea', 'aquarius',
   'agua', 'refresco', 'bebida', 'cerveza', 'mahou', 'estrella',
   'pan para', 'pan de', 'cubiertos', 'servilleta', 'bolsa', 'palillos',
 ]
 
-export function limpiarPlato(raw: string): string | null {
+// limpiarPlato(raw, cortarMayusculas, excluir)
+//   · cortarMayusculas=true (Glovo/Uber): corta modificadores en MAYÚSCULAS pegados al plato.
+//   · excluir=true (Glovo/Uber): descarta bebidas/extras del ranking.
+//   · excluir=false (SINCRO): CONSERVA TODO — productos, modificadores y cargos. Solo
+//     normaliza el formato (quita ".." y unifica MAYÚSCULAS a Capitalizado para no fragmentar).
+export function limpiarPlato(raw: string, cortarMayusculas = true, excluir = true): string | null {
   if (!raw) return null
   let s = String(raw).trim()
-  // Cortar opciones entre corchetes y todo lo que les siga
   const corch = s.indexOf('[')
   if (corch >= 0) s = s.slice(0, corch)
-  // Cortar en el primer bloque de MAYÚSCULAS (modificadores). Se exige ≥3 letras
-  // mayúsculas seguidas para no cortar siglas cortas dentro del nombre.
-  const mayus = s.match(/[A-ZÁÉÍÓÚÑ]{3,}/)
-  if (mayus && mayus.index !== undefined && mayus.index > 2) s = s.slice(0, mayus.index)
-  // Quitar separadores colgantes y espacios
-  s = s.replace(/[\s|·•\-–—:,;]+$/g, '').trim()
-  // Quitar cantidad inicial tipo "1x ", "2 x ", "x1 "
+  if (cortarMayusculas) {
+    const mayus = s.match(/[A-ZÁÉÍÓÚÑ]{3,}/)
+    if (mayus && mayus.index !== undefined && mayus.index > 2) s = s.slice(0, mayus.index)
+  }
+  // Colapsar "..", quitar puntuación/separadores colgantes, y cantidad inicial.
+  s = s.replace(/\.{2,}/g, '').replace(/[\s|·•\-–—:,;.]+$/g, '').trim()
   s = s.replace(/^\s*\d+\s*[x×]\s*/i, '').replace(/^\s*[x×]\s*\d+\s*/i, '').trim()
   if (s.length < 2) return null
   const n = norm(s)
-  if (EXCLUIR.some(e => n.includes(e)) || n === 'pan') return null
+  if (excluir) {
+    if (EXCLUIR.some(e => n.includes(e)) || n === 'pan') return null
+  }
+  // TODO en mayúsculas → Capitalizado (unifica "PATATAS FRITAS.." con "Patatas Fritas")
+  if (!cortarMayusculas && s === s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(s)) {
+    s = s.toLowerCase().split(' ').map(w => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ')
+  }
   return s
 }
 
@@ -118,7 +131,6 @@ function detectarSep(linea: string): string {
 
 function partirLinea(linea: string, sep: string): string[] {
   if (sep === ' | ') return linea.split(' | ').map(c => c.trim())
-  // CSV con comillas
   const out: string[] = []
   let cur = '', dentro = false
   for (let i = 0; i < linea.length; i++) {
@@ -189,7 +201,7 @@ function parseGlovoBill(texto: string, origen: string): FilaPedido[] {
       fecha: fh.fecha, hora: fh.hora, plataforma: 'glovo',
       marca: val(f, iMarca) || 'Sin marca', plato,
       precio_bruto: parseImporte(val(f, iPrecio)), promo: parseImporte(val(f, iPromo)),
-      glovo_id: val(f, iId) || null, factura_origen: origen,
+      glovo_id: val(f, iId) || null, factura_origen: origen, fuente: 'propia',
     })
   }
   return out
@@ -215,14 +227,14 @@ function parseGlovoOrderDetails(texto: string, origen: string): FilaPedido[] {
     const idPedido = val(f, iId) || null
     const crudo = val(f, iArt)
     const items = crudo.split(/\n|\s\|\s|;/).map(x => x.trim()).filter(Boolean)
-    const limpios = items.map(limpiarPlato).filter((x): x is string => !!x)
+    const limpios = items.map(x => limpiarPlato(x)).filter((x): x is string => !!x)
     const n = limpios.length || 0
     for (const plato of limpios) {
       out.push({
         fecha: fh.fecha, hora: fh.hora, plataforma: 'glovo', marca, plato,
         precio_bruto: bruto != null && n > 0 ? Math.round((bruto / n) * 100) / 100 : null,
         promo: promo != null && n > 0 ? Math.round((promo / n) * 100) / 100 : null,
-        glovo_id: idPedido, factura_origen: origen,
+        glovo_id: idPedido, factura_origen: origen, fuente: 'propia',
       })
     }
   }
@@ -270,18 +282,19 @@ function parseUberArticulo(texto: string, origen: string): FilaPedido[] {
       out.push({
         fecha: fh.fecha, hora: fh.hora, plataforma: 'uber',
         marca, plato, precio_bruto: precioUnit, promo: promoUnit,
-        glovo_id: wf || null, factura_origen: origen,
+        glovo_id: wf || null, factura_origen: origen, fuente: 'propia',
       })
     }
   }
   return out
 }
 
-// Sincro "Sold Products" (Just Eat / Glovo agregadas). Columnas reales:
+// Sincro "Sold Products" (Just Eat / Glovo / Uber agregadas). Columnas reales:
 //   MARKET = canal/plataforma (JustEat, Glovo…)   ← NO es la marca del restaurante
 //   DESCRIPTION = plato   ·   QUANTITY = unidades   ·   TOTAL LINE PRICE = importe línea
 //   CREATION TIME = fecha+hora del pedido
-// OJO: este export NO trae la marca del restaurante virtual → marca queda "Sin marca".
+// CONSERVA TODO: productos, modificadores y cargos (excluir=false). No trae marca → "Sin marca".
+// fuente='sincro': el dedupe pedido-a-pedido descartará lo que coincida con dato propio.
 function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const t = leerTabla(texto); if (!t) return []
   const iPlato = col(t.header, 'description', 'descripcion', 'product', 'producto')
@@ -292,7 +305,8 @@ function parseSincroSold(texto: string, origen: string): FilaPedido[] {
   const iCant = col(t.header, 'quantity', 'qty', 'cantidad', 'units')
   const out: FilaPedido[] = []
   for (const f of t.filas) {
-    const plato = limpiarPlato(val(f, iPlato)); if (!plato) continue
+    // excluir=false → conserva TODO (productos, modificadores, cargos).
+    const plato = limpiarPlato(val(f, iPlato), false, false); if (!plato) continue
     const fh = parseFechaHora(val(f, iFecha))
     if (!fh.fecha) continue
     // Plataforma desde MARKET (JustEat / Glovo / Uber). Por defecto just_eat.
@@ -305,7 +319,7 @@ function parseSincroSold(texto: string, origen: string): FilaPedido[] {
       out.push({
         fecha: fh.fecha, hora: fh.hora, plataforma,
         marca: val(f, iMarca) || 'Sin marca', plato,
-        precio_bruto: precioUnit, promo: null, glovo_id: null, factura_origen: origen,
+        precio_bruto: precioUnit, promo: null, glovo_id: null, factura_origen: origen, fuente: 'sincro',
       })
     }
   }
@@ -351,5 +365,13 @@ export async function ingestarPedidosPlataforma(
     const { error } = await supabase.from('pedidos_plataforma').insert(lote)
     if (!error) insertados += lote.length
   }
+
+  // ANTIDUPLICADOS PEDIDO A PEDIDO: cruza por huella (plataforma + fecha + hora al
+  // minuto + importe). Donde haya dato propio (Glovo/Uber nativo) se descarta el de
+  // Sincro coincidente. Lo que solo está en Sincro se conserva. En cualquier orden de subida.
+  try {
+    await supabase.rpc('fn_dedupe_pedidos_plataforma')
+  } catch { /* best-effort: si la función no estuviera, no se rompe la ingesta */ }
+
   return { insertados }
 }

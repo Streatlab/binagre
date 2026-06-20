@@ -101,6 +101,7 @@ function agruparInventario(items: InvItem[]): InvUbi[] {
     if (!c) { c = { nombre: it.categoria, items: [] }; u.cats.push(c) }
     c.items.push(it)
   }
+  ubis.forEach(u => u.cats.forEach(c => c.items.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))))
   return ubis
 }
 
@@ -332,16 +333,19 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
 
   const top = M + 17
-  const bottom = PH - M
+  const bottom = PH - M - 3
   const alturaDisp = bottom - top
   const headH = 7
   const gap = 2.5
 
-  // 2 columnas fijas (como el mockup)
+  // 2 columnas fijas, con margen interior para no pisar el borde rojo
   const nCols = 2
   const colGap = 5
-  const colW = (usableW - colGap) / nCols
-  const xCol = [M, M + colW + colGap]
+  const innerPad = 4
+  const contentW = usableW - innerPad * 2
+  const colW = (contentW - colGap) / nCols
+  const x0c = M + innerPad
+  const xCol = [x0c, x0c + colW + colGap]
 
   // reparto equilibrado de categorías enteras entre las 2 columnas
   const cols: InvCat[][] = [[], []]
@@ -359,7 +363,7 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     if (carga[k] > peor) { peor = carga[k]; maxItems = Math.max(its, 1); catsEnMax = Math.max(cols[k].length, 1) }
   }
   let itemH = (alturaDisp - catsEnMax * (headH + gap)) / maxItems
-  itemH = Math.max(6.2, Math.min(10, itemH))
+  itemH = Math.max(3, Math.min(9.5, itemH))
 
   const zonaNombreW = colW * 0.5
 
@@ -734,9 +738,6 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
         </div>
       </div>
 
-      <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.sec, marginBottom: 12 }}>
-        El número <span className="inv-mintag">(2)</span> junto al nombre es el stock de seguridad: cantidad mínima que debe haber. Por debajo → comprar o elaborar. La zona rayada de la derecha es para tus anotaciones.
-      </div>
 
       <div className="inv-hoja">
         <div className="inv-head">
@@ -926,10 +927,10 @@ const FICHA_CSS = `
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
 .inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #8a1a22; background: rgba(176,29,35,0.06); padding: 7px 14px; border-bottom: 2px solid rgba(176,29,35,0.30); }
 .inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
-.inv-name { flex: 0 0 50%; display: flex; align-items: center; padding: 4px 12px; font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 500; color: var(--text-primary); }
-.inv-min-inline { color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
-.inv-write { flex: 1 1 auto; border-left: 1px dashed rgba(176,29,35,0.30); background: repeating-linear-gradient(transparent, transparent 32px, var(--sl-border) 32px, var(--sl-border) 33px); }
-@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 16px; } }
+.inv-name { flex: 0 0 auto; display: flex; align-items: center; white-space: nowrap; padding: 1px 12px; font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 500; color: var(--text-primary); }
+.inv-min-inline { margin-left: 8px; color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
+.inv-write { flex: 1 1 auto; align-self: flex-end; border-bottom: 1.5px solid var(--sl-border); margin: 0 12px 8px 6px; }
+@media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 21px; } }
 
 /* ───────── IMPRESIÓN ───────── */
 @media print {
