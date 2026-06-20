@@ -68,6 +68,10 @@ function periodoTxt(canal: string, ini: string, fin: string): string {
   const a = parse(ini); return `${a.getDate() <= 15 ? '1ª' : '2ª'} quinc. ${MESES[a.getMonth()]}`
 }
 
+function claveCobro(c: { canal: string; ini: string; fin: string }): string {
+  return `${c.canal}|${c.ini}|${c.fin}`
+}
+
 interface Row {
   fecha: string; servicio?: string
   uber_bruto: number; uber_pedidos: number
@@ -101,6 +105,7 @@ export default function Cashflow() {
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [loading, setLoading] = useState(true)
   const [hover, setHover] = useState<number | null>(null)
+  const [cobradoMap, setCobradoMap] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -133,6 +138,23 @@ export default function Cashflow() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    supabase.from('cashflow_cobros_estado').select('clave,cobrado').then(({ data }) => {
+      const m: Record<string, boolean> = {}
+      for (const r of (data ?? []) as { clave: string; cobrado: boolean }[]) m[r.clave] = r.cobrado
+      setCobradoMap(m)
+    })
+  }, [])
+
+  async function toggleCobrado(c: Cobro) {
+    const k = claveCobro(c)
+    const nuevo = !cobradoMap[k]
+    setCobradoMap(prev => ({ ...prev, [k]: nuevo }))
+    await supabase.from('cashflow_cobros_estado').upsert({
+      clave: k, canal: c.canal, ini: c.ini, fin: c.fin, pago: c.pago, cobrado: nuevo, marcado_at: new Date().toISOString(),
+    })
+  }
 
   const hoy = toLocal(new Date())
   const factor = 1 + sim / 100
@@ -192,7 +214,7 @@ export default function Cashflow() {
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
   const futuros = useMemo(() => cobros.filter(c => c.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
-  const porCobrarTotal = useMemo(() => futuros.reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor])
+  const porCobrarTotal = useMemo(() => futuros.filter(c => !cobradoMap[claveCobro(c)]).reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor, cobradoMap])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
   const hastaFinMes = useMemo(() => futuros.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [futuros, finMesStr, factor])
 
@@ -379,17 +401,18 @@ export default function Cashflow() {
           <div style={lblS}>Ingresos pendientes · por liquidación</div>
           {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th></tr></thead>
+              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th><th style={{ ...th, textAlign: 'center' }}>Estado</th></tr></thead>
               <tbody>
-                {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; return (
-                  <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined }}>
+                {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const cobrado = !!cobradoMap[claveCobro(c)]; return (
+                  <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined, opacity: cobrado ? 0.5 : 1 }}>
                     <td style={tdL}><span style={dot(c.color)} />{c.label}</td>
                     <td style={{ ...tdL, color: COLOR.textSec }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
                     <td style={tdR}>{c.pedidos}</td>
                     <td style={tdL}>{fmtCorta(c.pago)}</td>
                     <td style={{ ...tdR, color: COLOR.textPri }}>{nf0(c.bruto)}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(c.neto * factor)}</td>
+                    <td style={{ ...tdR, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
                     <td style={{ ...tdR, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
+                    <td style={{ ...tdR, textAlign: 'center' }}><button onClick={() => toggleCobrado(c)} style={{ cursor: 'pointer', border: 'none', borderRadius: 999, padding: '3px 10px', fontFamily: OSWALD, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 700, background: cobrado ? VERDE : '#ece8e1', color: cobrado ? '#fff' : COLOR.textMut }}>{cobrado ? '✓ Cobrado' : 'Pendiente'}</button></td>
                   </tr>) })}
                 <tr style={{ borderTop: `1.5px solid ${BORDE}` }}>
                   <td style={{ ...tdL, fontFamily: OSWALD, fontWeight: 700 }}>TOTAL</td><td></td>
@@ -397,11 +420,12 @@ export default function Cashflow() {
                   <td style={{ ...tdR, fontWeight: 700 }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
                   <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(porCobrarTotal)}</td>
                   <td style={{ ...tdR, fontWeight: 700, color: COLOR.textSec }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
+                  <td></td>
                 </tr>
               </tbody>
             </table>
           )}
-          <div style={ex}>Datos reales · neto con la calculadora central (comisión + fees + IVA).</div>
+          <div style={ex}>Datos reales · neto con la calculadora central. Marca cada liquidación como cobrada cuando entre el dinero: lo que sigue pendiente es lo que baja del total «por cobrar».</div>
         </div>
         <div style={card}>
           <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
