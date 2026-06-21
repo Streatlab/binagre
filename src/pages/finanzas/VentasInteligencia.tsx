@@ -69,6 +69,7 @@ const fmtEur = (n: number) =>
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 const fmtEur2 = (n: number) =>
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n)
+const tipEur = (v: any) => fmtEur(Number(v))
 
 const totalLineas = MARCAS.reduce((a, m) => a + m.lineas, 0)
 const pedidosEst = Math.round(totalLineas / 1.8)
@@ -229,7 +230,7 @@ function Panel() {
               <Pie data={PLATAFORMAS} dataKey="bruto" nameKey="plataforma" innerRadius={55} outerRadius={85} paddingAngle={2}>
                 {PLATAFORMAS.map((p) => <Cell key={p.plataforma} fill={PLATAFORMA_COLOR[p.plataforma]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => fmtEur(v)} contentStyle={tooltipStyle} />
+              <Tooltip formatter={tipEur} contentStyle={tooltipStyle} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1">
@@ -275,7 +276,7 @@ function Evolucion() {
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
           <XAxis dataKey="dia" fontSize={11} />
           <YAxis fontSize={11} tickFormatter={(v: number) => `${v}€`} />
-          <Tooltip formatter={(v: number) => fmtEur(v)} contentStyle={tooltipStyle} />
+          <Tooltip formatter={tipEur} contentStyle={tooltipStyle} />
           <Area type="monotone" dataKey="bruto" stroke={T.rojo} fill="url(#g1)" strokeWidth={2} name="Bruto" />
           <Line type="monotone" dataKey="neto" stroke={T.verde} strokeWidth={2} dot={false} name="Neto" />
         </AreaChart>
@@ -304,7 +305,7 @@ function Cashflow() {
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
             <XAxis dataKey="sem" fontSize={11} />
             <YAxis fontSize={11} tickFormatter={(v: number) => `${v}€`} />
-            <Tooltip formatter={(v: number) => fmtEur(v)} contentStyle={tooltipStyle} />
+            <Tooltip formatter={tipEur} contentStyle={tooltipStyle} />
             <Bar dataKey="entrada" fill={T.sidebar} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -349,7 +350,7 @@ function Marcas() {
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
           <XAxis type="number" fontSize={11} tickFormatter={(v: number) => `${Math.round(v)}€`} />
           <YAxis type="category" dataKey="marca" width={150} fontSize={11} />
-          <Tooltip formatter={(v: number) => fmtEur(v)} contentStyle={tooltipStyle} />
+          <Tooltip formatter={tipEur} contentStyle={tooltipStyle} />
           <Bar dataKey="bruto" fill={T.rojo} radius={[0, 4, 4, 0]} name="Bruto" />
         </BarChart>
       </ResponsiveContainer>
