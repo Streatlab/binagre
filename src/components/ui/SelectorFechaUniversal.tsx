@@ -123,16 +123,23 @@ function buildSemanasList(): SemanaItem[] {
   return items
 }
 
+// Reglas de rango (21/06/26):
+//  · "En curso" (esta semana, este mes): del inicio del periodo a HOY. Incluye el día actual
+//    aunque esté a medias — es "lo que llevo de semana/mes" con los servicios ya cargados.
+//  · Ventanas móviles (últimos 7/30/60 días, 12 semanas, 12 meses): días COMPLETOS que terminan
+//    AYER. No meten el día en curso a medias, para no ensuciar la tendencia. "Últimos 7 días" = 7
+//    días exactos (de hace 7 días a ayer), no 8.
+//  · Periodos naturales anteriores (semana/mes pasado): completos, sin tocar.
 function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1)
   switch (opcion) {
     case 'hoy': { return { desde: hoy, hasta: hoy } }
-    case 'ayer': { const d = new Date(hoy); d.setDate(hoy.getDate() - 1); return { desde: d, hasta: d } }
+    case 'ayer': { return { desde: ayer, hasta: ayer } }
     case 'esta_semana': {
       const dow = hoy.getDay() || 7
       const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - dow + 1)
-      const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
-      return { desde: lunes, hasta: domingo }
+      return { desde: lunes, hasta: hoy }
     }
     case 'semana_pasada': {
       const dow = hoy.getDay() || 7
@@ -140,17 +147,17 @@ function calcRango(opcion: Opcion): { desde: Date; hasta: Date } {
       const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
       return { desde: lunes, hasta: domingo }
     }
-    case 'ultimos_7':   { const d = new Date(hoy); d.setDate(hoy.getDate() - 7);  return { desde: d, hasta: hoy } }
+    case 'ultimos_7':   { const d = new Date(hoy); d.setDate(hoy.getDate() - 7);  return { desde: d, hasta: ayer } }
     case 'este_mes':    { return { desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1), hasta: hoy } }
     case 'mes_pasado':  {
       const primero = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
       const ultimo = new Date(hoy.getFullYear(), hoy.getMonth(), 0)
       return { desde: primero, hasta: ultimo }
     }
-    case 'ultimos_30':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 30); return { desde: d, hasta: hoy } }
-    case 'ultimos_60':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 60); return { desde: d, hasta: hoy } }
-    case 'ultimas_12_semanas': { const d = new Date(hoy); d.setDate(hoy.getDate() - 84); return { desde: d, hasta: hoy } }
-    case 'ultimos_12_meses':   { const d = new Date(hoy); d.setMonth(hoy.getMonth() - 12); return { desde: d, hasta: hoy } }
+    case 'ultimos_30':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 30); return { desde: d, hasta: ayer } }
+    case 'ultimos_60':  { const d = new Date(hoy); d.setDate(hoy.getDate() - 60); return { desde: d, hasta: ayer } }
+    case 'ultimas_12_semanas': { const d = new Date(hoy); d.setDate(hoy.getDate() - 84); return { desde: d, hasta: ayer } }
+    case 'ultimos_12_meses':   { const d = new Date(hoy); d.setMonth(hoy.getMonth() - 12); return { desde: d, hasta: ayer } }
     default: return { desde: hoy, hasta: hoy }
   }
 }
