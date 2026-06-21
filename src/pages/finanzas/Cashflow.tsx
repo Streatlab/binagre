@@ -401,7 +401,7 @@ export default function Cashflow() {
           <div style={lblS}>Ingresos pendientes · por liquidación</div>
           {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th><th style={{ ...th, textAlign: 'center' }}>Estado</th></tr></thead>
+              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th><th style={{ ...th, textAlign: 'center' }}>Cobrado</th></tr></thead>
               <tbody>
                 {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const cobrado = !!cobradoMap[claveCobro(c)]; return (
                   <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined, opacity: cobrado ? 0.5 : 1 }}>
@@ -412,20 +412,19 @@ export default function Cashflow() {
                     <td style={{ ...tdR, color: COLOR.textPri }}>{nf0(c.bruto)}</td>
                     <td style={{ ...tdR, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
                     <td style={{ ...tdR, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
-                    <td style={{ ...tdR, textAlign: 'center' }}><button onClick={() => toggleCobrado(c)} style={{ cursor: 'pointer', border: 'none', borderRadius: 999, padding: '3px 10px', fontFamily: OSWALD, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 700, background: cobrado ? VERDE : '#ece8e1', color: cobrado ? '#fff' : COLOR.textMut }}>{cobrado ? '✓ Cobrado' : 'Pendiente'}</button></td>
+                    <td style={{ ...tdR, textAlign: 'center' }}><button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, borderRadius: 999, background: cobrado ? VERDE : '#d4cfc6', transition: 'background .15s', display: 'inline-block' }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.25)', transition: 'left .15s' }} /></span></button></td>
                   </tr>) })}
                 <tr style={{ borderTop: `1.5px solid ${BORDE}` }}>
                   <td style={{ ...tdL, fontFamily: OSWALD, fontWeight: 700 }}>TOTAL</td><td></td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td><td></td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(porCobrarTotal)}</td>
+                  <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(futuros.reduce((s, c) => s + c.neto, 0) * factor)}</td>
                   <td style={{ ...tdR, fontWeight: 700, color: COLOR.textSec }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
                   <td></td>
                 </tr>
               </tbody>
             </table>
           )}
-          <div style={ex}>Datos reales · neto con la calculadora central. Marca cada liquidación como cobrada cuando entre el dinero: lo que sigue pendiente es lo que baja del total «por cobrar».</div>
         </div>
         <div style={card}>
           <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
