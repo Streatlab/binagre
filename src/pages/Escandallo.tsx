@@ -30,7 +30,8 @@ export default function Escandallo() {
   const [recetasList, setRecetasList] = useState<Receta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda, setBusqueda] = useState(() => localStorage.getItem('sl_fichas_busqueda') ?? '')
+  useEffect(() => { localStorage.setItem('sl_fichas_busqueda', busqueda) }, [busqueda])
 
   const [modalEPS, setModalEPS] = useState<{ open: boolean; eps: EPS | null }>({ open: false, eps: null })
   const [modalReceta, setModalReceta] = useState<{ open: boolean; receta: Receta | null }>({ open: false, receta: null })
