@@ -269,13 +269,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
   function imprimir() { window.print() }
 
-  const colHead: React.CSSProperties = { padding: '0 0 5px', fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--sl-text-muted)' }
   const theadIng = (
     <thead>
       <tr>
-        <th style={{ ...colHead, textAlign: 'left' }}></th>
-        <th style={{ ...colHead, textAlign: 'right', width: 64 }}>Cantidad</th>
-        <th style={{ ...colHead, textAlign: 'right', width: 78 }}>Equivalencia</th>
+        <th style={{ padding: 0 }}></th>
+        <th style={{ padding: 0, width: 64 }}></th>
+        <th style={{ padding: 0, width: 78 }}></th>
         <th className="no-print" style={{ width: 86 }} />
       </tr>
     </thead>
@@ -348,7 +347,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
         <div className="ficha-section" style={{ display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="ficha-seclabel">Ingredientes</div>
+            <div className="ficha-seclabel" style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+              <span style={{ flex: 1 }}>Ingredientes</span>
+              <span style={{ width: 64, textAlign: 'right', fontSize: 9, letterSpacing: '0.08em' }}>Cantidad</span>
+              <span style={{ width: 78, textAlign: 'right', fontSize: 9, letterSpacing: '0.08em' }}>Equivalencia</span>
+              <span className="no-print" style={{ width: 86 }} />
+            </div>
             {colsIng === 1 ? (
               grupos.map(([gk, items]) => (
                 <div key={gk} style={{ marginBottom: 8 }}>
