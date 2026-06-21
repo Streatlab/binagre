@@ -3,6 +3,7 @@ import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
+import { fmtEur, fmtNum } from '@/lib/format'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -272,7 +273,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   const theadIng = (
     <thead>
       <tr>
-        <th style={{ ...colHead, textAlign: 'left' }}>Ingrediente</th>
+        <th style={{ ...colHead, textAlign: 'left' }}></th>
         <th style={{ ...colHead, textAlign: 'right', width: 64 }}>Cantidad</th>
         <th style={{ ...colHead, textAlign: 'right', width: 78 }}>Equivalencia</th>
         <th className="no-print" style={{ width: 86 }} />
@@ -282,12 +283,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
   const filaIng = (i: IngLinea, idx: number) => (
     <tr key={idx} className="ficha-tr">
-      <td style={{ padding: '5px 0' }}>
+      <td style={{ padding: '1px 0' }}>
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
-      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap' }}>{i.cant}{i.ud ? ` ${i.ud}` : ''}</td>
-      <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap' }}>{i.equivalencia || '—'}</td>
+      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.cant}{i.ud ? ` ${i.ud}.` : ''}</td>
+      <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
           ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
@@ -335,14 +336,14 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
         <div className="ficha-head">
           <span className="ficha-id">{f.codigo}</span>
-          <span className="ficha-title">{f.nombre}</span>
+          <span className="ficha-title">{(f.nombre ?? '').replace(/\.\s*$/, '')}</span>
         </div>
 
         <div className="ficha-meta">
           <div className="cell"><div className="lbl">Prep.</div><div className="val">{f.tiempo_prep ?? '—'}</div></div>
-          <div className="cell"><div className="lbl">Rendimiento</div><div className="val">{f.raciones ? `${f.raciones} rac.` : '—'}</div></div>
-          <div className="cell"><div className="lbl">Coste tanda</div><div className="val val-calc">{costeTanda.toFixed(2)} €</div></div>
-          <div className="cell"><div className="lbl">€ / Ración</div><div className="val val-calc">{costeRac.toFixed(2)} €</div></div>
+          <div className="cell"><div className="lbl">Rendimiento</div><div className="val">{f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : '—'}</div></div>
+          <div className="cell"><div className="lbl">Coste tanda</div><div className="val val-calc">{fmtEur(costeTanda, { decimals: 2 })}</div></div>
+          <div className="cell"><div className="lbl">€ / Ración</div><div className="val val-calc">{fmtEur(costeRac, { decimals: 2 })}</div></div>
         </div>
 
         <div className="ficha-section" style={{ display: 'flex' }}>
@@ -352,7 +353,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
               grupos.map(([gk, items]) => (
                 <div key={gk} style={{ marginBottom: 8 }}>
                   {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
-                  <table className="ficha-table">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
+                  <table className="ficha-table ficha-table-ing">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
                 </div>
               ))
             ) : (
@@ -360,7 +361,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 {grupos.map(([gk, items]) => (
                   <div key={gk} style={{ breakInside: 'avoid', marginBottom: 8 }}>
                     {hayGrupos && <div className="ficha-grupo">Grupo {gk}</div>}
-                    <table className="ficha-table">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
+                    <table className="ficha-table ficha-table-ing">{theadIng}<tbody>{items.map(filaIng)}</tbody></table>
                   </div>
                 ))}
               </div>
@@ -402,9 +403,9 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
             </table>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div className="ficha-seclabel" style={{ borderBottom: 'none', marginBottom: 4 }}><AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</div>
-              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ position: 'relative' }}>
+              <div className="ficha-seclabel"><AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</div>
+              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ position: 'absolute', top: -2, right: 0, background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Pencil size={11} /> {editAlerg ? 'Guardar' : 'Editar'}
               </button>
             </div>
@@ -488,6 +489,9 @@ const FICHA_CSS = `
 .ficha-alerg-val { font-family: 'Lexend', sans-serif; font-size: 13px; line-height: 1.5; color: var(--text-primary); }
 .ficha-foto { width: 130px; flex-shrink: 0; margin-left: 16px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--text-muted); overflow: hidden; }
 
+.ficha-table-ing { font-size: 15px; }
+.ficha-table-ing td { padding: 1px 0 !important; line-height: 1.12; }
+
 /* ── IMPRESIÓN: papel blanco, márgenes reales, ficha ocupa la hoja ── */
 @media print {
   @page { size: A4 portrait; margin: 16mm; }
@@ -506,7 +510,9 @@ const FICHA_CSS = `
   }
   .print-ficha .sec-prep { flex: 1 1 auto; min-height: 60mm; }
   .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-id { background: #111 !important; color: #fff !important; }
+  .print-ficha .ficha-id { background: #111 !important; color: #fff !important; font-size: 21px !important; padding: 2px 14px !important; }
+  .print-ficha .ficha-table-ing { font-size: 16px !important; }
+  .print-ficha .ficha-table-ing td { padding: 0.4mm 0 !important; line-height: 1.1 !important; }
   .print-ficha .ficha-title { color: #111 !important; }
   .print-ficha .ficha-meta { border-color: #ccc !important; }
   .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
