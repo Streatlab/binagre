@@ -208,6 +208,14 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   )
 }
 
+function fmtCant(c: string): string {
+  const s = (c ?? '').trim()
+  if (!s || !/^[\d.,]+$/.test(s)) return s
+  const n = Number(s.replace(/\./g, '').replace(',', '.'))
+  if (!isFinite(n)) return s
+  return n.toLocaleString('es-ES', { maximumFractionDigits: 3 })
+}
+
 function costeLinea(i: IngLinea): number {
   if (!i.match) return 0
   const c = parseFloat((i.cant || '').replace(',', '.'))
@@ -293,7 +301,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
-      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.cant}{i.ud ? ` ${i.ud}.` : ''}</td>
+      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap', padding: '1px 0' }}>{fmtCant(i.cant)}{i.ud ? ` ${i.ud}.` : ''}</td>
       <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
