@@ -11,8 +11,8 @@ import {
    CASH FLOW — pestaña del Panel Global
    Cobros (fechas de pago LEY por plataforma) · Caja por mes
    (banco real) con línea de saldo · Saldo banco + Runway reales ·
-   Ingresos pendientes · Gastos del mes · Caja por marca (marcas
-   activas en vivo desde configuración) · Simulador.
+   Ingresos pendientes (vencidos no cobrados + futuros) · Gastos
+   del mes · Caja por marca · Simulador.
    ════════════════════════════════════════════════════════════ */
 
 type Periodo = 'semana' | 'mes' | 'anio'
@@ -213,15 +213,28 @@ export default function Cashflow() {
     return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
-  const futuros = useMemo(() => cobros.filter(c => c.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
-  const porCobrarTotal = useMemo(() => futuros.filter(c => !cobradoMap[claveCobro(c)]).reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor, cobradoMap])
+  // Ventana de pendientes: incluye lo VENCIDO no cobrado (te lo siguen debiendo) + lo futuro.
+  // 60 días atrás cubre el mes anterior completo; 60 adelante, las próximas liquidaciones.
+  const ventanaIni = useMemo(() => toLocal(addDays(new Date(), -60)), [])
+  const ventanaFin = useMemo(() => toLocal(addDays(new Date(), 60)), [])
+  // Lo que de verdad queda por cobrar: liquidaciones NO marcadas como cobradas dentro de la ventana.
+  const pendientesAll = useMemo(
+    () => cobros.filter(c => c.pago >= ventanaIni && c.pago <= ventanaFin && !cobradoMap[claveCobro(c)]),
+    [cobros, ventanaIni, ventanaFin, cobradoMap])
+  // Filas visibles: hasta 10 liquidaciones (vencidas y futuras), de la más reciente a la más antigua.
+  const futuros = useMemo(
+    () => cobros.filter(c => c.pago >= ventanaIni && c.pago <= ventanaFin)
+                .sort((a, b) => (a.pago < b.pago ? 1 : -1))
+                .slice(0, 10),
+    [cobros, ventanaIni, ventanaFin])
+  const porCobrarTotal = useMemo(() => pendientesAll.reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, factor])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
-  const hastaFinMes = useMemo(() => futuros.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [futuros, finMesStr, factor])
+  const hastaFinMes = useMemo(() => pendientesAll.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, finMesStr, factor])
 
   const porCanal = useMemo(() => CANALES.map(c => {
-    const list = futuros.filter(x => x.canal === c.id)
+    const list = pendientesAll.filter(x => x.canal === c.id)
     return { id: c.id, label: c.label, color: c.color, neto: list.reduce((s, x) => s + x.neto, 0) * factor }
-  }), [futuros, factor])
+  }), [pendientesAll, factor])
   const topPlat = useMemo(() => [...porCanal].sort((a, b) => b.neto - a.neto)[0] ?? null, [porCanal])
 
   const graf = useMemo(() => {
@@ -241,11 +254,11 @@ export default function Cashflow() {
 
   const grueso = useMemo(() => {
     const m = new Map<string, number>()
-    for (const c of futuros) m.set(c.pago, (m.get(c.pago) ?? 0) + c.neto * factor)
+    for (const c of pendientesAll) m.set(c.pago, (m.get(c.pago) ?? 0) + c.neto * factor)
     let best: { pago: string; total: number } | null = null
     for (const [pago, total] of m) if (!best || total > best.total) best = { pago, total }
     return best
-  }, [futuros, factor])
+  }, [pendientesAll, factor])
 
   const mesActual = hoy.slice(0, 7)
   const gastosCat = useMemo(() => {
@@ -398,17 +411,17 @@ export default function Cashflow() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
         <div style={card}>
-          <div style={lblS}>Ingresos pendientes · por liquidación</div>
+          <div style={lblS}>Ingresos pendientes · vencidas y próximas</div>
           {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th><th style={{ ...th, textAlign: 'center' }}>Cobrado</th></tr></thead>
               <tbody>
-                {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const cobrado = !!cobradoMap[claveCobro(c)]; return (
+                {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const cobrado = !!cobradoMap[claveCobro(c)]; const vencido = c.pago <= hoy && !cobrado; return (
                   <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined, opacity: cobrado ? 0.5 : 1 }}>
                     <td style={tdL}><span style={dot(c.color)} />{c.label}</td>
                     <td style={{ ...tdL, color: COLOR.textSec }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
                     <td style={tdR}>{c.pedidos}</td>
-                    <td style={tdL}>{fmtCorta(c.pago)}</td>
+                    <td style={{ ...tdL, color: vencido ? AMARILLO : COLOR.textPri, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
                     <td style={{ ...tdR, color: COLOR.textPri }}>{nf0(c.bruto)}</td>
                     <td style={{ ...tdR, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
                     <td style={{ ...tdR, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
@@ -418,7 +431,7 @@ export default function Cashflow() {
                   <td style={{ ...tdL, fontFamily: OSWALD, fontWeight: 700 }}>TOTAL</td><td></td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td><td></td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(futuros.reduce((s, c) => s + c.neto, 0) * factor)}</td>
+                  <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(futuros.filter(c => !cobradoMap[claveCobro(c)]).reduce((s, c) => s + c.neto, 0) * factor)}</td>
                   <td style={{ ...tdR, fontWeight: 700, color: COLOR.textSec }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
                   <td></td>
                 </tr>
