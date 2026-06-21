@@ -168,9 +168,12 @@ export default function Cashflow() {
   const hoy = toLocal(new Date())
   const factor = 1 + sim / 100
 
-  // Estado de cobro: 1º banco (la conciliación ya registró el abono de ese periodo), 2º interruptor
-  // manual. El banco manda; nunca se da por cobrado por la simple fecha de pago.
+  // Cierre histórico: del 19-jun-2026 hacia atrás, TODO cobrado al 100% (cerrado, no se discute).
+  // Del 20-jun en adelante: cobrado solo si el extracto bancario ya trae ese cobro (la conciliación de
+  // esa plataforma ha avanzado hasta esa fecha) o si se marca a mano. Nunca por la simple fecha de pago.
+  const CIERRE_HIST = '2026-06-19'
   const cobradoBanco = (c: { canal: string; pago: string }) => {
+    if (c.pago <= CIERRE_HIST) return true
     const f = frontera[c.canal]
     return !!f && c.pago <= f
   }
@@ -463,7 +466,7 @@ export default function Cashflow() {
               </table>
             </div>
           )}
-          <div style={ex}>Cobrado = confirmado por el banco (conciliación). El resto es estimación hasta que entra.</div>
+          <div style={ex}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
         </div>
         <div style={card}>
           <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
