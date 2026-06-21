@@ -100,7 +100,7 @@ export default function Cashflow() {
   const [loading, setLoading] = useState(true)
   const [hover, setHover] = useState<number | null>(null)
   const [cobradoMap, setCobradoMap] = useState<Record<string, boolean>>({})
-  const [bancoSet, setBancoSet] = useState<Set<string>>(new Set())
+  const [frontera, setFrontera] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -142,21 +142,16 @@ export default function Cashflow() {
     })
   }, [])
 
-  // Verdad del banco: una liquidación real con conciliacion_id ya casó con su abono → cobrada.
-  // Manda sobre el interruptor manual. Se casa por canal + fin de periodo.
+  // Verdad del banco: hasta qué fecha ha entrado el cobro de cada plataforma según la conciliación
+  // bancaria (categorías de venta 1.1.1 Uber / 1.1.2 Glovo / 1.1.3 Just Eat). Lo cobrado lo dice el
+  // banco; lo posterior sigue pendiente y se estima con calcNetoPlataforma.
   useEffect(() => {
-    type Liq = { fecha_fin_periodo: string | null; conciliacion_id: string | null }
-    Promise.all([
-      supabase.from('uber_liquidaciones').select('fecha_fin_periodo,conciliacion_id'),
-      supabase.from('glovo_liquidaciones').select('fecha_fin_periodo,conciliacion_id'),
-      supabase.from('justeat_liquidaciones').select('fecha_fin_periodo,conciliacion_id'),
-    ]).then(([u, g, j]) => {
-      const s = new Set<string>()
-      const add = (canal: string, rows: Liq[] | null) => {
-        for (const r of rows ?? []) if (r.conciliacion_id && r.fecha_fin_periodo) s.add(`${canal}|${String(r.fecha_fin_periodo).slice(0, 10)}`)
+    supabase.from('v_frontera_cobro_banco').select('canal,ultima_fecha').then(({ data }) => {
+      const f: Record<string, string> = {}
+      for (const r of (data ?? []) as { canal: string; ultima_fecha: string }[]) {
+        if (r.canal && r.ultima_fecha) f[r.canal] = String(r.ultima_fecha).slice(0, 10)
       }
-      add('uber', u.data as Liq[]); add('glovo', g.data as Liq[]); add('je', j.data as Liq[])
-      setBancoSet(s)
+      setFrontera(f)
     })
   }, [])
 
@@ -173,8 +168,12 @@ export default function Cashflow() {
   const hoy = toLocal(new Date())
   const factor = 1 + sim / 100
 
-  // Estado de cobro: 1º banco (liquidación conciliada), 2º interruptor manual. Nunca por fecha.
-  const cobradoBanco = (c: { canal: string; fin: string }) => bancoSet.has(`${c.canal}|${c.fin}`)
+  // Estado de cobro: 1º banco (la conciliación ya registró el abono de ese periodo), 2º interruptor
+  // manual. El banco manda; nunca se da por cobrado por la simple fecha de pago.
+  const cobradoBanco = (c: { canal: string; pago: string }) => {
+    const f = frontera[c.canal]
+    return !!f && c.pago <= f
+  }
   const estaCobrado = (c: Cobro) => cobradoBanco(c) || !!cobradoMap[claveCobro(c)]
 
   const aggDia = useMemo(() => {
@@ -231,20 +230,17 @@ export default function Cashflow() {
     return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
-  // Control de cobros: cuenta TODO lo que se cobra desde el 20-jun-2026 en adelante
-  // (lo vencido reciente no marcado + lo futuro). Antes de esa fecha se da por cerrado.
-  const CORTE_COBROS = '2026-06-20'
-  // Lo que de verdad queda por cobrar: no cobrado (ni banco ni a mano), con fecha de pago desde el corte.
+  // Plataformas con ciclo de cobro por liquidación. Web/Directa son cobro inmediato → no "pendientes".
+  const CANALES_CICLO = ['uber', 'glovo', 'je']
+  // Pendiente de cobrar = periodos de Uber/Glovo/JE que el banco aún no ha pagado y no marcados a mano.
   const pendientesAll = useMemo(
-    () => cobros.filter(c => c.pago >= CORTE_COBROS && !cobradoBanco(c) && !cobradoMap[claveCobro(c)]),
+    () => cobros.filter(c => CANALES_CICLO.includes(c.canal) && !cobradoBanco(c) && !cobradoMap[claveCobro(c)]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cobros, cobradoMap, bancoSet])
-  // Filas visibles: hasta 10 liquidaciones desde el corte, de la más reciente a la más antigua.
+    [cobros, cobradoMap, frontera])
+  // Filas visibles: hasta 10, de la más reciente a la más antigua.
   const futuros = useMemo(
-    () => cobros.filter(c => c.pago >= CORTE_COBROS)
-                .sort((a, b) => (a.pago < b.pago ? 1 : -1))
-                .slice(0, 10),
-    [cobros])
+    () => [...pendientesAll].sort((a, b) => (a.pago < b.pago ? 1 : -1)).slice(0, 10),
+    [pendientesAll])
   const porCobrarTotal = useMemo(() => pendientesAll.reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, factor])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
   const hastaFinMes = useMemo(() => pendientesAll.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, finMesStr, factor])
@@ -425,7 +421,7 @@ export default function Cashflow() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
         <div style={card}>
-          <div style={lblS}>Ingresos pendientes · vencidas y próximas</div>
+          <div style={lblS}>Ingresos pendientes · lo que el banco aún no ha pagado</div>
           {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
             <div style={{ overflowX: 'auto', margin: '4px -18px -16px' }}>
               <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
@@ -436,7 +432,7 @@ export default function Cashflow() {
                     <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
                     <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
                     <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Neto</th>
+                    <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
                     <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
                     <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
                   </tr>
@@ -467,6 +463,7 @@ export default function Cashflow() {
               </table>
             </div>
           )}
+          <div style={ex}>Cobrado = confirmado por el banco (conciliación). El resto es estimación hasta que entra.</div>
         </div>
         <div style={card}>
           <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
