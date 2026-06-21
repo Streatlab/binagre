@@ -9,6 +9,7 @@ import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen
 
 // Pareto Ventas ya existe como página; se monta aquí como pestaña sin tocar su lógica.
 const ParetoVentas = lazy(() => import('@/pages/analytics/ParetoVentas'))
+const PanelInteligenciaVentas = lazy(() => import('@/pages/finanzas/PanelInteligenciaVentas'))
 
 type Tab = 'resumen' | 'detalle' | 'pareto'
 const STORAGE_KEY = 'ventas:tab'
@@ -452,7 +453,13 @@ export default function Ventas() {
 
       <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
         {tab === 'resumen' && <TablaResumen rows={rowsFiltradas} cargando={cargando} />}
-        {tab === 'detalle' && <DetalleVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />}
+        {tab === 'detalle' && (
+          <>
+            <PanelInteligenciaVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />
+            <div style={{ height: 18 }} />
+            <DetalleVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />
+          </>
+        )}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
     </div>

@@ -16,7 +16,13 @@ import { COLORS, FONT, CARDS, lbl, kpiMid } from '@/components/panel/resumen/tok
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 
-interface Props { rowsAll: RowFacturacion[] }
+interface Props {
+  rowsAll: RowFacturacion[]
+  /** Periodo activo del selector universal de arriba (fuente de verdad). */
+  periodoDesde?: Date
+  periodoHasta?: Date
+  periodoOpcion?: string
+}
 
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const DIAS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -291,8 +297,202 @@ function CardRachaObjetivo({ rowsAll }: { rowsAll: RowFacturacion[] }) {
   )
 }
 
+// ── Card Comparativa del periodo (posición + fecha) ─────────
+// Toma como ancla el fin del periodo activo del selector de arriba.
+// Doble comparación SIMULTÁNEA:
+//   · Por posición: misma posición relativa (3er miércoles, 2ª semana…)
+//   · Por fecha:    mismo número de día / misma fecha de calendario
+// Lente local Día / Semana + métrica Ventas/Pedidos/Ticket (no tocan el periodo).
+type Metrica = 'ventas' | 'pedidos' | 'ticket'
+
+function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[]; ancla: Date }) {
+  const [vista, setVista] = useState<'dia' | 'semana'>('dia')
+  const [metrica, setMetrica] = useState<Metrica>('ventas')
+
+  const brutoMap: Record<string, number> = {}
+  const pedidosMap: Record<string, number> = {}
+  const datoSet = new Set<string>()
+  rowsAll.forEach(r => {
+    const f = r.fecha.slice(0, 10)
+    brutoMap[f] = (brutoMap[f] ?? 0) + r.total_bruto
+    pedidosMap[f] = (pedidosMap[f] ?? 0) + r.total_pedidos
+    datoSet.add(f)
+  })
+
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(d.getDate() + n); return r }
+  const mondayOf = (d: Date) => { const r = new Date(d); const w = r.getDay() || 7; r.setDate(r.getDate() - w + 1); r.setHours(0, 0, 0, 0); return r }
+
+  // Valor de la métrica para un día, o null si NO hay dato cargado ese día (≠ vendió 0).
+  const valorDia = (d: Date): number | null => {
+    const f = ymd(d)
+    if (!datoSet.has(f)) return null
+    const b = brutoMap[f] ?? 0, p = pedidosMap[f] ?? 0
+    return metrica === 'ventas' ? b : metrica === 'pedidos' ? p : (p > 0 ? b / p : 0)
+  }
+  // Valor agregado de un rango, o null si NINGÚN día del rango tiene dato cargado.
+  const valorRango = (desde: Date, hasta: Date): number | null => {
+    let b = 0, p = 0, hayDato = false
+    for (let d = new Date(desde); d <= hasta; d = addDays(d, 1)) {
+      const f = ymd(d)
+      if (datoSet.has(f)) { hayDato = true; b += brutoMap[f] ?? 0; p += pedidosMap[f] ?? 0 }
+    }
+    if (!hayDato) return null
+    return metrica === 'ventas' ? b : metrica === 'pedidos' ? p : (p > 0 ? b / p : 0)
+  }
+  const nthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number) => {
+    const first = new Date(year, month, 1)
+    const shift = (weekday - first.getDay() + 7) % 7
+    return new Date(year, month, 1 + shift + (n - 1) * 7)
+  }
+  const isoWeek = (d: Date) => {
+    const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dn = x.getUTCDay() || 7
+    x.setUTCDate(x.getUTCDate() + 4 - dn)
+    const ys = new Date(Date.UTC(x.getUTCFullYear(), 0, 1))
+    return Math.ceil(((x.getTime() - ys.getTime()) / 86400000 + 1) / 7)
+  }
+  const isoWeekYear = (d: Date) => {
+    const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dn = x.getUTCDay() || 7
+    x.setUTCDate(x.getUTCDate() + 4 - dn)
+    return x.getUTCFullYear()
+  }
+  const mondayOfISOWeek = (year: number, week: number) => {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7)
+    const dow = simple.getDay()
+    const r = new Date(simple)
+    if (dow <= 4) r.setDate(simple.getDate() - simple.getDay() + 1)
+    else r.setDate(simple.getDate() + 8 - simple.getDay())
+    r.setHours(0, 0, 0, 0)
+    return r
+  }
+
+  const y = ancla.getFullYear(), m = ancla.getMonth(), day = ancla.getDate(), wd = ancla.getDay()
+
+  let posLabel = '', posMesAntLbl = '', posAnioAntLbl = ''
+  let fchLabel = '', fchMesAntLbl = '', fchAnioAntLbl = ''
+  let posActual: number | null = null, posMesAnt: number | null = null, posAnioAnt: number | null = null
+  let fchActual: number | null = null, fchMesAnt: number | null = null, fchAnioAnt: number | null = null
+
+  if (vista === 'dia') {
+    const n = Math.ceil(day / 7)
+    const ord = ['1er', '2º', '3er', '4º', '5º'][n - 1] ?? `${n}º`
+    posLabel = `${ord} ${DIAS_ES[wd]} del mes`
+    posActual = valorDia(ancla)
+    posMesAnt = valorDia(nthWeekdayOfMonth(y, m - 1, wd, n))
+    posAnioAnt = valorDia(nthWeekdayOfMonth(y - 1, m, wd, n))
+    posMesAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[(m + 11) % 12]}`
+    posAnioAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[m]} ${y - 1}`
+
+    fchLabel = `Día ${day}`
+    fchActual = valorDia(ancla)
+    fchMesAnt = valorDia(new Date(y, m - 1, day))
+    fchAnioAnt = valorDia(new Date(y - 1, m, day))
+    fchMesAntLbl = `${day} de ${MESES_ES[(m + 11) % 12]}`
+    fchAnioAntLbl = `${day} de ${MESES_ES[m]} ${y - 1}`
+  } else {
+    const lunes = mondayOf(ancla), domingo = addDays(lunes, 6)
+    const nSem = Math.ceil(day / 7)
+    const week = isoWeek(ancla), wYear = isoWeekYear(ancla)
+    posLabel = `${nSem}ª semana del mes`
+    posActual = valorRango(lunes, domingo)
+    const lunMesAnt = mondayOf(new Date(y, m - 1, Math.min((nSem - 1) * 7 + 1, 28)))
+    posMesAnt = valorRango(lunMesAnt, addDays(lunMesAnt, 6))
+    const lunISOprev = mondayOfISOWeek(wYear - 1, week)
+    posAnioAnt = valorRango(lunISOprev, addDays(lunISOprev, 6))
+    posMesAntLbl = `${nSem}ª sem. de ${MESES_ES[(m + 11) % 12]}`
+    posAnioAntLbl = `sem. ISO ${week} de ${wYear - 1}`
+
+    fchLabel = `Semana del ${day}`
+    fchActual = valorRango(lunes, domingo)
+    const lunFMesAnt = mondayOf(new Date(y, m - 1, day))
+    fchMesAnt = valorRango(lunFMesAnt, addDays(lunFMesAnt, 6))
+    const lunFAnioAnt = mondayOf(new Date(y - 1, m, day))
+    fchAnioAnt = valorRango(lunFAnioAnt, addDays(lunFAnioAnt, 6))
+    fchMesAntLbl = `sem. del ${day} de ${MESES_ES[(m + 11) % 12]}`
+    fchAnioAntLbl = `sem. del ${day} de ${MESES_ES[m]} ${y - 1}`
+  }
+
+  const fmtVal = (v: number) => metrica === 'pedidos' ? fmtNum(v) : fmtEur(v)
+
+  const TriRef = ({ valor, actual, etq, sub }: { valor: number | null; actual: number | null; etq: string; sub: string }) => {
+    const d = (valor !== null && valor > 0 && actual !== null) ? ((actual - valor) / valor) * 100 : null
+    const alerta = d !== null && d <= -20
+    const dColor = d === null ? COLORS.mut : d >= 0 ? COLORS.ok : COLORS.err
+    return (
+      <div style={{ flex: 1, minWidth: 96 }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 3 }}>{etq}</div>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: COLORS.sec }}>{valor === null ? '—' : fmtVal(valor)}</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 10, color: COLORS.mut, marginTop: 2 }}>{sub}</div>
+        {d !== null
+          ? <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, color: dColor, marginTop: 2 }}>{alerta ? '⚠ ' : d >= 0 ? '▲ +' : '▼ '}{d.toFixed(1)}%</div>
+          : <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 2 }}>sin dato</div>}
+      </div>
+    )
+  }
+
+  const BloqueReal = ({ titulo, color, label, actual, mesAnt, anioAnt, mesAntSub, anioAntSub, destacado }: {
+    titulo: string; color: string; label: string; actual: number | null; mesAnt: number | null; anioAnt: number | null
+    mesAntSub: string; anioAntSub: string; destacado?: boolean
+  }) => (
+    <div style={{ ...CARDS.std, flex: '1 1 320px', border: destacado ? `1.5px solid ${COLORS.redSL}55` : `1px solid ${COLORS.brd}` }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color, fontWeight: 600, marginBottom: 2 }}>{titulo}</div>
+      <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginBottom: 10 }}>{label}</div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 96 }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 3 }}>Periodo actual</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 23, fontWeight: 600, color: COLORS.pri }}>{actual === null ? '—' : fmtVal(actual)}</div>
+          <div style={{ fontFamily: FONT.body, fontSize: 10, color: COLORS.mut, marginTop: 2 }}>{actual === null ? 'sin dato' : 'referencia'}</div>
+        </div>
+        <TriRef valor={mesAnt} actual={actual} etq="Mes anterior" sub={mesAntSub} />
+        <TriRef valor={anioAnt} actual={actual} etq="Año anterior" sub={anioAntSub} />
+      </div>
+    </div>
+  )
+
+  const tab: React.CSSProperties = { padding: '5px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }
+
+  return (
+    <div style={{ ...CARDS.std, border: `1.5px solid ${COLORS.redSL}40`, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+        <div>
+          <div style={lbl}>Comparativa del periodo</div>
+          <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>
+            Ancla: {day} {MESES_ES[m]} {y} · misma posición y misma fecha, frente a mes y año anteriores
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 10, background: COLORS.group }}>
+            {([['ventas', 'Ventas'], ['pedidos', 'Pedidos'], ['ticket', 'Ticket']] as const).map(([v, etq]) => (
+              <button key={v} onClick={() => setMetrica(v)} style={{ ...tab, background: metrica === v ? COLORS.pri : 'transparent', color: metrica === v ? '#fff' : COLORS.mut }}>
+                {etq}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'inline-flex', gap: 4, padding: 3, borderRadius: 10, background: COLORS.group }}>
+            {(['dia', 'semana'] as const).map(v => (
+              <button key={v} onClick={() => setVista(v)} style={{ ...tab, background: vista === v ? COLORS.redSL : 'transparent', color: vista === v ? '#fff' : COLORS.mut }}>
+                {v === 'dia' ? 'Día' : 'Semana'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <BloqueReal titulo="Por posición" color={COLORS.redSL} label={posLabel}
+          actual={posActual} mesAnt={posMesAnt} anioAnt={posAnioAnt}
+          mesAntSub={posMesAntLbl} anioAntSub={posAnioAntLbl} destacado />
+        <BloqueReal titulo="Por fecha" color={COLORS.directa} label={fchLabel}
+          actual={fchActual} mesAnt={fchMesAnt} anioAnt={fchAnioAnt}
+          mesAntSub={fchMesAntLbl} anioAntSub={fchAnioAntLbl} />
+      </div>
+    </div>
+  )
+}
+
 // ── Componente principal ─────────────────────────────────────
-export default function TabEvolucion({ rowsAll }: Props) {
+export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
   if (!rowsAll.length) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
@@ -370,6 +570,9 @@ export default function TabEvolucion({ rowsAll }: Props) {
 
   return (
     <div style={{ paddingTop: 12 }}>
+
+      {/* Doble comparación del periodo activo (posición + fecha) */}
+      <CardComparativaPeriodo rowsAll={rowsAll} ancla={periodoHasta ?? new Date()} />
 
       {/* 3.1 Peso tienda online — card destacada arriba */}
       <CardPesoOnline rowsAll={rowsAll} />

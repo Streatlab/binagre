@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import TabsPastilla from '@/components/ui/TabsPastilla'
 import { COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
 import {
   calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
@@ -15,8 +14,6 @@ import {
    activas en vivo desde configuración) · Simulador.
    ════════════════════════════════════════════════════════════ */
 
-type Periodo = 'semana' | 'mes' | 'anio'
-type Comp = 'prev' | 'mes' | 'anio'
 type Sim = -10 | 0 | 10
 
 const VERDE = '#1D9E75'
@@ -68,6 +65,10 @@ function periodoTxt(canal: string, ini: string, fin: string): string {
   const a = parse(ini); return `${a.getDate() <= 15 ? '1ª' : '2ª'} quinc. ${MESES[a.getMonth()]}`
 }
 
+function claveCobro(c: { canal: string; ini: string; fin: string }): string {
+  return `${c.canal}|${c.ini}|${c.fin}`
+}
+
 interface Row {
   fecha: string; servicio?: string
   uber_bruto: number; uber_pedidos: number
@@ -85,10 +86,7 @@ interface CajaMes { mes: string; ingresos: number; gastos: number; saldo_mes: nu
 const SELECT = 'fecha,servicio,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos,total_bruto,total_pedidos'
 
 export default function Cashflow() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes')
-  const [comp, setComp] = useState<Comp>('mes')
   const [sim, setSim] = useState<Sim>(0)
-  const setPeriodoP = (p: Periodo) => { setPeriodo(p); if (p !== 'semana' && comp === 'prev') setComp('mes') }
 
   const [rows, setRows] = useState<Row[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
@@ -101,6 +99,7 @@ export default function Cashflow() {
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [loading, setLoading] = useState(true)
   const [hover, setHover] = useState<number | null>(null)
+  const [cobradoMap, setCobradoMap] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -133,6 +132,23 @@ export default function Cashflow() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    supabase.from('cashflow_cobros_estado').select('clave,cobrado').then(({ data }) => {
+      const m: Record<string, boolean> = {}
+      for (const r of (data ?? []) as { clave: string; cobrado: boolean }[]) m[r.clave] = r.cobrado
+      setCobradoMap(m)
+    })
+  }, [])
+
+  async function toggleCobrado(c: Cobro) {
+    const k = claveCobro(c)
+    const nuevo = !cobradoMap[k]
+    setCobradoMap(prev => ({ ...prev, [k]: nuevo }))
+    await supabase.from('cashflow_cobros_estado').upsert({
+      clave: k, canal: c.canal, ini: c.ini, fin: c.fin, pago: c.pago, cobrado: nuevo, marcado_at: new Date().toISOString(),
+    })
+  }
 
   const hoy = toLocal(new Date())
   const factor = 1 + sim / 100
@@ -191,15 +207,27 @@ export default function Cashflow() {
     return out.sort((a, b) => (a.pago < b.pago ? -1 : 1))
   }, [aggDia, config, marcasPorCanal, festivos, loading, hoy])
 
-  const futuros = useMemo(() => cobros.filter(c => c.pago > hoy).sort((a, b) => (a.pago < b.pago ? -1 : 1)), [cobros, hoy])
-  const porCobrarTotal = useMemo(() => futuros.reduce((s, c) => s + c.neto, 0) * factor, [futuros, factor])
+  // Control de cobros: cuenta TODO lo que se cobra desde el 20-jun-2026 en adelante
+  // (lo vencido reciente no marcado + lo futuro). Antes de esa fecha se da por cerrado.
+  const CORTE_COBROS = '2026-06-20'
+  // Lo que de verdad queda por cobrar: no marcado cobrado, con fecha de pago desde el corte.
+  const pendientesAll = useMemo(
+    () => cobros.filter(c => c.pago >= CORTE_COBROS && !cobradoMap[claveCobro(c)]),
+    [cobros, cobradoMap])
+  // Filas visibles: hasta 10 liquidaciones desde el corte, de la más reciente a la más antigua.
+  const futuros = useMemo(
+    () => cobros.filter(c => c.pago >= CORTE_COBROS)
+                .sort((a, b) => (a.pago < b.pago ? 1 : -1))
+                .slice(0, 10),
+    [cobros])
+  const porCobrarTotal = useMemo(() => pendientesAll.reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, factor])
   const finMesStr = useMemo(() => { const d = new Date(); return toLocal(finDeMes(d.getFullYear(), d.getMonth())) }, [])
-  const hastaFinMes = useMemo(() => futuros.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [futuros, finMesStr, factor])
+  const hastaFinMes = useMemo(() => pendientesAll.filter(c => c.pago <= finMesStr).reduce((s, c) => s + c.neto, 0) * factor, [pendientesAll, finMesStr, factor])
 
   const porCanal = useMemo(() => CANALES.map(c => {
-    const list = futuros.filter(x => x.canal === c.id)
+    const list = pendientesAll.filter(x => x.canal === c.id)
     return { id: c.id, label: c.label, color: c.color, neto: list.reduce((s, x) => s + x.neto, 0) * factor }
-  }), [futuros, factor])
+  }), [pendientesAll, factor])
   const topPlat = useMemo(() => [...porCanal].sort((a, b) => b.neto - a.neto)[0] ?? null, [porCanal])
 
   const graf = useMemo(() => {
@@ -219,11 +247,11 @@ export default function Cashflow() {
 
   const grueso = useMemo(() => {
     const m = new Map<string, number>()
-    for (const c of futuros) m.set(c.pago, (m.get(c.pago) ?? 0) + c.neto * factor)
+    for (const c of pendientesAll) m.set(c.pago, (m.get(c.pago) ?? 0) + c.neto * factor)
     let best: { pago: string; total: number } | null = null
     for (const [pago, total] of m) if (!best || total > best.total) best = { pago, total }
     return best
-  }, [futuros, factor])
+  }, [pendientesAll, factor])
 
   const mesActual = hoy.slice(0, 7)
   const gastosCat = useMemo(() => {
@@ -266,10 +294,6 @@ export default function Cashflow() {
     return out
   }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
 
-  const cTabs = periodo === 'semana'
-    ? [{ id: 'prev', label: 'vs sem. ant.' }, { id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
-    : [{ id: 'mes', label: 'vs mes ant.' }, { id: 'anio', label: 'vs año ant.' }]
-  const pTabs: { id: Periodo; label: string }[] = [{ id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mes' }, { id: 'anio', label: 'Año' }]
   const simTabs: { id: Sim; label: string }[] = [{ id: -10, label: '−10%' }, { id: 0, label: 'Real' }, { id: 10, label: '+10%' }]
 
   const card: CSSProperties = { background: '#fff', border: `0.5px solid ${BORDE}`, borderRadius: 16, padding: '16px 18px' }
@@ -285,6 +309,9 @@ export default function Cashflow() {
   const kpiV: CSSProperties = { fontFamily: OSWALD, fontSize: 23, fontWeight: 700, lineHeight: 1.1 }
   const ex: CSSProperties = { fontSize: 10, color: '#b9b3a8', marginTop: 6 }
   const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: c, marginRight: 6 })
+  const thIng: CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
+  const tdLIng: CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
+  const tdRIng: CSSProperties = { ...tdLIng, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: COLOR.textSec, fontFamily: LEXEND }}>Cargando…</div>
 
@@ -307,9 +334,6 @@ export default function Cashflow() {
 
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12, flexWrap: 'wrap' }}>
-          <TabsPastilla tabs={cTabs} activeId={comp} onChange={id => setComp(id as Comp)} />
-          <div style={{ width: 1, height: 22, background: COLORS.brd, margin: '0 2px' }} />
-          <div style={SUBC}>{pTabs.map(t => <button key={t.id} onClick={() => setPeriodoP(t.id)} style={periodo === t.id ? subA : subI}>{t.label}</button>)}</div>
           <div style={{ flex: 1 }} />
           <span style={{ ...lblS, margin: 0, fontSize: 10 }}>Simulador</span>
           <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
@@ -376,32 +400,48 @@ export default function Cashflow() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
         <div style={card}>
-          <div style={lblS}>Ingresos pendientes · por liquidación</div>
+          <div style={lblS}>Ingresos pendientes · vencidas y próximas</div>
           {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Plataforma</th><th style={{ ...th, textAlign: 'left' }}>Ventas de</th><th style={th}>Ped.</th><th style={{ ...th, textAlign: 'left' }}>Cobro</th><th style={th}>Bruto</th><th style={th}>Neto</th><th style={th}>% neto</th></tr></thead>
-              <tbody>
-                {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; return (
-                  <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined }}>
-                    <td style={tdL}><span style={dot(c.color)} />{c.label}</td>
-                    <td style={{ ...tdL, color: COLOR.textSec }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
-                    <td style={tdR}>{c.pedidos}</td>
-                    <td style={tdL}>{fmtCorta(c.pago)}</td>
-                    <td style={{ ...tdR, color: COLOR.textPri }}>{nf0(c.bruto)}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(c.neto * factor)}</td>
-                    <td style={{ ...tdR, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
-                  </tr>) })}
-                <tr style={{ borderTop: `1.5px solid ${BORDE}` }}>
-                  <td style={{ ...tdL, fontFamily: OSWALD, fontWeight: 700 }}>TOTAL</td><td></td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td><td></td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: VERDE }}>{nf0(porCobrarTotal)}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: COLOR.textSec }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
-                </tr>
-              </tbody>
-            </table>
+            <div style={{ overflowX: 'auto', margin: '4px -18px -16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
+                    <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
+                    <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
+                    <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
+                    <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
+                    <th style={{ ...thIng, textAlign: 'right' }}>Neto</th>
+                    <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
+                    <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const cobrado = !!cobradoMap[claveCobro(c)]; const vencido = c.pago <= hoy && !cobrado; return (
+                    <tr key={i} style={{ opacity: cobrado ? 0.5 : 1 }}>
+                      <td style={{ ...tdLIng, paddingLeft: 18 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: c.color + '22', color: c.color, fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>{c.label}</span></td>
+                      <td style={{ ...tdLIng, color: COLORS.sec }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
+                      <td style={tdRIng}>{c.pedidos}</td>
+                      <td style={{ ...tdLIng, color: vencido ? '#c25e00' : COLORS.pri, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
+                      <td style={tdRIng}>{nf0(c.bruto)}</td>
+                      <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.ok, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
+                      <td style={{ ...tdRIng, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
+                      <td style={{ ...tdRIng, textAlign: 'center', paddingRight: 18 }}><button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, borderRadius: 999, background: cobrado ? VERDE : '#d4cfc6', transition: 'background .15s', display: 'inline-block' }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.25)', transition: 'left .15s' }} /></span></button></td>
+                    </tr>) })}
+                  <tr>
+                    <td style={{ ...tdLIng, paddingLeft: 18, fontFamily: OSWALD, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>TOTAL</td>
+                    <td style={{ ...tdLIng, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
+                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
+                    <td style={{ ...tdLIng, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
+                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
+                    <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.ok, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !cobradoMap[claveCobro(c)]).reduce((s, c) => s + c.neto, 0) * factor)}</td>
+                    <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.sec, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
+                    <td style={{ ...tdRIng, paddingRight: 18, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
-          <div style={ex}>Datos reales · neto con la calculadora central (comisión + fees + IVA).</div>
         </div>
         <div style={card}>
           <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>

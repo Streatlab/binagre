@@ -225,7 +225,7 @@ export default function PanelGlobal() {
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
       {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
       {activeTab === 'cashflow'    && <Cashflow />}
-      {activeTab === 'evolucion'   && <TabEvolucion rowsAll={rowsAll} />}
+      {activeTab === 'evolucion'   && <TabEvolucion rowsAll={rowsAll} periodoDesde={fechaDesde} periodoHasta={fechaHasta} />}
       {activeTab === 'marcas' && <TabMarcas rows={rowsPeriodo} />}
     </div>
   )
