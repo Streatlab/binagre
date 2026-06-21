@@ -110,6 +110,7 @@ const ClubFidelizacion = React.lazy(() => import('@/pages/clientes/ClubFidelizac
 const CrmTiendaPropia = React.lazy(() => import('@/pages/clientes/CrmTiendaPropia'))
 const PanelResenas = React.lazy(() => import('@/pages/clientes/PanelResenas'))
 const PlaybookThinkPaladar = React.lazy(() => import('@/pages/clientes/PlaybookThinkPaladar'))
+const Benchmark = React.lazy(() => import('@/pages/clientes/Benchmark'))
 
 const PosVentas = React.lazy(() => import('@/pages/integraciones/PosVentas'))
 
@@ -254,6 +255,7 @@ function AppRoutes() {
           <Route path="clientes/club" element={<ProtectedRoute solo={['admin']}><ClubFidelizacion /></ProtectedRoute>} />
           <Route path="clientes/crm" element={<ProtectedRoute solo={['admin']}><CrmTiendaPropia /></ProtectedRoute>} />
           <Route path="clientes/resenas" element={<ProtectedRoute solo={['admin']}><PanelResenas /></ProtectedRoute>} />
+          <Route path="clientes/benchmark" element={<ProtectedRoute solo={['admin']}><Benchmark /></ProtectedRoute>} />
           <Route path="clientes/playbook-tp" element={<ProtectedRoute solo={['admin']}><PlaybookThinkPaladar /></ProtectedRoute>} />
 
           <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
