@@ -122,6 +122,7 @@ const SECTIONS: NavSection[] = [
       { path: '/clientes/crm',    label: 'CRM Streat Lab',   emoji: '🛍️', perfiles: ['admin'] },
       { path: '/clientes/club',   label: 'Club Fidelización', emoji: '🎖️', perfiles: ['admin'] },
       { path: '/clientes/resenas',label: 'Panel Reseñas',     emoji: '⭐', perfiles: ['admin'] },
+      { path: '/clientes/benchmark', label: 'Benchmark',       emoji: '🎯', perfiles: ['admin'] },
     ],
   },
   {
