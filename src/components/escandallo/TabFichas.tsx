@@ -141,6 +141,16 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     cargar()
   }
 
+  const fichasFiltradas = useMemo(() => fichas.filter(f =>
+    (!gamaSel || f.gama === gamaSel) &&
+    (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
+  ), [fichas, gamaSel, busqueda])
+
+  useEffect(() => {
+    if (!fichasFiltradas.length) return
+    setSel(prev => (prev && fichasFiltradas.some(f => f.id === prev.id)) ? prev : fichasFiltradas[0])
+  }, [fichasFiltradas])
+
   if (loading) return <div className="py-10 text-center text-[var(--sl-text-muted)] text-sm">Cargando fichas…</div>
 
   const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
@@ -177,10 +187,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
         <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
           <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.1em' }}>{etiquetaLista}</span>
           <div className="flex flex-col gap-1">
-            {fichas.filter(f =>
-              (!gamaSel || f.gama === gamaSel) &&
-              (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
-            ).map(f => {
+            {fichasFiltradas.map(f => {
               const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
               return (
                 <button key={f.id} onClick={() => setSel(f)}
