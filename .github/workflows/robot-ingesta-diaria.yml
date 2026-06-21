@@ -1,0 +1,49 @@
+name: Robot ingesta diaria (Rushour + Sinqro)
+
+# Cron diario a las 06:00 UTC (~08:00 España). El schedule SOLO se activa cuando
+# este workflow está en la rama por defecto; en rama trabajo se lanza a mano
+# desde la pestaña Actions (Run workflow). Así no corre nada en producción aún.
+on:
+  workflow_dispatch:
+    inputs:
+      diag:
+        description: "Modo diagnóstico (guarda capturas/HTML)"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar robot
+        env:
+          DIAG: ${{ github.event.inputs.diag == 'false' && '0' || '1' }}
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/robot.ts
+
+      - name: Subir diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-artifacts
+          path: robot-artifacts/
+          if-no-files-found: ignore
