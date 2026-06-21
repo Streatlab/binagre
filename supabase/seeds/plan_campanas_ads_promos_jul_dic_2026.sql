@@ -1,5 +1,6 @@
 -- Plan Maestro Ads & Promos Streat Lab · Jul-Dic 2026
--- 24 campañas del módulo Marketing/CRM (crm_campanas). Idempotente.
+-- 24 campañas cargadas en el módulo Marketing/CRM (crm_campanas).
+-- Idempotente: borra las PLAN-* y reinserta. NO toca las campañas de prueba.
 
 BEGIN;
 
