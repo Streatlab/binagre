@@ -455,7 +455,7 @@ export default function Ventas() {
         {tab === 'resumen' && <TablaResumen rows={rowsFiltradas} cargando={cargando} />}
         {tab === 'detalle' && (
           <>
-            <PanelInteligenciaVentas />
+            <PanelInteligenciaVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />
             <div style={{ height: 18 }} />
             <DetalleVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />
           </>
