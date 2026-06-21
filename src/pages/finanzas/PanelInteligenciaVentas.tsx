@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, AreaChart, Area, PieChart, Pie,
+} from 'recharts'
 import { jsPDF } from 'jspdf'
 import { Download, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +14,8 @@ import {
 
 /* ============================================================
    PANEL INTELIGENCIA — pestaña "Detalle ventas" del módulo Ventas.
-   Lee el PERIODO del selector universal de arriba (desde/hasta).
+   El SELECTOR DE PERIODO de arriba MANDA: define qué datos se cargan.
+   Marca y canal son SOLO VISTA: filtran en pantalla, dentro del periodo.
    UNIDADES = reales (pedidos_plataforma). IMPORTES = estimados.
    Informes descargables en CSV y PDF.
    ============================================================ */
@@ -119,10 +124,11 @@ type InfTab = typeof INF_TABS[number]
 interface Props { desde: Date; hasta: Date; marcasFiltro: string[]; canalesFiltro: string[] }
 
 export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, canalesFiltro }: Props) {
-  const [rows, setRows] = useState<Linea[]>([])
+  const [rowsRaw, setRowsRaw] = useState<Linea[]>([])
   const [cargando, setCargando] = useState(true)
   const [inf, setInf] = useState<InfTab>('Productos')
 
+  // El PERIODO manda la carga. Solo se consulta a Supabase cuando cambia el rango.
   useEffect(() => {
     let alive = true
     setCargando(true)
@@ -131,23 +137,21 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
       .from('pedidos_plataforma')
       .select('plataforma, marca, plato, tipo_linea, hora, fecha, factura_origen')
       .gte('fecha', d).lte('fecha', h)
-      .then(({ data }) => {
-        if (!alive) return
-        let r = (data as Linea[]) ?? []
-        if (canalesFiltro.length) r = r.filter(x => canalesFiltro.includes((x.plataforma || '').toLowerCase().trim()))
-        if (marcasFiltro.length) r = r.filter(x => marcasFiltro.includes(x.marca || 'SIN_MARCA'))
-        setRows(r); setCargando(false)
-      })
+      .then(({ data }) => { if (alive) { setRowsRaw((data as Linea[]) ?? []); setCargando(false) } })
     return () => { alive = false }
-  }, [desde, hasta, marcasFiltro, canalesFiltro])
+  }, [desde, hasta])
 
   const periodoStr = `${fechaLocalStr(desde)} a ${fechaLocalStr(hasta)}`
 
   const d = useMemo(() => {
+    // Marca y canal son SOLO VISTA: filtran en memoria, dentro del periodo ya cargado.
+    let rows = rowsRaw
+    if (canalesFiltro.length) rows = rows.filter(x => canalesFiltro.includes((x.plataforma || '').toLowerCase().trim()))
+    if (marcasFiltro.length) rows = rows.filter(x => marcasFiltro.includes(x.marca || 'SIN_MARCA'))
+
     const platos = rows.filter(r => r.tipo_linea === 'plato' || r.tipo_linea === 'bebida' || !r.tipo_linea)
     const pedidos = new Set(rows.map(r => r.factura_origen).filter(Boolean)).size || Math.round(rows.length / 1.8)
     const bruto = pedidos * TICKET_EST
-    // peso por plataforma según pedidos reales
     const pedidosPlat = new Map<string, Set<string>>()
     for (const r of rows) {
       const n = nombrePlat(r.plataforma)
@@ -167,16 +171,13 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
     const porMarca = agrupa(rows, r => r.marca, r => r.tipo_linea !== 'cargo')
     const porProducto = agrupa(platos, r => r.plato)
     const porModificador = agrupa(rows, r => r.plato, r => r.tipo_linea === 'modificador')
-    const porHoraMap = agrupa(rows, r => (r.hora ? `${r.hora.slice(0, 2)}h` : null)).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+    const porHora = agrupa(rows, r => (r.hora ? `${r.hora.slice(0, 2)}h` : null)).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
     const evolMap = new Map<string, number>()
     for (const r of rows) { if (r.fecha) { const k = r.fecha.slice(5).replace('-', '/'); evolMap.set(k, (evolMap.get(k) || 0) + 1) } }
     const evolucion = Array.from(evolMap, ([dia, u]) => ({ dia, bruto: Math.round((u / Math.max(1, rows.length)) * bruto), neto: Math.round((u / Math.max(1, rows.length)) * (bruto - comisionTotal)) }))
 
-    return {
-      pedidos, bruto, neto: bruto - comisionTotal, comisionTotal, comisionAnual: comisionTotal * (365 / dias),
-      plataformas, porMarca, porProducto, porModificador, porHora: porHoraMap, evolucion, unidades: platos.length,
-    }
-  }, [rows, desde, hasta])
+    return { pedidos, bruto, neto: bruto - comisionTotal, comisionTotal, comisionAnual: comisionTotal * (365 / dias), plataformas, porMarca, porProducto, porModificador, porHora, evolucion, unidades: platos.length }
+  }, [rowsRaw, marcasFiltro, canalesFiltro, desde, hasta])
 
   const infData: Record<InfTab, { data: Fila[]; color: string; nota: 'REAL' | 'EST.'; sufijo: string }> = {
     Productos: { data: d.porProducto, color: COLORS.ok, nota: 'REAL', sufijo: '×' },
@@ -200,7 +201,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
   const btn = (activo: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
     border: `0.5px solid ${COLORS.brd}`, background: '#fff', color: COLORS.sec,
-    fontFamily: LEXEND, fontSize: 12, fontWeight: 500, cursor: 'pointer', opacity: activo ? 1 : 0.5,
+    fontFamily: LEXEND, fontSize: 12, fontWeight: 500, cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.5,
   })
 
   return (
@@ -347,9 +348,3 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
     </div>
   )
 }
-
-/* recharts imports al final para mantener orden de helpers arriba */
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, AreaChart, Area, PieChart, Pie,
-} from 'recharts'
