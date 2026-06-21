@@ -141,6 +141,16 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     cargar()
   }
 
+  const fichasFiltradas = useMemo(() => fichas.filter(f =>
+    (!gamaSel || f.gama === gamaSel) &&
+    (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
+  ), [fichas, gamaSel, busqueda])
+
+  useEffect(() => {
+    if (!fichasFiltradas.length) return
+    setSel(prev => (prev && fichasFiltradas.some(f => f.id === prev.id)) ? prev : fichasFiltradas[0])
+  }, [fichasFiltradas])
+
   if (loading) return <div className="py-10 text-center text-[var(--sl-text-muted)] text-sm">Cargando fichas…</div>
 
   const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
@@ -177,10 +187,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
         <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
           <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.1em' }}>{etiquetaLista}</span>
           <div className="flex flex-col gap-1">
-            {fichas.filter(f =>
-              (!gamaSel || f.gama === gamaSel) &&
-              (!busqueda || f.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (f.codigo ?? '').toLowerCase().includes(busqueda.toLowerCase()))
-            ).map(f => {
+            {fichasFiltradas.map(f => {
               const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
               return (
                 <button key={f.id} onClick={() => setSel(f)}
@@ -199,6 +206,14 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
       </div>
     </div>
   )
+}
+
+function fmtCant(c: string): string {
+  const s = (c ?? '').trim()
+  if (!s || !/^[\d.,]+$/.test(s)) return s
+  const n = Number(s.replace(/\./g, '').replace(',', '.'))
+  if (!isFinite(n)) return s
+  return n.toLocaleString('es-ES', { maximumFractionDigits: 3 })
 }
 
 function costeLinea(i: IngLinea): number {
@@ -269,13 +284,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
   function imprimir() { window.print() }
 
-  const colHead: React.CSSProperties = { padding: '0 0 5px', fontFamily: 'Oswald, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--sl-text-muted)' }
   const theadIng = (
     <thead>
       <tr>
-        <th style={{ ...colHead, textAlign: 'left' }}></th>
-        <th style={{ ...colHead, textAlign: 'right', width: 64 }}>Cantidad</th>
-        <th style={{ ...colHead, textAlign: 'right', width: 78 }}>Equivalencia</th>
+        <th style={{ padding: 0 }}></th>
+        <th style={{ padding: 0, width: 64 }}></th>
+        <th style={{ padding: 0, width: 78 }}></th>
         <th className="no-print" style={{ width: 86 }} />
       </tr>
     </thead>
@@ -287,7 +301,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         <span className="solo-pantalla">{i.match?.nombre ?? i.ingrediente}</span>
         <span className="solo-print-ing" style={{ display: 'none' }}>{i.ingrediente}</span>
       </td>
-      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.cant}{i.ud ? ` ${i.ud}.` : ''}</td>
+      <td style={{ textAlign: 'right', fontWeight: 500, width: 64, whiteSpace: 'nowrap', padding: '1px 0' }}>{fmtCant(i.cant)}{i.ud ? ` ${i.ud}.` : ''}</td>
       <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
@@ -348,7 +362,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
         <div className="ficha-section" style={{ display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="ficha-seclabel">Ingredientes</div>
+            <div className="ficha-seclabel" style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+              <span style={{ flex: 1 }}>Ingredientes</span>
+              <span style={{ width: 64, textAlign: 'right', fontSize: 9, letterSpacing: '0.08em' }}>Cantidad</span>
+              <span style={{ width: 78, textAlign: 'right', fontSize: 9, letterSpacing: '0.08em' }}>Equivalencia</span>
+              <span className="no-print" style={{ width: 86 }} />
+            </div>
             {colsIng === 1 ? (
               grupos.map(([gk, items]) => (
                 <div key={gk} style={{ marginBottom: 8 }}>
