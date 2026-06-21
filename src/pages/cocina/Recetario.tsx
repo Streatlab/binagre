@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChefHat } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabFichas from '@/components/escandallo/TabFichas'
@@ -14,7 +14,8 @@ const TABS = [
 export default function Recetario() {
   const { T } = useTheme()
   const [tab, setTab] = useState<Tab>('eps')
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda, setBusqueda] = useState(() => localStorage.getItem('sl_fichas_busqueda') ?? '')
+  useEffect(() => { localStorage.setItem('sl_fichas_busqueda', busqueda) }, [busqueda])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
