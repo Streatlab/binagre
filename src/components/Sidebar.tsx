@@ -42,10 +42,25 @@ interface SectionIconConfig {
   color: string
 }
 
-// Orden solicitado: Panel Global, Tareas, Finanzas, Cocina, Operaciones,
+// Orden solicitado: Panel Global, Tareas, Test Visual, Finanzas, Cocina, Operaciones,
 // Stock & Compras, Informes, Equipo, MKT, Configuración.
 // Panel Global y Tareas son enlaces directos (fuera de SECTIONS).
 const SECTIONS: NavSection[] = [
+  {
+    key: 'testvisual', emoji: '🧪', label: 'Test Visual', perfiles: ['admin'],
+    items: [
+      { path: '/test-visual/panel-global',     label: 'Panel Global',     emoji: '📊', perfiles: ['admin'] },
+      { path: '/test-visual/facturacion',      label: 'Facturación',      emoji: '🧾', perfiles: ['admin'] },
+      { path: '/test-visual/objetivos',        label: 'Objetivos',        emoji: '🎯', perfiles: ['admin'] },
+      { path: '/test-visual/running',          label: 'Running',          emoji: '📈', perfiles: ['admin'] },
+      { path: '/test-visual/escandallo',       label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin'] },
+      { path: '/test-visual/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/test-visual/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin'] },
+      { path: '/test-visual/esquemas',         label: 'Esquemas',         emoji: '🗂️', perfiles: ['admin'] },
+      { path: '/test-visual/produccion',       label: 'Producción',       emoji: '🏭', perfiles: ['admin'] },
+      { path: '/test-visual/horarios',         label: 'Horarios',         emoji: '🗓️', perfiles: ['admin'] },
+    ],
+  },
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
@@ -226,6 +241,7 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 ]
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
+  testvisual:    { icon: FlaskConical,  color: '#B01D23' },
   finanzas:      { icon: TrendingUp,    color: '#06C167' },
   cocina:        { icon: ChefHat,       color: '#f5a623' },
   operaciones:   { icon: ClipboardList, color: '#e8b341' },
@@ -298,11 +314,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }, [perfil])
 
   // ── Mecánica de colapso/expansión ────────────────────────────────────────
-  // Estado de reposo: COLAPSADO (solo iconos).
-  // CLIC en cualquier opción/grupo del sidebar → "fijado" abierto 20 s exactos,
-  //   independientemente de dónde esté el ratón; pasados los 20 s se colapsa solo.
-  // HOVER (ratón encima) → se abre mientras el ratón está encima; al salir se colapsa
-  //   (salvo que esté fijado por un clic reciente).
   const [pinned, setPinned] = useState(false)
   const [peek, setPeek] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -319,15 +330,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     setPeek(false)
   }
 
-  // Al cargar: se muestra fijado 20 s y luego se colapsa solo.
   useEffect(() => {
     pin()
     return () => { if (pinTimer.current) clearTimeout(pinTimer.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Colapsado salvo que esté fijado por clic o que el ratón esté encima.
-  // En móvil (táctil): SIEMPRE expandido, sin rail de iconos ni timer de 20 s.
   const collapsed = esMovilDisp ? false : (!pinned && !peek)
 
   const toggleSection = (key: string) => {
@@ -489,50 +497,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   {tareasBadge > 9 ? '9+' : tareasBadge}
                 </span>
               )}
-            </NavLink>
-          )}
-
-          {(!collapsed && perfil === 'admin') && (
-            <NavLink
-              to="/test-visual"
-              onClick={onClose}
-              style={({ isActive }) => ({
-                width: '100%',
-                background: isActive ? '#B01D23' : 'none',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                gap: 10,
-                padding: '6px 14px 6px 12px',
-                fontFamily: FONT.heading,
-                fontSize: 14.5,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                color: isActive ? '#ffffff' : mainLabelColor,
-                textDecoration: 'none',
-                transition: 'background 150ms',
-              })}
-            >
-              {({ isActive }) => (
-                <>
-                  <FlaskConical size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
-                  <span>Test Visual</span>
-                </>
-              )}
-            </NavLink>
-          )}
-
-          {collapsed && perfil === 'admin' && (
-            <NavLink
-              to="/test-visual"
-              onClick={onClose}
-              title="Test Visual"
-              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
-            >
-              <FlaskConical size={20} strokeWidth={1.8} color="#B01D23" />
             </NavLink>
           )}
 
