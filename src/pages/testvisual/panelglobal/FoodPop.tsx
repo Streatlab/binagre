@@ -1,140 +1,144 @@
 /**
- * Test Visual — Panel Global · diseño FOOD POP (creado desde cero).
- * Lenguaje: apetito + energía. Titular protagonista, color saturado cálido,
- * bloques rotundos con borde grueso y sombra dura, jerarquía descarada.
- * Frases-titular integradas. Datos de ejemplo.
+ * Test Visual — Panel Global · FOOD POP (rehecho con composición de cartel).
+ * Neobrutalismo de marca de comida: tipografía masiva que manda, color a
+ * sangre, bloques full-bleed, asimetría, sombras duras. Titulares integrados.
+ * No es una rejilla de tarjetas: es un póster que se lee de arriba a abajo.
  */
 import { useState } from 'react'
 
-const INK = '#1A1206'
-const CREMA = '#FFF3DF'
-const ROSA = '#FF2E6E'
-const AMA = '#FFC53D'
-const VERDE = '#16B364'
-const NAR = '#FF6B2C'
-const AZUL = '#3E6DFF'
+const INK = '#140f08'
+const CREMA = '#FCEFD6'
+const ROSA = '#FF2E63'
+const AMA = '#FFC400'
+const VERDE = '#0FB86B'
+const NAR = '#FF6A1A'
+const AZUL = '#2D5BFF'
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
-
-const box = (bg: string): React.CSSProperties => ({
-  background: bg, border: `3px solid ${INK}`, borderRadius: 18, boxShadow: `6px 6px 0 ${INK}`,
-})
-const sticker = (bg: string): React.CSSProperties => ({
-  display: 'inline-block', background: bg, color: INK, border: `2px solid ${INK}`,
-  borderRadius: 999, padding: '3px 12px', fontFamily: OSW, fontWeight: 600,
-  fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
-})
 
 const TABS = ['Resumen', 'Operaciones', 'Finanzas', 'Cashflow', 'Evolución', 'Marcas'] as const
 type Tab = typeof TABS[number]
 
+const display = (size: string, color = INK): React.CSSProperties => ({
+  fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.92,
+  letterSpacing: '-0.5px', textTransform: 'uppercase', color,
+})
+const eyebrow = (bg: string, color = INK): React.CSSProperties => ({
+  display: 'inline-block', background: bg, color, border: `2px solid ${INK}`,
+  fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '2px',
+  textTransform: 'uppercase', padding: '3px 10px',
+})
+
 export default function PanelGlobalFoodPop() {
   const [tab, setTab] = useState<Tab>('Resumen')
   return (
-    <div style={{ minHeight: '100%', background: CREMA, padding: '26px 30px', fontFamily: LEX, color: INK }}>
-      {/* cabecera */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontFamily: OSW, fontSize: 34, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Panel Global</span>
-          <span style={sticker(AMA)}>Hoy · 23 jun</span>
-        </div>
-        <span style={{ ...sticker(CREMA), boxShadow: `3px 3px 0 ${INK}` }}>Todas las marcas ▾</span>
+    <div style={{ minHeight: '100%', background: CREMA, fontFamily: LEX, color: INK }}>
+      {/* TOP BAR negra a sangre */}
+      <div style={{ background: INK, color: CREMA, padding: '12px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ ...display('20px', CREMA) }}>Binagre — Panel Global</span>
+        <span style={{ fontFamily: OSW, letterSpacing: '2px', fontSize: 13, color: AMA }}>HOY · 23 JUN 2026</span>
       </div>
 
-      {/* nav chunky */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
+      {/* NAV chunky a sangre */}
+      <div style={{ display: 'flex', borderBottom: `4px solid ${INK}`, flexWrap: 'wrap' }}>
         {TABS.map(t => {
           const on = t === tab
           return (
             <button key={t} onClick={() => setTab(t)} style={{
-              fontFamily: OSW, fontSize: 14, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
-              padding: '8px 16px', borderRadius: 999, cursor: 'pointer', border: `2.5px solid ${INK}`,
-              background: on ? ROSA : '#fff', color: on ? '#fff' : INK,
-              boxShadow: on ? `4px 4px 0 ${INK}` : 'none',
+              flex: '1 0 auto', fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '1px',
+              textTransform: 'uppercase', padding: '12px 18px', cursor: 'pointer',
+              border: 'none', borderRight: `2px solid ${INK}`,
+              background: on ? ROSA : CREMA, color: on ? '#fff' : INK,
             }}>{t}</button>
           )
         })}
       </div>
 
-      {tab === 'Resumen' && <Resumen />}
-      {tab === 'Operaciones' && <Operaciones />}
-      {tab === 'Finanzas' && <Finanzas />}
-      {tab === 'Cashflow' && <Cashflow />}
-      {tab === 'Evolución' && <Evolucion />}
-      {tab === 'Marcas' && <Marcas />}
+      <div style={{ padding: '0 0 40px' }}>
+        {tab === 'Resumen' && <Resumen />}
+        {tab === 'Operaciones' && <Operaciones />}
+        {tab === 'Finanzas' && <Finanzas />}
+        {tab === 'Cashflow' && <Cashflow />}
+        {tab === 'Evolución' && <Evolucion />}
+        {tab === 'Marcas' && <Marcas />}
+      </div>
     </div>
   )
 }
 
 function Resumen() {
   const canales = [
-    { n: 'Uber Eats', pct: 41, c: VERDE }, { n: 'Glovo', pct: 33, c: AMA },
-    { n: 'Just Eat', pct: 18, c: NAR }, { n: 'Web', pct: 8, c: ROSA },
+    { n: 'UBER EATS', pct: 41, c: VERDE }, { n: 'GLOVO', pct: 33, c: AMA },
+    { n: 'JUST EAT', pct: 18, c: NAR }, { n: 'WEB', pct: 8, c: AZUL },
   ]
   const marcas = [
-    { n: 'Ninja Ramen', v: 780, pct: 100, c: ROSA }, { n: 'La Carmucha', v: 540, pct: 69, c: AMA },
-    { n: 'Pasta Manía', v: 470, pct: 60, c: AZUL }, { n: 'Greta', v: 410, pct: 53, c: VERDE },
+    { n: 'Ninja Ramen', v: '780 €' }, { n: 'La Carmucha', v: '540 €' },
+    { n: 'Pasta Manía', v: '470 €' }, { n: 'Greta', v: '410 €' },
   ]
   return (
     <>
-      {/* HERO titular */}
-      <div style={{ ...box(AMA), padding: '26px 30px', marginBottom: 20 }}>
-        <div style={sticker('#fff')}>Ventas de hoy</div>
-        <div style={{ fontFamily: OSW, fontSize: 88, fontWeight: 700, lineHeight: 0.95, margin: '10px 0 6px' }}>2.847&nbsp;€</div>
-        <div style={{ fontSize: 20, fontWeight: 600, maxWidth: 640 }}>
-          Vas un <span style={{ background: VERDE, color: '#fff', padding: '0 8px', borderRadius: 6 }}>+12,4 %</span> por encima de tu media de la semana. Buen día.
+      {/* HERO asimétrico a sangre */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ background: AMA, padding: '34px 32px', borderRight: `4px solid ${INK}`, position: 'relative' }}>
+          <span style={eyebrow('#fff')}>Ventas de hoy</span>
+          <div style={{ ...display('clamp(64px, 11vw, 132px)'), margin: '14px 0 10px' }}>2.847&nbsp;€</div>
+          <div style={{ fontSize: 'clamp(18px,2vw,24px)', fontWeight: 700, maxWidth: 560, lineHeight: 1.2 }}>
+            Vas <span style={{ background: VERDE, color: '#fff', padding: '0 8px' }}>+12,4 %</span> por encima de tu media semanal.
+          </div>
+          <div style={{ position: 'absolute', top: 24, right: -2, transform: 'rotate(8deg)', ...eyebrow(ROSA, '#fff'), fontSize: 14, padding: '6px 12px', boxShadow: `4px 4px 0 ${INK}` }}>BUEN DÍA</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr' }}>
+          <div style={{ background: ROSA, color: '#fff', padding: '22px 26px', borderBottom: `4px solid ${INK}` }}>
+            <span style={eyebrow('#fff')}>Pedidos</span>
+            <div style={{ ...display('clamp(48px,7vw,80px)', '#fff'), marginTop: 8 }}>94</div>
+          </div>
+          <div style={{ background: VERDE, color: '#fff', padding: '22px 26px' }}>
+            <span style={eyebrow('#fff')}>Ticket medio</span>
+            <div style={{ ...display('clamp(40px,6vw,68px)', '#fff'), marginTop: 8 }}>30,3 €</div>
+          </div>
         </div>
       </div>
 
-      {/* píldoras KPI */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 20 }}>
-        {[
-          { l: 'Pedidos', v: '94', c: ROSA, tc: '#fff' },
-          { l: 'Ticket medio', v: '30,3 €', c: VERDE, tc: '#fff' },
-          { l: 'Resultado', v: '+713 €', c: NAR, tc: '#fff' },
-          { l: 'Repetición', v: '22 %', c: AZUL, tc: '#fff' },
-        ].map(k => (
-          <div key={k.l} style={{ ...box(k.c), padding: '18px 20px', color: k.tc }}>
-            <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.95 }}>{k.l}</div>
-            <div style={{ fontFamily: OSW, fontSize: 42, fontWeight: 700, lineHeight: 1, marginTop: 6 }}>{k.v}</div>
-          </div>
+      {/* TICKER negro */}
+      <div style={{ background: INK, color: CREMA, padding: '14px 28px', borderBottom: `4px solid ${INK}`, display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        {[['Resultado', '+713 €', VERDE], ['Prime cost', '64 %', AMA], ['Repetición', '22 %', ROSA], ['Comisión', '34 %', NAR]].map(([l, v, c]) => (
+          <span key={l as string} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12, color: '#9b9384', textTransform: 'uppercase' }}>{l}</span>
+            <span style={{ ...display('26px', c as string) }}>{v}</span>
+          </span>
         ))}
       </div>
 
-      {/* canales + banda titular */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20, marginBottom: 20 }}>
-        <div style={{ ...box('#fff'), padding: '22px 24px' }}>
-          <div style={sticker(AMA)}>Por dónde entra</div>
-          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* CANALES (barras a sangre) + banda titular */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ padding: '26px 32px', borderRight: `4px solid ${INK}` }}>
+          <span style={eyebrow(AMA)}>Por dónde entra</span>
+          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {canales.map(c => (
-              <div key={c.n}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, marginBottom: 6 }}><span>{c.n}</span><span>{c.pct}%</span></div>
-                <div style={{ height: 18, border: `2.5px solid ${INK}`, borderRadius: 999, background: CREMA, overflow: 'hidden' }}>
-                  <div style={{ width: `${c.pct}%`, height: '100%', background: c.c }} />
+              <div key={c.n} style={{ display: 'flex', alignItems: 'center', height: 38, border: `3px solid ${INK}` }}>
+                <div style={{ width: `${c.pct}%`, height: '100%', background: c.c, display: 'flex', alignItems: 'center', paddingLeft: 12, minWidth: 90 }}>
+                  <span style={{ ...display('15px', '#fff') }}>{c.n}</span>
                 </div>
+                <span style={{ ...display('22px'), marginLeft: 'auto', paddingRight: 14 }}>{c.pct}%</span>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ ...box(ROSA), padding: '24px', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>Las comisiones se comen <span style={{ background: '#fff', color: ROSA, padding: '0 8px', borderRadius: 6 }}>1 de cada 3 €</span> que facturas.</div>
-          <div style={{ marginTop: 12, fontSize: 15, opacity: 0.95 }}>Tu web solo trae el 8 %. Ahí está el margen.</div>
+        <div style={{ background: ROSA, color: '#fff', padding: '30px 32px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ ...display('clamp(26px,3.2vw,40px)', '#fff') }}>Las comisiones se comen <span style={{ background: '#fff', color: ROSA, padding: '0 8px' }}>1 de cada 3 €</span></div>
+          <div style={{ marginTop: 14, fontSize: 16, fontWeight: 600 }}>Tu web solo trae el 8 %. Ahí está el margen que no pagas.</div>
         </div>
       </div>
 
-      {/* marcas */}
-      <div style={{ ...box('#fff'), padding: '22px 24px' }}>
-        <div style={sticker(VERDE)}>Tus marcas hoy</div>
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {marcas.map(m => (
-            <div key={m.n}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontWeight: 600, fontSize: 16 }}>{m.n}</span>
-                <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 700 }}>{m.v} €</span>
-              </div>
-              <div style={{ height: 16, border: `2.5px solid ${INK}`, borderRadius: 999, background: CREMA, overflow: 'hidden' }}>
-                <div style={{ width: `${m.pct}%`, height: '100%', background: m.c }} />
-              </div>
+      {/* MARCAS ranking editorial */}
+      <div style={{ padding: '26px 32px' }}>
+        <span style={eyebrow(VERDE, '#fff')}>Tus marcas hoy</span>
+        <div style={{ marginTop: 16 }}>
+          {marcas.map((m, i) => (
+            <div key={m.n} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '14px 0', borderTop: i === 0 ? `3px solid ${INK}` : `2px solid ${INK}33` }}>
+              <span style={{ ...display('clamp(34px,5vw,56px)', i === 0 ? ROSA : INK), width: 70 }}>{String(i + 1).padStart(2, '0')}</span>
+              <span style={{ ...display('clamp(20px,2.6vw,30px)') }}>{m.n}</span>
+              <span style={{ ...display('clamp(22px,3vw,34px)'), marginLeft: 'auto' }}>{m.v}</span>
             </div>
           ))}
         </div>
@@ -143,28 +147,29 @@ function Resumen() {
   )
 }
 
-function bandaTitular(texto: React.ReactNode, bg: string, tc: string) {
+/* banda titular full-bleed reutilizable */
+function Banda({ children, bg, color = '#fff' }: { children: React.ReactNode; bg: string; color?: string }) {
   return (
-    <div style={{ ...box(bg), padding: '24px 28px', color: tc, marginBottom: 20 }}>
-      <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{texto}</div>
+    <div style={{ background: bg, color, padding: '30px 32px', borderBottom: `4px solid ${INK}` }}>
+      <div style={{ ...display('clamp(24px,3.2vw,40px)', color) }}>{children}</div>
     </div>
   )
 }
 
 function Operaciones() {
   const filas = [
-    { c: 'Uber Eats', ped: 39, tk: '29,9 €', cc: VERDE }, { c: 'Glovo', ped: 31, tk: '30,3 €', cc: AMA },
-    { c: 'Just Eat', ped: 17, tk: '30,1 €', cc: NAR }, { c: 'Web', ped: 7, tk: '32,7 €', cc: ROSA },
+    { c: 'UBER EATS', ped: 39, tk: '29,9 €', cc: VERDE }, { c: 'GLOVO', ped: 31, tk: '30,3 €', cc: AMA },
+    { c: 'JUST EAT', ped: 17, tk: '30,1 €', cc: NAR }, { c: 'WEB', ped: 7, tk: '32,7 €', cc: AZUL },
   ]
   return (
     <>
-      {bandaTitular(<>Hoy llevas <span style={{ background: '#fff', color: NAR, padding: '0 8px', borderRadius: 6 }}>94 pedidos</span> y solo 2 cancelaciones.</>, NAR, '#fff')}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 16 }}>
-        {filas.map(f => (
-          <div key={f.c} style={{ ...box('#fff'), padding: '18px 20px' }}>
-            <span style={sticker(f.cc)}>{f.c}</span>
-            <div style={{ fontFamily: OSW, fontSize: 40, fontWeight: 700, marginTop: 10 }}>{f.ped}</div>
-            <div style={{ fontWeight: 600, color: '#6b5d45' }}>pedidos · ticket {f.tk}</div>
+      <Banda bg={NAR}>Hoy llevas <span style={{ background: '#fff', color: NAR, padding: '0 8px' }}>94 pedidos</span> y solo 2 caídas.</Banda>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)' }}>
+        {filas.map((f, i) => (
+          <div key={f.c} style={{ padding: '24px 30px', borderRight: i % 2 === 0 ? `4px solid ${INK}` : 'none', borderBottom: `4px solid ${INK}` }}>
+            <span style={eyebrow(f.cc, '#fff')}>{f.c}</span>
+            <div style={{ ...display('clamp(48px,7vw,76px)'), marginTop: 10 }}>{f.ped}</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>pedidos · ticket {f.tk}</div>
           </div>
         ))}
       </div>
@@ -173,43 +178,37 @@ function Operaciones() {
 }
 
 function Finanzas() {
-  const pnl = [
-    { n: 'Ventas', v: '+2.847 €', c: VERDE }, { n: 'Food cost', v: '−854 €', c: NAR },
-    { n: 'Comisiones', v: '−968 €', c: ROSA }, { n: 'Laboral', v: '−312 €', c: AZUL },
-  ]
+  const pnl = [{ n: 'VENTAS', v: '+2.847 €', c: VERDE }, { n: 'FOOD COST', v: '−854 €', c: NAR }, { n: 'COMISIONES', v: '−968 €', c: ROSA }, { n: 'LABORAL', v: '−312 €', c: AZUL }]
   return (
     <>
-      {bandaTitular(<>De cada venta, te quedan <span style={{ background: '#fff', color: VERDE, padding: '0 8px', borderRadius: 6 }}>25 céntimos</span> limpios.</>, VERDE, '#fff')}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 20 }}>
-        {pnl.map(r => (
-          <div key={r.n} style={{ ...box('#fff'), padding: '18px 20px' }}>
-            <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: '#6b5d45' }}>{r.n}</div>
-            <div style={{ fontFamily: OSW, fontSize: 34, fontWeight: 700, marginTop: 6, color: r.c }}>{r.v}</div>
+      <Banda bg={VERDE}>De cada venta, <span style={{ background: '#fff', color: VERDE, padding: '0 8px' }}>25 cént.</span> limpios.</Banda>
+      <div style={{ borderBottom: `4px solid ${INK}` }}>
+        {pnl.map((r, i) => (
+          <div key={r.n} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px', borderTop: i === 0 ? 'none' : `2px solid ${INK}33` }}>
+            <span style={{ ...display('clamp(20px,2.4vw,28px)') }}>{r.n}</span>
+            <span style={{ ...display('clamp(24px,3vw,38px)', r.c) }}>{r.v}</span>
           </div>
         ))}
       </div>
-      <div style={{ ...box(AMA), padding: '22px 26px' }}>
-        <div style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Resultado neto</div>
-        <div style={{ fontFamily: OSW, fontSize: 56, fontWeight: 700, lineHeight: 1, marginTop: 4 }}>+713 €</div>
+      <div style={{ background: AMA, padding: '28px 32px' }}>
+        <span style={eyebrow('#fff')}>Resultado neto</span>
+        <div style={{ ...display('clamp(56px,9vw,104px)'), marginTop: 8 }}>+713 €</div>
       </div>
     </>
   )
 }
 
 function Cashflow() {
-  const cobrar = [
-    { n: 'Uber Eats', v: '1.840 €', c: VERDE }, { n: 'Glovo', v: '1.210 €', c: AMA },
-    { n: 'Just Eat', v: '760 €', c: NAR }, { n: 'Web', v: '400 €', c: ROSA },
-  ]
+  const cobrar = [{ n: 'UBER', v: '1.840 €', c: VERDE }, { n: 'GLOVO', v: '1.210 €', c: AMA }, { n: 'JUST EAT', v: '760 €', c: NAR }, { n: 'WEB', v: '400 €', c: AZUL }]
   return (
     <>
-      {bandaTitular(<>Te deben <span style={{ background: '#fff', color: ROSA, padding: '0 8px', borderRadius: 6 }}>4.210 €</span>. Uber concentra casi la mitad.</>, ROSA, '#fff')}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 16 }}>
-        {cobrar.map(c => (
-          <div key={c.n} style={{ ...box('#fff'), padding: '18px 20px' }}>
-            <span style={sticker(c.c)}>{c.n}</span>
-            <div style={{ fontFamily: OSW, fontSize: 34, fontWeight: 700, marginTop: 10 }}>{c.v}</div>
-            <div style={{ fontWeight: 600, color: '#6b5d45' }}>por cobrar</div>
+      <Banda bg={ROSA}>Te deben <span style={{ background: '#fff', color: ROSA, padding: '0 8px' }}>4.210 €</span>. Uber, casi la mitad.</Banda>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)' }}>
+        {cobrar.map((c, i) => (
+          <div key={c.n} style={{ padding: '24px 30px', borderRight: i % 2 === 0 ? `4px solid ${INK}` : 'none', borderBottom: `4px solid ${INK}` }}>
+            <span style={eyebrow(c.c, '#fff')}>{c.n}</span>
+            <div style={{ ...display('clamp(40px,6vw,68px)'), marginTop: 10 }}>{c.v}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>por cobrar</div>
           </div>
         ))}
       </div>
@@ -223,12 +222,12 @@ function Evolucion() {
   const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${h - (p / 100) * h}`).join(' ')
   return (
     <>
-      {bandaTitular(<>Este mes facturas <span style={{ background: '#fff', color: AZUL, padding: '0 8px', borderRadius: 6 }}>74.200 €</span>, un 8,3 % más que el anterior.</>, AZUL, '#fff')}
-      <div style={{ ...box('#fff'), padding: '22px 24px' }}>
-        <div style={sticker(AMA)}>Ventas · 12 meses</div>
-        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 190, marginTop: 14 }} preserveAspectRatio="none">
+      <Banda bg={AZUL}>Este mes <span style={{ background: '#fff', color: AZUL, padding: '0 8px' }}>74.200 €</span>, +8,3 %.</Banda>
+      <div style={{ padding: '26px 32px' }}>
+        <span style={eyebrow(AMA)}>Ventas · 12 meses</span>
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 220, marginTop: 16, border: `3px solid ${INK}`, background: '#fff' }} preserveAspectRatio="none">
           <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={`${ROSA}22`} />
-          <path d={path} fill="none" stroke={ROSA} strokeWidth={4} strokeLinejoin="round" />
+          <path d={path} fill="none" stroke={ROSA} strokeWidth={5} strokeLinejoin="round" />
         </svg>
       </div>
     </>
@@ -236,21 +235,16 @@ function Evolucion() {
 }
 
 function Marcas() {
-  const marcas = [
-    { n: 'Ninja Ramen & Katsu', v: 780, pct: 100, c: ROSA }, { n: 'La Cocina de Carmucha', v: 540, pct: 69, c: AMA },
-    { n: 'Pasta Manía Italiana', v: 470, pct: 60, c: AZUL }, { n: 'Greta la Green', v: 410, pct: 53, c: VERDE },
-  ]
+  const marcas = [{ n: 'Ninja Ramen & Katsu', v: '780 €' }, { n: 'La Cocina de Carmucha', v: '540 €' }, { n: 'Pasta Manía Italiana', v: '470 €' }, { n: 'Greta la Green', v: '410 €' }]
   return (
     <>
-      {bandaTitular(<><span style={{ background: '#fff', color: ROSA, padding: '0 8px', borderRadius: 6 }}>Ninja Ramen</span> es tu marca estrella hoy.</>, ROSA, '#fff')}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Banda bg={ROSA}><span style={{ background: '#fff', color: ROSA, padding: '0 8px' }}>Ninja Ramen</span> es tu estrella hoy.</Banda>
+      <div style={{ padding: '8px 32px 0' }}>
         {marcas.map((m, i) => (
-          <div key={m.n} style={{ ...box(i === 0 ? AMA : '#fff'), padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, opacity: 0.5 }}>{i + 1}</span>
-              <span style={{ fontWeight: 600, fontSize: 17 }}>{m.n}</span>
-            </div>
-            <span style={{ fontFamily: OSW, fontSize: 28, fontWeight: 700 }}>{m.v} €</span>
+          <div key={m.n} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 0', borderTop: i === 0 ? 'none' : `2px solid ${INK}33` }}>
+            <span style={{ ...display('clamp(40px,6vw,64px)', i === 0 ? ROSA : INK), width: 80 }}>{String(i + 1).padStart(2, '0')}</span>
+            <span style={{ ...display('clamp(20px,2.8vw,32px)') }}>{m.n}</span>
+            <span style={{ ...display('clamp(24px,3.4vw,40px)'), marginLeft: 'auto' }}>{m.v}</span>
           </div>
         ))}
       </div>
