@@ -62,10 +62,49 @@ const lightT: TokenSet = {
   accent:   '#FF4757',
 }
 
+/* ── Pieles candidatas (solo Test Visual) ─────────────────────
+   foodpop  → modo claro pop (teal + pastel)
+   darkops  → modo oscuro operativo (monitoring)
+   Se aplican forzando theme='foodpop' | 'darkops' en un provider
+   anidado dentro de la página Test Visual. No afectan al resto. */
+
+const foodpopT: TokenSet = {
+  bg:       '#15BDB8',
+  group:    '#eafffe',
+  card:     '#ffffff',
+  brd:      '#062e2c',
+  pri:      '#062e2c',
+  sec:      '#0b4a47',
+  mut:      '#3f6f6c',
+  inp:      '#ffffff',
+  emphasis: '#FF5FA2',
+  accent:   '#FF5FA2',
+}
+
+const darkopsT: TokenSet = {
+  bg:       '#0c0e14',
+  group:    '#11131a',
+  card:     '#141823',
+  brd:      '#222736',
+  pri:      '#e7eaf2',
+  sec:      '#8b91a0',
+  mut:      '#5b6172',
+  inp:      '#141823',
+  emphasis: '#7b61ff',
+  accent:   '#3ecf8e',
+}
+
+const THEME_TOKENS: Record<string, TokenSet> = {
+  dark: darkT,
+  light: lightT,
+  foodpop: foodpopT,
+  darkops: darkopsT,
+}
+
 export function useTheme(): { T: TokenSet; isDark: boolean } {
   const { theme } = useThemeContext()
-  const isDark = theme === 'dark'
-  return { T: isDark ? darkT : lightT, isDark }
+  const isDark = theme === 'dark' || theme === 'darkops'
+  return { T: THEME_TOKENS[theme] ?? darkT, isDark }
 }
 
 /* ═══════════════════════════════════════════════════════════
