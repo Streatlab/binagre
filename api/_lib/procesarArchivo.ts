@@ -43,6 +43,7 @@ import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
 import type { ResumenVentaPlataforma } from './parser-resumen-plataforma.js'
 import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
 import { ingestarPedidosPlataforma } from './ingestaPlatos.js'
+import { intentarVentaPlataforma } from './volcarVentasPlataforma.js'
 
 export type ProcesarEstado =
   | 'duplicada'
@@ -229,6 +230,15 @@ export async function procesarArchivo(
     await respaldarEnStorage(file.buffer, file.nombre, hashArchivo)
   } catch (e) {
     console.error('[procesarArchivo] respaldo inicial falló:', e instanceof Error ? e.message : String(e))
+  }
+
+  // VENTAS DE PLATAFORMA (antes de tratar nada como factura): factura Just Eat (.doc)
+  // o liquidación Glovo (ZIP) → ventas_plataforma + % Prime/Promo. Si lo es, termina aquí.
+  try {
+    const vp = await intentarVentaPlataforma(supabase, file, tipo)
+    if (vp) return [vp]
+  } catch (e) {
+    console.error('[procesarArchivo] venta plataforma falló:', e instanceof Error ? e.message : String(e))
   }
 
   let contenido: ContenidoExtraido
