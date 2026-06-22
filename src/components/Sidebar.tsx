@@ -13,6 +13,7 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
+  FlaskConical,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
@@ -488,6 +489,50 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   {tareasBadge > 9 ? '9+' : tareasBadge}
                 </span>
               )}
+            </NavLink>
+          )}
+
+          {(!collapsed && perfil === 'admin') && (
+            <NavLink
+              to="/test-visual"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                width: '100%',
+                background: isActive ? '#B01D23' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 10,
+                padding: '6px 14px 6px 12px',
+                fontFamily: FONT.heading,
+                fontSize: 14.5,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: isActive ? '#ffffff' : mainLabelColor,
+                textDecoration: 'none',
+                transition: 'background 150ms',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <FlaskConical size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
+                  <span>Test Visual</span>
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {collapsed && perfil === 'admin' && (
+            <NavLink
+              to="/test-visual"
+              onClick={onClose}
+              title="Test Visual"
+              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+            >
+              <FlaskConical size={20} strokeWidth={1.8} color="#B01D23" />
             </NavLink>
           )}
 
