@@ -8,7 +8,7 @@ interface ThemeContextType {
   setTheme: (t: Theme) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ theme: 'dark', toggleTheme: () => {}, setTheme: () => {} });
+export const ThemeContext = createContext<ThemeContextType>({ theme: 'dark', toggleTheme: () => {}, setTheme: () => {} });
 
 /* ── Automatismo horario (horario de Madrid, con verano/invierno) ──────────
    Verano (DST Madrid):  oscuro a las 21:00 · claro a las 07:00
