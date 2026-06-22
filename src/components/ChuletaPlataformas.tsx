@@ -7,7 +7,7 @@ import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 // la altura de las dos cards vecinas en la fila de 3 columnas.
 
 const ITEMS: { marca: string; color: string; borde?: string; docs: string[] }[] = [
-  { marca: 'Glovo', color: COLORS.glovo, borde: COLORS.glovoDark, docs: ['Factura (PDF)', 'CSV de la factura'] },
+  { marca: 'Glovo', color: COLORS.glovo, borde: COLORS.glovoDark, docs: ['Factura (PDF)', 'CSV de la factura', 'Historial de pedidos'] },
   { marca: 'Uber Eats', color: COLORS.uber, docs: ['Factura (PDF)', 'Detalle de ganancias nivel artículo', 'Resumen de ganancias'] },
   { marca: 'Just Eat', color: COLORS.je, docs: ['Factura (PDF)', 'Sincro · Sold Products'] },
 ]
