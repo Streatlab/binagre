@@ -63,8 +63,17 @@ export default function Esquemas() {
   const [verHistorico, setVerHistorico] = useState(false)
   const [editando, setEditando] = useState<Esquema | 'nuevo' | null>(null)
   const [gestorGamas, setGestorGamas] = useState(false)
+  const [imprimiendoTodo, setImprimiendoTodo] = useState(false)
 
   useEffect(() => { cargar() }, [])
+
+  useEffect(() => {
+    if (!imprimiendoTodo) return
+    const after = () => setImprimiendoTodo(false)
+    window.addEventListener('afterprint', after)
+    const t = setTimeout(() => window.print(), 350)
+    return () => { clearTimeout(t); window.removeEventListener('afterprint', after) }
+  }, [imprimiendoTodo])
 
   async function cargar() {
     setLoading(true)
@@ -88,9 +97,14 @@ export default function Esquemas() {
     , [esquemas, gamaActiva, verHistorico])
 
   function imprimir() { window.print() }
+  function imprimirTodo() { setImprimiendoTodo(true) }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
   if (error) return <div style={{ padding: 32, color: '#B01D23', fontFamily: FONT.body }}>{error}</div>
+
+  const todasGamasVigentes = gamas
+    .map(g => ({ g, platos: esquemas.filter(e => e.gama === g.nombre && e.estado === 'vigente') }))
+    .filter(x => x.platos.length > 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -106,6 +120,7 @@ export default function Esquemas() {
           <button onClick={() => setGestorGamas(true)} style={btnGhost(T)}><Tags size={16} /> Gamas</button>
           <button onClick={() => setVerHistorico(v => !v)} style={verHistorico ? btnPrimary : btnGhost(T)}><History size={16} /> {verHistorico ? 'Ver vigentes' : 'Histórico'}</button>
           <button onClick={imprimir} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
+          <button onClick={imprimirTodo} style={btnPrimary}><Printer size={16} /> Imprimir todo (PDF)</button>
         </div>
       </div>
 
@@ -116,20 +131,30 @@ export default function Esquemas() {
         ))}
       </div>
 
-      {/* ÁREA DE IMPRESIÓN: título de gama grande arriba + maqueta. Envueltos juntos para que al imprimir el título no quede tapado por la rejilla. */}
-      <div className="print-area">
-        {/* TÍTULO IMPRESIÓN (solo visible al imprimir) */}
-        <div className="solo-print" style={{ display: 'none' }}>
-          <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
+      {/* ÁREA DE IMPRESIÓN */}
+      {imprimiendoTodo ? (
+        <div className="print-area">
+          {todasGamasVigentes.map(({ g, platos }, gi) => (
+            <div key={g.id} style={{ breakBefore: gi > 0 ? 'page' : 'auto' }}>
+              <div className="print-gama">{g.nombre}</div>
+              <div className="print-grid esquemas-masonry">
+                {platos.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => {}} onChange={cargar} />)}
+              </div>
+            </div>
+          ))}
         </div>
-
-        {/* MAQUETA: masonry por columnas → sin huecos, máximo por hoja */}
-        <div className="print-grid esquemas-masonry">
-          {visibles.length === 0
-            ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
-            : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
+      ) : (
+        <div className="print-area">
+          <div className="solo-print" style={{ display: 'none' }}>
+            <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
+          </div>
+          <div className="print-grid esquemas-masonry">
+            {visibles.length === 0
+              ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
+              : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
+          </div>
         </div>
-      </div>
+      )}
 
       {editando && (
         <ModalFicha
@@ -168,11 +193,11 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
           ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
           : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
       </div>
-      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#1a1a1a', color: '#fff', fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, textAlign: 'center', padding: '8px 6px', letterSpacing: '0.5px' }}>{e.nombre}</div>
-      <div style={{ padding: '6px 4px' }}>
+      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Anton','Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
+      <div style={{ padding: '5px 9px 6px' }}>
         {e.lineas.map((l, i) => l.tipo === 'accion'
-          ? <div key={i} className="print-act" style={{ background: '#1a1a1a', color: '#fff', fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, textAlign: 'center', borderRadius: 12, padding: '3px 0', margin: '3px 10px', letterSpacing: '0.5px' }}>{l.texto}</div>
-          : <div key={i} className="print-ing" style={{ fontFamily: FONT.body, fontSize: 15, textAlign: 'center', padding: '1px 0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+          ? <div key={i} className="print-act" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center', borderTop: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderBottom: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, padding: '2px 0', margin: '5px 8px', letterSpacing: '1px' }}>{l.texto}</div>
+          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
         )}
       </div>
       {archivado && e.archivado_at && (
@@ -394,6 +419,7 @@ const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: 
 
 // Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: A4 vertical B/N compacto.
 const PRINT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
 .esquemas-masonry { column-count: 4; column-gap: 14px; }
 .esquemas-masonry .esquema-card { break-inside: avoid; margin-bottom: 14px; display: inline-block; width: 100%; }
 @media (max-width: 1100px) { .esquemas-masonry { column-count: 3; } }
@@ -401,17 +427,17 @@ const PRINT_CSS = `
 @media (max-width: 520px)  { .esquemas-masonry { column-count: 1; } }
 
 @media print {
-  @page { size: A4 portrait; margin: 9mm; }
+  @page { size: A4 portrait; margin: 6mm; }
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
   .no-print { display: none !important; }
   .solo-print { display: block !important; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #B01D23; text-align: center; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-grid { column-count: 3 !important; column-gap: 11px; }
-  .print-card { break-inside: avoid; margin-bottom: 11px; border: 2px solid #1a1a1a !important; border-radius: 9px; }
-  .print-head { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-act { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-ing { color: #1a1a1a !important; }
+  .print-area { position: absolute; left: 0; right: 0; top: 0; padding: 10mm; box-sizing: border-box; }
+  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: #1a1a1a; text-align: center; margin: 0 0 13px; padding: 9px 8px; border-radius: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-grid { column-count: 3 !important; column-gap: 15px; }
+  .print-card { break-inside: avoid; margin-bottom: 16px; border: 1.5px solid #1a1a1a !important; border-radius: 6px; box-sizing: border-box; }
+  .print-head { background: #e2e2e2 !important; color: #1a1a1a !important; font-family: 'Anton','Oswald',sans-serif !important; font-size: 31px !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0.5px !important; border-bottom: 2px solid #1a1a1a !important; padding: 6px 8px 5px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-act { background: transparent !important; color: #1a1a1a !important; border-top: 2px solid #1a1a1a !important; border-bottom: 2px solid #1a1a1a !important; border-radius: 0 !important; margin: 5px 8px !important; }
+  .print-ing { color: #1a1a1a !important; font-family: 'Barlow Semi Condensed','Oswald',sans-serif !important; font-weight: 600 !important; font-size: 16px !important; line-height: 1.1 !important; }
 }
 `

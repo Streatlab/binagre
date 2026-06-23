@@ -2,28 +2,22 @@
  * Tab Resumen v3 — Panel Global
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
- * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo),
- * no por días del rango, para no hundir el resultado en semanas a medio cargar.
+ * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
+ * 23 jun 2026: presentación en ResumenLanding (look "landing") + frase-insight dinámica.
+ * Toda la lógica de cálculo/guardado vive aquí.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
-import { COLOR, LEXEND, row3 } from './tokens'
+import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useEsMovil } from '@/hooks/useEsMovil'
-import CardVentas from './CardVentas'
-import CardPedidosTM from './CardPedidosTM'
-import CardResultadoPeriodo from './CardResultadoPeriodo'
-import ColFacturacionCanal from './ColFacturacionCanal'
-import ColGruposGasto, { type GrupoGasto } from './ColGruposGasto'
-import ColDiasPico, { type DiaPico } from './ColDiasPico'
-import CardSaldo from './CardSaldo'
-import CardRatio from './CardRatio'
-import CardPE from './CardPE'
-import CardProvisiones from './CardProvisiones'
-import CardTopVentas from './CardTopVentas'
+import ResumenLanding from './ResumenLanding'
+import { elegirFrase } from './frasesInsight'
+import { type GrupoGasto } from './ColGruposGasto'
+import { type DiaPico } from './ColDiasPico'
 import type {
   RowFacturacion, CanalStat, ObjetivosVentas, PagoProximoItem,
   TopVentaItem,
@@ -117,6 +111,7 @@ export default function TabResumen({
   rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana,
 }: Props) {
   const navigate = useNavigate()
+  void periodoLabel
 
   /* ── state datos BD ──────────────────────────── */
   const [objetivos, setObjetivos] = useState<ObjetivosVentas>({
@@ -140,12 +135,14 @@ export default function TabResumen({
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
   const [toasts, setToasts] = useState<ToastMsg[]>([])
   const isMobile = useEsMovil()
+  void isMobile
 
   const showToast = useCallback((msg: string, type: 'success' | 'warning') => {
     const id = Date.now()
     setToasts(p => [...p, { id, msg, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000)
   }, [])
+  void showToast
 
   /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
   useEffect(() => {
@@ -158,8 +155,6 @@ export default function TabResumen({
     window.addEventListener('config_canales:changed', onChange)
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
-
-  /* ── fetch nº marcas por canal · ya gestionado en useEffect anterior con loadMarcasPorCanal ── */
 
   /* ── fetch objetivos ventas ─────────────────── */
   const loadObjetivos = useCallback(async () => {
@@ -351,7 +346,14 @@ export default function TabResumen({
   }, [rowsAll])
 
   const nSemana = isoWeek(new Date())
-  const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' })
+  const inicioSemStr = startOfWeekStr()
+  const inicioSem = parseLocalDate(inicioSemStr)
+  const finSem = new Date(inicioSem); finSem.setDate(inicioSem.getDate() + 6)
+  const fmtDM = (dt: Date) => dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  const semanaLabel = `Semana ${nSemana}`
+  const semanaRango = `${fmtDM(inicioSem)} – ${fmtDM(finSem)}`
+  const nombreMesRaw = new Date().toLocaleDateString('es-ES', { month: 'long' })
+  const mesLabel = nombreMesRaw.charAt(0).toUpperCase() + nombreMesRaw.slice(1)
   const ano = new Date().getFullYear()
 
   const netosReales = useMemo(() => {
@@ -374,8 +376,6 @@ export default function TabResumen({
       .reduce((a, g) => a + (Number(g.importe) || 0), 0)
   }, [gastos, fechaDesde, fechaHasta])
 
-  const resultadoLimpio = netosReales - totalGastosPeriodo
-
   const { ebitda, ebitdaPct, primeCostPct } = useMemo(() => {
     const cogs = peParams ? netoEstimado * (peParams.food_cost_pct / 100) : netoEstimado * 0.28
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos) : 0
@@ -386,11 +386,6 @@ export default function TabResumen({
     const ebPct = netoEstimado > 0 ? (eb / netoEstimado) * 100 : 0
     return { ebitda: eb, ebitdaPct: ebPct, primeCostPct: pc }
   }, [netoEstimado, totalGastosPeriodo, peParams, fechaDesde, fechaHasta])
-
-  const ebitdaDeltaPp = useMemo(() => {
-    if (!variacionVentas) return null
-    return variacionVentas / 10
-  }, [variacionVentas])
 
   const gruposData = useMemo(() => {
     const desde = toLocalDateStr(fechaDesde)
@@ -486,11 +481,13 @@ export default function TabResumen({
       peParams.think_paladar + peParams.otros_fijos
   }, [peParams])
 
+  const ratioActual = gastosFijosMes > 0 ? netoEstimado / gastosFijosMes : 0
+
   const peCalc = useMemo(() => {
     if (!peParams || gastosFijosMes <= 0) {
       return {
         peBruto: 0, peNeto: 0, acumulado: ventasMes,
-        pctProgreso: 0, diaVerdeEstimado: null,
+        pctProgreso: 0, diaVerdeEstimado: null as { fecha: string; diaSemana: string } | null,
         facturacionDia: 0, pedidosDia: 0, tmActual: tmBruto,
         realFacDia: 0, realPedDia: 0,
       }
@@ -611,6 +608,26 @@ export default function TabResumen({
     )
   }
 
+  /* ── frase-insight dinámica + objetivo diario si el periodo es hoy ── */
+  const webPctV = canalStats.find(c => c.id === 'web')?.pct ?? 0
+  const frase = elegirFrase({
+    comisionPct: ventasPeriodo > 0 ? (1 - netoEstimado / ventasPeriodo) * 100 : 0,
+    webPct: webPctV,
+    margenNetoPct: ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0,
+    variacionVentas,
+    primeCostPct,
+    ratioActual,
+    ratioObjetivo: objetivoRatio,
+    pePctProgreso: peCalc.pctProgreso,
+    ebitda,
+    faltaPE: Math.max(0, peCalc.peBruto - peCalc.acumulado),
+  })
+  const sameDay = toLocalDateStr(fechaDesde) === toLocalDateStr(fechaHasta)
+  const esHoy = sameDay && toLocalDateStr(fechaHasta) === toLocalDateStr(new Date())
+  const diario = esHoy ? { objetivo: objetivos.diario, real: ventasPeriodo } : null
+
+  void navigate
+
   return (
     <div style={{
       background: COLOR.bgPagina,
@@ -620,22 +637,6 @@ export default function TabResumen({
       borderRadius: 12,
       marginTop: 18,
     }}>
-
-      {datosDemo && (
-        <div style={{
-          background: '#fff7e6',
-          border: `1px solid ${COLOR.ambar}`,
-          color: COLOR.jeDark,
-          padding: '8px 14px',
-          borderRadius: 8,
-          fontSize: 12,
-          fontFamily: LEXEND,
-          marginBottom: 14,
-          textAlign: 'center',
-        }}>
-          datos demo · BD vacía o sin datos en este periodo
-        </div>
-      )}
 
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {toasts.map(t => (
@@ -647,113 +648,50 @@ export default function TabResumen({
         ))}
       </div>
 
-      <div style={{
-        ...row3,
-        marginBottom: 14,
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-      }}>
-        <CardVentas
-          bruto={ventasPeriodo}
-          netoEstimado={netoEstimado}
-          variacionPct={variacionVentas}
-          ventasSemana={ventasSemana}
-          ventasMes={ventasMes}
-          ventasAno={ventasAno}
-          nSemana={nSemana}
-          mes={new Date().getMonth() + 1}
-          ano={ano}
-          objetivos={objetivos}
-          onSaveObjetivo={saveObjetivoVenta}
-          refetchObjetivos={loadObjetivos}
-          toast={showToast}
-        />
-        <CardPedidosTM
-          pedidos={pedidosPeriodo}
-          tmBruto={tmBruto}
-          tmNeto={tmNeto}
-          pedidosDeltaPct={variacionPedidos}
-          tmDeltaPct={variacionTM}
-          canales={canalStats}
-        />
-        <CardResultadoPeriodo
-          ebitda={ebitda}
-          ebitdaPct={ebitdaPct}
-          deltaPp={ebitdaDeltaPp}
-          netosEstimados={netoEstimado}
-          netosReales={netosReales}
-          totalGastos={totalGastosPeriodo}
-          resultadoLimpio={resultadoLimpio}
-          primeCostPct={primeCostPct}
-          facturacionBruta={ventasPeriodo}
-          margenNetoEstimadoPct={ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0}
-          gastosPorGrupo={{
-            producto: gruposData.producto.gasto,
-            equipo: gruposData.equipo.gasto,
-            local: gruposData.local.gasto,
-            controlables: gruposData.controlables.gasto,
-          }}
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-        />
-      </div>
-
-      <div style={{
-        ...row3,
-        marginBottom: 14,
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-      }}>
-        <ColFacturacionCanal canales={canalStats} />
-        <ColGruposGasto
-          data={gruposData}
-          onSavePresupuesto={savePresupuestoGrupo}
-          onToast={showToast}
-        />
-        <ColDiasPico
-          dias={diasPico}
-          media={mediaDiariaPico}
-          nombreMes={periodoLabel ?? nombreMes}
-          fechaDesde={fechaDesde}
-          fechaHasta={fechaHasta}
-          onClickDia={onFiltrarDiaSemana}
-        />
-      </div>
-
-      <div style={{
-        ...row3,
-        marginBottom: 14,
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-      }}>
-        <CardSaldo />
-        <CardRatio
-          netosEstimados={netoEstimado}
-          netosReales={netosReales}
-          gastosFijos={gastosFijosMes}
-          gastosReales={totalGastosPeriodo}
-          objetivo={objetivoRatio}
-          onSaveObjetivo={saveObjetivoRatio}
-          onToast={showToast}
-        />
-        <CardPE {...peCalc} />
-      </div>
-
-      <div style={{
-        ...row3,
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
-      }}>
-        <CardProvisiones
-          totalAGuardar={totalAGuardar}
-          provIVA={provIVA}
-          provIRPF={provIRPF}
-          proximosPagos={proximosPagos}
-        />
-        <CardTopVentas
-          tab={topTab}
-          onTab={setTopTab}
-          items={topItems}
-          datosDemo={topDatosDemo}
-        />
-        <div />
-      </div>
+      <ResumenLanding
+        datosDemo={datosDemo}
+        semanaLabel={semanaLabel}
+        semanaRango={semanaRango}
+        mesLabel={mesLabel}
+        anoLabel={ano}
+        ventasPeriodo={ventasPeriodo}
+        netoEstimado={netoEstimado}
+        variacionVentas={variacionVentas}
+        pedidosPeriodo={pedidosPeriodo}
+        tmBruto={tmBruto}
+        tmNeto={tmNeto}
+        variacionPedidos={variacionPedidos}
+        variacionTM={variacionTM}
+        ebitda={ebitda}
+        ebitdaPct={ebitdaPct}
+        primeCostPct={primeCostPct}
+        ventasSemana={ventasSemana}
+        ventasMes={ventasMes}
+        ventasAno={ventasAno}
+        objetivos={objetivos}
+        diario={diario}
+        canalStats={canalStats}
+        grupos={gruposData}
+        diasPico={diasPico}
+        mediaDiariaPico={mediaDiariaPico}
+        saldo={saldoData}
+        ratioActual={ratioActual}
+        objetivoRatio={objetivoRatio}
+        gastosFijosMes={gastosFijosMes}
+        gastosReales={totalGastosPeriodo}
+        netosReales={netosReales}
+        pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, faltan: Math.max(0, peCalc.peBruto - peCalc.acumulado), diaVerdeEstimado: peCalc.diaVerdeEstimado, realFacDia: peCalc.realFacDia, realPedDia: peCalc.realPedDia }}
+        provisiones={{ totalAGuardar, provIVA, provIRPF, proximosPagos }}
+        topItems={topItems}
+        topDatosDemo={topDatosDemo}
+        topTab={topTab}
+        onTopTab={setTopTab}
+        frase={frase}
+        onSaveObjetivoVenta={saveObjetivoVenta}
+        onSaveObjetivoRatio={saveObjetivoRatio}
+        onSavePresupuestoGrupo={savePresupuestoGrupo}
+        onFiltrarDiaSemana={onFiltrarDiaSemana}
+      />
     </div>
   )
 }

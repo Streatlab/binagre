@@ -207,6 +207,7 @@ function AppRoutes() {
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
           <Route path="test-visual" element={<ProtectedRoute solo={['admin']}><TestVisual /></ProtectedRoute>} />
+          <Route path="test-visual/:modulo" element={<ProtectedRoute solo={['admin']}><TestVisual /></ProtectedRoute>} />
 
           <Route path="importador" element={<Navigate to="/ocr" replace />} />
           <Route path="ocr" element={<ProtectedRoute solo={['admin']}><OcrConToast /></ProtectedRoute>} />
