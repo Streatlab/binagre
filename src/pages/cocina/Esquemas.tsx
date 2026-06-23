@@ -168,11 +168,11 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
           ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
           : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
       </div>
-      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#1a1a1a', color: '#fff', fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, textAlign: 'center', padding: '8px 6px', letterSpacing: '0.5px' }}>{e.nombre}</div>
-      <div style={{ padding: '6px 4px' }}>
+      <div className="print-head" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, textAlign: 'center', padding: '5px 4px 4px', letterSpacing: '0.5px', borderBottom: `3px solid ${isDark ? T.brd : '#1a1a1a'}` }}>{e.nombre}</div>
+      <div style={{ padding: '5px 6px' }}>
         {e.lineas.map((l, i) => l.tipo === 'accion'
-          ? <div key={i} className="print-act" style={{ background: '#1a1a1a', color: '#fff', fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, textAlign: 'center', borderRadius: 12, padding: '3px 0', margin: '3px 10px', letterSpacing: '0.5px' }}>{l.texto}</div>
-          : <div key={i} className="print-ing" style={{ fontFamily: FONT.body, fontSize: 15, textAlign: 'center', padding: '1px 0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+          ? <div key={i} className="print-act" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center', borderTop: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderBottom: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, padding: '2px 0', margin: '5px 0', letterSpacing: '1px' }}>{l.texto}</div>
+          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1.18, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
         )}
       </div>
       {archivado && e.archivado_at && (
@@ -394,6 +394,7 @@ const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: 
 
 // Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: A4 vertical B/N compacto.
 const PRINT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
 .esquemas-masonry { column-count: 4; column-gap: 14px; }
 .esquemas-masonry .esquema-card { break-inside: avoid; margin-bottom: 14px; display: inline-block; width: 100%; }
 @media (max-width: 1100px) { .esquemas-masonry { column-count: 3; } }
@@ -407,11 +408,11 @@ const PRINT_CSS = `
   .no-print { display: none !important; }
   .solo-print { display: block !important; }
   .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #B01D23; text-align: center; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid #1a1a1a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: #1a1a1a; text-align: center; margin: 0 0 13px; padding: 9px 8px; border-radius: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-grid { column-count: 3 !important; column-gap: 11px; }
-  .print-card { break-inside: avoid; margin-bottom: 11px; border: 2px solid #1a1a1a !important; border-radius: 9px; }
-  .print-head { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-act { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-ing { color: #1a1a1a !important; }
+  .print-card { break-inside: avoid; margin-bottom: 11px; border: 1.5px solid #1a1a1a !important; border-radius: 6px; }
+  .print-head { background: transparent !important; color: #1a1a1a !important; border-bottom: 3px solid #1a1a1a !important; }
+  .print-act { background: transparent !important; color: #1a1a1a !important; border-top: 2px solid #1a1a1a !important; border-bottom: 2px solid #1a1a1a !important; border-radius: 0 !important; margin: 5px 0 !important; }
+  .print-ing { color: #1a1a1a !important; font-family: 'Barlow Semi Condensed','Oswald',sans-serif !important; font-size: 16px !important; line-height: 1.18 !important; }
 }
 `
