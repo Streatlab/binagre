@@ -921,7 +921,7 @@ const FICHA_CSS = `
 .inv-head-sub { font-size: 13px; font-weight: 500; }
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
-.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #8a1a22; background: rgba(176,29,35,0.06); padding: 7px 14px; border-bottom: 2px solid rgba(176,29,35,0.30); }
+.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #fff; background: #8a1a22; padding: 7px 14px; border-bottom: 2px solid #6b1218; }
 .inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
 .inv-name { flex: 0 0 auto; display: flex; align-items: center; white-space: nowrap; padding: 1px 12px; font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 500; color: var(--text-primary); }
 .inv-min-inline { margin-left: 8px; color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
