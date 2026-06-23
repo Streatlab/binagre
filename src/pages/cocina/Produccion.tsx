@@ -4,6 +4,7 @@ import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil, FileD
 import { jsPDF } from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import Esquemas from '@/pages/cocina/Esquemas'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -428,7 +429,7 @@ function descargarInventarioTodosPDF(ubis: InvUbi[]) {
 
 export default function Produccion() {
   const { T, isDark } = useTheme()
-  const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario'>('lista')
+  const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario' | 'esquemas'>('lista')
   const [secciones, setSecciones] = useState<Seccion[]>([])
   const [partidas, setPartidas] = useState<Partida[]>([])
   const [inventario, setInventario] = useState<InvItem[]>([])
@@ -452,6 +453,7 @@ export default function Produccion() {
     { key: 'lista', label: 'Lista de Producción' },
     { key: 'camara', label: 'Ordenación de Cámara' },
     { key: 'inventario', label: 'Inventario Permanente' },
+    { key: 'esquemas', label: 'Esquemas' },
   ]
 
   return (
@@ -465,7 +467,7 @@ export default function Produccion() {
 
       <div style={tabsContainerStyle()} className="no-print">
         {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario')}
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario' | 'esquemas')}
             style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
             {tab.label}
           </button>
@@ -478,8 +480,10 @@ export default function Produccion() {
         <TabListaProduccion T={T} secciones={secciones} partidas={partidas} onChanged={cargarBase} />
       ) : activeTab === 'camara' ? (
         <TabOrdenacionCamara T={T} secciones={secciones} partidas={partidas} />
-      ) : (
+      ) : activeTab === 'inventario' ? (
         <TabInventarioPermanente T={T} inventario={inventario} />
+      ) : (
+        <Esquemas />
       )}
     </div>
   )
