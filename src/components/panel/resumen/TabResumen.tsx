@@ -1,8 +1,8 @@
 /**
- * Tab Resumen v7 — Panel Global
+ * Tab Resumen v8 — Panel Global
  * Lógica de cálculo (la presentación está en ResumenLanding).
- * v7: ranking de MARCAS reales con bruto, pedidos, TM bruto y serie de evolución
- * (facturación bruta por periodo de liquidación, ventas_plataforma 90d).
+ * v8 (tanda 2): variación por marca (sube/baja), proyección de cierre de mes
+ * (a este ritmo) y coste por pedido real (comisión de plataforma + producto).
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -37,7 +37,7 @@ interface Props {
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie: number[] }
+interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie: number[]; varPct: number | null }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -365,6 +365,14 @@ export default function TabResumen({
   const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
   const margenNetoReal = ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0
 
+  /* ── coste por pedido real: comisión de plataforma + coste de producto ── */
+  const costePorPedido = useMemo(() => {
+    const comision = pedidosPeriodo > 0 ? (ventasPeriodo - netoEstimado) / pedidosPeriodo : 0
+    const fcPct = peParams ? peParams.food_cost_pct / 100 : 0.28
+    const producto = pedidosPeriodo > 0 ? (netoEstimado * fcPct) / pedidosPeriodo : 0
+    return { comision, producto, total: comision + producto }
+  }, [ventasPeriodo, netoEstimado, pedidosPeriodo, peParams])
+
   /* ── deuda de plataformas a hoy (misma fuente que Cashflow) ── */
   const porCobrar: PorCobrarResult = useMemo(
     () => calcPorCobrar(rowsAll as unknown as Parameters<typeof calcPorCobrar>[0], { config: configCanales, marcasPorCanal, festivos, frontera }),
@@ -393,7 +401,7 @@ export default function TabResumen({
     return { servicios: arr, serviciosHay: arr.length > 0 }
   }, [rowsPeriodo, ventasPeriodo, netoEstimado])
 
-  /* ── ranking de MARCAS reales (ventas_plataforma 90d): bruto, pedidos, TM bruto, serie de bruto ── */
+  /* ── ranking de MARCAS reales (ventas_plataforma 90d): bruto, pedidos, TM bruto, serie + variación ── */
   const { marcasReales, marcasRealesHay } = useMemo(() => {
     const tot: Record<string, { neto: number; bruto: number; ped: number }> = {}
     const porFecha: Record<string, Record<string, number>> = {}
@@ -416,6 +424,11 @@ export default function TabResumen({
     const arr: MarcaRealRow[] = base
       .map(nombre => {
         const e = tot[nombre] || { neto: 0, bruto: 0, ped: 0 }
+        const serie = fechas.map(f => porFecha[nombre]?.[f] || 0)
+        const noCero = serie.filter(x => x > 0)
+        const varPct = noCero.length >= 2 && noCero[noCero.length - 2] > 0
+          ? ((noCero[noCero.length - 1] - noCero[noCero.length - 2]) / noCero[noCero.length - 2]) * 100
+          : null
         return {
           nombre,
           neto: e.neto,
@@ -423,7 +436,8 @@ export default function TabResumen({
           pedidos: e.ped,
           tmBruto: e.ped > 0 ? e.bruto / e.ped : 0,
           pct: totalB > 0 ? (e.bruto / totalB) * 100 : 0,
-          serie: fechas.map(f => porFecha[nombre]?.[f] || 0),
+          serie,
+          varPct,
         }
       })
       .sort((a, b) => b.bruto - a.bruto)
@@ -458,6 +472,23 @@ export default function TabResumen({
     const aa = toLocalDateStr(new Date()).slice(0, 4)
     return rowsAll.filter(r => r.fecha.startsWith(aa)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
   }, [rowsAll])
+
+  /* ── proyección de cierre de mes: a este ritmo, dónde cerramos vs objetivo ── */
+  const proyeccionMes = useMemo(() => {
+    const hoy = new Date()
+    const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
+    const diaActual = hoy.getDate()
+    const ritmo = diaActual > 0 ? ventasMes / diaActual : 0
+    const cierre = ritmo * diasMes
+    const objetivo = objetivos.mensual
+    return {
+      cierre,
+      objetivo,
+      pctObjetivo: objetivo > 0 ? (cierre / objetivo) * 100 : 0,
+      diasMes,
+      diaActual,
+    }
+  }, [ventasMes, objetivos.mensual])
 
   const serieMes = useMemo(() => {
     const mm = toLocalDateStr(new Date()).slice(0, 7)
@@ -803,6 +834,9 @@ export default function TabResumen({
         ebitda={ebitda}
         ebitdaPct={ebitdaPct}
         primeCostPct={primeCostPct}
+        costePorPedido={costePorPedido}
+        cierreMes={proyeccionMes.cierre}
+        objetivoMes={proyeccionMes.objetivo}
         serie={serieMes}
         ventasSemana={ventasSemana}
         ventasMes={ventasMes}
