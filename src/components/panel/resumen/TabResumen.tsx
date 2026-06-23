@@ -1,10 +1,11 @@
 /**
- * Tab Resumen v3 — Panel Global
+ * Tab Resumen v4 — Panel Global
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
  * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
- * 23 jun 2026: presentación en ResumenLanding + métricas para frases-insight (por impacto €),
- * serie diaria para el mini-gráfico, alertas y canal más rentable. Lógica de cálculo aquí.
+ * 23 jun 2026: presentación en ResumenLanding (look landing brutalista). Métricas para frases,
+ * serie diaria del sparkline, ranking de marcas (campo servicio), navegación a otras pestañas
+ * y cache anti-parpadeo (no muestra "demo" si ya hubo datos antes). Lógica de cálculo aquí.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -23,6 +24,8 @@ import type {
   TopVentaItem,
 } from './types'
 
+type NavTab = 'operaciones' | 'finanzas' | 'cashflow' | 'marcas' | 'evolucion'
+
 interface Props {
   rowsPeriodo: RowFacturacion[]
   rowsAll: RowFacturacion[]
@@ -31,9 +34,11 @@ interface Props {
   canalesFiltro: string[]
   periodoLabel?: string
   onFiltrarDiaSemana?: (idxDow: number) => void
+  onNavTab?: (tab: NavTab) => void
 }
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
+interface MarcaRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -108,7 +113,7 @@ const GRUPO_DEFAULT_PCT: Record<GrupoGasto, number> = {
 }
 
 export default function TabResumen({
-  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana,
+  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana, onNavTab,
 }: Props) {
   const navigate = useNavigate()
 
@@ -314,6 +319,26 @@ export default function TabResumen({
   const tmBruto = pedidosPeriodo > 0 ? ventasPeriodo / pedidosPeriodo : 0
   const netoEstimado = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
   const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
+
+  /* ── ranking de marcas (campo servicio si está informado) ── */
+  const { marcas, marcasServicio } = useMemo(() => {
+    const rs = rowsPeriodo as Array<RowFacturacion & { servicio?: string | null }>
+    const hay = rs.some(r => r.servicio != null && r.servicio !== '')
+    if (!hay) return { marcas: [] as MarcaRow[], marcasServicio: false }
+    const map: Record<string, { bruto: number; pedidos: number }> = {}
+    for (const r of rs) {
+      const k = (r.servicio || 'Sin marca').trim()
+      if (!map[k]) map[k] = { bruto: 0, pedidos: 0 }
+      map[k].bruto += r.total_bruto || 0
+      map[k].pedidos += r.total_pedidos || 0
+    }
+    const totalB = Object.values(map).reduce((a, m) => a + m.bruto, 0)
+    const ratioNeto = ventasPeriodo > 0 && netoEstimado > 0 ? netoEstimado / ventasPeriodo : 0.7
+    const arr: MarcaRow[] = Object.entries(map)
+      .map(([nombre, s]) => ({ nombre, bruto: s.bruto, neto: s.bruto * ratioNeto, pedidos: s.pedidos, pct: totalB > 0 ? (s.bruto / totalB) * 100 : 0 }))
+      .sort((a, b) => b.bruto - a.bruto)
+    return { marcas: arr, marcasServicio: true }
+  }, [rowsPeriodo, ventasPeriodo, netoEstimado])
 
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
     const { desde, hasta } = rangoPrevio(fechaDesde, fechaHasta)
@@ -574,11 +599,20 @@ export default function TabResumen({
       })
   }, [])
 
+  /* ── cache anti-parpadeo: recuerda que ya hubo datos ── */
+  useEffect(() => {
+    if (rowsPeriodo.length > 0 || rowsAll.length > 0) {
+      try { localStorage.setItem('binagre_resumen_visto', '1') } catch { /* noop */ }
+    }
+  }, [rowsPeriodo.length, rowsAll.length])
+
   const dataInicializadaRef = useRef(false)
   useEffect(() => {
     if (dataInicializadaRef.current) return
     dataInicializadaRef.current = true
-    if (rowsAll.length === 0 && gastos.length === 0) {
+    let visto = false
+    try { visto = localStorage.getItem('binagre_resumen_visto') === '1' } catch { visto = false }
+    if (rowsAll.length === 0 && gastos.length === 0 && !visto) {
       setDatosDemo(true)
     }
   }, [rowsAll.length, gastos.length])
@@ -700,11 +734,14 @@ export default function TabResumen({
         topDatosDemo={topDatosDemo}
         topTab={topTab}
         onTopTab={setTopTab}
+        marcas={marcas}
+        marcasServicio={marcasServicio}
         metricas={metricas}
         onSaveObjetivoVenta={saveObjetivoVenta}
         onSaveObjetivoRatio={saveObjetivoRatio}
         onSavePresupuestoGrupo={savePresupuestoGrupo}
         onFiltrarDiaSemana={onFiltrarDiaSemana}
+        onNavTab={onNavTab}
       />
     </div>
   )
