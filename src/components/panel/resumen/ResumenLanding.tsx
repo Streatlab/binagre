@@ -4,6 +4,7 @@
  * titular + frente abierto), fecha de periodo + hora de actualización, etiquetas «est.» como
  * norma viva sobre los datos estimados, tooltips al pasar el ratón en los números clave y
  * flechitas de tendencia ↑↓ en las desviaciones y la facturación.
+ * v8.1: el fondo del estado de salud nunca repite el amarillo del hero (verde/naranja/rojo).
  * Layout v7 intacto. No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
  */
 import { useState } from 'react'
@@ -206,6 +207,7 @@ export default function ResumenLanding(p: Props) {
   const m = p.metricas
 
   // ── ESTADO DE SALUD (visual): cuenta de frentes abiertos ──
+  // El fondo nunca usa AMA para no chocar con el hero amarillo de debajo: verde / naranja / rojo.
   const saludFlags: string[] = []
   if (m.variacionVentas != null && m.variacionVentas < -3) saludFlags.push(`Ventas ${DELTA(m.variacionVentas)} vs periodo anterior`)
   if (m.primeCostPct > 65) saludFlags.push(`Prime cost alto (${P0(m.primeCostPct)})`)
@@ -213,8 +215,8 @@ export default function ResumenLanding(p: Props) {
   if (m.faltaPE > 0 && m.pePctProgreso < 70) saludFlags.push(`Aún lejos de cubrir gastos (${P0(m.pePctProgreso)})`)
   if (m.margenNetoPct > 0 && m.margenNetoPct < 55) saludFlags.push(`Margen neto ajustado (${P0(m.margenNetoPct)})`)
   const saludNivel: 'verde' | 'ambar' | 'rojo' = saludFlags.length === 0 ? 'verde' : saludFlags.length <= 2 ? 'ambar' : 'rojo'
-  const saludBg = saludNivel === 'verde' ? VERDE : saludNivel === 'ambar' ? AMA : ROSA
-  const saludTxt = saludNivel === 'ambar' ? INK : '#fff'
+  const saludBg = saludNivel === 'verde' ? VERDE : saludNivel === 'ambar' ? NAR : ROSA
+  const saludTxt = '#fff'
   const saludTitulo = saludNivel === 'verde' ? 'Semana sana' : saludNivel === 'ambar' ? 'Ojo, un par de cosas' : 'Atención: varios frentes'
   const saludPuntos = saludFlags.length
     ? saludFlags.slice(0, 3)
@@ -276,7 +278,7 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}`, marginTop: 4 }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 0 · ESTADO DE SALUD (arriba del todo) */}
+      {/* 0 · ESTADO DE SALUD (arriba del todo) — fondo verde/naranja/rojo, nunca amarillo */}
       <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `22px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <Semaforo nivel={saludNivel} />
@@ -284,7 +286,7 @@ export default function ResumenLanding(p: Props) {
             <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               {saludPuntos.map((t, i) => (
-                <span key={i} style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, background: saludNivel === 'ambar' ? '#ffffffcc' : '#ffffff26', border: `2px solid ${saludNivel === 'ambar' ? INK : '#ffffff66'}`, color: saludTxt, padding: '4px 10px' }}>{t}</span>
+                <span key={i} style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '4px 10px' }}>{t}</span>
               ))}
             </div>
           </div>
