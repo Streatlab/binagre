@@ -1,9 +1,8 @@
 /**
- * Tab Resumen v6 — Panel Global
+ * Tab Resumen v7 — Panel Global
  * Lógica de cálculo (la presentación está en ResumenLanding).
- * v6: además de margen neto real, deuda de plataformas (calcPorCobrar) y reparto por
- * servicio, calcula el ranking de MARCAS reales con su SERIE de evolución (neto por
- * periodo de liquidación, ventas_plataforma 90d).
+ * v7: ranking de MARCAS reales con bruto, pedidos, TM bruto y serie de evolución
+ * (facturación bruta por periodo de liquidación, ventas_plataforma 90d).
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -38,7 +37,7 @@ interface Props {
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; pct: number; serie: number[] }
+interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie: number[] }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -137,7 +136,7 @@ export default function TabResumen({
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
   const [festivos, setFestivos] = useState<Set<string>>(new Set())
   const [frontera, setFrontera] = useState<Record<string, string>>({})
-  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; fecha: string }>>([])
+  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; bruto: number; pedidos: number; fecha: string }>>([])
   const [marcasActivas, setMarcasActivas] = useState<string[]>([])
 
   /* ── state UI ──────────────────────────────── */
@@ -180,12 +179,26 @@ export default function TabResumen({
     })
   }, [])
 
-  /* ── ventas por marca real (90 días) con fecha + marcas activas ── */
+  /* ── ventas por marca real (90 días): bruto + pedidos + fecha. Con fallback si no hay 'pedidos'. ── */
   useEffect(() => {
     const hace90 = toLocalDateStr(new Date(Date.now() - 90 * 86400000))
-    supabase.from('ventas_plataforma').select('marca,neto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA').then(({ data }) => {
-      setVentasMarca(((data as { marca: string; neto: number; fecha_inicio_periodo: string }[]) ?? []).map(v => ({ marca: v.marca, neto: Number(v.neto) || 0, fecha: String(v.fecha_inicio_periodo || '').slice(0, 10) })))
-    })
+    ;(async () => {
+      let rows: Array<{ marca: string; neto: number; bruto: number | null; pedidos?: number | null; fecha_inicio_periodo: string }> = []
+      const full = await supabase.from('ventas_plataforma').select('marca,neto,bruto,pedidos,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA')
+      if (full.error) {
+        const noped = await supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA')
+        rows = (noped.data ?? []) as Array<{ marca: string; neto: number; bruto: number | null; fecha_inicio_periodo: string }>
+      } else {
+        rows = (full.data ?? []) as Array<{ marca: string; neto: number; bruto: number | null; pedidos: number | null; fecha_inicio_periodo: string }>
+      }
+      setVentasMarca(rows.map(v => ({
+        marca: v.marca,
+        neto: Number(v.neto) || 0,
+        bruto: Number(v.bruto) || 0,
+        pedidos: Number(v.pedidos) || 0,
+        fecha: String(v.fecha_inicio_periodo || '').slice(0, 10),
+      })))
+    })()
     supabase.from('v_marcas_activas').select('nombre').then(({ data }) => {
       setMarcasActivas(((data as { nombre: string }[]) ?? []).map(x => x.nombre))
     })
@@ -380,31 +393,41 @@ export default function TabResumen({
     return { servicios: arr, serviciosHay: arr.length > 0 }
   }, [rowsPeriodo, ventasPeriodo, netoEstimado])
 
-  /* ── ranking de MARCAS reales (ventas_plataforma 90d) con serie de evolución ── */
+  /* ── ranking de MARCAS reales (ventas_plataforma 90d): bruto, pedidos, TM bruto, serie de bruto ── */
   const { marcasReales, marcasRealesHay } = useMemo(() => {
-    const tot: Record<string, number> = {}
+    const tot: Record<string, { neto: number; bruto: number; ped: number }> = {}
     const porFecha: Record<string, Record<string, number>> = {}
     const fechasSet = new Set<string>()
     for (const v of ventasMarca) {
-      tot[v.marca] = (tot[v.marca] || 0) + (v.neto || 0)
+      if (!tot[v.marca]) tot[v.marca] = { neto: 0, bruto: 0, ped: 0 }
+      const e = tot[v.marca]
+      e.neto += v.neto || 0
+      e.bruto += v.bruto || 0
+      e.ped += v.pedidos || 0
       if (v.fecha) {
         if (!porFecha[v.marca]) porFecha[v.marca] = {}
-        porFecha[v.marca][v.fecha] = (porFecha[v.marca][v.fecha] || 0) + (v.neto || 0)
+        porFecha[v.marca][v.fecha] = (porFecha[v.marca][v.fecha] || 0) + (v.bruto || 0)
         fechasSet.add(v.fecha)
       }
     }
     const fechas = [...fechasSet].sort()
     const base = marcasActivas.length ? marcasActivas : Object.keys(tot)
-    const totalN = base.reduce((a, mm) => a + (tot[mm] || 0), 0)
+    const totalB = base.reduce((a, mm) => a + (tot[mm]?.bruto || 0), 0)
     const arr: MarcaRealRow[] = base
-      .map(nombre => ({
-        nombre,
-        neto: tot[nombre] || 0,
-        pct: totalN > 0 ? ((tot[nombre] || 0) / totalN) * 100 : 0,
-        serie: fechas.map(f => porFecha[nombre]?.[f] || 0),
-      }))
-      .sort((a, b) => b.neto - a.neto)
-    return { marcasReales: arr, marcasRealesHay: arr.some(mm => mm.neto > 0) }
+      .map(nombre => {
+        const e = tot[nombre] || { neto: 0, bruto: 0, ped: 0 }
+        return {
+          nombre,
+          neto: e.neto,
+          bruto: e.bruto,
+          pedidos: e.ped,
+          tmBruto: e.ped > 0 ? e.bruto / e.ped : 0,
+          pct: totalB > 0 ? (e.bruto / totalB) * 100 : 0,
+          serie: fechas.map(f => porFecha[nombre]?.[f] || 0),
+        }
+      })
+      .sort((a, b) => b.bruto - a.bruto)
+    return { marcasReales: arr, marcasRealesHay: arr.some(mm => mm.bruto > 0) }
   }, [ventasMarca, marcasActivas])
 
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
