@@ -168,11 +168,11 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
           ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
           : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
       </div>
-      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 25, fontWeight: 700, textAlign: 'center', padding: '6px 4px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
+      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Anton','Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '8px 4px 6px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
       <div style={{ padding: '5px 6px' }}>
         {e.lineas.map((l, i) => l.tipo === 'accion'
           ? <div key={i} className="print-act" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center', borderTop: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderBottom: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, padding: '2px 0', margin: '5px 0', letterSpacing: '1px' }}>{l.texto}</div>
-          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1.08, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
         )}
       </div>
       {archivado && e.archivado_at && (
@@ -394,7 +394,7 @@ const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: 
 
 // Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: A4 vertical B/N compacto.
 const PRINT_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
 .esquemas-masonry { column-count: 4; column-gap: 14px; }
 .esquemas-masonry .esquema-card { break-inside: avoid; margin-bottom: 14px; display: inline-block; width: 100%; }
 @media (max-width: 1100px) { .esquemas-masonry { column-count: 3; } }
@@ -407,12 +407,12 @@ const PRINT_CSS = `
   .print-area, .print-area * { visibility: visible; }
   .no-print { display: none !important; }
   .solo-print { display: block !important; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-area { position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; }
   .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: #1a1a1a; text-align: center; margin: 0 0 13px; padding: 9px 8px; border-radius: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-grid { column-count: 3 !important; column-gap: 15px; }
-  .print-card { break-inside: avoid; margin-bottom: 16px; border: 1.5px solid #1a1a1a !important; border-radius: 6px; }
-  .print-head { background: #e2e2e2 !important; color: #1a1a1a !important; font-size: 25px !important; font-weight: 700 !important; border-bottom: 2px solid #1a1a1a !important; padding: 6px 4px 5px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-card { break-inside: avoid; margin-bottom: 16px; border: 1.5px solid #1a1a1a !important; border-radius: 6px; box-sizing: border-box; }
+  .print-head { background: #e2e2e2 !important; color: #1a1a1a !important; font-family: 'Anton','Oswald',sans-serif !important; font-size: 31px !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0.5px !important; border-bottom: 2px solid #1a1a1a !important; padding: 8px 4px 6px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-act { background: transparent !important; color: #1a1a1a !important; border-top: 2px solid #1a1a1a !important; border-bottom: 2px solid #1a1a1a !important; border-radius: 0 !important; margin: 5px 0 !important; }
-  .print-ing { color: #1a1a1a !important; font-family: 'Barlow Semi Condensed','Oswald',sans-serif !important; font-size: 16px !important; line-height: 1.08 !important; }
+  .print-ing { color: #1a1a1a !important; font-family: 'Barlow Semi Condensed','Oswald',sans-serif !important; font-weight: 600 !important; font-size: 16px !important; line-height: 1.1 !important; }
 }
 `
