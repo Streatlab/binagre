@@ -1,12 +1,10 @@
 /**
- * ResumenLanding v7 — pestaña Resumen del Panel Global.
- * v7 (layout alternado): Canales 66% | Almuerzo-Cena 33% · Días pico 33% | Resultado 66% ·
- * Proyecciones / Ratio / PE al 33% cada uno · Marcas 75% | (Provisiones + Top ventas) 25%.
- * Canales con su diseño de tabla; barras de canal con color corporativo y track diferenciado.
- * Almuerzo/cena en tarjeta propia fuera de la card oscura. Objetivos con el editable en azul.
- * Marcas: 5 marcas ordenadas, con progreso, facturación bruta, TM bruto y evolución (real, o
- * una estimación tenue marcada «est.» cuando no hay histórico por periodos).
- * No calcula nada salvo la curva estimada de marca (puramente visual): todo llega por props.
+ * ResumenLanding v8 — pestaña Resumen del Panel Global.
+ * v8 añade (tanda 1 de mejoras): tarjeta de ESTADO DE SALUD arriba del todo (semáforo +
+ * titular + frente abierto), fecha de periodo + hora de actualización, etiquetas «est.» como
+ * norma viva sobre los datos estimados, tooltips al pasar el ratón en los números clave y
+ * flechitas de tendencia ↑↓ en las desviaciones y la facturación.
+ * Layout v7 intacto. No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -54,12 +52,35 @@ const P0 = (n: number) => fmtPct(n, 0)
 const P2 = (n: number) => fmtPct(n, 2)
 const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: true, showEuro: false, decimals: 1 }) + '%')
 
-// curva estimada (solo visual) para una marca sin histórico por periodos:
-// 6 puntos con ligera tendencia ascendente hacia su facturación bruta, sin inventar cifras concretas.
+// curva estimada (solo visual) para una marca sin histórico por periodos.
 function serieEstimada(bruto: number): number[] {
   if (bruto <= 0) return []
   const factores = [0.62, 0.71, 0.79, 0.88, 0.95, 1]
   return factores.map(f => bruto * f)
+}
+
+// badge «est.» reutilizable — norma viva: marca cualquier dato que aún no sea real.
+function Est({ light = false, tip = 'Dato estimado · todavía no proviene del Running / datos reales' }: { light?: boolean; tip?: string }) {
+  return <span title={tip} style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', border: `1px solid ${light ? '#ffffff66' : '#00000044'}`, color: light ? '#ffffffcc' : '#00000088', padding: '0 4px', marginLeft: 6, verticalAlign: 'middle', cursor: 'help', borderRadius: 3 }}>est</span>
+}
+
+// flechita de tendencia ↑↓ (verde sube / rosa baja).
+function Arrow({ v }: { v: number | null }) {
+  if (v == null) return null
+  const up = v >= 0
+  return <span style={{ fontSize: '0.62em', marginRight: 5, color: up ? VERDE : ROSA }}>{up ? '▲' : '▼'}</span>
+}
+
+// semáforo vertical para el estado de salud.
+function Semaforo({ nivel }: { nivel: 'verde' | 'ambar' | 'rojo' }) {
+  const luz = (c: string, on: boolean): React.CSSProperties => ({ width: 22, height: 22, borderRadius: '50%', background: on ? c : '#00000022', border: `3px solid ${INK}`, boxShadow: on ? `0 0 0 3px ${c}66` : 'none' })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, background: '#00000018', border: `3px solid ${INK}`, padding: '11px 9px', borderRadius: 40, flexShrink: 0 }}>
+      <span style={luz('#ff3b3b', nivel === 'rojo')} />
+      <span style={luz('#ffb800', nivel === 'ambar')} />
+      <span style={luz('#1ec773', nivel === 'verde')} />
+    </div>
+  )
 }
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
@@ -183,6 +204,27 @@ export default function ResumenLanding(p: Props) {
   const mostrarCostes = fraseCostes.lead !== 'Comer bien'
 
   const m = p.metricas
+
+  // ── ESTADO DE SALUD (visual): cuenta de frentes abiertos ──
+  const saludFlags: string[] = []
+  if (m.variacionVentas != null && m.variacionVentas < -3) saludFlags.push(`Ventas ${DELTA(m.variacionVentas)} vs periodo anterior`)
+  if (m.primeCostPct > 65) saludFlags.push(`Prime cost alto (${P0(m.primeCostPct)})`)
+  if (m.ratioGap < 0) saludFlags.push('Ratio ingresos/gastos por debajo del objetivo')
+  if (m.faltaPE > 0 && m.pePctProgreso < 70) saludFlags.push(`Aún lejos de cubrir gastos (${P0(m.pePctProgreso)})`)
+  if (m.margenNetoPct > 0 && m.margenNetoPct < 55) saludFlags.push(`Margen neto ajustado (${P0(m.margenNetoPct)})`)
+  const saludNivel: 'verde' | 'ambar' | 'rojo' = saludFlags.length === 0 ? 'verde' : saludFlags.length <= 2 ? 'ambar' : 'rojo'
+  const saludBg = saludNivel === 'verde' ? VERDE : saludNivel === 'ambar' ? AMA : ROSA
+  const saludTxt = saludNivel === 'ambar' ? INK : '#fff'
+  const saludTitulo = saludNivel === 'verde' ? 'Semana sana' : saludNivel === 'ambar' ? 'Ojo, un par de cosas' : 'Atención: varios frentes'
+  const saludPuntos = saludFlags.length
+    ? saludFlags.slice(0, 3)
+    : [
+        p.ebitda >= 0 ? `EBITDA positivo (${P0(p.ebitdaPct)})` : '',
+        `Margen neto ${P0(m.margenNetoPct)}`,
+        p.porCobrar.total > 0 ? `${E(p.porCobrar.total)} por cobrar en camino` : '',
+      ].filter(Boolean)
+  const actualizado = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+
   const alertas: Array<{ t: string; c: string }> = []
   if (m.variacionVentas != null && m.variacionVentas < -3) alertas.push({ t: `Ventas ${DELTA(m.variacionVentas)} vs periodo ant.`, c: ROSA })
   if (m.primeCostPct > 65) alertas.push({ t: `Prime cost ${P0(m.primeCostPct)}`, c: NAR })
@@ -214,15 +256,15 @@ export default function ResumenLanding(p: Props) {
   ]
 
   const desv = [
-    { v: DELTA(p.variacionVentas), l: 'ventas', c: p.variacionVentas != null && p.variacionVentas < 0 ? ROSA : VERDE },
-    { v: DELTA(p.variacionPedidos), l: 'pedidos', c: p.variacionPedidos != null && p.variacionPedidos < 0 ? ROSA : VERDE },
-    { v: DELTA(p.variacionTM), l: 'ticket medio', c: p.variacionTM != null && p.variacionTM < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionVentas), raw: p.variacionVentas, l: 'ventas', c: p.variacionVentas != null && p.variacionVentas < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionPedidos), raw: p.variacionPedidos, l: 'pedidos', c: p.variacionPedidos != null && p.variacionPedidos < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionTM), raw: p.variacionTM, l: 'ticket medio', c: p.variacionTM != null && p.variacionTM < 0 ? ROSA : VERDE },
   ]
-  const heroStats: Array<{ l: string; v: string; c: string }> = [
-    { l: 'TM bruto', v: E2(p.tmBruto), c: AZUL },
-    { l: 'TM neto', v: E2(p.tmNeto), c: VERDE },
-    { l: 'EBITDA est.', v: E(p.ebitda), c: p.ebitda >= 0 ? VERDE : ROSA },
-    { l: 'Margen neto', v: P2(p.margenNetoReal), c: INK },
+  const heroStats: Array<{ l: string; v: string; c: string; est?: boolean; tip?: string }> = [
+    { l: 'TM bruto', v: E2(p.tmBruto), c: AZUL, tip: 'Ticket medio bruto = facturación / pedidos' },
+    { l: 'TM neto', v: E2(p.tmNeto), c: VERDE, tip: 'Ticket medio neto = ingresos netos / pedidos', est: true },
+    { l: 'EBITDA est.', v: E(p.ebitda), c: p.ebitda >= 0 ? VERDE : ROSA, est: true, tip: 'Beneficio operativo estimado: ingresos − producto − personal − resto de gastos' },
+    { l: 'Margen neto', v: P2(p.margenNetoReal), c: INK, tip: 'Ingresos netos sobre facturación bruta' },
   ]
   const servColor = [AMA, AZUL, VERDE, NAR, ROSA]
   const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, '#8A4FFF', '#0FB8B8']
@@ -233,6 +275,26 @@ export default function ResumenLanding(p: Props) {
   return (
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}`, marginTop: 4 }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
+
+      {/* 0 · ESTADO DE SALUD (arriba del todo) */}
+      <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `22px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <Semaforo nivel={saludNivel} />
+          <div>
+            <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              {saludPuntos.map((t, i) => (
+                <span key={i} style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, background: saludNivel === 'ambar' ? '#ffffffcc' : '#ffffff26', border: `2px solid ${saludNivel === 'ambar' ? INK : '#ffffff66'}`, color: saludTxt, padding: '4px 10px' }}>{t}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>Periodo</div>
+          <div style={d('clamp(16px,2vw,24px)', saludTxt)}>{p.periodoLabel ?? '—'}</div>
+          <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.8, marginTop: 10 }}>Actualizado {actualizado} · Panel Global</div>
+        </div>
+      </section>
 
       {/* 1 · HERO — amarillo */}
       <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
@@ -251,23 +313,24 @@ export default function ResumenLanding(p: Props) {
               <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>Facturación bruta</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
                 <div style={d('clamp(44px,6.8vw,92px)')}>{EUR(p.ventasPeriodo)}</div>
-                {p.variacionVentas != null && <div style={{ ...eyebrow(p.variacionVentas >= 0 ? VERDE : ROSA, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}>{DELTA(p.variacionVentas)}</div>}
+                {p.variacionVentas != null && <div style={{ ...eyebrow(p.variacionVentas >= 0 ? VERDE : ROSA, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={p.variacionVentas} />{DELTA(p.variacionVentas)}</div>}
               </div>
             </div>
             <div style={{ marginBottom: 4 }}><Spark serie={p.serie} color={INK} /></div>
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: `5px 5px 0 ${INK}`, padding: '8px 16px', marginTop: 18 }}>
+          <div title="Lo que te queda tras las comisiones de plataforma. Estimado a partir de las fórmulas de comisión." style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: `5px 5px 0 ${INK}`, padding: '8px 16px', marginTop: 18, cursor: 'help' }}>
             <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Neto estimado</span>
             <span style={d('clamp(24px,3.4vw,40px)', '#fff')}>{EUR(p.netoEstimado)}</span>
             <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600 }}>{P2(netoPct)} s/ bruto</span>
+            <Est light />
           </div>
         </div>
         <div style={{ background: CLARO, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
           <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `10px 10px 0 ${INK}`, padding: '26px 28px', width: '100%', maxWidth: 380 }}>
             <div style={{ ...d('17px'), borderBottom: `2px dashed ${INK}`, paddingBottom: 12, marginBottom: 4 }}>· Resumen del periodo ·</div>
             {heroStats.map((s, i) => (
-              <div key={s.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: i < heroStats.length - 1 ? `1px dotted ${INK}55` : 'none' }}>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>{s.l}</span>
+              <div key={s.l} title={s.tip} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: i < heroStats.length - 1 ? `1px dotted ${INK}55` : 'none', cursor: s.tip ? 'help' : 'default' }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{s.l}{s.est && <Est />}</span>
                 <span style={d('clamp(22px,3vw,30px)', s.c)}>{s.v}</span>
               </div>
             ))}
@@ -292,7 +355,7 @@ export default function ResumenLanding(p: Props) {
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
         {desv.map((x, i) => (
           <div key={i} style={{ padding: '20px 22px 26px', borderRight: i < 2 ? `2px solid ${INK}22` : 'none' }}>
-            <div style={d('clamp(30px,4.4vw,52px)', x.c)}>{x.v}</div>
+            <div style={d('clamp(30px,4.4vw,52px)', x.c)}><Arrow v={x.raw} />{x.v}</div>
             <div style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12.5, color: '#6b5d45', textTransform: 'uppercase', marginTop: 6 }}>{x.l} · vs periodo anterior</div>
           </div>
         ))}
@@ -408,10 +471,10 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `44px ${PAD}`, background: OSC, color: D1 }}>
           <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', margin: '18px 0 22px' }}>
-            <div style={d('clamp(44px,7vw,84px)', p.ebitda >= 0 ? VERDE_CL : '#ff9aa8')}>{E(p.ebitda)}</div>
+            <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ ...d('clamp(44px,7vw,84px)', p.ebitda >= 0 ? VERDE_CL : '#ff9aa8'), cursor: 'help', display: 'flex', alignItems: 'center' }}>{E(p.ebitda)}<Est light /></div>
             <div style={{ marginBottom: 8 }}>
               <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROSA, '#fff') }}>EBITDA {P0(p.ebitdaPct)}</div>
-              <div style={{ ...d('clamp(20px,2.6vw,30px)', p.primeCostPct <= 60 ? VERDE_CL : NAR_CL), marginTop: 12 }}>Prime cost {P2(p.primeCostPct)}</div>
+              <div title="Coste de producto + personal sobre ingresos. Objetivo ≤ 60%." style={{ ...d('clamp(20px,2.6vw,30px)', p.primeCostPct <= 60 ? VERDE_CL : NAR_CL), marginTop: 12, cursor: 'help', display: 'flex', alignItems: 'center' }}>Prime cost {P2(p.primeCostPct)}<Est light /></div>
               <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', color: D2, textTransform: 'uppercase' }}>objetivo: máx. 60% de los ingresos</div>
             </div>
           </div>
@@ -425,11 +488,12 @@ export default function ResumenLanding(p: Props) {
               const gd = r.grupo ? p.grupos[r.grupo] : null
               const meta = r.grupo ? grupoMeta[r.grupo] : null
               const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
+              const esEstimado = !!r.grupo && (!gd || gd.gasto === 0)
               return (
                 <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid #ffffff1a`, background: r.bold ? '#ffffff14' : (i % 2 ? '#ffffff08' : 'transparent') }}>
                   <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, flexShrink: 0, background: r.impC === NAR_CL ? NAR : (r.impC === AMA ? AMA : (r.impC === VERDE_CL ? VERDE : '#ffffff44')) }} />
-                    {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}
+                    {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}{esEstimado && <Est light />}
                   </span>
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 20 : 17, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
                   <span style={{ fontFamily: OSW, fontSize: 13, color: D3, textAlign: 'right' }}>{r.pct ?? ''}</span>
@@ -481,7 +545,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: '#fff' }}>
           <span style={eyebrow('#fff')}>Proyecciones</span>
           <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Cashflow →</button>
-          <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16 }}>Saldo estimado</div>
+          <div title="Saldo estimado a partir de cobros y pagos medios, no del extracto bancario real" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo estimado<Est light /></div>
           <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldo.saldoHoy > 0 ? E(p.saldo.saldoHoy) : '—'}</div>
           <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
@@ -493,7 +557,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#ffe0ea' }}>
           <span style={eyebrow(VERDE, '#fff')}>Ratio ingresos / gastos</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
-            <div style={d('clamp(36px,5vw,60px)', p.ratioActual >= p.objetivoRatio ? VERDE : NAR)}>{(Number.isFinite(p.ratioActual) ? p.ratioActual : 0).toFixed(2)}×</div>
+            <div title="Cuántas veces cubren los ingresos netos los gastos fijos del mes" style={{ ...d('clamp(36px,5vw,60px)', p.ratioActual >= p.objetivoRatio ? VERDE : NAR), cursor: 'help' }}>{(Number.isFinite(p.ratioActual) ? p.ratioActual : 0).toFixed(2)}×</div>
             <div style={d('18px')}>objetivo <Edit value={p.objetivoRatio} onSave={p.onSaveObjetivoRatio} suffix="×" color={AZUL} /></div>
           </div>
           <div style={{ height: 14, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, p.objetivoRatio > 0 ? (p.ratioActual / p.objetivoRatio) * 100 : 0)}%`, height: '100%', background: p.ratioActual >= p.objetivoRatio ? VERDE : NAR }} /></div>
@@ -506,7 +570,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `40px ${PAD}`, background: CLARO }}>
           <span style={eyebrow('#fff')}>Punto de equilibrio</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
-            <div style={d('clamp(36px,5vw,60px)')}>{E(p.pe.peBruto)}</div>
+            <div title="Facturación bruta que necesitas este mes para cubrir todos los gastos fijos" style={{ ...d('clamp(36px,5vw,60px)'), cursor: 'help' }}>{E(p.pe.peBruto)}</div>
             <div style={{ ...eyebrow(p.pe.pctProgreso >= 100 ? VERDE : NAR, '#fff'), marginBottom: 12 }}>{P0(p.pe.pctProgreso)}</div>
           </div>
           <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.6 }}>bruto necesario este mes</div>
