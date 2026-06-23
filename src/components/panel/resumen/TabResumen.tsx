@@ -3,8 +3,8 @@
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
  * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
- * 23 jun 2026: presentación en ResumenLanding (look "landing") + frase-insight dinámica.
- * Toda la lógica de cálculo/guardado vive aquí.
+ * 23 jun 2026: presentación en ResumenLanding + métricas para frases-insight (por impacto €),
+ * serie diaria para el mini-gráfico, alertas y canal más rentable. Lógica de cálculo aquí.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -15,7 +15,7 @@ import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import ResumenLanding from './ResumenLanding'
-import { elegirFrase } from './frasesInsight'
+import type { MetricasInsight } from './frasesInsight'
 import { type GrupoGasto } from './ColGruposGasto'
 import { type DiaPico } from './ColDiasPico'
 import type {
@@ -111,7 +111,6 @@ export default function TabResumen({
   rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana,
 }: Props) {
   const navigate = useNavigate()
-  void periodoLabel
 
   /* ── state datos BD ──────────────────────────── */
   const [objetivos, setObjetivos] = useState<ObjetivosVentas>({
@@ -343,6 +342,13 @@ export default function TabResumen({
   const ventasAno = useMemo(() => {
     const a = toLocalDateStr(new Date()).slice(0, 4)
     return rowsAll.filter(r => r.fecha.startsWith(a)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
+  }, [rowsAll])
+
+  const serieMes = useMemo(() => {
+    const mm = toLocalDateStr(new Date()).slice(0, 7)
+    const map = new Map<string, number>()
+    for (const r of rowsAll) { if (r.fecha.startsWith(mm)) map.set(r.fecha, (map.get(r.fecha) || 0) + (r.total_bruto || 0)) }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(e => e[1])
   }, [rowsAll])
 
   const nSemana = isoWeek(new Date())
@@ -608,20 +614,26 @@ export default function TabResumen({
     )
   }
 
-  /* ── frase-insight dinámica + objetivo diario si el periodo es hoy ── */
-  const webPctV = canalStats.find(c => c.id === 'web')?.pct ?? 0
-  const frase = elegirFrase({
+  /* ── métricas para frases-insight, alertas y canal más rentable ── */
+  const mejorCanalO = canalStats.filter(c => c.pedidos > 0).map(c => ({ label: c.label, np: c.neto / c.pedidos })).sort((a, b) => b.np - a.np)[0]
+  const diasV = diasPico.filter(x => x.valor > 0)
+  const diaFuerteO = diasV.length ? diasV.reduce((a, x) => (x.valor > a.valor ? x : a)) : null
+  const diaFlojoO = diasV.length ? diasV.reduce((a, x) => (x.valor < a.valor ? x : a)) : null
+  const metricas: MetricasInsight = {
     comisionPct: ventasPeriodo > 0 ? (1 - netoEstimado / ventasPeriodo) * 100 : 0,
-    webPct: webPctV,
+    webPct: canalStats.find(c => c.id === 'web')?.pct ?? 0,
     margenNetoPct: ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0,
-    variacionVentas,
     primeCostPct,
-    ratioActual,
-    ratioObjetivo: objetivoRatio,
-    pePctProgreso: peCalc.pctProgreso,
-    ebitda,
-    faltaPE: Math.max(0, peCalc.peBruto - peCalc.acumulado),
-  })
+    foodCostPct: gruposData.producto.pctSobreNetos,
+    laborPct: gruposData.equipo.pctSobreNetos,
+    variacionVentas, variacionPedidos, variacionTM,
+    ratioActual, ratioObjetivo: objetivoRatio, ratioGap: ratioActual - objetivoRatio,
+    pePctProgreso: peCalc.pctProgreso, faltaPE: Math.max(0, peCalc.peBruto - peCalc.acumulado),
+    ebitda, tmBruto,
+    mejorCanal: mejorCanalO?.label ?? '—', mejorCanalNetoPed: mejorCanalO?.np ?? 0,
+    diaFlojo: diaFlojoO?.nombre ?? '—', diaFlojoValor: diaFlojoO?.valor ?? 0,
+    diaFuerte: diaFuerteO?.nombre ?? '—', diaFuerteValor: diaFuerteO?.valor ?? 0,
+  }
   const sameDay = toLocalDateStr(fechaDesde) === toLocalDateStr(fechaHasta)
   const esHoy = sameDay && toLocalDateStr(fechaHasta) === toLocalDateStr(new Date())
   const diario = esHoy ? { objetivo: objetivos.diario, real: ventasPeriodo } : null
@@ -650,6 +662,7 @@ export default function TabResumen({
 
       <ResumenLanding
         datosDemo={datosDemo}
+        periodoLabel={periodoLabel}
         semanaLabel={semanaLabel}
         semanaRango={semanaRango}
         mesLabel={mesLabel}
@@ -657,14 +670,15 @@ export default function TabResumen({
         ventasPeriodo={ventasPeriodo}
         netoEstimado={netoEstimado}
         variacionVentas={variacionVentas}
+        variacionPedidos={variacionPedidos}
+        variacionTM={variacionTM}
         pedidosPeriodo={pedidosPeriodo}
         tmBruto={tmBruto}
         tmNeto={tmNeto}
-        variacionPedidos={variacionPedidos}
-        variacionTM={variacionTM}
         ebitda={ebitda}
         ebitdaPct={ebitdaPct}
         primeCostPct={primeCostPct}
+        serie={serieMes}
         ventasSemana={ventasSemana}
         ventasMes={ventasMes}
         ventasAno={ventasAno}
@@ -686,7 +700,7 @@ export default function TabResumen({
         topDatosDemo={topDatosDemo}
         topTab={topTab}
         onTopTab={setTopTab}
-        frase={frase}
+        metricas={metricas}
         onSaveObjetivoVenta={saveObjetivoVenta}
         onSaveObjetivoRatio={saveObjetivoRatio}
         onSavePresupuestoGrupo={savePresupuestoGrupo}
