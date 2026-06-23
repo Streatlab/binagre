@@ -10,7 +10,7 @@
  * y bloque de deuda de plataformas a hoy. No calcula nada: todo llega por props.
  */
 import { useState } from 'react'
-import { fmtEur, fmtPct, fmtNum, colorSemaforo } from '@/lib/format'
+import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
 import type { CanalStat, ObjetivosVentas, PagoProximoItem, TopVentaItem } from './types'
 import type { GrupoGasto } from './ColGruposGasto'
 import type { DiaPico } from './ColDiasPico'
