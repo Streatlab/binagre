@@ -1,13 +1,10 @@
 /**
- * ResumenLanding v5 — pestaña Resumen del Panel Global.
- * Brutalismo + alternancia de fondos. Formato numérico ÚNICO del ERP (@/lib/format):
- * separadores de miles siempre, € al mínimo. "TM" siempre mayúscula.
- * v5: hero con más nivel (amarillo solo como acento), nº de pedidos con marcador fluor,
- * margen NETO REAL en el hero, TM bruto/neto diferenciados por color, desviaciones
- * "vs periodo anterior" (sin el resultado redundante), barras de canal con color
- * corporativo, TM bruto/neto por canal, card oscura con columnas diferenciadas
- * (P&L lista vs grupos en barras), objetivos en rosa, marcas reales + momento del día,
- * y bloque de deuda de plataformas a hoy. No calcula nada: todo llega por props.
+ * ResumenLanding v6 — pestaña Resumen del Panel Global.
+ * v6: hero de nuevo en amarillo (acento fluor en el nº de pedidos), barras de canal
+ * con color corporativo y track diferenciado del fondo, sección Resultado al ~70%
+ * con UNA sola tabla (P&L + presupuesto fusionados) y a la derecha el momento del día
+ * (almuerzo/cena) separado de las marcas, y sección de marcas propia con 5-7 marcas,
+ * cada una con su barra y su evolución. No calcula nada: todo llega por props.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -22,6 +19,7 @@ const OSC = '#2b2117'
 const CREMA = '#FCEFD6'
 const CLARO = '#F3D9A8'
 const TRACK = '#ecdcb8'
+const TRACK_CANAL = '#e2dac9'   // track de canal, distinto del fondo blanco de la card
 const ROSA = '#FF2E63'
 const AMA = '#FFC400'
 const VERDE = '#0FB86B'
@@ -29,10 +27,13 @@ const NAR = '#FF6A1A'
 const AZUL = '#2D5BFF'
 const VERDE_CL = '#46e6a0'
 const NAR_CL = '#ffb27a'
-const FLUOR = '#CDFF00'         // marcador fluor para resaltar números
+const FLUOR = '#CDFF00'
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
+
+// colores corporativos de plataforma
+const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
 
 // textos sobre fondo oscuro
 const D1 = CREMA
@@ -42,7 +43,6 @@ const D3 = '#cabd9f'
 const d = (size: string, color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color })
 const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'inline-block', background: bg, color, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px' })
 
-// formato canónico del ERP
 const EUR = (n: number) => fmtEur(n, { decimals: 0 })
 const E = (n: number) => fmtEur(n, { showEuro: false, decimals: 0 })
 const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
@@ -53,7 +53,7 @@ const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: tru
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; pct: number }
+interface MarcaRealRow { nombre: string; neto: number; pct: number; serie?: number[] }
 type NavTab = 'operaciones' | 'finanzas' | 'cashflow' | 'marcas' | 'evolucion'
 
 interface Props {
@@ -110,7 +110,6 @@ interface Props {
   onNavTab?: (tab: NavTab) => void
 }
 
-/* editable inline */
 function Edit({ value, onSave, suffix = '', color = INK }: { value: number; onSave: (v: number | null) => void; suffix?: string; color?: string }) {
   const [edit, setEdit] = useState(false)
   const [val, setVal] = useState(String(Math.round(value)))
@@ -129,27 +128,27 @@ const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: st
   </>
 )
 
-function Spark({ serie, color = INK }: { serie: number[]; color?: string }) {
+function Spark({ serie, color = INK, w = 240, h = 54 }: { serie: number[]; color?: string; w?: number; h?: number }) {
   if (!serie || serie.length < 2) return null
-  const w = 240, h = 54, max = Math.max(1, ...serie), step = w / (serie.length - 1)
+  const max = Math.max(1, ...serie), step = w / (serie.length - 1)
   const path = serie.map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${(h - (v / max) * h).toFixed(1)}`).join(' ')
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: 240, maxWidth: '100%', height: 54 }} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: h }} preserveAspectRatio="none">
       <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={`${color}22`} />
       <path d={path} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   )
 }
 
-/* barra de progreso brutalista protagonista: nombre + track + relleno color + % + valor */
-function Barra({ nombre, pct, color, valor, alto = 34 }: { nombre: string; pct: number; color: string; valor: string; alto?: number }) {
+/* barra de progreso brutalista: nombre + track (diferenciado) + relleno color + % + valor */
+function Barra({ nombre, pct, color, valor, alto = 34, track = TRACK }: { nombre: string; pct: number; color: string; valor: string; alto?: number; track?: string }) {
   const fill = Math.min(100, Math.max(0, pct))
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <span style={{ ...d('15px'), width: 104, flexShrink: 0, lineHeight: 1.05 }}>{nombre}</span>
-      <div style={{ position: 'relative', flex: 1, height: alto, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
-        <div style={{ width: `${fill}%`, height: '100%', background: color, transition: 'width .3s' }} />
-        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', ...d('17px'), color: fill > 60 ? '#fff' : INK, mixBlendMode: fill > 60 ? 'difference' : 'normal' }}>{P0(pct)}</span>
+      <div style={{ position: 'relative', flex: 1, height: alto, background: track, border: `3px solid ${INK}`, overflow: 'hidden', boxShadow: `inset 0 0 0 2px #ffffff` }}>
+        <div style={{ width: `${fill}%`, height: '100%', background: color, transition: 'width .3s', boxShadow: `2px 0 0 ${INK}` }} />
+        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', ...d('17px') }}>{P0(pct)}</span>
       </div>
       <span style={{ ...d('17px'), width: 96, textAlign: 'right', flexShrink: 0 }}>{valor}</span>
     </div>
@@ -187,31 +186,32 @@ export default function ResumenLanding(p: Props) {
     { k: 'mensual', lbl: p.mesLabel, real: p.ventasMes, obj: p.objetivos.mensual },
     { k: 'anual', lbl: String(p.anoLabel), real: p.ventasAno, obj: p.objetivos.anual },
   ]
-  const grupos: Array<{ k: GrupoGasto; lbl: string; sub: string; obj: number }> = [
-    { k: 'producto', lbl: 'Producto', sub: 'COGS · Food cost', obj: 30 },
-    { k: 'equipo', lbl: 'Equipo', sub: 'Labor', obj: 40 },
-    { k: 'local', lbl: 'Local', sub: 'Occupancy', obj: 15 },
-    { k: 'controlables', lbl: 'Controlables', sub: 'Opex', obj: 15 },
-  ]
-  // P&L: cada fila lleva su % sobre neto (alegría/color), márgenes resaltados.
+  const grupoMeta: Record<GrupoGasto, { lbl: string; sub: string; obj: number }> = {
+    producto: { lbl: 'Producto', sub: 'COGS · Food cost', obj: 30 },
+    equipo: { lbl: 'Equipo', sub: 'Labor', obj: 40 },
+    local: { lbl: 'Local', sub: 'Occupancy', obj: 15 },
+    controlables: { lbl: 'Controlables', sub: 'Opex', obj: 15 },
+  }
   const pctN = (g: number) => p.netoEstimado > 0 ? (g / p.netoEstimado) * 100 : 0
-  const pnl: Array<{ l: string; v: string; c: string; bold?: boolean; pct?: number; pos?: boolean }> = [
-    { l: 'Facturación', v: E2(p.ventasPeriodo), c: D1 },
-    { l: 'Ingresos netos', v: E2(p.netoEstimado), c: VERDE_CL, pos: true },
-    { l: 'Producto · COGS', v: p.grupos.producto.gasto > 0 ? '−' + E2(p.grupos.producto.gasto) : DI, c: p.grupos.producto.gasto > 0 ? NAR_CL : D3, pct: p.grupos.producto.gasto > 0 ? pctN(p.grupos.producto.gasto) : undefined },
-    { l: 'Margen bruto', v: E2(margenBruto), c: AMA, bold: true },
-    { l: 'Equipo · Labor', v: p.grupos.equipo.gasto > 0 ? '−' + E2(p.grupos.equipo.gasto) : DI, c: p.grupos.equipo.gasto > 0 ? NAR_CL : D3, pct: p.grupos.equipo.gasto > 0 ? pctN(p.grupos.equipo.gasto) : undefined },
-    { l: 'Local · Occupancy', v: p.grupos.local.gasto > 0 ? '−' + E2(p.grupos.local.gasto) : DI, c: p.grupos.local.gasto > 0 ? NAR_CL : D3, pct: p.grupos.local.gasto > 0 ? pctN(p.grupos.local.gasto) : undefined },
-    { l: 'Controlables · Opex', v: p.grupos.controlables.gasto > 0 ? '−' + E2(p.grupos.controlables.gasto) : DI, c: p.grupos.controlables.gasto > 0 ? NAR_CL : D3, pct: p.grupos.controlables.gasto > 0 ? pctN(p.grupos.controlables.gasto) : undefined },
-    { l: 'Resultado neto', v: E2(resultadoNetoPL), c: resultadoNetoPL >= 0 ? VERDE_CL : '#ff9aa8', bold: true, pos: resultadoNetoPL >= 0 },
+
+  // Tabla fusionada de resultado: P&L con presupuesto integrado en una sola tabla.
+  type Fila = { l: string; imp: string; impC: string; pct?: string; grupo?: GrupoGasto; bold?: boolean }
+  const filas: Fila[] = [
+    { l: 'Facturación', imp: E2(p.ventasPeriodo), impC: D1 },
+    { l: 'Ingresos netos', imp: E2(p.netoEstimado), impC: VERDE_CL, pct: P0(netoPct), bold: true },
+    { l: 'Producto · COGS', imp: p.grupos.producto.gasto > 0 ? '−' + E2(p.grupos.producto.gasto) : DI, impC: p.grupos.producto.gasto > 0 ? NAR_CL : D3, pct: p.grupos.producto.gasto > 0 ? P0(pctN(p.grupos.producto.gasto)) : undefined, grupo: 'producto' },
+    { l: 'Margen bruto', imp: E2(margenBruto), impC: AMA, bold: true },
+    { l: 'Equipo · Labor', imp: p.grupos.equipo.gasto > 0 ? '−' + E2(p.grupos.equipo.gasto) : DI, impC: p.grupos.equipo.gasto > 0 ? NAR_CL : D3, pct: p.grupos.equipo.gasto > 0 ? P0(pctN(p.grupos.equipo.gasto)) : undefined, grupo: 'equipo' },
+    { l: 'Local · Occupancy', imp: p.grupos.local.gasto > 0 ? '−' + E2(p.grupos.local.gasto) : DI, impC: p.grupos.local.gasto > 0 ? NAR_CL : D3, pct: p.grupos.local.gasto > 0 ? P0(pctN(p.grupos.local.gasto)) : undefined, grupo: 'local' },
+    { l: 'Controlables · Opex', imp: p.grupos.controlables.gasto > 0 ? '−' + E2(p.grupos.controlables.gasto) : DI, impC: p.grupos.controlables.gasto > 0 ? NAR_CL : D3, pct: p.grupos.controlables.gasto > 0 ? P0(pctN(p.grupos.controlables.gasto)) : undefined, grupo: 'controlables' },
+    { l: 'Resultado neto', imp: E2(resultadoNetoPL), impC: resultadoNetoPL >= 0 ? VERDE_CL : '#ff9aa8', bold: true },
   ]
-  // 3 desviaciones vs periodo anterior (sin el resultado, que ya está en el hero)
+
   const desv = [
     { v: DELTA(p.variacionVentas), l: 'ventas vs periodo ant.', c: p.variacionVentas != null && p.variacionVentas < 0 ? ROSA : VERDE },
     { v: DELTA(p.variacionPedidos), l: 'pedidos vs periodo ant.', c: p.variacionPedidos != null && p.variacionPedidos < 0 ? ROSA : VERDE },
     { v: DELTA(p.variacionTM), l: 'TM vs periodo ant.', c: p.variacionTM != null && p.variacionTM < 0 ? ROSA : VERDE },
   ]
-  // hero card derecha: TM bruto/neto en colores distintos, EBITDA estimado, Margen neto REAL
   const heroStats: Array<{ l: string; v: string; c: string }> = [
     { l: 'TM bruto', v: E2(p.tmBruto), c: AZUL },
     { l: 'TM neto', v: E2(p.tmNeto), c: VERDE },
@@ -219,7 +219,7 @@ export default function ResumenLanding(p: Props) {
     { l: 'Margen neto', v: P2(p.margenNetoReal), c: INK },
   ]
   const servColor = [AMA, AZUL, VERDE, NAR, ROSA]
-  const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA]
+  const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, '#8A4FFF', '#0FB8B8']
 
   const sec = (bg: string, pad = `44px ${PAD}`): React.CSSProperties => ({ background: bg, padding: pad, borderBottom: `4px solid ${INK}` })
 
@@ -227,16 +227,16 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}`, marginTop: 4 }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 1 · HERO — fondo crema, amarillo solo de acento */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: CREMA }}>
+      {/* 1 · HERO — amarillo, con nº de pedidos resaltado */}
+      <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
         <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={eyebrow(AMA)}>Comer bien. Aquí y ahora.</span>
+            <span style={eyebrow('#fff')}>Comer bien. Aquí y ahora.</span>
             {p.periodoLabel && <span style={{ ...eyebrow(INK, AMA), fontSize: 12 }}>{p.periodoLabel}</span>}
           </div>
           <div style={{ ...d('clamp(32px,4.2vw,56px)'), margin: '18px 0 18px', maxWidth: 640 }}>
             {p.pedidosPeriodo > 0
-              ? <>Has entregado <span style={{ background: FLUOR, color: INK, padding: '0 .12em', boxShadow: `5px 5px 0 ${INK}`, display: 'inline-block', WebkitBoxDecorationBreak: 'clone' }}>{N(p.pedidosPeriodo)}</span> pedidos.</>
+              ? <>Has entregado <span style={{ background: INK, color: FLUOR, padding: '0 .14em', display: 'inline-block' }}>{N(p.pedidosPeriodo)}</span> pedidos.</>
               : 'Aún no hay pedidos entregados.'}
           </div>
           <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -278,7 +278,7 @@ export default function ResumenLanding(p: Props) {
           ))}
       </section>
 
-      {/* 3 · DESVIACIONES (CREMA) — 3 columnas, vs periodo anterior */}
+      {/* 3 · DESVIACIONES (CREMA) */}
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
         {desv.map((x, i) => (
           <div key={i} style={{ padding: '24px 22px', borderRight: i < 2 ? `2px solid ${INK}22` : 'none' }}>
@@ -294,30 +294,33 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES (blanco) — barra protagonista con color corporativo */}
+      {/* 5 · CANALES (blanco) — barra corporativa con track diferenciado */}
       <section style={sec('#fff')}>
-        <Title tag="Por dónde entra el hambre" tagBg={AMA} title="Reparto por canal: peso, neto, margen, pedidos y TM bruto/neto." nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
+        <Title tag="Por dónde entra el hambre" tagBg={AMA} title="Cada canal: peso, neto, margen, pedidos y TM bruto/neto." nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {p.canalStats.map(c => (
-            <div key={c.id} style={{ border: `3px solid ${INK}`, background: CREMA, boxShadow: `5px 5px 0 ${INK}`, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <Barra nombre={c.label} pct={totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0} color={c.color} valor={E2(c.bruto)} />
-                {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
+          {p.canalStats.map(c => {
+            const col = CORP[c.id] ?? c.color
+            return (
+              <div key={c.id} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <Barra nombre={c.label} pct={totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0} color={col} valor={E2(c.bruto)} track={TRACK_CANAL} />
+                  {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+                  {[['Neto', E2(c.neto), VERDE], ['Margen', P2(c.margen), INK], ['Pedidos', N(c.pedidos), INK], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', AZUL], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, cc]) => (
+                    <div key={l as string}>
+                      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.55 }}>{l}</div>
+                      <div style={d('clamp(15px,1.8vw,20px)', cc as string)}>{v}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
-                {[['Neto', E2(c.neto), VERDE], ['Margen', P2(c.margen), INK], ['Pedidos', N(c.pedidos), INK], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', AZUL], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, col]) => (
-                  <div key={l as string}>
-                    <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.55 }}>{l}</div>
-                    <div style={d('clamp(15px,1.8vw,20px)', col as string)}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
-      {/* 6 · DEUDA DE PLATAFORMAS A HOY (AZUL) — de un vistazo */}
+      {/* 6 · DEUDA DE PLATAFORMAS A HOY (AZUL) */}
       <section style={{ background: AZUL, color: '#fff', padding: `40px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={eyebrow('#fff')}>Te deben las plataformas</span>
@@ -340,7 +343,7 @@ export default function ResumenLanding(p: Props) {
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span style={{ ...d('15px', '#fff'), width: 96, flexShrink: 0 }}>{c.label}</span>
                     <div style={{ position: 'relative', flex: 1, height: 28, background: '#ffffff33', border: `3px solid ${INK}`, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: c.color }} />
+                      <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: CORP[c.id] ?? c.color }} />
                     </div>
                     <span style={{ ...d('17px', '#fff'), width: 92, textAlign: 'right', flexShrink: 0 }}>{E(c.neto)}</span>
                   </div>
@@ -354,7 +357,7 @@ export default function ResumenLanding(p: Props) {
         )}
       </section>
 
-      {/* 7 · RESULTADO + P&L + GRUPOS (oscuro) — columnas diferenciadas */}
+      {/* 7 · RESULTADO (oscuro) — tabla única al ~70% + momento del día a la derecha */}
       <section style={{ background: OSC, color: D1, padding: `44px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
         <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', margin: '18px 0 22px' }}>
@@ -366,50 +369,50 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
         {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 22, fontSize: 16, color: D1, maxWidth: 820 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 22 }}>
-          {/* IZQUIERDA: P&L como cascada con % por línea */}
-          <div>
-            <div style={{ fontFamily: OSW, fontSize: 14, letterSpacing: '1.5px', textTransform: 'uppercase', color: D2, marginBottom: 12 }}>Cuenta de resultados · del bruto al beneficio</div>
-            <div style={{ border: `2px solid #ffffff33` }}>
-              {pnl.map((r, i) => (
-                <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, padding: '13px 16px', borderTop: i > 0 ? `1px solid #ffffff1f` : 'none', background: r.bold ? '#ffffff14' : 'transparent' }}>
-                  <span style={{ fontSize: 15, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, background: r.pos ? VERDE : (r.c === NAR_CL ? NAR : (r.c === AMA ? AMA : '#ffffff44')), display: 'inline-block', flexShrink: 0 }} />
-                    {r.l}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: 22, alignItems: 'start' }}>
+          {/* TABLA ÚNICA: cuenta de resultados + presupuesto fusionados */}
+          <div style={{ border: `2px solid #ffffff33`, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '10px 16px', background: '#ffffff14', fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D2 }}>
+              <span>Concepto</span><span style={{ textAlign: 'right' }}>Importe</span><span style={{ textAlign: 'right' }}>% s/neto</span><span style={{ textAlign: 'right' }}>Presupuesto</span>
+            </div>
+            {filas.map((r, i) => {
+              const gd = r.grupo ? p.grupos[r.grupo] : null
+              const meta = r.grupo ? grupoMeta[r.grupo] : null
+              const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
+              return (
+                <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid #ffffff1a`, background: r.bold ? '#ffffff14' : (i % 2 ? '#ffffff08' : 'transparent') }}>
+                  <span style={{ fontFamily: LEX, fontSize: 14.5, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, flexShrink: 0, background: r.impC === NAR_CL ? NAR : (r.impC === AMA ? AMA : (r.impC === VERDE_CL ? VERDE : '#ffffff44')) }} />
+                    {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    {r.pct != null && <span style={{ fontFamily: OSW, fontSize: 12, color: D3 }}>{P0(r.pct)}</span>}
-                    <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 24 : 19, color: r.c, letterSpacing: '-0.5px' }}>{r.v}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 21 : 18, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
+                  <span style={{ fontFamily: OSW, fontSize: 13, color: D3, textAlign: 'right' }}>{r.pct ?? ''}</span>
+                  <span style={{ textAlign: 'right', fontFamily: OSW, fontSize: 15 }}>
+                    {gd ? <><Edit value={gd.presupuesto} onSave={v => p.onSavePresupuestoGrupo(r.grupo as GrupoGasto, v)} color={AMA} />{sobre && <span style={{ color: ROSA, fontSize: 11, marginLeft: 6 }}>▲</span>}</> : <span style={{ color: '#ffffff33' }}>—</span>}
                   </span>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
-          {/* DERECHA: grupos de gasto como barras consumo vs presupuesto */}
-          <div>
-            <div style={{ fontFamily: OSW, fontSize: 14, letterSpacing: '1.5px', textTransform: 'uppercase', color: D2, marginBottom: 12 }}>Grupos de gasto · consumo vs presupuesto</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {grupos.map(g => {
-                const gd = p.grupos[g.k]
-                const pres = gd.presupuesto > 0 ? gd.presupuesto : 0
-                const cons = pres > 0 ? Math.min(120, (gd.gasto / pres) * 100) : 0
-                const sobre = pres > 0 && gd.gasto > pres
-                const barCol = pres === 0 ? '#ffffff55' : sobre ? ROSA : VERDE
-                return (
-                  <div key={g.k}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                      <span style={{ fontFamily: OSW, fontSize: 15, letterSpacing: '0.5px', textTransform: 'uppercase', color: D1 }}>{g.lbl} <span style={{ fontSize: 11, color: D3 }}>{g.sub}</span></span>
-                      <span style={d('clamp(18px,2.2vw,24px)', D1)}>{gd.gasto > 0 ? E(gd.gasto) : DI}</span>
+
+          {/* MOMENTO DEL DÍA (separado de marcas) */}
+          <div style={{ background: CREMA, border: `3px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: '16px 18px' }}>
+            <div style={{ ...d('15px', INK), marginBottom: 14 }}>Momento del día</div>
+            {p.serviciosHay
+              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {p.servicios.slice(0, 4).map((s, i) => (
+                    <div key={s.nombre}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                        <span style={{ ...d('16px', INK) }}>{s.nombre}</span>
+                        <span style={d('18px', INK)}>{P0(s.pct)}</span>
+                      </div>
+                      <div style={{ height: 20, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, s.pct)}%`, height: '100%', background: servColor[i % servColor.length] }} /></div>
+                      <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, marginTop: 5, color: '#5c5340' }}>{E2(s.bruto)} bruto · {N(s.pedidos)} ped · TM {s.pedidos > 0 ? E2(s.bruto / s.pedidos) : '—'}</div>
                     </div>
-                    <div style={{ position: 'relative', height: 22, background: '#ffffff1a', border: `2px solid #ffffff44`, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, cons)}%`, height: '100%', background: barCol }} />
-                      <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontWeight: 700, fontSize: 13, color: D1 }}>{Math.round(gd.pctSobreNetos)}% s/ neto</span>
-                    </div>
-                    <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: D2, marginTop: 5 }}>objetivo {g.obj}% · presupuesto <span style={{ color: AMA, fontFamily: OSW, fontSize: 16 }}><Edit value={gd.presupuesto} onSave={v => p.onSavePresupuestoGrupo(g.k, v)} color={AMA} /></span> {sobre && <span style={{ color: ROSA, fontFamily: OSW, textTransform: 'uppercase', marginLeft: 4 }}>· pasado</span>}</div>
-                  </div>
-                )
-              })}
-            </div>
+                  ))}
+                </div>
+              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, color: '#5c5340' }}>Sin reparto por momento (el campo «servicio» no viene informado en las ventas del periodo).</div>}
           </div>
         </div>
       </section>
@@ -550,38 +553,24 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 12 · MARCAS + MOMENTO DEL DÍA (AMA) */}
+      {/* 12 · MARCAS (AMA) — 5-7 marcas, cada una con su evolución */}
       <section style={sec(AMA)}>
-        <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Qué marca tira más y en qué momento del día." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 22 }}>
-          {/* Marcas reales */}
-          <div>
-            <div style={{ ...eyebrow('#fff'), marginBottom: 14 }}>Por marca</div>
-            {p.marcasRealesHay
-              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {p.marcasReales.filter(mk => mk.neto > 0).slice(0, 6).map((mk, i) => (
-                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px' }}>
-                      <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.neto)} alto={28} />
-                    </div>
-                  ))}
+        <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Qué marca tira más este periodo y cómo evoluciona cada una." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
+        {p.marcasRealesHay
+          ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {p.marcasReales.filter(mk => mk.neto > 0).slice(0, 7).map((mk, i) => (
+                <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, alignItems: 'center' }}>
+                  <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.neto)} alto={28} />
+                  <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
+                    <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución</div>
+                    {mk.serie && mk.serie.length >= 2
+                      ? <Spark serie={mk.serie} color={marcaColor[i % marcaColor.length]} w={150} h={36} />
+                      : <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, opacity: 0.5 }}>Sin histórico</div>}
+                  </div>
                 </div>
-              : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
-          </div>
-          {/* Momento del día (servicio) */}
-          <div>
-            <div style={{ ...eyebrow('#fff'), marginBottom: 14 }}>Por momento del día</div>
-            {p.serviciosHay
-              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {p.servicios.slice(0, 4).map((s, i) => (
-                    <div key={s.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px' }}>
-                      <Barra nombre={s.nombre} pct={s.pct} color={servColor[i % servColor.length]} valor={E2(s.bruto)} alto={28} />
-                      <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 8, opacity: 0.8 }}>Neto {E2(s.neto)} · {N(s.pedidos)} pedidos · TM {s.pedidos > 0 ? E2(s.bruto / s.pedidos) : '—'}</div>
-                    </div>
-                  ))}
-                </div>
-              : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin reparto por momento (el campo «servicio» no viene informado en las ventas del periodo).</div>}
-          </div>
-        </div>
+              ))}
+            </div>
+          : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
       </section>
 
       {/* 13 · FOOTER (oscuro) */}
