@@ -1,11 +1,11 @@
 /**
  * ResumenLanding v8 — pestaña Resumen del Panel Global.
- * v8 añade (tanda 1 de mejoras): tarjeta de ESTADO DE SALUD arriba del todo (semáforo +
- * titular + frente abierto), fecha de periodo + hora de actualización, etiquetas «est.» como
- * norma viva sobre los datos estimados, tooltips al pasar el ratón en los números clave y
- * flechitas de tendencia ↑↓ en las desviaciones y la facturación.
- * v8.1: el fondo del estado de salud nunca repite el amarillo del hero (verde/naranja/rojo).
- * Layout v7 intacto. No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
+ * v8 tanda1: estado de salud arriba (semáforo verde/naranja/rojo, nunca amarillo),
+ * fecha + hora de actualización, etiquetas «est.», tooltips y flechitas de tendencia.
+ * v8 tanda2: marca que sube y marca que cae (titular + flecha por marca), proyección de
+ * cierre de mes (a este ritmo vs objetivo), coste por pedido real (comisión + producto),
+ * mejor/peor franja del día y bloque oscuro de costes plegable para aligerar.
+ * No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -86,7 +86,7 @@ function Semaforo({ nivel }: { nivel: 'verde' | 'ambar' | 'rojo' }) {
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie?: number[] }
+interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie?: number[]; varPct?: number | null }
 type NavTab = 'operaciones' | 'finanzas' | 'cashflow' | 'marcas' | 'evolucion'
 
 interface Props {
@@ -108,6 +108,9 @@ interface Props {
   ebitda: number
   ebitdaPct: number
   primeCostPct: number
+  costePorPedido: { comision: number; producto: number; total: number }
+  cierreMes: number
+  objetivoMes: number
   serie: number[]
   ventasSemana: number
   ventasMes: number
@@ -189,6 +192,7 @@ function Barra({ nombre, pct, color, valor, alto = 34, track = TRACK }: { nombre
 }
 
 export default function ResumenLanding(p: Props) {
+  const [verCostes, setVerCostes] = useState(false)
   const netoPct = p.ventasPeriodo > 0 ? (p.netoEstimado / p.ventasPeriodo) * 100 : 0
   const maxDia = Math.max(1, ...p.diasPico.map(x => x.valor))
   const diasConV = p.diasPico.filter(x => x.valor > 0)
@@ -244,17 +248,19 @@ export default function ResumenLanding(p: Props) {
   const grupoMeta: Record<GrupoGasto, { obj: number }> = { producto: { obj: 30 }, equipo: { obj: 40 }, local: { obj: 15 }, controlables: { obj: 15 } }
   const pctN = (g: number) => p.netoEstimado > 0 ? (g / p.netoEstimado) * 100 : 0
 
-  // Tabla fusionada de resultado: P&L con presupuesto integrado en una sola tabla.
+  // Tabla fusionada de resultado: filas clave siempre visibles; los 4 grupos de coste se pliegan.
   type Fila = { l: string; imp: string; impC: string; pct?: string; grupo?: GrupoGasto; bold?: boolean }
-  const filas: Fila[] = [
+  const filasBase: Fila[] = [
     { l: 'Facturación', imp: E2(p.ventasPeriodo), impC: D1 },
     { l: 'Ingresos netos', imp: E2(p.netoEstimado), impC: VERDE_CL, pct: P0(netoPct), bold: true },
-    { l: 'Producto · COGS', imp: p.grupos.producto.gasto > 0 ? '−' + E2(p.grupos.producto.gasto) : DI, impC: p.grupos.producto.gasto > 0 ? NAR_CL : D3, pct: p.grupos.producto.gasto > 0 ? P0(pctN(p.grupos.producto.gasto)) : undefined, grupo: 'producto' },
     { l: 'Margen bruto', imp: E2(margenBruto), impC: AMA, bold: true },
+    { l: 'Resultado neto', imp: E2(resultadoNetoPL), impC: resultadoNetoPL >= 0 ? VERDE_CL : '#ff9aa8', bold: true },
+  ]
+  const filasCoste: Fila[] = [
+    { l: 'Producto · COGS', imp: p.grupos.producto.gasto > 0 ? '−' + E2(p.grupos.producto.gasto) : DI, impC: p.grupos.producto.gasto > 0 ? NAR_CL : D3, pct: p.grupos.producto.gasto > 0 ? P0(pctN(p.grupos.producto.gasto)) : undefined, grupo: 'producto' },
     { l: 'Equipo · Labor', imp: p.grupos.equipo.gasto > 0 ? '−' + E2(p.grupos.equipo.gasto) : DI, impC: p.grupos.equipo.gasto > 0 ? NAR_CL : D3, pct: p.grupos.equipo.gasto > 0 ? P0(pctN(p.grupos.equipo.gasto)) : undefined, grupo: 'equipo' },
     { l: 'Local · Occupancy', imp: p.grupos.local.gasto > 0 ? '−' + E2(p.grupos.local.gasto) : DI, impC: p.grupos.local.gasto > 0 ? NAR_CL : D3, pct: p.grupos.local.gasto > 0 ? P0(pctN(p.grupos.local.gasto)) : undefined, grupo: 'local' },
     { l: 'Controlables · Opex', imp: p.grupos.controlables.gasto > 0 ? '−' + E2(p.grupos.controlables.gasto) : DI, impC: p.grupos.controlables.gasto > 0 ? NAR_CL : D3, pct: p.grupos.controlables.gasto > 0 ? P0(pctN(p.grupos.controlables.gasto)) : undefined, grupo: 'controlables' },
-    { l: 'Resultado neto', imp: E2(resultadoNetoPL), impC: resultadoNetoPL >= 0 ? VERDE_CL : '#ff9aa8', bold: true },
   ]
 
   const desv = [
@@ -265,12 +271,26 @@ export default function ResumenLanding(p: Props) {
   const heroStats: Array<{ l: string; v: string; c: string; est?: boolean; tip?: string }> = [
     { l: 'TM bruto', v: E2(p.tmBruto), c: AZUL, tip: 'Ticket medio bruto = facturación / pedidos' },
     { l: 'TM neto', v: E2(p.tmNeto), c: VERDE, tip: 'Ticket medio neto = ingresos netos / pedidos', est: true },
+    { l: 'Coste/pedido', v: E2(p.costePorPedido.total), c: NAR, est: true, tip: `Coste real por pedido: comisión plataforma ${E2(p.costePorPedido.comision)} + producto ${E2(p.costePorPedido.producto)}` },
     { l: 'EBITDA est.', v: E(p.ebitda), c: p.ebitda >= 0 ? VERDE : ROSA, est: true, tip: 'Beneficio operativo estimado: ingresos − producto − personal − resto de gastos' },
     { l: 'Margen neto', v: P2(p.margenNetoReal), c: INK, tip: 'Ingresos netos sobre facturación bruta' },
   ]
   const servColor = [AMA, AZUL, VERDE, NAR, ROSA]
   const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, '#8A4FFF', '#0FB8B8']
   const marcas5 = p.marcasReales.filter(mk => mk.bruto > 0).slice(0, 5)
+
+  // marca que más sube y que más cae (de las que tienen variación)
+  const marcasVar = marcas5.filter(mk => mk.varPct != null)
+  const marcaSube = marcasVar.length ? marcasVar.reduce((a, x) => ((x.varPct as number) > (a.varPct as number) ? x : a)) : null
+  const marcaCae = marcasVar.length ? marcasVar.reduce((a, x) => ((x.varPct as number) < (a.varPct as number) ? x : a)) : null
+
+  // mejor y peor franja del día (por bruto)
+  const servOrden = [...p.servicios].sort((a, b) => b.bruto - a.bruto)
+  const mejorServ = servOrden[0] ?? null
+  const flojoServ = servOrden.length > 1 ? servOrden[servOrden.length - 1] : null
+
+  // proyección de cierre de mes
+  const pctCierre = p.objetivoMes > 0 ? (p.cierreMes / p.objetivoMes) * 100 : 0
 
   const sec = (bg: string, pad = `44px ${PAD}`): React.CSSProperties => ({ background: bg, padding: pad, borderBottom: `4px solid ${INK}` })
 
@@ -400,6 +420,12 @@ export default function ResumenLanding(p: Props) {
           <div style={{ ...d('clamp(20px,2.4vw,28px)'), margin: '14px 0 20px' }}>Cuándo te compran.</div>
           {p.serviciosHay
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {(mejorServ || flojoServ) && (
+                  <div style={{ background: INK, color: D1, border: `3px solid ${INK}`, padding: '10px 12px', fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                    {mejorServ && <div><span style={{ color: VERDE_CL }}>▲ Mejor franja</span> · {mejorServ.nombre} {E(mejorServ.bruto)}</div>}
+                    {flojoServ && <div style={{ marginTop: 4 }}><span style={{ color: NAR_CL }}>▼ Más floja</span> · {flojoServ.nombre} {E(flojoServ.bruto)}</div>}
+                  </div>
+                )}
                 {p.servicios.slice(0, 4).map((s, i) => (
                   <div key={s.nombre} style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '12px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -486,25 +512,32 @@ export default function ResumenLanding(p: Props) {
             <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '10px 16px', background: '#ffffff14', fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D2 }}>
               <span>Concepto</span><span style={{ textAlign: 'right' }}>Importe</span><span style={{ textAlign: 'right' }}>% s/neto</span><span style={{ textAlign: 'right' }}>Presupuesto</span>
             </div>
-            {filas.map((r, i) => {
-              const gd = r.grupo ? p.grupos[r.grupo] : null
-              const meta = r.grupo ? grupoMeta[r.grupo] : null
-              const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
-              const esEstimado = !!r.grupo && (!gd || gd.gasto === 0)
-              return (
-                <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid #ffffff1a`, background: r.bold ? '#ffffff14' : (i % 2 ? '#ffffff08' : 'transparent') }}>
-                  <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, flexShrink: 0, background: r.impC === NAR_CL ? NAR : (r.impC === AMA ? AMA : (r.impC === VERDE_CL ? VERDE : '#ffffff44')) }} />
-                    {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}{esEstimado && <Est light />}
-                  </span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 20 : 17, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
-                  <span style={{ fontFamily: OSW, fontSize: 13, color: D3, textAlign: 'right' }}>{r.pct ?? ''}</span>
-                  <span style={{ textAlign: 'right', fontFamily: OSW, fontSize: 15 }}>
-                    {gd ? <><Edit value={gd.presupuesto} onSave={v => p.onSavePresupuestoGrupo(r.grupo as GrupoGasto, v)} color={AMA} />{sobre && <span style={{ color: ROSA, fontSize: 11, marginLeft: 6 }}>▲</span>}</> : <span style={{ color: '#ffffff33' }}>—</span>}
-                  </span>
-                </div>
-              )
-            })}
+            {(() => {
+              // orden visual: Facturación, Ingresos netos, [costes plegables], Margen bruto, Resultado neto
+              const visibles: Fila[] = [filasBase[0], filasBase[1], ...(verCostes ? filasCoste : []), filasBase[2], filasBase[3]]
+              return visibles.map((r, i) => {
+                const gd = r.grupo ? p.grupos[r.grupo] : null
+                const meta = r.grupo ? grupoMeta[r.grupo] : null
+                const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
+                const esEstimado = !!r.grupo && (!gd || gd.gasto === 0)
+                return (
+                  <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid #ffffff1a`, background: r.bold ? '#ffffff14' : (i % 2 ? '#ffffff08' : 'transparent') }}>
+                    <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, flexShrink: 0, background: r.impC === NAR_CL ? NAR : (r.impC === AMA ? AMA : (r.impC === VERDE_CL ? VERDE : '#ffffff44')) }} />
+                      {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}{esEstimado && <Est light />}
+                    </span>
+                    <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 20 : 17, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 13, color: D3, textAlign: 'right' }}>{r.pct ?? ''}</span>
+                    <span style={{ textAlign: 'right', fontFamily: OSW, fontSize: 15 }}>
+                      {gd ? <><Edit value={gd.presupuesto} onSave={v => p.onSavePresupuestoGrupo(r.grupo as GrupoGasto, v)} color={AMA} />{sobre && <span style={{ color: ROSA, fontSize: 11, marginLeft: 6 }}>▲</span>}</> : <span style={{ color: '#ffffff33' }}>—</span>}
+                    </span>
+                  </div>
+                )
+              })
+            })()}
+            <button onClick={() => setVerCostes(v => !v)} style={{ width: '100%', background: '#ffffff10', border: 'none', borderTop: `1px solid #ffffff1a`, color: D2, fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '10px', cursor: 'pointer' }}>
+              {verCostes ? '▲ Ocultar desglose de costes' : '▼ Ver desglose de costes (producto, equipo, local, opex)'}
+            </button>
           </div>
         </div>
       </section>
@@ -547,6 +580,15 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: '#fff' }}>
           <span style={eyebrow('#fff')}>Proyecciones</span>
           <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Cashflow →</button>
+          {/* Proyección de cierre de mes */}
+          <div title="A este ritmo de ventas, dónde cerrará el mes frente a tu objetivo mensual" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 16, cursor: 'help' }}>
+            <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>A este ritmo cierras el mes en<Est light /></div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+              <span style={d('clamp(26px,3.2vw,40px)', '#fff')}>{E(p.cierreMes)}</span>
+              {p.objetivoMes > 0 && <span style={{ ...eyebrow(pctCierre >= 100 ? '#fff' : ROSA, pctCierre >= 100 ? VERDE : '#fff'), fontSize: 12 }}>{pctCierre >= 100 ? '✓ llegas' : '✗ ' + P0(pctCierre)}</span>}
+            </div>
+            {p.objetivoMes > 0 && <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>objetivo {E(p.objetivoMes)}</div>}
+          </div>
           <div title="Saldo estimado a partir de cobros y pagos medios, no del extracto bancario real" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo estimado<Est light /></div>
           <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldo.saldoHoy > 0 ? E(p.saldo.saldoHoy) : '—'}</div>
           <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
@@ -589,6 +631,12 @@ export default function ResumenLanding(p: Props) {
       <section style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
+          {(marcaSube || marcaCae) && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+              {marcaSube && marcaSube.varPct != null && marcaSube.varPct >= 0 && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 13 }}>▲ Sube {marcaSube.nombre} {DELTA(marcaSube.varPct)}</span>}
+              {marcaCae && marcaCae.varPct != null && marcaCae.varPct < 0 && <span style={{ ...eyebrow(ROSA, '#fff'), fontSize: 13 }}>▼ Cae {marcaCae.nombre} {DELTA(marcaCae.varPct)}</span>}
+            </div>
+          )}
           {marcas5.length > 0
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {marcas5.map((mk, i) => {
@@ -598,9 +646,10 @@ export default function ResumenLanding(p: Props) {
                     <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16, alignItems: 'center' }}>
                       <div>
                         <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
-                        <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                        <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', alignItems: 'center' }}>
                           <span style={{ opacity: 0.55 }}>Fact. bruta <b style={{ color: INK }}>{E2(mk.bruto)}</b></span>
                           <span style={{ opacity: 0.55 }}>TM bruto <b style={{ color: AZUL }}>{mk.tmBruto > 0 ? E2(mk.tmBruto) : '—'}</b></span>
+                          {mk.varPct != null && <span style={{ color: mk.varPct >= 0 ? VERDE : ROSA }}><Arrow v={mk.varPct} />{DELTA(mk.varPct)}</span>}
                         </div>
                       </div>
                       <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
