@@ -4,8 +4,9 @@
  * Proyecciones / Ratio / PE al 33% cada uno · Marcas 75% | (Provisiones + Top ventas) 25%.
  * Canales con su diseño de tabla; barras de canal con color corporativo y track diferenciado.
  * Almuerzo/cena en tarjeta propia fuera de la card oscura. Objetivos con el editable en azul.
- * Marcas: 5 marcas ordenadas, con progreso, facturación bruta, TM bruto y evolución.
- * No calcula nada: todo llega por props.
+ * Marcas: 5 marcas ordenadas, con progreso, facturación bruta, TM bruto y evolución (real, o
+ * una estimación tenue marcada «est.» cuando no hay histórico por periodos).
+ * No calcula nada salvo la curva estimada de marca (puramente visual): todo llega por props.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -29,6 +30,7 @@ const AZUL = '#2D5BFF'
 const VERDE_CL = '#46e6a0'
 const NAR_CL = '#ffb27a'
 const FLUOR = '#CDFF00'
+const GRIS = '#9a8f78'
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
@@ -51,6 +53,14 @@ const N = (n: number) => fmtNum(n, 0)
 const P0 = (n: number) => fmtPct(n, 0)
 const P2 = (n: number) => fmtPct(n, 2)
 const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: true, showEuro: false, decimals: 1 }) + '%')
+
+// curva estimada (solo visual) para una marca sin histórico por periodos:
+// 6 puntos con ligera tendencia ascendente hacia su facturación bruta, sin inventar cifras concretas.
+function serieEstimada(bruto: number): number[] {
+  if (bruto <= 0) return []
+  const factores = [0.62, 0.71, 0.79, 0.88, 0.95, 1]
+  return factores.map(f => bruto * f)
+}
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
@@ -129,14 +139,14 @@ const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: st
   </>
 )
 
-function Spark({ serie, color = INK, w = 240, h = 54 }: { serie: number[]; color?: string; w?: number; h?: number }) {
+function Spark({ serie, color = INK, w = 240, h = 54, dashed = false }: { serie: number[]; color?: string; w?: number; h?: number; dashed?: boolean }) {
   if (!serie || serie.length < 2) return null
   const max = Math.max(1, ...serie), step = w / (serie.length - 1)
   const path = serie.map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${(h - (v / max) * h).toFixed(1)}`).join(' ')
   return (
     <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: h }} preserveAspectRatio="none">
-      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={`${color}22`} />
-      <path d={path} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={`${color}${dashed ? '14' : '22'}`} />
+      <path d={path} fill="none" stroke={color} strokeWidth={dashed ? 2.5 : 3} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dashed ? '5 4' : undefined} />
     </svg>
   )
 }
@@ -515,23 +525,25 @@ export default function ResumenLanding(p: Props) {
           <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
           {marcas5.length > 0
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {marcas5.map((mk, i) => (
-                  <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16, alignItems: 'center' }}>
-                    <div>
-                      <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
-                      <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                        <span style={{ opacity: 0.55 }}>Fact. bruta <b style={{ color: INK }}>{E2(mk.bruto)}</b></span>
-                        <span style={{ opacity: 0.55 }}>TM bruto <b style={{ color: AZUL }}>{mk.tmBruto > 0 ? E2(mk.tmBruto) : '—'}</b></span>
+                {marcas5.map((mk, i) => {
+                  const real = !!(mk.serie && mk.serie.length >= 2)
+                  const curva = real ? (mk.serie as number[]) : serieEstimada(mk.bruto)
+                  return (
+                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16, alignItems: 'center' }}>
+                      <div>
+                        <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
+                        <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                          <span style={{ opacity: 0.55 }}>Fact. bruta <b style={{ color: INK }}>{E2(mk.bruto)}</b></span>
+                          <span style={{ opacity: 0.55 }}>TM bruto <b style={{ color: AZUL }}>{mk.tmBruto > 0 ? E2(mk.tmBruto) : '—'}</b></span>
+                        </div>
+                      </div>
+                      <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
+                        <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución {!real && <span style={{ color: GRIS }}>· est.</span>}</div>
+                        <Spark serie={curva} color={real ? marcaColor[i % marcaColor.length] : GRIS} w={160} h={38} dashed={!real} />
                       </div>
                     </div>
-                    <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
-                      <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución</div>
-                      {mk.serie && mk.serie.length >= 2
-                        ? <Spark serie={mk.serie} color={marcaColor[i % marcaColor.length]} w={160} h={38} />
-                        : <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, opacity: 0.5 }}>Sin histórico</div>}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
         </div>
