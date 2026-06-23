@@ -1,10 +1,9 @@
 /**
- * Tab Resumen v5 — Panel Global
+ * Tab Resumen v6 — Panel Global
  * Lógica de cálculo (la presentación está en ResumenLanding).
- * Novedades v5: margen NETO REAL (de comisiones reales, no estimado), deuda de plataformas
- * a hoy (calcPorCobrar, misma fuente que Cashflow), reparto por servicio (almuerzo/cenas) y
- * ranking de MARCAS reales (ventas_plataforma 90d). Mantiene métricas-insight, sparkline,
- * navegación entre pestañas y cache anti-parpadeo.
+ * v6: además de margen neto real, deuda de plataformas (calcPorCobrar) y reparto por
+ * servicio, calcula el ranking de MARCAS reales con su SERIE de evolución (neto por
+ * periodo de liquidación, ventas_plataforma 90d).
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -39,7 +38,7 @@ interface Props {
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; pct: number }
+interface MarcaRealRow { nombre: string; neto: number; pct: number; serie: number[] }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -48,7 +47,6 @@ const COLORES_DIAS = [
 ]
 const NOMBRES_DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
 const SERV_LABEL: Record<string, string> = { ALM: 'Almuerzo', CENAS: 'Cenas', CENA: 'Cenas', TODO: 'Todo el día' }
-const FESTIVOS_FALLBACK = ['2026-01-01', '2026-01-06', '2026-04-02', '2026-04-03', '2026-05-01', '2026-05-15', '2026-08-15', '2026-10-12', '2026-11-02', '2026-11-09', '2026-12-07', '2026-12-08', '2026-12-25']
 
 
 function parseLocalDate(s: string): Date {
@@ -137,9 +135,9 @@ export default function TabResumen({
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
-  const [festivos, setFestivos] = useState<Set<string>>(new Set(FESTIVOS_FALLBACK))
+  const [festivos, setFestivos] = useState<Set<string>>(new Set())
   const [frontera, setFrontera] = useState<Record<string, string>>({})
-  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number }>>([])
+  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; fecha: string }>>([])
   const [marcasActivas, setMarcasActivas] = useState<string[]>([])
 
   /* ── state UI ──────────────────────────────── */
@@ -182,11 +180,11 @@ export default function TabResumen({
     })
   }, [])
 
-  /* ── ventas por marca real (90 días) + marcas activas ── */
+  /* ── ventas por marca real (90 días) con fecha + marcas activas ── */
   useEffect(() => {
     const hace90 = toLocalDateStr(new Date(Date.now() - 90 * 86400000))
     supabase.from('ventas_plataforma').select('marca,neto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA').then(({ data }) => {
-      setVentasMarca(((data as { marca: string; neto: number }[]) ?? []).map(v => ({ marca: v.marca, neto: Number(v.neto) || 0 })))
+      setVentasMarca(((data as { marca: string; neto: number; fecha_inicio_periodo: string }[]) ?? []).map(v => ({ marca: v.marca, neto: Number(v.neto) || 0, fecha: String(v.fecha_inicio_periodo || '').slice(0, 10) })))
     })
     supabase.from('v_marcas_activas').select('nombre').then(({ data }) => {
       setMarcasActivas(((data as { nombre: string }[]) ?? []).map(x => x.nombre))
@@ -382,16 +380,31 @@ export default function TabResumen({
     return { servicios: arr, serviciosHay: arr.length > 0 }
   }, [rowsPeriodo, ventasPeriodo, netoEstimado])
 
-  /* ── ranking de MARCAS reales (ventas_plataforma 90d) ── */
+  /* ── ranking de MARCAS reales (ventas_plataforma 90d) con serie de evolución ── */
   const { marcasReales, marcasRealesHay } = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const v of ventasMarca) map[v.marca] = (map[v.marca] || 0) + (v.neto || 0)
-    const base = marcasActivas.length ? marcasActivas : Object.keys(map)
-    const totalN = base.reduce((a, m) => a + (map[m] || 0), 0)
+    const tot: Record<string, number> = {}
+    const porFecha: Record<string, Record<string, number>> = {}
+    const fechasSet = new Set<string>()
+    for (const v of ventasMarca) {
+      tot[v.marca] = (tot[v.marca] || 0) + (v.neto || 0)
+      if (v.fecha) {
+        if (!porFecha[v.marca]) porFecha[v.marca] = {}
+        porFecha[v.marca][v.fecha] = (porFecha[v.marca][v.fecha] || 0) + (v.neto || 0)
+        fechasSet.add(v.fecha)
+      }
+    }
+    const fechas = [...fechasSet].sort()
+    const base = marcasActivas.length ? marcasActivas : Object.keys(tot)
+    const totalN = base.reduce((a, mm) => a + (tot[mm] || 0), 0)
     const arr: MarcaRealRow[] = base
-      .map(nombre => ({ nombre, neto: map[nombre] || 0, pct: totalN > 0 ? ((map[nombre] || 0) / totalN) * 100 : 0 }))
+      .map(nombre => ({
+        nombre,
+        neto: tot[nombre] || 0,
+        pct: totalN > 0 ? ((tot[nombre] || 0) / totalN) * 100 : 0,
+        serie: fechas.map(f => porFecha[nombre]?.[f] || 0),
+      }))
       .sort((a, b) => b.neto - a.neto)
-    return { marcasReales: arr, marcasRealesHay: arr.some(m => m.neto > 0) }
+    return { marcasReales: arr, marcasRealesHay: arr.some(mm => mm.neto > 0) }
   }, [ventasMarca, marcasActivas])
 
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
@@ -415,12 +428,12 @@ export default function TabResumen({
     return rowsAll.filter(r => r.fecha >= ws && r.fecha <= we).reduce((a, r) => a + (r.total_bruto || 0), 0)
   }, [rowsAll])
   const ventasMes = useMemo(() => {
-    const m = toLocalDateStr(new Date()).slice(0, 7)
-    return rowsAll.filter(r => r.fecha.startsWith(m)).reduce((a, r) => a + (r.total_bruto || 0), 0)
+    const mm = toLocalDateStr(new Date()).slice(0, 7)
+    return rowsAll.filter(r => r.fecha.startsWith(mm)).reduce((a, r) => a + (r.total_bruto || 0), 0)
   }, [rowsAll])
   const ventasAno = useMemo(() => {
-    const a = toLocalDateStr(new Date()).slice(0, 4)
-    return rowsAll.filter(r => r.fecha.startsWith(a)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
+    const aa = toLocalDateStr(new Date()).slice(0, 4)
+    return rowsAll.filter(r => r.fecha.startsWith(aa)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
   }, [rowsAll])
 
   const serieMes = useMemo(() => {
