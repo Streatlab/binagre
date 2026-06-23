@@ -78,10 +78,6 @@ function EditNum({ value, onSave, suffix = ' €' }: { value: number; onSave: (v
   return <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(false) }} style={{ width: 110, fontFamily: OSW, fontWeight: 700, fontSize: 18, border: `2px solid ${INK}`, padding: '2px 8px', background: '#fff' }} />
 }
 
-function Banda({ children, bg, color = '#fff' }: { children: React.ReactNode; bg: string; color?: string }) {
-  return <div style={{ background: bg, color, padding: '34px 40px', borderBottom: `4px solid ${INK}` }}><div style={display('clamp(26px,3.6vw,44px)', color)}>{children}</div></div>
-}
-
 export default function ResumenLanding(p: Props) {
   const comisionPct = p.ventasPeriodo > 0 ? (1 - p.netoEstimado / p.ventasPeriodo) * 100 : 0
   const margenNetoPct = p.ventasPeriodo > 0 ? (p.netoEstimado / p.ventasPeriodo) * 100 : 0
@@ -258,9 +254,9 @@ export default function ResumenLanding(p: Props) {
               ? <div style={{ fontFamily: OSW, letterSpacing: '1px', opacity: 0.5, padding: '20px 0' }}>Sin datos de {p.topTab} en el periodo todavía.</div>
               : p.topItems.slice(0, 6).map((t, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderTop: i === 0 ? `3px solid ${INK}` : `2px solid ${INK}22` }}>
-                  <span style={{ ...display('clamp(22px,3vw,32px)', i === 0 ? ROSA : INK), width: 48 }}>{String(i + 1).padStart(2, '0')}</span>
-                  <span style={{ fontFamily: LEX, fontWeight: 600, fontSize: 15, flex: 1 }}>{t.nombre}</span>
-                  <span style={display('clamp(18px,2.4vw,26px)')}>{eur0(t.total ?? 0)}</span>
+                  <span style={{ ...display('clamp(22px,3vw,32px)', i === 0 ? ROSA : INK), width: 48 }}>{String(t.ranking ?? i + 1).padStart(2, '0')}</span>
+                  <span style={{ fontFamily: LEX, fontWeight: 600, fontSize: 15, flex: 1 }}>{t.producto}</span>
+                  <span style={display('clamp(18px,2.4vw,26px)')}>{eur0(t.importe)}</span>
                 </div>
               ))}
           </div>
