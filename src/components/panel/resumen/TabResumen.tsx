@@ -3,8 +3,8 @@
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
  * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
- * 23 jun 2026: la presentación pasa a ResumenLanding (look "landing") conservando
- * toda la densidad informativa. Toda la lógica de cálculo/guardado vive aquí.
+ * 23 jun 2026: presentación en ResumenLanding (look "landing") + frase-insight dinámica.
+ * Toda la lógica de cálculo/guardado vive aquí.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -15,6 +15,7 @@ import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import ResumenLanding from './ResumenLanding'
+import { elegirFrase } from './frasesInsight'
 import { type GrupoGasto } from './ColGruposGasto'
 import { type DiaPico } from './ColDiasPico'
 import type {
@@ -110,6 +111,7 @@ export default function TabResumen({
   rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onFiltrarDiaSemana,
 }: Props) {
   const navigate = useNavigate()
+  void periodoLabel
 
   /* ── state datos BD ──────────────────────────── */
   const [objetivos, setObjetivos] = useState<ObjetivosVentas>({
@@ -345,8 +347,11 @@ export default function TabResumen({
 
   const nSemana = isoWeek(new Date())
   const inicioSemStr = startOfWeekStr()
-  const _sem = inicioSemStr.split('-')
-  const semanaCodigo = `S${nSemana}_${_sem[2]}_${_sem[1]}_${_sem[0].slice(2)}`
+  const inicioSem = parseLocalDate(inicioSemStr)
+  const finSem = new Date(inicioSem); finSem.setDate(inicioSem.getDate() + 6)
+  const fmtDM = (dt: Date) => dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  const semanaLabel = `Semana ${nSemana}`
+  const semanaRango = `${fmtDM(inicioSem)} – ${fmtDM(finSem)}`
   const nombreMesRaw = new Date().toLocaleDateString('es-ES', { month: 'long' })
   const mesLabel = nombreMesRaw.charAt(0).toUpperCase() + nombreMesRaw.slice(1)
   const ano = new Date().getFullYear()
@@ -603,6 +608,24 @@ export default function TabResumen({
     )
   }
 
+  /* ── frase-insight dinámica + objetivo diario si el periodo es hoy ── */
+  const webPctV = canalStats.find(c => c.id === 'web')?.pct ?? 0
+  const frase = elegirFrase({
+    comisionPct: ventasPeriodo > 0 ? (1 - netoEstimado / ventasPeriodo) * 100 : 0,
+    webPct: webPctV,
+    margenNetoPct: ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0,
+    variacionVentas,
+    primeCostPct,
+    ratioActual,
+    ratioObjetivo: objetivoRatio,
+    pePctProgreso: peCalc.pctProgreso,
+    ebitda,
+    faltaPE: Math.max(0, peCalc.peBruto - peCalc.acumulado),
+  })
+  const sameDay = toLocalDateStr(fechaDesde) === toLocalDateStr(fechaHasta)
+  const esHoy = sameDay && toLocalDateStr(fechaHasta) === toLocalDateStr(new Date())
+  const diario = esHoy ? { objetivo: objetivos.diario, real: ventasPeriodo } : null
+
   void navigate
 
   return (
@@ -626,9 +649,9 @@ export default function TabResumen({
       </div>
 
       <ResumenLanding
-        periodoLabel={periodoLabel}
         datosDemo={datosDemo}
-        semanaCodigo={semanaCodigo}
+        semanaLabel={semanaLabel}
+        semanaRango={semanaRango}
         mesLabel={mesLabel}
         anoLabel={ano}
         ventasPeriodo={ventasPeriodo}
@@ -646,6 +669,7 @@ export default function TabResumen({
         ventasMes={ventasMes}
         ventasAno={ventasAno}
         objetivos={objetivos}
+        diario={diario}
         canalStats={canalStats}
         grupos={gruposData}
         diasPico={diasPico}
@@ -656,12 +680,13 @@ export default function TabResumen({
         gastosFijosMes={gastosFijosMes}
         gastosReales={totalGastosPeriodo}
         netosReales={netosReales}
-        pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, faltan: Math.max(0, peCalc.peBruto - peCalc.acumulado), diaVerdeEstimado: peCalc.diaVerdeEstimado, pedidosDia: peCalc.pedidosDia, tmActual: peCalc.tmActual, realFacDia: peCalc.realFacDia, realPedDia: peCalc.realPedDia }}
+        pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, faltan: Math.max(0, peCalc.peBruto - peCalc.acumulado), diaVerdeEstimado: peCalc.diaVerdeEstimado, realFacDia: peCalc.realFacDia, realPedDia: peCalc.realPedDia }}
         provisiones={{ totalAGuardar, provIVA, provIRPF, proximosPagos }}
         topItems={topItems}
         topDatosDemo={topDatosDemo}
         topTab={topTab}
         onTopTab={setTopTab}
+        frase={frase}
         onSaveObjetivoVenta={saveObjetivoVenta}
         onSaveObjetivoRatio={saveObjetivoRatio}
         onSavePresupuestoGrupo={savePresupuestoGrupo}
