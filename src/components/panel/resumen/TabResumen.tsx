@@ -2,10 +2,9 @@
  * Tab Resumen v3 — Panel Global
  * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
  * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
- * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo),
- * no por días del rango, para no hundir el resultado en semanas a medio cargar.
- * 23 jun 2026: la presentación pasa a ResumenLanding (look "landing conversora").
- * Toda la lógica de cálculo/guardado vive aquí; ResumenLanding solo pinta + cablea acciones.
+ * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
+ * 23 jun 2026: la presentación pasa a ResumenLanding (look "landing") conservando
+ * toda la densidad informativa. Toda la lógica de cálculo/guardado vive aquí.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -141,6 +140,7 @@ export default function TabResumen({
     setToasts(p => [...p, { id, msg, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000)
   }, [])
+  void showToast
 
   /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
   useEffect(() => {
@@ -153,8 +153,6 @@ export default function TabResumen({
     window.addEventListener('config_canales:changed', onChange)
     return () => window.removeEventListener('config_canales:changed', onChange)
   }, [])
-
-  /* ── fetch nº marcas por canal · ya gestionado en useEffect anterior con loadMarcasPorCanal ── */
 
   /* ── fetch objetivos ventas ─────────────────── */
   const loadObjetivos = useCallback(async () => {
@@ -328,7 +326,6 @@ export default function TabResumen({
       variacionTM:      prevTm      > 0 ? ((tmBruto        - prevTm)      / prevTm)      * 100 : null,
     }
   }, [rowsAll, fechaDesde, fechaHasta, ventasPeriodo, pedidosPeriodo, tmBruto])
-  void variacionTM
 
   const ventasSemana = useMemo(() => {
     const ws = startOfWeekStr()
@@ -347,10 +344,12 @@ export default function TabResumen({
   }, [rowsAll])
 
   const nSemana = isoWeek(new Date())
-  void nSemana
-  const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' })
+  const inicioSemStr = startOfWeekStr()
+  const _sem = inicioSemStr.split('-')
+  const semanaCodigo = `S${nSemana}_${_sem[2]}_${_sem[1]}_${_sem[0].slice(2)}`
+  const nombreMesRaw = new Date().toLocaleDateString('es-ES', { month: 'long' })
+  const mesLabel = nombreMesRaw.charAt(0).toUpperCase() + nombreMesRaw.slice(1)
   const ano = new Date().getFullYear()
-  void ano
 
   const netosReales = useMemo(() => {
     const fIni = fechaDesde.getFullYear() * 100 + (fechaDesde.getMonth() + 1)
@@ -372,8 +371,6 @@ export default function TabResumen({
       .reduce((a, g) => a + (Number(g.importe) || 0), 0)
   }, [gastos, fechaDesde, fechaHasta])
 
-  const resultadoLimpio = netosReales - totalGastosPeriodo
-
   const { ebitda, ebitdaPct, primeCostPct } = useMemo(() => {
     const cogs = peParams ? netoEstimado * (peParams.food_cost_pct / 100) : netoEstimado * 0.28
     const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos) : 0
@@ -384,12 +381,6 @@ export default function TabResumen({
     const ebPct = netoEstimado > 0 ? (eb / netoEstimado) * 100 : 0
     return { ebitda: eb, ebitdaPct: ebPct, primeCostPct: pc }
   }, [netoEstimado, totalGastosPeriodo, peParams, fechaDesde, fechaHasta])
-
-  const ebitdaDeltaPp = useMemo(() => {
-    if (!variacionVentas) return null
-    return variacionVentas / 10
-  }, [variacionVentas])
-  void ebitdaDeltaPp
 
   const gruposData = useMemo(() => {
     const desde = toLocalDateStr(fechaDesde)
@@ -485,13 +476,13 @@ export default function TabResumen({
       peParams.think_paladar + peParams.otros_fijos
   }, [peParams])
 
-  const ratioActual = totalGastosPeriodo > 0 ? netoEstimado / totalGastosPeriodo : 0
+  const ratioActual = gastosFijosMes > 0 ? netoEstimado / gastosFijosMes : 0
 
   const peCalc = useMemo(() => {
     if (!peParams || gastosFijosMes <= 0) {
       return {
         peBruto: 0, peNeto: 0, acumulado: ventasMes,
-        pctProgreso: 0, diaVerdeEstimado: null,
+        pctProgreso: 0, diaVerdeEstimado: null as { fecha: string; diaSemana: string } | null,
         facturacionDia: 0, pedidosDia: 0, tmActual: tmBruto,
         realFacDia: 0, realPedDia: 0,
       }
@@ -613,7 +604,6 @@ export default function TabResumen({
   }
 
   void navigate
-  void nombreMes
 
   return (
     <div style={{
@@ -638,6 +628,9 @@ export default function TabResumen({
       <ResumenLanding
         periodoLabel={periodoLabel}
         datosDemo={datosDemo}
+        semanaCodigo={semanaCodigo}
+        mesLabel={mesLabel}
+        anoLabel={ano}
         ventasPeriodo={ventasPeriodo}
         netoEstimado={netoEstimado}
         variacionVentas={variacionVentas}
@@ -645,22 +638,25 @@ export default function TabResumen({
         tmBruto={tmBruto}
         tmNeto={tmNeto}
         variacionPedidos={variacionPedidos}
-        ventasSemana={ventasSemana}
-        ventasMes={ventasMes}
-        ventasAno={ventasAno}
+        variacionTM={variacionTM}
         ebitda={ebitda}
         ebitdaPct={ebitdaPct}
         primeCostPct={primeCostPct}
-        resultadoLimpio={resultadoLimpio}
-        ratioActual={ratioActual}
-        objetivoRatio={objetivoRatio}
+        ventasSemana={ventasSemana}
+        ventasMes={ventasMes}
+        ventasAno={ventasAno}
         objetivos={objetivos}
         canalStats={canalStats}
         grupos={gruposData}
         diasPico={diasPico}
         mediaDiariaPico={mediaDiariaPico}
         saldo={saldoData}
-        pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, diaVerdeEstimado: peCalc.diaVerdeEstimado }}
+        ratioActual={ratioActual}
+        objetivoRatio={objetivoRatio}
+        gastosFijosMes={gastosFijosMes}
+        gastosReales={totalGastosPeriodo}
+        netosReales={netosReales}
+        pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, faltan: Math.max(0, peCalc.peBruto - peCalc.acumulado), diaVerdeEstimado: peCalc.diaVerdeEstimado, pedidosDia: peCalc.pedidosDia, tmActual: peCalc.tmActual, realFacDia: peCalc.realFacDia, realPedDia: peCalc.realPedDia }}
         provisiones={{ totalAGuardar, provIVA, provIRPF, proximosPagos }}
         topItems={topItems}
         topDatosDemo={topDatosDemo}
