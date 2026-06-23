@@ -13,7 +13,6 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
-  FlaskConical,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
@@ -42,25 +41,10 @@ interface SectionIconConfig {
   color: string
 }
 
-// Orden solicitado: Panel Global, Tareas, Test Visual, Finanzas, Cocina, Operaciones,
+// Orden: Panel Global, Tareas, Finanzas, Cocina, Operaciones,
 // Stock & Compras, Informes, Equipo, MKT, Configuración.
 // Panel Global y Tareas son enlaces directos (fuera de SECTIONS).
 const SECTIONS: NavSection[] = [
-  {
-    key: 'testvisual', emoji: '🧪', label: 'Test Visual', perfiles: ['admin'],
-    items: [
-      { path: '/test-visual/panel-global',     label: 'Panel Global',     emoji: '📊', perfiles: ['admin'] },
-      { path: '/test-visual/facturacion',      label: 'Facturación',      emoji: '🧾', perfiles: ['admin'] },
-      { path: '/test-visual/objetivos',        label: 'Objetivos',        emoji: '🎯', perfiles: ['admin'] },
-      { path: '/test-visual/running',          label: 'Running',          emoji: '📈', perfiles: ['admin'] },
-      { path: '/test-visual/escandallo',       label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/test-visual/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/test-visual/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin'] },
-      { path: '/test-visual/esquemas',         label: 'Esquemas',         emoji: '🗂️', perfiles: ['admin'] },
-      { path: '/test-visual/produccion',       label: 'Producción',       emoji: '🏭', perfiles: ['admin'] },
-      { path: '/test-visual/horarios',         label: 'Horarios',         emoji: '🗓️', perfiles: ['admin'] },
-    ],
-  },
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
     items: [
@@ -241,7 +225,6 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 ]
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  testvisual:    { icon: FlaskConical,  color: '#B01D23' },
   finanzas:      { icon: TrendingUp,    color: '#06C167' },
   cocina:        { icon: ChefHat,       color: '#f5a623' },
   operaciones:   { icon: ClipboardList, color: '#e8b341' },
