@@ -220,7 +220,7 @@ export default function PanelGlobal() {
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       {activeTab === 'resumen' && (
-        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} />
+        <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
       )}
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
       {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
