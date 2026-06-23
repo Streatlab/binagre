@@ -1,10 +1,11 @@
 /**
- * ResumenLanding v6 — pestaña Resumen del Panel Global.
- * v6: hero de nuevo en amarillo (acento fluor en el nº de pedidos), barras de canal
- * con color corporativo y track diferenciado del fondo, sección Resultado al ~70%
- * con UNA sola tabla (P&L + presupuesto fusionados) y a la derecha el momento del día
- * (almuerzo/cena) separado de las marcas, y sección de marcas propia con 5-7 marcas,
- * cada una con su barra y su evolución. No calcula nada: todo llega por props.
+ * ResumenLanding v7 — pestaña Resumen del Panel Global.
+ * v7 (layout alternado): Canales 66% | Almuerzo-Cena 33% · Días pico 33% | Resultado 66% ·
+ * Proyecciones / Ratio / PE al 33% cada uno · Marcas 75% | (Provisiones + Top ventas) 25%.
+ * Canales con su diseño de tabla; barras de canal con color corporativo y track diferenciado.
+ * Almuerzo/cena en tarjeta propia fuera de la card oscura. Objetivos con el editable en azul.
+ * Marcas: 5 marcas ordenadas, con progreso, facturación bruta, TM bruto y evolución.
+ * No calcula nada: todo llega por props.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -19,7 +20,7 @@ const OSC = '#2b2117'
 const CREMA = '#FCEFD6'
 const CLARO = '#F3D9A8'
 const TRACK = '#ecdcb8'
-const TRACK_CANAL = '#e2dac9'   // track de canal, distinto del fondo blanco de la card
+const TRACK_CANAL = '#e2dac9'
 const ROSA = '#FF2E63'
 const AMA = '#FFC400'
 const VERDE = '#0FB86B'
@@ -53,7 +54,7 @@ const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: tru
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; pct: number; serie?: number[] }
+interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie?: number[] }
 type NavTab = 'operaciones' | 'finanzas' | 'cashflow' | 'marcas' | 'evolucion'
 
 interface Props {
@@ -115,7 +116,7 @@ function Edit({ value, onSave, suffix = '', color = INK }: { value: number; onSa
   const [val, setVal] = useState(String(Math.round(value)))
   if (!edit) return <button onClick={() => { setVal(String(Math.round(value))); setEdit(true) }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', font: 'inherit', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', color, textDecoration: 'underline dotted', textUnderlineOffset: 3, padding: 0 }}>{value > 0 ? N(value) + suffix : 'fijar'}</button>
   const commit = () => { const n = parseFloat(val.replace(/\./g, '').replace(',', '.')); onSave(Number.isFinite(n) ? n : null); setEdit(false) }
-  return <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(false) }} style={{ width: '4.5em', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', border: `2px solid ${INK}`, padding: '0 4px', background: '#fff', color: INK }} />
+  return <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(false) }} style={{ width: '4.5em', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', border: `2px solid ${INK}`, padding: '0 4px', background: '#fff', color: AZUL }} />
 }
 
 const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: string; dark?: boolean; nav?: { label: string; onClick?: () => void } }> = ({ tag, tagBg, tagColor = INK, title, dark, nav }) => (
@@ -124,7 +125,7 @@ const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: st
       <span style={eyebrow(tagBg, tagColor)}>{tag}</span>
       {nav && <button onClick={nav.onClick} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12 }}>{nav.label} →</button>}
     </div>
-    {title && <div style={{ ...d('clamp(26px,3.2vw,40px)', dark ? D1 : INK), margin: '14px 0 22px' }}>{title}</div>}
+    {title && <div style={{ ...d('clamp(24px,3vw,38px)', dark ? D1 : INK), margin: '14px 0 22px' }}>{title}</div>}
   </>
 )
 
@@ -140,7 +141,7 @@ function Spark({ serie, color = INK, w = 240, h = 54 }: { serie: number[]; color
   )
 }
 
-/* barra de progreso brutalista: nombre + track (diferenciado) + relleno color + % + valor */
+/* barra de progreso: nombre + track (diferenciado del fondo) + relleno color + % + valor */
 function Barra({ nombre, pct, color, valor, alto = 34, track = TRACK }: { nombre: string; pct: number; color: string; valor: string; alto?: number; track?: string }) {
   const fill = Math.min(100, Math.max(0, pct))
   return (
@@ -186,12 +187,7 @@ export default function ResumenLanding(p: Props) {
     { k: 'mensual', lbl: p.mesLabel, real: p.ventasMes, obj: p.objetivos.mensual },
     { k: 'anual', lbl: String(p.anoLabel), real: p.ventasAno, obj: p.objetivos.anual },
   ]
-  const grupoMeta: Record<GrupoGasto, { lbl: string; sub: string; obj: number }> = {
-    producto: { lbl: 'Producto', sub: 'COGS · Food cost', obj: 30 },
-    equipo: { lbl: 'Equipo', sub: 'Labor', obj: 40 },
-    local: { lbl: 'Local', sub: 'Occupancy', obj: 15 },
-    controlables: { lbl: 'Controlables', sub: 'Opex', obj: 15 },
-  }
+  const grupoMeta: Record<GrupoGasto, { obj: number }> = { producto: { obj: 30 }, equipo: { obj: 40 }, local: { obj: 15 }, controlables: { obj: 15 } }
   const pctN = (g: number) => p.netoEstimado > 0 ? (g / p.netoEstimado) * 100 : 0
 
   // Tabla fusionada de resultado: P&L con presupuesto integrado en una sola tabla.
@@ -208,9 +204,9 @@ export default function ResumenLanding(p: Props) {
   ]
 
   const desv = [
-    { v: DELTA(p.variacionVentas), l: 'ventas vs periodo ant.', c: p.variacionVentas != null && p.variacionVentas < 0 ? ROSA : VERDE },
-    { v: DELTA(p.variacionPedidos), l: 'pedidos vs periodo ant.', c: p.variacionPedidos != null && p.variacionPedidos < 0 ? ROSA : VERDE },
-    { v: DELTA(p.variacionTM), l: 'TM vs periodo ant.', c: p.variacionTM != null && p.variacionTM < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionVentas), l: 'ventas', c: p.variacionVentas != null && p.variacionVentas < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionPedidos), l: 'pedidos', c: p.variacionPedidos != null && p.variacionPedidos < 0 ? ROSA : VERDE },
+    { v: DELTA(p.variacionTM), l: 'ticket medio', c: p.variacionTM != null && p.variacionTM < 0 ? ROSA : VERDE },
   ]
   const heroStats: Array<{ l: string; v: string; c: string }> = [
     { l: 'TM bruto', v: E2(p.tmBruto), c: AZUL },
@@ -220,6 +216,7 @@ export default function ResumenLanding(p: Props) {
   ]
   const servColor = [AMA, AZUL, VERDE, NAR, ROSA]
   const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, '#8A4FFF', '#0FB8B8']
+  const marcas5 = p.marcasReales.filter(mk => mk.bruto > 0).slice(0, 5)
 
   const sec = (bg: string, pad = `44px ${PAD}`): React.CSSProperties => ({ background: bg, padding: pad, borderBottom: `4px solid ${INK}` })
 
@@ -227,7 +224,7 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}`, marginTop: 4 }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 1 · HERO — amarillo, con nº de pedidos resaltado */}
+      {/* 1 · HERO — amarillo */}
       <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
         <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -278,12 +275,15 @@ export default function ResumenLanding(p: Props) {
           ))}
       </section>
 
-      {/* 3 · DESVIACIONES (CREMA) */}
+      {/* 3 · DESVIACIONES (CREMA) — vs mismo periodo anterior */}
+      <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD} 0` }}>
+        <span style={{ ...eyebrow(AZUL, '#fff'), fontSize: 12 }}>Comparado con el periodo anterior de igual duración</span>
+      </section>
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
         {desv.map((x, i) => (
-          <div key={i} style={{ padding: '24px 22px', borderRight: i < 2 ? `2px solid ${INK}22` : 'none' }}>
+          <div key={i} style={{ padding: '20px 22px 26px', borderRight: i < 2 ? `2px solid ${INK}22` : 'none' }}>
             <div style={d('clamp(30px,4.4vw,52px)', x.c)}>{x.v}</div>
-            <div style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12.5, color: '#6b5d45', textTransform: 'uppercase', marginTop: 6 }}>{x.l}</div>
+            <div style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12.5, color: '#6b5d45', textTransform: 'uppercase', marginTop: 6 }}>{x.l} · vs periodo anterior</div>
           </div>
         ))}
       </section>
@@ -294,29 +294,49 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES (blanco) — barra corporativa con track diferenciado */}
-      <section style={sec('#fff')}>
-        <Title tag="Por dónde entra el hambre" tagBg={AMA} title="Cada canal: peso, neto, margen, pedidos y TM bruto/neto." nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {p.canalStats.map(c => {
-            const col = CORP[c.id] ?? c.color
-            return (
-              <div key={c.id} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <Barra nombre={c.label} pct={totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0} color={col} valor={E2(c.bruto)} track={TRACK_CANAL} />
-                  {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
+      {/* 5 · CANALES 66% (blanco) | ALMUERZO-CENA 33% (tarjeta propia, otro color) */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+          <Title tag="Por dónde entra el hambre" tagBg={AMA} title="Cada canal: peso, neto, margen, pedidos y TM bruto/neto." nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {p.canalStats.map(c => {
+              const col = CORP[c.id] ?? c.color
+              return (
+                <div key={c.id} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <Barra nombre={c.label} pct={totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0} color={col} valor={E2(c.bruto)} track={TRACK_CANAL} />
+                    {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+                    {[['Neto', E2(c.neto), VERDE], ['Margen', P2(c.margen), INK], ['Pedidos', N(c.pedidos), INK], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', AZUL], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, cc]) => (
+                      <div key={l as string}>
+                        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.55 }}>{l}</div>
+                        <div style={d('clamp(15px,1.8vw,20px)', cc as string)}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
-                  {[['Neto', E2(c.neto), VERDE], ['Margen', P2(c.margen), INK], ['Pedidos', N(c.pedidos), INK], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', AZUL], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, cc]) => (
-                    <div key={l as string}>
-                      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.55 }}>{l}</div>
-                      <div style={d('clamp(15px,1.8vw,20px)', cc as string)}>{v}</div>
+              )
+            })}
+          </div>
+        </div>
+        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+          <span style={eyebrow(NAR, '#fff')}>Almuerzo y cena</span>
+          <div style={{ ...d('clamp(20px,2.4vw,28px)'), margin: '14px 0 20px' }}>Cuándo te compran.</div>
+          {p.serviciosHay
+            ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {p.servicios.slice(0, 4).map((s, i) => (
+                  <div key={s.nombre} style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                      <span style={{ ...d('18px', INK) }}>{s.nombre}</span>
+                      <span style={d('22px', servColor[i % servColor.length] === AMA ? INK : servColor[i % servColor.length])}>{P0(s.pct)}</span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ height: 22, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, s.pct)}%`, height: '100%', background: servColor[i % servColor.length] }} /></div>
+                    <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, marginTop: 8, color: '#5c5340' }}>{E2(s.bruto)} bruto · {N(s.pedidos)} ped · TM {s.pedidos > 0 ? E2(s.bruto / s.pedidos) : '—'}</div>
+                  </div>
+                ))}
               </div>
-            )
-          })}
+            : <div style={{ background: '#fff', border: `3px solid ${INK}`, padding: '16px', fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en las ventas de este periodo.</div>}
         </div>
       </section>
 
@@ -357,21 +377,36 @@ export default function ResumenLanding(p: Props) {
         )}
       </section>
 
-      {/* 7 · RESULTADO (oscuro) — tabla única al ~70% + momento del día a la derecha */}
-      <section style={{ background: OSC, color: D1, padding: `44px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
-        <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', margin: '18px 0 22px' }}>
-          <div style={d('clamp(48px,8vw,92px)', p.ebitda >= 0 ? VERDE_CL : '#ff9aa8')}>{E(p.ebitda)}</div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROSA, '#fff') }}>EBITDA {P0(p.ebitdaPct)}</div>
-            <div style={{ ...d('clamp(22px,3vw,34px)', p.primeCostPct <= 60 ? VERDE_CL : NAR_CL), marginTop: 12 }}>Prime cost {P2(p.primeCostPct)}</div>
-            <div style={{ fontFamily: OSW, fontSize: 13.5, letterSpacing: '1px', color: D2, textTransform: 'uppercase' }}>objetivo: máx. 60% de los ingresos</div>
+      {/* 7 · DÍAS PICO 33% (CREMA) | RESULTADO 66% (oscuro, tabla única) */}
+      <section style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: CREMA }}>
+          <Title tag={`Días pico · ${p.mesLabel}`} tagBg={AZUL} tagColor="#fff" title={`Bruto por día. Media ${E(p.mediaDiariaPico)}.`} />
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 150, marginBottom: 16 }}>
+            {p.diasPico.map(x => (
+              <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>
+                <div style={{ width: '100%', height: `${(x.valor / maxDia) * 96}px`, minHeight: 4, background: x.color, border: `3px solid ${INK}` }} />
+                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{x.nombre}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>
+            <span>Más fuerte · <b>{diaFuerte ? `${diaFuerte.nombre} ${E(diaFuerte.valor)}` : '—'}</b></span>
+            <span>Más flojo · <b>{diaFlojo ? `${diaFlojo.nombre} ${E(diaFlojo.valor)}` : '—'}</b></span>
           </div>
         </div>
-        {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 22, fontSize: 16, color: D1, maxWidth: 820 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
+        <div style={{ padding: `44px ${PAD}`, background: OSC, color: D1 }}>
+          <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', margin: '18px 0 22px' }}>
+            <div style={d('clamp(44px,7vw,84px)', p.ebitda >= 0 ? VERDE_CL : '#ff9aa8')}>{E(p.ebitda)}</div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROSA, '#fff') }}>EBITDA {P0(p.ebitdaPct)}</div>
+              <div style={{ ...d('clamp(20px,2.6vw,30px)', p.primeCostPct <= 60 ? VERDE_CL : NAR_CL), marginTop: 12 }}>Prime cost {P2(p.primeCostPct)}</div>
+              <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', color: D2, textTransform: 'uppercase' }}>objetivo: máx. 60% de los ingresos</div>
+            </div>
+          </div>
+          {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 22, fontSize: 15, color: D1, maxWidth: 760 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: 22, alignItems: 'start' }}>
-          {/* TABLA ÚNICA: cuenta de resultados + presupuesto fusionados */}
           <div style={{ border: `2px solid #ffffff33`, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '10px 16px', background: '#ffffff14', fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D2 }}>
               <span>Concepto</span><span style={{ textAlign: 'right' }}>Importe</span><span style={{ textAlign: 'right' }}>% s/neto</span><span style={{ textAlign: 'right' }}>Presupuesto</span>
@@ -382,11 +417,11 @@ export default function ResumenLanding(p: Props) {
               const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
               return (
                 <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid #ffffff1a`, background: r.bold ? '#ffffff14' : (i % 2 ? '#ffffff08' : 'transparent') }}>
-                  <span style={{ fontFamily: LEX, fontSize: 14.5, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: r.bold ? D1 : D2, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, flexShrink: 0, background: r.impC === NAR_CL ? NAR : (r.impC === AMA ? AMA : (r.impC === VERDE_CL ? VERDE : '#ffffff44')) }} />
                     {r.l}{meta && <span style={{ fontSize: 11, color: D3 }}> · obj {meta.obj}%</span>}
                   </span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 21 : 18, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 20 : 17, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
                   <span style={{ fontFamily: OSW, fontSize: 13, color: D3, textAlign: 'right' }}>{r.pct ?? ''}</span>
                   <span style={{ textAlign: 'right', fontFamily: OSW, fontSize: 15 }}>
                     {gd ? <><Edit value={gd.presupuesto} onSave={v => p.onSavePresupuestoGrupo(r.grupo as GrupoGasto, v)} color={AMA} />{sobre && <span style={{ color: ROSA, fontSize: 11, marginLeft: 6 }}>▲</span>}</> : <span style={{ color: '#ffffff33' }}>—</span>}
@@ -395,31 +430,12 @@ export default function ResumenLanding(p: Props) {
               )
             })}
           </div>
-
-          {/* MOMENTO DEL DÍA (separado de marcas) */}
-          <div style={{ background: CREMA, border: `3px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: '16px 18px' }}>
-            <div style={{ ...d('15px', INK), marginBottom: 14 }}>Momento del día</div>
-            {p.serviciosHay
-              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {p.servicios.slice(0, 4).map((s, i) => (
-                    <div key={s.nombre}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                        <span style={{ ...d('16px', INK) }}>{s.nombre}</span>
-                        <span style={d('18px', INK)}>{P0(s.pct)}</span>
-                      </div>
-                      <div style={{ height: 20, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, s.pct)}%`, height: '100%', background: servColor[i % servColor.length] }} /></div>
-                      <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, marginTop: 5, color: '#5c5340' }}>{E2(s.bruto)} bruto · {N(s.pedidos)} ped · TM {s.pedidos > 0 ? E2(s.bruto / s.pedidos) : '—'}</div>
-                    </div>
-                  ))}
-                </div>
-              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, color: '#5c5340' }}>Sin reparto por momento (el campo «servicio» no viene informado en las ventas del periodo).</div>}
-          </div>
         </div>
       </section>
 
-      {/* 8 · OBJETIVOS (AMA) — barra rosa */}
+      {/* 8 · OBJETIVOS (AMA) — editable en azul */}
       <section style={sec(AMA)}>
-        <Title tag="Tus objetivos" tagBg={VERDE} tagColor="#fff" title="Cómo vas frente a lo que te marcaste. Toca el objetivo para cambiarlo." />
+        <Title tag="Tus objetivos" tagBg={VERDE} tagColor="#fff" title="Cómo vas frente a lo que te marcaste. Toca el objetivo (en azul) para cambiarlo." />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           {p.diario && (() => {
             const prog = p.diario!.objetivo > 0 ? (p.diario!.real / p.diario!.objetivo) * 100 : 0
@@ -441,7 +457,7 @@ export default function ResumenLanding(p: Props) {
               <div key={o.k}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                   <span style={d('22px')}>{o.lbl} · {N(o.real)} <span style={d('22px', prog >= 100 ? VERDE : INK)}>{P0(prog)}</span></span>
-                  <span style={d('20px')}>Faltan <span style={{ color: INK }}>{N(faltan)}</span> de objetivo <Edit value={o.obj} onSave={v => p.onSaveObjetivoVenta(o.k, v)} /></span>
+                  <span style={d('20px')}>Faltan <span style={{ color: INK }}>{N(faltan)}</span> de objetivo <Edit value={o.obj} onSave={v => p.onSaveObjetivoVenta(o.k, v)} color={AZUL} /></span>
                 </div>
                 <div style={{ height: 16, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, prog)}%`, height: '100%', background: ROSA, transition: 'width .3s' }} /></div>
               </div>
@@ -450,48 +466,28 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 9 · DÍAS PICO (CREMA) + PROYECCIONES (VERDE) */}
-      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: CREMA }}>
-          <Title tag={`Días pico · ${p.mesLabel}`} tagBg={AZUL} tagColor="#fff" title={`Facturación bruta por día. Media ${E(p.mediaDiariaPico)}.`} />
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 150, marginBottom: 16 }}>
-            {p.diasPico.map(x => (
-              <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-                <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>
-                <div style={{ width: '100%', height: `${(x.valor / maxDia) * 96}px`, minHeight: 4, background: x.color, border: `3px solid ${INK}` }} />
-                <span style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase' }}>{x.nombre}</span>
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontFamily: LEX, fontSize: 14.5, fontWeight: 600 }}>
-            <span>Más fuerte · <b>{diaFuerte ? `${diaFuerte.nombre} ${E(diaFuerte.valor)}` : '—'}</b></span>
-            <span>Más flojo · <b>{diaFlojo ? `${diaFlojo.nombre} ${E(diaFlojo.valor)}` : '—'}</b></span>
-          </div>
-        </div>
-        <div style={{ padding: `44px ${PAD}`, background: VERDE, color: '#fff' }}>
+      {/* 9 · PROYECCIONES 33% | RATIO 33% | PE 33% */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: '#fff' }}>
           <span style={eyebrow('#fff')}>Proyecciones</span>
           <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Cashflow →</button>
           <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16 }}>Saldo estimado</div>
-          <div style={d('clamp(30px,4vw,44px)', '#fff')}>{p.saldo.saldoHoy > 0 ? E(p.saldo.saldoHoy) : '—'}</div>
-          <div style={{ fontFamily: LEX, fontSize: 14.5, fontWeight: 600, lineHeight: 2, marginTop: 12 }}>
+          <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldo.saldoHoy > 0 ? E(p.saldo.saldoHoy) : '—'}</div>
+          <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
             <div>Cobros 30 d · <b>{E(p.saldo.cobros30d)}</b></div>
             <div>Pagos 7 d · <b>{E(p.saldo.pagos7d)}</b></div>
             <div>Pagos 30 d · <b>{E(p.saldo.pagos30d)}</b></div>
           </div>
         </div>
-      </section>
-
-      {/* 10 · RATIO (ROSA suave) + PE (CLARO) */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#ffe0ea' }}>
           <span style={eyebrow(VERDE, '#fff')}>Ratio ingresos / gastos</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
-            <div style={d('clamp(40px,6vw,68px)', p.ratioActual >= p.objetivoRatio ? VERDE : NAR)}>{(Number.isFinite(p.ratioActual) ? p.ratioActual : 0).toFixed(2)}×</div>
-            <div style={d('20px')}>objetivo <Edit value={p.objetivoRatio} onSave={p.onSaveObjetivoRatio} suffix="×" /></div>
+            <div style={d('clamp(36px,5vw,60px)', p.ratioActual >= p.objetivoRatio ? VERDE : NAR)}>{(Number.isFinite(p.ratioActual) ? p.ratioActual : 0).toFixed(2)}×</div>
+            <div style={d('18px')}>objetivo <Edit value={p.objetivoRatio} onSave={p.onSaveObjetivoRatio} suffix="×" color={AZUL} /></div>
           </div>
           <div style={{ height: 14, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, p.objetivoRatio > 0 ? (p.ratioActual / p.objetivoRatio) * 100 : 0)}%`, height: '100%', background: p.ratioActual >= p.objetivoRatio ? VERDE : NAR }} /></div>
-          <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 2, marginTop: 12 }}>
+          <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
             <div>Ingresos netos · <b>{E(p.netosReales || p.netoEstimado)}</b></div>
             <div>Gastos fijos · <b>{E(p.gastosFijosMes)}</b></div>
             <div>Gastos reales · <b>{E(p.gastosReales)}</b></div>
@@ -500,11 +496,11 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `40px ${PAD}`, background: CLARO }}>
           <span style={eyebrow('#fff')}>Punto de equilibrio</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
-            <div style={d('clamp(40px,6vw,68px)')}>{E(p.pe.peBruto)}</div>
+            <div style={d('clamp(36px,5vw,60px)')}>{E(p.pe.peBruto)}</div>
             <div style={{ ...eyebrow(p.pe.pctProgreso >= 100 ? VERDE : NAR, '#fff'), marginBottom: 12 }}>{P0(p.pe.pctProgreso)}</div>
           </div>
           <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.6 }}>bruto necesario este mes</div>
-          <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 2, marginTop: 10 }}>
+          <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.95, marginTop: 10 }}>
             <div>Llevamos · <b>{E(p.pe.acumulado)}</b></div>
             <div>Faltan · <b style={{ color: p.pe.faltan > 0 ? NAR : VERDE }}>{E(p.pe.faltan)}</b></div>
             <div>Día verde · <b>{p.pe.diaVerdeEstimado ? `${p.pe.diaVerdeEstimado.fecha} ${p.pe.diaVerdeEstimado.diaSemana}` : '—'}</b></div>
@@ -513,67 +509,74 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 11 · TOP (blanco) + PROVISIONES (CLARO) */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `36px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <span style={eyebrow(VERDE, '#fff')}>Top ventas</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['productos', 'modificadores'] as const).map(t => (
-                <button key={t} onClick={() => p.onTopTab(t)} style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', border: `2px solid ${INK}`, background: p.topTab === t ? INK : '#fff', color: p.topTab === t ? '#fff' : INK }}>{t}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginTop: 18 }}>
-            {p.topItems.length === 0 || p.topDatosDemo
-              ? <div style={{ fontFamily: OSW, letterSpacing: '1px', opacity: 0.5, padding: '20px 0' }}>Sin datos POS de {p.topTab} en el periodo.</div>
-              : p.topItems.slice(0, 6).map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderTop: i === 0 ? `3px solid ${INK}` : `2px solid ${INK}18` }}>
-                  <span style={{ ...d('clamp(20px,3vw,30px)', i === 0 ? ROSA : INK), width: 44 }}>{String(t.ranking ?? i + 1).padStart(2, '0')}</span>
-                  <span style={{ fontFamily: LEX, fontWeight: 600, fontSize: 15, flex: 1 }}>{t.producto}</span>
-                  <span style={{ fontFamily: LEX, fontSize: 13, opacity: 0.6 }}>{N(t.pedidos)} ped</span>
-                  <span style={d('clamp(16px,2.2vw,24px)')}>{E2(t.importe)}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-        <div style={{ padding: `36px ${PAD}`, background: CLARO }}>
-          <span style={eyebrow('#fff')}>Provisiones y próximos pagos</span>
-          <div style={{ ...d('clamp(30px,4vw,44px)', NAR), margin: '12px 0 12px' }}>{E(p.provisiones.totalAGuardar)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 14.5, fontWeight: 600, lineHeight: 1.9 }}>
-            <div>IVA · <b>{E(p.provisiones.provIVA)}</b></div>
-            <div>IRPF · <b>{E(p.provisiones.provIRPF)}</b></div>
-          </div>
-          {p.provisiones.proximosPagos.length > 0 && <>
-            <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.6, margin: '14px 0 8px' }}>Próximos pagos</div>
-            {p.provisiones.proximosPagos.slice(0, 6).map((x, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEX, fontSize: 14, fontWeight: 600, padding: '4px 0' }}><span>{x.concepto}</span><span>{E(x.importe)}</span></div>
-            ))}
-          </>}
-        </div>
-      </section>
-
-      {/* 12 · MARCAS (AMA) — 5-7 marcas, cada una con su evolución */}
-      <section style={sec(AMA)}>
-        <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Qué marca tira más este periodo y cómo evoluciona cada una." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
-        {p.marcasRealesHay
-          ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {p.marcasReales.filter(mk => mk.neto > 0).slice(0, 7).map((mk, i) => (
-                <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, alignItems: 'center' }}>
-                  <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.neto)} alto={28} />
-                  <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
-                    <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución</div>
-                    {mk.serie && mk.serie.length >= 2
-                      ? <Spark serie={mk.serie} color={marcaColor[i % marcaColor.length]} w={150} h={36} />
-                      : <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, opacity: 0.5 }}>Sin histórico</div>}
+      {/* 10 · MARCAS 75% (blanco) | PROVISIONES + TOP VENTAS 25% (columna) */}
+      <section style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+          <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
+          {marcas5.length > 0
+            ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {marcas5.map((mk, i) => (
+                  <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16, alignItems: 'center' }}>
+                    <div>
+                      <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
+                      <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                        <span style={{ opacity: 0.55 }}>Fact. bruta <b style={{ color: INK }}>{E2(mk.bruto)}</b></span>
+                        <span style={{ opacity: 0.55 }}>TM bruto <b style={{ color: AZUL }}>{mk.tmBruto > 0 ? E2(mk.tmBruto) : '—'}</b></span>
+                      </div>
+                    </div>
+                    <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
+                      <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución</div>
+                      {mk.serie && mk.serie.length >= 2
+                        ? <Spark serie={mk.serie} color={marcaColor[i % marcaColor.length]} w={160} h={38} />
+                        : <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, opacity: 0.5 }}>Sin histórico</div>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
+        </div>
+        <div style={{ padding: `44px ${PAD}`, background: CLARO, display: 'flex', flexDirection: 'column', gap: 26 }}>
+          {/* Provisiones */}
+          <div>
+            <span style={eyebrow('#fff')}>Provisiones</span>
+            <div style={{ ...d('clamp(26px,3.4vw,38px)', NAR), margin: '12px 0 10px' }}>{E(p.provisiones.totalAGuardar)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.9 }}>
+              <div>IVA · <b>{E(p.provisiones.provIVA)}</b></div>
+              <div>IRPF · <b>{E(p.provisiones.provIRPF)}</b></div>
             </div>
-          : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
+            {p.provisiones.proximosPagos.length > 0 && <>
+              <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.6, margin: '12px 0 6px' }}>Próximos pagos</div>
+              {p.provisiones.proximosPagos.slice(0, 5).map((x, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEX, fontSize: 13, fontWeight: 600, padding: '3px 0' }}><span>{x.concepto}</span><span>{E(x.importe)}</span></div>
+              ))}
+            </>}
+          </div>
+          {/* Top ventas */}
+          <div style={{ borderTop: `3px solid ${INK}`, paddingTop: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <span style={eyebrow(VERDE, '#fff')}>Top ventas</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['productos', 'modificadores'] as const).map(t => (
+                  <button key={t} onClick={() => p.onTopTab(t)} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '4px 8px', cursor: 'pointer', border: `2px solid ${INK}`, background: p.topTab === t ? INK : 'transparent', color: p.topTab === t ? '#fff' : INK }}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              {p.topItems.length === 0 || p.topDatosDemo
+                ? <div style={{ fontFamily: OSW, letterSpacing: '0.5px', opacity: 0.5, fontSize: 13, padding: '8px 0' }}>Sin datos POS de {p.topTab}.</div>
+                : p.topItems.slice(0, 5).map((t, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i === 0 ? `2px solid ${INK}` : `1px solid ${INK}22` }}>
+                    <span style={{ ...d('18px', i === 0 ? ROSA : INK), width: 26 }}>{String(t.ranking ?? i + 1).padStart(2, '0')}</span>
+                    <span style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, flex: 1 }}>{t.producto}</span>
+                    <span style={d('16px')}>{E2(t.importe)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* 13 · FOOTER (oscuro) */}
+      {/* 11 · FOOTER (oscuro) */}
       <section style={{ background: OSC, color: D1, padding: PAD, textAlign: 'center' }}>
         <div style={d('clamp(34px,6vw,72px)', D1)}>Binagre es hogar.</div>
         <div style={{ fontFamily: OSW, letterSpacing: '6px', fontSize: 15, color: AMA, marginTop: 12, textTransform: 'uppercase' }}>Comer bien. Aquí y ahora.</div>
