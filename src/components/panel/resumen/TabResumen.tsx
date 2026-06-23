@@ -1,17 +1,17 @@
 /**
- * Tab Resumen v4 — Panel Global
- * Lee config_canales SIEMPRE de Supabase (sin hardcodes).
- * Pasa marcasPorCanal {uber,glovo,je} + fechaDesde/Hasta a calcNetoPorCanal para fees periódicos.
- * 02 jun 2026: el neto se prorratea por días con datos reales (diasConDatosPeriodo).
- * 23 jun 2026: presentación en ResumenLanding (look landing brutalista). Métricas para frases,
- * serie diaria del sparkline, ranking de marcas (campo servicio), navegación a otras pestañas
- * y cache anti-parpadeo (no muestra "demo" si ya hubo datos antes). Lógica de cálculo aquí.
+ * Tab Resumen v5 — Panel Global
+ * Lógica de cálculo (la presentación está en ResumenLanding).
+ * Novedades v5: margen NETO REAL (de comisiones reales, no estimado), deuda de plataformas
+ * a hoy (calcPorCobrar, misma fuente que Cashflow), reparto por servicio (almuerzo/cenas) y
+ * ranking de MARCAS reales (ventas_plataforma 90d). Mantiene métricas-insight, sparkline,
+ * navegación entre pestañas y cache anti-parpadeo.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { calcPorCobrar, type PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useEsMovil } from '@/hooks/useEsMovil'
@@ -38,7 +38,8 @@ interface Props {
 }
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
-interface MarcaRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
+interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
+interface MarcaRealRow { nombre: string; neto: number; pct: number }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -46,6 +47,8 @@ const COLORES_DIAS = [
   COLOR.diaVie, COLOR.diaSab, COLOR.diaDom,
 ]
 const NOMBRES_DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
+const SERV_LABEL: Record<string, string> = { ALM: 'Almuerzo', CENAS: 'Cenas', CENA: 'Cenas', TODO: 'Todo el día' }
+const FESTIVOS_FALLBACK = ['2026-01-01', '2026-01-06', '2026-04-02', '2026-04-03', '2026-05-01', '2026-05-15', '2026-08-15', '2026-10-12', '2026-11-02', '2026-11-09', '2026-12-07', '2026-12-08', '2026-12-25']
 
 
 function parseLocalDate(s: string): Date {
@@ -134,6 +137,10 @@ export default function TabResumen({
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [festivos, setFestivos] = useState<Set<string>>(new Set(FESTIVOS_FALLBACK))
+  const [frontera, setFrontera] = useState<Record<string, string>>({})
+  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number }>>([])
+  const [marcasActivas, setMarcasActivas] = useState<string[]>([])
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -158,6 +165,32 @@ export default function TabResumen({
     }
     window.addEventListener('config_canales:changed', onChange)
     return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
+  /* ── festivos + frontera de cobro del banco (para deuda de plataformas) ── */
+  useEffect(() => {
+    supabase.from('festivos').select('fecha').then(({ data }) => {
+      const fe = (data ?? []) as { fecha: string }[]
+      if (fe.length) setFestivos(new Set(fe.map(x => x.fecha.slice(0, 10))))
+    })
+    supabase.from('v_frontera_cobro_banco').select('canal,ultima_fecha').then(({ data }) => {
+      const f: Record<string, string> = {}
+      for (const r of (data ?? []) as { canal: string; ultima_fecha: string }[]) {
+        if (r.canal && r.ultima_fecha) f[r.canal] = String(r.ultima_fecha).slice(0, 10)
+      }
+      setFrontera(f)
+    })
+  }, [])
+
+  /* ── ventas por marca real (90 días) + marcas activas ── */
+  useEffect(() => {
+    const hace90 = toLocalDateStr(new Date(Date.now() - 90 * 86400000))
+    supabase.from('ventas_plataforma').select('marca,neto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA').then(({ data }) => {
+      setVentasMarca(((data as { marca: string; neto: number }[]) ?? []).map(v => ({ marca: v.marca, neto: Number(v.neto) || 0 })))
+    })
+    supabase.from('v_marcas_activas').select('nombre').then(({ data }) => {
+      setMarcasActivas(((data as { nombre: string }[]) ?? []).map(x => x.nombre))
+    })
   }, [])
 
   /* ── fetch objetivos ventas ─────────────────── */
@@ -319,26 +352,47 @@ export default function TabResumen({
   const tmBruto = pedidosPeriodo > 0 ? ventasPeriodo / pedidosPeriodo : 0
   const netoEstimado = useMemo(() => canalStats.reduce((a, c) => a + c.neto, 0), [canalStats])
   const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
+  const margenNetoReal = ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0
 
-  /* ── ranking de marcas (campo servicio si está informado) ── */
-  const { marcas, marcasServicio } = useMemo(() => {
+  /* ── deuda de plataformas a hoy (misma fuente que Cashflow) ── */
+  const porCobrar: PorCobrarResult = useMemo(
+    () => calcPorCobrar(rowsAll as unknown as Parameters<typeof calcPorCobrar>[0], { config: configCanales, marcasPorCanal, festivos, frontera }),
+    [rowsAll, configCanales, marcasPorCanal, festivos, frontera]
+  )
+
+  /* ── reparto por SERVICIO (almuerzo / cenas) del periodo ── */
+  const { servicios, serviciosHay } = useMemo(() => {
     const rs = rowsPeriodo as Array<RowFacturacion & { servicio?: string | null }>
-    const hay = rs.some(r => r.servicio != null && r.servicio !== '')
-    if (!hay) return { marcas: [] as MarcaRow[], marcasServicio: false }
+    const hay = rs.some(r => r.servicio != null && r.servicio !== '' && r.servicio !== 'TODO')
+    if (!hay) return { servicios: [] as RepartoRow[], serviciosHay: false }
     const map: Record<string, { bruto: number; pedidos: number }> = {}
     for (const r of rs) {
-      const k = (r.servicio || 'Sin marca').trim()
+      const raw = (r.servicio || '').toString()
+      if (!raw) continue
+      const k = SERV_LABEL[raw] || raw
       if (!map[k]) map[k] = { bruto: 0, pedidos: 0 }
       map[k].bruto += r.total_bruto || 0
       map[k].pedidos += r.total_pedidos || 0
     }
     const totalB = Object.values(map).reduce((a, m) => a + m.bruto, 0)
     const ratioNeto = ventasPeriodo > 0 && netoEstimado > 0 ? netoEstimado / ventasPeriodo : 0.7
-    const arr: MarcaRow[] = Object.entries(map)
+    const arr: RepartoRow[] = Object.entries(map)
       .map(([nombre, s]) => ({ nombre, bruto: s.bruto, neto: s.bruto * ratioNeto, pedidos: s.pedidos, pct: totalB > 0 ? (s.bruto / totalB) * 100 : 0 }))
       .sort((a, b) => b.bruto - a.bruto)
-    return { marcas: arr, marcasServicio: true }
+    return { servicios: arr, serviciosHay: arr.length > 0 }
   }, [rowsPeriodo, ventasPeriodo, netoEstimado])
+
+  /* ── ranking de MARCAS reales (ventas_plataforma 90d) ── */
+  const { marcasReales, marcasRealesHay } = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const v of ventasMarca) map[v.marca] = (map[v.marca] || 0) + (v.neto || 0)
+    const base = marcasActivas.length ? marcasActivas : Object.keys(map)
+    const totalN = base.reduce((a, m) => a + (map[m] || 0), 0)
+    const arr: MarcaRealRow[] = base
+      .map(nombre => ({ nombre, neto: map[nombre] || 0, pct: totalN > 0 ? ((map[nombre] || 0) / totalN) * 100 : 0 }))
+      .sort((a, b) => b.neto - a.neto)
+    return { marcasReales: arr, marcasRealesHay: arr.some(m => m.neto > 0) }
+  }, [ventasMarca, marcasActivas])
 
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
     const { desde, hasta } = rangoPrevio(fechaDesde, fechaHasta)
@@ -656,7 +710,7 @@ export default function TabResumen({
   const metricas: MetricasInsight = {
     comisionPct: ventasPeriodo > 0 ? (1 - netoEstimado / ventasPeriodo) * 100 : 0,
     webPct: canalStats.find(c => c.id === 'web')?.pct ?? 0,
-    margenNetoPct: ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0,
+    margenNetoPct: margenNetoReal,
     primeCostPct,
     foodCostPct: gruposData.producto.pctSobreNetos,
     laborPct: gruposData.equipo.pctSobreNetos,
@@ -703,6 +757,7 @@ export default function TabResumen({
         anoLabel={ano}
         ventasPeriodo={ventasPeriodo}
         netoEstimado={netoEstimado}
+        margenNetoReal={margenNetoReal}
         variacionVentas={variacionVentas}
         variacionPedidos={variacionPedidos}
         variacionTM={variacionTM}
@@ -730,12 +785,15 @@ export default function TabResumen({
         netosReales={netosReales}
         pe={{ peBruto: peCalc.peBruto, acumulado: peCalc.acumulado, pctProgreso: peCalc.pctProgreso, faltan: Math.max(0, peCalc.peBruto - peCalc.acumulado), diaVerdeEstimado: peCalc.diaVerdeEstimado, realFacDia: peCalc.realFacDia, realPedDia: peCalc.realPedDia }}
         provisiones={{ totalAGuardar, provIVA, provIRPF, proximosPagos }}
+        porCobrar={porCobrar}
         topItems={topItems}
         topDatosDemo={topDatosDemo}
         topTab={topTab}
         onTopTab={setTopTab}
-        marcas={marcas}
-        marcasServicio={marcasServicio}
+        servicios={servicios}
+        serviciosHay={serviciosHay}
+        marcasReales={marcasReales}
+        marcasRealesHay={marcasRealesHay}
         metricas={metricas}
         onSaveObjetivoVenta={saveObjetivoVenta}
         onSaveObjetivoRatio={saveObjetivoRatio}
