@@ -1,9 +1,9 @@
 /**
- * ResumenLanding v13 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v13: Días pico con altura fija (deja de estirarse a toda la columna);
- *      tabla de Resultado coherente cuando faltan costes (Margen bruto y Resultado neto
- *      en "—" en vez de repetir el ingreso neto).
- * Mantiene v12: dos rectángulos (cuándo te compran + días pico), te deben rellena columna,
+ * ResumenLanding v14 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v14: bloque "Días pico" con altura contenida (deja de estirarse a toda la columna;
+ *      el sobrante queda como fondo del panel, no amarillo).
+ * v13: tabla de Resultado coherente cuando faltan costes (Margen bruto y Resultado neto en "—").
+ * Mantiene: dos rectángulos (cuándo te compran + días pico), te deben rellena columna,
  *      Resultado en verde petróleo, PE en color propio, sombra única 4px, color por métrica.
  */
 import { useState } from 'react'
@@ -446,13 +446,13 @@ export default function ResumenLanding(p: Props) {
               : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
-          {/* Rectángulo 2 · Días pico (AMA) — altura de barras fija (no se estira) */}
-          <div style={{ background: AMA, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Rectángulo 2 · Días pico (AMA) — altura contenida; el sobrante de la columna queda como fondo del panel */}
+          <div style={{ background: AMA, padding: `26px ${PAD}`, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
               <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
               <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 200, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 180, marginBottom: 14 }}>
               {p.diasPico.map(x => {
                 const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
                 const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
