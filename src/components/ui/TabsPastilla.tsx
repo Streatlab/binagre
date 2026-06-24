@@ -1,12 +1,12 @@
 /**
  * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
- * v9: estilo neobrutal (bordes negros duros, sin pastilla redondeada, Oswald,
- * pestaña activa en negro con sombra dura amarilla).
+ * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
+ * crema con borde negro. Oswald mayúsculas.
  */
 
 const INK = '#140f08'
-const AMA = '#FFC400'
 const ROSA = '#FF2E63'
+const CREMA = '#FCEFD6'
 const OSW = "'Oswald', sans-serif"
 
 interface TabItem {
@@ -40,9 +40,9 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
               cursor: 'pointer',
               border: `3px solid ${INK}`,
               borderRadius: 0,
-              background: active ? INK : '#fff',
+              background: active ? ROSA : CREMA,
               color: active ? '#fff' : INK,
-              boxShadow: active ? `4px 4px 0 ${AMA}` : 'none',
+              boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
             }}
@@ -57,7 +57,7 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
                 height: 18,
                 padding: '0 5px',
                 border: `2px solid ${INK}`,
-                background: ROSA,
+                background: INK,
                 color: '#ffffff',
                 fontSize: 11,
                 fontWeight: 700,
