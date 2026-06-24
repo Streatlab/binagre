@@ -26,12 +26,11 @@ const INK = '#0a0a0a'
 const AMA = '#FFC400'      // acento de inversión (activo directo)
 const ROSA = '#FF2E63'     // acento iconos inactivos
 const OSW = 'Oswald, sans-serif'
-const LEX = 'Lexend, sans-serif'
 
-// base del sidebar (zonas neutras) según tema
-interface Pal { bg: string; txt: string; txtMut: string }
-const PAL_DARK: Pal = { bg: '#1e2233', txt: '#e8e4d8', txtMut: '#8b90a3' }
-const PAL_LIGHT: Pal = { bg: '#FCEFD6', txt: '#1e2233', txtMut: '#6b5d45' }
+// base del sidebar (zonas neutras) según tema — header y footer también se adaptan
+interface Pal { bg: string; txt: string; txtMut: string; head: string; headTxt: string; logoBd: string }
+const PAL_DARK: Pal = { bg: '#1e2233', txt: '#e8e4d8', txtMut: '#8b90a3', head: '#0a0a0a', headTxt: '#FCEFD6', logoBd: '#FCEFD6' }
+const PAL_LIGHT: Pal = { bg: '#FCEFD6', txt: '#1e2233', txtMut: '#6b5d45', head: '#F3D9A8', headTxt: '#140f08', logoBd: '#140f08' }
 
 // color sólido de cada sección (bloques)
 const SEC_COLOR: Record<string, { bg: string; fg: string }> = {
@@ -325,21 +324,21 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         style={{ background: C.bg, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`fixed top-0 left-0 z-40 h-full flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden md:translate-x-0 md:static md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* HEADER · bloque negro */}
+        {/* HEADER · se adapta al tema (claro en modo claro) */}
         {collapsed ? (
-          <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
-            <div style={{ width: 30, height: 30, background: '#B01D23', border: `2px solid #FCEFD6`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 12 }}>SL</div>
+          <div style={{ background: C.head, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
+            <div style={{ width: 30, height: 30, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 12 }}>SL</div>
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 30 }} title="Abrir">
-              <ChevronRight size={18} color="#FCEFD6" strokeWidth={3} />
+              <ChevronRight size={18} color={C.headTxt} strokeWidth={3} />
             </button>
           </div>
         ) : (
-          <div style={{ background: INK, padding: '14px 16px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
+          <div style={{ background: C.head, padding: '14px 16px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-              <div style={{ width: 34, height: 34, background: '#B01D23', border: `2px solid #FCEFD6`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 14, flexShrink: 0 }}>SL</div>
-              <span style={{ fontFamily: OSW, fontSize: 19, color: '#FCEFD6', letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
+              <div style={{ width: 34, height: 34, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 14, flexShrink: 0 }}>SL</div>
+              <span style={{ fontFamily: OSW, fontSize: 19, color: C.headTxt, letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#FCEFD6', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
+            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: C.headTxt, background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
@@ -419,17 +418,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        {/* FOOTER · bloque negro */}
-        <div style={{ background: INK, borderTop: `4px solid ${INK}`, padding: collapsed ? '8px' : '12px 16px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10 }}>
+        {/* FOOTER · se adapta al tema (claro en modo claro) */}
+        <div style={{ background: C.head, borderTop: `4px solid ${INK}`, padding: collapsed ? '8px' : '12px 16px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10 }}>
           <ThemeToggle />
           {!collapsed && (
-            <div style={{ fontFamily: OSW, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em', color: '#FCEFD6', textAlign: 'right', lineHeight: 1.4 }}>
+            <div style={{ fontFamily: OSW, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em', color: C.headTxt, textAlign: 'right', lineHeight: 1.4 }}>
               {usuario?.nombre}<br /><span style={{ color: ROSA, fontWeight: 700 }}>{usuario?.perfil}</span>
             </div>
           )}
         </div>
-        <div style={{ background: INK, padding: collapsed ? '0 8px 10px' : '0 16px 12px', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          <button onClick={logout} style={{ color: '#FCEFD6', background: 'transparent', border: `2px solid #FCEFD6`, padding: collapsed ? 0 : '5px 12px', width: collapsed ? 34 : 'auto', height: collapsed ? 34 : 'auto', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', fontSize: collapsed ? 14 : 12 }} title="Cerrar sesión">
+        <div style={{ background: C.head, padding: collapsed ? '0 8px 10px' : '0 16px 12px', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          <button onClick={logout} style={{ color: C.headTxt, background: 'transparent', border: `2px solid ${C.headTxt}`, padding: collapsed ? 0 : '5px 12px', width: collapsed ? 34 : 'auto', height: collapsed ? 34 : 'auto', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', fontSize: collapsed ? 14 : 12 }} title="Cerrar sesión">
             {collapsed ? '⏏' : 'Cerrar sesión'}
           </button>
         </div>
