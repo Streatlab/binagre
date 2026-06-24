@@ -1,9 +1,9 @@
 /**
- * ResumenLanding v16 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v16: el hueco bajo "Días pico" lo ocupa "La palanca del ticket": cuánto dinero directo
- *      entra si sube el ticket medio (foco comercial nº1). Color sólido azul que destaca.
- *      (La comparación plataformas-vs-canal se reserva para más adelante.)
- * v14: bloque "Días pico" con altura contenida.
+ * ResumenLanding v17 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v17: el hueco bajo "Días pico" muestra "Lo que deja cada pedido" (beneficio por pedido:
+ *      ingreso bruto − coste total por pedido) en GRANATE sólido, para no repetir el azul
+ *      de la tarjeta "Te deben" contigua. Responde de un vistazo si ganas o pierdes por pedido.
+ * v16: tarjeta "palanca del ticket" (descartada).
  * v13: tabla de Resultado coherente cuando faltan costes.
  * Mantiene: color por métrica, sombra única 4px, fondo crema coherente.
  */
@@ -29,7 +29,8 @@ const ROJO = '#FF1E27'   // negativo (semántico)
 const AMA = '#FFC400'
 const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto · canal propio
 const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio · plataformas
-const AZUL = '#2D5BFF'   // métrica TM bruto · palanca del ticket
+const AZUL = '#2D5BFF'   // métrica TM bruto
+const GRANATE = '#B01D23' // corporativo · tarjeta "lo que deja cada pedido"
 const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
 const OSW = "'Oswald', sans-serif"
@@ -50,6 +51,7 @@ const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'i
 const EUR = (n: number) => fmtEur(n, { decimals: 0 })
 const E = (n: number) => fmtEur(n, { showEuro: false, decimals: 0 })
 const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
+const ES = (n: number) => fmtEur(n, { signed: true, decimals: 2 })
 const N = (n: number) => fmtNum(n, 0)
 const P0 = (n: number) => fmtPct(n, 0)
 const P2 = (n: number) => fmtPct(n, 2)
@@ -198,11 +200,10 @@ export default function ResumenLanding(p: Props) {
   const DI = 'Datos insuf.'
   const canalRent = p.canalStats.filter(c => c.pedidos > 0).map(c => ({ id: c.id, np: c.neto / c.pedidos })).sort((a, b) => b.np - a.np)[0]?.id
 
-  // La palanca del ticket: cuánto dinero directo entra si sube el ticket medio.
-  // Cada euro extra de ticket se multiplica por los pedidos del periodo (sin más comisión).
-  const impactoTicket1 = p.pedidosPeriodo      // +1,00 € de ticket
-  const impactoTicket05 = p.pedidosPeriodo / 2 // +0,50 € de ticket
+  // Lo que deja cada pedido: ingreso bruto por pedido − coste total por pedido (comisión + producto)
   const hayPedidos = p.pedidosPeriodo > 0
+  const beneficioPedido = p.tmBruto - p.costePorPedido.total
+  const pedidoPositivo = beneficioPedido >= 0
 
   const frase = elegirFrase(p.metricas)
   const fraseCostes = elegirFrase(p.metricas, 'costes')
@@ -388,7 +389,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Palanca del ticket 33% */}
+      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Beneficio por pedido 33% */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
@@ -479,31 +480,32 @@ export default function ResumenLanding(p: Props) {
             </div>
           </div>
 
-          {/* Rectángulo 3 · La palanca del ticket (AZUL sólido · rellena el resto) */}
-          <div style={{ background: AZUL, color: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Rectángulo 3 · Lo que deja cada pedido (GRANATE sólido · rellena el resto) */}
+          <div style={{ background: GRANATE, color: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              <span style={eyebrow('#fff', AZUL)}>La palanca del ticket</span>
-              <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>TM hoy {E2(p.tmBruto)}</span>
+              <span style={eyebrow('#fff', GRANATE)}>Lo que deja cada pedido</span>
+              <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>Coste/ped {E2(p.costePorPedido.total)}</span>
             </div>
             {hayPedidos ? <>
               <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, opacity: 0.92, marginBottom: 12, lineHeight: 1.35 }}>
-                Subir el ticket medio es dinero directo: no pagas más comisión ni necesitas más pedidos.
+                De cada pedido, esto es lo que queda tras la comisión de plataforma y el producto.
               </div>
               <div style={{ marginTop: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={d('clamp(40px,6vw,72px)', '#fff')}>+{EUR(impactoTicket1)}</span>
-                  <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>en este periodo</span>
+                  <span style={d('clamp(40px,6vw,72px)', AMA)}>{ES(beneficioPedido)}</span>
+                  <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>por pedido</span>
                 </div>
-                <div style={{ fontFamily: OSW, fontSize: 13.5, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9, marginTop: 2 }}>si subes el ticket solo +1 €</div>
+                <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9, marginTop: 2 }}>beneficio por pedido<Est light /></div>
               </div>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'baseline', gap: 8, background: '#ffffff26', border: `2px solid #ffffff66`, padding: '5px 11px', marginTop: 14 }}>
-                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>+0,50 € →</span>
-                <span style={d('18px', '#fff')}>+{EUR(impactoTicket05)}</span>
+              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'baseline', gap: 8, background: '#ffffff26', border: `2px solid #ffffff66`, padding: '5px 11px', marginTop: 14, fontFamily: OSW, fontSize: 12, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                <span>Ingreso {E2(p.tmBruto)}</span><span style={{ opacity: 0.7 }}>−</span><span>coste {E2(p.costePorPedido.total)}</span>
               </div>
               <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `2px solid #ffffff33`, fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.92, lineHeight: 1.4 }}>
-                Combos, un extra sugerido o agrupar pedidos suben el ticket sin coste añadido.
+                {pedidoPositivo
+                  ? 'Cada pedido suma. Protégelo: sube el ticket o baja el coste de producto.'
+                  : 'Cada pedido resta. Revisa comisión y coste antes de empujar más volumen.'}
               </div>
-            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, opacity: 0.9 }}>Sin pedidos en este periodo para estimar la palanca.</div>}
+            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, opacity: 0.9 }}>Sin pedidos en este periodo para calcular el beneficio por pedido.</div>}
           </div>
         </div>
       </section>
