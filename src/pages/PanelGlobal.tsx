@@ -1,6 +1,6 @@
 /**
  * PanelGlobal — Módulo Panel Global del ERP Binagre
- * v9: selectores de cabecera (fecha, marcas, canales) en estilo neobrutal.
+ * v10: desplegables (modelo D2) con caja neobrutal y texto legible (Lexend, no mayúsculas).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -26,6 +26,7 @@ const INK = '#140f08'
 const AMA = '#FFC400'
 const ROSA = '#FF2E63'
 const OSW = 'Oswald, sans-serif'
+const LEX = 'Lexend, sans-serif'
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
@@ -45,15 +46,13 @@ const CANALES_DISPONIBLES = [
 ]
 
 const dropdownBtn: React.CSSProperties = {
-  padding: '8px 14px',
+  padding: '9px 14px',
   borderRadius: 0,
   border: `3px solid ${INK}`,
   background: '#ffffff',
-  fontSize: 13,
-  fontFamily: OSW,
+  fontSize: 14,
+  fontFamily: LEX,
   fontWeight: 600,
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
   color: INK,
   cursor: 'pointer',
   display: 'flex',
@@ -66,7 +65,7 @@ const dropdownBtn: React.CSSProperties = {
 
 const menuStyle: React.CSSProperties = {
   position: 'absolute',
-  top: 46,
+  top: 48,
   right: 0,
   background: '#ffffff',
   border: `3px solid ${INK}`,
@@ -110,7 +109,7 @@ function MultiSelect({
     <div ref={ref} style={{ position: 'relative' }}>
       <button style={dropdownBtn} onClick={() => setOpen(o => !o)}>
         <span>{displayLabel}</span>
-        <ChevronDown size={12} strokeWidth={3} style={{ marginLeft: 2 }} />
+        <ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
       </button>
       {open && (
         <div style={menuStyle}>
@@ -132,10 +131,10 @@ function MultiSelect({
                 key={o.id}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '7px 12px', cursor: 'pointer', lineHeight: 1.3,
+                  padding: '8px 12px', cursor: 'pointer', lineHeight: 1.3,
                   background: sel ? AMA : 'transparent',
                   color: INK,
-                  fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: sel ? 600 : 500, whiteSpace: 'nowrap',
+                  fontFamily: LEX, fontSize: 13.5, fontWeight: sel ? 600 : 500, whiteSpace: 'nowrap',
                   borderBottom: `1px solid ${INK}1a`,
                 }}
               >
@@ -216,7 +215,7 @@ export default function PanelGlobal() {
           <div style={{ fontFamily: OSW, fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: 3, textTransform: 'uppercase', lineHeight: 1 }}>
             PANEL GLOBAL
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#ffffffcc', marginTop: 4 }}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: '#ffffffcc', marginTop: 4 }}>
             {subtitulo}
           </div>
         </div>
