@@ -160,27 +160,33 @@ export const TABS_PILL = {
 } as const
 
 /* ── SUBTABS ──────────────────────────────────────── */
+/* v10: modelo V2 verde — inverso neobrutal, activo verde con sombra negra dura */
 export const SUBTABS = {
   active: {
-    padding: '5px 12px',
-    borderRadius: 5,
-    border: 'none',
-    background: '#3a4050',
+    padding: '6px 13px',
+    borderRadius: 0,
+    border: '2px solid #140f08',
+    background: '#0FB86B',
     color: '#ffffff',
-    fontFamily: 'Lexend',
+    fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    boxShadow: '3px 3px 0 #140f08',
     cursor: 'pointer',
   } as CSSProperties,
   inactive: {
-    padding: '5px 12px',
-    borderRadius: 5,
-    border: '0.5px solid #d0c8bc',
+    padding: '6px 13px',
+    borderRadius: 0,
+    border: '2px solid #140f08',
     background: '#ffffff',
     color: '#7a8090',
-    fontFamily: 'Lexend',
+    fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
     cursor: 'pointer',
   } as CSSProperties,
 } as const
@@ -410,4 +416,14 @@ export const BADGE_CANAL: Record<string, BadgeCanal> = {
   je:    { bg: COLORS.je,      texto: '#fff',          abrev: 'JE'  },
   web:   { bg: COLORS.web,     texto: '#fff',          abrev: 'WEB' },
   dir:   { bg: COLORS.directa, texto: '#fff',          abrev: 'DIR' },
+}
+
+/* ── Fecha corta es-ES (dd mmm) ───────────────────── */
+export function fmtFechaCorta(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return iso
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  const dia = d.getDate()
+  const mes = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')
+  return `${dia} ${mes}`
 }
