@@ -21,7 +21,8 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// Fondo crema en modo claro (coherente con sidebar ↔ panel ↔ módulo)
+// Crema solo para el header (logo) y el footer (cerrar sesión). El cuerpo del nav
+// mantiene el fondo de la opción B (tema).
 const CREMA = '#FCEFD6'
 
 interface NavItem {
@@ -259,7 +260,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const activeTextColor = '#ffffff'
   const hoverBg = isDark ? T.card : T.group
-  const sidebarBg = isDark ? T.group : CREMA
+  // Header (logo) y footer (cerrar sesión) en crema; el cuerpo mantiene el fondo de la opción B.
+  const tapaBg = isDark ? T.group : CREMA
 
   const mainLabelColor = isDark ? T.pri : '#15192a'
 
@@ -370,7 +372,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: sidebarBg, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
           flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
@@ -379,14 +381,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {collapsed ? (
-          <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+          <div style={{ background: tapaBg, borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
               <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
         ) : (
-          <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
+          <div style={{ background: tapaBg, padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
@@ -569,11 +571,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ background: tapaBg, padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
           <ThemeToggle />
         </div>
 
-        <div style={{ padding: 12, borderTop: `1px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
+        <div style={{ background: tapaBg, padding: 12, borderTop: `1px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
               <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
