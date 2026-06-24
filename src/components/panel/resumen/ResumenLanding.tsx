@@ -1,8 +1,8 @@
 /**
- * ResumenLanding v15 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v15: el hueco bajo "Días pico" se rellena con una tarjeta nueva de valor estratégico:
- *      "Dependencia de plataformas" (qué % de la facturación entra por Uber/Glovo/Just Eat
- *      frente al canal propio web/directa) — el KPI que mide el objetivo nº1 del negocio.
+ * ResumenLanding v16 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v16: el hueco bajo "Días pico" lo ocupa "La palanca del ticket": cuánto dinero directo
+ *      entra si sube el ticket medio (foco comercial nº1). Color sólido azul que destaca.
+ *      (La comparación plataformas-vs-canal se reserva para más adelante.)
  * v14: bloque "Días pico" con altura contenida.
  * v13: tabla de Resultado coherente cuando faltan costes.
  * Mantiene: color por métrica, sombra única 4px, fondo crema coherente.
@@ -29,7 +29,7 @@ const ROJO = '#FF1E27'   // negativo (semántico)
 const AMA = '#FFC400'
 const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto · canal propio
 const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio · plataformas
-const AZUL = '#2D5BFF'   // métrica TM bruto
+const AZUL = '#2D5BFF'   // métrica TM bruto · palanca del ticket
 const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
 const OSW = "'Oswald', sans-serif"
@@ -40,8 +40,6 @@ const PAD = '40px'
 const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
 const CLARA: Record<string, boolean> = { uber: true, glovo: true, je: false, web: false, dir: false }
 const OBJ_MARGEN: Record<string, number> = { uber: 55, glovo: 55, je: 55, web: 88, dir: 92 }
-const PLATAFORMA_IDS = ['uber', 'glovo', 'je']
-const PROPIO_IDS = ['web', 'dir']
 
 // textos sobre fondo oscuro
 const D1 = CREMA
@@ -200,13 +198,11 @@ export default function ResumenLanding(p: Props) {
   const DI = 'Datos insuf.'
   const canalRent = p.canalStats.filter(c => c.pedidos > 0).map(c => ({ id: c.id, np: c.neto / c.pedidos })).sort((a, b) => b.np - a.np)[0]?.id
 
-  // Dependencia de plataformas vs canal propio (objetivo nº1: subir el propio)
-  const platBruto = p.canalStats.filter(c => PLATAFORMA_IDS.includes(c.id)).reduce((a, c) => a + c.bruto, 0)
-  const propioBruto = p.canalStats.filter(c => PROPIO_IDS.includes(c.id)).reduce((a, c) => a + c.bruto, 0)
-  const totDep = platBruto + propioBruto
-  const pctPlat = totDep > 0 ? (platBruto / totDep) * 100 : 0
-  const pctPropio = totDep > 0 ? (propioBruto / totDep) * 100 : 0
-  const depHay = totDep > 0
+  // La palanca del ticket: cuánto dinero directo entra si sube el ticket medio.
+  // Cada euro extra de ticket se multiplica por los pedidos del periodo (sin más comisión).
+  const impactoTicket1 = p.pedidosPeriodo      // +1,00 € de ticket
+  const impactoTicket05 = p.pedidosPeriodo / 2 // +0,50 € de ticket
+  const hayPedidos = p.pedidosPeriodo > 0
 
   const frase = elegirFrase(p.metricas)
   const fraseCostes = elegirFrase(p.metricas, 'costes')
@@ -392,7 +388,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Dependencia 33% */}
+      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Palanca del ticket 33% */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
@@ -483,35 +479,31 @@ export default function ResumenLanding(p: Props) {
             </div>
           </div>
 
-          {/* Rectángulo 3 · Dependencia de plataformas (rellena el resto de la columna) */}
-          <div style={{ background: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              <span style={eyebrow(INK, '#fff')}>Plataformas vs canal propio</span>
-              {depHay && <span title="Cuanto más alto, menos dependes de las comisiones de plataforma" style={{ ...d('20px', pctPropio >= 20 ? VERDE : NAR), cursor: 'help' }}>{P0(pctPropio)} propio</span>}
+          {/* Rectángulo 3 · La palanca del ticket (AZUL sólido · rellena el resto) */}
+          <div style={{ background: AZUL, color: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              <span style={eyebrow('#fff', AZUL)}>La palanca del ticket</span>
+              <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>TM hoy {E2(p.tmBruto)}</span>
             </div>
-            {depHay ? <>
-              <div style={{ display: 'flex', height: 30, border: `3px solid ${INK}`, overflow: 'hidden', marginBottom: 14, boxShadow: SHADOW }}>
-                <div style={{ width: `${pctPlat}%`, background: NAR }} title={`Plataformas ${P0(pctPlat)}`} />
-                <div style={{ width: `${pctPropio}%`, background: VERDE, borderLeft: pctPropio > 0 && pctPlat > 0 ? `3px solid ${INK}` : 'none' }} title={`Propio ${P0(pctPropio)}`} />
+            {hayPedidos ? <>
+              <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, opacity: 0.92, marginBottom: 12, lineHeight: 1.35 }}>
+                Subir el ticket medio es dinero directo: no pagas más comisión ni necesitas más pedidos.
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.6 }}><span style={{ width: 10, height: 10, background: NAR, border: `1.5px solid ${INK}` }} />Plataformas</div>
-                  <div style={d('clamp(18px,2.2vw,24px)', NAR)}>{P0(pctPlat)}</div>
-                  <div style={{ fontFamily: OSW, fontSize: 13, opacity: 0.7 }}>{E(platBruto)}</div>
+              <div style={{ marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={d('clamp(40px,6vw,72px)', '#fff')}>+{EUR(impactoTicket1)}</span>
+                  <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>en este periodo</span>
                 </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.6 }}><span style={{ width: 10, height: 10, background: VERDE, border: `1.5px solid ${INK}` }} />Web + directa</div>
-                  <div style={d('clamp(18px,2.2vw,24px)', VERDE)}>{P0(pctPropio)}</div>
-                  <div style={{ fontFamily: OSW, fontSize: 13, opacity: 0.7 }}>{E(propioBruto)}</div>
-                </div>
+                <div style={{ fontFamily: OSW, fontSize: 13.5, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9, marginTop: 2 }}>si subes el ticket solo +1 €</div>
               </div>
-              <div style={{ marginTop: 'auto', borderLeft: `3px solid ${pctPropio >= 20 ? VERDE : NAR}`, paddingLeft: 12, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', lineHeight: 1.4 }}>
-                {pctPropio >= 20
-                  ? `Tu canal propio ya pesa ${P0(pctPropio)}. Cada punto más es margen que no se queda la plataforma.`
-                  : `Casi todo depende de plataformas. Cada euro que muevas a tu web es margen directo.`}
+              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'baseline', gap: 8, background: '#ffffff26', border: `2px solid #ffffff66`, padding: '5px 11px', marginTop: 14 }}>
+                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>+0,50 € →</span>
+                <span style={d('18px', '#fff')}>+{EUR(impactoTicket05)}</span>
               </div>
-            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin ventas por canal en este periodo.</div>}
+              <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `2px solid #ffffff33`, fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.92, lineHeight: 1.4 }}>
+                Combos, un extra sugerido o agrupar pedidos suben el ticket sin coste añadido.
+              </div>
+            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, opacity: 0.9 }}>Sin pedidos en este periodo para estimar la palanca.</div>}
           </div>
         </div>
       </section>
