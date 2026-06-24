@@ -4,6 +4,7 @@
  * v8 (tanda 2): variación por marca (sube/baja), proyección de cierre de mes
  * (a este ritmo) y coste por pedido real (comisión de plataforma + producto).
  * v9: wrapper neobrutal sin marco redondeado.
+ * v10: periodoRango (fechas concretas) para la card de estado de salud.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -503,6 +504,7 @@ export default function TabResumen({
   const inicioSem = parseLocalDate(inicioSemStr)
   const finSem = new Date(inicioSem); finSem.setDate(inicioSem.getDate() + 6)
   const fmtDM = (dt: Date) => dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  const periodoRango = `${fmtDM(fechaDesde)} – ${fmtDM(fechaHasta)}`
   const semanaLabel = `Semana ${nSemana}`
   const semanaRango = `${fmtDM(inicioSem)} – ${fmtDM(finSem)}`
   const nombreMesRaw = new Date().toLocaleDateString('es-ES', { month: 'long' })
@@ -812,6 +814,7 @@ export default function TabResumen({
       <ResumenLanding
         datosDemo={datosDemo}
         periodoLabel={periodoLabel}
+        periodoRango={periodoRango}
         semanaLabel={semanaLabel}
         semanaRango={semanaRango}
         mesLabel={mesLabel}
