@@ -23,6 +23,11 @@ import { useEsMovil } from '@/hooks/useEsMovil'
 
 // tokens neobrutal
 const INK = '#140f08'
+const ROJO = '#B01D23'
+const ROSA = '#FF2E63'
+const AMA = '#FFC400'
+const CREMA = '#FCEFD6'
+const OSW = 'Oswald, sans-serif'
 
 interface NavItem {
   path: string
@@ -257,10 +262,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const perfil = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
 
-  const activeTextColor = '#ffffff'
-  const hoverBg = isDark ? T.card : T.group
-
-  const mainLabelColor = isDark ? T.pri : '#15192a'
+  void isDark; void T
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
@@ -333,25 +335,46 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
-  const sidebarWidth = collapsed ? 56 : 220
+  const sidebarWidth = collapsed ? 58 : 224
 
+  // botón directo (Panel Global / Tareas) estilo neobrutal
+  const directLink = (isActive: boolean): React.CSSProperties => ({
+    width: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    margin: '8px 8px',
+    padding: '9px 12px',
+    border: `3px solid ${INK}`,
+    borderRadius: 0,
+    background: isActive ? ROSA : '#ffffff',
+    color: isActive ? '#ffffff' : INK,
+    boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none',
+    fontFamily: OSW,
+    fontSize: 14,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    transition: 'background 150ms',
+  })
+
+  // item dentro de la caja de sección
   const itemStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '5px 10px 5px 12px',
-    margin: '2px 8px',
-    borderRadius: 0,
-    borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
+    padding: '8px 12px',
+    borderTop: `1px solid ${INK}22`,
+    borderLeft: isActive ? `5px solid ${INK}` : '5px solid transparent',
     fontFamily: FONT.body,
-    fontSize: 15,
-    fontWeight: 500,
-    color: isActive ? activeTextColor : T.pri,
-    background: isActive ? '#B01D23' : 'transparent',
-    boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none',
+    fontSize: 13.5,
+    fontWeight: 600,
+    color: isActive ? '#ffffff' : INK,
+    background: isActive ? ROJO : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
-    transition: 'background 150ms',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
   })
@@ -364,7 +387,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: T.group, borderRadius: 0, borderRight: `3px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        style={{ background: CREMA, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full
           flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
@@ -373,19 +396,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {collapsed ? (
-          <div style={{ borderBottom: `2px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
-            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
+          <div style={{ background: ROJO, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
-              <ChevronRight size={18} color="#B01D23" />
+              <ChevronRight size={18} color="#ffffff" strokeWidth={3} />
             </button>
           </div>
         ) : (
-          <div style={{ padding: 12, borderBottom: `2px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
+          <div style={{ background: ROJO, padding: 12, borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
-              <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
+              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
+              <span style={{ fontFamily: OSW, fontSize: 16, color: '#ffffff', letterSpacing: '2px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:text-[var(--sl-text-primary)] transition-colors hidden md:flex" title="Colapsar">«</button>
+            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#ffffff', background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
@@ -396,30 +419,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               to="/"
               end
               onClick={onClose}
-              style={({ isActive }) => ({
-                width: '100%',
-                background: isActive ? '#B01D23' : 'none',
-                border: 'none',
-                borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                gap: 10,
-                padding: '7px 14px 7px 10px',
-                fontFamily: FONT.heading,
-                fontSize: 14.5,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                color: isActive ? '#ffffff' : mainLabelColor,
-                textDecoration: 'none',
-                transition: 'background 150ms',
-              })}
+              style={({ isActive }) => directLink(isActive)}
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={18} strokeWidth={2.2} color={isActive ? '#ffffff' : ROJO} style={{ flexShrink: 0 }} />
                   <span>Panel Global</span>
                 </>
               )}
@@ -432,9 +436,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               end
               onClick={onClose}
               title="Panel Global"
-              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: `3px solid ${INK}`, background: isActive ? ROSA : '#fff', boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
             >
-              <LayoutDashboard size={20} strokeWidth={1.8} color="#B01D23" />
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.2} color={isActive ? '#fff' : ROJO} />}
             </NavLink>
           )}
 
@@ -442,30 +446,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <NavLink
               to="/tareas"
               onClick={onClose}
-              style={({ isActive }) => ({
-                width: '100%',
-                background: isActive ? '#B01D23' : 'none',
-                border: 'none',
-                borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                gap: 10,
-                padding: '7px 14px 7px 10px',
-                fontFamily: FONT.heading,
-                fontSize: 14.5,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                color: isActive ? '#ffffff' : mainLabelColor,
-                textDecoration: 'none',
-                transition: 'background 150ms',
-              })}
+              style={({ isActive }) => directLink(isActive)}
             >
               {({ isActive }) => (
                 <>
-                  <BellRing size={18} strokeWidth={1.8} color={isActive ? '#ffffff' : '#B01D23'} style={{ flexShrink: 0 }} />
+                  <BellRing size={18} strokeWidth={2.2} color={isActive ? '#ffffff' : ROJO} style={{ flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>Tareas</span>
                   <SidebarBadge count={tareasBadge} />
                 </>
@@ -478,13 +463,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               to="/tareas"
               onClick={onClose}
               title="Tareas pendientes"
-              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative' }}
+              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', border: `3px solid ${INK}`, background: isActive ? ROSA : '#fff', boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
             >
-              <BellRing size={20} strokeWidth={1.8} color="#B01D23" />
-              {tareasBadge > 0 && (
-                <span style={{ position: 'absolute', top: 6, right: 8, background: '#B01D23', color: '#fff', border: `2px solid ${INK}`, fontSize: 9, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                  {tareasBadge > 9 ? '9+' : tareasBadge}
-                </span>
+              {({ isActive }) => (
+                <>
+                  <BellRing size={20} strokeWidth={2.2} color={isActive ? '#fff' : ROJO} />
+                  {tareasBadge > 0 && (
+                    <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
+                      {tareasBadge > 9 ? '9+' : tareasBadge}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           )}
@@ -504,36 +493,39 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={() => toggleSection(section.key)}
                     title={section.label}
                     style={{
-                      width: '100%', height: 44, background: 'none', border: 'none', cursor: 'pointer',
+                      margin: '6px auto', width: 40, height: 40, background: '#fff', border: `3px solid ${INK}`, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    {IconComponent ? <IconComponent size={20} strokeWidth={1.8} color={iconColor} /> : <span>{section.emoji}</span>}
+                    {IconComponent ? <IconComponent size={20} strokeWidth={2} color={iconColor} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => toggleSection(section.key)}
                     style={{
-                      width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                      width: 'auto', margin: '6px 8px 0', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '6px 14px 6px 12px',
-                      fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 800,
+                      padding: '8px 12px',
+                      border: `3px solid ${INK}`,
+                      borderBottom: isOpen ? `3px solid ${INK}` : `3px solid ${INK}`,
+                      background: isOpen ? AMA : '#ffffff',
+                      boxShadow: isOpen ? `3px 3px 0 ${INK}` : 'none',
+                      fontFamily: OSW, fontSize: 14, fontWeight: 700,
                       textTransform: 'uppercase', letterSpacing: '0.04em',
-                      color: mainLabelColor,
-                      transition: 'color 200ms',
+                      color: INK,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {IconComponent ? <IconComponent size={18} strokeWidth={1.8} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                      {IconComponent ? <IconComponent size={18} strokeWidth={2.2} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                       <span>{section.label}</span>
                     </div>
-                    <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
                   </button>
                 )}
 
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 42}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease' }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: isOpen ? '0 8px' : '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: '#ffffff' }}>
                     {visibleItems.map((item, idx) => {
                       return (
                         <NavLink
@@ -542,12 +534,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           end
                           onClick={onClose}
                           style={({ isActive }) => itemStyle(isActive)}
-                          className={({ isActive }) => isActive ? '' : `hover:!bg-[${hoverBg}] hover:!text-[${T.pri}]`}
                         >
                           {({ isActive }) => (
                             <>
                               <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? activeTextColor : T.pri }}>{item.label}</span>
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#ffffff' : INK }}>{item.label}</span>
                               {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                             </>
                           )}
@@ -561,24 +552,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           })}
 
           {!collapsed && perfil === 'admin' && (
-            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} T={T} />
+            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} />
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `2px solid ${INK}`, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: CREMA }}>
           <ThemeToggle />
         </div>
 
-        <div style={{ padding: 12, borderTop: `2px solid ${INK}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
+        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: CREMA, fontFamily: FONT.body, fontSize: 12, color: INK, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
-              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
-                {usuario?.nombre} — <span style={{ color: '#B01D23' }}>{usuario?.perfil}</span>
+              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: INK, fontWeight: 600 }}>
+                {usuario?.nombre} — <span style={{ color: ROJO, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700 }}>{usuario?.perfil}</span>
               </div>
-              <button onClick={logout} style={{ color: T.mut, fontSize: 12, background: 'none', border: 'none', cursor: 'pointer' }}>Cerrar sesión</button>
+              <button onClick={logout} style={{ color: INK, fontSize: 12, background: '#fff', border: `2px solid ${INK}`, padding: '4px 10px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>Cerrar sesión</button>
             </>
           ) : (
-            <button onClick={logout} style={{ color: T.mut, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: INK, background: '#fff', border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>
@@ -586,33 +577,36 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   )
 }
 
-function SidebarProximamente({ isOpen, onToggle, T }: { isOpen: boolean; onToggle: () => void; T: ReturnType<typeof useTheme>['T'] }) {
+function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
   return (
-    <div style={{ marginTop: 4 }}>
+    <div style={{ marginTop: 6 }}>
       <button
         type="button"
         onClick={onToggle}
         style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          width: 'auto', margin: '0 8px', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px 10px 12px',
-          fontFamily: FONT.heading, fontSize: 12,
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-          color: isOpen ? T.pri : T.mut,
-          transition: 'color 200ms',
+          padding: '8px 12px',
+          border: `3px solid ${INK}`,
+          background: isOpen ? '#e7e2d6' : '#ffffff',
+          fontFamily: OSW, fontSize: 12, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+          color: INK,
         }}
         title="Funciones en desarrollo"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Clock size={16} strokeWidth={1.8} color={T.mut} />
+          <Clock size={16} strokeWidth={2.2} color={INK} />
           <span>Próximamente</span>
         </div>
-        <span style={{ fontSize: 11, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+        <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
       </button>
       <div
         style={{
           maxHeight: isOpen ? `${PROXIMAMENTE.length * 32 + 8}px` : 0,
           overflow: 'hidden', transition: 'max-height 400ms ease',
+          margin: isOpen ? '0 8px' : '0 8px',
+          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: '#ffffff',
         }}
       >
         {PROXIMAMENTE.map((item, idx) => (
@@ -625,13 +619,12 @@ function SidebarProximamente({ isOpen, onToggle, T }: { isOpen: boolean; onToggl
               display: 'flex',
               alignItems: 'center',
               gap: 10,
-              padding: '6px 10px 6px 24px',
-              margin: '0 8px',
-              borderRadius: 0,
+              padding: '6px 10px 6px 16px',
+              borderTop: `1px solid ${INK}22`,
               fontFamily: FONT.body,
               fontSize: 12.5,
-              color: T.mut,
-              opacity: 0.5,
+              color: INK,
+              opacity: 0.45,
               cursor: 'not-allowed',
               userSelect: 'none',
               whiteSpace: 'nowrap',
