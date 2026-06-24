@@ -14,7 +14,6 @@ import {
   semaforoColor,
   CANALES,
   type CanalConfig,
-  tituloPaginaStyle,
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
