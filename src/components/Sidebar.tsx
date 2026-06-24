@@ -21,29 +21,23 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// ── Brutalismo Streat Lab · bloques de color sólido + inversión + tipografía bold ──
+// ── Brutalismo Streat Lab · paleta reducida: crema + negro + rosa ──
+// Bloques sólidos y tipografía bold, pero sin exceso de color. El único acento vivo
+// es el rosa (activo); la energía visual viene de la inversión a negro al abrir.
 const INK = '#0a0a0a'
-const AMA = '#FFC400'      // acento de inversión (activo directo)
-const ROSA = '#FF2E63'     // acento iconos inactivos
+const CREMA = '#FCEFD6'    // texto/acentos sobre negro
+const ROSA = '#FF2E63'     // acento único (activo)
 const OSW = 'Oswald, sans-serif'
 
-// base del sidebar (zonas neutras) según tema — header y footer también se adaptan
-interface Pal { bg: string; txt: string; txtMut: string; head: string; headTxt: string; logoBd: string }
-const PAL_DARK: Pal = { bg: '#1e2233', txt: '#e8e4d8', txtMut: '#8b90a3', head: '#0a0a0a', headTxt: '#FCEFD6', logoBd: '#FCEFD6' }
-const PAL_LIGHT: Pal = { bg: '#FCEFD6', txt: '#1e2233', txtMut: '#6b5d45', head: '#F3D9A8', headTxt: '#140f08', logoBd: '#140f08' }
+// base del sidebar según tema — todo en familia crema (claro) / pizarra (oscuro)
+interface Pal { bg: string; txt: string; txtMut: string; head: string; headTxt: string; logoBd: string; secBg: string; secTxt: string }
+const PAL_DARK: Pal = { bg: '#1e2233', txt: '#e8e4d8', txtMut: '#8b90a3', head: '#161a28', headTxt: CREMA, logoBd: CREMA, secBg: '#262c42', secTxt: '#e8e4d8' }
+const PAL_LIGHT: Pal = { bg: CREMA, txt: '#1e2233', txtMut: '#6b5d45', head: CREMA, headTxt: '#140f08', logoBd: '#140f08', secBg: '#F3D9A8', secTxt: '#140f08' }
 
-// color sólido de cada sección (bloques)
-const SEC_COLOR: Record<string, { bg: string; fg: string }> = {
-  finanzas:      { bg: '#0FB86B', fg: '#ffffff' },
-  cocina:        { bg: '#FFC400', fg: '#0a0a0a' },
-  operaciones:   { bg: '#FF6A1A', fg: '#ffffff' },
-  stock:         { bg: '#2D5BFF', fg: '#ffffff' },
-  informes:      { bg: '#B01D23', fg: '#ffffff' },
-  equipo:        { bg: '#FF2E63', fg: '#ffffff' },
-  mkt:           { bg: '#1e2233', fg: '#ffffff' },
-  configuracion: { bg: '#484f66', fg: '#ffffff' },
-}
-const PROX_BG = '#9a8f78'
+// sección abierta = inversión a negro (fijo en ambos temas)
+const OPEN_BG = INK
+const OPEN_TXT = CREMA
+const PROX_BG = '#9a8f78'   // gris piedra neutro para "en desarrollo"
 
 interface NavItem { path: string; label: string; emoji: string; perfiles: string[] }
 interface NavSection { key: string; emoji: string; label: string; perfiles: string[]; items: NavItem[] }
@@ -290,13 +284,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex', alignItems: 'center', gap: 11,
     padding: '13px 16px',
     borderBottom: `3px solid ${INK}`,
-    background: isActive ? INK : C.bg,
-    color: isActive ? AMA : C.txt,
+    background: isActive ? ROSA : C.bg,
+    color: isActive ? '#fff' : C.txt,
     fontFamily: OSW, fontSize: 15, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
     textDecoration: 'none', cursor: 'pointer',
   })
 
-  const collapsedBtn = (active: boolean, bg: string): React.CSSProperties => ({
+  const collapsedBtn = (bg: string): React.CSSProperties => ({
     margin: '8px auto', width: 40, height: 40,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     textDecoration: 'none', position: 'relative',
@@ -310,8 +304,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         .slb-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
         .slb-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
         .slb-head, .slb-direct, .slb-it { transition: filter .12s, background .12s; }
-        .slb-head:not(.slb-on):hover { filter: brightness(.93); }
-        .slb-direct:not(.slb-on):hover { filter: brightness(.96); }
+        .slb-head:not(.slb-on):hover { filter: brightness(.95); }
+        .slb-direct:not(.slb-on):hover { filter: brightness(.97); }
         .slb-it:not(.slb-on):hover { background: #f0ece2 !important; }
       `}</style>
 
@@ -324,10 +318,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         style={{ background: C.bg, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`fixed top-0 left-0 z-40 h-full flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden md:translate-x-0 md:static md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* HEADER · se adapta al tema (claro en modo claro) */}
+        {/* HEADER · se adapta al tema (crema en claro) */}
         {collapsed ? (
           <div style={{ background: C.head, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
-            <div style={{ width: 30, height: 30, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 12 }}>SL</div>
+            <div style={{ width: 30, height: 30, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: CREMA, fontSize: 12 }}>SL</div>
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 30 }} title="Abrir">
               <ChevronRight size={18} color={C.headTxt} strokeWidth={3} />
             </button>
@@ -335,7 +329,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         ) : (
           <div style={{ background: C.head, padding: '14px 16px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-              <div style={{ width: 34, height: 34, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 14, flexShrink: 0 }}>SL</div>
+              <div style={{ width: 34, height: 34, background: '#B01D23', border: `2px solid ${C.logoBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: CREMA, fontSize: 14, flexShrink: 0 }}>SL</div>
               <span style={{ fontFamily: OSW, fontSize: 19, color: C.headTxt, letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
             </div>
             <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: C.headTxt, background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
@@ -347,50 +341,51 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {/* PANEL GLOBAL */}
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
             <NavLink to="/" end onClick={onClose} className={({ isActive }) => isActive ? 'slb-direct slb-on' : 'slb-direct'} style={({ isActive }) => directLink(isActive)}>
-              {({ isActive }) => (<><LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? AMA : ROSA} style={{ flexShrink: 0 }} /><span>Panel Global</span></>)}
+              {({ isActive }) => (<><LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} /><span>Panel Global</span></>)}
             </NavLink>
           )}
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink to="/" end onClick={onClose} title="Panel Global" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive, isActive ? INK : C.bg)}>
-              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : ROSA} />}
+            <NavLink to="/" end onClick={onClose} title="Panel Global" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive ? ROSA : C.bg)}>
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />}
             </NavLink>
           )}
 
           {/* TAREAS */}
           {(!collapsed && perfil === 'admin') && (
             <NavLink to="/tareas" onClick={onClose} className={({ isActive }) => isActive ? 'slb-direct slb-on' : 'slb-direct'} style={({ isActive }) => directLink(isActive)}>
-              {({ isActive }) => (<><BellRing size={19} strokeWidth={2.4} color={isActive ? AMA : ROSA} style={{ flexShrink: 0 }} /><span style={{ flex: 1 }}>Tareas</span><SidebarBadge count={tareasBadge} /></>)}
+              {({ isActive }) => (<><BellRing size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} /><span style={{ flex: 1 }}>Tareas</span><SidebarBadge count={tareasBadge} /></>)}
             </NavLink>
           )}
           {collapsed && perfil === 'admin' && (
-            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive, isActive ? INK : C.bg)}>
+            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive ? ROSA : C.bg)}>
               {({ isActive }) => (<>
-                <BellRing size={20} strokeWidth={2.4} color={isActive ? AMA : ROSA} />
+                <BellRing size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />
                 {tareasBadge > 0 && <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>{tareasBadge > 9 ? '9+' : tareasBadge}</span>}
               </>)}
             </NavLink>
           )}
 
-          {/* SECCIONES · bloques de color sólido */}
+          {/* SECCIONES · cabecera monocroma; al abrir invierte a negro */}
           {SECTIONS.map(section => {
             const visibleItems = filterItems(section.items)
             if (!section.perfiles.includes(perfil) || visibleItems.length === 0) return null
             const isOpen = openSections.includes(section.key)
             const IconComponent = SECTION_ICONS[section.key]?.icon
-            const sc = SEC_COLOR[section.key] ?? { bg: '#888', fg: '#fff' }
+            const headBg = isOpen ? OPEN_BG : C.secBg
+            const headTxt = isOpen ? OPEN_TXT : C.secTxt
 
             return (
               <div key={section.key}>
                 {collapsed ? (
-                  <button type="button" onClick={() => toggleSection(section.key)} title={section.label} className={isOpen ? 'slb-on' : ''} style={collapsedBtn(isOpen, sc.bg)}>
-                    {IconComponent ? <IconComponent size={20} strokeWidth={2.3} color={sc.fg} /> : <span>{section.emoji}</span>}
+                  <button type="button" onClick={() => toggleSection(section.key)} title={section.label} className={isOpen ? 'slb-on' : ''} style={collapsedBtn(headBg)}>
+                    {IconComponent ? <IconComponent size={20} strokeWidth={2.3} color={headTxt} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button type="button" onClick={() => toggleSection(section.key)} className={isOpen ? 'slb-head slb-on' : 'slb-head'}
-                    style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: sc.bg, color: sc.fg, boxShadow: isOpen ? `inset 0 -5px 0 ${INK}` : 'none', fontFamily: OSW, fontSize: 14.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={sc.fg} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                    style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: headBg, color: headTxt, fontFamily: OSW, fontSize: 14.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={headTxt} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{section.label}</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>›</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, color: isOpen ? ROSA : headTxt }}>›</span>
                   </button>
                 )}
 
@@ -399,9 +394,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     {visibleItems.map((item, idx) => (
                       <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
                         className={({ isActive }) => isActive ? 'slb-it slb-on' : 'slb-it'}
-                        style={({ isActive }) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px 9px 20px', background: isActive ? INK : '#fff', color: isActive ? '#fff' : INK, fontFamily: OSW, fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', borderTop: idx === 0 ? 'none' : `1.5px solid rgba(0,0,0,0.10)` })}>
+                        style={({ isActive }) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px 9px 20px', background: isActive ? ROSA : '#fff', color: isActive ? '#fff' : INK, fontFamily: OSW, fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', borderTop: idx === 0 ? 'none' : `1.5px solid rgba(0,0,0,0.10)` })}>
                         {({ isActive }) => (<>
-                          <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? sc.bg : INK }} />
+                          <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? '#fff' : INK }} />
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                           {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                         </>)}
@@ -418,7 +413,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        {/* FOOTER · se adapta al tema (claro en modo claro) */}
+        {/* FOOTER · se adapta al tema (crema en claro) */}
         <div style={{ background: C.head, borderTop: `4px solid ${INK}`, padding: collapsed ? '8px' : '12px 16px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10 }}>
           <ThemeToggle />
           {!collapsed && (
@@ -441,8 +436,8 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
   return (
     <div>
       <button type="button" onClick={onToggle} className={isOpen ? 'slb-head slb-on' : 'slb-head'}
-        style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: PROX_BG, color: '#fff', boxShadow: isOpen ? `inset 0 -5px 0 ${INK}` : 'none', fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }} title="Funciones en desarrollo">
-        <Clock size={16} strokeWidth={2.4} color="#fff" />
+        style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: isOpen ? OPEN_BG : PROX_BG, color: isOpen ? OPEN_TXT : '#fff', fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }} title="Funciones en desarrollo">
+        <Clock size={16} strokeWidth={2.4} color={isOpen ? OPEN_TXT : '#fff'} />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>Próximamente</span>
         <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>›</span>
       </button>
