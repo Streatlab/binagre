@@ -38,7 +38,6 @@ const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
 const INK = '#140f08'
 const AMA = '#FFC400'
 const ROSA = '#FF2E63'
-const OSW = 'Oswald, sans-serif'
 
 // Migración de ids antiguos a los nuevos (no romper estado guardado ni props).
 function migrarOpcion(op: string): Opcion {
@@ -185,9 +184,8 @@ const OPCIONES: { id: Opcion; label: string }[] = [
 ]
 
 const btnStyle: React.CSSProperties = {
-  padding: '8px 14px', borderRadius: 0, border: `3px solid ${INK}`,
-  background: '#ffffff', fontFamily: OSW, fontSize: 13, fontWeight: 600,
-  letterSpacing: '0.5px', textTransform: 'uppercase',
+  padding: '9px 14px', borderRadius: 0, border: `3px solid ${INK}`,
+  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 14, fontWeight: 600,
   color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center',
   gap: 6, whiteSpace: 'nowrap', boxShadow: `3px 3px 0 ${INK}`,
 }
@@ -208,12 +206,12 @@ const hiddenDateStyle: React.CSSProperties = {
 }
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: '100%', right: 0, background: '#fff',
-  border: `3px solid ${INK}`, borderRadius: 0, width: 210, fontSize: 13,
+  border: `3px solid ${INK}`, borderRadius: 0, width: 220, fontSize: 13,
   color: INK, boxShadow: `6px 6px 0 ${INK}`, zIndex: 50,
   maxHeight: '80vh', overflowY: 'auto', marginTop: 6,
 }
 const itemStyle: React.CSSProperties = {
-  display: 'block', padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+  display: 'block', padding: '9px 12px', cursor: 'pointer', fontSize: 13.5,
   fontFamily: 'Lexend, sans-serif', fontWeight: 500, color: INK, background: 'transparent',
   border: 'none', borderBottom: `1px solid ${INK}1a`, width: '100%', textAlign: 'left',
 }
@@ -377,7 +375,7 @@ export default function SelectorFechaUniversal({
       <div style={{ position: 'relative' }}>
         <button style={btnStyle} onClick={() => { setOpen(o => !o); setSemanaOpen(false) }}>
           <span>{selectedLabel}</span>
-          <ChevronDown size={12} strokeWidth={3} style={{ marginLeft: 2 }} />
+          <ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
         </button>
         {open && (
           <div style={menuStyle}>
@@ -423,7 +421,7 @@ export default function SelectorFechaUniversal({
               tabIndex={-1}
             />
           </div>
-          <span style={{ fontSize: 13, color: INK, fontFamily: OSW, fontWeight: 700 }}>→</span>
+          <span style={{ fontSize: 14, color: INK, fontFamily: 'Lexend, sans-serif', fontWeight: 700 }}>→</span>
           <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
             <input
               ref={hastaRef}
