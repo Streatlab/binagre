@@ -34,6 +34,12 @@ interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Da
 // por compatibilidad pero ya no se usa para diferenciar la clave de storage.
 const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
 
+// tokens neobrutal
+const INK = '#140f08'
+const AMA = '#FFC400'
+const ROSA = '#FF2E63'
+const OSW = 'Oswald, sans-serif'
+
 // Migración de ids antiguos a los nuevos (no romper estado guardado ni props).
 function migrarOpcion(op: string): Opcion {
   const map: Record<string, Opcion> = {
@@ -179,21 +185,22 @@ const OPCIONES: { id: Opcion; label: string }[] = [
 ]
 
 const btnStyle: React.CSSProperties = {
-  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
-  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
-  color: '#111111', cursor: 'pointer', display: 'flex', alignItems: 'center',
-  gap: 4, whiteSpace: 'nowrap',
+  padding: '8px 14px', borderRadius: 0, border: `3px solid ${INK}`,
+  background: '#ffffff', fontFamily: OSW, fontSize: 13, fontWeight: 600,
+  letterSpacing: '0.5px', textTransform: 'uppercase',
+  color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center',
+  gap: 6, whiteSpace: 'nowrap', boxShadow: `3px 3px 0 ${INK}`,
 }
 const inputStyle: React.CSSProperties = {
-  padding: '6px 26px 6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  padding: '7px 26px 7px 10px', borderRadius: 0, border: `3px solid ${INK}`,
   background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
-  color: '#111111', width: 110, outline: 'none',
+  color: INK, width: 110, outline: 'none',
 }
-const inputErrorStyle: React.CSSProperties = { ...inputStyle, borderColor: '#E24B4A' }
+const inputErrorStyle: React.CSSProperties = { ...inputStyle, borderColor: ROSA }
 const iconBtnStyle: React.CSSProperties = {
-  position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
   background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
-  color: '#7a8090', display: 'flex', alignItems: 'center',
+  color: INK, display: 'flex', alignItems: 'center',
 }
 const hiddenDateStyle: React.CSSProperties = {
   position: 'absolute', right: 0, top: 0, width: 1, height: 1,
@@ -201,14 +208,14 @@ const hiddenDateStyle: React.CSSProperties = {
 }
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: '100%', right: 0, background: '#fff',
-  border: '0.5px solid #d0c8bc', borderRadius: 8, width: 200, fontSize: 13,
-  color: '#3a4050', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', zIndex: 50,
-  maxHeight: '80vh', overflowY: 'auto',
+  border: `3px solid ${INK}`, borderRadius: 0, width: 210, fontSize: 13,
+  color: INK, boxShadow: `6px 6px 0 ${INK}`, zIndex: 50,
+  maxHeight: '80vh', overflowY: 'auto', marginTop: 6,
 }
 const itemStyle: React.CSSProperties = {
   display: 'block', padding: '8px 12px', cursor: 'pointer', fontSize: 13,
-  fontFamily: 'Lexend, sans-serif', color: '#7a8090', background: 'transparent',
-  border: 'none', width: '100%', textAlign: 'left',
+  fontFamily: 'Lexend, sans-serif', fontWeight: 500, color: INK, background: 'transparent',
+  border: 'none', borderBottom: `1px solid ${INK}1a`, width: '100%', textAlign: 'left',
 }
 
 export default function SelectorFechaUniversal({
@@ -370,12 +377,12 @@ export default function SelectorFechaUniversal({
       <div style={{ position: 'relative' }}>
         <button style={btnStyle} onClick={() => { setOpen(o => !o); setSemanaOpen(false) }}>
           <span>{selectedLabel}</span>
-          <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+          <ChevronDown size={12} strokeWidth={3} style={{ marginLeft: 2 }} />
         </button>
         {open && (
           <div style={menuStyle}>
             {OPCIONES.map(o => (
-              <button key={o.id} style={{ ...itemStyle, background: opcion === o.id ? '#FF475715' : 'transparent', color: opcion === o.id ? '#FF4757' : '#7a8090', fontWeight: opcion === o.id ? 500 : 400, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => selectOpcion(o.id)}>
+              <button key={o.id} style={{ ...itemStyle, background: opcion === o.id ? AMA : 'transparent', color: INK, fontWeight: opcion === o.id ? 700 : 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => selectOpcion(o.id)}>
                 <span>{o.label}</span>
                 {o.id === 'semanas_x' && <span style={{ fontSize: 10 }}>▸</span>}
               </button>
@@ -416,7 +423,7 @@ export default function SelectorFechaUniversal({
               tabIndex={-1}
             />
           </div>
-          <span style={{ fontSize: 13, color: '#777', fontFamily: 'Lexend, sans-serif' }}>→</span>
+          <span style={{ fontSize: 13, color: INK, fontFamily: OSW, fontWeight: 700 }}>→</span>
           <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
             <input
               ref={hastaRef}
@@ -440,7 +447,7 @@ export default function SelectorFechaUniversal({
               tabIndex={-1}
             />
           </div>
-          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', borderColor: '#B01D23' }} onClick={applyPersonalizado}>
+          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}` }} onClick={applyPersonalizado}>
             Aplicar
           </button>
         </div>
