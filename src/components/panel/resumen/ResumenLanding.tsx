@@ -1,15 +1,13 @@
 /**
- * ResumenLanding v11 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v11 (decisiones finales Rubén):
- *  - Sombra única 4px en todo (cards, eyebrows, barras).
- *  - Semántica: VERDE vivo = positivo · ROJO vivo = negativo. El ROSA es acento, nunca "malo".
- *  - Color por MÉTRICA mandado por la card hero: Neto/TM neto = verde, TM bruto = azul, Pedidos = naranja.
- *  - Canales: barra de peso ROSA uniforme; nombre/borde con su color corporativo; cifras con su color de métrica.
- *  - Reorg: «Cuándo te compran» (compacta) + «Días pico» apiladas a la derecha de Canales;
- *    «Te deben las plataformas» pasa a columna estrecha junto a «Resultado» (sin banda full-width).
- *  - Estado de salud con periodo concreto (nombre + fechas) y chips de letra grande en fila compacta.
- *  - Siempre 5 marcas (las que no tienen datos, en estimado).
- * No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
+ * ResumenLanding v12 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v12 (correcciones Rubén):
+ *  - "Cuándo te compran" y "Días pico": dos RECTÁNGULOS independientes de colores distintos, apilados
+ *    a la derecha de Canales (no una caja crema con subtarjetas).
+ *  - "Te deben las plataformas": rellena toda la columna (número grande + barras estiradas).
+ *  - "Resultado del periodo": fondo SATURADO (verde petróleo), estilo cuidado.
+ *  - "Punto de equilibrio": color propio, distinto de Provisiones.
+ * Mantiene: sombra única 4px, rojo vivo=negativo (rosa solo acento), pedidos=naranja,
+ *  canales con barra de peso rosa + cifras por métrica, salud con periodo+fechas, 5 marcas siempre.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -24,6 +22,8 @@ const OSC = '#2b2117'
 const CREMA = '#FCEFD6'
 const CLARO = '#F3D9A8'
 const ROSA_CL = '#ffe0ea'
+const LAV = '#d8e3ff'      // azul lavanda claro (Punto de equilibrio)
+const TEAL = '#0F3D35'     // verde petróleo saturado (Resultado del periodo)
 const TRACK = '#ecdcb8'
 const TRACK_CANAL = '#e2dac9'
 const ROSA = '#FF2E63'   // acento (no significa "malo")
@@ -32,7 +32,6 @@ const AMA = '#FFC400'
 const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto
 const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio
 const AZUL = '#2D5BFF'   // métrica TM bruto
-const VERDE_CL = '#46e6a0'
 const NAR_CL = '#ffb27a'
 const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
@@ -42,9 +41,7 @@ const PAD = '40px'
 
 // colores corporativos de plataforma
 const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
-// plataformas con color claro: el texto sobre blanco usa INK para que se lea
 const CLARA: Record<string, boolean> = { uber: true, glovo: true, je: false, web: false, dir: false }
-// objetivo de margen neto de referencia por canal (estimado, solo para ver el estado)
 const OBJ_MARGEN: Record<string, number> = { uber: 55, glovo: 55, je: 55, web: 88, dir: 92 }
 
 // textos sobre fondo oscuro
@@ -61,22 +58,18 @@ const P0 = (n: number) => fmtPct(n, 0)
 const P2 = (n: number) => fmtPct(n, 2)
 const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: true, showEuro: false, decimals: 1 }) + '%')
 
-// curva estimada (solo visual) para una marca sin histórico por periodos.
 function serieEstimada(bruto: number): number[] {
   const b = bruto > 0 ? bruto : 100
   const factores = [0.62, 0.71, 0.79, 0.88, 0.95, 1]
   return factores.map(f => b * f)
 }
 
-// % de peso estimado por posición, para las marcas que aún no tienen datos reales.
 const PCT_EST = [46, 37, 28, 19, 11]
 
-// badge «est.» reutilizable — norma viva: marca cualquier dato que aún no sea real.
 function Est({ light = false, tip = 'Dato estimado · todavía no proviene del Running / datos reales' }: { light?: boolean; tip?: string }) {
   return <span title={tip} style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', border: `1px solid ${light ? '#ffffff66' : '#00000044'}`, color: light ? '#ffffffcc' : '#00000088', padding: '0 4px', marginLeft: 6, verticalAlign: 'middle', cursor: 'help', borderRadius: 3 }}>est</span>
 }
 
-// flechita de tendencia ↑↓ (verde sube / rojo baja).
 function Arrow({ v }: { v: number | null }) {
   if (v == null) return null
   const up = v >= 0
@@ -176,7 +169,6 @@ function Spark({ serie, color = INK, w = 240, h = 54, dashed = false }: { serie:
   )
 }
 
-/* barra de progreso: nombre + track + relleno + % + valor */
 function Barra({ nombre, pct, color, valor, alto = 34, track = TRACK }: { nombre: string; pct: number; color: string; valor: string; alto?: number; track?: string }) {
   const fill = Math.min(100, Math.max(0, pct))
   return (
@@ -210,7 +202,6 @@ export default function ResumenLanding(p: Props) {
 
   const m = p.metricas
 
-  // ── ESTADO DE SALUD (visual): cuenta de frentes abiertos ──
   const saludFlags: string[] = []
   if (m.variacionVentas != null && m.variacionVentas < -3) saludFlags.push(`Ventas ${DELTA(m.variacionVentas)} vs anterior`)
   if (m.primeCostPct > 65) saludFlags.push(`Prime cost ${P0(m.primeCostPct)}`)
@@ -247,7 +238,6 @@ export default function ResumenLanding(p: Props) {
   const grupoMeta: Record<GrupoGasto, { obj: number }> = { producto: { obj: 30 }, equipo: { obj: 40 }, local: { obj: 15 }, controlables: { obj: 15 } }
   const pctN = (g: number) => p.netoEstimado > 0 ? (g / p.netoEstimado) * 100 : 0
 
-  // P&L sobre fondo blanco (legible)
   type Fila = { l: string; imp: string; impC: string; pct?: string; grupo?: GrupoGasto; bold?: boolean; dot: string }
   const filasBase: Fila[] = [
     { l: 'Facturación', imp: E2(p.ventasPeriodo), impC: INK, dot: INK },
@@ -301,7 +291,7 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 0 · ESTADO DE SALUD — banda de color, periodo concreto y chips de letra grande */}
+      {/* 0 · ESTADO DE SALUD */}
       <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
         <div>
           <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
@@ -319,7 +309,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 1 · HERO — amarillo */}
+      {/* 1 · HERO */}
       <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
         <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -361,7 +351,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 2 · ALERTAS (oscuro) */}
+      {/* 2 · ALERTAS */}
       <section style={{ background: OSC, borderBottom: `4px solid ${INK}`, padding: `18px ${PAD}`, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ ...d('16px', D1), marginRight: 4 }}>Atención →</span>
         {alertas.length === 0
@@ -371,7 +361,7 @@ export default function ResumenLanding(p: Props) {
           ))}
       </section>
 
-      {/* 3 · DESVIACIONES (CREMA) — vs mismo periodo anterior */}
+      {/* 3 · DESVIACIONES */}
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD} 0` }}>
         <span style={{ ...eyebrow(AZUL, '#fff'), fontSize: 12 }}>Comparado con el periodo anterior de igual duración</span>
       </section>
@@ -390,7 +380,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES 66% (blanco) | [CUÁNDO TE COMPRAN + DÍAS PICO] 33% apiladas */}
+      {/* 5 · CANALES 66% | dos rectángulos apilados (Cuándo te compran + Días pico) 33% */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
@@ -408,13 +398,11 @@ export default function ResumenLanding(p: Props) {
                     <div style={{ flex: 1 }} />
                     <span title={`Margen neto del canal frente a un objetivo de referencia (${objM}%). Objetivo estimado.`} style={{ ...d('15px', saludOk ? VERDE : ROJO), cursor: 'help', display: 'flex', alignItems: 'center' }}>{saludOk ? '✓' : '✗'} {P0(c.margen)}<Est /></span>
                   </div>
-                  {/* barra de peso: relleno ROSA uniforme en todos los canales */}
                   <div style={{ position: 'relative', height: 24, background: TRACK_CANAL, border: `3px solid ${INK}`, overflow: 'hidden', marginBottom: 12 }}>
                     <div style={{ width: `${Math.min(100, pesoPct)}%`, height: '100%', background: ROSA }} />
                     <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>peso {P0(pesoPct)}</span>
                     <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', ...d('15px', INK) }}>{E2(c.bruto)}</span>
                   </div>
-                  {/* cifras con su COLOR DE MÉTRICA (no el del canal) */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
                     {[['Neto', E2(c.neto), VERDE], ['Pedidos', N(c.pedidos), NAR], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', AZUL], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, cc]) => (
                       <div key={l as string}>
@@ -429,54 +417,55 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
 
-        <div style={{ padding: `30px ${PAD}`, background: CLARO, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Cuándo te compran — compacta (la mitad de alta) */}
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-              <span style={{ ...eyebrow(NAR, '#fff'), fontSize: 11 }}>Cuándo te compran</span>
+        {/* columna derecha: dos rectángulos independientes de colores distintos */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Rectángulo 1 · Cuándo te compran (CLARO) — compacto */}
+          <div style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              <span style={eyebrow(NAR, '#fff')}>Cuándo te compran</span>
               {(mejorServ || flojoServ) && (
-                <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
                   {mejorServ && <span style={{ color: VERDE }}>▲ {mejorServ.nombre}</span>}
-                  {flojoServ && <span style={{ color: NAR_CL, marginLeft: 8 }}>▼ {flojoServ.nombre}</span>}
+                  {flojoServ && <span style={{ color: NAR, marginLeft: 8 }}>▼ {flojoServ.nombre}</span>}
                 </span>
               )}
             </div>
             {p.serviciosHay
-              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {p.servicios.slice(0, 3).map((s, i) => (
                     <div key={s.nombre}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                        <span style={{ ...d('14px', INK) }}>{s.nombre}</span>
-                        <span style={d('15px', servColor[i % servColor.length] === AMA ? INK : servColor[i % servColor.length])}>{P0(s.pct)} · {E(s.bruto)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                        <span style={{ ...d('17px', INK) }}>{s.nombre}</span>
+                        <span style={d('18px', servColor[i % servColor.length] === AMA ? INK : servColor[i % servColor.length])}>{P0(s.pct)} · {E(s.bruto)}</span>
                       </div>
-                      <div style={{ height: 14, background: TRACK, border: `2px solid ${INK}`, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, s.pct)}%`, height: '100%', background: servColor[i % servColor.length] }} /></div>
+                      <div style={{ height: 18, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, s.pct)}%`, height: '100%', background: servColor[i % servColor.length] }} /></div>
                     </div>
                   ))}
                 </div>
-              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 12.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
+              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
-          {/* Días pico — otro color (AMA) */}
-          <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              <span style={{ ...eyebrow(INK, AMA), fontSize: 11 }}>Días pico · {p.mesLabel}</span>
-              <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
+          {/* Rectángulo 2 · Días pico (AMA) */}
+          <div style={{ background: AMA, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
+              <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 104, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flex: 1, minHeight: 130, marginBottom: 12 }}>
               {p.diasPico.map(x => {
                 const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
                 const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
                 const barCol = esFlojo ? ROJO : esFuerte ? VERDE : x.color
                 return (
-                  <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <span style={{ fontFamily: OSW, fontSize: 9.5, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>
-                    <div style={{ width: '100%', height: `${(x.valor / maxDia) * 70}px`, minHeight: 4, background: barCol, border: `2px solid ${INK}` }} />
-                    <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{x.nombre}</span>
+                  <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, height: '100%', justifyContent: 'flex-end' }}>
+                    <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>
+                    <div style={{ width: '100%', height: `${Math.max(4, (x.valor / maxDia) * 100)}%`, minHeight: 4, background: barCol, border: `3px solid ${INK}` }} />
+                    <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{x.nombre}</span>
                   </button>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: OSW, fontSize: 13, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
               <span><span style={{ color: VERDE }}>▲</span> {diaFuerte ? `${diaFuerte.nombre} ${E(diaFuerte.valor)}` : '—'}</span>
               <span><span style={{ color: ROJO }}>▼</span> {diaFlojo ? `${diaFlojo.nombre} ${E(diaFlojo.valor)}` : '—'}</span>
             </div>
@@ -484,46 +473,48 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 6 · TE DEBEN (columna 33%, AZUL) | RESULTADO 66% (claro) */}
+      {/* 6 · TE DEBEN (columna 33%, AZUL, rellena) | RESULTADO 66% (saturado) */}
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: AZUL, color: '#fff' }}>
+        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: AZUL, color: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={eyebrow('#fff')}>Te deben</span>
             <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 11 }}>Cashflow →</button>
           </div>
           {p.porCobrar.total > 0 ? (
-            <>
-              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85, marginTop: 18 }}>Pendiente de cobro</div>
-              <div style={d('clamp(38px,4.6vw,60px)', '#fff')}>{EUR(p.porCobrar.total)}</div>
-              <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, background: '#fff', color: AZUL, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '6px 12px', marginTop: 10 }}>
-                <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}>Entra antes de fin de mes</span>
-                <span style={d('19px', AZUL)}>{E(p.porCobrar.hastaFinMes)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: 22, marginTop: 22 }}>
+              <div>
+                <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>Pendiente de cobro</div>
+                <div style={d('clamp(48px,6.5vw,82px)', '#fff')}>{EUR(p.porCobrar.total)}</div>
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, background: '#fff', color: AZUL, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '7px 14px', marginTop: 12 }}>
+                  <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase' }}>Entra antes de fin de mes</span>
+                  <span style={d('22px', AZUL)}>{E(p.porCobrar.hastaFinMes)}</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {p.porCobrar.porCanal.filter(c => c.neto > 0).map(c => {
                   const pct = p.porCobrar.total > 0 ? (c.neto / p.porCobrar.total) * 100 : 0
                   return (
                     <div key={c.id}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-                        <span style={{ ...d('13px', '#fff') }}>{c.label}</span>
-                        <span style={{ ...d('15px', '#fff') }}>{E(c.neto)}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                        <span style={{ ...d('16px', '#fff') }}>{c.label}</span>
+                        <span style={{ ...d('17px', '#fff') }}>{E(c.neto)} · {P0(pct)}</span>
                       </div>
-                      <div style={{ position: 'relative', height: 16, background: '#ffffff33', border: `2px solid ${INK}`, overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', height: 22, background: '#ffffff33', border: `3px solid ${INK}`, overflow: 'hidden' }}>
                         <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: CORP[c.id] ?? c.color }} />
                       </div>
                     </div>
                   )
                 })}
               </div>
-              <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, opacity: 0.85, marginTop: 12 }}>{p.porCobrar.nLiquidaciones} liquidaciones · neto estimado · cierre histórico al 19-jun</div>
-            </>
+              <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{p.porCobrar.nLiquidaciones} liquidaciones pendientes · neto estimado · cierre histórico al 19-jun</div>
+            </div>
           ) : (
-            <div style={{ ...d('clamp(20px,2.4vw,28px)', '#fff'), marginTop: 18 }}>Todo cobrado al día. Sin liquidaciones pendientes.</div>
+            <div style={{ ...d('clamp(22px,2.6vw,32px)', '#fff'), marginTop: 22, flex: 1 }}>Todo cobrado al día. Sin liquidaciones pendientes.</div>
           )}
         </div>
 
-        <div style={{ padding: `44px ${PAD}`, background: CREMA, color: INK }}>
-          <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
+        <div style={{ padding: `44px ${PAD}`, background: TEAL, color: D1 }}>
+          <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, margin: '8px 0 22px' }}>
             <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
@@ -538,7 +529,7 @@ export default function ResumenLanding(p: Props) {
             </div>
           </div>
 
-          {mostrarCostes && <div style={{ borderLeft: `3px solid ${NAR}`, paddingLeft: 14, marginBottom: 20, fontSize: 15, color: '#4a4030', maxWidth: 760 }}><b style={{ color: NAR }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
+          {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 20, fontSize: 15, color: D1, maxWidth: 760 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
 
           <div style={{ background: '#fff', border: `3px solid ${INK}`, color: INK, overflow: 'hidden', boxShadow: SHADOW }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '11px 16px', background: INK, fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D1 }}>
@@ -573,7 +564,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 7 · OBJETIVOS (AMA) — editable en azul */}
+      {/* 7 · OBJETIVOS (AMA) */}
       <section style={sec(AMA)}>
         <Title tag="Tus objetivos" tagBg={VERDE} tagColor="#fff" title="Cómo vas frente a lo que te marcaste. Toca el objetivo (en azul) para cambiarlo." />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -606,7 +597,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 8 · PROYECCIONES 33% | RATIO 33% | PE 33% */}
+      {/* 8 · PROYECCIONES | RATIO | PE (cada una su color) */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: '#fff' }}>
           <span style={eyebrow('#fff')}>Proyecciones</span>
@@ -641,8 +632,8 @@ export default function ResumenLanding(p: Props) {
             <div>Gastos reales · <b>{E(p.gastosReales)}</b></div>
           </div>
         </div>
-        <div style={{ padding: `40px ${PAD}`, background: CLARO }}>
-          <span style={eyebrow('#fff')}>Punto de equilibrio</span>
+        <div style={{ padding: `40px ${PAD}`, background: LAV }}>
+          <span style={eyebrow(AZUL, '#fff')}>Punto de equilibrio</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
             <div title="Facturación bruta que necesitas este mes para cubrir todos los gastos fijos" style={{ ...d('clamp(36px,5vw,60px)'), cursor: 'help' }}>{E(p.pe.peBruto)}</div>
             <div style={{ ...eyebrow(p.pe.pctProgreso >= 100 ? VERDE : NAR, '#fff'), marginBottom: 12 }}>{P0(p.pe.pctProgreso)}</div>
@@ -657,7 +648,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 9 · MARCAS 75% (blanco) | PROVISIONES + TOP VENTAS 25% (columna) */}
+      {/* 9 · MARCAS | PROVISIONES + TOP VENTAS */}
       <section style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
@@ -735,7 +726,7 @@ export default function ResumenLanding(p: Props) {
         </div>
       </section>
 
-      {/* 10 · FOOTER (oscuro) */}
+      {/* 10 · FOOTER */}
       <section style={{ background: OSC, color: D1, padding: PAD, textAlign: 'center' }}>
         <div style={d('clamp(34px,6vw,72px)', D1)}>Binagre es hogar.</div>
         <div style={{ fontFamily: OSW, letterSpacing: '6px', fontSize: 15, color: AMA, marginTop: 12, textTransform: 'uppercase' }}>Comer bien. Aquí y ahora.</div>
