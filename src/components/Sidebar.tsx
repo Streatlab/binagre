@@ -16,18 +16,21 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
-import { useTheme, FONT } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// tokens neobrutal
-const INK = '#140f08'
+// ── tokens neobrutal · sidebar oscuro canónico Streat Lab ──
+const INK = '#0a0a0a'
+const DARK = '#1e2233'      // fondo sidebar (canónico)
+const DARK2 = '#2b3148'     // cabeceras de sección / botones inactivos
+const DARK3 = '#161a28'     // caja de items abierta
+const FLUOR = '#e8f442'     // acento activo
 const ROJO = '#B01D23'
-const ROSA = '#FF2E63'
-const AMA = '#FFC400'
-const CREMA = '#FCEFD6'
+const TXT = '#ece8dc'       // texto claro sobre oscuro
+const TXT_MUT = '#8b90a3'
 const OSW = 'Oswald, sans-serif'
+const LEX = 'Lexend, sans-serif'
 
 interface NavItem {
   path: string
@@ -232,14 +235,14 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 ]
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    color: '#06C167' },
-  cocina:        { icon: ChefHat,       color: '#f5a623' },
-  operaciones:   { icon: ClipboardList, color: '#e8b341' },
-  stock:         { icon: ShoppingCart,  color: '#B01D23' },
-  informes:      { icon: FileText,      color: '#e8b341' },
-  equipo:        { icon: Users,         color: '#66aaff' },
-  mkt:           { icon: Megaphone,     color: '#B01D23' },
-  configuracion: { icon: Settings,      color: '#9ba8c0' },
+  finanzas:      { icon: TrendingUp,    color: '#2ee88f' },
+  cocina:        { icon: ChefHat,       color: '#ffb43d' },
+  operaciones:   { icon: ClipboardList, color: '#f5d23d' },
+  stock:         { icon: ShoppingCart,  color: '#ff5a6a' },
+  informes:      { icon: FileText,      color: '#f5d23d' },
+  equipo:        { icon: Users,         color: '#6db3ff' },
+  mkt:           { icon: Megaphone,     color: '#ff5a6a' },
+  configuracion: { icon: Settings,      color: '#b6bdd4' },
 }
 
 const PROXIMAMENTE_LS_KEY = 'streatlab.sidebar.proximamente.open'
@@ -258,11 +261,8 @@ function loadOpenSections(): string[] {
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
-  const { T, isDark } = useTheme()
   const perfil = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
-
-  void isDark; void T
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
   const [proxOpen, setProxOpen] = useState<boolean>(() => {
@@ -335,29 +335,27 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
-  const sidebarWidth = collapsed ? 58 : 224
+  const sidebarWidth = collapsed ? 58 : 230
 
-  // botón directo (Panel Global / Tareas) estilo neobrutal
+  // botón directo (Panel Global / Tareas)
   const directLink = (isActive: boolean): React.CSSProperties => ({
-    width: 'auto',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 11,
     margin: '8px 8px',
-    padding: '9px 12px',
+    padding: '11px 13px',
     border: `3px solid ${INK}`,
     borderRadius: 0,
-    background: isActive ? ROSA : '#ffffff',
-    color: isActive ? '#ffffff' : INK,
-    boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none',
+    background: isActive ? FLUOR : DARK2,
+    color: isActive ? INK : TXT,
+    boxShadow: isActive ? `4px 4px 0 ${INK}` : 'none',
     fontFamily: OSW,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 700,
     textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    letterSpacing: '0.06em',
     textDecoration: 'none',
     cursor: 'pointer',
-    transition: 'background 150ms',
   })
 
   // item dentro de la caja de sección
@@ -365,14 +363,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '8px 12px',
-    borderTop: `1px solid ${INK}22`,
+    padding: '9px 12px',
+    borderTop: `1px solid rgba(255,255,255,0.07)`,
     borderLeft: isActive ? `5px solid ${INK}` : '5px solid transparent',
-    fontFamily: FONT.body,
-    fontSize: 13.5,
+    fontFamily: OSW,
+    fontSize: 13,
     fontWeight: 600,
-    color: isActive ? '#ffffff' : INK,
-    background: isActive ? ROJO : 'transparent',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+    color: isActive ? INK : TXT,
+    background: isActive ? FLUOR : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
@@ -387,7 +387,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: CREMA, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        style={{ background: DARK, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full
           flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
@@ -396,34 +396,29 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {collapsed ? (
-          <div style={{ background: ROJO, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+          <div style={{ background: ROJO, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
-            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
+            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 36 }} title="Abrir">
               <ChevronRight size={18} color="#ffffff" strokeWidth={3} />
             </button>
           </div>
         ) : (
-          <div style={{ background: ROJO, padding: 12, borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
-              <span style={{ fontFamily: OSW, fontSize: 16, color: '#ffffff', letterSpacing: '2px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
+          <div style={{ background: ROJO, padding: '14px 14px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
+              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 34, width: 'auto', display: 'block', flexShrink: 0, filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
+              <span style={{ fontFamily: OSW, fontSize: 19, color: '#ffffff', letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#ffffff', background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
+            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#ffffff', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
         <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
 
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
-            <NavLink
-              to="/"
-              end
-              onClick={onClose}
-              style={({ isActive }) => directLink(isActive)}
-            >
+            <NavLink to="/" end onClick={onClose} style={({ isActive }) => directLink(isActive)}>
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={18} strokeWidth={2.2} color={isActive ? '#ffffff' : ROJO} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? INK : FLUOR} style={{ flexShrink: 0 }} />
                   <span>Panel Global</span>
                 </>
               )}
@@ -431,26 +426,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
 
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink
-              to="/"
-              end
-              onClick={onClose}
-              title="Panel Global"
-              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: `3px solid ${INK}`, background: isActive ? ROSA : '#fff', boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
+            <NavLink to="/" end onClick={onClose} title="Panel Global"
+              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: `3px solid ${INK}`, background: isActive ? FLUOR : DARK2, boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
             >
-              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.2} color={isActive ? '#fff' : ROJO} />}
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? INK : FLUOR} />}
             </NavLink>
           )}
 
           {(!collapsed && perfil === 'admin') && (
-            <NavLink
-              to="/tareas"
-              onClick={onClose}
-              style={({ isActive }) => directLink(isActive)}
-            >
+            <NavLink to="/tareas" onClick={onClose} style={({ isActive }) => directLink(isActive)}>
               {({ isActive }) => (
                 <>
-                  <BellRing size={18} strokeWidth={2.2} color={isActive ? '#ffffff' : ROJO} style={{ flexShrink: 0 }} />
+                  <BellRing size={19} strokeWidth={2.4} color={isActive ? INK : FLUOR} style={{ flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>Tareas</span>
                   <SidebarBadge count={tareasBadge} />
                 </>
@@ -459,17 +446,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
 
           {collapsed && perfil === 'admin' && (
-            <NavLink
-              to="/tareas"
-              onClick={onClose}
-              title="Tareas pendientes"
-              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', border: `3px solid ${INK}`, background: isActive ? ROSA : '#fff', boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
+            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes"
+              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', border: `3px solid ${INK}`, background: isActive ? FLUOR : DARK2, boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
             >
               {({ isActive }) => (
                 <>
-                  <BellRing size={20} strokeWidth={2.2} color={isActive ? '#fff' : ROJO} />
+                  <BellRing size={20} strokeWidth={2.4} color={isActive ? INK : FLUOR} />
                   {tareasBadge > 0 && (
-                    <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
+                    <span style={{ position: 'absolute', top: -8, right: -8, background: '#FF2E63', color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
                       {tareasBadge > 9 ? '9+' : tareasBadge}
                     </span>
                   )}
@@ -493,52 +477,45 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={() => toggleSection(section.key)}
                     title={section.label}
                     style={{
-                      margin: '6px auto', width: 40, height: 40, background: '#fff', border: `3px solid ${INK}`, cursor: 'pointer',
+                      margin: '6px auto', width: 40, height: 40, background: DARK2, border: `3px solid ${INK}`, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    {IconComponent ? <IconComponent size={20} strokeWidth={2} color={iconColor} /> : <span>{section.emoji}</span>}
+                    {IconComponent ? <IconComponent size={20} strokeWidth={2.2} color={iconColor} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => toggleSection(section.key)}
                     style={{
-                      width: 'auto', margin: '6px 8px 0', cursor: 'pointer',
+                      width: 'auto', margin: '7px 8px 0', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 12px',
+                      padding: '10px 12px',
                       border: `3px solid ${INK}`,
-                      borderBottom: isOpen ? `3px solid ${INK}` : `3px solid ${INK}`,
-                      background: isOpen ? AMA : '#ffffff',
+                      background: isOpen ? ROJO : DARK2,
                       boxShadow: isOpen ? `3px 3px 0 ${INK}` : 'none',
-                      fontFamily: OSW, fontSize: 14, fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.04em',
-                      color: INK,
+                      fontFamily: OSW, fontSize: 14.5, fontWeight: 700,
+                      textTransform: 'uppercase', letterSpacing: '0.07em',
+                      color: '#ffffff',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {IconComponent ? <IconComponent size={18} strokeWidth={2.2} color={iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                      {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={isOpen ? '#fff' : iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
                       <span>{section.label}</span>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
                   </button>
                 )}
 
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: isOpen ? '0 8px' : '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: '#ffffff' }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: DARK3 }}>
                     {visibleItems.map((item, idx) => {
                       return (
-                        <NavLink
-                          key={`${item.path}-${idx}`}
-                          to={item.path}
-                          end
-                          onClick={onClose}
-                          style={({ isActive }) => itemStyle(isActive)}
-                        >
+                        <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose} style={({ isActive }) => itemStyle(isActive)}>
                           {({ isActive }) => (
                             <>
-                              <span style={{ fontSize: 14, flexShrink: 0 }}>{item.emoji}</span>
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#ffffff' : INK }}>{item.label}</span>
+                              <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? INK : iconColor, border: `1px solid ${isActive ? INK : 'rgba(0,0,0,0.4)'}` }} />
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                               {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                             </>
                           )}
@@ -556,20 +533,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: CREMA }}>
+        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: DARK }}>
           <ThemeToggle />
         </div>
 
-        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: CREMA, fontFamily: FONT.body, fontSize: 12, color: INK, textAlign: collapsed ? 'center' : 'left' }}>
+        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: DARK, fontFamily: LEX, fontSize: 12, color: TXT, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
-              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: INK, fontWeight: 600 }}>
-                {usuario?.nombre} — <span style={{ color: ROJO, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700 }}>{usuario?.perfil}</span>
+              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TXT, fontWeight: 600 }}>
+                {usuario?.nombre} — <span style={{ color: FLUOR, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>{usuario?.perfil}</span>
               </div>
-              <button onClick={logout} style={{ color: INK, fontSize: 12, background: '#fff', border: `2px solid ${INK}`, padding: '4px 10px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>Cerrar sesión</button>
+              <button onClick={logout} style={{ color: TXT, fontSize: 12, background: DARK2, border: `2px solid ${INK}`, padding: '5px 12px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Cerrar sesión</button>
             </>
           ) : (
-            <button onClick={logout} style={{ color: INK, background: '#fff', border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: TXT, background: DARK2, border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>
@@ -579,24 +556,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
 function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
   return (
-    <div style={{ marginTop: 6 }}>
+    <div style={{ marginTop: 7 }}>
       <button
         type="button"
         onClick={onToggle}
         style={{
           width: 'auto', margin: '0 8px', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '8px 12px',
+          padding: '10px 12px',
           border: `3px solid ${INK}`,
-          background: isOpen ? '#e7e2d6' : '#ffffff',
-          fontFamily: OSW, fontSize: 12, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.06em',
-          color: INK,
+          background: isOpen ? DARK2 : DARK3,
+          fontFamily: OSW, fontSize: 12.5, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+          color: TXT_MUT,
         }}
         title="Funciones en desarrollo"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Clock size={16} strokeWidth={2.2} color={INK} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <Clock size={16} strokeWidth={2.4} color={TXT_MUT} />
           <span>Próximamente</span>
         </div>
         <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
@@ -605,8 +582,8 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
         style={{
           maxHeight: isOpen ? `${PROXIMAMENTE.length * 32 + 8}px` : 0,
           overflow: 'hidden', transition: 'max-height 400ms ease',
-          margin: isOpen ? '0 8px' : '0 8px',
-          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: '#ffffff',
+          margin: '0 8px',
+          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: DARK3,
         }}
       >
         {PROXIMAMENTE.map((item, idx) => (
@@ -616,22 +593,15 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
             title="En desarrollo — próximamente"
             aria-disabled="true"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '6px 10px 6px 16px',
-              borderTop: `1px solid ${INK}22`,
-              fontFamily: FONT.body,
-              fontSize: 12.5,
-              color: INK,
-              opacity: 0.45,
-              cursor: 'not-allowed',
-              userSelect: 'none',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '7px 10px 7px 14px',
+              borderTop: `1px solid rgba(255,255,255,0.06)`,
+              fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+              color: TXT_MUT, opacity: 0.6,
+              cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden',
             }}
           >
-            <span style={{ fontSize: 12, flexShrink: 0 }}>{item.emoji}</span>
+            <span style={{ width: 7, height: 7, flexShrink: 0, background: TXT_MUT }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
           </div>
         ))}
