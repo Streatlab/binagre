@@ -66,6 +66,7 @@ const AMA = '#FFC400'
 const CREMA = '#FCEFD6'
 const OSW = 'Oswald, sans-serif'
 const LEX = 'Lexend, sans-serif'
+const SHADOW = `4px 4px 0 ${INK}`
 
 const MAIN_TABS = [
   { id: 'resumen',     label: 'Resumen' },
@@ -467,13 +468,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ ...groupStyle(T), borderRadius: 0, border: `3px solid ${INK}` }}>
+      <div style={{ ...groupStyle(T), background: CREMA, borderRadius: 0, border: `4px solid ${INK}` }}>
 
         <div style={{
           display:'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row',
           gap: isMobile ? 10 : 16, marginBottom:20, flexWrap:'wrap',
         }}>
-          <div style={{ display:'inline-block', background:'#B01D23', border:`3px solid ${INK}`, boxShadow:`4px 4px 0 ${INK}`, padding:'8px 16px', flexShrink:0 }}>
+          <div style={{ display:'inline-block', background:'#B01D23', border:`3px solid ${INK}`, boxShadow:SHADOW, padding:'8px 16px', flexShrink:0 }}>
             <div style={{ fontFamily:OSW, fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'3px', textTransform:'uppercase', lineHeight:1 }}>PANEL GLOBAL</div>
             <div style={{ fontFamily:LEX, fontSize:12, color:'#ffffffcc', marginTop:4 }}>
               {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
@@ -488,12 +489,12 @@ export default function Dashboard() {
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
-              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:`3px 3px 0 ${INK}` }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
               <span>{marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropMarcaOpen && (
-              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:`6px 6px 0 ${INK}`, overflow:'hidden', maxHeight:340, overflowY:'auto' }}>
+              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden', maxHeight:340, overflowY:'auto' }}>
                 {(marcasBD.length > 0 ? marcasBD : ['Streat Lab']).map(m => {
                   const sel = marcasFiltro.includes(m)
                   return (
@@ -511,12 +512,12 @@ export default function Dashboard() {
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
-              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:`3px 3px 0 ${INK}` }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
               <span>{canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropCanalOpen && (
-              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:`6px 6px 0 ${INK}`, overflow:'hidden' }}>
+              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden' }}>
                 {CANALES.map(c => {
                   const sel = canalesFiltro.includes(c.id)
                   return (
@@ -543,7 +544,7 @@ export default function Dashboard() {
                   fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase',
                   padding: '9px 18px', cursor: 'pointer', border: `3px solid ${INK}`, borderRadius: 0,
                   background: active ? ROSA : CREMA, color: active ? '#fff' : INK,
-                  boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
+                  boxShadow: active ? SHADOW : 'none',
                 }}
               >{tab.label}</button>
             )
