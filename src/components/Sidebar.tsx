@@ -21,38 +21,34 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// ── tokens neobrutal · sidebar Streat Lab (se adapta a claro / oscuro) ──
+// ── Brutalismo Streat Lab · bloques de color sólido + inversión + tipografía bold ──
 const INK = '#0a0a0a'
-const ROSA = '#FF2E63'      // acento activo (rosa de las comisiones)
-const ROJO = '#B01D23'      // marca (cabecera logo)
-const SHADOW = `4px 4px 0 ${INK}`   // sombra única en todo el ERP
+const AMA = '#FFC400'      // acento de inversión (activo directo)
+const ROSA = '#FF2E63'     // acento iconos inactivos
 const OSW = 'Oswald, sans-serif'
 const LEX = 'Lexend, sans-serif'
 
-// Paletas según tema
-interface Pal { bg: string; bg2: string; bg3: string; txt: string; txtMut: string; head: string }
-const PAL_DARK: Pal = { bg: '#1e2233', bg2: '#2b3148', bg3: '#161a28', txt: '#ece8dc', txtMut: '#8b90a3', head: ROJO }
-const PAL_LIGHT: Pal = { bg: '#FCEFD6', bg2: '#F3D9A8', bg3: '#ffffff', txt: '#140f08', txtMut: '#6b5d45', head: ROJO }
+// base del sidebar (zonas neutras) según tema
+interface Pal { bg: string; txt: string; txtMut: string }
+const PAL_DARK: Pal = { bg: '#1e2233', txt: '#e8e4d8', txtMut: '#8b90a3' }
+const PAL_LIGHT: Pal = { bg: '#FCEFD6', txt: '#1e2233', txtMut: '#6b5d45' }
 
-interface NavItem {
-  path: string
-  label: string
-  emoji: string
-  perfiles: string[]
+// color sólido de cada sección (bloques)
+const SEC_COLOR: Record<string, { bg: string; fg: string }> = {
+  finanzas:      { bg: '#0FB86B', fg: '#ffffff' },
+  cocina:        { bg: '#FFC400', fg: '#0a0a0a' },
+  operaciones:   { bg: '#FF6A1A', fg: '#ffffff' },
+  stock:         { bg: '#2D5BFF', fg: '#ffffff' },
+  informes:      { bg: '#B01D23', fg: '#ffffff' },
+  equipo:        { bg: '#FF2E63', fg: '#ffffff' },
+  mkt:           { bg: '#1e2233', fg: '#ffffff' },
+  configuracion: { bg: '#484f66', fg: '#ffffff' },
 }
+const PROX_BG = '#9a8f78'
 
-interface NavSection {
-  key: string
-  emoji: string
-  label: string
-  perfiles: string[]
-  items: NavItem[]
-}
-
-interface SectionIconConfig {
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>
-  color: string
-}
+interface NavItem { path: string; label: string; emoji: string; perfiles: string[] }
+interface NavSection { key: string; emoji: string; label: string; perfiles: string[]; items: NavItem[] }
+interface SectionIconConfig { icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }> }
 
 const SECTIONS: NavSection[] = [
   {
@@ -149,99 +145,58 @@ const SECTIONS: NavSection[] = [
 ]
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Revenue & Ticket',             emoji: '🎫' },
-  { label: 'Predicción Demanda',           emoji: '🔮' },
-  { label: 'Tesorería',                    emoji: '💳' },
-  { label: 'Control Temperaturas',         emoji: '🌡️' },
-  { label: 'BPM / Calidad',                emoji: '✅' },
-  { label: 'Daños Material',               emoji: '🔧' },
-  { label: 'Novedades',                    emoji: '🔔' },
-  { label: 'Mantenimiento Equipos',        emoji: '🔧' },
-  { label: 'Almacén',                      emoji: '🏭' },
-  { label: 'Stock Mínimo Alertas',         emoji: '⚠️' },
-  { label: 'Movimientos Stock',            emoji: '🔄' },
-  { label: 'Pedidos a Proveedores',        emoji: '🛒' },
-  { label: 'Pedidos de Artículos',         emoji: '📦' },
-  { label: 'Albaranes',                    emoji: '📄' },
-  { label: 'POS',                          emoji: '🖥️' },
-  { label: 'Pedidos en Curso',             emoji: '⏳' },
-  { label: 'Fichas Empleados',             emoji: '👤' },
-  { label: 'Evaluaciones',                 emoji: '⭐' },
-  { label: 'Llamados Atención',            emoji: '⚠️' },
-  { label: 'Beneficios Antigüedad',        emoji: '🎁' },
-  { label: 'Celebraciones',               emoji: '🎉' },
-  { label: 'Onboarding Digital',           emoji: '🚀' },
-  { label: 'Mis Ventas / Mis Metas',       emoji: '🏅' },
-  { label: 'Calendario',                   emoji: '📅' },
-  { label: 'Mensajería Interna',           emoji: '💬' },
-  { label: 'Novedades Equipo',             emoji: '📢' },
-  { label: 'Reuniones Equipo',             emoji: '🤝' },
-  { label: 'Recursos Humanos',             emoji: '👥' },
-  { label: 'Project Management',           emoji: '📊' },
-  { label: 'Kanban',                       emoji: '📋' },
-  { label: 'Club Fidelización',            emoji: '🎖️' },
-  { label: 'CRM Tienda Propia',            emoji: '🛍️' },
-  { label: 'Panel Reseñas',                emoji: '⭐' },
-  { label: 'Quejas',                       emoji: '😡' },
-  { label: 'Clientes',                     emoji: '👥' },
-  { label: 'Ficha Cliente',                emoji: '👤' },
-  { label: 'Envío WhatsApp',               emoji: '💬' },
-  { label: 'Envío Email',                  emoji: '📧' },
-  { label: 'Oportunidades',               emoji: '💡' },
-  { label: 'Top Clientes Facturación',     emoji: '🏆' },
-  { label: 'Tienda en Línea',              emoji: '🛒' },
-  { label: 'Ventas por Hora',              emoji: '🕐' },
-  { label: 'Ventas por Familia',           emoji: '🗂️' },
-  { label: 'Ventas por Canal',             emoji: '📡' },
-  { label: 'Consumo Platos',               emoji: '🍽️' },
-  { label: 'Comparativa Año',              emoji: '📅' },
-  { label: 'Ventas Marca',                 emoji: '🏷️' },
-  { label: 'Margen Canal',                 emoji: '📡' },
-  { label: 'COGS Coste MP',                emoji: '🧾' },
-  { label: 'Ranking Productos',            emoji: '🏆' },
-  { label: 'Panel Favoritos',              emoji: '⭐' },
-  { label: 'Búsqueda Avanzada',            emoji: '🔎' },
-  { label: 'Ranking Marcas',               emoji: '📊' },
-  { label: 'Ranking Canales',              emoji: '📡' },
-  { label: 'Alérgenos',                    emoji: '🥜' },
-  { label: 'Alertas Caducidad',            emoji: '⏰' },
-  { label: 'Automatización Impuestos',     emoji: '🧾' },
-  { label: 'BI / Informes Avanzados',      emoji: '📈' },
-  { label: 'Caja',                         emoji: '💵' },
-  { label: 'Combos y Promociones',         emoji: '🎁' },
-  { label: 'Control Mermas',               emoji: '📉' },
-  { label: 'Control Presencia / Fichaje',  emoji: '🕒' },
-  { label: 'Email Marketing',              emoji: '✉️' },
-  { label: 'Estadísticas Horas Punta',     emoji: '📊' },
-  { label: 'Exportación a Gestoría',       emoji: '📤' },
-  { label: 'Gestión Clientes',             emoji: '👥' },
-  { label: 'Gestión Impuestos',            emoji: '🧮' },
-  { label: 'Menús Dinámicos',              emoji: '🍴' },
-  { label: 'Gestión Pedidos',              emoji: '🧾' },
-  { label: 'Stock e Inventario',           emoji: '📦' },
-  { label: 'Informes Financieros',         emoji: '💼' },
-  { label: 'Informes de Ventas',           emoji: '📑' },
-  { label: 'Integración Delivery',         emoji: '🛵' },
-  { label: 'Inventario Tiempo Real',       emoji: '📡' },
-  { label: 'Marketing Automation',         emoji: '🤖' },
-  { label: 'Notificaciones Empleados',     emoji: '🔔' },
-  { label: 'Pagos Proveedores Auto',       emoji: '💸' },
-  { label: 'Panel KPIs Global',            emoji: '📊' },
-  { label: 'Planificación Turnos',         emoji: '🗓️' },
-  { label: 'Pop-ups y Dark Kitchens',      emoji: '🏪' },
-  { label: 'Predicción Plantilla',         emoji: '👥' },
-  { label: 'Promociones por Día/Hora',     emoji: '⏰' },
+  { label: 'Revenue & Ticket', emoji: '🎫' }, { label: 'Predicción Demanda', emoji: '🔮' },
+  { label: 'Tesorería', emoji: '💳' }, { label: 'Control Temperaturas', emoji: '🌡️' },
+  { label: 'BPM / Calidad', emoji: '✅' }, { label: 'Daños Material', emoji: '🔧' },
+  { label: 'Novedades', emoji: '🔔' }, { label: 'Mantenimiento Equipos', emoji: '🔧' },
+  { label: 'Almacén', emoji: '🏭' }, { label: 'Stock Mínimo Alertas', emoji: '⚠️' },
+  { label: 'Movimientos Stock', emoji: '🔄' }, { label: 'Pedidos a Proveedores', emoji: '🛒' },
+  { label: 'Pedidos de Artículos', emoji: '📦' }, { label: 'Albaranes', emoji: '📄' },
+  { label: 'POS', emoji: '🖥️' }, { label: 'Pedidos en Curso', emoji: '⏳' },
+  { label: 'Fichas Empleados', emoji: '👤' }, { label: 'Evaluaciones', emoji: '⭐' },
+  { label: 'Llamados Atención', emoji: '⚠️' }, { label: 'Beneficios Antigüedad', emoji: '🎁' },
+  { label: 'Celebraciones', emoji: '🎉' }, { label: 'Onboarding Digital', emoji: '🚀' },
+  { label: 'Mis Ventas / Mis Metas', emoji: '🏅' }, { label: 'Calendario', emoji: '📅' },
+  { label: 'Mensajería Interna', emoji: '💬' }, { label: 'Novedades Equipo', emoji: '📢' },
+  { label: 'Reuniones Equipo', emoji: '🤝' }, { label: 'Recursos Humanos', emoji: '👥' },
+  { label: 'Project Management', emoji: '📊' }, { label: 'Kanban', emoji: '📋' },
+  { label: 'Club Fidelización', emoji: '🎖️' }, { label: 'CRM Tienda Propia', emoji: '🛍️' },
+  { label: 'Panel Reseñas', emoji: '⭐' }, { label: 'Quejas', emoji: '😡' },
+  { label: 'Clientes', emoji: '👥' }, { label: 'Ficha Cliente', emoji: '👤' },
+  { label: 'Envío WhatsApp', emoji: '💬' }, { label: 'Envío Email', emoji: '📧' },
+  { label: 'Oportunidades', emoji: '💡' }, { label: 'Top Clientes Facturación', emoji: '🏆' },
+  { label: 'Tienda en Línea', emoji: '🛒' }, { label: 'Ventas por Hora', emoji: '🕐' },
+  { label: 'Ventas por Familia', emoji: '🗂️' }, { label: 'Ventas por Canal', emoji: '📡' },
+  { label: 'Consumo Platos', emoji: '🍽️' }, { label: 'Comparativa Año', emoji: '📅' },
+  { label: 'Ventas Marca', emoji: '🏷️' }, { label: 'Margen Canal', emoji: '📡' },
+  { label: 'COGS Coste MP', emoji: '🧾' }, { label: 'Ranking Productos', emoji: '🏆' },
+  { label: 'Panel Favoritos', emoji: '⭐' }, { label: 'Búsqueda Avanzada', emoji: '🔎' },
+  { label: 'Ranking Marcas', emoji: '📊' }, { label: 'Ranking Canales', emoji: '📡' },
+  { label: 'Alérgenos', emoji: '🥜' }, { label: 'Alertas Caducidad', emoji: '⏰' },
+  { label: 'Automatización Impuestos', emoji: '🧾' }, { label: 'BI / Informes Avanzados', emoji: '📈' },
+  { label: 'Caja', emoji: '💵' }, { label: 'Combos y Promociones', emoji: '🎁' },
+  { label: 'Control Mermas', emoji: '📉' }, { label: 'Control Presencia / Fichaje', emoji: '🕒' },
+  { label: 'Email Marketing', emoji: '✉️' }, { label: 'Estadísticas Horas Punta', emoji: '📊' },
+  { label: 'Exportación a Gestoría', emoji: '📤' }, { label: 'Gestión Clientes', emoji: '👥' },
+  { label: 'Gestión Impuestos', emoji: '🧮' }, { label: 'Menús Dinámicos', emoji: '🍴' },
+  { label: 'Gestión Pedidos', emoji: '🧾' }, { label: 'Stock e Inventario', emoji: '📦' },
+  { label: 'Informes Financieros', emoji: '💼' }, { label: 'Informes de Ventas', emoji: '📑' },
+  { label: 'Integración Delivery', emoji: '🛵' }, { label: 'Inventario Tiempo Real', emoji: '📡' },
+  { label: 'Marketing Automation', emoji: '🤖' }, { label: 'Notificaciones Empleados', emoji: '🔔' },
+  { label: 'Pagos Proveedores Auto', emoji: '💸' }, { label: 'Panel KPIs Global', emoji: '📊' },
+  { label: 'Planificación Turnos', emoji: '🗓️' }, { label: 'Pop-ups y Dark Kitchens', emoji: '🏪' },
+  { label: 'Predicción Plantilla', emoji: '👥' }, { label: 'Promociones por Día/Hora', emoji: '⏰' },
 ]
 
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    color: '#2ee88f' },
-  cocina:        { icon: ChefHat,       color: '#ffb43d' },
-  operaciones:   { icon: ClipboardList, color: '#e0a800' },
-  stock:         { icon: ShoppingCart,  color: '#ff5a6a' },
-  informes:      { icon: FileText,      color: '#e0a800' },
-  equipo:        { icon: Users,         color: '#3b82f6' },
-  mkt:           { icon: Megaphone,     color: '#ff5a6a' },
-  configuracion: { icon: Settings,      color: '#7a8190' },
+  finanzas:      { icon: TrendingUp },
+  cocina:        { icon: ChefHat },
+  operaciones:   { icon: ClipboardList },
+  stock:         { icon: ShoppingCart },
+  informes:      { icon: FileText },
+  equipo:        { icon: Users },
+  mkt:           { icon: Megaphone },
+  configuracion: { icon: Settings },
 }
 
 const PROXIMAMENTE_LS_KEY = 'streatlab.sidebar.proximamente.open'
@@ -284,24 +239,19 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }, [openSections])
 
   useEffect(() => {
-    supabase
-      .from('tareas_pendientes')
-      .select('id', { count: 'exact', head: true })
-      .in('estado', ['pendiente', 'atrasada'])
-      .then(({ count }) => setTareasBadge(count ?? 0))
+    supabase.from('tareas_pendientes').select('id', { count: 'exact', head: true })
+      .in('estado', ['pendiente', 'atrasada']).then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
 
   useEffect(() => {
     if (perfil !== 'admin') return
-    supabase
-      .from('facturas')
-      .select('id', { count: 'exact', head: true })
+    supabase.from('facturas').select('id', { count: 'exact', head: true })
       .in('tipo', ['proveedor', 'plataforma'])
       .or('total.lte.0,titular_id.is.null,categoria_factura.is.null')
       .then(({ count }) => setOcrBadge(count ?? 0))
   }, [perfil])
 
-  // ── Mecánica de colapso/expansión (persistente: se mantiene 5 min tras la última interacción) ──
+  // colapso/expansión persistente (5 min tras última interacción)
   const [pinned, setPinned] = useState(false)
   const [peek, setPeek] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -314,8 +264,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
   const unpin = () => {
     if (pinTimer.current) { clearTimeout(pinTimer.current); pinTimer.current = null }
-    setPinned(false)
-    setPeek(false)
+    setPinned(false); setPeek(false)
   }
 
   useEffect(() => {
@@ -336,68 +285,35 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }
 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
-  const sidebarWidth = collapsed ? 58 : 230
+  const sidebarWidth = collapsed ? 58 : 240
 
   const directLink = (isActive: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 11,
-    margin: '8px 8px',
-    padding: '11px 13px',
-    border: `3px solid ${INK}`,
-    borderRadius: 0,
-    background: isActive ? ROSA : C.bg2,
-    color: isActive ? '#fff' : C.txt,
-    boxShadow: isActive ? SHADOW : 'none',
-    fontFamily: OSW,
-    fontSize: 15,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    textDecoration: 'none',
-    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 11,
+    padding: '13px 16px',
+    borderBottom: `3px solid ${INK}`,
+    background: isActive ? INK : C.bg,
+    color: isActive ? AMA : C.txt,
+    fontFamily: OSW, fontSize: 15, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+    textDecoration: 'none', cursor: 'pointer',
   })
 
-  const collapsedBtn = (isActive: boolean): React.CSSProperties => ({
-    margin: '10px auto',
-    width: 40,
-    height: 40,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textDecoration: 'none',
-    position: 'relative',
-    border: `3px solid ${INK}`,
-    background: isActive ? ROSA : C.bg2,
-    boxShadow: SHADOW,
+  const collapsedBtn = (active: boolean, bg: string): React.CSSProperties => ({
+    margin: '8px auto', width: 40, height: 40,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    textDecoration: 'none', position: 'relative',
+    border: `3px solid ${INK}`, background: bg,
     cursor: 'pointer',
-  })
-
-  const itemStyle = (isActive: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '9px 12px',
-    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.07)'}`,
-    borderLeft: isActive ? `5px solid ${INK}` : '5px solid transparent',
-    fontFamily: OSW,
-    fontSize: 13,
-    fontWeight: 600,
-    letterSpacing: '0.05em',
-    textTransform: 'uppercase',
-    color: isActive ? '#fff' : C.txt,
-    background: isActive ? ROSA : 'transparent',
-    textDecoration: 'none',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
   })
 
   return (
     <>
       <style>{`
-        .sl-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
-        .sl-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .slb-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+        .slb-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .slb-head, .slb-direct, .slb-it { transition: filter .12s, background .12s; }
+        .slb-head:not(.slb-on):hover { filter: brightness(.93); }
+        .slb-direct:not(.slb-on):hover { filter: brightness(.96); }
+        .slb-it:not(.slb-on):hover { background: #f0ece2 !important; }
       `}</style>
 
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
@@ -406,134 +322,92 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: C.bg, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
-        className={`
-          fixed top-0 left-0 z-40 h-full
-          flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
-          md:translate-x-0 md:static md:z-auto
-          ${open ? 'translate-x-0' : '-translate-x-full'}
-        `}
+        style={{ background: C.bg, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        className={`fixed top-0 left-0 z-40 h-full flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden md:translate-x-0 md:static md:z-auto ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
+        {/* HEADER · bloque negro */}
         {collapsed ? (
-          <div style={{ background: C.head, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
-            <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
-            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 36 }} title="Abrir">
-              <ChevronRight size={18} color="#ffffff" strokeWidth={3} />
+          <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
+            <div style={{ width: 30, height: 30, background: '#B01D23', border: `2px solid #FCEFD6`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 12 }}>SL</div>
+            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 30 }} title="Abrir">
+              <ChevronRight size={18} color="#FCEFD6" strokeWidth={3} />
             </button>
           </div>
         ) : (
-          <div style={{ background: C.head, padding: '14px 14px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
+          <div style={{ background: INK, padding: '14px 16px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-              <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 34, width: 'auto', display: 'block', flexShrink: 0, filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
-              <span style={{ fontFamily: OSW, fontSize: 19, color: '#ffffff', letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
+              <div style={{ width: 34, height: 34, background: '#B01D23', border: `2px solid #FCEFD6`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: OSW, fontWeight: 700, color: '#FCEFD6', fontSize: 14, flexShrink: 0 }}>SL</div>
+              <span style={{ fontFamily: OSW, fontSize: 19, color: '#FCEFD6', letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#ffffff', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
+            <button onClick={(e) => { e.stopPropagation(); unpin() }} style={{ color: '#FCEFD6', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }} className="hidden md:flex" title="Colapsar">«</button>
           </div>
         )}
 
-        <nav className="flex-1 py-2 sl-noscroll" style={{ overflowY: 'auto', overflowX: 'hidden' }}>
+        <nav className="flex-1 slb-noscroll" style={{ overflowY: 'auto', overflowX: 'hidden' }}>
 
+          {/* PANEL GLOBAL */}
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
-            <NavLink to="/" end onClick={onClose} style={({ isActive }) => directLink(isActive)}>
-              {({ isActive }) => (
-                <>
-                  <LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} />
-                  <span>Panel Global</span>
-                </>
-              )}
+            <NavLink to="/" end onClick={onClose} className={({ isActive }) => isActive ? 'slb-direct slb-on' : 'slb-direct'} style={({ isActive }) => directLink(isActive)}>
+              {({ isActive }) => (<><LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? AMA : ROSA} style={{ flexShrink: 0 }} /><span>Panel Global</span></>)}
             </NavLink>
           )}
-
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink to="/" end onClick={onClose} title="Panel Global" style={({ isActive }) => collapsedBtn(isActive)}>
-              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />}
+            <NavLink to="/" end onClick={onClose} title="Panel Global" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive, isActive ? INK : C.bg)}>
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : ROSA} />}
             </NavLink>
           )}
 
+          {/* TAREAS */}
           {(!collapsed && perfil === 'admin') && (
-            <NavLink to="/tareas" onClick={onClose} style={({ isActive }) => directLink(isActive)}>
-              {({ isActive }) => (
-                <>
-                  <BellRing size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>Tareas</span>
-                  <SidebarBadge count={tareasBadge} />
-                </>
-              )}
+            <NavLink to="/tareas" onClick={onClose} className={({ isActive }) => isActive ? 'slb-direct slb-on' : 'slb-direct'} style={({ isActive }) => directLink(isActive)}>
+              {({ isActive }) => (<><BellRing size={19} strokeWidth={2.4} color={isActive ? AMA : ROSA} style={{ flexShrink: 0 }} /><span style={{ flex: 1 }}>Tareas</span><SidebarBadge count={tareasBadge} /></>)}
             </NavLink>
           )}
-
           {collapsed && perfil === 'admin' && (
-            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes" style={({ isActive }) => collapsedBtn(isActive)}>
-              {({ isActive }) => (
-                <>
-                  <BellRing size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />
-                  {tareasBadge > 0 && (
-                    <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
-                      {tareasBadge > 9 ? '9+' : tareasBadge}
-                    </span>
-                  )}
-                </>
-              )}
+            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes" className={({ isActive }) => isActive ? 'slb-on' : ''} style={({ isActive }) => collapsedBtn(isActive, isActive ? INK : C.bg)}>
+              {({ isActive }) => (<>
+                <BellRing size={20} strokeWidth={2.4} color={isActive ? AMA : ROSA} />
+                {tareasBadge > 0 && <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>{tareasBadge > 9 ? '9+' : tareasBadge}</span>}
+              </>)}
             </NavLink>
           )}
 
+          {/* SECCIONES · bloques de color sólido */}
           {SECTIONS.map(section => {
             const visibleItems = filterItems(section.items)
             if (!section.perfiles.includes(perfil) || visibleItems.length === 0) return null
             const isOpen = openSections.includes(section.key)
             const IconComponent = SECTION_ICONS[section.key]?.icon
-            const iconColor = SECTION_ICONS[section.key]?.color || '#888'
+            const sc = SEC_COLOR[section.key] ?? { bg: '#888', fg: '#fff' }
 
             return (
               <div key={section.key}>
                 {collapsed ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(section.key)}
-                    title={section.label}
-                    style={{ ...collapsedBtn(false), background: isOpen ? ROSA : C.bg2 }}
-                  >
-                    {IconComponent ? <IconComponent size={20} strokeWidth={2.2} color={isOpen ? '#fff' : iconColor} /> : <span>{section.emoji}</span>}
+                  <button type="button" onClick={() => toggleSection(section.key)} title={section.label} className={isOpen ? 'slb-on' : ''} style={collapsedBtn(isOpen, sc.bg)}>
+                    {IconComponent ? <IconComponent size={20} strokeWidth={2.3} color={sc.fg} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(section.key)}
-                    style={{
-                      width: 'auto', margin: '7px 8px 0', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                      padding: '10px 12px',
-                      border: `3px solid ${INK}`,
-                      background: isOpen ? ROSA : C.bg2,
-                      boxShadow: isOpen ? SHADOW : 'none',
-                      fontFamily: OSW, fontSize: 14.5, fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.07em',
-                      color: isOpen ? '#ffffff' : C.txt,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-                      {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={isOpen ? '#fff' : iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.label}</span>
-                    </div>
-                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, marginLeft: 10 }}>›</span>
+                  <button type="button" onClick={() => toggleSection(section.key)} className={isOpen ? 'slb-head slb-on' : 'slb-head'}
+                    style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: sc.bg, color: sc.fg, boxShadow: isOpen ? `inset 0 -5px 0 ${INK}` : 'none', fontFamily: OSW, fontSize: 14.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={sc.fg} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{section.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>›</span>
                   </button>
                 )}
 
-                {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: C.bg3 }}>
-                    {visibleItems.map((item, idx) => {
-                      return (
-                        <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose} style={({ isActive }) => itemStyle(isActive)}>
-                          {({ isActive }) => (
-                            <>
-                              <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? '#fff' : iconColor, border: `1px solid ${isActive ? INK : 'rgba(0,0,0,0.4)'}` }} />
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                              {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
-                            </>
-                          )}
-                        </NavLink>
-                      )
-                    })}
+                {!collapsed && isOpen && (
+                  <div style={{ background: '#fff', borderBottom: `3px solid ${INK}` }}>
+                    {visibleItems.map((item, idx) => (
+                      <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
+                        className={({ isActive }) => isActive ? 'slb-it slb-on' : 'slb-it'}
+                        style={({ isActive }) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px 9px 20px', background: isActive ? INK : '#fff', color: isActive ? '#fff' : INK, fontFamily: OSW, fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', borderTop: idx === 0 ? 'none' : `1.5px solid rgba(0,0,0,0.10)` })}>
+                        {({ isActive }) => (<>
+                          <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? sc.bg : INK }} />
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                          {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
+                        </>)}
+                      </NavLink>
+                    ))}
                   </div>
                 )}
               </div>
@@ -541,83 +415,49 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           })}
 
           {!collapsed && perfil === 'admin' && (
-            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} c={C} />
+            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} />
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: C.bg }}>
+        {/* FOOTER · bloque negro */}
+        <div style={{ background: INK, borderTop: `4px solid ${INK}`, padding: collapsed ? '8px' : '12px 16px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10 }}>
           <ThemeToggle />
-        </div>
-
-        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: C.bg, fontFamily: LEX, fontSize: 12, color: C.txt, textAlign: collapsed ? 'center' : 'left' }}>
-          {!collapsed ? (
-            <>
-              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.txt, fontWeight: 600 }}>
-                {usuario?.nombre} — <span style={{ color: ROSA, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>{usuario?.perfil}</span>
-              </div>
-              <button onClick={logout} style={{ color: C.txt, fontSize: 12, background: C.bg2, border: `2px solid ${INK}`, padding: '5px 12px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Cerrar sesión</button>
-            </>
-          ) : (
-            <button onClick={logout} style={{ color: C.txt, background: C.bg2, border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
+          {!collapsed && (
+            <div style={{ fontFamily: OSW, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em', color: '#FCEFD6', textAlign: 'right', lineHeight: 1.4 }}>
+              {usuario?.nombre}<br /><span style={{ color: ROSA, fontWeight: 700 }}>{usuario?.perfil}</span>
+            </div>
           )}
+        </div>
+        <div style={{ background: INK, padding: collapsed ? '0 8px 10px' : '0 16px 12px', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          <button onClick={logout} style={{ color: '#FCEFD6', background: 'transparent', border: `2px solid #FCEFD6`, padding: collapsed ? 0 : '5px 12px', width: collapsed ? 34 : 'auto', height: collapsed ? 34 : 'auto', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em', fontSize: collapsed ? 14 : 12 }} title="Cerrar sesión">
+            {collapsed ? '⏏' : 'Cerrar sesión'}
+          </button>
         </div>
       </aside>
     </>
   )
 }
 
-function SidebarProximamente({ isOpen, onToggle, c }: { isOpen: boolean; onToggle: () => void; c: Pal }) {
+function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
   return (
-    <div style={{ marginTop: 7 }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        style={{
-          width: 'auto', margin: '0 8px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          padding: '10px 12px',
-          border: `3px solid ${INK}`,
-          background: isOpen ? c.bg2 : c.bg3,
-          fontFamily: OSW, fontSize: 12.5, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-          color: c.txtMut,
-        }}
-        title="Funciones en desarrollo"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-          <Clock size={16} strokeWidth={2.4} color={c.txtMut} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Próximamente</span>
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, marginLeft: 10 }}>›</span>
+    <div>
+      <button type="button" onClick={onToggle} className={isOpen ? 'slb-head slb-on' : 'slb-head'}
+        style={{ width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', border: 'none', borderBottom: `3px solid ${INK}`, background: PROX_BG, color: '#fff', boxShadow: isOpen ? `inset 0 -5px 0 ${INK}` : 'none', fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }} title="Funciones en desarrollo">
+        <Clock size={16} strokeWidth={2.4} color="#fff" />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>Próximamente</span>
+        <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>›</span>
       </button>
-      <div
-        style={{
-          maxHeight: isOpen ? `${PROXIMAMENTE.length * 32 + 8}px` : 0,
-          overflow: 'hidden', transition: 'max-height 400ms ease',
-          margin: '0 8px',
-          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: c.bg3,
-        }}
-      >
-        {PROXIMAMENTE.map((item, idx) => (
-          <div
-            key={`${item.label}-${idx}`}
-            onClick={e => e.preventDefault()}
-            title="En desarrollo — próximamente"
-            aria-disabled="true"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 10px 7px 14px',
-              borderTop: `1px solid rgba(125,125,125,0.18)`,
-              fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
-              color: c.txtMut, opacity: 0.7,
-              cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden',
-            }}
-          >
-            <span style={{ width: 7, height: 7, flexShrink: 0, background: c.txtMut }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-          </div>
-        ))}
-      </div>
+      {isOpen && (
+        <div style={{ background: '#fff', borderBottom: `3px solid ${INK}` }}>
+          {PROXIMAMENTE.map((item, idx) => (
+            <div key={`${item.label}-${idx}`} onClick={e => e.preventDefault()} title="En desarrollo — próximamente" aria-disabled="true"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px 7px 20px', borderTop: idx === 0 ? 'none' : `1.5px solid rgba(0,0,0,0.08)`, fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#9a8f78', cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+              <span style={{ width: 7, height: 7, flexShrink: 0, background: '#c4baa6' }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
