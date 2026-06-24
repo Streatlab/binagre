@@ -1,10 +1,11 @@
 /**
- * ResumenLanding v14 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v14: bloque "Días pico" con altura contenida (deja de estirarse a toda la columna;
- *      el sobrante queda como fondo del panel, no amarillo).
- * v13: tabla de Resultado coherente cuando faltan costes (Margen bruto y Resultado neto en "—").
- * Mantiene: dos rectángulos (cuándo te compran + días pico), te deben rellena columna,
- *      Resultado en verde petróleo, PE en color propio, sombra única 4px, color por métrica.
+ * ResumenLanding v15 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v15: el hueco bajo "Días pico" se rellena con una tarjeta nueva de valor estratégico:
+ *      "Dependencia de plataformas" (qué % de la facturación entra por Uber/Glovo/Just Eat
+ *      frente al canal propio web/directa) — el KPI que mide el objetivo nº1 del negocio.
+ * v14: bloque "Días pico" con altura contenida.
+ * v13: tabla de Resultado coherente cuando faltan costes.
+ * Mantiene: color por métrica, sombra única 4px, fondo crema coherente.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -26,8 +27,8 @@ const TRACK_CANAL = '#e2dac9'
 const ROSA = '#FF2E63'   // acento (no significa "malo")
 const ROJO = '#FF1E27'   // negativo (semántico)
 const AMA = '#FFC400'
-const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto
-const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio
+const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto · canal propio
+const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio · plataformas
 const AZUL = '#2D5BFF'   // métrica TM bruto
 const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
@@ -39,6 +40,8 @@ const PAD = '40px'
 const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
 const CLARA: Record<string, boolean> = { uber: true, glovo: true, je: false, web: false, dir: false }
 const OBJ_MARGEN: Record<string, number> = { uber: 55, glovo: 55, je: 55, web: 88, dir: 92 }
+const PLATAFORMA_IDS = ['uber', 'glovo', 'je']
+const PROPIO_IDS = ['web', 'dir']
 
 // textos sobre fondo oscuro
 const D1 = CREMA
@@ -196,6 +199,14 @@ export default function ResumenLanding(p: Props) {
   const totalCanal = p.canalStats.reduce((a, c) => a + c.bruto, 0)
   const DI = 'Datos insuf.'
   const canalRent = p.canalStats.filter(c => c.pedidos > 0).map(c => ({ id: c.id, np: c.neto / c.pedidos })).sort((a, b) => b.np - a.np)[0]?.id
+
+  // Dependencia de plataformas vs canal propio (objetivo nº1: subir el propio)
+  const platBruto = p.canalStats.filter(c => PLATAFORMA_IDS.includes(c.id)).reduce((a, c) => a + c.bruto, 0)
+  const propioBruto = p.canalStats.filter(c => PROPIO_IDS.includes(c.id)).reduce((a, c) => a + c.bruto, 0)
+  const totDep = platBruto + propioBruto
+  const pctPlat = totDep > 0 ? (platBruto / totDep) * 100 : 0
+  const pctPropio = totDep > 0 ? (propioBruto / totDep) * 100 : 0
+  const depHay = totDep > 0
 
   const frase = elegirFrase(p.metricas)
   const fraseCostes = elegirFrase(p.metricas, 'costes')
@@ -358,7 +369,7 @@ export default function ResumenLanding(p: Props) {
         {alertas.length === 0
           ? <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 13 }}>Todo en orden</span>
           : alertas.slice(0, 5).map((a, i) => (
-            <span key={i} style={{ display: 'inline-block', background: '#fff', border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
+            <span key={i} style={{ display: 'inline-block', background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
           ))}
       </section>
 
@@ -381,7 +392,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES 66% | dos rectángulos apilados (Cuándo te compran + Días pico) 33% */}
+      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Dependencia 33% */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
@@ -418,7 +429,7 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
 
-        {/* columna derecha: dos rectángulos independientes de colores distintos */}
+        {/* columna derecha: tres rectángulos apilados */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {/* Rectángulo 1 · Cuándo te compran (CLARO) — compacto */}
           <div style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}` }}>
@@ -446,7 +457,7 @@ export default function ResumenLanding(p: Props) {
               : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
-          {/* Rectángulo 2 · Días pico (AMA) — altura contenida; el sobrante de la columna queda como fondo del panel */}
+          {/* Rectángulo 2 · Días pico (AMA) — altura contenida */}
           <div style={{ background: AMA, padding: `26px ${PAD}`, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
               <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
@@ -470,6 +481,37 @@ export default function ResumenLanding(p: Props) {
               <span><span style={{ color: VERDE }}>▲</span> {diaFuerte ? `${diaFuerte.nombre} ${E(diaFuerte.valor)}` : '—'}</span>
               <span><span style={{ color: ROJO }}>▼</span> {diaFlojo ? `${diaFlojo.nombre} ${E(diaFlojo.valor)}` : '—'}</span>
             </div>
+          </div>
+
+          {/* Rectángulo 3 · Dependencia de plataformas (rellena el resto de la columna) */}
+          <div style={{ background: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <span style={eyebrow(INK, '#fff')}>Plataformas vs canal propio</span>
+              {depHay && <span title="Cuanto más alto, menos dependes de las comisiones de plataforma" style={{ ...d('20px', pctPropio >= 20 ? VERDE : NAR), cursor: 'help' }}>{P0(pctPropio)} propio</span>}
+            </div>
+            {depHay ? <>
+              <div style={{ display: 'flex', height: 30, border: `3px solid ${INK}`, overflow: 'hidden', marginBottom: 14, boxShadow: SHADOW }}>
+                <div style={{ width: `${pctPlat}%`, background: NAR }} title={`Plataformas ${P0(pctPlat)}`} />
+                <div style={{ width: `${pctPropio}%`, background: VERDE, borderLeft: pctPropio > 0 && pctPlat > 0 ? `3px solid ${INK}` : 'none' }} title={`Propio ${P0(pctPropio)}`} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.6 }}><span style={{ width: 10, height: 10, background: NAR, border: `1.5px solid ${INK}` }} />Plataformas</div>
+                  <div style={d('clamp(18px,2.2vw,24px)', NAR)}>{P0(pctPlat)}</div>
+                  <div style={{ fontFamily: OSW, fontSize: 13, opacity: 0.7 }}>{E(platBruto)}</div>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.6 }}><span style={{ width: 10, height: 10, background: VERDE, border: `1.5px solid ${INK}` }} />Web + directa</div>
+                  <div style={d('clamp(18px,2.2vw,24px)', VERDE)}>{P0(pctPropio)}</div>
+                  <div style={{ fontFamily: OSW, fontSize: 13, opacity: 0.7 }}>{E(propioBruto)}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 'auto', borderLeft: `3px solid ${pctPropio >= 20 ? VERDE : NAR}`, paddingLeft: 12, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', lineHeight: 1.4 }}>
+                {pctPropio >= 20
+                  ? `Tu canal propio ya pesa ${P0(pctPropio)}. Cada punto más es margen que no se queda la plataforma.`
+                  : `Casi todo depende de plataformas. Cada euro que muevas a tu web es margen directo.`}
+              </div>
+            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin ventas por canal en este periodo.</div>}
           </div>
         </div>
       </section>
