@@ -1,6 +1,5 @@
 /**
  * PanelGlobal — Módulo Panel Global del ERP Binagre
- * v10: desplegables (modelo D2) con caja neobrutal y texto legible (Lexend, no mayúsculas).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -22,11 +21,8 @@ interface MarcaItem { id: string; nombre: string }
 
 type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
 
-const INK = '#140f08'
-const AMA = '#FFC400'
-const ROSA = '#FF2E63'
-const OSW = 'Oswald, sans-serif'
-const LEX = 'Lexend, sans-serif'
+// Fondo de página de la paleta Streat Lab (crema dorado), diferenciado del crema del módulo
+const PAGE_BG = '#F3D9A8'
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
@@ -46,39 +42,37 @@ const CANALES_DISPONIBLES = [
 ]
 
 const dropdownBtn: React.CSSProperties = {
-  padding: '9px 14px',
-  borderRadius: 0,
-  border: `3px solid ${INK}`,
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: '0.5px solid #d0c8bc',
   background: '#ffffff',
-  fontSize: 14,
-  fontFamily: LEX,
-  fontWeight: 600,
-  color: INK,
+  fontSize: 13,
+  fontFamily: 'Lexend, sans-serif',
+  color: '#111111',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 4,
   whiteSpace: 'nowrap',
   position: 'relative',
-  boxShadow: `3px 3px 0 ${INK}`,
 }
 
 const menuStyle: React.CSSProperties = {
   position: 'absolute',
-  top: 48,
+  top: 38,
   right: 0,
   background: '#ffffff',
-  border: `3px solid ${INK}`,
-  borderRadius: 0,
+  border: '0.5px solid #d0c8bc',
+  borderRadius: 8,
   width: 280,
   fontSize: 12,
-  color: INK,
-  boxShadow: `6px 6px 0 ${INK}`,
+  color: '#3a4050',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
   zIndex: 100,
   maxHeight: 360,
   overflowY: 'auto',
-  paddingTop: 0,
-  paddingBottom: 0,
+  paddingTop: 2,
+  paddingBottom: 2,
 }
 
 
@@ -109,45 +103,41 @@ function MultiSelect({
     <div ref={ref} style={{ position: 'relative' }}>
       <button style={dropdownBtn} onClick={() => setOpen(o => !o)}>
         <span>{displayLabel}</span>
-        <ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
+        <ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
       </button>
       {open && (
         <div style={menuStyle}>
           <button
             style={{
               display: 'block', width: '100%', textAlign: 'left',
-              padding: '9px 12px', background: '#faf4e6', border: 'none',
-              fontSize: 12, fontFamily: OSW, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: INK, cursor: 'pointer',
-              borderBottom: `2px solid ${INK}`,
+              padding: '8px 12px', background: 'transparent', border: 'none',
+              fontSize: 13, fontFamily: 'Lexend, sans-serif', color: '#7a8090', cursor: 'pointer',
+              borderBottom: '0.5px solid #ebe8e2',
             }}
             onClick={() => { onAll(); setOpen(false) }}
           >
             Todos
           </button>
-          {options.map(o => {
-            const sel = selected.includes(o.id)
-            return (
-              <label
-                key={o.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 12px', cursor: 'pointer', lineHeight: 1.3,
-                  background: sel ? AMA : 'transparent',
-                  color: INK,
-                  fontFamily: LEX, fontSize: 13.5, fontWeight: sel ? 600 : 500, whiteSpace: 'nowrap',
-                  borderBottom: `1px solid ${INK}1a`,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={sel}
-                  onChange={() => onToggle(o.id)}
-                  style={{ accentColor: ROSA, width: 15, height: 15 }}
-                />
-                {o.label}
-              </label>
-            )
-          })}
+          {options.map(o => (
+            <label
+              key={o.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
+                background: selected.includes(o.id) ? '#FF475715' : 'transparent',
+                color: selected.includes(o.id) ? '#FF4757' : '#7a8090',
+                fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(o.id)}
+                onChange={() => onToggle(o.id)}
+                style={{ accentColor: '#FF4757' }}
+              />
+              {o.label}
+            </label>
+          ))}
         </div>
       )}
     </div>
@@ -209,13 +199,13 @@ export default function PanelGlobal() {
   const marcasOpts = marcasDisp.map(m => ({ id: m.id, label: m.nombre }))
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'inline-block', background: COLORS.redSL, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '8px 16px' }}>
-          <div style={{ fontFamily: OSW, fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: 3, textTransform: 'uppercase', lineHeight: 1 }}>
+    <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>
             PANEL GLOBAL
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#ffffffcc', marginTop: 4 }}>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#6b5d45', marginTop: 2 }}>
             {subtitulo}
           </div>
         </div>
