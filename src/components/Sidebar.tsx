@@ -21,6 +21,9 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
+// tokens neobrutal
+const INK = '#140f08'
+
 interface NavItem {
   path: string
   label: string
@@ -336,14 +339,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '4px 10px 4px 14px',
-    margin: '1px 8px',
-    borderRadius: 6,
+    padding: '5px 10px 5px 12px',
+    margin: '2px 8px',
+    borderRadius: 0,
+    borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
     fontFamily: FONT.body,
     fontSize: 15,
     fontWeight: 500,
     color: isActive ? activeTextColor : T.pri,
     background: isActive ? '#B01D23' : 'transparent',
+    boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none',
     textDecoration: 'none',
     cursor: 'pointer',
     transition: 'background 150ms',
@@ -359,23 +364,23 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: T.group, borderRadius: 16, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        style={{ background: T.group, borderRadius: 0, borderRight: `3px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
-          fixed top-0 left-0 z-40 h-full border-r border-[var(--sl-border)]
+          fixed top-0 left-0 z-40 h-full
           flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
           md:translate-x-0 md:static md:z-auto
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {collapsed ? (
-          <div style={{ borderBottom: `1px solid ${T.brd}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+          <div style={{ borderBottom: `2px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'none' }} crossOrigin="anonymous" />
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
               <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
         ) : (
-          <div style={{ padding: 12, borderBottom: `1px solid ${T.brd}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
+          <div style={{ padding: 12, borderBottom: `2px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 64 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0, filter: 'none' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
@@ -395,12 +400,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 width: '100%',
                 background: isActive ? '#B01D23' : 'none',
                 border: 'none',
+                borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 gap: 10,
-                padding: '6px 14px 6px 12px',
+                padding: '7px 14px 7px 10px',
                 fontFamily: FONT.heading,
                 fontSize: 14.5,
                 fontWeight: 800,
@@ -440,12 +446,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 width: '100%',
                 background: isActive ? '#B01D23' : 'none',
                 border: 'none',
+                borderLeft: isActive ? `4px solid ${INK}` : '4px solid transparent',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-start',
                 gap: 10,
-                padding: '6px 14px 6px 12px',
+                padding: '7px 14px 7px 10px',
                 fontFamily: FONT.heading,
                 fontSize: 14.5,
                 fontWeight: 800,
@@ -475,7 +482,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             >
               <BellRing size={20} strokeWidth={1.8} color="#B01D23" />
               {tareasBadge > 0 && (
-                <span style={{ position: 'absolute', top: 6, right: 8, background: '#B01D23', color: '#fff', borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                <span style={{ position: 'absolute', top: 6, right: 8, background: '#B01D23', color: '#fff', border: `2px solid ${INK}`, fontSize: 9, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                   {tareasBadge > 9 ? '9+' : tareasBadge}
                 </span>
               )}
@@ -558,11 +565,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `2px solid ${INK}`, display: 'flex', justifyContent: 'center' }}>
           <ThemeToggle />
         </div>
 
-        <div style={{ padding: 12, borderTop: `1px solid ${T.brd}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
+        <div style={{ padding: 12, borderTop: `2px solid ${INK}`, fontFamily: FONT.body, fontSize: 12, color: T.mut, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
               <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.sec }}>
@@ -620,7 +627,7 @@ function SidebarProximamente({ isOpen, onToggle, T }: { isOpen: boolean; onToggl
               gap: 10,
               padding: '6px 10px 6px 24px',
               margin: '0 8px',
-              borderRadius: 4,
+              borderRadius: 0,
               fontFamily: FONT.body,
               fontSize: 12.5,
               color: T.mut,
