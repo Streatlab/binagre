@@ -1,9 +1,8 @@
 /**
- * ResumenLanding v9 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v9: semáforo con fondo sólido (luces nítidas), cada canal con su color de plataforma
- * (borde + barras + acentos) y barra de rendimiento estimada con semáforo de estado,
- * tarjeta «Resultado del periodo» rediseñada (dos KPI claros + P&L sobre blanco legible).
- * v8: estado de salud, est., tooltips, flechitas, marca sube/cae, cierre de mes, coste/pedido.
+ * ResumenLanding v10 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v10: semáforo eliminado (el aviso de estado se queda como banda de color con titular y chips).
+ * v9: cada canal con su color de plataforma + barra de rendimiento estimada, tarjeta Resultado
+ * rediseñada (dos KPI claros + P&L sobre blanco legible).
  * No calcula nada salvo la curva estimada de marca y el nivel de salud (visual).
  */
 import { useState } from 'react'
@@ -73,18 +72,6 @@ function Arrow({ v }: { v: number | null }) {
   if (v == null) return null
   const up = v >= 0
   return <span style={{ fontSize: '0.62em', marginRight: 5, color: up ? VERDE : ROSA }}>{up ? '▲' : '▼'}</span>
-}
-
-// semáforo vertical para el estado de salud — caja sólida oscura para que las luces resalten.
-function Semaforo({ nivel }: { nivel: 'verde' | 'ambar' | 'rojo' }) {
-  const luz = (c: string, on: boolean): React.CSSProperties => ({ width: 22, height: 22, borderRadius: '50%', background: on ? c : '#454034', border: `2px solid #000`, boxShadow: on ? `0 0 10px ${c}, 0 0 0 2px #000` : 'none' })
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: '#1a1610', border: `3px solid #000`, padding: '12px 10px', borderRadius: 6, flexShrink: 0, boxShadow: `4px 4px 0 #000` }}>
-      <span style={luz('#ff3b3b', nivel === 'rojo')} />
-      <span style={luz('#ffb800', nivel === 'ambar')} />
-      <span style={luz('#1ec773', nivel === 'verde')} />
-    </div>
-  )
 }
 
 interface GrupoData { gasto: number; presupuesto: number; pctSobreNetos: number }
@@ -304,17 +291,14 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 0 · ESTADO DE SALUD (arriba del todo) — fondo verde/naranja/rojo, nunca amarillo */}
+      {/* 0 · ESTADO DE SALUD — banda de color con titular y chips (sin semáforo) */}
       <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `22px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <Semaforo nivel={saludNivel} />
-          <div>
-            <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-              {saludPuntos.map((t, i) => (
-                <span key={i} style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '4px 10px' }}>{t}</span>
-              ))}
-            </div>
+        <div>
+          <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            {saludPuntos.map((t, i) => (
+              <span key={i} style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13, background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '4px 10px' }}>{t}</span>
+            ))}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -408,7 +392,6 @@ export default function ResumenLanding(p: Props) {
               const saludOk = c.margen >= objM * 0.9
               return (
                 <div key={c.id} style={{ border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, background: '#fff', boxShadow: `5px 5px 0 ${INK}`, padding: '14px 16px' }}>
-                  {/* cabecera: chip de plataforma + peso */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                     <span style={{ ...eyebrow(col, CLARA[c.id] ? INK : '#fff'), fontSize: 13 }}>{c.label}</span>
                     {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
@@ -416,19 +399,16 @@ export default function ResumenLanding(p: Props) {
                     <span style={{ ...d('20px', INK) }}>{E2(c.bruto)}</span>
                     <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55 }}>{P0(totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0)} del total</span>
                   </div>
-                  {/* barra de peso del canal (color de plataforma) */}
                   <div style={{ position: 'relative', height: 26, background: TRACK_CANAL, border: `3px solid ${INK}`, overflow: 'hidden', marginBottom: 10 }}>
                     <div style={{ width: `${Math.min(100, totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0)}%`, height: '100%', background: col }} />
                     <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>peso en ventas</span>
                   </div>
-                  {/* barra de rendimiento (margen vs objetivo de referencia, estimado) con estado */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                     <div style={{ position: 'relative', flex: 1, height: 22, background: '#f0ece2', border: `3px solid ${INK}`, overflow: 'hidden' }}>
                       <div style={{ width: `${salud}%`, height: '100%', background: saludOk ? VERDE : NAR }} />
                     </div>
                     <span title={`Margen neto del canal frente a un objetivo de referencia (${objM}%). El objetivo es estimado.`} style={{ ...d('15px', saludOk ? VERDE : NAR), cursor: 'help', display: 'flex', alignItems: 'center' }}>{saludOk ? '✓' : '✗'} {P0(c.margen)}<Est /></span>
                   </div>
-                  {/* métricas con acento de plataforma */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
                     {[['Neto', E2(c.neto), acento], ['Pedidos', N(c.pedidos), INK], ['TM bruto', c.pedidos > 0 ? E2(c.ticket) : '—', acento], ['TM neto', c.pedidos > 0 ? E2(c.neto / c.pedidos) : '—', VERDE]].map(([l, v, cc]) => (
                       <div key={l as string}>
@@ -505,7 +485,7 @@ export default function ResumenLanding(p: Props) {
         )}
       </section>
 
-      {/* 7 · DÍAS PICO 33% (CREMA) | RESULTADO 66% (oscuro) — rediseñado: 2 KPI claros + P&L blanco */}
+      {/* 7 · DÍAS PICO 33% (CREMA) | RESULTADO 66% (oscuro) — 2 KPI claros + P&L blanco */}
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: CREMA }}>
           <Title tag={`Días pico · ${p.mesLabel}`} tagBg={AZUL} tagColor="#fff" title={`Bruto por día. Media ${E(p.mediaDiariaPico)}.`} />
@@ -526,7 +506,6 @@ export default function ResumenLanding(p: Props) {
         <div style={{ padding: `44px ${PAD}`, background: OSC, color: D1 }}>
           <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
 
-          {/* dos KPI claros sobre tarjetas blancas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, margin: '8px 0 22px' }}>
             <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `6px 6px 0 ${p.ebitda >= 0 ? VERDE : ROSA}`, padding: '16px 18px', cursor: 'help' }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>EBITDA estimado<Est /></div>
@@ -542,7 +521,6 @@ export default function ResumenLanding(p: Props) {
 
           {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 20, fontSize: 15, color: D1, maxWidth: 760 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
 
-          {/* P&L sobre fondo blanco — legible */}
           <div style={{ background: '#fff', border: `3px solid ${INK}`, color: INK, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '11px 16px', background: INK, fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D1 }}>
               <span>Concepto</span><span style={{ textAlign: 'right' }}>Importe</span><span style={{ textAlign: 'right' }}>% s/neto</span><span style={{ textAlign: 'right' }}>Presupuesto</span>
@@ -696,7 +674,6 @@ export default function ResumenLanding(p: Props) {
             : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin ventas por marca en los últimos 90 días. Se nutre de las liquidaciones de plataforma por marca.</div>}
         </div>
         <div style={{ padding: `44px ${PAD}`, background: CLARO, display: 'flex', flexDirection: 'column', gap: 26 }}>
-          {/* Provisiones */}
           <div>
             <span style={eyebrow('#fff')}>Provisiones</span>
             <div style={{ ...d('clamp(26px,3.4vw,38px)', NAR), margin: '12px 0 10px' }}>{E(p.provisiones.totalAGuardar)}</div>
@@ -711,7 +688,6 @@ export default function ResumenLanding(p: Props) {
               ))}
             </>}
           </div>
-          {/* Top ventas */}
           <div style={{ borderTop: `3px solid ${INK}`, paddingTop: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <span style={eyebrow(VERDE, '#fff')}>Top ventas</span>
