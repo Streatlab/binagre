@@ -3,6 +3,7 @@
  * Lógica de cálculo (la presentación está en ResumenLanding).
  * v8 (tanda 2): variación por marca (sube/baja), proyección de cierre de mes
  * (a este ritmo) y coste por pedido real (comisión de plataforma + producto).
+ * v9: wrapper neobrutal sin marco redondeado.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -796,21 +797,14 @@ export default function TabResumen({
   void navigate
 
   return (
-    <div style={{
-      background: COLOR.bgPagina,
-      color: COLOR.textPri,
-      fontFamily: LEXEND,
-      padding: '20px 0',
-      borderRadius: 12,
-      marginTop: 18,
-    }}>
+    <div style={{ color: COLOR.textPri, fontFamily: LEXEND, marginTop: 14 }}>
 
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {toasts.map(t => (
           <div key={t.id} style={{
             background: t.type === 'success' ? COLOR.verde : COLOR.ambar,
-            color: '#fff', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontFamily: LEXEND,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            color: '#fff', padding: '8px 16px', border: '3px solid #140f08', fontSize: 13, fontFamily: LEXEND,
+            boxShadow: '4px 4px 0 #140f08',
           }}>{t.msg}</div>
         ))}
       </div>
