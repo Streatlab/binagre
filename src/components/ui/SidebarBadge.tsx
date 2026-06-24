@@ -1,8 +1,8 @@
-import React from 'react'
-
 interface SidebarBadgeProps {
   count: number
 }
+
+const INK = '#140f08'
 
 export default function SidebarBadge({ count }: SidebarBadgeProps) {
   return (
@@ -13,13 +13,14 @@ export default function SidebarBadge({ count }: SidebarBadgeProps) {
         justifyContent: 'center',
         minWidth: 18,
         height: 18,
-        padding: '0 6px',
-        borderRadius: 9,
-        background: '#E24B4A',
+        padding: '0 5px',
+        borderRadius: 0,
+        border: `2px solid ${INK}`,
+        background: '#FF2E63',
         color: '#ffffff',
         fontSize: 11,
-        fontWeight: 600,
-        fontFamily: 'Lexend, sans-serif',
+        fontWeight: 700,
+        fontFamily: 'Oswald, sans-serif',
         marginLeft: 8,
       }}
     >
