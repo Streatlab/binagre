@@ -34,10 +34,11 @@ interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Da
 // por compatibilidad pero ya no se usa para diferenciar la clave de storage.
 const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
 
-// tokens neobrutal
+// tokens neobrutal · sombra única de 4px en todo el ERP
 const INK = '#140f08'
 const AMA = '#FFC400'
 const ROSA = '#FF2E63'
+const SHADOW = `4px 4px 0 ${INK}`
 
 // Migración de ids antiguos a los nuevos (no romper estado guardado ni props).
 function migrarOpcion(op: string): Opcion {
@@ -187,7 +188,7 @@ const btnStyle: React.CSSProperties = {
   padding: '9px 14px', borderRadius: 0, border: `3px solid ${INK}`,
   background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 14, fontWeight: 600,
   color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center',
-  gap: 6, whiteSpace: 'nowrap', boxShadow: `3px 3px 0 ${INK}`,
+  gap: 6, whiteSpace: 'nowrap', boxShadow: SHADOW,
 }
 const inputStyle: React.CSSProperties = {
   padding: '7px 26px 7px 10px', borderRadius: 0, border: `3px solid ${INK}`,
@@ -207,7 +208,7 @@ const hiddenDateStyle: React.CSSProperties = {
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: '100%', right: 0, background: '#fff',
   border: `3px solid ${INK}`, borderRadius: 0, width: 220, fontSize: 13,
-  color: INK, boxShadow: `6px 6px 0 ${INK}`, zIndex: 50,
+  color: INK, boxShadow: SHADOW, zIndex: 50,
   maxHeight: '80vh', overflowY: 'auto', marginTop: 6,
 }
 const itemStyle: React.CSSProperties = {
@@ -445,7 +446,7 @@ export default function SelectorFechaUniversal({
               tabIndex={-1}
             />
           </div>
-          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}` }} onClick={applyPersonalizado}>
+          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }} onClick={applyPersonalizado}>
             Aplicar
           </button>
         </div>
