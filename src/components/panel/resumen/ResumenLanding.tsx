@@ -1,13 +1,10 @@
 /**
- * ResumenLanding v12 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v12 (correcciones Rubén):
- *  - "Cuándo te compran" y "Días pico": dos RECTÁNGULOS independientes de colores distintos, apilados
- *    a la derecha de Canales (no una caja crema con subtarjetas).
- *  - "Te deben las plataformas": rellena toda la columna (número grande + barras estiradas).
- *  - "Resultado del periodo": fondo SATURADO (verde petróleo), estilo cuidado.
- *  - "Punto de equilibrio": color propio, distinto de Provisiones.
- * Mantiene: sombra única 4px, rojo vivo=negativo (rosa solo acento), pedidos=naranja,
- *  canales con barra de peso rosa + cifras por métrica, salud con periodo+fechas, 5 marcas siempre.
+ * ResumenLanding v13 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v13: Días pico con altura fija (deja de estirarse a toda la columna);
+ *      tabla de Resultado coherente cuando faltan costes (Margen bruto y Resultado neto
+ *      en "—" en vez de repetir el ingreso neto).
+ * Mantiene v12: dos rectángulos (cuándo te compran + días pico), te deben rellena columna,
+ *      Resultado en verde petróleo, PE en color propio, sombra única 4px, color por métrica.
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -32,7 +29,6 @@ const AMA = '#FFC400'
 const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto
 const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio
 const AZUL = '#2D5BFF'   // métrica TM bruto
-const NAR_CL = '#ffb27a'
 const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
 const OSW = "'Oswald', sans-serif"
@@ -190,8 +186,13 @@ export default function ResumenLanding(p: Props) {
   const diasConV = p.diasPico.filter(x => x.valor > 0)
   const diaFuerte = diasConV.length ? diasConV.reduce((a, x) => x.valor > a.valor ? x : a) : null
   const diaFlojo = diasConV.length ? diasConV.reduce((a, x) => x.valor < a.valor ? x : a) : null
+
+  // ¿hay costes cargados? Si no, no calculamos derivados (evita mostrar margen=neto=resultado)
+  const hayProducto = p.grupos.producto.gasto > 0
+  const hayCostes = hayProducto || p.grupos.equipo.gasto > 0 || p.grupos.local.gasto > 0 || p.grupos.controlables.gasto > 0
   const margenBruto = p.netoEstimado - p.grupos.producto.gasto
   const resultadoNetoPL = p.netoEstimado - (p.grupos.producto.gasto + p.grupos.equipo.gasto + p.grupos.local.gasto + p.grupos.controlables.gasto)
+
   const totalCanal = p.canalStats.reduce((a, c) => a + c.bruto, 0)
   const DI = 'Datos insuf.'
   const canalRent = p.canalStats.filter(c => c.pedidos > 0).map(c => ({ id: c.id, np: c.neto / c.pedidos })).sort((a, b) => b.np - a.np)[0]?.id
@@ -238,12 +239,12 @@ export default function ResumenLanding(p: Props) {
   const grupoMeta: Record<GrupoGasto, { obj: number }> = { producto: { obj: 30 }, equipo: { obj: 40 }, local: { obj: 15 }, controlables: { obj: 15 } }
   const pctN = (g: number) => p.netoEstimado > 0 ? (g / p.netoEstimado) * 100 : 0
 
-  type Fila = { l: string; imp: string; impC: string; pct?: string; grupo?: GrupoGasto; bold?: boolean; dot: string }
+  type Fila = { l: string; imp: string; impC: string; pct?: string; grupo?: GrupoGasto; bold?: boolean; dot: string; falta?: boolean }
   const filasBase: Fila[] = [
     { l: 'Facturación', imp: E2(p.ventasPeriodo), impC: INK, dot: INK },
     { l: 'Ingresos netos', imp: E2(p.netoEstimado), impC: VERDE, pct: P0(netoPct), bold: true, dot: VERDE },
-    { l: 'Margen bruto', imp: E2(margenBruto), impC: INK, bold: true, dot: AMA },
-    { l: 'Resultado neto', imp: E2(resultadoNetoPL), impC: resultadoNetoPL >= 0 ? VERDE : ROJO, bold: true, dot: resultadoNetoPL >= 0 ? VERDE : ROJO },
+    { l: 'Margen bruto', imp: hayProducto ? E2(margenBruto) : '—', impC: hayProducto ? INK : GRIS, bold: true, dot: hayProducto ? AMA : GRIS, falta: !hayProducto },
+    { l: 'Resultado neto', imp: hayCostes ? E2(resultadoNetoPL) : '—', impC: hayCostes ? (resultadoNetoPL >= 0 ? VERDE : ROJO) : GRIS, bold: true, dot: hayCostes ? (resultadoNetoPL >= 0 ? VERDE : ROJO) : GRIS, falta: !hayCostes },
   ]
   const filaCoste = (l: string, g: GrupoGasto): Fila => ({
     l, grupo: g,
@@ -445,13 +446,13 @@ export default function ResumenLanding(p: Props) {
               : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
-          {/* Rectángulo 2 · Días pico (AMA) */}
+          {/* Rectángulo 2 · Días pico (AMA) — altura de barras fija (no se estira) */}
           <div style={{ background: AMA, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
               <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
               <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flex: 1, minHeight: 130, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 200, marginBottom: 14 }}>
               {p.diasPico.map(x => {
                 const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
                 const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
@@ -546,7 +547,7 @@ export default function ResumenLanding(p: Props) {
                   <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '13px 16px', borderTop: `1px solid ${INK}1a`, background: r.bold ? '#faf4e6' : (i % 2 ? '#fbf8f1' : '#fff') }}>
                     <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: INK, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 9, height: 9, flexShrink: 0, background: r.dot, border: `1px solid ${INK}` }} />
-                      {r.l}{meta && <span style={{ fontSize: 11, color: GRIS }}> · obj {meta.obj}%</span>}{esEstimado && <Est />}
+                      {r.l}{meta && <span style={{ fontSize: 11, color: GRIS }}> · obj {meta.obj}%</span>}{esEstimado && <Est />}{r.falta && <Est tip="Aún sin costes cargados — se calcula en cuanto entre el dato" />}
                     </span>
                     <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: r.bold ? 20 : 17, color: r.impC, letterSpacing: '-0.5px', textAlign: 'right' }}>{r.imp}</span>
                     <span style={{ fontFamily: OSW, fontSize: 13, color: GRIS, textAlign: 'right' }}>{r.pct ?? ''}</span>
