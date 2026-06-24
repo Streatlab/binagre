@@ -98,6 +98,15 @@ export function horasSemanaPorEmpleado(turnos: Turno[]): Record<string, number> 
   return acc
 }
 
+/** Total bruto semanal por empleado (sin descontar descanso). */
+export function horasBrutasSemanaPorEmpleado(turnos: Turno[]): Record<string, number> {
+  const acc: Record<string, number> = {}
+  for (const t of turnos) {
+    acc[t.empleado_id] = (acc[t.empleado_id] ?? 0) + horasBrutas(t)
+  }
+  return acc
+}
+
 /** Descuento total semanal por empleado (en horas). */
 export function descuentoSemanaPorEmpleado(turnos: Turno[]): Record<string, number> {
   const acc: Record<string, number> = {}
@@ -137,4 +146,4 @@ export function fmtHoras(h: number): string {
   return h.toLocaleString('es-ES', { minimumFractionDigits: h % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 }) + 'h'
 }
 
-// build: rota v7 — master force build (destrabar cola OCR ordenacion)
+// build: rota v8 — total bruto en rojo + jornada Andrés S26
