@@ -15,23 +15,24 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { ThemeToggle } from './ThemeToggle'
 import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// ── tokens neobrutal · sidebar oscuro canónico Streat Lab ──
+// ── tokens neobrutal · sidebar Streat Lab (se adapta a claro / oscuro) ──
 const INK = '#0a0a0a'
-const DARK = '#1e2233'      // fondo sidebar (canónico)
-const DARK2 = '#2b3148'     // cabeceras de sección / botones inactivos
-const DARK3 = '#161a28'     // caja de items abierta
 const ROSA = '#FF2E63'      // acento activo (rosa de las comisiones)
 const ROJO = '#B01D23'      // marca (cabecera logo)
-const TXT = '#ece8dc'       // texto claro sobre oscuro
-const TXT_MUT = '#8b90a3'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única en todo el ERP
 const OSW = 'Oswald, sans-serif'
 const LEX = 'Lexend, sans-serif'
+
+// Paletas según tema
+interface Pal { bg: string; bg2: string; bg3: string; txt: string; txtMut: string; head: string }
+const PAL_DARK: Pal = { bg: '#1e2233', bg2: '#2b3148', bg3: '#161a28', txt: '#ece8dc', txtMut: '#8b90a3', head: ROJO }
+const PAL_LIGHT: Pal = { bg: '#FCEFD6', bg2: '#F3D9A8', bg3: '#ffffff', txt: '#140f08', txtMut: '#6b5d45', head: ROJO }
 
 interface NavItem {
   path: string
@@ -53,9 +54,6 @@ interface SectionIconConfig {
   color: string
 }
 
-// Orden: Panel Global, Tareas, Finanzas, Cocina, Operaciones,
-// Stock & Compras, Informes, Equipo, MKT, Configuración.
-// Panel Global y Tareas son enlaces directos (fuera de SECTIONS).
 const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', emoji: '📈', label: 'Finanzas', perfiles: ['admin'],
@@ -238,12 +236,12 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    color: '#2ee88f' },
   cocina:        { icon: ChefHat,       color: '#ffb43d' },
-  operaciones:   { icon: ClipboardList, color: '#f5d23d' },
+  operaciones:   { icon: ClipboardList, color: '#e0a800' },
   stock:         { icon: ShoppingCart,  color: '#ff5a6a' },
-  informes:      { icon: FileText,      color: '#f5d23d' },
-  equipo:        { icon: Users,         color: '#6db3ff' },
+  informes:      { icon: FileText,      color: '#e0a800' },
+  equipo:        { icon: Users,         color: '#3b82f6' },
   mkt:           { icon: Megaphone,     color: '#ff5a6a' },
-  configuracion: { icon: Settings,      color: '#b6bdd4' },
+  configuracion: { icon: Settings,      color: '#7a8190' },
 }
 
 const PROXIMAMENTE_LS_KEY = 'streatlab.sidebar.proximamente.open'
@@ -262,6 +260,8 @@ function loadOpenSections(): string[] {
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
+  const { theme } = useTheme()
+  const C: Pal = theme === 'light' ? PAL_LIGHT : PAL_DARK
   const perfil = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
 
@@ -326,7 +326,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const collapsed = esMovilDisp ? false : (!pinned && !peek)
 
-  // Máximo 2 secciones abiertas a la vez; abrir una 3ª cierra la primera que se abrió (FIFO).
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
       if (prev.includes(key)) return prev.filter(s => s !== key)
@@ -339,7 +338,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
   const sidebarWidth = collapsed ? 58 : 230
 
-  // botón directo (Panel Global / Tareas)
   const directLink = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -348,8 +346,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     padding: '11px 13px',
     border: `3px solid ${INK}`,
     borderRadius: 0,
-    background: isActive ? ROSA : DARK2,
-    color: isActive ? '#fff' : TXT,
+    background: isActive ? ROSA : C.bg2,
+    color: isActive ? '#fff' : C.txt,
     boxShadow: isActive ? SHADOW : 'none',
     fontFamily: OSW,
     fontSize: 15,
@@ -360,7 +358,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     cursor: 'pointer',
   })
 
-  // botón cuadrado colapsado (40x40, sombra única — homogéneo con el toggle sol/luna)
   const collapsedBtn = (isActive: boolean): React.CSSProperties => ({
     margin: '10px auto',
     width: 40,
@@ -371,25 +368,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     textDecoration: 'none',
     position: 'relative',
     border: `3px solid ${INK}`,
-    background: isActive ? ROSA : DARK2,
+    background: isActive ? ROSA : C.bg2,
     boxShadow: SHADOW,
     cursor: 'pointer',
   })
 
-  // item dentro de la caja de sección
   const itemStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap: 10,
     padding: '9px 12px',
-    borderTop: `1px solid rgba(255,255,255,0.07)`,
+    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.07)'}`,
     borderLeft: isActive ? `5px solid ${INK}` : '5px solid transparent',
     fontFamily: OSW,
     fontSize: 13,
     fontWeight: 600,
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
-    color: isActive ? '#fff' : TXT,
+    color: isActive ? '#fff' : C.txt,
     background: isActive ? ROSA : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
@@ -410,7 +406,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         onMouseEnter={() => setPeek(true)}
         onMouseLeave={() => setPeek(false)}
         onClick={pin}
-        style={{ background: DARK, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+        style={{ background: C.bg, borderRadius: 0, borderRight: `4px solid ${INK}`, width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
         className={`
           fixed top-0 left-0 z-40 h-full
           flex flex-col transition-all duration-[250ms] ease-[ease] overflow-hidden
@@ -419,14 +415,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         `}
       >
         {collapsed ? (
-          <div style={{ background: ROJO, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
+          <div style={{ background: C.head, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 66, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
             <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 36 }} title="Abrir">
               <ChevronRight size={18} color="#ffffff" strokeWidth={3} />
             </button>
           </div>
         ) : (
-          <div style={{ background: ROJO, padding: '14px 14px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
+          <div style={{ background: C.head, padding: '14px 14px', borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 66 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 34, width: 'auto', display: 'block', flexShrink: 0, filter: 'brightness(0) invert(1)' }} crossOrigin="anonymous" />
               <span style={{ fontFamily: OSW, fontSize: 19, color: '#ffffff', letterSpacing: '3px', fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>STREAT LAB</span>
@@ -495,7 +491,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     type="button"
                     onClick={() => toggleSection(section.key)}
                     title={section.label}
-                    style={{ ...collapsedBtn(false), background: isOpen ? ROSA : DARK2 }}
+                    style={{ ...collapsedBtn(false), background: isOpen ? ROSA : C.bg2 }}
                   >
                     {IconComponent ? <IconComponent size={20} strokeWidth={2.2} color={isOpen ? '#fff' : iconColor} /> : <span>{section.emoji}</span>}
                   </button>
@@ -508,11 +504,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                       padding: '10px 12px',
                       border: `3px solid ${INK}`,
-                      background: isOpen ? ROSA : DARK2,
+                      background: isOpen ? ROSA : C.bg2,
                       boxShadow: isOpen ? SHADOW : 'none',
                       fontFamily: OSW, fontSize: 14.5, fontWeight: 700,
                       textTransform: 'uppercase', letterSpacing: '0.07em',
-                      color: '#ffffff',
+                      color: isOpen ? '#ffffff' : C.txt,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
@@ -524,7 +520,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 )}
 
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: DARK3 }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 40 + 4}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', margin: '0 8px', border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: C.bg3 }}>
                     {visibleItems.map((item, idx) => {
                       return (
                         <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose} style={({ isActive }) => itemStyle(isActive)}>
@@ -545,24 +541,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           })}
 
           {!collapsed && perfil === 'admin' && (
-            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} />
+            <SidebarProximamente isOpen={proxOpen} onToggle={() => setProxOpen(o => !o)} c={C} />
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: DARK }}>
+        <div style={{ padding: collapsed ? '8px' : '12px', borderTop: `4px solid ${INK}`, display: 'flex', justifyContent: 'center', background: C.bg }}>
           <ThemeToggle />
         </div>
 
-        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: DARK, fontFamily: LEX, fontSize: 12, color: TXT, textAlign: collapsed ? 'center' : 'left' }}>
+        <div style={{ padding: 12, borderTop: `3px solid ${INK}`, background: C.bg, fontFamily: LEX, fontSize: 12, color: C.txt, textAlign: collapsed ? 'center' : 'left' }}>
           {!collapsed ? (
             <>
-              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TXT, fontWeight: 600 }}>
+              <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.txt, fontWeight: 600 }}>
                 {usuario?.nombre} — <span style={{ color: ROSA, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>{usuario?.perfil}</span>
               </div>
-              <button onClick={logout} style={{ color: TXT, fontSize: 12, background: DARK2, border: `2px solid ${INK}`, padding: '5px 12px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Cerrar sesión</button>
+              <button onClick={logout} style={{ color: C.txt, fontSize: 12, background: C.bg2, border: `2px solid ${INK}`, padding: '5px 12px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Cerrar sesión</button>
             </>
           ) : (
-            <button onClick={logout} style={{ color: TXT, background: DARK2, border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: C.txt, background: C.bg2, border: `2px solid ${INK}`, cursor: 'pointer', fontSize: 14, width: 36, height: 36 }} title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>
@@ -570,7 +566,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   )
 }
 
-function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
+function SidebarProximamente({ isOpen, onToggle, c }: { isOpen: boolean; onToggle: () => void; c: Pal }) {
   return (
     <div style={{ marginTop: 7 }}>
       <button
@@ -581,15 +577,15 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
           padding: '10px 12px',
           border: `3px solid ${INK}`,
-          background: isOpen ? DARK2 : DARK3,
+          background: isOpen ? c.bg2 : c.bg3,
           fontFamily: OSW, fontSize: 12.5, fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.08em',
-          color: TXT_MUT,
+          color: c.txtMut,
         }}
         title="Funciones en desarrollo"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
-          <Clock size={16} strokeWidth={2.4} color={TXT_MUT} />
+          <Clock size={16} strokeWidth={2.4} color={c.txtMut} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Próximamente</span>
         </div>
         <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, marginLeft: 10 }}>›</span>
@@ -599,7 +595,7 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
           maxHeight: isOpen ? `${PROXIMAMENTE.length * 32 + 8}px` : 0,
           overflow: 'hidden', transition: 'max-height 400ms ease',
           margin: '0 8px',
-          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: DARK3,
+          border: isOpen ? `3px solid ${INK}` : 'none', borderTop: 'none', background: c.bg3,
         }}
       >
         {PROXIMAMENTE.map((item, idx) => (
@@ -611,13 +607,13 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '7px 10px 7px 14px',
-              borderTop: `1px solid rgba(255,255,255,0.06)`,
+              borderTop: `1px solid rgba(125,125,125,0.18)`,
               fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
-              color: TXT_MUT, opacity: 0.6,
+              color: c.txtMut, opacity: 0.7,
               cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden',
             }}
           >
-            <span style={{ width: 7, height: 7, flexShrink: 0, background: TXT_MUT }} />
+            <span style={{ width: 7, height: 7, flexShrink: 0, background: c.txtMut }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
           </div>
         ))}
