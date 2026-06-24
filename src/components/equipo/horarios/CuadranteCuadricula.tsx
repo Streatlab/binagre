@@ -6,8 +6,8 @@ import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno,
-  horasSemanaPorEmpleado,
-  horasReales, tramosTexto,
+  horasSemanaPorEmpleado, horasBrutasSemanaPorEmpleado,
+  horasReales, horasBrutas, tramosTexto,
   colorEmpleado,
 } from './utils'
 
@@ -86,6 +86,7 @@ interface CuadranteProps {
 export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mostrarCierre = true }: CuadranteProps) {
   const { T } = useTheme()
   const horasEmp = horasSemanaPorEmpleado(turnos)
+  const brutoEmp = horasBrutasSemanaPorEmpleado(turnos)
   const idxEmp = useMemo(() => {
     const m: Record<string, number> = {}
     empleados.forEach((e, i) => { m[e.id] = i })
@@ -123,9 +124,10 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
           {empleadosVisibles.map(emp => {
             const col = colorEmpleado(idxEmp[emp.id] ?? 0)
             const total = horasEmp[emp.id] ?? 0
+            const totalBruto = brutoEmp[emp.id] ?? 0
             return (
               <FilaEmpleado
-                key={emp.id} emp={emp} col={col} total={total}
+                key={emp.id} emp={emp} col={col} total={total} totalBruto={totalBruto}
                 dias={dias} turnoDe={turnoDe} T={T} ocultarLibre={ocultarLibre}
               />
             )
@@ -155,11 +157,12 @@ export function CuadranteCuadricula({ empleados, turnos, lunes, cierres = {}, mo
 }
 
 function FilaEmpleado({
-  emp, col, total, dias, turnoDe, T, ocultarLibre,
+  emp, col, total, totalBruto, dias, turnoDe, T, ocultarLibre,
 }: {
   emp: Empleado
   col: { bg: string; text: string }
   total: number
+  totalBruto: number
   dias: ReturnType<typeof fechasSemana>
   turnoDe: (id: string, dia: DiaKey) => Turno | undefined
   T: ReturnType<typeof useTheme>['T']
@@ -181,16 +184,26 @@ function FilaEmpleado({
           )
         }
         const real = horasReales(t)
+        const bruto = horasBrutas(t)
+        const hayDescuento = Math.abs(bruto - real) > 0.001
         return (
           <div key={dia} style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 3px', textAlign: 'center', lineHeight: 1.25, minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
             <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'pre-line' }}>{tramosTexto(t)}</span>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>{fmtHM(real)}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>
+              {fmtHM(real)}
+              {hayDescuento && (
+                <span style={{ color: '#B01D23', opacity: 1, fontWeight: 600 }}> /{fmtHM(bruto)}</span>
+              )}
+            </span>
           </div>
         )
       })}
 
-      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
         <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 700 }}>{fmtHM(total)}</span>
+        {Math.abs(totalBruto - total) > 0.001 && (
+          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, color: '#B01D23' }}>/{fmtHM(totalBruto)}</span>
+        )}
       </div>
     </>
   )
