@@ -23,6 +23,7 @@ type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' |
 
 // Fondo de página de la paleta Streat Lab (crema dorado), diferenciado del crema del módulo
 const PAGE_BG = '#F3D9A8'
+const INK = '#140f08'
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
@@ -202,7 +203,7 @@ export default function PanelGlobal() {
     <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
             PANEL GLOBAL
           </div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#6b5d45', marginTop: 2 }}>
