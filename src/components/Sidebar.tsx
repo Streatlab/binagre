@@ -25,10 +25,11 @@ const INK = '#0a0a0a'
 const DARK = '#1e2233'      // fondo sidebar (canónico)
 const DARK2 = '#2b3148'     // cabeceras de sección / botones inactivos
 const DARK3 = '#161a28'     // caja de items abierta
-const FLUOR = '#e8f442'     // acento activo
-const ROJO = '#B01D23'
+const ROSA = '#FF2E63'      // acento activo (rosa de las comisiones)
+const ROJO = '#B01D23'      // marca (cabecera logo)
 const TXT = '#ece8dc'       // texto claro sobre oscuro
 const TXT_MUT = '#8b90a3'
+const SHADOW = `4px 4px 0 ${INK}`   // sombra única en todo el ERP
 const OSW = 'Oswald, sans-serif'
 const LEX = 'Lexend, sans-serif'
 
@@ -300,11 +301,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .then(({ count }) => setOcrBadge(count ?? 0))
   }, [perfil])
 
-  // ── Mecánica de colapso/expansión ────────────────────────────────────────
+  // ── Mecánica de colapso/expansión (persistente: se mantiene 5 min tras la última interacción) ──
   const [pinned, setPinned] = useState(false)
   const [peek, setPeek] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const PIN_MS = 20000
+  const PIN_MS = 300000
 
   const pin = () => {
     setPinned(true)
@@ -325,6 +326,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const collapsed = esMovilDisp ? false : (!pinned && !peek)
 
+  // Máximo 2 secciones abiertas a la vez; abrir una 3ª cierra la primera que se abrió (FIFO).
   const toggleSection = (key: string) => {
     setOpenSections(prev => {
       if (prev.includes(key)) return prev.filter(s => s !== key)
@@ -346,15 +348,31 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     padding: '11px 13px',
     border: `3px solid ${INK}`,
     borderRadius: 0,
-    background: isActive ? FLUOR : DARK2,
-    color: isActive ? INK : TXT,
-    boxShadow: isActive ? `4px 4px 0 ${INK}` : 'none',
+    background: isActive ? ROSA : DARK2,
+    color: isActive ? '#fff' : TXT,
+    boxShadow: isActive ? SHADOW : 'none',
     fontFamily: OSW,
     fontSize: 15,
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
     textDecoration: 'none',
+    cursor: 'pointer',
+  })
+
+  // botón cuadrado colapsado (40x40, sombra única — homogéneo con el toggle sol/luna)
+  const collapsedBtn = (isActive: boolean): React.CSSProperties => ({
+    margin: '10px auto',
+    width: 40,
+    height: 40,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textDecoration: 'none',
+    position: 'relative',
+    border: `3px solid ${INK}`,
+    background: isActive ? ROSA : DARK2,
+    boxShadow: SHADOW,
     cursor: 'pointer',
   })
 
@@ -371,8 +389,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     fontWeight: 600,
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
-    color: isActive ? INK : TXT,
-    background: isActive ? FLUOR : 'transparent',
+    color: isActive ? '#fff' : TXT,
+    background: isActive ? ROSA : 'transparent',
     textDecoration: 'none',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
@@ -381,6 +399,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <>
+      <style>{`
+        .sl-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+        .sl-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
+
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
@@ -412,13 +435,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           </div>
         )}
 
-        <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
+        <nav className="flex-1 py-2 sl-noscroll" style={{ overflowY: 'auto', overflowX: 'hidden' }}>
 
           {(!collapsed && perfil && ['admin', 'cocina'].includes(perfil)) && (
             <NavLink to="/" end onClick={onClose} style={({ isActive }) => directLink(isActive)}>
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? INK : FLUOR} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} />
                   <span>Panel Global</span>
                 </>
               )}
@@ -426,10 +449,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
 
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink to="/" end onClick={onClose} title="Panel Global"
-              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', border: `3px solid ${INK}`, background: isActive ? FLUOR : DARK2, boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
-            >
-              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? INK : FLUOR} />}
+            <NavLink to="/" end onClick={onClose} title="Panel Global" style={({ isActive }) => collapsedBtn(isActive)}>
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />}
             </NavLink>
           )}
 
@@ -437,7 +458,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <NavLink to="/tareas" onClick={onClose} style={({ isActive }) => directLink(isActive)}>
               {({ isActive }) => (
                 <>
-                  <BellRing size={19} strokeWidth={2.4} color={isActive ? INK : FLUOR} style={{ flexShrink: 0 }} />
+                  <BellRing size={19} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} style={{ flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>Tareas</span>
                   <SidebarBadge count={tareasBadge} />
                 </>
@@ -446,14 +467,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
 
           {collapsed && perfil === 'admin' && (
-            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes"
-              style={({ isActive }) => ({ margin: '8px auto', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', border: `3px solid ${INK}`, background: isActive ? FLUOR : DARK2, boxShadow: isActive ? `3px 3px 0 ${INK}` : 'none' })}
-            >
+            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes" style={({ isActive }) => collapsedBtn(isActive)}>
               {({ isActive }) => (
                 <>
-                  <BellRing size={20} strokeWidth={2.4} color={isActive ? INK : FLUOR} />
+                  <BellRing size={20} strokeWidth={2.4} color={isActive ? '#fff' : ROSA} />
                   {tareasBadge > 0 && (
-                    <span style={{ position: 'absolute', top: -8, right: -8, background: '#FF2E63', color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
+                    <span style={{ position: 'absolute', top: -8, right: -8, background: ROSA, color: '#fff', border: `2px solid ${INK}`, fontSize: 9, minWidth: 16, height: 16, padding: '0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: OSW }}>
                       {tareasBadge > 9 ? '9+' : tareasBadge}
                     </span>
                   )}
@@ -476,12 +495,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     type="button"
                     onClick={() => toggleSection(section.key)}
                     title={section.label}
-                    style={{
-                      margin: '6px auto', width: 40, height: 40, background: DARK2, border: `3px solid ${INK}`, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
+                    style={{ ...collapsedBtn(false), background: isOpen ? ROSA : DARK2 }}
                   >
-                    {IconComponent ? <IconComponent size={20} strokeWidth={2.2} color={iconColor} /> : <span>{section.emoji}</span>}
+                    {IconComponent ? <IconComponent size={20} strokeWidth={2.2} color={isOpen ? '#fff' : iconColor} /> : <span>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button
@@ -489,21 +505,21 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     onClick={() => toggleSection(section.key)}
                     style={{
                       width: 'auto', margin: '7px 8px 0', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                       padding: '10px 12px',
                       border: `3px solid ${INK}`,
-                      background: isOpen ? ROJO : DARK2,
-                      boxShadow: isOpen ? `3px 3px 0 ${INK}` : 'none',
+                      background: isOpen ? ROSA : DARK2,
+                      boxShadow: isOpen ? SHADOW : 'none',
                       fontFamily: OSW, fontSize: 14.5, fontWeight: 700,
                       textTransform: 'uppercase', letterSpacing: '0.07em',
                       color: '#ffffff',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
                       {IconComponent ? <IconComponent size={18} strokeWidth={2.4} color={isOpen ? '#fff' : iconColor} /> : <span style={{ fontSize: 14 }}>{section.emoji}</span>}
-                      <span>{section.label}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.label}</span>
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, marginLeft: 10 }}>›</span>
                   </button>
                 )}
 
@@ -514,7 +530,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                         <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose} style={({ isActive }) => itemStyle(isActive)}>
                           {({ isActive }) => (
                             <>
-                              <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? INK : iconColor, border: `1px solid ${isActive ? INK : 'rgba(0,0,0,0.4)'}` }} />
+                              <span style={{ width: 8, height: 8, flexShrink: 0, background: isActive ? '#fff' : iconColor, border: `1px solid ${isActive ? INK : 'rgba(0,0,0,0.4)'}` }} />
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                               {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                             </>
@@ -541,7 +557,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed ? (
             <>
               <div style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TXT, fontWeight: 600 }}>
-                {usuario?.nombre} — <span style={{ color: FLUOR, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>{usuario?.perfil}</span>
+                {usuario?.nombre} — <span style={{ color: ROSA, fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>{usuario?.perfil}</span>
               </div>
               <button onClick={logout} style={{ color: TXT, fontSize: 12, background: DARK2, border: `2px solid ${INK}`, padding: '5px 12px', cursor: 'pointer', fontFamily: OSW, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Cerrar sesión</button>
             </>
@@ -562,7 +578,7 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
         onClick={onToggle}
         style={{
           width: 'auto', margin: '0 8px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
           padding: '10px 12px',
           border: `3px solid ${INK}`,
           background: isOpen ? DARK2 : DARK3,
@@ -572,11 +588,11 @@ function SidebarProximamente({ isOpen, onToggle }: { isOpen: boolean; onToggle: 
         }}
         title="Funciones en desarrollo"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0, flex: 1 }}>
           <Clock size={16} strokeWidth={2.4} color={TXT_MUT} />
-          <span>Próximamente</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Próximamente</span>
         </div>
-        <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+        <span style={{ fontSize: 13, fontWeight: 800, transition: 'transform 300ms', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0, marginLeft: 10 }}>›</span>
       </button>
       <div
         style={{
