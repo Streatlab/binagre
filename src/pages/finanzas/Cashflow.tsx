@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, GRIS,
-  OSW, LEX, SHADOW, BORDER, BORDER_CARD, PAD, CORP, CLARA,
-  eyebrow,
+  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS,
+  OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA,
+  eyebrow, d,
 } from '@/styles/neobrutal'
 import {
   calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
@@ -315,22 +315,16 @@ export default function Cashflow() {
 
   const simTabs: { id: Sim; label: string }[] = [{ id: -10, label: '−10%' }, { id: 0, label: 'Real' }, { id: 10, label: '+10%' }]
 
-  // Neobrutal styles
-  const card: CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: 18 }
-  const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', borderRadius: 0, background: INK, border: `2px solid ${INK}` }
-  const subA: CSSProperties = { padding: '4px 10px', borderRadius: 0, border: 'none', background: '#fff', color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
-  const subI: CSSProperties = { padding: '4px 10px', borderRadius: 0, border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
-  const th: CSSProperties = { padding: '7px 8px', textAlign: 'right', fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA, background: INK, borderBottom: `1px solid ${INK}` }
-  const tdL: CSSProperties = { padding: '7px 8px', textAlign: 'left', fontFamily: LEX, fontSize: 12.5 }
-  const tdR: CSSProperties = { padding: '7px 8px', textAlign: 'right', fontFamily: OSW, fontSize: 13 }
-  const kpi: CSSProperties = { background: CLARO, borderRadius: 0, padding: '10px 12px', border: BORDER_CARD }
-  const kpiL: CSSProperties = { fontFamily: OSW, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }
-  const kpiV: CSSProperties = { fontFamily: OSW, fontSize: 23, fontWeight: 700, lineHeight: 1.1 }
-  const ex: CSSProperties = { fontSize: 10, color: GRIS, marginTop: 6 }
-  const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, borderRadius: 0, background: c, marginRight: 6 })
   const thIng: CSSProperties = { fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '10px 12px', borderBottom: `1px solid ${INK}`, whiteSpace: 'nowrap' }
   const tdLIng: CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '9px 12px', borderBottom: `0.5px solid rgba(20,15,8,0.15)` }
   const tdRIng: CSSProperties = { ...tdLIng, fontFamily: OSW, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const th: CSSProperties = { padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA, background: INK }
+  const tdL: CSSProperties = { padding: '9px 12px', textAlign: 'left', fontFamily: LEX, fontSize: 12.5 }
+  const tdR: CSSProperties = { padding: '9px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 13 }
+  const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, background: c, marginRight: 6 })
+  const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', background: INK, border: `2px solid ${INK}` }
+  const subA: CSSProperties = { padding: '4px 10px', border: 'none', background: '#fff', color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
+  const subI: CSSProperties = { padding: '4px 10px', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
 
@@ -349,28 +343,56 @@ export default function Cashflow() {
   const ySaldo = (v: number) => cb - (v / maxBar) * (cb - ct) * 0.85
 
   return (
-    <div style={{ fontFamily: LEX, color: INK, paddingTop: 18 }}>
+    <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
 
-      <div style={{ ...card, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1 }} />
-          <span style={eyebrow('#fff')}>Simulador</span>
+      {/* ── SECCIÓN 1 · HERO (AZUL) ── */}
+      <section style={{ background: AZUL, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 40, alignItems: 'start' }}>
+          {/* Izquierda: eyebrow + número hero + frases */}
+          <div>
+            <span style={eyebrow('#fff', INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff99', marginBottom: 6 }}>POR COBRAR</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ ...d('clamp(44px,6.8vw,92px)', '#fff') }}>{nf0(porCobrarTotal)}</div>
+                {sim !== 0 && <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: AMA, letterSpacing: '0.5px', marginBottom: 14 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+              {frases.map((f, i) => (
+                <div key={i} style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,19px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>
+              ))}
+            </div>
+          </div>
+          {/* Derecha: 4 KPIs apilados */}
+          <div style={{ background: CLARO, border: `3px solid ${INK}`, boxShadow: SHADOW }}>
+            {[
+              { label: 'Por cobrar', value: nf0(porCobrarTotal), color: VERDE },
+              { label: 'Hasta fin de mes', value: nf0(hastaFinMes), color: VERDE },
+              { label: `Saldo banco · ${ultimoMov || '—'}`, value: nf0(saldoBanco), color: saldoBanco >= 0 ? VERDE : ROJO },
+              { label: 'Runway', value: runwaySem > 0 ? `${Math.round(runwaySem)} sem.` : '—', color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? NAR : GRIS },
+            ].map((k, i, arr) => (
+              <div key={i} style={{ padding: '18px 20px', borderBottom: i < arr.length - 1 ? `3px solid ${INK}` : 'none' }}>
+                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>{k.label}</div>
+                <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: k.color }}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Simulador full-width debajo del grid */}
+        <div style={{ borderTop: `4px solid ${INK}`, marginTop: 32, marginLeft: `-${PAD}`, marginRight: `-${PAD}`, padding: `14px ${PAD}`, background: OSC, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={eyebrow('#ffffff33', '#fff')}>Simulador</span>
           <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
         </div>
-        <div style={{ fontFamily: OSW, fontSize: 'clamp(28px,4vw,42px)', fontWeight: 600, lineHeight: 1.05 }}>
-          POR COBRAR <span style={{ color: VERDE }}>{nf0(porCobrarTotal)}</span>
-          {sim !== 0 && <span style={{ color: GRIS, fontSize: '0.5em', marginLeft: 10 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {frases.map((f, i) => <div key={i} style={{ fontFamily: OSW, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>)}
-        </div>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={eyebrow(CREMA)}>Cobros · cobrado y previsto · neto</div>
-          {graf.length === 0 ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div> : (
-            <div style={{ position: 'relative', marginTop: 12 }}>
+      {/* ── SECCIÓN 2 · COBROS · GRÁFICO (#fff) ── */}
+      <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
+        {graf.length === 0
+          ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
+          : (
+            <div style={{ position: 'relative', marginTop: 18 }}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
                 {idxFut > 0 && (() => { const xh = (X(idxFut - 1) + X(idxFut)) / 2; return (<g><line x1={xh} y1={P.t} x2={xh} y2={H - P.b} stroke={INK} strokeWidth="1" strokeDasharray="3 3" /><text x={xh} y={P.t - 6} textAnchor="middle" fontSize="9" fill={INK} fontFamily="Oswald">HOY</text></g>) })()}
@@ -378,154 +400,202 @@ export default function Cashflow() {
                 {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 6 : 4} fill={p.futuro ? '#fff' : VERDE} stroke={VERDE} strokeWidth="2" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
               </svg>
               {hover != null && graf[hover] && (
-                <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: INK, color: CREMA, borderRadius: 0, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: SHADOW, border: BORDER_CARD }}>
+                <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: INK, color: CREMA, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: SHADOW, border: BORDER_CARD }}>
                   <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{fmtLarga(graf[hover].pago)}</div>
-                  {graf[hover].items.map((it, k) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontFamily: LEX, fontSize: 12, marginBottom: 2 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 0, background: it.color }} />{it.label}</span><span style={{ fontFamily: OSW, fontWeight: 600 }}>{nf0(it.neto)}</span></div>))}
+                  {graf[hover].items.map((it, k) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontFamily: LEX, fontSize: 12, marginBottom: 2 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, background: it.color }} />{it.label}</span><span style={{ fontFamily: OSW, fontWeight: 600 }}>{nf0(it.neto)}</span></div>))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginTop: 6, paddingTop: 6, borderTop: `1px solid rgba(252,239,214,0.3)`, fontFamily: OSW, fontSize: 13, fontWeight: 700 }}><span>{graf[hover].futuro ? 'Previsto' : 'Cobrado'}</span><span>{nf0(graf[hover].total)}</span></div>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 0, background: VERDE }} />Cobrado</span><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 0, background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span></div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: VERDE }} />Cobrado</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span>
+              </div>
             </div>
           )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
-          <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
-          <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? NAR : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
-        </div>
-      </div>
+      </section>
 
-      <div style={{ ...card, marginBottom: 12 }}>
-        <div style={eyebrow(CREMA)}>Caja por mes · banco real · línea = saldo</div>
-        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto', marginTop: 12 }}>
+      {/* ── SECCIÓN 3 · CAJA POR MES (CREMA) ── */}
+      <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(INK, CREMA)}>Caja por mes · banco real · línea = saldo</span>
+        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto', marginTop: 18 }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
           {cruce.map((c, i) => { const x = cx(i); return (
             <g key={i}>
-              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} rx={0} />
-              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} rx={0} />
+              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} />
+              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} />
               <text x={x} y={cb + 16} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{c.label}</text>
               <text x={x} y={cb + 32} textAnchor="middle" fontSize="10" fill={c.margen >= 0 ? VERDE : ROJO} fontFamily="Oswald">{c.margen >= 0 ? '+' : ''}{nf0(c.margen)}</text>
             </g>) })}
           <polyline points={cruce.map((c, i) => `${cx(i)} ${ySaldo(c.margen)}`).join(' ')} fill="none" stroke={INK} strokeWidth="2.5" />
           {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={3.5} fill={c.margen >= 0 ? INK : ROJO} />)}
         </svg>
-        <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 4 }}>
-          <span><span style={dot(VERDE)} />Ingresos</span><span><span style={dot(ROJO)} />Gastos</span>
+        <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
+          <span><span style={dot(VERDE)} />Ingresos</span>
+          <span><span style={dot(ROJO)} />Gastos</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 0, borderTop: `2px solid ${INK}` }} />Saldo</span>
         </div>
-        <div style={ex}>Movimientos reales del banco{ultimoMov ? ` · última importación: ${ultimoMov}` : ''}.</div>
-      </div>
+        {ultimoMov && <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>Movimientos reales del banco · última importación: {ultimoMov}.</div>}
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={eyebrow(CREMA)}>Ingresos pendientes · lo que el banco aún no ha pagado</div>
-          {futuros.length === 0 ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 8 }}>Sin cobros pendientes.</div> : (
-            <div style={{ overflowX: 'auto', margin: '8px -18px -16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
+      {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (#fff / CLARO) ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        {/* Izquierda: tabla ingresos pendientes */}
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+          <span style={eyebrow(VERDE, '#fff')}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
+          {futuros.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
+            : (
+              <div style={{ overflowX: 'auto', marginTop: 18 }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 680 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
+                      <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {futuros.map((c, i) => {
+                      const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
+                      const porBanco = cobradoBanco(c)
+                      const cobrado = porBanco || !!cobradoMap[claveCobro(c)]
+                      const vencido = c.pago <= hoy && !cobrado
+                      return (
+                        <tr key={i} style={{ opacity: cobrado ? 0.5 : 1, background: i % 2 === 0 ? '#fff' : CLARO }}>
+                          <td style={{ ...tdLIng, paddingLeft: 0 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
+                          <td style={{ ...tdLIng, color: GRIS }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
+                          <td style={tdRIng}>{c.pedidos}</td>
+                          <td style={{ ...tdLIng, color: vencido ? NAR : INK, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
+                          <td style={tdRIng}>{nf0(c.bruto)}</td>
+                          <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
+                          <td style={{ ...tdRIng, color: pct >= 58 ? VERDE : NAR }}>{pct.toFixed(1)}%</td>
+                          <td style={{ ...tdRIng, textAlign: 'center' }}>{porBanco
+                            ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
+                            : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
+                          }</td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{ background: '#faf4e6' }}>
+                      <td style={{ ...tdLIng, paddingLeft: 0, fontFamily: OSW, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>TOTAL</td>
+                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
+                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
+                      <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</td>
+                      <td style={{ ...tdRIng, fontWeight: 700, color: GRIS, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
+                      <td style={{ ...tdRIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
+        </div>
+        {/* Derecha: caja por marca */}
+        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+          <span style={eyebrow(INK, CREMA)}>Caja por marca · 90d · {porMarca.length} activas</span>
+          {porMarca.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 14 }}>Sin marcas activas.</div>
+            : (() => {
+                const max = Math.max(...porMarca.map(m => m.neto), 1)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
+                    {porMarca.map((m, i) => {
+                      const sin = m.neto <= 0
+                      return (
+                        <div key={i}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, marginBottom: 5 }}>
+                            <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: sin ? GRIS : INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.marca}</span>
+                            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, color: sin ? GRIS : VERDE, flexShrink: 0 }}>{nf0(m.neto)}</span>
+                          </div>
+                          <div style={{ height: 8, background: TRACK, border: BORDER_CARD }}>
+                            <div style={{ height: 8, width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, boxShadow: SHADOW }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()
+          }
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 14 }}>Neto últimos 90 días · marcas activas en vivo desde configuración.</div>
+        </div>
+      </section>
+
+      {/* ── SECCIÓN 5 · GASTOS DEL MES (grid 2fr 1fr, fondo CLARO) ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        {/* Izquierda: tabla gastos */}
+        <div style={{ background: '#fff', borderRight: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+          <span style={eyebrow(ROJO, '#fff')}>Gastos del mes · por categoría</span>
+          {gastosCat.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
+            : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 18 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
-                    <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
+                    <th style={{ ...th, textAlign: 'left' }}>Categoría</th>
+                    <th style={th}>Facturas</th>
+                    <th style={th}>Importe</th>
+                    <th style={th}>IVA</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const porBanco = cobradoBanco(c); const cobrado = porBanco || !!cobradoMap[claveCobro(c)]; const vencido = c.pago <= hoy && !cobrado; const bgRow = i % 2 === 0 ? '#fff' : CLARO; return (
-                    <tr key={i} style={{ opacity: cobrado ? 0.5 : 1, background: bgRow }}>
-                      <td style={{ ...tdLIng, paddingLeft: 18 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 0, background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
-                      <td style={{ ...tdLIng, color: GRIS }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
-                      <td style={tdRIng}>{c.pedidos}</td>
-                      <td style={{ ...tdLIng, color: vencido ? NAR : INK, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
-                      <td style={tdRIng}>{nf0(c.bruto)}</td>
-                      <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
-                      <td style={{ ...tdRIng, color: pct >= 58 ? VERDE : NAR }}>{pct.toFixed(1)}%</td>
-                      <td style={{ ...tdRIng, textAlign: 'center', paddingRight: 18 }}>{porBanco ? (<span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 0, background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.3px', border: `2px solid ${INK}` }}>✓ banco</span>) : (<button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, borderRadius: 0, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, borderRadius: 0, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>)}</td>
-                    </tr>) })}
-                  <tr style={{ background: '#faf4e6' }}>
-                    <td style={{ ...tdLIng, paddingLeft: 18, fontFamily: OSW, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>TOTAL</td>
-                    <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}></td>
-                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
-                    <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}></td>
-                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                    <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</td>
-                    <td style={{ ...tdRIng, fontWeight: 700, color: GRIS, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
-                    <td style={{ ...tdRIng, paddingRight: 18, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}></td>
+                  {gastosCat.slice(0, 10).map((g, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : CLARO }}>
+                      <td style={tdL}><span style={dot(ROJO)} />{g.nombre}</td>
+                      <td style={{ ...tdR, color: GRIS, fontFamily: LEX, fontSize: 12 }}>{g.n}</td>
+                      <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(g.total)}</td>
+                      <td style={{ ...tdR, color: GRIS }}>{nf0(g.iva)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#faf4e6', borderTop: `2px solid ${INK}` }}>
+                    <td style={{ ...tdL, fontFamily: OSW, fontWeight: 700 }}>TOTAL MES</td>
+                    <td style={{ ...tdR, fontWeight: 700 }}>{nFacturasMes}</td>
+                    <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(gastoMesTotal)}</td>
+                    <td style={{ ...tdR, fontWeight: 700, color: GRIS }}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
                   </tr>
                 </tbody>
               </table>
-            </div>
-          )}
-          <div style={ex}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
+            )}
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
         </div>
-        <div style={card}>
-          <div style={eyebrow(CREMA)}>Caja por marca · 90d · {porMarca.length} activas</div>
-          {porMarca.length === 0 ? <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8 }}>Sin marcas activas.</div> : (() => { const max = Math.max(...porMarca.map(m => m.neto), 1); return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto', paddingRight: 4, marginTop: 10 }}>
-              {porMarca.map((m, i) => { const sin = m.neto <= 0; return (
-                <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEX, fontSize: 11, marginBottom: 3, gap: 6 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: sin ? GRIS : INK }}>{m.marca}</span><span style={{ fontFamily: OSW, fontWeight: 700, color: sin ? GRIS : VERDE }}>{nf0(m.neto)}</span></div>
-                  <div style={{ height: 6, background: TRACK, borderRadius: 0, border: BORDER_CARD }}><div style={{ height: 6, width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, boxShadow: '2px 0 0 #140f08' }} /></div>
-                </div>) })}
-            </div>) })()}
-          <div style={ex}>Neto últimos 90 días · marcas activas en vivo desde configuración.</div>
+        {/* Derecha: KPI gasto */}
+        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+          <span style={eyebrow(INK, CREMA)}>Gasto del mes</span>
+          <div style={{ marginTop: 22 }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 8 }}>Total facturado</div>
+            <div style={d('clamp(44px,6vw,72px)', ROJO)}>{nf0(gastoMesTotal)}</div>
+          </div>
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Nº facturas</div>
+            <div style={d('clamp(32px,4vw,52px)')}>{nFacturasMes}</div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={eyebrow(CLARO)}>Gastos del mes · por categoría</div>
-          {gastosCat.length === 0 ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 8 }}>Sin facturas registradas este mes.</div> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 10 }}>
-              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Categoría</th><th style={th}>Facturas</th><th style={th}>Importe</th><th style={th}>IVA</th></tr></thead>
-              <tbody>
-                {gastosCat.slice(0, 10).map((g, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : CLARO }}>
-                    <td style={tdL}><span style={dot(ROJO)} />{g.nombre}</td>
-                    <td style={{ ...tdR, color: GRIS, fontFamily: LEX, fontSize: 12 }}>{g.n}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(g.total)}</td>
-                    <td style={{ ...tdR, color: GRIS }}>{nf0(g.iva)}</td>
-                  </tr>
-                ))}
-                <tr style={{ background: '#faf4e6', borderTop: `2px solid ${INK}` }}>
-                  <td style={{ ...tdL, fontFamily: OSW, fontWeight: 700 }}>TOTAL MES</td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{nFacturasMes}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(gastoMesTotal)}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: GRIS }}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-          <div style={ex}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
-        </div>
-        <div style={card}>
-          <div style={eyebrow(CLARO)}>Gasto del mes</div>
-          <div style={{ ...kpi, marginBottom: 8, marginTop: 10 }}><div style={kpiL}>Total facturado</div><div style={{ ...kpiV, color: ROJO }}>{nf0(gastoMesTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Nº facturas</div><div style={{ ...kpiV, color: INK }}>{nFacturasMes}</div></div>
-        </div>
-      </div>
-
-      <div style={{ ...card, background: CREMA, border: BORDER, padding: PAD }}>
-        <div style={eyebrow(TRACK)}>Se activa al cargar datos</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10, marginTop: 14 }}>
+      {/* ── SECCIÓN 6 · PENDIENTE DE ACTIVAR (TRACK) ── */}
+      <section style={{ background: TRACK, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(INK, CREMA)}>Se activa al cargar datos</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 22 }}>
           {[
-            { t: 'Recorte real vs previsto', d: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
-            { t: 'Coste de ADS y promos', d: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
-            { t: 'Calendario 30/60/90', d: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
+            { t: 'Recorte real vs previsto', desc: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
+            { t: 'Coste de ADS y promos', desc: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
+            { t: 'Calendario 30/60/90', desc: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
-            <div key={i} style={{ border: `2px dashed ${INK}`, borderRadius: 0, padding: '10px 12px', background: '#fff' }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 5 }}>{x.t}</div>
-              <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginBottom: 6 }}>{x.d}</div>
-              <div style={{ fontFamily: OSW, fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
+            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: '#fff' }}>
+              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 7 }}>{x.t}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, lineHeight: 1.4 }}>{x.desc}</div>
+              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
     </div>
   )

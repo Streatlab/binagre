@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import {
   INK, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, GRIS,
-  OSW, LEX, SHADOW, BORDER, BORDER_CARD,
+  OSW, LEX, SHADOW, BORDER_CARD,
   CORP, CLARA,
   eyebrow,
 } from '@/styles/neobrutal'
@@ -363,40 +363,58 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
   const unidad = periodo === 'semana' ? 'día' : periodo === 'mes' ? 'semana' : 'mes'
   const unidadPl = periodo === 'semana' ? 'días' : periodo === 'mes' ? 'semanas' : 'meses'
 
-  return (
-    <div style={{ fontFamily: LEX, color: INK, paddingTop: 18 }}>
+  // Colores del HERO según delta
+  const heroBg = deltaTotal == null ? AMA : deltaTotal >= 0 ? VERDE : ROJO
+  const heroTxt = deltaTotal == null ? INK : '#fff'
 
-      {/* TITULAR + PILLS */}
-      <div style={{ ...card, marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 16, flexWrap: 'wrap' }}>
+  return (
+    <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
+
+      {/* ── SECCIÓN 1 · HERO dinámico ── */}
+      <section style={{ background: heroBg, borderBottom: `4px solid ${INK}`, padding: '28px 40px' }}>
+        {/* Fila pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 20, flexWrap: 'wrap' }}>
           <TabsPastilla tabs={cTabs} activeId={comp} onChange={id => setCompP(id as Comp)} />
           <div style={{ width: 2, height: 24, background: INK, flexShrink: 0, marginLeft: 2, marginRight: 2 }} />
           <div style={SUBTAB_CONTAINER}>
             {pTabs.map(t => <button key={t.id} onClick={() => setPeriodoP(t.id)} style={periodo === t.id ? SUBTAB_ACTIVE : SUBTAB_INACTIVE}>{t.label}</button>)}
           </div>
         </div>
-        <div style={{ fontFamily: OSW, fontSize: 'clamp(28px,4.2vw,44px)', fontWeight: 600, lineHeight: 1.04 }}>
-          {deltaTotal == null ? 'PERIODO EN MARCHA' : 'EL NEGOCIO VA'}{' '}
-          {deltaTotal != null && <span style={{ color: colorDelta(deltaTotal), background: `${colorDelta(deltaTotal)}1f`, padding: '0 10px', borderRadius: 0, border: `2px solid ${colorDelta(deltaTotal)}` }}>{deltaTotal >= 0 ? '+' : ''}{deltaTotal.toFixed(1)}%</span>}
-          {deltaTotal != null && <span> VS {`los mismos días de ${labelComp}`.replace('de el ', 'del ').toUpperCase()}.</span>}
-        </div>
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontFamily: OSW, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, letterSpacing: '0.3px' }}>
-            <span style={{ color: VERDE }}>{nf2(total)}</span>
-            <span style={{ color: GRIS }}> · </span>
-            <span style={{ color: AZUL_PED }}>{nf0(pedidos)} pedidos</span>
-            <span style={{ color: GRIS }}> · </span>
-            <span style={{ color: NARANJA_TM }}>TM {nf2(tm)}</span>
+        {/* Título big */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div style={{ ...d('clamp(28px,4.2vw,44px)', heroTxt) }}>
+            {deltaTotal == null ? 'PERIODO EN MARCHA' : 'EL NEGOCIO VA'}
           </div>
-          {fraseHoy && <div style={{ fontFamily: OSW, fontSize: 'clamp(16px,2.2vw,21px)', fontWeight: 600, color: fraseHoy.color, letterSpacing: '0.3px' }}>{fraseHoy.txt}</div>}
-          {fraseCierre && <div style={{ fontFamily: OSW, fontSize: 'clamp(16px,2.2vw,21px)', fontWeight: 600, color: fraseCierre.color, letterSpacing: '0.3px' }}>{fraseCierre.txt}</div>}
+          {deltaTotal != null && (
+            <span style={{ fontFamily: OSW, fontSize: 20, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.2)', border: '2px solid #fff', padding: '4px 12px', letterSpacing: '0.5px' }}>
+              {deltaTotal >= 0 ? '+' : ''}{deltaTotal.toFixed(1)}%
+            </span>
+          )}
         </div>
-      </div>
+        {/* Fila cifras */}
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 14 }}>
+          <div style={{ fontFamily: OSW, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, color: deltaTotal == null ? INK : '#fff' }}>
+            {nf2(total)}
+          </div>
+          <div style={{ fontFamily: OSW, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, color: deltaTotal == null ? AZUL : 'rgba(255,255,255,0.85)' }}>
+            {nf0(pedidos)} pedidos
+          </div>
+          <div style={{ fontFamily: OSW, fontSize: 'clamp(20px,2.8vw,28px)', fontWeight: 600, color: deltaTotal == null ? NAR : 'rgba(255,255,255,0.85)' }}>
+            TM {nf2(tm)}
+          </div>
+        </div>
+        {/* Frases */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {fraseHoy && <div style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,19px)', fontWeight: 600, color: deltaTotal == null ? fraseHoy.color : '#ffffffcc', letterSpacing: '0.3px' }}>{fraseHoy.txt}</div>}
+          {fraseCierre && <div style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,19px)', fontWeight: 600, color: deltaTotal == null ? fraseCierre.color : '#ffffffcc', letterSpacing: '0.3px' }}>{fraseCierre.txt}</div>}
+        </div>
+      </section>
 
-      {/* FACTURACIÓN POR DÍA (2/3) + TICKET MEDIO (1/3) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
-        <div style={card}>
-          <div style={eyebrow(CREMA)}>Facturación · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</div>
+      {/* ── SECCIÓN 2 · FACTURACIÓN (2fr/1fr) ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        {/* Left: barras */}
+        <div style={{ background: '#fff', padding: '44px 40px', borderRight: `4px solid ${INK}` }}>
+          <span style={eyebrow(CREMA)}>Facturación · {periodo === 'semana' ? 'por día' : periodo === 'mes' ? 'por semana' : 'por mes'}</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: periodo === 'anio' ? 6 : 12, paddingTop: SOBRE + 18, marginTop: 8 }}>
             {seg.map((s, i) => {
               const sinObj = s.obj === 0
@@ -423,56 +441,50 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
             })}
           </div>
         </div>
-
-        {/* TICKET MEDIO (estilo Resumen): actual naranja + comparado gris, por día */}
-        <div style={card}>
-          <div style={eyebrow(CREMA)}>Ticket medio</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginBottom: 16, flexWrap: 'wrap', marginTop: 12 }}>
-            <div>
-              <div style={{ fontFamily: OSW, fontSize: 32, fontWeight: 600, color: NARANJA_TM }}>{nf2(tm)}</div>
-              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: NARANJA_TM, fontWeight: 500 }}>TM actual</div>
-            </div>
-            <div>
-              <div style={{ fontFamily: OSW, fontSize: 32, fontWeight: 600, color: GRIS }}>{tmC > 0 ? nf2(tmC) : '—'}</div>
-              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 500 }}>{labelComp}</div>
-            </div>
-            {dTM != null && <span style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, color: colorDelta(dTM) }}>{dTM >= 0 ? '▲ +' : '▼ '}{Math.abs(dTM).toFixed(1)}%</span>}
+        {/* Right: TM */}
+        <div style={{ background: CLARO, padding: '44px 40px' }}>
+          <span style={eyebrow(NAR, '#fff')}>Ticket medio</span>
+          <div style={{ marginTop: 12, marginBottom: 8 }}>
+            <div style={{ ...d('clamp(32px,4.5vw,52px)', NAR) }}>{nf2(tm)}</div>
+            <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: NAR, fontWeight: 500, marginTop: 4 }}>TM actual</div>
           </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: OSW, fontSize: 28, fontWeight: 600, color: GRIS }}>{tmC > 0 ? nf2(tmC) : '—'}</div>
+            <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 500, marginTop: 4 }}>{labelComp}</div>
+          </div>
+          {dTM != null && <div style={{ ...d('18px', colorDelta(dTM)), marginBottom: 16 }}>{dTM >= 0 ? '▲ +' : '▼ '}{Math.abs(dTM).toFixed(1)}%</div>}
           {seg.map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <span style={{ minWidth: 30, fontFamily: LEX, fontSize: 12, color: s.esActual ? INK : GRIS, fontWeight: s.esActual ? 700 : 400 }}>{s.nombre}</span>
               <div style={{ flex: 1, height: 10, background: TRACK, borderRadius: 0, border: BORDER_CARD }}>
                 <div style={{ height: 10, width: `${Math.min(((s.tm || 0) / maxTM) * 100, 100)}%`, background: s.color, boxShadow: '2px 0 0 #140f08' }} />
               </div>
-              <span style={{ minWidth: 48, textAlign: 'right', fontFamily: OSW, fontSize: 15, fontWeight: 600, color: s.tm != null ? NARANJA_TM : GRIS }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
+              <span style={{ minWidth: 48, textAlign: 'right', fontFamily: OSW, fontSize: 15, fontWeight: 600, color: s.tm != null ? NAR : GRIS }}>{s.tm != null ? nf2(s.tm) : '—'}</span>
               <span style={{ minWidth: 48, textAlign: 'right', fontFamily: OSW, fontSize: 15, fontWeight: 600, color: GRIS }}>{s.tmH != null ? nf2(s.tmH) : '—'}</span>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* CARDS POR CANAL: actual vs comparado enfrentados */}
-      <div style={{ ...card, marginBottom: 14 }}>
-        <div style={eyebrow(CREMA)}>Por canal · vs {labelComp}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canalPeriodo.length}, 1fr)`, gap: 10, marginTop: 12 }}>
+      {/* ── SECCIÓN 3 · POR CANAL (CREMA) ── */}
+      <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: '44px 40px' }}>
+        <span style={eyebrow(AMA)}>Por canal · vs {labelComp}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${canalPeriodo.length}, 1fr)`, gap: 12, marginTop: 16 }}>
           {canalPeriodo.map(c => (
-            <div key={c.id} style={{ background: CORP[c.id] ?? c.color, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '16px 18px' }}>
+            <div key={c.id} style={{ background: CORP[c.id] ?? c.color, border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 18px' }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: CLARA[c.id] ? INK : '#fff', marginBottom: 6 }}>{c.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontFamily: OSW, fontSize: 28, fontWeight: 600, color: CLARA[c.id] ? INK : '#fff' }}>{nf2(c.b)}</span>
                 <span style={{ fontFamily: OSW, fontSize: 28, fontWeight: 600, color: CLARA[c.id] ? 'rgba(20,15,8,0.5)' : 'rgba(255,255,255,0.5)' }}>{c.bc > 0 ? nf2(c.bc) : '—'}</span>
               </div>
               <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, color: colorDelta(c.delta), marginTop: 3, marginBottom: 12 }}>{c.delta == null ? 'sin comparativa' : `${c.delta >= 0 ? '▲ +' : '▼ '}${Math.abs(c.delta).toFixed(1)}%`}</div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '4px 8px', alignItems: 'baseline' }}>
                 <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: CLARA[c.id] ? INK : '#fff' }}>Pedidos</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 600, color: CLARA[c.id] ? INK : '#fff', textAlign: 'right' }}>{nf0(c.ped)}</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 500, color: CLARA[c.id] ? 'rgba(20,15,8,0.5)' : 'rgba(255,255,255,0.5)', textAlign: 'right', minWidth: 44 }}>{c.pedC > 0 ? nf0(c.pedC) : '—'}</span>
-
                 <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: CLARA[c.id] ? INK : '#fff' }}>TM bruto</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 600, color: CLARA[c.id] ? INK : '#fff', textAlign: 'right' }}>{nf2(c.tmBruto)}</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 500, color: CLARA[c.id] ? 'rgba(20,15,8,0.5)' : 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{c.tmBrutoC > 0 ? nf2(c.tmBrutoC) : '—'}</span>
-
                 <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.2px', textTransform: 'uppercase', color: CLARA[c.id] ? INK : '#fff' }}>TM neto</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 600, color: CLARA[c.id] ? INK : '#fff', textAlign: 'right' }}>{nf2(c.tmNeto)}</span>
                 <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 500, color: CLARA[c.id] ? 'rgba(20,15,8,0.5)' : 'rgba(255,255,255,0.5)', textAlign: 'right' }}>{c.tmNetoC > 0 ? nf2(c.tmNetoC) : '—'}</span>
@@ -480,32 +492,32 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* POSICIÓN EN EL CALENDARIO */}
-      <div style={card}>
-        <div style={eyebrow(CREMA)}>Posición en el calendario · por {unidad} · vs {labelComp}</div>
+      {/* ── SECCIÓN 4 · POSICIÓN EN CALENDARIO (#fff) ── */}
+      <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: '44px 40px' }}>
+        <span style={eyebrow(AZUL, '#fff')}>Posición en el calendario · por {unidad} · vs {labelComp}</span>
         {posCal == null ? (
           <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 8 }}>Aún no hay {unidadPl} con datos en este periodo.</div>
         ) : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 12 }}>
-              <div style={{ background: VERDE, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '14px 16px' }}>
+              <div style={{ background: VERDE, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
                 <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Mejor {unidad}</div>
                 <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 600, color: '#fff' }}>{posCal.mejor.nombre}</div>
                 <div style={{ fontFamily: OSW, fontSize: 18, fontWeight: 600, color: '#fff' }}>{nf0(posCal.mejor.real as number)}</div>
               </div>
-              <div style={{ background: ROJO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '14px 16px' }}>
+              <div style={{ background: ROJO, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
                 <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>{unidad === 'día' ? 'Día' : unidad === 'semana' ? 'Semana' : 'Mes'} más flojo</div>
                 <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 600, color: '#fff' }}>{posCal.peor.nombre}</div>
                 <div style={{ fontFamily: OSW, fontSize: 18, fontWeight: 600, color: '#fff' }}>{nf0(posCal.peor.real as number)}</div>
               </div>
-              <div style={{ background: NAR, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '14px 16px' }}>
+              <div style={{ background: NAR, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
                 <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Media · {unidad}</div>
                 <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 600, color: '#fff' }}>{nf0(posCal.media)}</div>
                 <div style={{ fontFamily: LEX, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{posCal.total} {posCal.total === 1 ? unidad : unidadPl} con datos</div>
               </div>
-              <div style={{ background: AZUL, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '14px 16px' }}>
+              <div style={{ background: AZUL, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
                 <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Racha al alza</div>
                 <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 600, color: '#fff' }}>{posCal.racha} {posCal.racha === 1 ? unidad : unidadPl}</div>
                 <div style={{ fontFamily: LEX, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{posCal.racha > 0 ? `por encima de ${labelComp}` : `sin racha vs ${labelComp}`}</div>
@@ -524,28 +536,27 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
             </div>
           </>
         )}
-      </div>
+      </section>
 
-      {/* REPARTO DEL DÍA · ALMUERZO vs CENA */}
-      <div style={{ ...card, marginTop: 14 }}>
-        <div style={eyebrow(CREMA)}>Almuerzo vs cena · vs {labelComp}</div>
-
+      {/* ── SECCIÓN 5 · ALMUERZO vs CENA (AMA) ── */}
+      <section style={{ background: AMA, padding: '44px 40px' }}>
+        <span style={eyebrow(INK, AMA)}>Almuerzo vs cena · vs {labelComp}</span>
         {franja.act.tot === 0 ? (
           <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 8 }}>Sin desglose de almuerzo/cena en este tramo.</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 12 }}>
             {([
-              { key: 'alm', label: 'Almuerzo', col: NARANJA_TM, bruto: franja.act.alm, ped: franja.act.almPed, pct: franja.act.pctAlm, pctC: franja.cmp.pctAlm, d: franja.dAlm },
-              { key: 'cenas', label: 'Cena', col: AZUL_PED, bruto: franja.act.cenas, ped: franja.act.cenasPed, pct: franja.act.pctCenas, pctC: franja.cmp.pctCenas, d: franja.dCenas },
+              { key: 'alm', label: 'Almuerzo', col: NAR, bruto: franja.act.alm, ped: franja.act.almPed, pct: franja.act.pctAlm, pctC: franja.cmp.pctAlm, d: franja.dAlm },
+              { key: 'cenas', label: 'Cena', col: AZUL, bruto: franja.act.cenas, ped: franja.act.cenasPed, pct: franja.act.pctCenas, pctC: franja.cmp.pctCenas, d: franja.dCenas },
             ] as const).map(f => (
-              <div key={f.key} style={{ background: f.col, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '16px 18px' }}>
+              <div key={f.key} style={{ background: f.col, border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 18px' }}>
                 <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>{f.label}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span style={{ fontFamily: OSW, fontSize: 30, fontWeight: 600, color: '#fff' }}>{nf2(f.bruto)}</span>
                   <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{f.pct.toFixed(0)}%</span>
                 </div>
                 <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: colorDelta(f.d), marginTop: 3, marginBottom: 12 }}>{f.d == null ? 'sin comparativa' : `${f.d >= 0 ? '▲ +' : '▼ '}${Math.abs(f.d).toFixed(1)}% vs ${labelComp}`}</div>
-                <div style={{ height: 10, background: 'rgba(255,255,255,0.3)', borderRadius: 0, border: `2px solid rgba(255,255,255,0.6)`, marginBottom: 6 }}>
+                <div style={{ height: 10, background: 'rgba(255,255,255,0.3)', border: `2px solid rgba(255,255,255,0.6)`, marginBottom: 6 }}>
                   <div style={{ height: 10, width: `${Math.min(f.pct, 100)}%`, background: '#fff', boxShadow: '2px 0 0 rgba(255,255,255,0.8)' }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEX, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
@@ -557,7 +568,7 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
           </div>
         )}
         {franja.dPctAlm != null && franja.act.tot > 0 && (
-          <div style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,18px)', fontWeight: 600, marginTop: 14, color: Math.abs(franja.dPctAlm) < 2 ? GRIS : franja.dPctAlm > 0 ? NARANJA_TM : AZUL_PED }}>
+          <div style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,18px)', fontWeight: 600, marginTop: 14, color: Math.abs(franja.dPctAlm) < 2 ? GRIS : franja.dPctAlm > 0 ? NAR : AZUL }}>
             {Math.abs(franja.dPctAlm) < 2
               ? 'El reparto comida/cena se mantiene estable.'
               : franja.dPctAlm > 0
@@ -565,7 +576,8 @@ export default function TabEvolucion({ rowsAll, canalesFiltro, fechaHasta, fecha
                 : `La cena gana peso: +${Math.abs(franja.dPctAlm).toFixed(1)} puntos sobre el total vs ${labelComp}.`}
           </div>
         )}
-      </div>
+      </section>
+
     </div>
   )
 }
