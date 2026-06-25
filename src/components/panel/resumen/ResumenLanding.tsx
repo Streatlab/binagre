@@ -1,10 +1,9 @@
 /**
- * ResumenLanding v17 — pestaña Resumen del Panel Global (neobrutal Food Pop).
- * v17: el hueco bajo "Días pico" muestra "Lo que deja cada pedido" (beneficio por pedido:
- *      ingreso bruto − coste total por pedido) en GRANATE sólido, para no repetir el azul
- *      de la tarjeta "Te deben" contigua. Responde de un vistazo si ganas o pierdes por pedido.
- * v16: tarjeta "palanca del ticket" (descartada).
- * v13: tabla de Resultado coherente cuando faltan costes.
+ * ResumenLanding v18 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v18: columna derecha de la sección 5 con las 3 tarjetas (Cuándo te compran · Días pico ·
+ *      Lo que deja cada pedido) repartidas a partes iguales (flex:1, misma altura). La tarjeta
+ *      de pedido se simplifica: sin barra "ingreso − coste" y sin frase inferior.
+ * v17: "Lo que deja cada pedido" en granate.
  * Mantiene: color por métrica, sombra única 4px, fondo crema coherente.
  */
 import { useState } from 'react'
@@ -203,7 +202,6 @@ export default function ResumenLanding(p: Props) {
   // Lo que deja cada pedido: ingreso bruto por pedido − coste total por pedido (comisión + producto)
   const hayPedidos = p.pedidosPeriodo > 0
   const beneficioPedido = p.tmBruto - p.costePorPedido.total
-  const pedidoPositivo = beneficioPedido >= 0
 
   const frase = elegirFrase(p.metricas)
   const fraseCostes = elegirFrase(p.metricas, 'costes')
@@ -389,7 +387,7 @@ export default function ResumenLanding(p: Props) {
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
-      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Beneficio por pedido 33% */}
+      {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Beneficio por pedido (3 parejas) */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
@@ -426,10 +424,10 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
 
-        {/* columna derecha: tres rectángulos apilados */}
+        {/* columna derecha: tres tarjetas a partes iguales (flex:1 cada una) */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Rectángulo 1 · Cuándo te compran (CLARO) — compacto */}
-          <div style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}` }}>
+          {/* Rectángulo 1 · Cuándo te compran (CLARO) */}
+          <div style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               <span style={eyebrow(NAR, '#fff')}>Cuándo te compran</span>
               {(mejorServ || flojoServ) && (
@@ -440,7 +438,7 @@ export default function ResumenLanding(p: Props) {
               )}
             </div>
             {p.serviciosHay
-              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, justifyContent: 'center' }}>
                   {p.servicios.slice(0, 3).map((s, i) => (
                     <div key={s.nombre}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
@@ -451,16 +449,16 @@ export default function ResumenLanding(p: Props) {
                     </div>
                   ))}
                 </div>
-              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
+              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340', flex: 1, display: 'flex', alignItems: 'center' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
-          {/* Rectángulo 2 · Días pico (AMA) — altura contenida */}
-          <div style={{ background: AMA, padding: `26px ${PAD}`, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column' }}>
+          {/* Rectángulo 2 · Días pico (AMA) */}
+          <div style={{ background: AMA, padding: `26px ${PAD}`, borderBottom: `4px solid ${INK}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
               <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
               <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 180, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flex: 1, minHeight: 150, marginBottom: 14 }}>
               {p.diasPico.map(x => {
                 const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
                 const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
@@ -480,32 +478,24 @@ export default function ResumenLanding(p: Props) {
             </div>
           </div>
 
-          {/* Rectángulo 3 · Lo que deja cada pedido (GRANATE sólido · rellena el resto) */}
+          {/* Rectángulo 3 · Lo que deja cada pedido (GRANATE) — sin barra ni frase */}
           <div style={{ background: GRANATE, color: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               <span style={eyebrow('#fff', GRANATE)}>Lo que deja cada pedido</span>
               <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>Coste/ped {E2(p.costePorPedido.total)}</span>
             </div>
-            {hayPedidos ? <>
-              <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, opacity: 0.92, marginBottom: 12, lineHeight: 1.35 }}>
-                De cada pedido, esto es lo que queda tras la comisión de plataforma y el producto.
-              </div>
-              <div style={{ marginTop: 4 }}>
+            {hayPedidos ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, opacity: 0.92, marginBottom: 12, lineHeight: 1.35 }}>
+                  De cada pedido, esto es lo que queda tras la comisión de plataforma y el producto.
+                </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                   <span style={d('clamp(40px,6vw,72px)', AMA)}>{ES(beneficioPedido)}</span>
                   <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>por pedido</span>
                 </div>
                 <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9, marginTop: 2 }}>beneficio por pedido<Est light /></div>
               </div>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'baseline', gap: 8, background: '#ffffff26', border: `2px solid #ffffff66`, padding: '5px 11px', marginTop: 14, fontFamily: OSW, fontSize: 12, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-                <span>Ingreso {E2(p.tmBruto)}</span><span style={{ opacity: 0.7 }}>−</span><span>coste {E2(p.costePorPedido.total)}</span>
-              </div>
-              <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `2px solid #ffffff33`, fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.92, lineHeight: 1.4 }}>
-                {pedidoPositivo
-                  ? 'Cada pedido suma. Protégelo: sube el ticket o baja el coste de producto.'
-                  : 'Cada pedido resta. Revisa comisión y coste antes de empujar más volumen.'}
-              </div>
-            </> : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, opacity: 0.9 }}>Sin pedidos en este periodo para calcular el beneficio por pedido.</div>}
+            ) : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, opacity: 0.9, flex: 1, display: 'flex', alignItems: 'center' }}>Sin pedidos en este periodo para calcular el beneficio por pedido.</div>}
           </div>
         </div>
       </section>
