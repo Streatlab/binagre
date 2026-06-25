@@ -15,12 +15,9 @@
  *   9  origen (External platforms)
  *  10  descuento
  *  11  fecha+hora  YYYY-MM-DD HH:MM:SS
- *  12  precio de línea
+ *  12  precio de línea  (negativo = Promo/Descuento → excluir)
  *  13  total del pedido
- *  14  extra (vacío o valor)
- *
- * Nota: el spec del handoff indicaba posición 5=cantidad, 6=nombre, 9=fecha, 10=precio
- * pero el CSV real tiene 2 columnas extra en pos 5-6, desplazando el resto.
+ *  14  extra
  *
  * Canales: Glovo → 'glovo', JustEat → 'sinqro', Uber → 'uber_eats'
  *
@@ -81,13 +78,8 @@ function normalizarCanal(raw: string): VentaPlato['canal'] {
 }
 
 // ── Marca desde dirección (col 4) ────────────────────────────────
-// En los archivos reales col 4 = "Calle Pico de la Maliciosa, 6, Local B, Madrid"
-// → identificamos la marca por canal + dirección (misma cocina, marcas distintas)
-// Como todos comparten dirección, usamos la dirección tal cual como identificador
-// de cocina y dejamos que los módulos superiores (Menú Engineering) filtren por canal
 function normalizarMarca(dir: string): string {
   if (!dir) return 'Streat Lab';
-  // Tomamos todo antes de la primera coma numérica o coma seguida de número
   const m = dir.match(/^([^,]+)/);
   return m ? m[1].trim() : dir.trim();
 }
@@ -143,7 +135,6 @@ export interface SinqroResult {
   franjas: VentaFranja[];
 }
 
-// Compatibilidad con código que solo usa los platos
 export function parseSinqroSoldProducts(csvText: string): VentaPlato[] {
   return parseSinqroSoldProductsFull(csvText).platos;
 }
@@ -172,11 +163,14 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
     const platoRaw = row[POS.PLATO] || '';
     if (!platoRaw || esModificadorOExtra(platoRaw)) continue;
 
+    const ingreso = parseFloat((row[POS.PRECIO] || '0').replace(',', '.')) || 0;
+    // Excluir líneas de descuento/promo (precio negativo o cero)
+    if (ingreso <= 0) continue;
+
     const plato = platoRaw.trim();
     const canal = normalizarCanal(row[POS.CANAL] || '');
     const marca = normalizarMarca(row[POS.MARCA] || '');
     const unidades = Math.max(1, parseInt(row[POS.UNIDS] || '1') || 1);
-    const ingreso = parseFloat((row[POS.PRECIO] || '0').replace(',', '.')) || 0;
     const fh = parseFechaHora(row[POS.FECHA] || '');
     const mes = fh?.mes ?? (new Date().getMonth() + 1);
     const año = fh?.año ?? new Date().getFullYear();
