@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -14,6 +15,7 @@ import {
   ClipboardList,
   Megaphone,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -31,7 +33,7 @@ const AMA    = '#FFC400'
 
 interface NavItem   { path: string; label: string; emoji: string; perfiles: string[] }
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
-interface SectionIconConfig { icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>; headBg: string; headColor: string }
+interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
 
 const SECTIONS: NavSection[] = [
   {
@@ -250,20 +252,21 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
   const sidebarWidth = collapsed ? 56 : 248
 
+  const asideStyle: CSSProperties = {
+    background: isDark ? '#1a1f2e' : CREMA,
+    border: `4px solid ${INK}`,
+    width: sidebarWidth,
+    minWidth: sidebarWidth,
+    maxWidth: sidebarWidth,
+    scrollbarWidth: 'none',
+  }
+
   return (
     <>
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
-        style={{
-          background: isDark ? '#1a1f2e' : CREMA,
-          border: `4px solid ${INK}`,
-          width: sidebarWidth,
-          minWidth: sidebarWidth,
-          maxWidth: sidebarWidth,
-          // sin barra de scroll
-          scrollbarWidth: 'none',
-        }}
+        style={asideStyle}
         className={`
           sl-noscroll fixed top-0 left-0 z-40 h-full
           flex flex-col overflow-hidden transition-all duration-[250ms] ease-[ease]
