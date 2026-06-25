@@ -2,13 +2,14 @@ import { useState, useCallback } from 'react';
 import { parseUberGanancias, type EstadisticaPrimePromo } from '../lib/parsers/parserUberGanancias';
 import { parseGlovoOrderDetails } from '../lib/parsers/parserGlovoOrderDetails';
 import { guardarEstadisticasPrimePromo } from '../lib/parsers/guardarEstadisticasPrimePromo';
-import { parseUberArticulos, type VentaPlato } from '../lib/parsers/parserUberArticulos';
-import { parseSinqroSoldProducts } from '../lib/parsers/parserSinqroSoldProducts';
+import { parseUberArticulosFull, type VentaPlato, type UberArticulosResult } from '../lib/parsers/parserUberArticulos';
+import { parseSinqroSoldProductsFull, type SinqroResult, type VentaFranja } from '../lib/parsers/parserSinqroSoldProducts';
 import { parseRushourPlataformas, type ResumenPlataforma } from '../lib/parsers/parserRushourPlataformas';
 import { parseRushourIngresos, type SerieDiaria } from '../lib/parsers/parserRushourIngresos';
 import { parseGlovoClientes, type MetricasClientes } from '../lib/parsers/parserGlovoClientes';
 import {
   guardarVentasPlato,
+  guardarVentasFranja,
   guardarResumenPlataformas,
   guardarSerieDiaria,
   guardarMetricasClientes,
@@ -20,8 +21,8 @@ const TIPOS = [
   { value: 'uber_ganancias',      label: 'Uber — Detalle de ganancias',          fase: 1, frec: 'Mensual', tag: 'Activo' },
   { value: 'glovo_orders',        label: 'Glovo — Historial de pedidos',          fase: 1, frec: 'Mensual', tag: 'Activo' },
   // Fase 2
-  { value: 'uber_articulos',      label: 'Uber — Detalle artículos (plato)',      fase: 2, frec: 'Mensual', tag: 'Fase 2' },
-  { value: 'sinqro_sold',         label: 'Sinqro — Sold products',                fase: 2, frec: 'Mensual', tag: 'Fase 2' },
+  { value: 'uber_articulos',      label: 'Uber — Detalle artículos (plato+hora)', fase: 2, frec: 'Mensual', tag: 'Fase 2' },
+  { value: 'sinqro_sold',         label: 'Sinqro — Sold products (plato+hora)',   fase: 2, frec: 'Mensual', tag: 'Fase 2' },
   { value: 'rushour_plataformas', label: 'Rushour — Desglose plataformas',        fase: 2, frec: 'Mensual', tag: 'Fase 2' },
   // Fase 3
   { value: 'rushour_ingresos',    label: 'Rushour — Ingresos totales (diario)',   fase: 3, frec: 'Diario',  tag: 'Fase 3' },
@@ -33,11 +34,11 @@ const TIPOS = [
 type TipoCSV = (typeof TIPOS)[number]['value'];
 
 type DatosParseados =
-  | { kind: 'prime'; data: EstadisticaPrimePromo[] }
-  | { kind: 'plato'; data: VentaPlato[] }
+  | { kind: 'prime';      data: EstadisticaPrimePromo[] }
+  | { kind: 'plato';      data: VentaPlato[];   franjas?: VentaFranja[]; origen: string }
   | { kind: 'plataforma'; data: ResumenPlataforma[] }
-  | { kind: 'serie'; data: SerieDiaria[] }
-  | { kind: 'clientes'; data: MetricasClientes[] };
+  | { kind: 'serie';      data: SerieDiaria[] }
+  | { kind: 'clientes';   data: MetricasClientes[] };
 
 const TAG_COLORS: Record<string, { bg: string; color: string }> = {
   'Activo': { bg: '#E1F5EE', color: '#085041' },
@@ -71,10 +72,16 @@ export default function ImportarVentas() {
             parsed = { kind: 'prime', data: parseUberGanancias(text) }; break;
           case 'glovo_orders':
             parsed = { kind: 'prime', data: parseGlovoOrderDetails(text) }; break;
-          case 'uber_articulos':
-            parsed = { kind: 'plato', data: parseUberArticulos(text) }; break;
-          case 'sinqro_sold':
-            parsed = { kind: 'plato', data: parseSinqroSoldProducts(text) }; break;
+          case 'uber_articulos': {
+            const res: UberArticulosResult = parseUberArticulosFull(text);
+            parsed = { kind: 'plato', data: res.platos, franjas: res.franjas, origen: 'uber' };
+            break;
+          }
+          case 'sinqro_sold': {
+            const res: SinqroResult = parseSinqroSoldProductsFull(text);
+            parsed = { kind: 'plato', data: res.platos, franjas: res.franjas, origen: 'sincro' };
+            break;
+          }
           case 'rushour_plataformas':
             parsed = { kind: 'plataforma', data: parseRushourPlataformas(text) }; break;
           case 'rushour_ingresos':
@@ -91,8 +98,8 @@ export default function ImportarVentas() {
           return;
         }
         setDatos(parsed);
-      } catch (err: any) {
-        setError(err.message || 'Error al parsear el archivo');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Error al parsear el archivo');
       }
     };
     reader.readAsText(file, 'UTF-8');
@@ -103,17 +110,39 @@ export default function ImportarVentas() {
     setGuardando(true); setError(null);
     try {
       let res;
-      if (datos.kind === 'prime')      res = await guardarEstadisticasPrimePromo(datos.data);
-      else if (datos.kind === 'plato') res = await guardarVentasPlato(datos.data);
-      else if (datos.kind === 'plataforma') res = await guardarResumenPlataformas(datos.data);
-      else if (datos.kind === 'serie') res = await guardarSerieDiaria(datos.data);
-      else                             res = await guardarMetricasClientes(datos.data);
+      if (datos.kind === 'prime') {
+        res = await guardarEstadisticasPrimePromo(datos.data);
+      } else if (datos.kind === 'plato') {
+        // Guardar platos con origen
+        res = await guardarVentasPlato(datos.data, datos.origen);
+        // Guardar franjas si las hay
+        if (datos.franjas && datos.franjas.length > 0) {
+          const resFranja = await guardarVentasFranja(datos.franjas);
+          res = {
+            insertados: res.insertados + resFranja.insertados,
+            actualizados: res.actualizados + resFranja.actualizados,
+            errores: [...res.errores, ...resFranja.errores],
+          };
+        }
+      } else if (datos.kind === 'plataforma') {
+        res = await guardarResumenPlataformas(datos.data);
+      } else if (datos.kind === 'serie') {
+        res = await guardarSerieDiaria(datos.data);
+      } else {
+        res = await guardarMetricasClientes(datos.data);
+      }
 
       if (res.errores.length) setError(res.errores.join('\n'));
-      setResultado(`✅ ${res.insertados} nuevos · ${res.actualizados} actualizados` + (res.errores.length ? ` · ${res.errores.length} errores` : ''));
+      setResultado(
+        `✅ ${res.insertados} nuevos · ${res.actualizados} actualizados` +
+        (datos.kind === 'plato' && datos.franjas?.length
+          ? ` · ${datos.franjas.length} franjas horarias`
+          : '') +
+        (res.errores.length ? ` · ${res.errores.length} errores` : '')
+      );
       setDatos(null);
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al guardar');
     } finally {
       setGuardando(false);
     }
@@ -200,6 +229,11 @@ export default function ImportarVentas() {
                     <th style={{ ...th, textAlign: 'right' }}>Uds</th>
                     <th style={{ ...th, textAlign: 'right' }}>Ingresos</th>
                     <th style={{ ...th, textAlign: 'right' }}>Precio medio</th>
+                    {datos.franjas && datos.franjas.length > 0 &&
+                      <th style={{ ...th, textAlign: 'right', color: '#1D9E75' }}>
+                        +{datos.franjas.length} franjas
+                      </th>
+                    }
                   </>}
                   {datos.kind === 'plataforma' && <>
                     <th style={th}>Canal</th><th style={th}>Marca</th><th style={th}>Mes</th>
@@ -238,6 +272,7 @@ export default function ImportarVentas() {
                     <td style={{ ...td, textAlign: 'right' }}>{d.unidades}</td>
                     <td style={{ ...td, textAlign: 'right', color: '#1D9E75' }}>{fmtEur(d.ingresos_brutos)} €</td>
                     <td style={{ ...td, textAlign: 'right' }}>{fmtEur(d.precio_medio)} €</td>
+                    {datos.franjas && datos.franjas.length > 0 && <td style={td}></td>}
                   </tr>
                 ))}
                 {datos.kind === 'plataforma' && datos.data.slice(0, 50).map((d, i) => (
@@ -277,7 +312,7 @@ export default function ImportarVentas() {
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={handleGuardar} disabled={guardando}
               style={{ padding: '10px 24px', background: guardando ? '#999' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: guardando ? 'default' : 'pointer' }}>
-              {guardando ? 'Guardando...' : `Confirmar (${datos.data.length} registros)`}
+              {guardando ? 'Guardando...' : `Confirmar (${datos.data.length} platos${datos.kind === 'plato' && datos.franjas?.length ? ` + ${datos.franjas.length} franjas` : ''})`}
             </button>
             <button onClick={handleCancelar}
               style={{ padding: '10px 24px', background: '#f5f3ef', color: '#444', border: '0.5px solid #d0c8bc', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
@@ -293,7 +328,7 @@ export default function ImportarVentas() {
         <strong>Mensual (día ~5):</strong> U1: Uber Eats Manager → Informes → Detalle ganancias · G1: Glovo Manager → Historial pedidos<br />
         <strong>Semanal:</strong> U5: Uber Eats Manager → Facturación (subir en OCR)<br />
         <strong>Quincenal:</strong> G2: Glovo Manager → Facturación · J1: Just Eat → Facturación (subir en OCR)<br />
-        <strong>Fase 2:</strong> U3: Uber → Informes nivel artículo · S1: Sinqro → Exports · R3: Rushour → Negocio → Desglose plataforma<br />
+        <strong>Fase 2:</strong> U4: Uber → Informes nivel artículo · S1: Sinqro → Exports → Sold products · R3: Rushour → Negocio → Desglose plataforma<br />
         <strong>Fase 3:</strong> R4+R5: Rushour → Informes → Ingresos / Volumen<br />
         <strong>Fase 4:</strong> G5: Glovo Manager → Rendimiento → Clientes
       </div>
