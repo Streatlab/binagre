@@ -28,6 +28,8 @@ export default function TabEstaSemana() {
     return lunesDeSemana(new Date())
   })
   const [turnos, setTurnos] = useState<Turno[]>([])
+  // turnos efectivos en vivo (lo que se ve y se edita) → lo que se exporta
+  const [turnosExport, setTurnosExport] = useState<Turno[]>([])
   const [cierres, setCierres] = useState<Partial<Record<string, string>>>({})
   const [fuente, setFuente] = useState<Fuente>('vacio')
 
@@ -90,6 +92,9 @@ export default function TabEstaSemana() {
     bd: '#1D9E75', historico: '#66aaff', plantilla: '#f5a623', vacio: '#777777',
   }
 
+  // Lo que se exporta: los turnos en vivo si los hay; si no, la base cargada.
+  const turnosParaExportar = turnosExport.length > 0 ? turnosExport : turnos
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
@@ -107,15 +112,15 @@ export default function TabEstaSemana() {
           <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() - 7); return n })} style={navBtn()}><ChevronLeft size={16} /></button>
           <button onClick={() => setLunes(lunesDeSemana(new Date()))} style={{ ...navBtn(), width: 'auto', padding: '0 10px', fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>Hoy</button>
           <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() + 7); return n })} style={navBtn()}><ChevronRight size={16} /></button>
-          <button onClick={() => exportarHorarioPDF(empleados, turnos, lunes, { abrir: true })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
-          <button onClick={() => compartirHorarioPDF(empleados, turnos, lunes)} style={actionBtn()}><Share2 size={14} /> Compartir</button>
+          <button onClick={() => exportarHorarioPDF(empleados, turnosParaExportar, lunes, { abrir: true })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
+          <button onClick={() => compartirHorarioPDF(empleados, turnosParaExportar, lunes)} style={actionBtn()}><Share2 size={14} /> Compartir</button>
         </div>
       </div>
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
       ) : (
-        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} mostrarCierre={false} onEmpleadosChange={cargarEmpleados} />
+        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} mostrarCierre={false} onEmpleadosChange={cargarEmpleados} onTurnosChange={setTurnosExport} />
       )}
     </div>
   )
