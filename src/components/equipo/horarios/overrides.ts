@@ -37,6 +37,7 @@ export async function cargarOverrides(desdeIso: string, hastaIso: string): Promi
     if (f.turno_tipo === 'LIBRE') continue
     map[k].push({ entrada: (f.hora_inicio || '').slice(0, 5), salida: (f.hora_fin || '').slice(0, 5) })
   }
+  // ordenar tramos por hora de entrada
   for (const k of Object.keys(map)) {
     map[k].sort((a, b) => a.entrada.localeCompare(b.entrada))
   }
@@ -64,15 +65,17 @@ export async function guardarOverride(empId: string, iso: string, tramos: Tramo[
   return !insErr
 }
 
-/** Normaliza una entrada de hora tecleada a HH:MM. Acepta "1430", "14:30", "9:00", "9". */
+/** Normaliza una entrada de hora tecleada a HH:MM (24h). "1234"->12:34, "305"->03:05. Máx 4 cifras. */
 export function normalizarHora(v: string): string {
   const s = (v || '').trim()
   if (!s) return ''
-  const m = s.match(/^(\d{1,2})[:.,]?(\d{2})?$/)
-  if (!m) return s
-  let hh = parseInt(m[1], 10)
-  const mm = m[2] ? parseInt(m[2], 10) : 0
+  const digits = s.replace(/\D/g, '').slice(0, 4)
+  if (!digits) return ''
+  let hh: number, mm: number
+  if (digits.length <= 2) { hh = parseInt(digits, 10); mm = 0 }
+  else if (digits.length === 3) { hh = parseInt(digits.slice(0, 1), 10); mm = parseInt(digits.slice(1), 10) }
+  else { hh = parseInt(digits.slice(0, 2), 10); mm = parseInt(digits.slice(2), 10) }
   if (hh > 23) hh = 23
-  const mmc = mm > 59 ? 59 : mm
-  return `${String(hh).padStart(2, '0')}:${String(mmc).padStart(2, '0')}`
+  if (mm > 59) mm = 59
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
