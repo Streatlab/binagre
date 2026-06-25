@@ -14,6 +14,10 @@ function estadoColor(estado: EstadoEmpleado): string {
   return '#B01D23'
 }
 
+function esArchivado(estado: string): boolean {
+  return ['inactivo', 'baja', 'despedido'].includes(estado)
+}
+
 function calcAntiguedad(fechaAlta?: string | null): string {
   if (!fechaAlta) return '—'
   const diff = Date.now() - new Date(fechaAlta + 'T12:00:00').getTime()
@@ -56,19 +60,18 @@ export default function TabEmpleados() {
   useEffect(() => { fetch() }, [])
 
   async function onArchivar(emp: Empleado) {
-    const archivado = emp.estado === 'inactivo' || emp.estado === 'baja' || emp.estado === 'despedido'
-    if (archivado) {
-      await reactivarEmpleado(emp.id)
+    if (esArchivado(emp.estado as string)) {
+      await reactivarEmpleado(emp.id!)
     } else {
       if (!window.confirm(`¿Pasar a ${emp.nombre} a antiguos empleados? Deja de aparecer en horarios pero conserva su histórico.`)) return
-      await archivarEmpleado(emp.id)
+      await archivarEmpleado(emp.id!)
     }
     fetch()
   }
 
   async function onBorrar(emp: Empleado) {
     if (!window.confirm(`BORRAR DEFINITIVAMENTE a ${emp.nombre}. Se elimina su ficha y sus horarios. Esta acción NO se puede deshacer. ¿Continuar?`)) return
-    await eliminarEmpleadoDuro(emp.id)
+    await eliminarEmpleadoDuro(emp.id!)
     fetch()
   }
 
@@ -125,7 +128,7 @@ export default function TabEmpleados() {
                   </td>
                 </tr>
               ) : empleados.map(emp => {
-                const archivado = emp.estado === 'inactivo' || emp.estado === 'baja' || emp.estado === 'despedido'
+                const archivado = esArchivado(emp.estado as string)
                 return (
                 <tr
                   key={emp.id}
