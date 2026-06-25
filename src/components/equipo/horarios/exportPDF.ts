@@ -1,9 +1,8 @@
 /**
  * Export PDF horizontal A4 — mismo cuadrante que la vista.
- * Diferencia con la pantalla: el PDF NO muestra el total de horas (ni por día ni semanal).
- * Solo los tramos de cada turno, un poco más grandes.
- * IMPORTANTE: antes de generar, fusiona los cambios editados a mano (overrides de
- * Supabase) sobre la base, para que el PDF refleje SIEMPRE lo último que se ve en pantalla.
+ * Construye el PDF EXACTAMENTE con los turnos que recibe (los que se ven en pantalla,
+ * ya con las ediciones a mano aplicadas). No re-lee nada de memoria antigua.
+ * El PDF NO muestra el total de horas, solo los tramos.
  */
 
 import { jsPDF } from 'jspdf'
@@ -12,7 +11,6 @@ import {
   fmtRangoSemana, numeroSemanaISO, tramosTexto, colorEmpleado,
 } from './utils'
 import { nombrePila, fechasSemana, isoDeFecha } from './CuadranteCuadricula'
-import { cargarOverrides, claveOverride } from './overrides'
 
 interface ExportOpts {
   abrir?: boolean
@@ -25,11 +23,6 @@ const GRIS_TXT: [number, number, number] = [140, 140, 140]
 const TINTA: [number, number, number] = [30, 34, 51]
 const MUT: [number, number, number] = [100, 100, 100]
 
-const CON_DESCUENTO = ['Ray', 'Andrés', 'Héctor']
-function descuentoMin(pila: string): number {
-  return CON_DESCUENTO.includes(pila) ? 30 : 0
-}
-
 /** Semana con override puntual: celdas sin turno en gris sin la palabra "Libre" (igual que la vista). */
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
@@ -40,28 +33,6 @@ function hexRgb(hex: string): [number, number, number] {
 
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** Fusiona los overrides editados a mano sobre la base de turnos para esta semana. */
-async function mergeTurnos(empleados: Empleado[], turnosBase: Turno[], lunes: Date): Promise<Turno[]> {
-  const dias = fechasSemana(lunes)
-  const ov = await cargarOverrides(dias[0].iso, dias[6].iso)
-  const out: Turno[] = []
-  for (const emp of empleados) {
-    const pila = nombrePila(emp.nombre)
-    for (const d of dias) {
-      const k = claveOverride(emp.id, d.iso)
-      if (k in ov) {
-        // override manual: reemplaza por completo (vacío = libre, no se añade)
-        const tramos = ov[k]
-        if (tramos.length > 0) out.push({ empleado_id: emp.id, dia: d.dia, tramos, descuento_min: descuentoMin(pila) })
-      } else {
-        const base = turnosBase.find(t => t.empleado_id === emp.id && t.dia === d.dia)
-        if (base) out.push(base)
-      }
-    }
-  }
-  return out
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,9 +148,8 @@ function buildPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, _opts: Ex
   return doc
 }
 
-export async function exportarHorarioPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, opts: ExportOpts = {}) {
-  const merged = await mergeTurnos(empleados, turnos, lunes)
-  const pdf = buildPDF(empleados, merged, lunes, opts)
+export function exportarHorarioPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, opts: ExportOpts = {}) {
+  const pdf = buildPDF(empleados, turnos, lunes, opts)
   const filename = `horario_S${numeroSemanaISO(lunes)}_${isoDate(lunes)}.pdf`
   if (opts.abrir) {
     pdf.save(filename)
@@ -188,8 +158,7 @@ export async function exportarHorarioPDF(empleados: Empleado[], turnos: Turno[],
 }
 
 export async function compartirHorarioPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, opts: ExportOpts = {}) {
-  const merged = await mergeTurnos(empleados, turnos, lunes)
-  const pdf = buildPDF(empleados, merged, lunes, opts)
+  const pdf = buildPDF(empleados, turnos, lunes, opts)
   const filename = `horario_S${numeroSemanaISO(lunes)}_${isoDate(lunes)}.pdf`
   const blob = pdf.output('blob')
   const file = new File([blob], filename, { type: 'application/pdf' })

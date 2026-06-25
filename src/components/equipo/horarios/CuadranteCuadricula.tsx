@@ -1,8 +1,8 @@
 /**
  * Cuadrante visual común — Esta Semana, Histórico, Próxima, Plantillas, Generador.
  * Edición inline: cada celda admite hasta 2 turnos (HH:MM). El conteo diario y
- * semanal se recalcula en vivo y los cambios se persisten en Supabase (overrides).
- * Permite además alta/baja y reordenar personal manualmente.
+ * semanal se recalcula en vivo. Botón Guardar persiste en Supabase (overrides).
+ * Los cambios se emiten en vivo a la página para que Exportar use lo que se ve.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown, X, Plus } from 'lucide-react'
@@ -104,11 +104,12 @@ interface CuadranteProps {
   mostrarCierre?: boolean
   editable?: boolean
   onEmpleadosChange?: () => void
+  onTurnosChange?: (turnos: Turno[]) => void
 }
 
 export function CuadranteCuadricula({
   empleados, turnos, lunes, cierres = {}, mostrarCierre = true,
-  editable = true, onEmpleadosChange,
+  editable = true, onEmpleadosChange, onTurnosChange,
 }: CuadranteProps) {
   const { T } = useTheme()
   const dias = useMemo(() => fechasSemana(lunes), [lunes])
@@ -182,7 +183,34 @@ export function CuadranteCuadricula({
   function commit(empId: string, iso: string, tramos: Tramo[]) {
     const k = claveOverride(empId, iso)
     setDatos(prev => ({ ...prev, [k]: tramos }))
-    guardarOverride(empId, iso, tramos)
+  }
+
+  // Emite a la página los turnos efectivos en vivo (para que Exportar use lo que se ve).
+  useEffect(() => {
+    if (!onTurnosChange) return
+    const out: Turno[] = []
+    for (const emp of empleados) {
+      const pila = nombrePila(emp.nombre)
+      for (const d of dias) {
+        const tr = datos[claveOverride(emp.id, d.iso)] ?? []
+        if (tr.length > 0) out.push({ empleado_id: emp.id, dia: d.dia, tramos: tr, descuento_min: descuentoMin(pila) })
+      }
+    }
+    onTurnosChange(out)
+  }, [datos, empleados, dias, onTurnosChange])
+
+  const [guardado, setGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
+
+  async function guardarTodo() {
+    setGuardado('guardando')
+    for (const emp of empleados) {
+      for (const d of dias) {
+        const tr = datos[claveOverride(emp.id, d.iso)] ?? []
+        await guardarOverride(emp.id, d.iso, tr)
+      }
+    }
+    setGuardado('guardado')
+    setTimeout(() => setGuardado('idle'), 2500)
   }
 
   const [nuevoNombre, setNuevoNombre] = useState('')
@@ -217,6 +245,27 @@ export function CuadranteCuadricula({
       <style>{`
         .hor-input::placeholder { color: rgba(0,0,0,0.25); }
       `}</style>
+
+      {editable && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          {guardado === 'guardado' && (
+            <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D9E75', fontWeight: 600 }}>Guardado ✓</span>
+          )}
+          <button
+            onClick={guardarTodo}
+            disabled={guardado === 'guardando'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 12,
+              letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700,
+              color: '#fff', background: guardado === 'guardando' ? '#7a8' : '#1D9E75',
+              border: 'none', padding: '8px 20px', borderRadius: 6,
+              cursor: guardado === 'guardando' ? 'default' : 'pointer',
+            }}
+          >
+            {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      )}
 
       <div style={{ ...cardStyle(T), padding: 14, overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 920 }}>
@@ -374,12 +423,12 @@ function Celda({
 
   if (!editable) {
     return (
-      <div style={{ background: fondo, color: texto, borderRadius: 5, padding: '6px 3px', textAlign: 'center', minHeight: 78, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: borde, fontStyle: vacio ? 'italic' : 'normal', fontSize: vacio ? 12 : 13 }}>
+      <div style={{ background: fondo, color: texto, borderRadius: 5, padding: '8px 4px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: borde, fontStyle: vacio ? 'italic' : 'normal', fontSize: vacio ? 13 : 16 }}>
         {vacio ? (ocultarLibre ? '' : 'Libre') : (
           <>
-            <span style={{ fontWeight: 700, whiteSpace: 'pre-line' }}>{tramos.map(t => `${t.entrada}–${t.salida}`).join('\n')}</span>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, marginTop: 4, opacity: 0.7 }}>
-              {fmtHM(real)}{hayDif && <span style={{ color: '#B01D23', opacity: 1, fontWeight: 600 }}> /{fmtHM(bruto)}</span>}
+            <span style={{ fontWeight: 700, whiteSpace: 'pre-line', fontSize: 16, lineHeight: 1.3 }}>{tramos.map(t => `${t.entrada}–${t.salida}`).join('\n')}</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, marginTop: 4, opacity: 0.75 }}>
+              {fmtHM(real)}{hayDif && <span style={{ color: '#B01D23', opacity: 1, fontWeight: 700 }}> /{fmtHM(bruto)}</span>}
             </span>
           </>
         )}
@@ -388,15 +437,15 @@ function Celda({
   }
 
   const inputStyle: CSSProperties = {
-    width: 46, textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600,
-    color: texto, background: 'rgba(255,255,255,0.55)', border: `1px solid ${vacio ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.18)'}`,
-    borderRadius: 3, padding: '2px 0', outline: 'none',
+    width: 56, textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700,
+    color: texto, background: 'rgba(255,255,255,0.6)', border: `1px solid ${vacio ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.2)'}`,
+    borderRadius: 3, padding: '4px 0', outline: 'none',
   }
-  const sep = <span style={{ fontSize: 11, opacity: 0.6 }}>–</span>
+  const sep = <span style={{ fontSize: 13, opacity: 0.6 }}>–</span>
 
   return (
-    <div style={{ background: fondo, borderRadius: 5, padding: '5px 3px', textAlign: 'center', minHeight: 78, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, border: borde }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+    <div style={{ background: fondo, borderRadius: 5, padding: '6px 3px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: borde }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <input className="hor-input" style={inputStyle} value={t1e} placeholder="--:--"
           onChange={e => setT1e(e.target.value)}
           onBlur={() => { const v = normalizarHora(t1e); setT1e(v); commitDesdeCampos(v, t1s, t2e, t2s) }} />
@@ -405,7 +454,7 @@ function Celda({
           onChange={e => setT1s(e.target.value)}
           onBlur={() => { const v = normalizarHora(t1s); setT1s(v); commitDesdeCampos(t1e, v, t2e, t2s) }} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <input className="hor-input" style={inputStyle} value={t2e} placeholder="--:--"
           onChange={e => setT2e(e.target.value)}
           onBlur={() => { const v = normalizarHora(t2e); setT2e(v); commitDesdeCampos(t1e, t1s, v, t2s) }} />
@@ -414,7 +463,7 @@ function Celda({
           onChange={e => setT2s(e.target.value)}
           onBlur={() => { const v = normalizarHora(t2s); setT2s(v); commitDesdeCampos(t1e, t1s, t2e, v) }} />
       </div>
-      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, color: texto, opacity: vacio ? 0.4 : 0.8, marginTop: 1 }}>
+      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, color: texto, opacity: vacio ? 0.4 : 0.85, marginTop: 1 }}>
         {vacio ? '—' : fmtHM(real)}
         {hayDif && <span style={{ color: '#B01D23', opacity: 1 }}> /{fmtHM(bruto)}</span>}
       </span>

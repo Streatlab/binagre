@@ -23,13 +23,15 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// ── Variante B del mock (bloques de color sólido), con el FONDO del sidebar en
-// crema (mismo crema que el fondo del ERP). Header y footer negros como el HTML.
+// ── Variante B del mock (bloques de color sólido). FONDO del sidebar (header,
+// cuerpo y footer) en crema. Texto de módulos y submódulos grande (~85% ancho)
+// sin aumentar la altura de las celdas.
 const INK    = '#0a0a0a'
 const CREMA  = '#FCEFD6'
 const BLANCO = '#fff'
 const GRANATE = '#B01D23'
 const AMA    = '#FFC400'
+const LOGO_SRC = '/loco-icon.svg.svg'
 
 interface NavItem   { path: string; label: string; emoji: string; perfiles: string[] }
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
@@ -276,42 +278,46 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         <style>{`.sl-noscroll *::-webkit-scrollbar{width:0;height:0;display:none}.sl-noscroll *{scrollbar-width:none}`}</style>
 
-        {/* ── HEADER (negro, logo SL granate) ── */}
+        {/* ── HEADER (crema, logo Binagre real) ── */}
         {collapsed ? (
-          <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
-            <div style={{ width: 30, height: 30, background: GRANATE, border: `2px solid ${CREMA}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontWeight: 700, color: CREMA, fontSize: 12 }}>SL</div>
+          <div style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
+            <div style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src={LOGO_SRC} alt="Streat Lab" style={{ width: 30, height: 30, objectFit: 'contain' }} />
+            </div>
             <button onClick={abrir20s} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 36 }} title="Abrir">
-              <ChevronRight size={18} color={CREMA} />
+              <ChevronRight size={18} color={INK} />
             </button>
           </div>
         ) : (
-          <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 16px' }}>
-            <div style={{ width: 34, height: 34, background: GRANATE, border: `2px solid ${CREMA}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontWeight: 700, color: CREMA, fontSize: 14, flexShrink: 0 }}>SL</div>
-            <span style={{ fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '3px', color: CREMA, fontSize: 18, textTransform: 'uppercase', flex: 1 }}>STREAT LAB</span>
+          <div style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 16px' }}>
+            <div style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src={LOGO_SRC} alt="Streat Lab" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+            </div>
+            <span style={{ fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '2px', color: INK, fontSize: 21, textTransform: 'uppercase', flex: 1 }}>STREAT LAB</span>
             <button
               onClick={() => { if (esMovilDisp) onClose(); else setAbierto(false) }}
-              style={{ color: CREMA, background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, fontWeight: 800, minWidth: 32, minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ color: INK, background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, fontWeight: 800, minWidth: 32, minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               title="Colapsar"
             >«</button>
           </div>
         )}
 
         {/* ── NAV ── */}
-        <nav className="flex-1 overflow-y-auto" style={{ overflowX: 'hidden' }}>
+        <nav className="flex-1 overflow-y-auto" style={{ overflowX: 'hidden', background: CREMA }}>
 
           {/* Panel Global (directo) */}
           {!collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
             <NavLink to="/" end onClick={onClose}
               style={({ isActive }) => ({
-                fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 15,
-                padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 11,
+                fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 18,
+                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 11,
                 borderBottom: `3px solid ${INK}`, cursor: 'pointer', textDecoration: 'none',
                 color: isActive ? AMA : INK, background: isActive ? INK : CREMA,
               })}
             >
               {({ isActive }) => (
                 <>
-                  <LayoutDashboard size={18} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
+                  <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
                   <span>Panel Global</span>
                 </>
               )}
@@ -328,15 +334,15 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed && perfil === 'admin' && (
             <NavLink to="/tareas" onClick={onClose}
               style={({ isActive }) => ({
-                fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 15,
-                padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 11,
+                fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 18,
+                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 11,
                 borderBottom: `3px solid ${INK}`, cursor: 'pointer', textDecoration: 'none',
                 color: isActive ? AMA : INK, background: isActive ? INK : CREMA,
               })}
             >
               {({ isActive }) => (
                 <>
-                  <BellRing size={18} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
+                  <BellRing size={20} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>Tareas</span>
                   <SidebarBadge count={tareasBadge} />
                 </>
@@ -355,7 +361,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* Secciones · variante B: sec-head de color sólido */}
+          {/* Secciones · variante B: sec-head de color sólido, texto grande */}
           {SECTIONS.map(section => {
             const visibleItems = filterItems(section.items)
             if (!section.perfiles.includes(perfil) || visibleItems.length === 0) return null
@@ -379,14 +385,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                       border: 'none', borderBottom: `3px solid ${INK}`, cursor: 'pointer',
                       boxShadow: isOpen ? `inset 0 -5px 0 ${INK}` : 'none',
                       display: 'flex', alignItems: 'center', gap: 11,
-                      padding: '12px 16px',
-                      fontFamily: FONT.heading, fontWeight: 700, fontSize: 14,
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      padding: '11px 16px',
+                      fontFamily: FONT.heading, fontWeight: 800, fontSize: 19,
+                      textTransform: 'uppercase', letterSpacing: '0.02em',
                     }}
                   >
-                    {Icon ? <Icon size={17} strokeWidth={2.4} color={headCo} style={{ flexShrink: 0 }} /> : null}
-                    <span>{section.label}</span>
-                    <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: 14, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+                    {Icon ? <Icon size={20} strokeWidth={2.4} color={headCo} style={{ flexShrink: 0 }} /> : null}
+                    <span style={{ flex: 1, textAlign: 'left' }}>{section.label}</span>
+                    <span style={{ fontWeight: 800, fontSize: 17, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
                   </button>
                 )}
 
@@ -395,8 +401,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     {visibleItems.map((item, idx) => (
                       <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
                         style={({ isActive }) => ({
-                          fontFamily: FONT.heading, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 12.5,
-                          padding: '9px 16px 9px 20px', display: 'flex', alignItems: 'center', gap: 10,
+                          fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 16,
+                          padding: '8px 16px 8px 18px', display: 'flex', alignItems: 'center', gap: 9,
                           cursor: 'pointer', textDecoration: 'none',
                           borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.14)' : 'none',
                           background: isActive ? INK : BLANCO,
@@ -422,18 +428,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed && perfil === 'admin' && (
             <div>
               <button type="button" onClick={() => setProxOpen(o => !o)}
-                style={{ width: '100%', background: CREMA, border: 'none', borderBottom: `3px solid ${INK}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', fontFamily: FONT.heading, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b5d45' }}
+                style={{ width: '100%', background: CREMA, border: 'none', borderBottom: `3px solid ${INK}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', fontFamily: FONT.heading, fontWeight: 800, fontSize: 16, textTransform: 'uppercase', letterSpacing: '0.02em', color: '#6b5d45' }}
                 title="Funciones en desarrollo">
-                <Clock size={16} strokeWidth={2.4} color="#6b5d45" />
-                <span>Próximamente</span>
-                <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: 14, transition: 'transform .2s', transform: proxOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
+                <Clock size={18} strokeWidth={2.4} color="#6b5d45" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Próximamente</span>
+                <span style={{ fontWeight: 800, fontSize: 17, transition: 'transform .2s', transform: proxOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
               </button>
               {proxOpen && (
                 <div style={{ background: BLANCO, borderBottom: `3px solid ${INK}` }}>
                   {PROXIMAMENTE.map((item, idx) => (
                     <div key={`${item.label}-${idx}`} aria-disabled="true"
-                      style={{ fontFamily: FONT.heading, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 12, padding: '8px 16px 8px 20px', display: 'flex', alignItems: 'center', gap: 10, color: '#9a8f78', opacity: 0.6, cursor: 'not-allowed', userSelect: 'none', borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.1)' : 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                      <span style={{ fontSize: 12, flexShrink: 0 }}>{item.emoji}</span>
+                      style={{ fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 14.5, padding: '7px 16px 7px 18px', display: 'flex', alignItems: 'center', gap: 9, color: '#9a8f78', opacity: 0.6, cursor: 'not-allowed', userSelect: 'none', borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.1)' : 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                      <span style={{ fontSize: 13, flexShrink: 0 }}>{item.emoji}</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                     </div>
                   ))}
@@ -443,17 +449,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           )}
         </nav>
 
-        {/* ── FOOTER (negro) ── */}
-        <div style={{ marginTop: 'auto', background: INK, borderTop: `4px solid ${INK}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* ── FOOTER (crema) ── */}
+        <div style={{ marginTop: 'auto', background: CREMA, borderTop: `4px solid ${INK}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <ThemeToggle />
           {!collapsed && (
-            <div style={{ fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em', color: CREMA, textAlign: 'right', lineHeight: 1.4 }}>
+            <div style={{ fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 12, letterSpacing: '0.04em', color: INK, textAlign: 'right', lineHeight: 1.4 }}>
               {usuario?.nombre}<br />
-              <button onClick={logout} style={{ color: GRANATE, background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em', padding: 0 }}>Cerrar sesión</button>
+              <button onClick={logout} style={{ color: GRANATE, background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', padding: 0 }}>Cerrar sesión</button>
             </div>
           )}
           {collapsed && (
-            <button onClick={logout} style={{ color: CREMA, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} title="Cerrar sesión">⏏</button>
+            <button onClick={logout} style={{ color: INK, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} title="Cerrar sesión">⏏</button>
           )}
         </div>
       </aside>
