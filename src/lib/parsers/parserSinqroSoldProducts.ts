@@ -2,19 +2,27 @@
  * Parser S1 — Sinqro Sold Products (sold_products_*.csv)
  * Separador: ;  |  SIN cabecera de nombres → mapear por posición
  *
- * Posiciones (0-based):
+ * POSICIONES REALES (verificadas contra archivo 20260625130142_sold_products_3976805.csv):
  *   0  id_pedido
  *   1  tienda|id_plataforma
  *   2  tipo (Delivery)
- *   3  canal (Glovo / Uber / JE / web)
+ *   3  canal (Glovo / JustEat / Uber)
  *   4  dirección → marca
- *   5  cantidad
- *   6  nombre de producto o modificador
- *   7  origen
- *   8  descuento
- *   9  fecha+hora  YYYY-MM-DD HH:MM:SS
- *  10  precio de línea
- *  11  total del pedido
+ *   5  extra1 (ej: "No facilitada") — IGNORAR
+ *   6  extra2 (vacío)               — IGNORAR
+ *   7  cantidad
+ *   8  nombre de producto o modificador
+ *   9  origen (External platforms)
+ *  10  descuento
+ *  11  fecha+hora  YYYY-MM-DD HH:MM:SS
+ *  12  precio de línea
+ *  13  total del pedido
+ *  14  extra (vacío o valor)
+ *
+ * Nota: el spec del handoff indicaba posición 5=cantidad, 6=nombre, 9=fecha, 10=precio
+ * pero el CSV real tiene 2 columnas extra en pos 5-6, desplazando el resto.
+ *
+ * Canales: Glovo → 'glovo', JustEat → 'sinqro', Uber → 'uber_eats'
  *
  * Output:
  *   - VentaPlato[]  → ventas_plato (estimado=false, origen='sincro')
@@ -34,22 +42,31 @@ export interface VentaFranja {
   importe: number;
 }
 
-// ── Exclusiones ─────────────────────────────────────────────────
-// Modificadores: texto en MAYÚSCULAS o que empieza por '['
-// Extras genéricos a excluir de ventas_plato
+// ── Posiciones reales ────────────────────────────────────────────
+const POS = {
+  PEDIDO: 0,
+  CANAL:  3,
+  MARCA:  4,
+  UNIDS:  7,
+  PLATO:  8,
+  FECHA:  11,
+  PRECIO: 12,
+} as const;
+
+// ── Exclusiones ──────────────────────────────────────────────────
 const PALABRAS_EXCLUIR = [
   'agua', 'bebida', 'refresco', 'cola', 'fanta', 'nestea', 'cerveza',
-  'pan', 'extra', 'adicional', 'modificador', 'cubiertos', 'servilleta',
+  'pan', 'extra', 'adicional', 'cubiertos', 'servilleta',
   'bolsa', 'bag', 'packaging', 'cargo', 'envío',
 ];
 
 function esModificadorOExtra(nombre: string): boolean {
   const n = nombre.trim();
-  // Todo MAYÚSCULAS (>=3 chars y ninguna minúscula)
-  if (n.length >= 3 && n === n.toUpperCase() && /[A-Z]/.test(n)) return true;
+  if (!n) return true;
+  // Todo MAYÚSCULAS ≥3 chars (modificadores Sincro/Glovo)
+  if (n.length >= 3 && n === n.toUpperCase() && /[A-ZÁÉÍÓÚ]/.test(n)) return true;
   // Empieza por '['
   if (n.startsWith('[')) return true;
-  // Lista de exclusión
   const nl = n.toLowerCase();
   return PALABRAS_EXCLUIR.some(p => nl.includes(p));
 }
@@ -63,15 +80,19 @@ function normalizarCanal(raw: string): VentaPlato['canal'] {
   return 'sinqro';
 }
 
-// ── Marca desde dirección ────────────────────────────────────────
-// La columna 4 contiene la dirección que identifica la marca.
-// Extraemos la parte más significativa (hasta la primera coma).
+// ── Marca desde dirección (col 4) ────────────────────────────────
+// En los archivos reales col 4 = "Calle Pico de la Maliciosa, 6, Local B, Madrid"
+// → identificamos la marca por canal + dirección (misma cocina, marcas distintas)
+// Como todos comparten dirección, usamos la dirección tal cual como identificador
+// de cocina y dejamos que los módulos superiores (Menú Engineering) filtren por canal
 function normalizarMarca(dir: string): string {
-  if (!dir) return 'Sin marca';
-  return dir.split(',')[0].trim() || dir.trim();
+  if (!dir) return 'Streat Lab';
+  // Tomamos todo antes de la primera coma numérica o coma seguida de número
+  const m = dir.match(/^([^,]+)/);
+  return m ? m[1].trim() : dir.trim();
 }
 
-// ── Parseo CSV con separador ; ───────────────────────────────────
+// ── Parseo CSV con separador ; ────────────────────────────────────
 function parseCSVSemicolon(text: string): string[][] {
   const rows: string[][] = [];
   let current = '', inQuotes = false, row: string[] = [];
@@ -95,28 +116,24 @@ function parseCSVSemicolon(text: string): string[][] {
   return rows;
 }
 
-// ── Fecha+hora ───────────────────────────────────────────────────
+// ── Fecha+hora YYYY-MM-DD HH:MM:SS ──────────────────────────────
 interface FechaHora {
-  fecha: string;     // YYYY-MM-DD
+  fecha: string;
   mes: number;
   año: number;
   hora: number;
-  dia_semana: number; // 0=Lunes, 6=Domingo
+  dia_semana: number;
 }
 
 function parseFechaHora(s: string): FechaHora | null {
   if (!s) return null;
-  // Espera "YYYY-MM-DD HH:MM:SS"
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):\d{2}:\d{2})?/);
   if (!m) return null;
-  const año = parseInt(m[1]);
-  const mes = parseInt(m[2]);
-  const dia = parseInt(m[3]);
-  const hora = m[4] ? parseInt(m[4]) : 12; // fallback mediodía
+  const año = parseInt(m[1]), mes = parseInt(m[2]), dia = parseInt(m[3]);
+  const hora = m[4] ? parseInt(m[4]) : 12;
   const fecha = `${m[1]}-${m[2]}-${m[3]}`;
-  // getDay(): 0=Dom, 1=Lun … 6=Sab → convertimos a 0=Lun, 6=Dom
   const d = new Date(año, mes - 1, dia);
-  const dia_semana = (d.getDay() + 6) % 7;
+  const dia_semana = (d.getDay() + 6) % 7; // 0=Lun, 6=Dom
   return { fecha, mes, año, hora, dia_semana };
 }
 
@@ -126,6 +143,7 @@ export interface SinqroResult {
   franjas: VentaFranja[];
 }
 
+// Compatibilidad con código que solo usa los platos
 export function parseSinqroSoldProducts(csvText: string): VentaPlato[] {
   return parseSinqroSoldProductsFull(csvText).platos;
 }
@@ -134,18 +152,9 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
   const allRows = parseCSVSemicolon(csvText);
   if (allRows.length < 1) return { platos: [], franjas: [] };
 
-  // Detectar si la primera fila es cabecera (contiene texto no numérico en col 0)
-  const primeraCeldaEsTexto = isNaN(Number(allRows[0][0]));
+  // Detectar si la primera fila es cabecera textual (col 0 no numérico)
+  const primeraCeldaEsTexto = allRows[0][0] && isNaN(Number(allRows[0][0]));
   const dataRows = primeraCeldaEsTexto ? allRows.slice(1) : allRows;
-
-  // Posiciones fijas según spec del handoff
-  const POS_PEDIDO  = 0;
-  const POS_CANAL   = 3;
-  const POS_MARCA   = 4;
-  const POS_UNIDS   = 5;
-  const POS_PLATO   = 6;
-  const POS_FECHA   = 9;
-  const POS_PRECIO  = 10;
 
   const gruposPlato: Record<string, {
     canal: VentaPlato['canal']; marca: string; plato: string;
@@ -158,17 +167,17 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
   }> = {};
 
   for (const row of dataRows) {
-    if (!row[POS_PEDIDO]) continue; // fila vacía
+    if (!row[POS.PEDIDO]) continue; // fila vacía
 
-    const platoRaw = row[POS_PLATO] || '';
+    const platoRaw = row[POS.PLATO] || '';
     if (!platoRaw || esModificadorOExtra(platoRaw)) continue;
 
     const plato = platoRaw.trim();
-    const marca = normalizarMarca(row[POS_MARCA] || '');
-    const canal = normalizarCanal(row[POS_CANAL] || '');
-    const unidades = Math.max(1, parseInt(row[POS_UNIDS] || '1') || 1);
-    const ingreso = parseFloat((row[POS_PRECIO] || '0').replace(',', '.')) || 0;
-    const fh = parseFechaHora(row[POS_FECHA] || '');
+    const canal = normalizarCanal(row[POS.CANAL] || '');
+    const marca = normalizarMarca(row[POS.MARCA] || '');
+    const unidades = Math.max(1, parseInt(row[POS.UNIDS] || '1') || 1);
+    const ingreso = parseFloat((row[POS.PRECIO] || '0').replace(',', '.')) || 0;
+    const fh = parseFechaHora(row[POS.FECHA] || '');
     const mes = fh?.mes ?? (new Date().getMonth() + 1);
     const año = fh?.año ?? new Date().getFullYear();
 
@@ -189,7 +198,7 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
           dia_semana: fh.dia_semana, pedidos: new Set(), unidades: 0, importe: 0,
         };
       }
-      gruposFranja[keyFranja].pedidos.add(row[POS_PEDIDO]);
+      gruposFranja[keyFranja].pedidos.add(row[POS.PEDIDO]);
       gruposFranja[keyFranja].unidades += unidades;
       gruposFranja[keyFranja].importe += ingreso;
     }
