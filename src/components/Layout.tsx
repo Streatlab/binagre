@@ -9,14 +9,14 @@ import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useTheme } from '@/styles/tokens'
 
-// Fondo del wrapper del ERP: rosa claro en modo claro (el mismo de la tarjeta Ratio).
-const ROSA_WRAP = '#ffe0ea'
+// Fondo del wrapper del ERP: crema en modo claro (mismo crema del sidebar).
+const CREMA_WRAP = '#FCEFD6'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const movil = useEsMovil()
   const { isDark } = useTheme()
-  const appBg = isDark ? 'var(--sl-app)' : ROSA_WRAP
+  const appBg = isDark ? 'var(--sl-app)' : CREMA_WRAP
 
   return (
     <div className="flex h-screen text-[var(--sl-text-primary)] font-sans" style={{ background: appBg }}>
