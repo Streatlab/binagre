@@ -2,8 +2,10 @@
  * Cuadrante visual común — Esta Semana, Histórico, Próxima, Plantillas, Generador.
  * Edición inline: cada celda admite hasta 2 turnos (HH:MM). El conteo diario y
  * semanal se recalcula en vivo y los cambios se persisten en Supabase (overrides).
+ * Permite además alta/baja y reordenar personal manualmente.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { ChevronUp, ChevronDown, X, Plus } from 'lucide-react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
@@ -14,6 +16,7 @@ import {
   cargarOverrides, guardarOverride, claveOverride, normalizarHora,
   type OverridesMap,
 } from './overrides'
+import { crearEmpleado, desactivarEmpleado, guardarOrden } from './personal'
 
 const FESTIVO_ROJO = '#B01D23'
 const SEMANA_SIN_LIBRE = '2026-06-15'
@@ -38,6 +41,14 @@ function descuentoMin(pila: string): number {
 
 function turnoDe(tramos: Tramo[], pila: string): Turno {
   return { empleado_id: '', dia: 'Lun', tramos, descuento_min: descuentoMin(pila) }
+}
+
+function miniBtn(T: ReturnType<typeof useTheme>['T'], disabled: boolean): CSSProperties {
+  return {
+    width: 18, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: `1px solid ${T.brd}`, background: T.card, color: T.mut, borderRadius: 3,
+    cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1, padding: 0,
+  }
 }
 
 export const ORDEN_PILA = ['Ray', 'Andrés', 'Héctor', 'Emilio', 'Rubén']
@@ -92,12 +103,12 @@ interface CuadranteProps {
   cierres?: Partial<Record<DiaKey, string>>
   mostrarCierre?: boolean
   editable?: boolean
-  mostrarImprimir?: boolean
+  onEmpleadosChange?: () => void
 }
 
 export function CuadranteCuadricula({
   empleados, turnos, lunes, cierres = {}, mostrarCierre = true,
-  editable = true, mostrarImprimir = true,
+  editable = true, onEmpleadosChange,
 }: CuadranteProps) {
   const { T } = useTheme()
   const dias = useMemo(() => fechasSemana(lunes), [lunes])
@@ -174,32 +185,38 @@ export function CuadranteCuadricula({
     guardarOverride(empId, iso, tramos)
   }
 
+  const [nuevoNombre, setNuevoNombre] = useState('')
+
+  async function moverEmpleado(idx: number, dir: -1 | 1) {
+    const j = idx + dir
+    if (j < 0 || j >= empleados.length) return
+    const ids = empleados.map(e => e.id)
+    ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
+    await guardarOrden(ids)
+    onEmpleadosChange?.()
+  }
+
+  async function eliminarEmpleado(emp: Empleado) {
+    if (!window.confirm(`¿Quitar a ${nombrePila(emp.nombre)} de los horarios? Su histórico se conserva.`)) return
+    await desactivarEmpleado(emp.id)
+    onEmpleadosChange?.()
+  }
+
+  async function anadirEmpleado() {
+    const nombre = nuevoNombre.trim()
+    if (!nombre) return
+    await crearEmpleado(nombre, empleados.length + 1)
+    setNuevoNombre('')
+    onEmpleadosChange?.()
+  }
+
   const filaCierre = mostrarCierre && Object.keys(cierres).length > 0
 
   return (
     <div>
       <style>{`
-        @media print {
-          .hor-noprint { display: none !important; }
-          .hor-input { border: none !important; background: transparent !important; }
-        }
         .hor-input::placeholder { color: rgba(0,0,0,0.25); }
       `}</style>
-
-      {mostrarImprimir && (
-        <div className="hor-noprint" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-          <button
-            onClick={() => window.print()}
-            style={{
-              fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
-              fontWeight: 600, color: '#fff', background: '#1e2233', border: '2px solid #1e2233',
-              padding: '7px 16px', cursor: 'pointer', borderRadius: 0,
-            }}
-          >
-            Imprimir
-          </button>
-        </div>
-      )}
 
       <div style={{ ...cardStyle(T), padding: 14, overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 920 }}>
@@ -215,15 +232,30 @@ export function CuadranteCuadricula({
           ))}
           <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 2px' }}>Total</div>
 
-          {empleadosVisibles.map(emp => {
+          {empleadosVisibles.map((emp, rowIdx) => {
             const pila = nombrePila(emp.nombre)
             const col = color(idxEmp[emp.id] ?? 0)
             const tot = totalEmp(emp.id, pila)
             const hayDif = Math.abs(tot.bruto - tot.real) > 0.001
             return (
               <div key={emp.id} style={{ display: 'contents' }}>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: T.pri, padding: '8px 4px', display: 'flex', alignItems: 'center', letterSpacing: '0.5px' }}>
-                  {pila}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '8px 2px' }}>
+                  {editable && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <button onClick={() => moverEmpleado(rowIdx, -1)} disabled={rowIdx === 0}
+                        style={miniBtn(T, rowIdx === 0)} title="Subir"><ChevronUp size={12} /></button>
+                      <button onClick={() => moverEmpleado(rowIdx, 1)} disabled={rowIdx === empleadosVisibles.length - 1}
+                        style={miniBtn(T, rowIdx === empleadosVisibles.length - 1)} title="Bajar"><ChevronDown size={12} /></button>
+                    </div>
+                  )}
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: T.pri, letterSpacing: '0.5px', flex: 1 }}>
+                    {pila}
+                  </span>
+                  {editable && (
+                    <button onClick={() => eliminarEmpleado(emp)} style={{ ...miniBtn(T, false), color: '#B01D23' }} title="Quitar de horarios">
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
 
                 {dias.map(({ dia, iso, festivo }) => (
@@ -264,6 +296,33 @@ export function CuadranteCuadricula({
           )}
         </div>
       </div>
+
+      {editable && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <input
+            value={nuevoNombre}
+            onChange={e => setNuevoNombre(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') anadirEmpleado() }}
+            placeholder="Nombre de la persona…"
+            style={{
+              flex: '0 0 240px', maxWidth: 240, fontFamily: FONT.body, fontSize: 13,
+              padding: '8px 10px', border: `1px solid ${T.brd}`, borderRadius: 6,
+              background: T.card, color: T.pri, outline: 'none',
+            }}
+          />
+          <button
+            onClick={anadirEmpleado}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT.heading, fontSize: 11,
+              letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600,
+              color: '#fff', background: '#1e2233', border: '1px solid #1e2233',
+              padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+            }}
+          >
+            <Plus size={14} /> Añadir persona
+          </button>
+        </div>
+      )}
     </div>
   )
 }
