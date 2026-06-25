@@ -1,14 +1,16 @@
 /**
  * TabEvolucion — Panel Global · pestaña Evolución
- * Layout: editorial neobrutalista (secciones apiladas, fondo CREMA, bordes INK 4px)
- * Datos: intactos (mesMap, netoDeRow, CardComparativa, racha, días semana, tienda online)
+ * Reconstruido como LANDING NARRATIVO neobrutal (lenguaje de ResumenLanding):
+ * bandas a sangre completa, titulares-frase con número incrustado, Spark, Barra
+ * gruesa, pastillas eyebrow, cierre emocional. Datos intactos (mesMap, netoDeRow,
+ * comparativa posición/fecha, racha, día de semana, tienda online).
  */
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, GRIS, AMA, GRANATE, OSC,
-  OSW, LEX, SHADOW, BORDER_CARD,
+  INK, OSC, CREMA, CLARO, TRACK, ROSA, ROJO, AMA, VERDE, NAR, AZUL, GRANATE, GRIS,
+  OSW, LEX, SHADOW, PAD,
   eyebrow, d,
 } from '@/styles/neobrutal'
 import { fmtEur, fmtNum } from '@/utils/format'
@@ -24,9 +26,7 @@ interface Props {
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const DIAS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-const COMISIONES: Record<string, number> = {
-  uber: 0.30, glovo: 0.30, je: 0.30, web: 0.07, directa: 0.00,
-}
+const COMISIONES: Record<string, number> = { uber: 0.30, glovo: 0.30, je: 0.30, web: 0.07, directa: 0.00 }
 const CANALES_IDS = ['uber', 'glovo', 'je', 'web', 'directa'] as const
 
 function netoDeRow(r: RowFacturacion): number {
@@ -36,167 +36,56 @@ function netoDeRow(r: RowFacturacion): number {
   }, 0)
 }
 
-function fmtMesKey(key: string): string {
-  const [y, m] = key.split('-')
-  return `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
+// ── Helpers de cifra (mismo "rollo" que Resumen) ──────────────
+const EUR = (n: number) => fmtEur(n)
+const E = (n: number) => fmtEur(n).replace(/\s?€/, '')
+const N = (n: number) => fmtNum(n)
+const P0 = (n: number) => `${Math.round(n)}%`
+const P1 = (n: number) => `${n >= 0 ? '' : ''}${n.toFixed(1)}%`
+const fmtMesKey = (key: string) => { const [y, m] = key.split('-'); return `${MESES_ES[parseInt(m, 10) - 1]} ${y}` }
+
+// ── Dispositivos visuales (copiados del lenguaje Resumen) ─────
+function Arrow({ v }: { v: number | null }) {
+  if (v == null) return null
+  const up = v >= 0
+  return <span style={{ fontSize: '0.62em', marginRight: 5, color: up ? VERDE : ROJO }}>{up ? '▲' : '▼'}</span>
 }
 
-// ── CardPesoOnline — lógica intacta, estilo neobrutal ────────
-function CardPesoOnline({ rowsAll }: { rowsAll: RowFacturacion[] }) {
-  const mesMap: Record<string, { total: number; online: number }> = {}
-  rowsAll.forEach(r => {
-    const key = r.fecha.slice(0, 7)
-    if (!mesMap[key]) mesMap[key] = { total: 0, online: 0 }
-    mesMap[key].total += r.total_bruto
-    mesMap[key].online += (r.web_bruto ?? 0) + (r.directa_bruto ?? 0)
-  })
-  const keys = Object.keys(mesMap).sort().slice(-12)
-  if (keys.length === 0) return null
-
-  const ultimo = keys[keys.length - 1]
-  const penultimo = keys.length >= 2 ? keys[keys.length - 2] : null
-  const pctActual = mesMap[ultimo].total > 0 ? (mesMap[ultimo].online / mesMap[ultimo].total) * 100 : 0
-  const pctAnterior = penultimo && mesMap[penultimo].total > 0 ? (mesMap[penultimo].online / mesMap[penultimo].total) * 100 : null
-  const delta = pctAnterior !== null ? pctActual - pctAnterior : null
-
+function Spark({ serie, color = INK, w = 240, h = 54, dashed = false }: { serie: number[]; color?: string; w?: number; h?: number; dashed?: boolean }) {
+  if (!serie || serie.length < 2) return null
+  const max = Math.max(1, ...serie), step = w / (serie.length - 1)
+  const path = serie.map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${(h - (v / max) * h).toFixed(1)}`).join(' ')
   return (
-    <div style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px' }}>
-      <span style={eyebrow(AZUL, '#fff')}>Tienda online · web + directa</span>
-      <div style={{ ...d('clamp(32px,4vw,48px)', AZUL), marginTop: 10 }}>{pctActual.toFixed(1)}%</div>
-      {delta !== null && (
-        <div style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: delta >= 0 ? VERDE : ROJO, marginTop: 4 }}>
-          {delta >= 0 ? '▲ +' : '▼ '}{Math.abs(delta).toFixed(1)} pts vs mes ant.
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 48, marginTop: 14 }}>
-        {keys.map(k => {
-          const pct = mesMap[k].total > 0 ? (mesMap[k].online / mesMap[k].total) * 100 : 0
-          const h = Math.max(3, (pct / 100) * 44)
-          const isActual = k === ultimo
-          const [, m] = k.split('-')
-          return (
-            <div key={k} style={{ flex: 1, minWidth: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <div style={{ width: '100%', height: h, background: isActual ? AZUL : AZUL + '55', border: isActual ? `1px solid ${INK}` : 'none' }} />
-              <span style={{ fontFamily: OSW, fontSize: 9, color: isActual ? AZUL : GRIS, textTransform: 'uppercase' }}>
-                {MESES_ES[parseInt(m, 10) - 1]}
-              </span>
-            </div>
-          )
-        })}
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: h }} preserveAspectRatio="none">
+      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill={`${color}${dashed ? '14' : '22'}`} />
+      <path d={path} fill="none" stroke={color} strokeWidth={dashed ? 2.5 : 3} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dashed ? '5 4' : undefined} />
+    </svg>
+  )
+}
+
+function Barra({ nombre, pct, color, valor, alto = 30, track = TRACK }: { nombre: string; pct: number; color: string; valor: string; alto?: number; track?: string }) {
+  const fill = Math.min(100, Math.max(0, pct))
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ ...d('15px'), width: 64, flexShrink: 0, lineHeight: 1.05 }}>{nombre}</span>
+      <div style={{ position: 'relative', flex: 1, height: alto, background: track, border: `3px solid ${INK}`, overflow: 'hidden' }}>
+        <div style={{ width: `${fill}%`, height: '100%', background: color, transition: 'width .3s', boxShadow: `2px 0 0 ${INK}` }} />
       </div>
+      <span style={{ ...d('16px'), width: 90, textAlign: 'right', flexShrink: 0 }}>{valor}</span>
     </div>
   )
 }
 
-// ── CardDiaSemana ─────────────────────────────────────────────
-const DIA_NEO: Record<number, string> = { 0: ROJO, 1: AZUL, 2: VERDE, 3: NAR, 4: GRANATE, 5: AMA, 6: NAR }
+const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: string; dark?: boolean }> = ({ tag, tagBg, tagColor = INK, title, dark }) => (
+  <>
+    <span style={eyebrow(tagBg, tagColor)}>{tag}</span>
+    {title && <div style={{ ...d('clamp(24px,3vw,38px)', dark ? CREMA : INK), margin: '14px 0 22px' }}>{title}</div>}
+  </>
+)
 
-function CardDiaSemana({ rowsAll }: { rowsAll: RowFacturacion[] }) {
-  const diaMap: Record<number, { suma: number; count: number }> = {}
-  for (let i = 0; i < 7; i++) diaMap[i] = { suma: 0, count: 0 }
-  rowsAll.forEach(r => {
-    const dd = new Date(r.fecha + 'T00:00:00').getDay()
-    diaMap[dd].suma += r.total_bruto
-    diaMap[dd].count += 1
-  })
-  const medias = Object.entries(diaMap).map(([dd, v]) => ({
-    dia: parseInt(dd), media: v.count > 0 ? v.suma / v.count : 0,
-  })).filter(x => x.media > 0)
-  if (medias.length === 0) return null
-
-  const maxMedia = Math.max(...medias.map(x => x.media))
-  const minMedia = Math.min(...medias.map(x => x.media))
-  const mejor = medias.find(x => x.media === maxMedia)!
-  const peor = medias.find(x => x.media === minMedia)!
-
-  return (
-    <div style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px' }}>
-      <span style={eyebrow(VERDE, '#fff')}>Mejor / peor día de semana</span>
-      <div style={{ display: 'flex', gap: 20, marginTop: 12 }}>
-        <div>
-          <div style={{ fontFamily: OSW, fontSize: 11, color: VERDE, letterSpacing: '1px', textTransform: 'uppercase' }}>Mejor</div>
-          <div style={{ ...d('clamp(24px,3vw,32px)', VERDE) }}>{DIAS_ES[mejor.dia]}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 3 }}>{fmtEur(mejor.media)} / día</div>
-        </div>
-        <div>
-          <div style={{ fontFamily: OSW, fontSize: 11, color: ROJO, letterSpacing: '1px', textTransform: 'uppercase' }}>Peor</div>
-          <div style={{ ...d('clamp(24px,3vw,32px)', ROJO) }}>{DIAS_ES[peor.dia]}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 3 }}>{fmtEur(peor.media)} / día</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 64, marginTop: 14 }}>
-        {[1, 2, 3, 4, 5, 6, 0].map(dd => {
-          const { suma, count } = diaMap[dd]
-          const media = count > 0 ? suma / count : 0
-          const h = maxMedia > 0 ? Math.max(3, (media / maxMedia) * 56) : 3
-          const isMejor = dd === mejor.dia
-          const isPeor = dd === peor.dia
-          const barColor = isMejor ? VERDE : isPeor ? ROJO : DIA_NEO[dd]
-          return (
-            <div key={dd} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-              <div style={{ width: '100%', height: h, background: barColor, border: `1px solid ${INK}` }} />
-              <span style={{ fontFamily: OSW, fontSize: 10, color: isMejor ? VERDE : isPeor ? ROJO : GRIS, textTransform: 'uppercase' }}>
-                {DIAS_ES[dd].slice(0, 2)}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── CardTicketMedio ───────────────────────────────────────────
-function CardTicketMedio({ rowsAll }: { rowsAll: RowFacturacion[] }) {
-  const mesMap: Record<string, { bruto: number; pedidos: number }> = {}
-  rowsAll.forEach(r => {
-    const key = r.fecha.slice(0, 7)
-    if (!mesMap[key]) mesMap[key] = { bruto: 0, pedidos: 0 }
-    mesMap[key].bruto += r.total_bruto
-    mesMap[key].pedidos += r.total_pedidos
-  })
-  const keys = Object.keys(mesMap).sort().slice(-12)
-  if (keys.length === 0) return null
-  const ultimo = keys[keys.length - 1]
-  const penultimo = keys.length >= 2 ? keys[keys.length - 2] : null
-  const tmActual = mesMap[ultimo].pedidos > 0 ? mesMap[ultimo].bruto / mesMap[ultimo].pedidos : 0
-  const tmAnterior = penultimo && mesMap[penultimo].pedidos > 0 ? mesMap[penultimo].bruto / mesMap[penultimo].pedidos : null
-  const delta = tmAnterior !== null ? tmActual - tmAnterior : null
-  const maxTm = Math.max(...keys.map(k => mesMap[k].pedidos > 0 ? mesMap[k].bruto / mesMap[k].pedidos : 0), 1)
-
-  return (
-    <div style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px' }}>
-      <span style={eyebrow(NAR, '#fff')}>Ticket medio mensual</span>
-      <div style={{ ...d('clamp(28px,3.5vw,42px)', NAR), marginTop: 10 }}>{fmtEur(tmActual)}</div>
-      {delta !== null && (
-        <div style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: delta >= 0 ? VERDE : ROJO, marginTop: 4 }}>
-          {delta >= 0 ? '▲ +' : '▼ '}{fmtEur(Math.abs(delta))} vs mes ant.
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 48, marginTop: 14 }}>
-        {keys.map(k => {
-          const tm = mesMap[k].pedidos > 0 ? mesMap[k].bruto / mesMap[k].pedidos : 0
-          const h = maxTm > 0 ? Math.max(3, (tm / maxTm) * 44) : 3
-          const isActual = k === ultimo
-          const [, m] = k.split('-')
-          return (
-            <div key={k} style={{ flex: 1, minWidth: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <div style={{ width: '100%', height: h, background: isActual ? NAR : NAR + '55', border: isActual ? `1px solid ${INK}` : 'none' }} />
-              <span style={{ fontFamily: OSW, fontSize: 9, color: isActual ? NAR : GRIS, textTransform: 'uppercase' }}>
-                {MESES_ES[parseInt(m, 10) - 1]}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── CardRachaObjetivo ─────────────────────────────────────────
+// ── Racha de objetivo (async, lógica intacta) ─────────────────
 interface ObjetivoDia { anio: number; mes: number; importe: number }
-
-function CardRachaObjetivo({ rowsAll }: { rowsAll: RowFacturacion[] }) {
+function useRacha(rowsAll: RowFacturacion[]) {
   const [objetivos, setObjetivos] = useState<ObjetivoDia[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -204,36 +93,21 @@ function CardRachaObjetivo({ rowsAll }: { rowsAll: RowFacturacion[] }) {
       .then(({ data }) => { setObjetivos((data ?? []) as ObjetivoDia[]); setLoading(false) })
   }, [])
   if (loading || objetivos.length === 0) return null
-
   const objMap: Record<string, number> = {}
   objetivos.forEach(o => { objMap[`${o.anio}-${String(o.mes).padStart(2, '0')}`] = o.importe })
-
   const sorted = [...rowsAll].sort((a, b) => b.fecha.localeCompare(a.fecha))
   let racha = 0
   for (const r of sorted) {
     const obj = objMap[r.fecha.slice(0, 7)]
     if (obj === undefined) break
-    if (r.total_bruto >= obj) racha++
-    else break
+    if (r.total_bruto >= obj) racha++; else break
   }
-
   const objActual = sorted[0] ? objMap[sorted[0].fecha.slice(0, 7)] : undefined
   if (objActual === undefined) return null
-
-  const rachaColor = racha >= 7 ? VERDE : racha >= 3 ? NAR : ROJO
-  const rachaLabel = racha === 0 ? 'Sin racha activa' : racha === 1 ? '1 día consecutivo' : `${racha} días consecutivos`
-
-  return (
-    <div style={{ background: OSC, border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px' }}>
-      <span style={eyebrow(AMA)}>Racha de objetivo diario</span>
-      <div style={{ ...d('clamp(44px,6vw,72px)', rachaColor), marginTop: 10 }}>{fmtNum(racha)}</div>
-      <div style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: rachaColor, marginTop: 4 }}>{rachaLabel}</div>
-      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8 }}>Objetivo: {fmtEur(objActual)} / día</div>
-    </div>
-  )
+  return { racha, objActual }
 }
 
-// ── CardComparativaPeriodo — lógica intacta, estilo neobrutal ─
+// ── Comparativa del periodo (lógica de fechas 100% intacta) ───
 type Metrica = 'ventas' | 'pedidos' | 'ticket'
 
 function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[]; ancla: Date }) {
@@ -297,8 +171,7 @@ function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[];
     return r
   }
 
-  const y = ancla.getFullYear(), m = ancla.getMonth(), day = ancla.getDate(), wd = ancla.getDay()
-
+  const y = ancla.getFullYear(), mo = ancla.getMonth(), day = ancla.getDate(), wd = ancla.getDay()
   let posLabel = '', posMesAntLbl = '', posAnioAntLbl = ''
   let fchLabel = '', fchMesAntLbl = '', fchAnioAntLbl = ''
   let posActual: number | null = null, posMesAnt: number | null = null, posAnioAnt: number | null = null
@@ -309,78 +182,72 @@ function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[];
     const ord = ['1er', '2º', '3er', '4º', '5º'][n - 1] ?? `${n}º`
     posLabel = `${ord} ${DIAS_ES[wd]} del mes`
     posActual = valorDia(ancla)
-    posMesAnt = valorDia(nthWeekdayOfMonth(y, m - 1, wd, n))
-    posAnioAnt = valorDia(nthWeekdayOfMonth(y - 1, m, wd, n))
-    posMesAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[(m + 11) % 12]}`
-    posAnioAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[m]} ${y - 1}`
+    posMesAnt = valorDia(nthWeekdayOfMonth(y, mo - 1, wd, n))
+    posAnioAnt = valorDia(nthWeekdayOfMonth(y - 1, mo, wd, n))
+    posMesAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[(mo + 11) % 12]}`
+    posAnioAntLbl = `${ord} ${DIAS_ES[wd]} de ${MESES_ES[mo]} ${y - 1}`
     fchLabel = `Día ${day}`
     fchActual = valorDia(ancla)
-    fchMesAnt = valorDia(new Date(y, m - 1, day))
-    fchAnioAnt = valorDia(new Date(y - 1, m, day))
-    fchMesAntLbl = `${day} de ${MESES_ES[(m + 11) % 12]}`
-    fchAnioAntLbl = `${day} de ${MESES_ES[m]} ${y - 1}`
+    fchMesAnt = valorDia(new Date(y, mo - 1, day))
+    fchAnioAnt = valorDia(new Date(y - 1, mo, day))
+    fchMesAntLbl = `${day} de ${MESES_ES[(mo + 11) % 12]}`
+    fchAnioAntLbl = `${day} de ${MESES_ES[mo]} ${y - 1}`
   } else {
     const lunes = mondayOf(ancla), domingo = addDays(lunes, 6)
     const nSem = Math.ceil(day / 7)
     const week = isoWeek(ancla), wYear = isoWeekYear(ancla)
     posLabel = `${nSem}ª semana del mes`
     posActual = valorRango(lunes, domingo)
-    const lunMesAnt = mondayOf(new Date(y, m - 1, Math.min((nSem - 1) * 7 + 1, 28)))
+    const lunMesAnt = mondayOf(new Date(y, mo - 1, Math.min((nSem - 1) * 7 + 1, 28)))
     posMesAnt = valorRango(lunMesAnt, addDays(lunMesAnt, 6))
     const lunISOprev = mondayOfISOWeek(wYear - 1, week)
     posAnioAnt = valorRango(lunISOprev, addDays(lunISOprev, 6))
-    posMesAntLbl = `${nSem}ª sem. de ${MESES_ES[(m + 11) % 12]}`
+    posMesAntLbl = `${nSem}ª sem. de ${MESES_ES[(mo + 11) % 12]}`
     posAnioAntLbl = `sem. ISO ${week} de ${wYear - 1}`
     fchLabel = `Semana del ${day}`
     fchActual = valorRango(lunes, domingo)
-    const lunFMesAnt = mondayOf(new Date(y, m - 1, day))
+    const lunFMesAnt = mondayOf(new Date(y, mo - 1, day))
     fchMesAnt = valorRango(lunFMesAnt, addDays(lunFMesAnt, 6))
-    const lunFAnioAnt = mondayOf(new Date(y - 1, m, day))
+    const lunFAnioAnt = mondayOf(new Date(y - 1, mo, day))
     fchAnioAnt = valorRango(lunFAnioAnt, addDays(lunFAnioAnt, 6))
-    fchMesAntLbl = `sem. del ${day} de ${MESES_ES[(m + 11) % 12]}`
-    fchAnioAntLbl = `sem. del ${day} de ${MESES_ES[m]} ${y - 1}`
+    fchMesAntLbl = `sem. del ${day} de ${MESES_ES[(mo + 11) % 12]}`
+    fchAnioAntLbl = `sem. del ${day} de ${MESES_ES[mo]} ${y - 1}`
   }
 
-  const fmtVal = (v: number) => metrica === 'pedidos' ? fmtNum(v) : fmtEur(v)
-  const deltaColor = (v: number | null, actual: number | null) => {
-    if (v === null || actual === null || v === 0) return GRIS
-    return ((actual - v) / v) * 100 >= 0 ? VERDE : ROJO
-  }
-  const deltaStr = (v: number | null, actual: number | null) => {
-    if (v === null || actual === null || v === 0) return null
-    const pct = ((actual - v) / v) * 100
-    return `${pct >= 0 ? '▲ +' : '▼ '}${Math.abs(pct).toFixed(1)}%`
-  }
+  const fmtVal = (v: number) => metrica === 'pedidos' ? N(v) : E(v)
+  const deltaPct = (v: number | null, actual: number | null) => (v !== null && v > 0 && actual !== null) ? ((actual - v) / v) * 100 : null
 
-  const pillStyle = (active: boolean, activeBg: string): React.CSSProperties => ({
-    padding: '5px 13px', border: `2px solid ${INK}`, background: active ? activeBg : '#fff',
-    color: active ? (activeBg === AMA ? INK : '#fff') : GRIS,
-    fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1px',
-    textTransform: 'uppercase', cursor: 'pointer',
+  const pill = (active: boolean, bg: string): React.CSSProperties => ({
+    padding: '6px 14px', border: `2px solid ${INK}`, background: active ? bg : '#fff',
+    color: active ? (bg === AMA ? INK : '#fff') : GRIS, fontFamily: OSW, fontWeight: 700,
+    fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
   })
 
-  const Ref = ({ valor, actual, etq, sub }: { valor: number | null; actual: number | null; etq: string; sub: string }) => (
-    <div style={{ flex: 1, borderLeft: `3px solid ${INK}`, paddingLeft: 12 }}>
-      <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{etq}</div>
-      <div style={{ fontFamily: OSW, fontSize: 20, fontWeight: 600, color: INK, marginTop: 2 }}>{valor === null ? '—' : fmtVal(valor)}</div>
-      <div style={{ fontFamily: LEX, fontSize: 10, color: GRIS, marginTop: 1 }}>{sub}</div>
-      <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: deltaColor(valor, actual), marginTop: 3 }}>
-        {deltaStr(valor, actual) ?? 'sin dato'}
+  const Ref = ({ valor, actual, etq, sub }: { valor: number | null; actual: number | null; etq: string; sub: string }) => {
+    const dp = deltaPct(valor, actual)
+    return (
+      <div style={{ flex: 1, minWidth: 110, borderLeft: `3px solid ${INK}22`, paddingLeft: 14 }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{etq}</div>
+        <div style={{ ...d('20px', INK), marginTop: 3 }}>{valor === null ? '—' : fmtVal(valor)}</div>
+        <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 2 }}>{sub}</div>
+        <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: dp === null ? GRIS : dp >= 0 ? VERDE : ROJO, marginTop: 4 }}>
+          {dp === null ? 'sin dato' : <><Arrow v={dp} />{P1(dp)}</>}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
-  const Bloque = ({ titulo, label, actual, mesAnt, anioAnt, mesAntSub, anioAntSub, accentColor }: {
-    titulo: string; label: string; actual: number | null
-    mesAnt: number | null; anioAnt: number | null; mesAntSub: string; anioAntSub: string; accentColor: string
+  const Bloque = ({ titulo, label, actual, mesAnt, anioAnt, mesAntSub, anioAntSub, accent }: {
+    titulo: string; label: string; actual: number | null; mesAnt: number | null; anioAnt: number | null
+    mesAntSub: string; anioAntSub: string; accent: string
   }) => (
-    <div style={{ flex: 1, background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 20px' }}>
-      <span style={eyebrow(accentColor, accentColor === AMA ? INK : '#fff')}>{titulo}</span>
-      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 6, marginBottom: 14 }}>{label}</div>
+    <div style={{ flex: '1 1 360px', background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '20px 22px' }}>
+      <span style={{ ...eyebrow(accent, accent === AMA ? INK : '#fff'), fontSize: 12 }}>{titulo}</span>
+      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '8px 0 16px' }}>{label}</div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Periodo actual</div>
-          <div style={{ ...d('clamp(24px,3vw,32px)', INK), marginTop: 4 }}>{actual === null ? '—' : fmtVal(actual)}</div>
+        <div style={{ minWidth: 110 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Periodo actual</div>
+          <div style={{ ...d('clamp(26px,3.2vw,36px)', INK), marginTop: 4 }}>{actual === null ? '—' : fmtVal(actual)}</div>
         </div>
         <Ref valor={mesAnt} actual={actual} etq="Mes anterior" sub={mesAntSub} />
         <Ref valor={anioAnt} actual={actual} etq="Año anterior" sub={anioAntSub} />
@@ -390,223 +257,299 @@ function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[];
 
   return (
     <div>
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 0 }}>
           {(['ventas', 'pedidos', 'ticket'] as const).map((v, i) => (
-            <button key={v} onClick={() => setMetrica(v)}
-              style={{ ...pillStyle(metrica === v, GRANATE), borderRight: i < 2 ? 'none' : `2px solid ${INK}` }}>
+            <button key={v} onClick={() => setMetrica(v)} style={{ ...pill(metrica === v, GRANATE), borderRight: i < 2 ? 'none' : `2px solid ${INK}` }}>
               {v === 'ventas' ? 'Ventas' : v === 'pedidos' ? 'Pedidos' : 'Ticket'}
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 0 }}>
           {(['dia', 'semana'] as const).map((v, i) => (
-            <button key={v} onClick={() => setVista(v)}
-              style={{ ...pillStyle(vista === v, AMA), borderRight: i === 0 ? 'none' : `2px solid ${INK}` }}>
+            <button key={v} onClick={() => setVista(v)} style={{ ...pill(vista === v, AMA), borderRight: i === 0 ? 'none' : `2px solid ${INK}` }}>
               {v === 'dia' ? 'Día' : 'Semana'}
             </button>
           ))}
         </div>
+        <span style={{ fontFamily: LEX, fontSize: 12, color: '#6b5d45' }}>
+          Ancla {day} {MESES_ES[mo]} {y} · misma posición y misma fecha frente a mes y año anteriores
+        </span>
       </div>
-      {/* Nota ancla */}
-      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 14 }}>
-        Ancla: {day} {MESES_ES[m]} {y} · misma posición y misma fecha frente a mes y año anteriores
-      </div>
-      {/* Bloques */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <Bloque titulo="Por posición" label={posLabel} actual={posActual} mesAnt={posMesAnt} anioAnt={posAnioAnt}
-          mesAntSub={posMesAntLbl} anioAntSub={posAnioAntLbl} accentColor={GRANATE} />
-        <Bloque titulo="Por fecha" label={fchLabel} actual={fchActual} mesAnt={fchMesAnt} anioAnt={fchAnioAnt}
-          mesAntSub={fchMesAntLbl} anioAntSub={fchAnioAntLbl} accentColor={AZUL} />
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <Bloque titulo="Por posición" label={posLabel} actual={posActual} mesAnt={posMesAnt} anioAnt={posAnioAnt} mesAntSub={posMesAntLbl} anioAntSub={posAnioAntLbl} accent={GRANATE} />
+        <Bloque titulo="Por fecha" label={fchLabel} actual={fchActual} mesAnt={fchMesAnt} anioAnt={fchAnioAnt} mesAntSub={fchMesAntLbl} anioAntSub={fchAnioAntLbl} accent={AZUL} />
       </div>
     </div>
   )
 }
 
-// ── Componente principal ──────────────────────────────────────
+// ── LANDING principal ─────────────────────────────────────────
 export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
+  const racha = useRacha(rowsAll)
+
   if (!rowsAll.length) {
     return (
-      <div style={{ background: CREMA, border: `4px solid ${INK}`, padding: '44px 40px', fontFamily: LEX, color: GRIS, textAlign: 'center' }}>
+      <div style={{ background: CREMA, border: `4px solid ${INK}`, padding: `64px ${PAD}`, fontFamily: LEX, color: GRIS, textAlign: 'center' }}>
         Sin datos históricos disponibles
       </div>
     )
   }
 
-  const mesMap: Record<string, { bruto: number; pedidos: number; neto: number }> = {}
+  // ── Agregación mensual (intacta) ──
+  const mesMap: Record<string, { bruto: number; pedidos: number; neto: number; online: number }> = {}
   rowsAll.forEach(r => {
     const key = r.fecha.slice(0, 7)
-    if (!mesMap[key]) mesMap[key] = { bruto: 0, pedidos: 0, neto: 0 }
+    if (!mesMap[key]) mesMap[key] = { bruto: 0, pedidos: 0, neto: 0, online: 0 }
     mesMap[key].bruto += r.total_bruto
     mesMap[key].pedidos += r.total_pedidos
     mesMap[key].neto += netoDeRow(r)
+    mesMap[key].online += (r.web_bruto ?? 0) + (r.directa_bruto ?? 0)
   })
-  const todosMeses = Object.keys(mesMap).sort()
-  const ultimos12 = todosMeses.slice(-12)
-  const mejorMes = ultimos12.reduce((best, key) => mesMap[key].bruto > mesMap[best].bruto ? key : best, ultimos12[0])
-  const peorMes = ultimos12.reduce((worst, key) => mesMap[key].bruto < mesMap[worst].bruto ? key : worst, ultimos12[0])
+  const ultimos12 = Object.keys(mesMap).sort().slice(-12)
+  const mejorMes = ultimos12.reduce((b, k) => mesMap[k].bruto > mesMap[b].bruto ? k : b, ultimos12[0])
+  const peorMes = ultimos12.reduce((w, k) => mesMap[k].bruto < mesMap[w].bruto ? k : w, ultimos12[0])
   const mesActualKey = ultimos12[ultimos12.length - 1]
   const mesActual = mesMap[mesActualKey]
-  const [yActual, mActual] = mesActualKey.split('-')
-  const mesAnteriorKey = `${parseInt(yActual) - 1}-${mActual}`
-  const mesAnterior = mesMap[mesAnteriorKey]
-  const tendenciaPct = mesAnterior && mesAnterior.bruto > 0
-    ? ((mesActual.bruto - mesAnterior.bruto) / mesAnterior.bruto) * 100
-    : null
+  const [yA, mA] = mesActualKey.split('-')
+  const mesAnterior = mesMap[`${parseInt(yA) - 1}-${mA}`]
+  const tendencia = mesAnterior && mesAnterior.bruto > 0 ? ((mesActual.bruto - mesAnterior.bruto) / mesAnterior.bruto) * 100 : null
   const maxBruto = Math.max(...ultimos12.map(k => mesMap[k].bruto), 1)
+  const serie12 = ultimos12.map(k => mesMap[k].bruto)
 
-  const tendenciaColor = tendenciaPct === null ? GRIS : tendenciaPct >= 0 ? VERDE : ROJO
+  const tmActual = mesActual.pedidos > 0 ? mesActual.bruto / mesActual.pedidos : 0
+  const pesoOnline = mesActual.bruto > 0 ? (mesActual.online / mesActual.bruto) * 100 : 0
+  const tmMedio = (() => { const tot = ultimos12.reduce((a, k) => ({ b: a.b + mesMap[k].bruto, p: a.p + mesMap[k].pedidos }), { b: 0, p: 0 }); return tot.p > 0 ? tot.b / tot.p : 0 })()
+  const pedidosTotales = ultimos12.reduce((a, k) => a + mesMap[k].pedidos, 0)
+
+  // ── Día de semana (intacta) ──
+  const diaMap: Record<number, { suma: number; count: number }> = {}
+  for (let i = 0; i < 7; i++) diaMap[i] = { suma: 0, count: 0 }
+  rowsAll.forEach(r => { const dd = new Date(r.fecha + 'T00:00:00').getDay(); diaMap[dd].suma += r.total_bruto; diaMap[dd].count += 1 })
+  const medias = Object.entries(diaMap).map(([dd, v]) => ({ dia: parseInt(dd), media: v.count > 0 ? v.suma / v.count : 0 })).filter(x => x.media > 0)
+  const maxMedia = medias.length ? Math.max(...medias.map(x => x.media)) : 1
+  const mejorDia = medias.length ? medias.reduce((a, x) => x.media > a.media ? x : a) : null
+  const peorDia = medias.length ? medias.reduce((a, x) => x.media < a.media ? x : a) : null
+
+  // ── Serie online 12m para sparkline ──
+  const serieOnline = ultimos12.map(k => mesMap[k].bruto > 0 ? (mesMap[k].online / mesMap[k].bruto) * 100 : 0)
+
+  // Color y verbo del estado de salud (igual que Resumen)
+  const tendColor = tendencia == null ? AMA : tendencia >= 3 ? VERDE : tendencia <= -3 ? ROJO : NAR
+  const tendTxt = tendencia == null ? INK : '#fff'
+  const verbo = tendencia == null ? 'En marcha' : tendencia >= 3 ? 'En crecimiento' : tendencia <= -3 ? 'A la baja' : 'Estable'
+
+  // Pastillas de insight (banda oscura)
+  const insights: Array<{ t: string; c: string }> = []
+  insights.push({ t: `Mejor mes ${fmtMesKey(mejorMes)} · ${E(mesMap[mejorMes].bruto)}`, c: VERDE })
+  insights.push({ t: `Peor mes ${fmtMesKey(peorMes)} · ${E(mesMap[peorMes].bruto)}`, c: ROJO })
+  if (mejorDia) insights.push({ t: `${DIAS_ES[mejorDia.dia]} tu día fuerte · ${E(mejorDia.media)}/día`, c: AMA })
+  insights.push({ t: `Online pesa ${P0(pesoOnline)}`, c: AZUL })
+  if (racha && racha.racha > 0) insights.push({ t: `Racha objetivo · ${racha.racha} días`, c: VERDE })
+
+  const heroStats: Array<{ l: string; v: string; c: string }> = [
+    { l: 'Mejor mes (12m)', v: fmtMesKey(mejorMes), c: VERDE },
+    { l: 'Peor mes (12m)', v: fmtMesKey(peorMes), c: ROJO },
+    { l: 'TM medio 12m', v: EUR(tmMedio), c: NAR },
+    { l: 'Pedidos totales 12m', v: N(pedidosTotales), c: INK },
+    { l: 'Neto último mes', v: EUR(mesActual.neto), c: VERDE },
+  ]
+
+  const sec = (bg: string, pad = `44px ${PAD}`): React.CSSProperties => ({ background: bg, padding: pad, borderBottom: `4px solid ${INK}` })
 
   return (
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
 
-      {/* ── S1 · HERO (AMA) ── */}
-      <section style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: '44px 40px' }}>
-        <span style={eyebrow(INK, AMA)}>Evolución · últimos 12 meses</span>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 40, alignItems: 'start', marginTop: 18 }}>
-          {/* Left: tendencia hero */}
-          <div>
-            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, opacity: 0.6, marginBottom: 6 }}>
-              Tendencia vs año anterior · {fmtMesKey(mesActualKey)}
-            </div>
-            <div style={{ ...d('clamp(52px,7.5vw,96px)', tendenciaColor) }}>
-              {tendenciaPct === null ? '—' : `${tendenciaPct >= 0 ? '+' : ''}${tendenciaPct.toFixed(1)}%`}
-            </div>
-            <div style={{ display: 'flex', gap: 28, marginTop: 20, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, opacity: 0.6 }}>Bruto último mes</div>
-                <div style={{ ...d('clamp(22px,3vw,30px)', INK), marginTop: 4 }}>{fmtEur(mesActual.bruto)}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, opacity: 0.6 }}>Neto estimado</div>
-                <div style={{ ...d('clamp(22px,3vw,30px)', VERDE), marginTop: 4 }}>{fmtEur(mesActual.neto)}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, opacity: 0.6 }}>Pedidos</div>
-                <div style={{ ...d('clamp(22px,3vw,30px)', INK), marginTop: 4 }}>{fmtNum(mesActual.pedidos)}</div>
-              </div>
-            </div>
+      {/* 0 · HERO — titular-frase con tendencia incrustada */}
+      <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: tendColor, color: tendTxt }}>
+        <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={eyebrow('#fff')}>Evolución · últimos 12 meses</span>
+            <span style={{ ...eyebrow(INK, tendColor === AMA ? AMA : '#fff'), fontSize: 12, color: tendColor === AMA ? INK : tendColor }}>{verbo}</span>
           </div>
-          {/* Right: mejor/peor mes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ background: VERDE, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px' }}>
-              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', opacity: 0.8 }}>Mejor mes (12m)</div>
-              <div style={{ ...d('clamp(18px,2.5vw,24px)', '#fff'), marginTop: 4 }}>{fmtMesKey(mejorMes)}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: '#ffffffcc', marginTop: 3 }}>{fmtEur(mesMap[mejorMes].bruto)}</div>
+          <div style={{ ...d('clamp(30px,4vw,52px)', tendTxt), margin: '18px 0 18px', maxWidth: 640 }}>
+            {tendencia == null
+              ? <>Aún no hay histórico del año pasado para comparar.</>
+              : <>Frente al año pasado, el negocio va{' '}
+                  <span style={{ background: INK, color: tendColor, padding: '0 .14em', display: 'inline-block' }}>{tendencia >= 0 ? '+' : ''}{P1(tendencia)}</span>.</>}
+          </div>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>Facturación último mes · {fmtMesKey(mesActualKey)}</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
+                <div style={d('clamp(44px,6.8vw,92px)', tendTxt)}>{EUR(mesActual.bruto)}</div>
+                {tendencia != null && <div style={{ ...eyebrow(tendencia >= 0 ? VERDE : ROJO, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={tendencia} />{P1(tendencia)}</div>}
+              </div>
             </div>
-            <div style={{ background: ROJO, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px' }}>
-              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', opacity: 0.8 }}>Peor mes (12m)</div>
-              <div style={{ ...d('clamp(18px,2.5vw,24px)', '#fff'), marginTop: 4 }}>{fmtMesKey(peorMes)}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: '#ffffffcc', marginTop: 3 }}>{fmtEur(mesMap[peorMes].bruto)}</div>
-            </div>
+            <div style={{ marginBottom: 4, minWidth: 200 }}><Spark serie={serie12} color={tendColor === AMA ? INK : '#fff'} /></div>
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 16px', marginTop: 18 }}>
+            <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Neto estimado mes</span>
+            <span style={d('clamp(24px,3.4vw,40px)', '#fff')}>{EUR(mesActual.neto)}</span>
+            <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600 }}>{N(mesActual.pedidos)} ped.</span>
+          </div>
+        </div>
+        <div style={{ background: CLARO, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
+          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '26px 28px', width: '100%', maxWidth: 380 }}>
+            <div style={{ ...d('17px'), borderBottom: `2px dashed ${INK}`, paddingBottom: 12, marginBottom: 4 }}>· Resumen de 12 meses ·</div>
+            {heroStats.map((s, i) => (
+              <div key={s.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: i < heroStats.length - 1 ? `1px dotted ${INK}55` : 'none' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{s.l}</span>
+                <span style={d('clamp(20px,2.6vw,26px)', s.c)}>{s.v}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── S2 · EVOLUCIÓN MENSUAL (#fff) ── */}
-      <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: '44px 40px' }}>
-        <span style={eyebrow(CREMA)}>Evolución mensual · ventas brutas · últimos 12 meses</span>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, marginTop: 24 }}>
+      {/* 1 · INSIGHTS — banda oscura */}
+      <section style={{ background: OSC, borderBottom: `4px solid ${INK}`, padding: `18px ${PAD}`, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ ...d('16px', CREMA), marginRight: 4 }}>Lo que cuenta →</span>
+        {insights.slice(0, 5).map((a, i) => (
+          <span key={i} style={{ display: 'inline-block', background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
+        ))}
+      </section>
+
+      {/* 2 · FRASE — banda de acento */}
+      <section style={{ background: ROSA, color: '#fff', padding: `46px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
+        <div style={{ ...d('clamp(26px,4vw,50px)', '#fff'), maxWidth: 1000 }}>
+          Tu mejor mes fue <span style={{ background: '#fff', color: ROSA, padding: '0 10px' }}>{fmtMesKey(mejorMes)}</span>{mejorDia && <> y los <span style={{ background: '#fff', color: ROSA, padding: '0 10px' }}>{DIAS_ES[mejorDia.dia]}</span> son tu día fuerte</>}.
+        </div>
+        <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>
+          A este ritmo, el ticket medio del último mes es {EUR(tmActual)} y la tienda online ya pesa {P0(pesoOnline)} de la facturación.
+        </div>
+      </section>
+
+      {/* 3 · EVOLUCIÓN MENSUAL — barras verticales gruesas (estilo Días pico) */}
+      <section style={sec('#fff')}>
+        <Title tag="Cómo ha ido mes a mes" tagBg={AMA} title="Facturación bruta · últimos 12 meses" />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, minHeight: 180, marginBottom: 14 }}>
           {ultimos12.map(key => {
             const { bruto } = mesMap[key]
-            const h = maxBruto > 0 ? Math.max(4, (bruto / maxBruto) * 124) : 4
-            const isMejor = key === mejorMes
-            const isPeor = key === peorMes
-            const barColor = isMejor ? VERDE : isPeor ? ROJO : GRANATE
+            const isMejor = key === mejorMes, isPeor = key === peorMes
+            const barCol = isMejor ? VERDE : isPeor ? ROJO : GRANATE
             const [, mm] = key.split('-')
             return (
-              <div key={key} style={{ flex: 1, minWidth: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontFamily: OSW, fontSize: 10, color: GRIS, textAlign: 'center' }}>
-                  {fmtEur(bruto).replace(' €', '')}
-                </span>
-                <div style={{ width: '100%', height: h, background: barColor, border: BORDER_CARD, boxShadow: isMejor || isPeor ? SHADOW : 'none' }} />
-                <span style={{ fontFamily: OSW, fontSize: 10, color: isMejor ? VERDE : isPeor ? ROJO : GRIS, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  {MESES_ES[parseInt(mm, 10) - 1]}
-                </span>
+              <div key={key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{E(bruto)}</span>
+                <div style={{ width: '100%', height: `${Math.max(4, (bruto / maxBruto) * 100)}%`, minHeight: 4, background: barCol, border: `3px solid ${INK}` }} />
+                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{MESES_ES[parseInt(mm, 10) - 1]}</span>
               </div>
             )
           })}
         </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
-          <span style={{ fontFamily: LEX, fontSize: 11, color: VERDE }}>■ Mejor</span>
-          <span style={{ fontFamily: LEX, fontSize: 11, color: ROJO }}>■ Peor</span>
-          <span style={{ fontFamily: LEX, fontSize: 11, color: GRANATE }}>■ Resto</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: OSW, fontSize: 13, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+          <span><span style={{ color: VERDE }}>▲</span> {fmtMesKey(mejorMes)} · {E(mesMap[mejorMes].bruto)}</span>
+          <span><span style={{ color: ROJO }}>▼</span> {fmtMesKey(peorMes)} · {E(mesMap[peorMes].bruto)}</span>
         </div>
       </section>
 
-      {/* ── S3 · ANÁLISIS (grid 2fr/1fr) ── */}
+      {/* 4 · DETALLE MENSUAL (66%) | MÉTRICAS (33%) */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        {/* Left: tabla mensual */}
-        <div style={{ background: CREMA, padding: '44px 40px', borderRight: `4px solid ${INK}` }}>
-          <span style={eyebrow(INK, CREMA)}>Detalle mensual</span>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-            <thead>
-              <tr style={{ background: INK }}>
-                {['Mes', 'Pedidos', 'Bruto', 'Neto est.', 'Ticket', 'vs año ant.'].map((h, i) => (
-                  <th key={h} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, padding: '9px 10px', textAlign: i === 0 ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[...ultimos12].reverse().map((key, idx) => {
-                const { bruto, pedidos, neto } = mesMap[key]
-                const ticket = pedidos > 0 ? bruto / pedidos : 0
-                const [yy, mm] = key.split('-')
-                const antKey = `${parseInt(yy) - 1}-${mm}`
-                const ant = mesMap[antKey]
-                const vsAnt = ant && ant.bruto > 0 ? ((bruto - ant.bruto) / ant.bruto) * 100 : null
-                const isMejor = key === mejorMes, isPeor = key === peorMes
-                return (
-                  <tr key={key} style={{ background: isMejor ? VERDE + '22' : isPeor ? ROJO + '22' : idx % 2 === 0 ? '#fff' : CLARO }}>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: INK, padding: '8px 10px', borderBottom: `1px solid ${INK}22` }}>
-                      {fmtMesKey(key)}
-                      {isMejor && <span style={{ marginLeft: 8, fontSize: 9, color: VERDE, fontFamily: OSW }}>▲ MEJOR</span>}
-                      {isPeor && <span style={{ marginLeft: 8, fontSize: 9, color: ROJO, fontFamily: OSW }}>▼ PEOR</span>}
-                    </td>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: INK, padding: '8px 10px', textAlign: 'right', borderBottom: `1px solid ${INK}22` }}>{fmtNum(pedidos)}</td>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: INK, padding: '8px 10px', textAlign: 'right', borderBottom: `1px solid ${INK}22` }}>{fmtEur(bruto)}</td>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: VERDE, padding: '8px 10px', textAlign: 'right', borderBottom: `1px solid ${INK}22` }}>{fmtEur(neto)}</td>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: NAR, padding: '8px 10px', textAlign: 'right', borderBottom: `1px solid ${INK}22` }}>{fmtEur(ticket)}</td>
-                    <td style={{ fontFamily: OSW, fontSize: 13, color: vsAnt === null ? GRIS : vsAnt >= 0 ? VERDE : ROJO, padding: '8px 10px', textAlign: 'right', borderBottom: `1px solid ${INK}22` }}>
-                      {vsAnt === null ? '—' : `${vsAnt >= 0 ? '+' : ''}${vsAnt.toFixed(1)}%`}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+          <Title tag="Mes a mes" tagBg={VERDE} tagColor="#fff" title="Detalle mensual" />
+          <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, padding: '11px 16px', background: INK, fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA }}>
+              <span>Mes</span><span style={{ textAlign: 'right' }}>Pedidos</span><span style={{ textAlign: 'right' }}>Bruto</span><span style={{ textAlign: 'right' }}>Neto</span><span style={{ textAlign: 'right' }}>vs año</span>
+            </div>
+            {[...ultimos12].reverse().map((key, i) => {
+              const { bruto, pedidos, neto } = mesMap[key]
+              const [yy, mm] = key.split('-')
+              const ant = mesMap[`${parseInt(yy) - 1}-${mm}`]
+              const vsAnt = ant && ant.bruto > 0 ? ((bruto - ant.bruto) / ant.bruto) * 100 : null
+              const isMejor = key === mejorMes, isPeor = key === peorMes
+              const dot = isMejor ? VERDE : isPeor ? ROJO : GRANATE
+              return (
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${INK}1a`, background: isMejor ? '#eafaef' : isPeor ? '#fdecec' : (i % 2 ? '#fbf8f1' : '#fff') }}>
+                  <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 9, height: 9, flexShrink: 0, background: dot, border: `1px solid ${INK}` }} />{fmtMesKey(key)}
+                  </span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: INK, textAlign: 'right' }}>{N(pedidos)}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: INK, textAlign: 'right' }}>{E(bruto)}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: VERDE, textAlign: 'right' }}>{E(neto)}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vsAnt == null ? GRIS : vsAnt >= 0 ? VERDE : ROJO, textAlign: 'right' }}>{vsAnt == null ? '—' : <><Arrow v={vsAnt} />{P1(vsAnt)}</>}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
-        {/* Right: métricas extra */}
-        <div style={{ background: CLARO, padding: '44px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <span style={eyebrow(INK, CREMA)}>Métricas extra</span>
-          <CardTicketMedio rowsAll={rowsAll} />
-          <CardRachaObjetivo rowsAll={rowsAll} />
+        <div style={{ padding: `44px ${PAD}`, background: CLARO, display: 'flex', flexDirection: 'column', gap: 26 }}>
+          <div>
+            <span style={eyebrow(NAR, '#fff')}>Ticket medio último mes</span>
+            <div style={{ ...d('clamp(32px,4.4vw,52px)', NAR), margin: '12px 0 8px' }}>{EUR(tmActual)}</div>
+            <Spark serie={ultimos12.map(k => mesMap[k].pedidos > 0 ? mesMap[k].bruto / mesMap[k].pedidos : 0)} color={NAR} w={240} h={44} />
+            <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', marginTop: 6 }}>Media 12m · {EUR(tmMedio)}</div>
+          </div>
+          <div style={{ borderTop: `3px solid ${INK}`, paddingTop: 18 }}>
+            <span style={eyebrow(VERDE, '#fff')}>Racha de objetivo diario</span>
+            {racha
+              ? <>
+                  <div style={{ ...d('clamp(40px,5.5vw,68px)', racha.racha >= 7 ? VERDE : racha.racha >= 3 ? NAR : ROJO), margin: '12px 0 6px' }}>{N(racha.racha)}</div>
+                  <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{racha.racha === 1 ? 'día consecutivo' : 'días consecutivos'}</div>
+                  <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: '#5c5340', marginTop: 6 }}>Objetivo · {EUR(racha.objActual)}/día</div>
+                </>
+              : <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', marginTop: 12 }}>Sin objetivo diario configurado.</div>}
+          </div>
         </div>
       </section>
 
-      {/* ── S4 · DÍAS + TIENDA ONLINE (grid 1fr/1fr, #fff) ── */}
+      {/* 5 · DÍA DE SEMANA (AMA) | TIENDA ONLINE (AZUL) */}
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ background: '#fff', padding: '44px 40px', borderRight: `4px solid ${INK}` }}>
-          <span style={eyebrow(VERDE, '#fff')}>Rendimiento por día de semana</span>
-          <div style={{ marginTop: 16 }}>
-            <CardDiaSemana rowsAll={rowsAll} />
+        <div style={{ background: AMA, padding: `44px ${PAD}`, borderRight: `4px solid ${INK}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+            <span style={eyebrow(INK, AMA)}>Tu semana típica</span>
+            {mejorDia && peorDia && (
+              <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                <span style={{ color: VERDE }}>▲ {DIAS_ES[mejorDia.dia]}</span>
+                <span style={{ color: ROJO, marginLeft: 8 }}>▼ {DIAS_ES[peorDia.dia]}</span>
+              </span>
+            )}
           </div>
+          {medias.length
+            ? <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, minHeight: 160 }}>
+                {[1, 2, 3, 4, 5, 6, 0].map(dd => {
+                  const { suma, count } = diaMap[dd]
+                  const media = count > 0 ? suma / count : 0
+                  const isMejor = mejorDia?.dia === dd, isPeor = peorDia?.dia === dd
+                  const barCol = isMejor ? VERDE : isPeor ? ROJO : INK
+                  return (
+                    <div key={dd} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{media > 0 ? E(media) : ''}</span>
+                      <div style={{ width: '100%', height: `${Math.max(4, (media / maxMedia) * 100)}%`, minHeight: 4, background: barCol, border: `3px solid ${INK}` }} />
+                      <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{DIAS_ES[dd].slice(0, 2)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin datos suficientes por día de semana.</div>}
+          <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 14 }}>Media por día de semana · histórico completo.</div>
         </div>
-        <div style={{ background: '#fff', padding: '44px 40px' }}>
-          <span style={eyebrow(AZUL, '#fff')}>Canal propio · peso sobre total</span>
-          <div style={{ marginTop: 16 }}>
-            <CardPesoOnline rowsAll={rowsAll} />
+        <div style={{ background: AZUL, color: '#fff', padding: `44px ${PAD}`, display: 'flex', flexDirection: 'column' }}>
+          <span style={eyebrow('#fff')}>Canal propio · web + directa</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, margin: '18px 0 6px', flexWrap: 'wrap' }}>
+            <div style={d('clamp(48px,6.5vw,82px)', '#fff')}>{P0(pesoOnline)}</div>
+            <div style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9 }}>de la facturación</div>
+          </div>
+          <div style={{ marginTop: 12 }}><Spark serie={serieOnline} color="#fff" w={300} h={56} /></div>
+          <div style={{ marginTop: 'auto', paddingTop: 18 }}>
+            <Barra nombre="Online" pct={pesoOnline} color={AMA} valor={E(mesActual.online)} alto={26} track="#ffffff33" />
+            <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.9, marginTop: 12 }}>
+              Cuanto más peso propio, menos comisión de plataforma. Web 7% vs marketplaces 30%.
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── S5 · COMPARATIVA PERIODO (CREMA) ── */}
-      <section style={{ background: CREMA, padding: '44px 40px' }}>
-        <span style={eyebrow(GRANATE, '#fff')}>Comparativa del periodo · posición y fecha</span>
-        <div style={{ marginTop: 20 }}>
-          <CardComparativaPeriodo rowsAll={rowsAll} ancla={periodoHasta ?? new Date()} />
-        </div>
+      {/* 6 · COMPARATIVA DEL PERIODO */}
+      <section style={sec(CREMA)}>
+        <Title tag="Comparativa del periodo" tagBg={GRANATE} tagColor="#fff" title="Misma posición y misma fecha, frente a mes y año anteriores." />
+        <CardComparativaPeriodo rowsAll={rowsAll} ancla={periodoHasta ?? new Date()} />
+      </section>
+
+      {/* 7 · CIERRE */}
+      <section style={{ background: OSC, color: CREMA, padding: PAD, textAlign: 'center' }}>
+        <div style={d('clamp(30px,5.5vw,64px)', CREMA)}>Cada mes, un peldaño más.</div>
+        <div style={{ fontFamily: OSW, letterSpacing: '6px', fontSize: 15, color: AMA, marginTop: 12, textTransform: 'uppercase' }}>Comer bien. Aquí y ahora.</div>
       </section>
 
     </div>
