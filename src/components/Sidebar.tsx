@@ -222,7 +222,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .then(({ count }) => setOcrBadge(count ?? 0))
   }, [perfil])
 
-  // ── Colapso original: al interactuar se ABRE y queda abierto 20 s; luego autocolapsa ──
+  // ── Colapso original: al interactuar (clic o HOVER) se ABRE y queda abierto 20 s; luego autocolapsa ──
   const [abierto, setAbierto] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const OPEN_MS = 20000
@@ -269,6 +269,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
       <aside
         style={asideStyle}
+        onMouseEnter={() => { if (!esMovilDisp) abrir20s() }}
         className={`
           sl-noscroll fixed top-0 left-0 z-40 h-full
           flex flex-col overflow-hidden transition-all duration-[250ms] ease-[ease]
@@ -324,9 +325,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink to="/" end onClick={onClose} title="Panel Global"
-              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', borderBottom: `3px solid ${INK}`, background: CREMA }}>
-              <LayoutDashboard size={20} strokeWidth={2.4} color={INK} />
+            <NavLink to="/" end onClick={() => { abrir20s(); onClose() }} title="Panel Global"
+              style={({ isActive }) => ({
+                width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', borderBottom: `3px solid ${INK}`,
+                background: isActive ? INK : CREMA,
+              })}>
+              {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : INK} />}
             </NavLink>
           )}
 
@@ -350,13 +354,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
           {collapsed && perfil === 'admin' && (
-            <NavLink to="/tareas" onClick={onClose} title="Tareas pendientes"
-              style={{ width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', borderBottom: `3px solid ${INK}`, background: CREMA }}>
-              <BellRing size={20} strokeWidth={2.4} color={INK} />
-              {tareasBadge > 0 && (
-                <span style={{ position: 'absolute', top: 6, right: 8, background: GRANATE, color: '#fff', borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                  {tareasBadge > 9 ? '9+' : tareasBadge}
-                </span>
+            <NavLink to="/tareas" onClick={() => { abrir20s(); onClose() }} title="Tareas pendientes"
+              style={({ isActive }) => ({
+                width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', position: 'relative', borderBottom: `3px solid ${INK}`,
+                background: isActive ? INK : CREMA,
+              })}>
+              {({ isActive }) => (
+                <>
+                  <BellRing size={20} strokeWidth={2.4} color={isActive ? AMA : INK} />
+                  {tareasBadge > 0 && (
+                    <span style={{ position: 'absolute', top: 6, right: 8, background: GRANATE, color: '#fff', borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      {tareasBadge > 9 ? '9+' : tareasBadge}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           )}
@@ -450,18 +461,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         </nav>
 
         {/* ── FOOTER (crema) ── */}
-        <div style={{ marginTop: 'auto', background: CREMA, borderTop: `4px solid ${INK}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <ThemeToggle />
-          {!collapsed && (
+        {collapsed ? (
+          <div style={{ marginTop: 'auto', background: CREMA, borderTop: `4px solid ${INK}`, padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ThemeToggle />
+            </div>
+            <button onClick={logout} style={{ width: 44, height: 32, color: INK, background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Cerrar sesión">⏏</button>
+          </div>
+        ) : (
+          <div style={{ marginTop: 'auto', background: CREMA, borderTop: `4px solid ${INK}`, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ThemeToggle />
+            </div>
             <div style={{ fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 12, letterSpacing: '0.04em', color: INK, textAlign: 'right', lineHeight: 1.4 }}>
               {usuario?.nombre}<br />
               <button onClick={logout} style={{ color: GRANATE, background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT.heading, textTransform: 'uppercase', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', padding: 0 }}>Cerrar sesión</button>
             </div>
-          )}
-          {collapsed && (
-            <button onClick={logout} style={{ color: INK, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }} title="Cerrar sesión">⏏</button>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
     </>
   )
