@@ -30,6 +30,7 @@ const CREMA  = '#FCEFD6'
 const BLANCO = '#fff'
 const GRANATE = '#B01D23'
 const AMA    = '#FFC400'
+const LOGO_SRC = '/loco-icon.svg.svg'
 
 interface NavItem   { path: string; label: string; emoji: string; perfiles: string[] }
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
@@ -276,17 +277,21 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         <style>{`.sl-noscroll *::-webkit-scrollbar{width:0;height:0;display:none}.sl-noscroll *{scrollbar-width:none}`}</style>
 
-        {/* ── HEADER (negro, logo SL granate) ── */}
+        {/* ── HEADER (negro, logo Binagre real) ── */}
         {collapsed ? (
           <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
-            <div style={{ width: 30, height: 30, background: GRANATE, border: `2px solid ${CREMA}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontWeight: 700, color: CREMA, fontSize: 12 }}>SL</div>
+            <div style={{ width: 32, height: 32, background: CREMA, border: `2px solid ${CREMA}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src={LOGO_SRC} alt="Streat Lab" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+            </div>
             <button onClick={abrir20s} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 36 }} title="Abrir">
               <ChevronRight size={18} color={CREMA} />
             </button>
           </div>
         ) : (
           <div style={{ background: INK, borderBottom: `4px solid ${INK}`, display: 'flex', alignItems: 'center', gap: 11, padding: '15px 16px' }}>
-            <div style={{ width: 34, height: 34, background: GRANATE, border: `2px solid ${CREMA}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontWeight: 700, color: CREMA, fontSize: 14, flexShrink: 0 }}>SL</div>
+            <div style={{ width: 38, height: 38, background: CREMA, border: `2px solid ${CREMA}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src={LOGO_SRC} alt="Streat Lab" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            </div>
             <span style={{ fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '3px', color: CREMA, fontSize: 18, textTransform: 'uppercase', flex: 1 }}>STREAT LAB</span>
             <button
               onClick={() => { if (esMovilDisp) onClose(); else setAbierto(false) }}
