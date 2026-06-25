@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'r
 import { supabase } from '@/lib/supabase'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import {
-  INK, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, GRIS,
+  INK, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, GRIS, AMA,
   OSW, LEX, SHADOW, BORDER_CARD,
   CORP, CLARA,
-  eyebrow,
+  eyebrow, d,
 } from '@/styles/neobrutal'
 import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import type { RowFacturacion } from '../resumen/types'
