@@ -1,131 +1,183 @@
-// parserSincroProductos — Lee el CSV "sold_products" de Sincro (separador ";").
-// VERIFICADO con archivo real: 2.815 líneas / 538 pedidos, may 2026, Glovo+JustEat.
-// Columnas (sin cabecera): pedido_id; id_plataforma; tipo; canal; direccion; cliente;
-//   col6; cantidad; producto; origen; descuento; fecha_hora; precio_linea; total_pedido; col14
+// parserSincroProductos — Lee el CSV "sold_products" de Sincro (gestor de pedidos).
+// VERIFICADO con 20260625130142_sold_products_3976805.csv (may-jun 2026).
 //
-// Produce:
-//   1. Agrupación por (canal, marca, plato, mes, año) → ventas_plato (real, estimado=false)
-//   2. Agrupación por (canal, marca, fecha, hora, dia_semana) → ventas_franja
+// COLUMNAS (separador ';', SIN cabecera):
+//   0  id_pedido_interno
+//   1  id_pedido_plataforma  (ej. "729 | 101639281727")
+//   2  tipo                  ("Delivery")
+//   3  canal                 ("Glovo" | "JustEat" | "Uber")
+//   4  dirección/local       (→ para mapear a marca)
+//   5  cliente               ("No facilitada" generalmente)
+//   6  vacío
+//   7  cantidad              (int)
+//   8  nombre_producto_o_modificador
+//   9  categoría             ("External platforms")
+//   10 descuento
+//   11 fecha_hora            "YYYY-MM-DD HH:MM:SS"
+//   12 precio_línea          (€ del producto o modificador)
+//   13 total_pedido          (€ total)
+//   14 neto_pedido           (€ neto)
 //
-// Reglas:
-//   - "Promos", "Gastos de envío", "Descuento", "Cobro de la plataforma" → líneas financieras, IGNORAR
-//   - Producto en mayúsculas + ".." → modificador (se guarda como plato propio, precio=0)
-//   - precio_linea < 0 → descuento/promo, IGNORAR para unidades/importe
-//   - Marca: no viene en el CSV. Se mapea desde la dirección contra la BD.
-//   - Canal: "JustEat" → normalizar a "just_eat"; "Glovo" → "glovo"
-
-export interface LineaSincro {
-  pedidoId: string
-  canal: string       // 'glovo' | 'just_eat' | 'uber' | ...
-  direccion: string
-  cantidad: number
-  producto: string
-  fechaHora: string  // 'YYYY-MM-DD HH:MM:SS'
-  precioLinea: number
-  totalPedido: number
-  esModificador: boolean
-  esLineasFinanciera: boolean
-}
+// DISTINCIÓN plato vs modificador:
+//   - Modificadores: texto en MAYÚSCULAS, empieza por "Tamaño", "LA ", "Sin ", "Con ", "Extra ", "Añadir "
+//   - Platos: cualquier otra cosa con nombre y precio > 0
+//   - Filas con precio = 0 son notas/instrucciones, no se cuentan
+//
+// SALIDA:
+//   - VentaPlato[]: para ventas_plato (platos reales, origen 'sincro', estimado=false)
+//   - VentaModificador[]: para ventas_plato con flag modificador=true (o tabla aparte si se crea)
+//   - VentaFranja[]: para ventas_franja (hora/día/canal/marca)
 
 export interface VentaPlato {
-  canal: string; marca: string; plato: string; mes: number; anio: number
-  unidades: number; ingresos_brutos: number; precio_medio: number
-  estimado: boolean; origen: string
+  canal: string            // 'glovo' | 'just_eat' | 'uber'
+  marca: string            // nombre canónico de marcas (mapeo externo)
+  marcaRaw: string         // dirección/local crudo para mapeo
+  plato: string
+  es_modificador: boolean
+  mes: number
+  anio: number
+  unidades: number
+  importe: number
+  origen: 'sincro'
+  estimado: false
 }
 
 export interface VentaFranja {
-  canal: string; marca: string; fecha: string; hora: number; dia_semana: number
-  pedidos: number; unidades: number; importe: number; fuente: string
+  canal: string
+  marca: string
+  marcaRaw: string
+  fecha: string            // YYYY-MM-DD
+  hora: number             // 0-23
+  dia_semana: number       // 0=lunes … 6=domingo
+  pedidos: number          // nº pedidos distintos en esa franja
+  unidades: number
+  importe: number
 }
 
-const FINANCIERAS = /^(Promos|Gastos de env[ií]o|Descuento|Cobro de la plataforma)/i
-const MODIFICADOR_PAT = /^[A-ZÁÉÍÓÚÜÑ0-9 .,()\-]{4,}\.\.$|^LA PREFIERO/i
-
-function normCanal(raw: string): string {
-  const c = raw.trim().toLowerCase()
-  if (c === 'justeat' || c === 'just eat' || c === 'just_eat') return 'just_eat'
-  if (c === 'glovo') return 'glovo'
-  if (c === 'uber' || c === 'uber eats') return 'uber'
-  return c
+export interface SincroResultado {
+  ventas_plato: VentaPlato[]
+  ventas_franja: VentaFranja[]
+  canales: string[]
+  marcas_raw: string[]
+  errores: string[]
 }
 
-export function parseSincroCSV(csvText: string): LineaSincro[] {
-  const lineas: LineaSincro[] = []
-  for (const rawLine of csvText.split('\n')) {
-    const cols = rawLine.split(';')
+const CANAL_MAP: Record<string, string> = {
+  glovo: 'glovo',
+  justeat: 'just_eat',
+  'just eat': 'just_eat',
+  uber: 'uber',
+  ubereats: 'uber',
+  'uber eats': 'uber',
+}
+
+function normCanal(s: string): string {
+  return CANAL_MAP[s.toLowerCase().trim()] || s.toLowerCase().trim()
+}
+
+function esMod(nombre: string): boolean {
+  return (
+    nombre === nombre.toUpperCase() && nombre.length > 2 ||
+    /^(Tamaño|LA |Sin |Con |Extra |Añadir )/i.test(nombre)
+  )
+}
+
+export function parseSincroProductos(csvText: string): SincroResultado {
+  const lineas = csvText.split('\n').map(l => l.trim()).filter(Boolean)
+  // Quitar BOM si existe
+  if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
+
+  // Acumuladores por (canal, localRaw, plato, año, mes)
+  const platosMap = new Map<string, VentaPlato>()
+  // Acumuladores por (canal, localRaw, fecha, hora, dia)
+  const franjasMap = new Map<string, VentaFranja & { _pedidos: Set<string> }>()
+
+  const errores: string[] = []
+  const canalesSet = new Set<string>()
+  const marcasRawSet = new Set<string>()
+
+  for (let i = 0; i < lineas.length; i++) {
+    const cols = lineas[i].split(';')
     if (cols.length < 13) continue
-    const precioLinea = parseFloat(cols[12]) || 0
-    const producto = cols[8]?.trim() || ''
-    if (!producto) continue
-    lineas.push({
-      pedidoId: cols[0]?.trim() || '',
-      canal: normCanal(cols[3] || ''),
-      direccion: cols[4]?.trim() || '',
-      cantidad: parseInt(cols[7]) || 1,
-      producto,
-      fechaHora: cols[11]?.trim() || '',
-      precioLinea,
-      totalPedido: parseFloat(cols[13]) || 0,
-      esModificador: MODIFICADOR_PAT.test(producto) || precioLinea === 0,
-      esLineasFinanciera: FINANCIERAS.test(producto),
-    })
-  }
-  return lineas
-}
 
-export function agruparPorPlato(lineas: LineaSincro[], marcaNombre: string): VentaPlato[] {
-  const mapa = new Map<string, VentaPlato>()
-  for (const l of lineas) {
-    if (l.esLineasFinanciera) continue
-    const dt = new Date(l.fechaHora.replace(' ', 'T') + 'Z')
-    const mes = dt.getUTCMonth() + 1
-    const anio = dt.getUTCFullYear()
-    const key = `${l.canal}||${marcaNombre}||${l.producto}||${mes}||${anio}`
-    const prev = mapa.get(key)
-    const precio = l.esModificador ? 0 : Math.max(0, l.precioLinea)
-    if (prev) {
-      prev.unidades += l.cantidad
-      prev.ingresos_brutos += precio * l.cantidad
-    } else {
-      mapa.set(key, {
-        canal: l.canal, marca: marcaNombre, plato: l.producto,
-        mes, anio, unidades: l.cantidad, ingresos_brutos: precio * l.cantidad,
-        precio_medio: 0, estimado: false, origen: 'sincro',
+    const idPedido = cols[0]?.trim() || ''
+    const canal = normCanal(cols[3]?.trim() || '')
+    const localRaw = cols[4]?.trim() || ''
+    const nombre = cols[8]?.trim() || ''
+    const fechaHora = cols[11]?.trim() || ''
+    const precioStr = cols[12]?.replace(',', '.').trim() || '0'
+    const totalStr = cols[13]?.replace(',', '.').trim() || '0'
+    let cantidad = parseInt(cols[7]?.trim() || '1', 10)
+    if (isNaN(cantidad)) cantidad = 1
+
+    if (!nombre || !fechaHora) continue
+
+    const precio = parseFloat(precioStr) || 0
+    // Ignorar filas sin precio (notas/instrucciones) que no sean modificadores
+    if (precio === 0 && !esMod(nombre)) continue
+
+    let dt: Date
+    try {
+      dt = new Date(fechaHora.replace(' ', 'T'))
+      if (isNaN(dt.getTime())) throw new Error('invalid')
+    } catch {
+      errores.push(`fila ${i}: fecha inválida "${fechaHora}"`)
+      continue
+    }
+
+    const mes = dt.getMonth() + 1
+    const anio = dt.getFullYear()
+    const hora = dt.getHours()
+    const diaSemana = dt.getDay() === 0 ? 6 : dt.getDay() - 1 // 0=lunes
+    const fecha = fechaHora.slice(0, 10)
+    const esModificador = esMod(nombre)
+
+    canalesSet.add(canal)
+    marcasRawSet.add(localRaw)
+
+    // Ignorar líneas de Promos/Descuento/Gastos de envío (no son platos reales)
+    if (/^(Promos|Descuento|Gastos de envío)/i.test(nombre)) continue
+
+    // ── ventas_plato ──
+    const kp = `${canal}||${localRaw}||${nombre}||${anio}||${mes}`
+    if (!platosMap.has(kp)) {
+      platosMap.set(kp, {
+        canal, marcaRaw: localRaw, marca: '', plato: nombre,
+        es_modificador: esModificador, mes, anio,
+        unidades: 0, importe: 0, origen: 'sincro', estimado: false,
       })
     }
-  }
-  for (const v of mapa.values()) {
-    v.precio_medio = v.unidades > 0 ? v.ingresos_brutos / v.unidades : 0
-  }
-  return [...mapa.values()]
-}
+    const vp = platosMap.get(kp)!
+    vp.unidades += cantidad
+    vp.importe += precio * cantidad
 
-export function agruparPorFranja(lineas: LineaSincro[], marcaNombre: string): VentaFranja[] {
-  const pedidosFranja = new Map<string, Set<string>>()
-  const mapa = new Map<string, VentaFranja>()
-  for (const l of lineas) {
-    if (l.esLineasFinanciera || !l.fechaHora) continue
-    const dt = new Date(l.fechaHora.replace(' ', 'T') + 'Z')
-    const fecha = l.fechaHora.slice(0, 10)
-    const hora = dt.getUTCHours()
-    const dia_semana = dt.getUTCDay() === 0 ? 6 : dt.getUTCDay() - 1
-    const key = `${l.canal}||${marcaNombre}||${fecha}||${hora}`
-    if (!pedidosFranja.has(key)) pedidosFranja.set(key, new Set())
-    pedidosFranja.get(key)!.add(l.pedidoId)
-    const prev = mapa.get(key)
-    const precio = l.esModificador ? 0 : Math.max(0, l.precioLinea)
-    if (prev) {
-      prev.unidades += l.cantidad
-      prev.importe += precio * l.cantidad
-    } else {
-      mapa.set(key, {
-        canal: l.canal, marca: marcaNombre, fecha, hora, dia_semana,
-        pedidos: 0, unidades: l.cantidad, importe: precio * l.cantidad, fuente: 'sincro',
+    // ── ventas_franja ──
+    const kf = `${canal}||${localRaw}||${fecha}||${hora}||${diaSemana}`
+    if (!franjasMap.has(kf)) {
+      franjasMap.set(kf, {
+        canal, marcaRaw: localRaw, marca: '', fecha, hora, dia_semana: diaSemana,
+        pedidos: 0, unidades: 0, importe: 0, _pedidos: new Set(),
       })
     }
+    const vf = franjasMap.get(kf)!
+    vf._pedidos.add(idPedido)
+    vf.pedidos = vf._pedidos.size
+    vf.unidades += cantidad
+    vf.importe += precio * cantidad
   }
-  for (const [key, v] of mapa.entries()) {
-    v.pedidos = pedidosFranja.get(key)?.size || 0
+
+  // Limpiar _pedidos antes de devolver
+  const franjasClean: VentaFranja[] = []
+  for (const f of franjasMap.values()) {
+    const { _pedidos, ...clean } = f
+    franjasClean.push(clean)
   }
-  return [...mapa.values()]
+
+  return {
+    ventas_plato: Array.from(platosMap.values()),
+    ventas_franja: franjasClean,
+    canales: Array.from(canalesSet),
+    marcas_raw: Array.from(marcasRawSet),
+    errores,
+  }
 }
