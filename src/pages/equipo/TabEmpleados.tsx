@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import ModalEmpleado, { type Empleado } from '@/components/equipo/ModalEmpleado'
+import { archivarEmpleado, reactivarEmpleado, eliminarEmpleadoDuro } from '@/components/equipo/horarios/personal'
 
-type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'despedido'
+type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'despedido' | 'inactivo'
 
 function estadoColor(estado: EstadoEmpleado): string {
   if (estado === 'activo') return '#1D9E75'
@@ -54,6 +55,23 @@ export default function TabEmpleados() {
 
   useEffect(() => { fetch() }, [])
 
+  async function onArchivar(emp: Empleado) {
+    const archivado = emp.estado === 'inactivo' || emp.estado === 'baja' || emp.estado === 'despedido'
+    if (archivado) {
+      await reactivarEmpleado(emp.id)
+    } else {
+      if (!window.confirm(`¿Pasar a ${emp.nombre} a antiguos empleados? Deja de aparecer en horarios pero conserva su histórico.`)) return
+      await archivarEmpleado(emp.id)
+    }
+    fetch()
+  }
+
+  async function onBorrar(emp: Empleado) {
+    if (!window.confirm(`BORRAR DEFINITIVAMENTE a ${emp.nombre}. Se elimina su ficha y sus horarios. Esta acción NO se puede deshacer. ¿Continuar?`)) return
+    await eliminarEmpleadoDuro(emp.id)
+    fetch()
+  }
+
   const th: React.CSSProperties = {
     padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10,
     textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
@@ -62,6 +80,11 @@ export default function TabEmpleados() {
   const thSticky: React.CSSProperties = { ...th, position: 'sticky', left: 0, zIndex: 5 }
   const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
   const tdSticky: React.CSSProperties = { ...td, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }
+
+  const accionBtn: React.CSSProperties = {
+    width: 30, height: 30, borderRadius: 6, border: `1px solid ${T.brd}`,
+    background: T.card, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+  }
 
   return (
     <div>
@@ -91,26 +114,29 @@ export default function TabEmpleados() {
                 <th style={{ ...th, display: isDark ? undefined : 'none' } as React.CSSProperties}>Cargo</th>
                 <th style={th}>Antigüedad</th>
                 <th style={th}>Estado</th>
+                <th style={{ ...th, textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {empleados.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '40px 24px', textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
+                  <td colSpan={6} style={{ padding: '40px 24px', textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
                     Sin empleados registrados. Añade el primero.
                   </td>
                 </tr>
-              ) : empleados.map(emp => (
+              ) : empleados.map(emp => {
+                const archivado = emp.estado === 'inactivo' || emp.estado === 'baja' || emp.estado === 'despedido'
+                return (
                 <tr
                   key={emp.id}
                   onClick={() => setModal({ open: true, empleado: emp })}
-                  style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
+                  style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer', opacity: archivado ? 0.6 : 1 }}
                   onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <td style={tdSticky}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={emp.estado === 'despedido' ? '#444' : undefined} />
+                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={archivado ? '#444' : undefined} />
                       <div>
                         <div style={{ fontWeight: 600, color: T.pri }}>{emp.nombre}</div>
                         <div style={{ fontSize: 11, color: T.mut }}>{emp.datos_personales?.email || emp.email || '—'}</div>
@@ -118,7 +144,7 @@ export default function TabEmpleados() {
                     </div>
                   </td>
                   <td style={{ ...td, color: T.sec, fontSize: 12 }}>{emp.nif || '—'}</td>
-                  <td style={{ ...td, color: T.sec }}>{emp.cargo || '—'}</td>
+                  <td style={{ ...td, color: T.sec, display: isDark ? undefined : 'none' } as React.CSSProperties}>{emp.cargo || '—'}</td>
                   <td style={{ ...td, color: T.sec, fontSize: 12 }}>{calcAntiguedad(emp.fecha_alta)}</td>
                   <td style={td}>
                     <span style={{
@@ -131,8 +157,19 @@ export default function TabEmpleados() {
                       {emp.estado}
                     </span>
                   </td>
+                  <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button onClick={() => onArchivar(emp)} style={accionBtn}
+                        title={archivado ? 'Reactivar' : 'Pasar a antiguos'}>
+                        {archivado ? <ArchiveRestore size={15} color="#1D9E75" /> : <Archive size={15} color={T.sec} />}
+                      </button>
+                      <button onClick={() => onBorrar(emp)} style={accionBtn} title="Borrar definitivamente">
+                        <Trash2 size={15} color="#B01D23" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
           </div>
