@@ -21,8 +21,8 @@ import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
-// Header (logo) y footer (cerrar sesión) siempre en crema.
-// El cuerpo del nav va sobre fondo negro INK con cada sección en su color sólido.
+// Fondo del sidebar SIEMPRE crema (header, cuerpo y footer). Las secciones son
+// botones de color sólido flotando sobre el crema.
 const CREMA = '#FCEFD6'
 const INK   = '#140f08'
 
@@ -124,7 +124,7 @@ const SECTIONS: NavSection[] = [
   },
 ]
 
-// Color de fondo sólido para cada sección (estilo imagen 1)
+// Color de fondo sólido para el botón de cada sección
 const SECTION_BG: Record<string, string> = {
   finanzas:      '#06C167',
   cocina:        '#f5a623',
@@ -186,8 +186,8 @@ function loadOpenSections(): string[] {
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { usuario, logout } = useAuth()
-  const { T, isDark } = useTheme()
-  const perfil     = usuario?.perfil ?? ''
+  const { isDark } = useTheme()
+  const perfil      = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
@@ -227,9 +227,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   }, [perfil])
 
   // ── Mecánica colapso/expansión ────────────────────────────────────────────
-  // cerrado: el usuario pulsó «  → manda sobre todo
-  // pinned:  abierto tras clic/interacción, con autocierre por inactividad
-  // peek:    abierto temporal al pasar el ratón
+  // cerrado: el usuario pulsó «  → manda sobre todo (queda plegado)
+  // pinned:  abierto tras interacción, con autocolapso por inactividad
+  // peek:    abierto temporal al pasar el ratón (solo escritorio)
   const [pinned, setPinned]   = useState(false)
   const [peek,   setPeek]     = useState(false)
   const [cerrado, setCerrado] = useState(false)
@@ -255,7 +255,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // cerrado manda; si no, abierto mientras esté fijado o el ratón encima
+  // En móvil el sidebar se controla por 'open' (off-canvas) y nunca se colapsa a iconos.
+  // En escritorio: cerrado manda; si no, abierto mientras esté fijado o el ratón encima.
   const collapsed = esMovilDisp ? false : (cerrado ? true : (!pinned && !peek))
 
   const toggleSection = (key: string) => {
@@ -270,19 +271,15 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const filterItems = (items: NavItem[]) => items.filter(i => i.perfiles.includes(perfil))
   const sidebarWidth = collapsed ? 56 : 220
 
-  // Fondo del aside: negro en modo claro (brutalista), oscuro de tema en dark
-  const asideBg = isDark ? T.group : INK
-
   return (
     <>
       {open && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={onClose} />}
 
       <aside
-        onMouseEnter={() => { if (!cerrado) setPeek(true) }}
-        onMouseLeave={() => setPeek(false)}
-        onClick={pin}
+        onMouseEnter={() => { if (!esMovilDisp && !cerrado) setPeek(true) }}
+        onMouseLeave={() => { if (!esMovilDisp) setPeek(false) }}
         style={{
-          background: asideBg,
+          background: isDark ? '#1a1f2e' : CREMA,
           borderRadius: 16,
           width: sidebarWidth,
           minWidth: sidebarWidth,
@@ -299,7 +296,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {collapsed ? (
           <div style={{ background: CREMA, borderBottom: `2px solid ${INK}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 64, padding: '6px 0', gap: 4 }}>
             <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 28, width: 'auto', display: 'block' }} crossOrigin="anonymous" />
-            <button onClick={(e) => { e.stopPropagation(); pin() }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
+            <button onClick={pin} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }} title="Abrir">
               <ChevronRight size={18} color="#B01D23" />
             </button>
           </div>
@@ -309,30 +306,29 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <img src="/data/logo-icon.svg" alt="Streat Lab" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} crossOrigin="anonymous" />
               <span style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23', letterSpacing: '2px', fontWeight: 600, whiteSpace: 'nowrap' }}>STREAT LAB</span>
             </div>
+            {/* Móvil cierra el off-canvas; escritorio colapsa a iconos */}
             <button
-              onClick={(e) => { e.stopPropagation(); colapsarManual() }}
-              style={{ color: '#B01D23', background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}
-              className="hidden md:flex"
+              onClick={() => { if (esMovilDisp) onClose(); else colapsarManual() }}
+              style={{ color: '#B01D23', background: 'none', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20 }}
               title="Colapsar"
             >«</button>
           </div>
         )}
 
         {/* ── NAV ── */}
-        <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden' }}>
+        <nav className="flex-1 py-2 overflow-y-auto" style={{ overflowX: 'hidden', background: isDark ? '#1a1f2e' : CREMA }}>
 
           {/* Panel Global */}
           {!collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
             <NavLink to="/" end onClick={onClose}
               style={({ isActive }) => ({
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 14px 8px 12px',
-                background: isActive ? '#B01D23' : CREMA,
+                margin: '0 0 6px', padding: '9px 14px 9px 12px',
+                background: isActive ? '#B01D23' : 'transparent',
                 border: 'none', cursor: 'pointer', textDecoration: 'none',
                 fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 800,
                 textTransform: 'uppercase', letterSpacing: '0.04em',
                 color: isActive ? '#fff' : INK,
-                borderBottom: `1px solid ${INK}22`,
               })}
             >
               {({ isActive }) => (
@@ -354,14 +350,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           {!collapsed && perfil === 'admin' && (
             <NavLink to="/tareas" onClick={onClose}
               style={({ isActive }) => ({
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 14px 8px 12px',
-                background: isActive ? '#B01D23' : CREMA,
-                border: 'none', cursor: 'pointer', textDecoration: 'none',
+                display: 'flex', alignItems: 'center', gap: 10,
+                margin: '0 8px 8px', padding: '10px 14px 10px 12px',
+                background: isActive ? '#B01D23' : '#fff',
+                border: `2px solid ${INK}`, borderRadius: 8,
+                cursor: 'pointer', textDecoration: 'none',
                 fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 800,
                 textTransform: 'uppercase', letterSpacing: '0.04em',
                 color: isActive ? '#fff' : INK,
-                borderBottom: `2px solid ${INK}`,
               })}
             >
               {({ isActive }) => (
@@ -385,7 +381,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </NavLink>
           )}
 
-          {/* Secciones */}
+          {/* Secciones: botón de color sólido sobre crema */}
           {SECTIONS.map(section => {
             const visibleItems = filterItems(section.items)
             if (!section.perfiles.includes(perfil) || visibleItems.length === 0) return null
@@ -394,18 +390,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const sectionBg     = SECTION_BG[section.key] ?? '#444'
 
             return (
-              <div key={section.key}>
+              <div key={section.key} style={{ margin: collapsed ? 0 : '0 8px 8px' }}>
                 {collapsed ? (
                   <button type="button" onClick={() => toggleSection(section.key)} title={section.label}
-                    style={{ width: '100%', height: 44, background: sectionBg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: `1px solid ${INK}44` }}>
+                    style={{ width: '100%', height: 44, background: sectionBg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {IconComponent ? <IconComponent size={20} strokeWidth={1.8} color="#fff" /> : <span style={{ color: '#fff' }}>{section.emoji}</span>}
                   </button>
                 ) : (
                   <button type="button" onClick={() => toggleSection(section.key)}
                     style={{
-                      width: '100%', background: sectionBg, border: 'none', cursor: 'pointer',
+                      width: '100%', background: sectionBg, border: `2px solid ${INK}`, borderRadius: 8, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 14px 10px 12px', borderBottom: `1px solid ${INK}44`,
+                      padding: '10px 14px 10px 12px',
                       fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 800,
                       textTransform: 'uppercase', letterSpacing: '0.04em', color: '#fff',
                     }}
@@ -419,24 +415,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 )}
 
                 {!collapsed && (
-                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 38}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', background: `${sectionBg}22` }}>
+                  <div style={{ maxHeight: isOpen ? `${visibleItems.length * 38 + 8}px` : 0, overflow: 'hidden', transition: 'max-height 300ms ease', background: '#fff', border: isOpen ? `2px solid ${INK}` : 'none', borderTop: 'none', borderRadius: isOpen ? '0 0 8px 8px' : 0, marginTop: isOpen ? -2 : 0 }}>
                     {visibleItems.map((item, idx) => (
                       <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
                         style={({ isActive }) => ({
                           display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '6px 10px 6px 20px',
+                          padding: '7px 10px 7px 18px',
                           background: isActive ? '#B01D23' : 'transparent',
-                          color: isActive ? '#fff' : CREMA,
+                          color: isActive ? '#fff' : INK,
                           textDecoration: 'none', cursor: 'pointer',
                           fontFamily: FONT.body, fontSize: 14, fontWeight: 500,
-                          borderBottom: `1px solid ${INK}22`,
+                          borderBottom: idx < visibleItems.length - 1 ? `1px solid ${INK}1a` : 'none',
                           whiteSpace: 'nowrap', overflow: 'hidden',
                         })}
                       >
                         {({ isActive }) => (
                           <>
                             <span style={{ fontSize: 13, flexShrink: 0 }}>{item.emoji}</span>
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', color: isActive ? '#fff' : CREMA }}>{item.label}</span>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', color: isActive ? '#fff' : INK }}>{item.label}</span>
                             {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
                           </>
                         )}
@@ -450,13 +446,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Próximamente */}
           {!collapsed && perfil === 'admin' && (
-            <div style={{ marginTop: 4 }}>
+            <div style={{ margin: '4px 8px 0' }}>
               <button type="button" onClick={() => setProxOpen(o => !o)}
-                style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 10px 12px', fontFamily: FONT.heading, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#ffffff55', transition: 'color 200ms' }}
+                style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 10px 12px', fontFamily: FONT.heading, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9a8f78', transition: 'color 200ms' }}
                 title="Funciones en desarrollo"
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Clock size={16} strokeWidth={1.8} color="#ffffff44" />
+                  <Clock size={16} strokeWidth={1.8} color="#9a8f78" />
                   <span>Próximamente</span>
                 </div>
                 <span style={{ fontSize: 11, transition: 'transform 300ms', transform: proxOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
@@ -464,7 +460,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <div style={{ maxHeight: proxOpen ? `${PROXIMAMENTE.length * 30 + 8}px` : 0, overflow: 'hidden', transition: 'max-height 400ms ease' }}>
                 {PROXIMAMENTE.map((item, idx) => (
                   <div key={`${item.label}-${idx}`} aria-disabled="true"
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 10px 5px 22px', margin: '0 8px', borderRadius: 4, fontFamily: FONT.body, fontSize: 12.5, color: '#ffffff44', opacity: 0.5, cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 10px 5px 18px', borderRadius: 4, fontFamily: FONT.body, fontSize: 12.5, color: '#9a8f78', opacity: 0.6, cursor: 'not-allowed', userSelect: 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                     <span style={{ fontSize: 12, flexShrink: 0 }}>{item.emoji}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                   </div>
