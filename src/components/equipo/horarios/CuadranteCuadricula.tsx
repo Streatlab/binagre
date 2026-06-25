@@ -1,11 +1,11 @@
 /**
  * Cuadrante visual común — Esta Semana, Histórico, Próxima, Plantillas, Generador.
- * Edición inline: cada celda admite hasta 2 turnos (HH:MM). El conteo diario y
- * semanal se recalcula en vivo. Botón Guardar persiste en Supabase (overrides).
- * Los cambios se emiten en vivo a la página para que Exportar use lo que se ve.
+ * Vista por defecto de solo lectura. Botón "Editar" muestra celdas editables
+ * (hasta 2 turnos HH:MM por celda). "Guardar" persiste en Supabase y vuelve a vista.
+ * Export/Compartir usan lo guardado (emitido vía onTurnosChange en carga y al guardar).
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { ChevronUp, ChevronDown, X, Plus } from 'lucide-react'
+import { ChevronUp, ChevronDown, X, Plus, Pencil } from 'lucide-react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
@@ -16,12 +16,13 @@ import {
   cargarOverrides, guardarOverride, claveOverride, normalizarHora,
   type OverridesMap,
 } from './overrides'
-import { crearEmpleado, desactivarEmpleado, guardarOrden } from './personal'
+import { crearEmpleado, archivarEmpleado, guardarOrden, renombrarEmpleado } from './personal'
 
 const FESTIVO_ROJO = '#B01D23'
+const NEGRO = '#1e2233'
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
-/** Empleados con 30 min de descanso descontado. */
+/** Empleados con 30 min de descanso descontado (afecta solo al cálculo, no a mostrar las 2 cifras). */
 const CON_DESCUENTO = ['Ray', 'Andrés', 'Héctor']
 
 function fmtHM(h: number): string {
@@ -114,7 +115,7 @@ export function CuadranteCuadricula({
   const { T } = useTheme()
   const dias = useMemo(() => fechasSemana(lunes), [lunes])
   const ocultarLibre = isoDeFecha(lunes) === SEMANA_SIN_LIBRE
-  const cols = `120px repeat(7, minmax(0,1fr)) 110px`
+  const cols = `130px repeat(7, minmax(0,1fr)) 110px`
 
   const idxEmp = useMemo(() => {
     const m: Record<string, number> = {}
@@ -122,8 +123,10 @@ export function CuadranteCuadricula({
     return m
   }, [empleados])
 
-  // datos[clave] = tramos (vacío = libre). Base: datosReales (props.turnos).
   const [datos, setDatos] = useState<Record<string, Tramo[]>>({})
+  const [editando, setEditando] = useState(false)
+  const [guardado, setGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
+  const [nuevoNombre, setNuevoNombre] = useState('')
 
   const baseDatos = useMemo(() => {
     const m: Record<string, Tramo[]> = {}
@@ -137,6 +140,19 @@ export function CuadranteCuadricula({
     return m
   }, [turnos, dias])
 
+  function emitir(d: Record<string, Tramo[]>) {
+    if (!onTurnosChange) return
+    const out: Turno[] = []
+    for (const emp of empleados) {
+      const pila = nombrePila(emp.nombre)
+      for (const dd of dias) {
+        const tr = d[claveOverride(emp.id, dd.iso)] ?? []
+        if (tr.length > 0) out.push({ empleado_id: emp.id, dia: dd.dia, tramos: tr, descuento_min: descuentoMin(pila) })
+      }
+    }
+    onTurnosChange(out)
+  }
+
   useEffect(() => {
     let vivo = true
     setDatos(baseDatos)
@@ -144,17 +160,15 @@ export function CuadranteCuadricula({
     const hasta = dias[6].iso
     cargarOverrides(desde, hasta).then((ov: OverridesMap) => {
       if (!vivo) return
-      setDatos(prev => ({ ...prev, ...ov }))
+      const merged = { ...baseDatos, ...ov }
+      setDatos(merged)
+      emitir(merged)
     })
     return () => { vivo = false }
-  }, [baseDatos, dias])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseDatos, dias, empleados])
 
-  const empleadosVisibles = useMemo(() => {
-    if (editable) return empleados
-    return empleados.filter(e =>
-      dias.some(d => (datos[claveOverride(e.id, d.iso)] ?? []).length > 0),
-    )
-  }, [empleados, dias, datos, editable])
+  const empleadosVisibles = empleados
 
   function color(idx: number) {
     const pal = [
@@ -185,35 +199,26 @@ export function CuadranteCuadricula({
     setDatos(prev => ({ ...prev, [k]: tramos }))
   }
 
-  // Emite a la página los turnos efectivos en vivo (para que Exportar use lo que se ve).
-  useEffect(() => {
-    if (!onTurnosChange) return
-    const out: Turno[] = []
-    for (const emp of empleados) {
-      const pila = nombrePila(emp.nombre)
-      for (const d of dias) {
-        const tr = datos[claveOverride(emp.id, d.iso)] ?? []
-        if (tr.length > 0) out.push({ empleado_id: emp.id, dia: d.dia, tramos: tr, descuento_min: descuentoMin(pila) })
-      }
-    }
-    onTurnosChange(out)
-  }, [datos, empleados, dias, onTurnosChange])
-
-  const [guardado, setGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
-
   async function guardarTodo() {
     setGuardado('guardando')
+    let fallos = 0
     for (const emp of empleados) {
       for (const d of dias) {
         const tr = datos[claveOverride(emp.id, d.iso)] ?? []
-        await guardarOverride(emp.id, d.iso, tr)
+        const ok = await guardarOverride(emp.id, d.iso, tr)
+        if (!ok) fallos++
       }
     }
+    if (fallos > 0) {
+      setGuardado('idle')
+      window.alert('No se pudieron guardar algunos cambios. Inténtalo de nuevo.')
+      return
+    }
+    emitir(datos)
     setGuardado('guardado')
+    setEditando(false)
     setTimeout(() => setGuardado('idle'), 2500)
   }
-
-  const [nuevoNombre, setNuevoNombre] = useState('')
 
   async function moverEmpleado(idx: number, dir: -1 | 1) {
     const j = idx + dir
@@ -224,9 +229,17 @@ export function CuadranteCuadricula({
     onEmpleadosChange?.()
   }
 
-  async function eliminarEmpleado(emp: Empleado) {
-    if (!window.confirm(`¿Quitar a ${nombrePila(emp.nombre)} de los horarios? Su histórico se conserva.`)) return
-    await desactivarEmpleado(emp.id)
+  async function archivar(emp: Empleado) {
+    if (!window.confirm(`¿Quitar a ${nombrePila(emp.nombre)} de los horarios? Pasa a antiguos empleados y conserva su histórico. (El borrado definitivo se hace en Equipo › Empleados.)`)) return
+    await archivarEmpleado(emp.id)
+    onEmpleadosChange?.()
+  }
+
+  async function renombrar(emp: Empleado) {
+    const nombre = window.prompt('Nuevo nombre:', emp.nombre)
+    if (nombre == null) return
+    if (!nombre.trim()) return
+    await renombrarEmpleado(emp.id, nombre)
     onEmpleadosChange?.()
   }
 
@@ -239,6 +252,7 @@ export function CuadranteCuadricula({
   }
 
   const filaCierre = mostrarCierre && Object.keys(cierres).length > 0
+  const enEdicion = editable && editando
 
   return (
     <div>
@@ -251,24 +265,20 @@ export function CuadranteCuadricula({
           {guardado === 'guardado' && (
             <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D9E75', fontWeight: 600 }}>Guardado ✓</span>
           )}
-          <button
-            onClick={guardarTodo}
-            disabled={guardado === 'guardando'}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 12,
-              letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700,
-              color: '#fff', background: guardado === 'guardando' ? '#7a8' : '#1D9E75',
-              border: 'none', padding: '8px 20px', borderRadius: 6,
-              cursor: guardado === 'guardando' ? 'default' : 'pointer',
-            }}
-          >
-            {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
-          </button>
+          {!editando ? (
+            <button onClick={() => setEditando(true)} style={topBtn(NEGRO)}>
+              <Pencil size={14} /> Editar
+            </button>
+          ) : (
+            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? '#7a8' : '#1D9E75', guardado === 'guardando')}>
+              {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
+            </button>
+          )}
         </div>
       )}
 
       <div style={{ ...cardStyle(T), padding: 14, overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 920 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 3, minWidth: 940 }}>
           <div />
           {dias.map(({ dia, num, festivo, festNombre }) => (
             <div key={dia} title={festNombre ?? undefined}
@@ -285,11 +295,10 @@ export function CuadranteCuadricula({
             const pila = nombrePila(emp.nombre)
             const col = color(idxEmp[emp.id] ?? 0)
             const tot = totalEmp(emp.id, pila)
-            const hayDif = Math.abs(tot.bruto - tot.real) > 0.001
             return (
               <div key={emp.id} style={{ display: 'contents' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '8px 2px' }}>
-                  {editable && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '8px 2px' }}>
+                  {enEdicion && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <button onClick={() => moverEmpleado(rowIdx, -1)} disabled={rowIdx === 0}
                         style={miniBtn(T, rowIdx === 0)} title="Subir"><ChevronUp size={12} /></button>
@@ -300,10 +309,11 @@ export function CuadranteCuadricula({
                   <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: T.pri, letterSpacing: '0.5px', flex: 1 }}>
                     {pila}
                   </span>
-                  {editable && (
-                    <button onClick={() => eliminarEmpleado(emp)} style={{ ...miniBtn(T, false), color: '#B01D23' }} title="Quitar de horarios">
-                      <X size={13} />
-                    </button>
+                  {enEdicion && (
+                    <>
+                      <button onClick={() => renombrar(emp)} style={miniBtn(T, false)} title="Renombrar"><Pencil size={12} /></button>
+                      <button onClick={() => archivar(emp)} style={{ ...miniBtn(T, false), color: '#B01D23' }} title="Quitar de horarios (a antiguos)"><X size={13} /></button>
+                    </>
                   )}
                 </div>
 
@@ -312,17 +322,17 @@ export function CuadranteCuadricula({
                     key={dia}
                     seedKey={`${iso}-${(datos[claveOverride(emp.id, iso)] ?? []).map(t => t.entrada + t.salida).join('_')}`}
                     tramos={datos[claveOverride(emp.id, iso)] ?? []}
-                    pila={pila} col={col} festivo={festivo} editable={editable}
+                    pila={pila} col={col} festivo={festivo} editable={enEdicion}
                     ocultarLibre={ocultarLibre} T={T}
                     onCommit={(tr) => commit(emp.id, iso, tr)}
                   />
                 ))}
 
-                <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '8px 4px', textAlign: 'center', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 700 }}>{fmtHM(tot.real)}</span>
-                  {hayDif && (
-                    <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, color: '#B01D23' }}>/{fmtHM(tot.bruto)}</span>
-                  )}
+                {/* Total semana: neto (negro) arriba, barra, bruto (rojo) abajo — siempre, para todos */}
+                <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, color: NEGRO }}>{fmtHM(tot.real)}</span>
+                  <div style={{ width: '60%', height: 1, background: 'rgba(0,0,0,0.25)' }} />
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, color: '#B01D23' }}>{fmtHM(tot.bruto)}</span>
                 </div>
               </div>
             )
@@ -346,7 +356,7 @@ export function CuadranteCuadricula({
         </div>
       </div>
 
-      {editable && (
+      {enEdicion && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
           <input
             value={nuevoNombre}
@@ -359,21 +369,22 @@ export function CuadranteCuadricula({
               background: T.card, color: T.pri, outline: 'none',
             }}
           />
-          <button
-            onClick={anadirEmpleado}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT.heading, fontSize: 11,
-              letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600,
-              color: '#fff', background: '#1e2233', border: '1px solid #1e2233',
-              padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
-            }}
-          >
+          <button onClick={anadirEmpleado} style={{ ...topBtn(NEGRO), fontSize: 11 }}>
             <Plus size={14} /> Añadir persona
           </button>
         </div>
       )}
     </div>
   )
+}
+
+function topBtn(bg: string, disabled = false): CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 12,
+    letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700,
+    color: '#fff', background: bg, border: 'none', padding: '8px 20px', borderRadius: 6,
+    cursor: disabled ? 'default' : 'pointer',
+  }
 }
 
 function Celda({
@@ -389,7 +400,6 @@ function Celda({
   T: ReturnType<typeof useTheme>['T']
   onCommit: (tramos: Tramo[]) => void
 }) {
-  // estado local de los 2 tramos (4 campos)
   const [t1e, setT1e] = useState('')
   const [t1s, setT1s] = useState('')
   const [t2e, setT2e] = useState('')
@@ -446,20 +456,20 @@ function Celda({
   return (
     <div style={{ background: fondo, borderRadius: 5, padding: '6px 3px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: borde }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <input className="hor-input" style={inputStyle} value={t1e} placeholder="--:--"
+        <input className="hor-input" maxLength={5} inputMode="numeric" style={inputStyle} value={t1e} placeholder="--:--"
           onChange={e => setT1e(e.target.value)}
           onBlur={() => { const v = normalizarHora(t1e); setT1e(v); commitDesdeCampos(v, t1s, t2e, t2s) }} />
         {sep}
-        <input className="hor-input" style={inputStyle} value={t1s} placeholder="--:--"
+        <input className="hor-input" maxLength={5} inputMode="numeric" style={inputStyle} value={t1s} placeholder="--:--"
           onChange={e => setT1s(e.target.value)}
           onBlur={() => { const v = normalizarHora(t1s); setT1s(v); commitDesdeCampos(t1e, v, t2e, t2s) }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <input className="hor-input" style={inputStyle} value={t2e} placeholder="--:--"
+        <input className="hor-input" maxLength={5} inputMode="numeric" style={inputStyle} value={t2e} placeholder="--:--"
           onChange={e => setT2e(e.target.value)}
           onBlur={() => { const v = normalizarHora(t2e); setT2e(v); commitDesdeCampos(t1e, t1s, v, t2s) }} />
         {sep}
-        <input className="hor-input" style={inputStyle} value={t2s} placeholder="--:--"
+        <input className="hor-input" maxLength={5} inputMode="numeric" style={inputStyle} value={t2s} placeholder="--:--"
           onChange={e => setT2s(e.target.value)}
           onBlur={() => { const v = normalizarHora(t2s); setT2s(v); commitDesdeCampos(t1e, t1s, t2e, v) }} />
       </div>
