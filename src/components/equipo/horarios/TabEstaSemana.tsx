@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -9,7 +9,7 @@ import {
 } from './utils'
 import { getSemanaPorLunes } from './datosReales'
 import { getAsignacionPorLunes, aplicarPlantilla, PLANTILLAS } from './plantillas'
-import { CuadranteCuadricula, expandirTurnos, ordenarEmpleados, isoDeFecha } from './CuadranteCuadricula'
+import { CuadranteCuadricula, expandirTurnos, isoDeFecha } from './CuadranteCuadricula'
 import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
 import { fetchTurnosDB } from './fetchTurnosDB'
 
@@ -31,10 +31,13 @@ export default function TabEstaSemana() {
   const [cierres, setCierres] = useState<Partial<Record<string, string>>>({})
   const [fuente, setFuente] = useState<Fuente>('vacio')
 
-  useEffect(() => {
-    supabase.from('empleados').select('id,nombre,cargo').eq('estado', 'activo')
-      .then(({ data }) => setEmpleados(ordenarEmpleados((data ?? []) as Empleado[])))
+  const cargarEmpleados = useCallback(() => {
+    supabase.from('empleados').select('id,nombre,cargo,orden').eq('estado', 'activo')
+      .order('orden', { ascending: true, nullsFirst: false })
+      .then(({ data }) => setEmpleados((data ?? []) as Empleado[]))
   }, [])
+
+  useEffect(() => { cargarEmpleados() }, [cargarEmpleados])
 
   useEffect(() => {
     if (typeof localStorage !== 'undefined') localStorage.setItem('horarios_semana_lunes', isoDeFecha(lunes))
@@ -112,7 +115,7 @@ export default function TabEstaSemana() {
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
       ) : (
-        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} mostrarCierre={false} />
+        <CuadranteCuadricula empleados={empleados} turnos={turnos} lunes={lunes} cierres={cierres} mostrarCierre={false} onEmpleadosChange={cargarEmpleados} />
       )}
     </div>
   )
