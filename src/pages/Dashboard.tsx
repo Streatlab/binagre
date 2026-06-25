@@ -14,7 +14,6 @@ import {
   semaforoColor,
   CANALES,
   type CanalConfig,
-  tituloPaginaStyle,
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
@@ -59,6 +58,15 @@ type MainTab = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion'
 const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto'
 
 const NETO_GREEN = '#1D9E75'
+
+// tokens neobrutal (chrome Panel Global)
+const INK = '#140f08'
+const ROSA = '#FF2E63'
+const AMA = '#FFC400'
+const CREMA = '#FCEFD6'
+const OSW = 'Oswald, sans-serif'
+const LEX = 'Lexend, sans-serif'
+const SHADOW = `4px 4px 0 ${INK}`
 
 const MAIN_TABS = [
   { id: 'resumen',     label: 'Resumen' },
@@ -412,7 +420,7 @@ export default function Dashboard() {
   void progressFillStyle
   void nSemana; void ticketMedioBruto; void variacionPct; void ticketMedioNeto; void ventasSemana
   void diasPico; void diasRestantesMesOp; void tabBtnStyle; void editandoObjetivo; void valorEditObjetivo
-  void setTopTab; void setEditandoObjetivo; void setValorEditObjetivo; void guardarObjetivo; void ChevronDown
+  void setTopTab; void setEditandoObjetivo; void setValorEditObjetivo; void guardarObjetivo
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:80 }}>
@@ -460,17 +468,17 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={groupStyle(T)}>
+      <div style={{ ...groupStyle(T), background: CREMA, borderRadius: 0, border: `4px solid ${INK}` }}>
 
         <div style={{
           display:'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row',
           gap: isMobile ? 10 : 16, marginBottom:20, flexWrap:'wrap',
         }}>
-          <div style={{ display:'flex', flexDirection:'column', gap:2, flexShrink:0 }}>
-            <span style={{ ...tituloPaginaStyle(T), margin:0, fontSize:22, letterSpacing:'3px' }}>PANEL GLOBAL</span>
-            <span style={{ fontFamily:'Lexend,sans-serif', fontSize:13, color:T.mut, lineHeight:1.3 }}>
+          <div style={{ display:'inline-block', background:'#B01D23', border:`3px solid ${INK}`, boxShadow:SHADOW, padding:'8px 16px', flexShrink:0 }}>
+            <div style={{ fontFamily:OSW, fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'3px', textTransform:'uppercase', lineHeight:1 }}>PANEL GLOBAL</div>
+            <div style={{ fontFamily:LEX, fontSize:12, color:'#ffffffcc', marginTop:4 }}>
               {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
-            </span>
+            </div>
           </div>
 
           <div style={{ flex:1 }} />
@@ -481,61 +489,66 @@ export default function Dashboard() {
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
-              style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
-              <span>{marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+              <span>{marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropMarcaOpen && (
-              <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>
-                {(marcasBD.length > 0 ? marcasBD : ['Streat Lab']).map(m => (
-                  <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', fontSize:13, color: marcasFiltro.includes(m) ? '#FF4757' : '#7a8090', fontFamily:'Lexend,sans-serif', background: marcasFiltro.includes(m) ? '#FF475715' : 'transparent', fontWeight: marcasFiltro.includes(m) ? 500 : 400 }}>
-                    <input type="checkbox" checked={marcasFiltro.includes(m)}
-                      onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
-                      style={{ width:13, height:13 }} />
-                    {m}
-                  </label>
-                ))}
+              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden', maxHeight:340, overflowY:'auto' }}>
+                {(marcasBD.length > 0 ? marcasBD : ['Streat Lab']).map(m => {
+                  const sel = marcasFiltro.includes(m)
+                  return (
+                    <label key={m} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px', cursor:'pointer', fontSize:13.5, color:INK, fontFamily:LEX, background: sel ? AMA : 'transparent', fontWeight: sel ? 600 : 500, borderBottom:`1px solid ${INK}1a` }}>
+                      <input type="checkbox" checked={sel}
+                        onChange={() => setMarcasFiltro(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
+                        style={{ accentColor: ROSA, width:15, height:15 }} />
+                      {m}
+                    </label>
+                  )
+                })}
               </div>
             )}
           </div>
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
-              style={{ padding:'6px 10px', borderRadius:8, border:'0.5px solid #d0c8bc', background:'#fff', color:'#111', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap', fontFamily:'Lexend,sans-serif' }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
-              <span>{canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`}</span><ChevronDown size={11} strokeWidth={2.5} style={{ marginLeft: 4 }} />
+              <span>{canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropCanalOpen && (
-              <div style={{ position:'absolute', right:0, top:38, background:'#fff', border:'0.5px solid #d0c8bc', borderRadius:8, width:200, zIndex:10, boxShadow:'0 4px 12px rgba(0,0,0,0.06)', overflow:'hidden' }}>
-                {CANALES.map(c => (
-                  <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', fontSize:13, color: canalesFiltro.includes(c.id) ? '#FF4757' : '#7a8090', fontFamily:'Lexend,sans-serif', background: canalesFiltro.includes(c.id) ? '#FF475715' : 'transparent', fontWeight: canalesFiltro.includes(c.id) ? 500 : 400 }}>
-                    <input type="checkbox" checked={canalesFiltro.includes(c.id)}
-                      onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
-                      style={{ width:13, height:13 }} />
-                    <span style={dotStyle(c.id, c.color)} />
-                    {c.label}
-                  </label>
-                ))}
+              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden' }}>
+                {CANALES.map(c => {
+                  const sel = canalesFiltro.includes(c.id)
+                  return (
+                    <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 12px', cursor:'pointer', fontSize:13.5, color:INK, fontFamily:LEX, background: sel ? AMA : 'transparent', fontWeight: sel ? 600 : 500, borderBottom:`1px solid ${INK}1a` }}>
+                      <input type="checkbox" checked={sel}
+                        onChange={() => setCanalesFiltro(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
+                        style={{ accentColor: ROSA, width:15, height:15 }} />
+                      <span style={dotStyle(c.id, c.color)} />
+                      {c.label}
+                    </label>
+                  )
+                })}
               </div>
             )}
           </div>
         </div>
 
-        <div style={{
-          background: '#ffffff', border: '0.5px solid #d0c8bc', borderRadius: 10, padding: '4px 6px',
-          marginBottom: 18, display: 'inline-flex', gap: 4,
-        }}>
-          {MAIN_TABS.map(tab => (
-            <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
-              style={mainTab === tab.id ? {
-                padding: '5px 12px', borderRadius: 5, border: 'none', background: '#FF4757', color: '#ffffff',
-                fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 150ms',
-              } : {
-                padding: '5px 12px', borderRadius: 5, border: '0.5px solid #d0c8bc', background: 'transparent', color: '#3a4050',
-                fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              }}
-            >{tab.label}</button>
-          ))}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:18 }}>
+          {MAIN_TABS.map(tab => {
+            const active = mainTab === tab.id
+            return (
+              <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
+                style={{
+                  fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  padding: '9px 18px', cursor: 'pointer', border: `3px solid ${INK}`, borderRadius: 0,
+                  background: active ? ROSA : CREMA, color: active ? '#fff' : INK,
+                  boxShadow: active ? SHADOW : 'none',
+                }}
+              >{tab.label}</button>
+            )
+          })}
         </div>
 
         {mainTab === 'resumen' && (

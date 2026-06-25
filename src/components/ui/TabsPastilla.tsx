@@ -1,5 +1,13 @@
-import React from 'react'
-import { TABS_PILL } from '@/components/panel/resumen/tokens'
+/**
+ * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
+ * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
+ * crema con borde negro. Oswald mayúsculas.
+ */
+
+const INK = '#140f08'
+const ROSA = '#FF2E63'
+const CREMA = '#FCEFD6'
+const OSW = "'Oswald', sans-serif"
 
 interface TabItem {
   id: string
@@ -15,35 +23,53 @@ interface TabsPastillaProps {
 
 export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaProps) {
   return (
-    <div style={TABS_PILL.container}>
-      {tabs.map(tab => (
-        <button
-          key={tab.id}
-          style={tab.id === activeId ? TABS_PILL.active : TABS_PILL.inactive}
-          onClick={() => onChange(tab.id)}
-        >
-          {tab.label}
-          {tab.badge != null && tab.badge > 0 && (
-            <span style={{
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {tabs.map(tab => {
+        const active = tab.id === activeId
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            style={{
+              fontFamily: OSW,
+              fontWeight: 600,
+              fontSize: 14,
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase',
+              padding: '9px 18px',
+              cursor: 'pointer',
+              border: `3px solid ${INK}`,
+              borderRadius: 0,
+              background: active ? ROSA : CREMA,
+              color: active ? '#fff' : INK,
+              boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: 16,
-              height: 16,
-              padding: '0 5px',
-              borderRadius: 8,
-              background: '#E24B4A',
-              color: '#ffffff',
-              fontSize: 10,
-              fontWeight: 600,
-              fontFamily: 'Lexend',
-              marginLeft: 6,
-            }}>
-              {tab.badge}
-            </span>
-          )}
-        </button>
-      ))}
+            }}
+          >
+            {tab.label}
+            {tab.badge != null && tab.badge > 0 && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: 18,
+                height: 18,
+                padding: '0 5px',
+                border: `2px solid ${INK}`,
+                background: INK,
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 700,
+                fontFamily: OSW,
+                marginLeft: 8,
+              }}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }

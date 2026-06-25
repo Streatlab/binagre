@@ -1,10 +1,10 @@
 /**
- * Tab Resumen v5 — Panel Global
+ * Tab Resumen v8 — Panel Global
  * Lógica de cálculo (la presentación está en ResumenLanding).
- * Novedades v5: margen NETO REAL (de comisiones reales, no estimado), deuda de plataformas
- * a hoy (calcPorCobrar, misma fuente que Cashflow), reparto por servicio (almuerzo/cenas) y
- * ranking de MARCAS reales (ventas_plataforma 90d). Mantiene métricas-insight, sparkline,
- * navegación entre pestañas y cache anti-parpadeo.
+ * v8 (tanda 2): variación por marca (sube/baja), proyección de cierre de mes
+ * (a este ritmo) y coste por pedido real (comisión de plataforma + producto).
+ * v9: wrapper neobrutal sin marco redondeado.
+ * v10: periodoRango (fechas concretas) para la card de estado de salud.
  */
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
@@ -39,7 +39,7 @@ interface Props {
 
 interface ToastMsg { id: number; msg: string; type: 'success' | 'warning' }
 interface RepartoRow { nombre: string; bruto: number; neto: number; pedidos: number; pct: number }
-interface MarcaRealRow { nombre: string; neto: number; pct: number }
+interface MarcaRealRow { nombre: string; neto: number; bruto: number; pedidos: number; tmBruto: number; pct: number; serie: number[]; varPct: number | null }
 
 const NOMBRES_DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const COLORES_DIAS = [
@@ -48,7 +48,6 @@ const COLORES_DIAS = [
 ]
 const NOMBRES_DIAS_CORTOS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
 const SERV_LABEL: Record<string, string> = { ALM: 'Almuerzo', CENAS: 'Cenas', CENA: 'Cenas', TODO: 'Todo el día' }
-const FESTIVOS_FALLBACK = ['2026-01-01', '2026-01-06', '2026-04-02', '2026-04-03', '2026-05-01', '2026-05-15', '2026-08-15', '2026-10-12', '2026-11-02', '2026-11-09', '2026-12-07', '2026-12-08', '2026-12-25']
 
 
 function parseLocalDate(s: string): Date {
@@ -137,9 +136,9 @@ export default function TabResumen({
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
   const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
-  const [festivos, setFestivos] = useState<Set<string>>(new Set(FESTIVOS_FALLBACK))
+  const [festivos, setFestivos] = useState<Set<string>>(new Set())
   const [frontera, setFrontera] = useState<Record<string, string>>({})
-  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number }>>([])
+  const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; bruto: number; pedidos: number; fecha: string }>>([])
   const [marcasActivas, setMarcasActivas] = useState<string[]>([])
 
   /* ── state UI ──────────────────────────────── */
@@ -182,12 +181,26 @@ export default function TabResumen({
     })
   }, [])
 
-  /* ── ventas por marca real (90 días) + marcas activas ── */
+  /* ── ventas por marca real (90 días): bruto + pedidos + fecha. Con fallback si no hay 'pedidos'. ── */
   useEffect(() => {
     const hace90 = toLocalDateStr(new Date(Date.now() - 90 * 86400000))
-    supabase.from('ventas_plataforma').select('marca,neto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA').then(({ data }) => {
-      setVentasMarca(((data as { marca: string; neto: number }[]) ?? []).map(v => ({ marca: v.marca, neto: Number(v.neto) || 0 })))
-    })
+    ;(async () => {
+      let rows: Array<{ marca: string; neto: number; bruto: number | null; pedidos?: number | null; fecha_inicio_periodo: string }> = []
+      const full = await supabase.from('ventas_plataforma').select('marca,neto,bruto,pedidos,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA')
+      if (full.error) {
+        const noped = await supabase.from('ventas_plataforma').select('marca,neto,bruto,fecha_inicio_periodo').gte('fecha_inicio_periodo', hace90).neq('marca', 'SIN_MARCA')
+        rows = (noped.data ?? []) as Array<{ marca: string; neto: number; bruto: number | null; fecha_inicio_periodo: string }>
+      } else {
+        rows = (full.data ?? []) as Array<{ marca: string; neto: number; bruto: number | null; pedidos: number | null; fecha_inicio_periodo: string }>
+      }
+      setVentasMarca(rows.map(v => ({
+        marca: v.marca,
+        neto: Number(v.neto) || 0,
+        bruto: Number(v.bruto) || 0,
+        pedidos: Number(v.pedidos) || 0,
+        fecha: String(v.fecha_inicio_periodo || '').slice(0, 10),
+      })))
+    })()
     supabase.from('v_marcas_activas').select('nombre').then(({ data }) => {
       setMarcasActivas(((data as { nombre: string }[]) ?? []).map(x => x.nombre))
     })
@@ -354,6 +367,14 @@ export default function TabResumen({
   const tmNeto = pedidosPeriodo > 0 ? netoEstimado / pedidosPeriodo : 0
   const margenNetoReal = ventasPeriodo > 0 ? (netoEstimado / ventasPeriodo) * 100 : 0
 
+  /* ── coste por pedido real: comisión de plataforma + coste de producto ── */
+  const costePorPedido = useMemo(() => {
+    const comision = pedidosPeriodo > 0 ? (ventasPeriodo - netoEstimado) / pedidosPeriodo : 0
+    const fcPct = peParams ? peParams.food_cost_pct / 100 : 0.28
+    const producto = pedidosPeriodo > 0 ? (netoEstimado * fcPct) / pedidosPeriodo : 0
+    return { comision, producto, total: comision + producto }
+  }, [ventasPeriodo, netoEstimado, pedidosPeriodo, peParams])
+
   /* ── deuda de plataformas a hoy (misma fuente que Cashflow) ── */
   const porCobrar: PorCobrarResult = useMemo(
     () => calcPorCobrar(rowsAll as unknown as Parameters<typeof calcPorCobrar>[0], { config: configCanales, marcasPorCanal, festivos, frontera }),
@@ -382,16 +403,47 @@ export default function TabResumen({
     return { servicios: arr, serviciosHay: arr.length > 0 }
   }, [rowsPeriodo, ventasPeriodo, netoEstimado])
 
-  /* ── ranking de MARCAS reales (ventas_plataforma 90d) ── */
+  /* ── ranking de MARCAS reales (ventas_plataforma 90d): bruto, pedidos, TM bruto, serie + variación ── */
   const { marcasReales, marcasRealesHay } = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const v of ventasMarca) map[v.marca] = (map[v.marca] || 0) + (v.neto || 0)
-    const base = marcasActivas.length ? marcasActivas : Object.keys(map)
-    const totalN = base.reduce((a, m) => a + (map[m] || 0), 0)
+    const tot: Record<string, { neto: number; bruto: number; ped: number }> = {}
+    const porFecha: Record<string, Record<string, number>> = {}
+    const fechasSet = new Set<string>()
+    for (const v of ventasMarca) {
+      if (!tot[v.marca]) tot[v.marca] = { neto: 0, bruto: 0, ped: 0 }
+      const e = tot[v.marca]
+      e.neto += v.neto || 0
+      e.bruto += v.bruto || 0
+      e.ped += v.pedidos || 0
+      if (v.fecha) {
+        if (!porFecha[v.marca]) porFecha[v.marca] = {}
+        porFecha[v.marca][v.fecha] = (porFecha[v.marca][v.fecha] || 0) + (v.bruto || 0)
+        fechasSet.add(v.fecha)
+      }
+    }
+    const fechas = [...fechasSet].sort()
+    const base = marcasActivas.length ? marcasActivas : Object.keys(tot)
+    const totalB = base.reduce((a, mm) => a + (tot[mm]?.bruto || 0), 0)
     const arr: MarcaRealRow[] = base
-      .map(nombre => ({ nombre, neto: map[nombre] || 0, pct: totalN > 0 ? ((map[nombre] || 0) / totalN) * 100 : 0 }))
-      .sort((a, b) => b.neto - a.neto)
-    return { marcasReales: arr, marcasRealesHay: arr.some(m => m.neto > 0) }
+      .map(nombre => {
+        const e = tot[nombre] || { neto: 0, bruto: 0, ped: 0 }
+        const serie = fechas.map(f => porFecha[nombre]?.[f] || 0)
+        const noCero = serie.filter(x => x > 0)
+        const varPct = noCero.length >= 2 && noCero[noCero.length - 2] > 0
+          ? ((noCero[noCero.length - 1] - noCero[noCero.length - 2]) / noCero[noCero.length - 2]) * 100
+          : null
+        return {
+          nombre,
+          neto: e.neto,
+          bruto: e.bruto,
+          pedidos: e.ped,
+          tmBruto: e.ped > 0 ? e.bruto / e.ped : 0,
+          pct: totalB > 0 ? (e.bruto / totalB) * 100 : 0,
+          serie,
+          varPct,
+        }
+      })
+      .sort((a, b) => b.bruto - a.bruto)
+    return { marcasReales: arr, marcasRealesHay: arr.some(mm => mm.bruto > 0) }
   }, [ventasMarca, marcasActivas])
 
   const { variacionVentas, variacionPedidos, variacionTM } = useMemo(() => {
@@ -415,13 +467,30 @@ export default function TabResumen({
     return rowsAll.filter(r => r.fecha >= ws && r.fecha <= we).reduce((a, r) => a + (r.total_bruto || 0), 0)
   }, [rowsAll])
   const ventasMes = useMemo(() => {
-    const m = toLocalDateStr(new Date()).slice(0, 7)
-    return rowsAll.filter(r => r.fecha.startsWith(m)).reduce((a, r) => a + (r.total_bruto || 0), 0)
+    const mm = toLocalDateStr(new Date()).slice(0, 7)
+    return rowsAll.filter(r => r.fecha.startsWith(mm)).reduce((a, r) => a + (r.total_bruto || 0), 0)
   }, [rowsAll])
   const ventasAno = useMemo(() => {
-    const a = toLocalDateStr(new Date()).slice(0, 4)
-    return rowsAll.filter(r => r.fecha.startsWith(a)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
+    const aa = toLocalDateStr(new Date()).slice(0, 4)
+    return rowsAll.filter(r => r.fecha.startsWith(aa)).reduce((a2, r) => a2 + (r.total_bruto || 0), 0)
   }, [rowsAll])
+
+  /* ── proyección de cierre de mes: a este ritmo, dónde cerramos vs objetivo ── */
+  const proyeccionMes = useMemo(() => {
+    const hoy = new Date()
+    const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
+    const diaActual = hoy.getDate()
+    const ritmo = diaActual > 0 ? ventasMes / diaActual : 0
+    const cierre = ritmo * diasMes
+    const objetivo = objetivos.mensual
+    return {
+      cierre,
+      objetivo,
+      pctObjetivo: objetivo > 0 ? (cierre / objetivo) * 100 : 0,
+      diasMes,
+      diaActual,
+    }
+  }, [ventasMes, objetivos.mensual])
 
   const serieMes = useMemo(() => {
     const mm = toLocalDateStr(new Date()).slice(0, 7)
@@ -435,6 +504,7 @@ export default function TabResumen({
   const inicioSem = parseLocalDate(inicioSemStr)
   const finSem = new Date(inicioSem); finSem.setDate(inicioSem.getDate() + 6)
   const fmtDM = (dt: Date) => dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  const periodoRango = `${fmtDM(fechaDesde)} – ${fmtDM(fechaHasta)}`
   const semanaLabel = `Semana ${nSemana}`
   const semanaRango = `${fmtDM(inicioSem)} – ${fmtDM(finSem)}`
   const nombreMesRaw = new Date().toLocaleDateString('es-ES', { month: 'long' })
@@ -729,21 +799,14 @@ export default function TabResumen({
   void navigate
 
   return (
-    <div style={{
-      background: COLOR.bgPagina,
-      color: COLOR.textPri,
-      fontFamily: LEXEND,
-      padding: '20px 0',
-      borderRadius: 12,
-      marginTop: 18,
-    }}>
+    <div style={{ color: COLOR.textPri, fontFamily: LEXEND, marginTop: 14 }}>
 
       <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
         {toasts.map(t => (
           <div key={t.id} style={{
             background: t.type === 'success' ? COLOR.verde : COLOR.ambar,
-            color: '#fff', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontFamily: LEXEND,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            color: '#fff', padding: '8px 16px', border: '3px solid #140f08', fontSize: 13, fontFamily: LEXEND,
+            boxShadow: '4px 4px 0 #140f08',
           }}>{t.msg}</div>
         ))}
       </div>
@@ -751,6 +814,7 @@ export default function TabResumen({
       <ResumenLanding
         datosDemo={datosDemo}
         periodoLabel={periodoLabel}
+        periodoRango={periodoRango}
         semanaLabel={semanaLabel}
         semanaRango={semanaRango}
         mesLabel={mesLabel}
@@ -767,6 +831,9 @@ export default function TabResumen({
         ebitda={ebitda}
         ebitdaPct={ebitdaPct}
         primeCostPct={primeCostPct}
+        costePorPedido={costePorPedido}
+        cierreMes={proyeccionMes.cierre}
+        objetivoMes={proyeccionMes.objetivo}
         serie={serieMes}
         ventasSemana={ventasSemana}
         ventasMes={ventasMes}

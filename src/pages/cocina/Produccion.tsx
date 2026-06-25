@@ -4,6 +4,7 @@ import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil, FileD
 import { jsPDF } from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import Esquemas from '@/pages/cocina/Esquemas'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   const top = M + 17
   const bottom = PH - M - 3
   const alturaDisp = bottom - top
-  const headH = 5.5
+  const headH = 6.5
   const gap = 1.4
 
   // 2 columnas fijas, con margen interior para no pisar el borde rojo
@@ -369,9 +370,9 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     let y = top
     for (const cat of cols[k]) {
       // cabecera de categoría
-      doc.setFillColor(250, 240, 241); doc.rect(x, y, colW, headH, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...RED_DARK)
-      doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 1.8)
+      doc.setFillColor(26, 26, 26); doc.rect(x, y, colW, headH, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
+      doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 2.1)
       y += headH
 
       for (const it of cat.items) {
@@ -428,7 +429,7 @@ function descargarInventarioTodosPDF(ubis: InvUbi[]) {
 
 export default function Produccion() {
   const { T, isDark } = useTheme()
-  const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario'>('lista')
+  const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario' | 'esquemas'>('lista')
   const [secciones, setSecciones] = useState<Seccion[]>([])
   const [partidas, setPartidas] = useState<Partida[]>([])
   const [inventario, setInventario] = useState<InvItem[]>([])
@@ -452,6 +453,7 @@ export default function Produccion() {
     { key: 'lista', label: 'Lista de Producción' },
     { key: 'camara', label: 'Ordenación de Cámara' },
     { key: 'inventario', label: 'Inventario Permanente' },
+    { key: 'esquemas', label: 'Esquemas' },
   ]
 
   return (
@@ -465,7 +467,7 @@ export default function Produccion() {
 
       <div style={tabsContainerStyle()} className="no-print">
         {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario')}
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario' | 'esquemas')}
             style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
             {tab.label}
           </button>
@@ -478,8 +480,10 @@ export default function Produccion() {
         <TabListaProduccion T={T} secciones={secciones} partidas={partidas} onChanged={cargarBase} />
       ) : activeTab === 'camara' ? (
         <TabOrdenacionCamara T={T} secciones={secciones} partidas={partidas} />
-      ) : (
+      ) : activeTab === 'inventario' ? (
         <TabInventarioPermanente T={T} inventario={inventario} />
+      ) : (
+        <Esquemas />
       )}
     </div>
   )
@@ -921,7 +925,7 @@ const FICHA_CSS = `
 .inv-head-sub { font-size: 13px; font-weight: 500; }
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
-.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; color: #fff; background: #8a1a22; padding: 7px 14px; border-bottom: 2px solid #6b1218; }
+.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 15px; color: #fff; background: #1a1a1a; padding: 7px 14px; border-bottom: 2px solid #000; }
 .inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
 .inv-name { flex: 0 0 auto; display: flex; align-items: center; white-space: nowrap; padding: 1px 12px; font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 500; color: var(--text-primary); }
 .inv-min-inline { margin-left: 8px; color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
