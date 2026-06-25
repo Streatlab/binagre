@@ -7,18 +7,25 @@ import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { useTheme } from '@/styles/tokens'
+
+// Fondo del wrapper del ERP: rosa claro en modo claro (el mismo de la tarjeta Ratio).
+const ROSA_WRAP = '#ffe0ea'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const movil = useEsMovil()
+  const { isDark } = useTheme()
+  const appBg = isDark ? 'var(--sl-app)' : ROSA_WRAP
 
   return (
-    <div className="flex h-screen bg-[var(--sl-app)] text-[var(--sl-text-primary)] font-sans">
+    <div className="flex h-screen text-[var(--sl-text-primary)] font-sans" style={{ background: appBg }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header
-          className={`h-12 flex items-center px-4 border-b border-[var(--sl-border)] bg-[var(--sl-sidebar)] ${movil ? '' : 'md:hidden'}`}
+          className={`h-12 flex items-center px-4 border-b border-[var(--sl-border)] ${movil ? '' : 'md:hidden'}`}
+          style={{ background: appBg }}
         >
           <button
             onClick={() => setSidebarOpen(true)}
@@ -33,7 +40,7 @@ export default function Layout() {
           <div style={{ marginLeft: 'auto' }}><ThemeToggle /></div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ background: appBg }}>
           <Outlet />
         </main>
       </div>
