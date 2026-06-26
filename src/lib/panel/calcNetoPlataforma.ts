@@ -173,16 +173,24 @@ export async function loadVentasRealesIndex(): Promise<LiqRealCanal[]> {
 export async function loadRatiosRealesCanal(): Promise<Record<string, RatioCanalReal>> {
   if (cacheRatiosReales) return cacheRatiosReales
   const liq = await loadVentasRealesIndex()
-  const acc: Record<string, { b: number; n: number; p: number; per: number }> = {}
+  // RECENCIA: solo liquidaciones de los ultimos 6 meses, ponderando mas lo reciente.
+  // Asi el ratio neto/bruto refleja la tendencia actual y no un promedio plano de todo el historico.
+  const VENTANA_DIAS = 183
+  const hoyEpoch = Math.floor(Date.now() / 86400000)
+  const minEpoch = hoyEpoch - VENTANA_DIAS
+  const acc: Record<string, { b: number; n: number; p: number; per: number; bw: number; nw: number }> = {}
   for (const l of liq) {
-    if (!acc[l.canal]) acc[l.canal] = { b: 0, n: 0, p: 0, per: 0 }
+    if (l.fin < minEpoch) continue
+    const w = 1 + Math.max(0, l.fin - minEpoch) / VENTANA_DIAS
+    if (!acc[l.canal]) acc[l.canal] = { b: 0, n: 0, p: 0, per: 0, bw: 0, nw: 0 }
     acc[l.canal].b += l.bruto; acc[l.canal].n += l.neto
     acc[l.canal].p += l.pedidos; acc[l.canal].per += 1
+    acc[l.canal].bw += l.bruto * w; acc[l.canal].nw += l.neto * w
   }
   const out: Record<string, RatioCanalReal> = {}
   for (const [canal, v] of Object.entries(acc)) {
     out[canal] = {
-      canal, ratio: v.b > 0 ? v.n / v.b : 0,
+      canal, ratio: v.bw > 0 ? v.nw / v.bw : 0,
       brutoAcum: v.b, netoAcum: v.n, pedidosAcum: v.p, periodos: v.per,
       fiable: v.p >= MIN_PEDIDOS_CALIBRACION || v.per >= MIN_PERIODOS_CALIBRACION,
     }
