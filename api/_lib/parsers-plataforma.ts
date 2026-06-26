@@ -3,6 +3,14 @@
 // v1: Uber Eats. Glovo y Just Eat se añaden con un ejemplo real de cada uno.
 //
 // Salida normalizada al esquema de *_liquidaciones (uber/glovo/justeat).
+//
+// ⚠️  UBER BLOQUEADO 22-jun-2026:
+//     El parser de correo Uber generaba datos FALSOS (referencias inventadas,
+//     ads/promos sin fuente real). Se bloqueó tras detectar 33 filas falsas en
+//     uber_liquidaciones. La fuente real de Uber es el PDF de resumen mensual
+//     → parserUberResumenMensual.ts (ya activo en el motor de la bandeja).
+//     Reactivar parseUber() SOLO cuando tengamos un correo real de ejemplo
+//     y validemos que los patrones extraen los campos correctamente.
 
 export interface LiquidacionPlataforma {
   plataforma: 'uber' | 'glovo' | 'justeat'
@@ -71,69 +79,12 @@ function buscar(txt: string, re: RegExp): string | null {
   return m ? m[1] : null
 }
 
-function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null {
-  const esUber = /uber\s*eats/i.test(texto) || /uber/i.test(asunto)
-  const esResumen = /resumen de pagos?/i.test(asunto) || /resumen de pagos?/i.test(texto)
-  if (!esUber || !esResumen) return null
-
-  // Periodo: del asunto preferentemente, si no del cuerpo.
-  const periodoSrc = /\d{1,2}\/\d{1,2}\/\d{2,4}\s*[-–]\s*\d{1,2}\/\d{1,2}\/\d{2,4}/.test(asunto)
-    ? asunto
-    : texto
-  const periodos = periodoSrc.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/)
-  if (!periodos) return null
-  const ini = fechaUS(periodos[1])
-  const fin = fechaUS(periodos[2])
-  if (!ini || !fin) return null
-
-  const totalLinea = texto.match(/Total\s+(\d+)\s+([\d.,]+)\s*€/i)
-  const num_pedidos = totalLinea ? parseInt(totalLinea[1], 10) : null
-  const ventas_bruto = totalLinea ? num(totalLinea[2]) : null
-
-  const precioUber = num(buscar(texto, /Precio de Uber Eats\s*-?\s*([\d.,]+)/i))
-  const ivaPrecio = num(buscar(texto, /IVA sobre el precio de Uber Eats\s*-?\s*([\d.,]+)/i))
-  const suscripcion = num(buscar(texto, /Precio de suscripci[oó]n\s*-?\s*([\d.,]+)/i))
-  const varios = num(buscar(texto, /Varios\s*-?\s*([\d.,]+)/i))
-  const ads = num(buscar(texto, /publicidad[^\d-]*-?\s*([\d.,]+)/i))
-  const promo = num(buscar(texto, /Promociones de art[ií]culos\s*-?\s*([\d.,]+)/i))
-  const canje = num(buscar(texto, /canje de ofertas[^\d-]*-?\s*([\d.,]+)/i))
-
-  const pagos = [...texto.matchAll(/Pago total\s*-?\s*([\d.,]+)\s*€/gi)]
-  const pago_neto = pagos.length ? num(pagos[pagos.length - 1][1]) : null
-
-  // Sin pago neto el resumen no sirve (campo obligatorio).
-  if (pago_neto == null) return null
-
-  // Marca: del saludo "Hola <marca> ,". Fallback obligatorio (columna NOT NULL).
-  const marcaDetectada = (buscar(texto, /Hola\s+(.+?)\s*,/i) || '').trim()
-  const marca = marcaDetectada || 'Streat Lab'
-
-  const comision_uber = (precioUber || 0) + (ivaPrecio || 0) || null
-  const ajustes = (suscripcion || 0) + (varios || 0) || null
-
-  // Referencia única determinista (sirve de clave anti-duplicado).
-  const referencia_pago = `uber_${marca}_${ini}_${fin}`.replace(/\s+/g, '').toLowerCase()
-  // Cobro Uber: periodo lun-dom → pago el lunes siguiente (estimado).
-  const fecha_deposito = lunesSiguiente(fin)
-
-  return {
-    plataforma: 'uber',
-    tabla: 'uber_liquidaciones',
-    marca,
-    referencia_pago,
-    fecha_deposito,
-    fecha_inicio_periodo: ini,
-    fecha_fin_periodo: fin,
-    num_pedidos,
-    ventas_bruto,
-    comision_uber,
-    promociones: promo,
-    otros_cargos_promo: canje,
-    ads,
-    ajustes,
-    pago_neto,
-    estado: 'pendiente_conciliar',
-  }
+// ⚠️ BLOQUEADO 22-jun-2026 — ver cabecera del archivo para contexto.
+// Los correos de Uber no tienen el formato esperado por las regex de abajo,
+// por lo que el parser devolvía datos con referencias inventadas y cifras
+// incorrectas. Devuelve null hasta que se valide con un correo real.
+function parseUber(_texto: string, _asunto: string): LiquidacionPlataforma | null {
+  return null
 }
 
 /**
