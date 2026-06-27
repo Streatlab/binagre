@@ -63,6 +63,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const [conflictos, setConflictos] = useState<ConflictoItem[]>([])
   const [showConflictos, setShowConflictos] = useState(false)
   const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
+  const [showModalCrearEps, setShowModalCrearEps] = useState<ConflictoItem | null>(null)
 
   const [todosIngredientes, setTodosIngredientes] = useState<any[]>([])
   const [todasEps, setTodasEps] = useState<any[]>([])
@@ -533,7 +534,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                         + CREAR ING
                       </button>
                       <button
-                        onClick={() => { alert('TODO: crear EPS') }}
+                        onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }}
                         style={{ background: 'transparent', color: T.emphasis, border: `1px solid ${T.emphasis}`, borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         + CREAR EPS
@@ -612,6 +613,39 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                 cantidad: itemRef.cantidad,
                 unidad: itemRef.unidad,
                 eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+              }])
+            }
+          }}
+        />
+      )}
+
+      {/* Modal crear EPS anidada (recursivo) */}
+      {showModalCrearEps && (
+        <ModalEPS
+          eps={null}
+          initialNombre={showModalCrearEps.nombre}
+          ingredientes={ingredientes}
+          onClose={() => setShowModalCrearEps(null)}
+          onSaved={async () => {
+            const itemRef = showModalCrearEps
+            setShowModalCrearEps(null)
+            if (!itemRef) return
+            const { data } = await supabase
+              .from('eps')
+              .select('*')
+              .ilike('nombre', `%${itemRef.nombre}%`)
+              .order('id', { ascending: false })
+              .limit(1)
+            if (data?.[0]) {
+              const ep = data[0] as any
+              setIsDirty(true)
+              setLineas(prev => [...prev, {
+                linea: prev.length + 1,
+                ingrediente_id: null,
+                ingrediente_nombre: ep.nombre,
+                cantidad: itemRef.cantidad,
+                unidad: itemRef.unidad,
+                eur_ud_neta: n(ep.coste_rac),
               }])
             }
           }}
