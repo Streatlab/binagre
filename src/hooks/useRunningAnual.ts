@@ -10,6 +10,7 @@ export interface RunningAnualData {
   facturacionFutura: Record<number, { importe: number; origen: 'objetivo'|'anyo_anterior'|'mes_anterior' }>
   brutos: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number; total:number; pedidos:number }>
   pedidosCanal: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number }>
+  adsPlataforma: Record<number, { uber:number; glovo:number; je:number }>
   diasOp: Record<number, number>
   categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
   benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
@@ -46,6 +47,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
   const [facturacionFutura, setFacturacionFutura] = useState<RunningAnualData['facturacionFutura']>({})
   const [brutos, setBrutos] = useState<RunningAnualData['brutos']>({})
   const [pedidosCanal, setPedidosCanal] = useState<RunningAnualData['pedidosCanal']>({})
+  const [adsPlataforma, setAdsPlataforma] = useState<RunningAnualData['adsPlataforma']>({})
   const [diasOp, setDiasOp] = useState<Record<number, number>>({})
   const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
   const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
@@ -139,6 +141,23 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       const dOp: Record<number, number> = {}
       for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
 
+      // Ads de plataforma (informativo, NO computa en P&L) desde ventas_plataforma
+      const { data: dAds } = await supabase
+        .from('ventas_plataforma')
+        .select('plataforma,ads_eur,fecha_inicio_periodo')
+        .gte('fecha_inicio_periodo', `${año}-01-01`).lte('fecha_inicio_periodo', `${año}-12-31`)
+      const adsMap: RunningAnualData['adsPlataforma'] = {}
+      ;(dAds || []).forEach((r: any) => {
+        if (!r.fecha_inicio_periodo) return
+        const mes = new Date(r.fecha_inicio_periodo).getMonth() + 1
+        if (!adsMap[mes]) adsMap[mes] = { uber: 0, glovo: 0, je: 0 }
+        const v = Math.abs(Number(r.ads_eur || 0))
+        const p = (r.plataforma || '').toLowerCase()
+        if (p === 'uber') adsMap[mes].uber += v
+        else if (p === 'glovo') adsMap[mes].glovo += v
+        else if (p === 'je' || p === 'just_eat') adsMap[mes].je += v
+      })
+
       const mesActual = new Date().getMonth() + 1
       const anioActual = new Date().getFullYear()
       const { data: dDias } = await supabase.from('objetivos_dia_semana').select('dia,importe').order('dia')
@@ -204,7 +223,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
       }
 
       if (!cancelled) {
-        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setObjetivosMensuales(objMesMap); setLoading(false)
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setAdsPlataforma(adsMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setObjetivosMensuales(objMesMap); setLoading(false)
       }
     }
     load()
@@ -222,7 +241,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
     }
   }, [])
 
-  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, objetivosMensuales, loading }
+  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, adsPlataforma, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, objetivosMensuales, loading }
 }
 
 export function calcNetoCanal(
