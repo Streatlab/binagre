@@ -1,9 +1,9 @@
 // parserUberResumenMensual — Lee el RESUMEN MENSUAL de Uber Eats (PDF).
-// VERIFICADO con may_2026_La_Cocina_de_Carmucha.pdf (mayo 2026).
+// VERIFICADO con may_2026_La_Cocina_de_Carmucha.pdf (mayo 2026): ratio 55,1%.
 //
-// FÓRMULA VERIFICADA (cuadra al céntimo, diff ≤0.02€):
-//   Total neto = Ventas − Tasas mercado − Ads − Promos − Ajustes + Cupones
-//   (Cupones son INGRESO, no gasto)
+// REGLA CLAVE (ver reglasNetoUber.ts): "Ventas" del documento es un precio
+// INFLADO. El BRUTO REAL = Ventas − "Promociones en artículos". El neto se
+// calcula con calcularNetoUber() y cuadra al céntimo con el "Total neto" del PDF.
 //
 // El PDF tiene 2 columnas mezcladas. Se lee por posición Y (línea visual).
 // "Total neto" y su valor están en líneas Y distintas → se detecta por prev_label.
@@ -12,6 +12,7 @@
 
 import type { VentaPlataformaParseada } from './parserJustEatFactura.js'
 import { extraerTextoPDF } from './extractores.js'
+import { calcularNetoUber } from './reglasNetoUber.js'
 
 interface UberResumen extends VentaPlataformaParseada {
   comision_eur: number
@@ -34,7 +35,6 @@ function imp(txt: string): number {
 // Extrae todos los datos económicos y meta del resumen mensual unificado de Uber.
 // pdfBuffer = el PDF completo. Devuelve null si no es un resumen mensual Uber.
 export async function parseUberResumenMensual(pdfBuffer: Buffer): Promise<UberResumen | null> {
-  // Extraer texto con la función existente del proyecto (misma que usa el resto del motor)
   let fullText = ''
   try {
     fullText = await extraerTextoPDF(pdfBuffer)
@@ -45,7 +45,6 @@ export async function parseUberResumenMensual(pdfBuffer: Buffer): Promise<UberRe
   if (!/uber/i.test(fullText)) return null
   if (!/Resumen mensual unificado/i.test(fullText)) return null
 
-  // Separar por líneas (el extractor ya respeta los saltos)
   const lineas = fullText.split('\n').map(l => l.trim()).filter(Boolean)
 
   const parsed: Record<string, number> = {}
@@ -69,6 +68,14 @@ export async function parseUberResumenMensual(pdfBuffer: Buffer): Promise<UberRe
       parsed['promo_art'] = lastNum()
     } else if (/Otros cargos de la promoción/.test(line)) {
       parsed['promo_otros'] = lastNum()
+    } else if (/^Otros cargos\b/.test(line) && !/promoción/.test(line)) {
+      // Ajuste de IVA: puede ser + o − (conservar signo)
+      const m = line.match(/(-?[\d.,]+)\s*€?\s*$/)
+      parsed['otros_cargos'] = m ? (parseFloat(m[1].replace(/\./g,'').replace(',','.')) || 0) : 0
+    } else if (/Otras ganancias/.test(line)) {
+      parsed['otras_ganancias'] = lastNum()
+    } else if (/^Propinas/.test(line)) {
+      parsed['propinas'] = lastNum()
     } else if (/Gastos en anuncios/.test(line)) {
       parsed['ads'] = lastNum()
     } else if (/Créditos de los anuncios/.test(line)) {
@@ -114,17 +121,26 @@ export async function parseUberResumenMensual(pdfBuffer: Buffer): Promise<UberRe
     if (mm) fecha_pago = `${dpM[3]}-${String(mm).padStart(2,'0')}-${String(parseInt(dpM[2],10)).padStart(2,'0')}`
   }
 
-  const comision_eur = parsed['comision'] || 0
-  const ads_eur = Math.max(0, (parsed['ads'] || 0) - (parsed['creditos_ads'] || 0))
-  const promo_eur = (parsed['promo_art'] || 0) + (parsed['promo_otros'] || 0)
-  const ajustes_eur = parsed['ajustes'] || 0
-  const cupones_eur = parsed['cupones'] || 0
+  // ── REGLAS CANÓNICAS (reglasNetoUber.ts) ──────────────────────────────
+  // R1: bruto real = ventas infladas − promo en artículos (el inflado).
+  const calc = calcularNetoUber({
+    ventasInfladas: bruto,                          // "Ventas" del documento (inflado)
+    promoArticulos: parsed['promo_art'] || 0,       // descuento del inflado (NO gasto)
+    comision: parsed['comision'] || 0,
+    feePromo: parsed['promo_otros'] || 0,           // "Otros cargos de la promoción"
+    ads: parsed['ads'] || 0,
+    creditosAds: parsed['creditos_ads'] || 0,
+    ajustes: parsed['ajustes'] || 0,
+    otrosCargos: parsed['otros_cargos'] || 0,       // ajuste IVA (+/−)
+    cupones: parsed['cupones'] || 0,
+    otrasGanancias: (parsed['otras_ganancias'] || 0) + (parsed['propinas'] || 0),
+    pedidos: parsed['pedidos'] || 0,
+  })
 
-  // Validación (debe cuadrar con diff ≤ 0.05€)
-  const calc = bruto - comision_eur - ads_eur - promo_eur - ajustes_eur + cupones_eur
-  if (Math.abs(calc - neto) > 0.05) {
-    console.warn(`[parseUberResumenMensual] no cuadra: calc=${calc.toFixed(2)} vs neto=${neto} diff=${Math.abs(calc-neto).toFixed(2)}`)
-    // No devolvemos null: volcamos igual pero logueamos la discrepancia
+  // Validación: el neto calculado debe cuadrar con el "Total neto" del documento.
+  const diff = Math.abs(calc.neto - neto)
+  if (diff > 0.05) {
+    console.warn(`[parseUberResumenMensual] no cuadra: calc=${calc.neto.toFixed(2)} vs doc=${neto} diff=${diff.toFixed(2)}`)
   }
 
   return {
@@ -133,14 +149,14 @@ export async function parseUberResumenMensual(pdfBuffer: Buffer): Promise<UberRe
     fecha_inicio_periodo: ini,
     fecha_fin_periodo: fin,
     pedidos: parsed['pedidos'] || 0,
-    bruto,
-    neto,
+    bruto: calc.brutoReal,        // ← BRUTO REAL (sin el inflado), no las ventas infladas
+    neto: calc.neto,              // ← neto por reglas (cuadra con el documento)
     fecha_pago,
     referencia: ref || null,
-    comision_eur,
-    ads_eur,
-    promo_eur,
-    cupones_eur,
-    ajustes_eur,
+    comision_eur: calc.comision_eur,
+    ads_eur: calc.ads_eur,
+    promo_eur: calc.promo_eur,    // fee promo real (NO la promo en artículos)
+    cupones_eur: calc.cupones_eur,
+    ajustes_eur: calc.ajustes_eur,
   }
 }
