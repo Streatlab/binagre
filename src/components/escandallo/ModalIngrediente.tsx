@@ -84,6 +84,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
   )
   const [saving, setSaving] = useState(false)
   const [alergSugiriendo, setAlergSugiriendo] = useState(false)
+  const [errAlerg, setErrAlerg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -102,10 +103,12 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     const nb = f.nombre_base.trim()
     if (!nb) return
     setAlergSugiriendo(true)
+    setErrAlerg(null)
     try {
       const { data } = await supabase.from('alergenos_memoria').select('alergenos').eq('nombre_base', nb.toLowerCase()).maybeSingle()
       if (data?.alergenos && Array.isArray(data.alergenos) && data.alergenos.length) { setAlergenos(data.alergenos as string[]); return }
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (!apiKey) { setErrAlerg('Sugerencia por IA no disponible (sin configurar). Marca a mano.'); return }
       if (apiKey) {
         const resp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -432,6 +435,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
               <div className="ds-section-label" style={{ marginBottom: 0 }}>Alérgenos</div>
               <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: 'none', border: '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)', borderRadius: 6, padding: '3px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
             </div>
+            {errAlerg && <div style={{ fontSize: 12, color: '#f5a623', fontFamily: 'Lexend, sans-serif', marginBottom: 6 }}>{errAlerg}</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {ALERGENOS_14.map(a => {
                 const on = alergenos.includes(a)
