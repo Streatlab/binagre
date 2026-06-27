@@ -104,6 +104,11 @@ function ensureRealtime() {
     .subscribe()
 }
 
+// Rango de cordura del ratio neto/bruto. Fuera de esto = dato mal leido por un
+// parser (no realidad). Se usa tanto en el saneado de entrada como en el calibrado.
+const RATIO_MIN_VALIDO = 0.15          // <15% de neto = basura
+const RATIO_MAX_VALIDO = 0.90          // >90% de neto = basura
+
 export async function loadVentasReales(): Promise<LiqReal[]> {
   ensureRealtime()
   if (cacheLiq) return cacheLiq
@@ -115,14 +120,31 @@ export async function loadVentasReales(): Promise<LiqReal[]> {
   for (const row of data as any[]) {
     if (row.neto == null || row.bruto == null) continue
     if (!row.fecha_inicio_periodo || !row.fecha_fin_periodo) continue
+    const bruto = Number(row.bruto) || 0
+    const neto = Number(row.neto) || 0
+    const pedidos = Number(row.pedidos) || 0
+    // SANEADO ANTI-PARSER-SUCIO (27-jun-2026):
+    //   Una liquidación SOLO se acepta como "real" (y SOLO vale para su propio
+    //   periodo, nunca se traslada como verdad al resto) si supera el filtro de
+    //   cordura. Lo que no lo supera se descarta por completo: ni se muestra como
+    //   neto real de su periodo ni calibra el estimado de los demás tramos.
+    //     - bruto > 0 y pedidos > 0  (no hay facturacion sin pedidos -> parser roto:
+    //       p.ej. filas Glovo con 0 pedidos y cientos de euros de bruto).
+    //     - ratio neto/bruto dentro de [RATIO_MIN_VALIDO, RATIO_MAX_VALIDO]
+    //       (un 8% o 14% de neto en Uber es fisicamente imposible -> linea mal leida).
+    //   Con pocas liquidaciones reales y algunas sucias, esto impide que un dato
+    //   inventado se propague como verdad a las pantallas; el tramo cae al estimado.
+    if (bruto <= 0 || pedidos <= 0) continue
+    const ratioFila = bruto > 0 ? neto / bruto : 0
+    if (ratioFila < RATIO_MIN_VALIDO || ratioFila > RATIO_MAX_VALIDO) continue
     out.push({
       canal: normCanal(row.plataforma),
       marca: normMarca(row.marca),
       ini: diaEpoch(new Date(row.fecha_inicio_periodo + 'T00:00:00')),
       fin: diaEpoch(new Date(row.fecha_fin_periodo + 'T00:00:00')),
-      bruto: Number(row.bruto) || 0,
-      neto: Number(row.neto) || 0,
-      pedidos: Number(row.pedidos) || 0,
+      bruto,
+      neto,
+      pedidos,
     })
   }
   cacheLiq = out
@@ -145,8 +167,6 @@ export async function loadVentasReales(): Promise<LiqReal[]> {
  */
 const RECENCIA_VIDA_MEDIA_DIAS = 75    // a ~75 días el peso de recencia cae a la mitad
 const RECENCIA_PISO = 0.4              // un periodo antiguo nunca pesa menos del 40%
-const RATIO_MIN_VALIDO = 0.15          // ratios <15% = dato basura de parser, se ignora
-const RATIO_MAX_VALIDO = 0.90          // ratios >90% = dato basura, se ignora
 
 function factorRecencia(finEpochDia: number, hoyEpochDia: number): number {
   const antiguedad = Math.max(0, hoyEpochDia - finEpochDia)
