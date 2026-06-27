@@ -9,7 +9,8 @@ import {
   COLORS, FONT, CARDS,
   kpiBig, lblSm, lblXs,
 } from '@/components/panel/resumen/tokens'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import { useMultiSort } from '@/hooks/useMultiSort'
@@ -188,6 +189,7 @@ export default function Facturacion() {
   useEffect(()=>{
     loadConfigCanales().then(setConfigCanales)
     loadMarcasPorCanal().then(setMarcasPorCanal)
+    loadVentasReales().then(() => loadRatiosCalibrados())
     const onCfgChange = () => {
       recargarConfigCanales().then(setConfigCanales)
       loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -233,7 +235,7 @@ export default function Facturacion() {
       { id:'web',   bruto:totals.web_bruto,     pedidos:totals.web_pedidos },
       { id:'dir',   bruto:totals.directa_bruto, pedidos:totals.directa_pedidos },
     ]
-    return canales.reduce((acc,c)=> acc + calcNetoPorCanal(c.id, c.bruto, c.pedidos, { modo:'agregado_canal', marcasPorCanal, fechaDesde:periodoDesde, fechaHasta:periodoHasta, configCanales, diasConDatos:dias }).neto, 0)
+    return canales.reduce((acc,c)=> acc + resolverNeto(c.id, c.bruto, c.pedidos, { modo:'agregado_canal', marcasPorCanal, fechaDesde:periodoDesde, fechaHasta:periodoHasta, configCanales, diasConDatos:dias }).neto, 0)
   },[totals, marcasPorCanal, periodoDesde, periodoHasta, configCanales, dias])
   const tm = totals.total_pedidos>0?totals.total_bruto/totals.total_pedidos:0
   const tmNeto = totals.total_pedidos>0?netoEstimado/totals.total_pedidos:0
