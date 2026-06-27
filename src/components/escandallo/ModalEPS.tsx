@@ -143,6 +143,15 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
   const costeRac = raciones > 0 ? costeTanda / raciones : 0
 
+  const pesoTanda = useMemo(() => lineas.reduce((s, l) => {
+    const u = (l.unidad || '').toLowerCase()
+    if (u.startsWith('kg') || u.startsWith('l')) return s + l.cantidad * 1000
+    if (u.startsWith('g') || u.startsWith('ml')) return s + l.cantidad
+    return s
+  }, 0), [lineas])
+  const onRacionesChange = (v: number) => { setIsDirty(true); setRaciones(v); if (pesoTanda > 0 && v > 0) setTamanoRac(Math.round((pesoTanda / v) * 100) / 100) }
+  const onTamanoChange = (v: number) => { setIsDirty(true); setTamanoRac(v); if (pesoTanda > 0 && v > 0) setRaciones(Math.max(1, Math.round(pesoTanda / v))) }
+
   const updateLinea = useCallback((idx: number, patch: Partial<EPSLinea>) => {
     setIsDirty(true)
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
@@ -158,16 +167,33 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     setLineas(prev => prev.filter((_, i) => i !== idx))
   }
 
+  const masBaratos = useMemo(() => {
+    const cnt: Record<string, number> = {}
+    const best: Record<string, { id: string; precio: number }> = {}
+    for (const i of ingredientes) {
+      const baseKey = ((i.nombre_base || i.nombre || '') as string).toLowerCase().trim()
+      if (!baseKey) continue
+      cnt[baseKey] = (cnt[baseKey] || 0) + 1
+      const precio = n(i.eur_min) || n(i.eur_std) || Infinity
+      if (!best[baseKey] || precio < best[baseKey].precio) best[baseKey] = { id: i.id, precio }
+    }
+    const set = new Set<string>()
+    for (const k in best) if (cnt[k] > 1) set.add(best[k].id)
+    return set
+  }, [ingredientes])
+
   const selectIngrediente = (idx: number, val: string) => {
     setIsDirty(true)
     const ing = ingredientes.find(i => i.nombre === val)
-    if (ing) updateLinea(idx, {
+    if (ing) { updateLinea(idx, {
       ingrediente_nombre: ing.nombre,
       ingrediente_id: ing.id,
       eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
       unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
-    })
-    else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
+    }); return }
+    const ep = todasEps.find((x: any) => x.nombre === val)
+    if (ep) { updateLinea(idx, { ingrediente_nombre: ep.nombre, ingrediente_id: null, eur_ud_neta: n(ep.coste_rac), unidad: 'Ración' }); return }
+    updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
   }
 
   async function procesarDictado() {
@@ -311,11 +337,11 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
               </div>
               <div style={{ flex: 1 }}>
                 <label className={labelCls}>Rac.</label>
-                <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} />
+                <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => onRacionesChange(parseFloat(e.target.value) || 1)} />
               </div>
               <div style={{ flex: 1 }}>
                 <label className={labelCls}>Tam.Rac</label>
-                <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} />
+                <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => onTamanoChange(parseFloat(e.target.value) || 0)} />
               </div>
               <div style={{ flex: 1 }}>
                 <label className={labelCls}>Ud.</label>
@@ -404,8 +430,8 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}>
-                              <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
-                              <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre} />)}</datalist>
+                              <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente o EPS…" />
+                              <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre}>{masBaratos.has(i.id) ? '\u2714 más barato' : undefined}</option>)}{todasEps.map((ep: any) => <option key={'e' + ep.id} value={ep.nombre}>EPS</option>)}</datalist>
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
