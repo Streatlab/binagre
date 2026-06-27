@@ -3,14 +3,13 @@ import type { CSSProperties } from 'react'
 import type { EPS } from './types'
 import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, groupStyle } from '@/styles/tokens'
+import { INK, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
 
 interface Props { epsList: EPS[]; busqueda?: string; onSelect: (eps: EPS) => void; onNew?: () => void }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
 export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Props) {
-  const { T, isDark } = useTheme()
   const [filter, setFilter] = useState<Filter>('todos')
   const [ingsPorEps, setIngsPorEps] = useState<Record<string, string[]>>({})
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
@@ -61,86 +60,37 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
   const thStyle: CSSProperties = {
-    fontFamily: FONT.heading,
-    fontSize: 10,
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-    color: T.mut,
-    padding: '8px 10px',
-    background: T.group,
-    borderBottom: `0.5px solid ${T.brd}`,
-    fontWeight: 400,
-    textAlign: 'left',
-    whiteSpace: 'nowrap',
+    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
+    color: INK, padding: '10px 12px', background: CLARO, borderBottom: `2px solid ${INK}`,
+    textAlign: 'left', whiteSpace: 'nowrap',
   }
-
   const tdStyle: CSSProperties = {
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: T.pri,
-    padding: '8px 10px',
-    borderBottom: `0.5px solid ${T.brd}`,
-    whiteSpace: 'nowrap',
+    fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
+    borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
   }
-
-  const btnActive: CSSProperties = {
-    background: T.emphasis,
-    color: isDark ? '#ffffff' : '#ffffff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '8px 16px',
-    fontFamily: FONT.heading,
-    fontSize: 11,
-    letterSpacing: '1.5px',
-    cursor: 'pointer',
-  }
-  const btnInactive: CSSProperties = {
-    background: 'none',
-    color: T.sec,
-    border: `0.5px solid ${T.brd}`,
-    borderRadius: 8,
-    padding: '8px 16px',
-    fontFamily: FONT.heading,
-    fontSize: 11,
-    letterSpacing: '1.5px',
-    cursor: 'pointer',
-  }
-
-  const btns: { key: Filter; label: string; val: number; onClick: () => void }[] = [
-    { key: 'todos', label: 'TOTAL', val: total, onClick: () => setFilter('todos') },
-    { key: 'enuso', label: 'EN USO', val: enUso, onClick: () => toggle('enuso') },
-    { key: 'sinuso', label: 'SIN USO', val: sinUso, onClick: () => toggle('sinuso') },
-  ]
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        {btns.map(b => (
-          <button
-            key={b.key}
-            type="button"
-            onClick={b.onClick}
-            style={filter === b.key ? btnActive : btnInactive}
-          >
-            {b.label} <span style={{ fontSize: 16, fontWeight: 600 }}>{b.val}</span>
-          </button>
-        ))}
-        {onNew && <button onClick={onNew} className="ds-btn-add" style={{ marginLeft: 'auto' }}>+ Nueva EPS</button>}
+        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+        <Counter label="EN USO" value={enUso} color={VERDE} active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} color={ROJO} active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        {onNew && <button onClick={onNew} style={btnNuevo}>+ Nueva EPS</button>}
       </div>
 
       {busqueda.trim() && (
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
         </div>
       )}
 
-      <div style={groupStyle(T)}>
+      <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }}>
         {!filtered.length ? (
-          <p style={{ color: T.mut, fontFamily: FONT.body, textAlign: 'center', padding: 40, fontSize: 13 }}>
+          <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
         ) : (
-          <div style={{ overflowX: 'auto', borderRadius: 8, border: `0.5px solid ${T.brd}` }}>
+          <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
               <thead>
                 <tr>
@@ -155,12 +105,12 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
               <tbody>
                 {filtered.map(e => (
                   <tr key={e.id} onClick={() => onSelect(e)} style={{ cursor: 'pointer' }}>
-                    <td style={{ ...tdStyle, color: '#66aaff', fontWeight: 600 }}>{e.codigo ?? ''}</td>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{e.nombre}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: T.sec }}>{fmtEurES(e.coste_tanda, 4)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{fmtEurES(e.coste_rac, 4)}</td>
+                    <td style={{ ...tdStyle, color: AZUL, fontFamily: OSW, fontWeight: 700 }}>{e.codigo ?? ''}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{e.nombre}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: '#00000099' }}>{fmtEurES(e.coste_tanda, 4)}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEurES(e.coste_rac, 4)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
-                    <td style={{ ...tdStyle, textAlign: 'center', color: T.mut, fontSize: 12 }}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
+                    <td style={{ ...tdStyle, textAlign: 'center', color: GRIS, fontSize: 12 }}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -169,5 +119,24 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
         )}
       </div>
     </div>
+  )
+}
+
+const btnNuevo: CSSProperties = {
+  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
+  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
+}
+
+function Counter({ label, value, color, active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+  return (
+    <button onClick={onClick} type="button" style={{
+      cursor: 'pointer', textAlign: 'left', minWidth: 110, padding: '10px 16px', borderRadius: 0,
+      background: active ? AMA : '#ffffff', border: `2px solid ${INK}`,
+      boxShadow: active ? `3px 3px 0 ${INK}` : 'none', transition: 'all 120ms',
+    }}>
+      <div style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? INK : GRIS }}>{label}</div>
+      <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: color ?? INK }}>{value}</div>
+    </button>
   )
 }
