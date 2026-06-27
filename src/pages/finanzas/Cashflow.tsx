@@ -6,9 +6,10 @@ import {
   eyebrow, d,
 } from '@/styles/neobrutal'
 import {
-  calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
+  loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
 } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW — pestaña del Panel Global
@@ -99,6 +100,7 @@ export default function Cashflow() {
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
+    loadVentasReales().then(() => loadRatiosCalibrados())
     const on = () => { recargarConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal) }
     window.addEventListener('config_canales:changed', on)
     return () => window.removeEventListener('config_canales:changed', on)
@@ -220,7 +222,7 @@ export default function Cashflow() {
     }
     const out: Cobro[] = []
     for (const g of grupos.values()) {
-      const { neto } = calcNetoPorCanal(g.canal.id, g.bruto, g.ped, {
+      const { neto } = resolverNeto(g.canal.id, g.bruto, g.ped, {
         modo: 'agregado_canal', marcasPorCanal, fechaDesde: parse(g.ini), fechaHasta: parse(g.fin), configCanales: config, diasConDatos: g.dias.size,
       })
       out.push({ canal: g.canal.id, label: g.canal.label, color: g.canal.color, ini: g.ini, fin: g.fin, pago: g.pago, bruto: g.bruto, neto, pedidos: g.ped, futuro: g.pago > hoy })
