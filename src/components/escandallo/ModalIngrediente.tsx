@@ -29,18 +29,6 @@ import { useConfig } from '@/hooks/useConfig'
 import { MARCA_MAP } from './types'
 import type { Ingrediente, Merma } from './types'
 
-async function generarCodigoIding(prefijo: string): Promise<string> {
-  const { data } = await supabase.from('ingredientes').select('iding')
-  const nums = new Set<number>()
-  ;(data ?? []).forEach((r: { iding?: string | null }) => {
-    const m = String(r.iding ?? '').match(new RegExp('^' + prefijo + '(\\d+)$'))
-    if (m) nums.add(parseInt(m[1], 10))
-  })
-  let i = 1
-  while (nums.has(i)) i++
-  return prefijo + String(i).padStart(3, '0')
-}
-
 const ALERGENOS_14 = [
   'Gluten', 'Lácteos', 'Huevo', 'Pescado', 'Crustáceos', 'Moluscos', 'Frutos secos',
   'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
@@ -83,45 +71,12 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     Array.isArray((ingrediente as any)?.alergenos) ? (ingrediente as any).alergenos : []
   )
   const [saving, setSaving] = useState(false)
-  const [alergSugiriendo, setAlergSugiriendo] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const toggleAlergeno = (a: string) =>
     setAlergenos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])
-
-  const buscarAlergenosMemoria = async () => {
-    const nb = f.nombre_base.trim()
-    if (!nb || alergenos.length > 0) return
-    const { data } = await supabase.from('alergenos_memoria').select('alergenos').eq('nombre_base', nb.toLowerCase()).maybeSingle()
-    if (data?.alergenos && Array.isArray(data.alergenos) && data.alergenos.length) setAlergenos(data.alergenos as string[])
-  }
-
-  const sugerirAlergenosIA = async () => {
-    const nb = f.nombre_base.trim()
-    if (!nb) return
-    setAlergSugiriendo(true)
-    try {
-      const { data } = await supabase.from('alergenos_memoria').select('alergenos').eq('nombre_base', nb.toLowerCase()).maybeSingle()
-      if (data?.alergenos && Array.isArray(data.alergenos) && data.alergenos.length) { setAlergenos(data.alergenos as string[]); return }
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-      if (apiKey) {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001', max_tokens: 256,
-            system: 'Eres experto en seguridad alimentaria. Dado el nombre de un alimento, devuelve SOLO un JSON array con los alergenos presentes habitualmente, elegidos EXACTAMENTE de esta lista: ' + JSON.stringify(ALERGENOS_14) + '. Sin markdown, sin texto extra, sin backticks. Si no tiene ninguno devuelve [].',
-            messages: [{ role: 'user', content: nb }],
-          }),
-        })
-        const d = await resp.json()
-        const txt: string = d.content?.[0]?.text ?? '[]'
-        try { const arr = JSON.parse(txt); if (Array.isArray(arr)) setAlergenos(arr.filter((a: string) => ALERGENOS_14.includes(a))) } catch { /* noop */ }
-      }
-    } finally { setAlergSugiriendo(false) }
-  }
 
   const handleEliminar = async () => {
     if (!ingrediente) return
@@ -142,6 +97,24 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
   }, [onClose])
 
   const set = (k: string, val: string | boolean | number | null) => setF(p => ({ ...p, [k]: val }))
+
+  // Autocódigo ING correlativo (rellena huecos) al crear nuevo
+  useEffect(() => {
+    if (isEdit) return
+    let cancel = false
+    ;(async () => {
+      const { data } = await supabase.from('ingredientes').select('iding')
+      if (cancel) return
+      const nums = (data || [])
+        .map((r: any) => { const m = /^ING0*(\d+)$/i.exec((r.iding || '').trim()); return m ? parseInt(m[1], 10) : null })
+        .filter((x: number | null): x is number => x != null)
+        .sort((a, b) => a - b)
+      let hueco = 1
+      for (const num of nums) { if (num === hueco) hueco++; else if (num > hueco) break }
+      setF(p => p.iding ? p : ({ ...p, iding: 'ING' + String(hueco).padStart(3, '0') }))
+    })()
+    return () => { cancel = true }
+  }, [isEdit])
 
   const onAbvChange = (v: string) => {
     const up = v.toUpperCase()
@@ -195,13 +168,11 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
     setSaving(true)
     try {
-      let idingFinal = f.iding
-      if (!idingFinal) idingFinal = await generarCodigoIding('ING')
       const baseTrim = f.nombre_base.trim()
       const abvTrim = (f.abv || '').toUpperCase().trim()
       const nombreConcat = abvTrim ? `${baseTrim}_${abvTrim}` : baseTrim
       const payload = {
-        iding: idingFinal || null,
+        iding: f.iding || null,
         categoria: f.categoria || null,
         nombre_base: baseTrim,
         abv: abvTrim || null,
@@ -241,14 +212,14 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
         const { data: existing } = await supabase
           .from('mermas')
           .select('*')
-          .eq('iding', idingFinal || '')
+          .eq('iding', f.iding || '')
           .maybeSingle()
         if (existing) {
           // FIX 6: ya existe → abrir directamente
           if (onOpenMerma) { onOpenMerma(existing as Merma); return }
         } else {
           const mermaRecord = {
-            iding: idingFinal || null,
+            iding: f.iding || null,
             categoria: f.categoria || null,
             nombre_base: f.nombre_base,
             abv: f.abv || null,
@@ -265,9 +236,6 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
             return
           }
         }
-      }
-      if (f.nombre_base.trim()) {
-        await supabase.from('alergenos_memoria').upsert({ nombre_base: f.nombre_base.trim().toLowerCase(), alergenos, updated_at: new Date().toISOString() }, { onConflict: 'nombre_base' })
       }
       onSaved()
     } catch (e: unknown) {
@@ -304,7 +272,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
               </div>
               <div>
                 <label className="ds-label">Nombre Base</label>
-                <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} onBlur={buscarAlergenosMemoria} placeholder="Tomate" className="ds-input" />
+                <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} placeholder="Tomate" className="ds-input" />
               </div>
               <div>
                 <label className="ds-label">ABV</label>
@@ -428,10 +396,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
           {/* Alérgenos */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="ds-section-label" style={{ marginBottom: 0 }}>Alérgenos</div>
-              <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: 'none', border: '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)', borderRadius: 6, padding: '3px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
-            </div>
+            <div className="ds-section-label">Alérgenos</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {ALERGENOS_14.map(a => {
                 const on = alergenos.includes(a)
