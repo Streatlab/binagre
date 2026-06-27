@@ -17,7 +17,8 @@ import {
 } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 import Cashflow from '@/pages/finanzas/Cashflow'
@@ -143,6 +144,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadConfigCanales().then(setConfigCanales)
+    loadVentasReales().then(() => loadRatiosCalibrados())
     loadMarcasPorCanal().then(setMarcasPorCanal)
     const onCfgChange = () => {
       recargarConfigCanales().then(setConfigCanales)
@@ -359,7 +361,7 @@ export default function Dashboard() {
     return canalesActivos.map(c => {
       const bruto = rowsPeriodo.reduce((a,r) => a + ((r[c.bruKey as keyof Row] as number) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a,r) => a + ((r[c.pedKey as keyof Row] as number) || 0), 0)
-      const { neto, margenPct: margen } = calcNetoPorCanal(c.id, bruto, pedidos, marcasPorCanal, fechaDesde, fechaHasta, configCanales)
+      const { neto, margenPct: margen } = resolverNeto(c.id, bruto, pedidos, marcasPorCanal, fechaDesde, fechaHasta, configCanales)
       const pct = ventasPeriodo > 0 ? (bruto / ventasPeriodo) * 100 : 0
       const ticket = pedidos > 0 ? bruto / pedidos : 0
       return { id:c.id, label:c.label, color:c.color, bruto, neto, pct, pedidos, ticket, margen }
