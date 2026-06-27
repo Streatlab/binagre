@@ -6,6 +6,8 @@ import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
 import { useTheme, FONT } from '@/styles/tokens'
 import ModalIngrediente from './ModalIngrediente'
+import BuscadorItem from './BuscadorItem'
+import type { BuscadorOpcion } from './BuscadorItem'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: 'var(--sl-btn-save-bg)',
@@ -60,6 +62,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const [showDictar, setShowDictar] = useState(false)
   const [textoDictado, setTextoDictado] = useState('')
   const [loadingDictado, setLoadingDictado] = useState(false)
+  const [errDictado, setErrDictado] = useState<string | null>(null)
   const [conflictos, setConflictos] = useState<ConflictoItem[]>([])
   const [showConflictos, setShowConflictos] = useState(false)
   const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
@@ -183,6 +186,11 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     return set
   }, [ingredientes])
 
+  const opcionesLineaEps = useMemo<BuscadorOpcion[]>(() => [
+    ...ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })),
+    ...todasEps.map((ep: any) => ({ id: 'e' + ep.id, nombre: ep.nombre, tag: 'EPS' })),
+  ], [ingredientes, todasEps, masBaratos])
+
   const selectIngrediente = (idx: number, val: string) => {
     setIsDirty(true)
     const ing = ingredientes.find(i => i.nombre === val)
@@ -200,9 +208,12 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   async function procesarDictado() {
     if (!textoDictado.trim()) return
     setLoadingDictado(true)
+    setErrDictado(null)
+    let huboError = false
     try {
       let parsed: Array<{ nombre: string; cantidad: number; unidad: string }> = []
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (!apiKey) { setErrDictado('La IA de dictado no esta activa. Anade las lineas a mano.'); huboError = true; return }
       if (apiKey) {
         try {
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -252,10 +263,13 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
         setConflictos(noEncontrados)
         setShowConflictos(true)
       }
+      if (lineasNuevas.length === 0 && noEncontrados.length === 0) {
+        setErrDictado('No se reconocio ningun ingrediente. Reformula el texto.')
+        huboError = true
+      }
     } finally {
       setLoadingDictado(false)
-      setShowDictar(false)
-      setTextoDictado('')
+      if (!huboError) { setShowDictar(false); setTextoDictado('') }
     }
   }
 
@@ -369,7 +383,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                     + Añadir línea
                   </button>
                   <button
-                    onClick={() => setShowDictar(true)}
+                    onClick={() => { setShowDictar(true); setErrDictado(null) }}
                     style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
                   >
                     ⚡ DICTAR
@@ -404,6 +418,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                       CANCELAR
                     </button>
                   </div>
+                  {errDictado && <div style={{ marginTop: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#f5a623' }}>{errDictado}</div>}
                 </div>
               )}
 
@@ -431,8 +446,13 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}>
-                              <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente o EPS…" />
-                              <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre}>{masBaratos.has(i.id) ? '\u2714 más barato' : undefined}</option>)}{todasEps.map((ep: any) => <option key={'e' + ep.id} value={ep.nombre}>EPS</option>)}</datalist>
+                              <BuscadorItem
+                                value={l.ingrediente_nombre}
+                                opciones={opcionesLineaEps}
+                                onSelect={v => selectIngrediente(idx, v)}
+                                placeholder="Buscar ingrediente o EPS…"
+                                inputClassName="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]"
+                              />
                             </td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
