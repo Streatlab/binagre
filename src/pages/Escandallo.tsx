@@ -6,11 +6,11 @@ import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
-import TabsPastilla from '@/components/ui/TabsPastilla'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROJO, GRIS, d, eyebrow } from '@/styles/neobrutal'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
 
@@ -85,20 +85,42 @@ export default function Escandallo() {
   }
 
   return (
-    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>ESCANDALLO</h2>
+    <div style={{ background: CREMA, padding: '28px 32px', minHeight: '100%' }}>
+      {/* Cabecera hero neobrutal */}
+      <div style={{ marginBottom: 22 }}>
+        <span style={eyebrow(AMA)}>COCINA</span>
+        <h2 style={{ ...d('44px'), margin: '12px 0 0' }}>ESCANDALLO</h2>
       </div>
 
-      {/* Subtabs estilo Conciliación + buscador */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <TabsPastilla
-          tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
-          activeId={tab}
-          onChange={(id) => setTab(id as Tab)}
-        />
+      {/* Pestañas neobrutal + buscador */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22, flexWrap: 'wrap' }}>
+        <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+          {TABS.map(t => {
+            const on = tab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
+                  textTransform: 'uppercase', padding: '8px 16px', cursor: 'pointer',
+                  border: `2px solid ${INK}`, borderRadius: 0,
+                  background: on ? AMA : '#ffffff',
+                  color: on ? INK : GRIS,
+                  boxShadow: on ? `3px 3px 0 ${INK}` : 'none',
+                  transition: 'all 120ms',
+                }}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
         <input
-          className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
+          style={{
+            flex: 1, minWidth: 200, background: '#ffffff', border: BORDER_CARD, borderRadius: 0,
+            padding: '9px 12px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
+          }}
           placeholder="Buscar..."
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
@@ -107,13 +129,13 @@ export default function Escandallo() {
 
       {/* Contenido */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
+          <div style={{ height: 28, width: 28, border: `3px solid ${INK}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         </div>
       ) : error ? (
-        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-8 text-center">
-          <p className="text-[#dc2626] text-sm">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs text-[var(--sl-text-primary)] underline">Reintentar</button>
+        <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW, padding: 28, textAlign: 'center' }}>
+          <p style={{ fontFamily: LEX, color: ROJO, fontSize: 14, margin: 0 }}>{error}</p>
+          <button onClick={fetchData} style={{ marginTop: 12, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '6px 14px', cursor: 'pointer' }}>Reintentar</button>
         </div>
       ) : (
         <>
