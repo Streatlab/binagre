@@ -7,6 +7,7 @@ import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, thCls, tdCls, n } from './types'
 import ModalIngrediente from './ModalIngrediente'
 import ModalEPS from './ModalEPS'
+import BuscadorItem from './BuscadorItem'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -263,6 +264,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     try {
       let parsed: Array<{ nombre: string; cantidad: number; unidad: string }> = []
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (!apiKey) { alert('La IA de dictado no esta activa. Anade las lineas a mano.'); setLoadingDictado(false); setShowDictar(false); return }
       if (apiKey) {
         try {
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -382,7 +384,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS' | 'ENV')}><option value="ING">ING</option><option value="EPS">EPS</option><option value="ENV">ENV</option></select></td>
-                            <td className={tdCls}><input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} /><datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre}>{masBaratos.has(i.id) ? '✔ más barato' : undefined}</option>) : l.tipo === 'ENV' ? envases.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist></td>
+                            <td className={tdCls}><BuscadorItem value={l.ingrediente_nombre} opciones={l.tipo === 'ING' ? ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })) : l.tipo === 'ENV' ? envases.map(i => ({ id: i.id, nombre: i.nombre, tag: 'ENV' })) : epsList.map(e => ({ id: e.id, nombre: e.nombre, tag: 'EPS' }))} onSelect={v => selectItem(idx, v)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} inputClassName="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" inputStyle={{ color: nameColor }} /></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
