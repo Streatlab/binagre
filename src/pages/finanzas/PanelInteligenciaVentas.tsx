@@ -11,6 +11,8 @@ import { fmtEur } from '@/utils/format'
 import {
   COLORS, OSWALD, LEXEND, lbl, lblXs, kpiBig, CARDS, BAR, SUBTABS,
 } from '@/components/panel/resumen/tokens'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 
 /* ============================================================
    PANEL INTELIGENCIA — pestaña "Detalle ventas" del módulo Ventas.
@@ -21,12 +23,15 @@ import {
    ============================================================ */
 
 const TICKET_EST = 14.5
-const COMISION: Record<string, number> = { 'Uber Eats': 0.30, Glovo: 0.30, 'Just Eat': 0.30, 'Tienda online': 0.0 }
 const PLAT_COLOR: Record<string, string> = {
   'Uber Eats': COLORS.uber, Glovo: COLORS.glovo, 'Just Eat': COLORS.je, 'Tienda online': COLORS.redSL, Otras: COLORS.mut,
 }
 const NOMBRE_PLAT: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', je: 'Just Eat', web: 'Tienda online', directa: 'Tienda online',
+}
+// nombre visible -> id de canal para el calc neto (resolverNeto)
+const PLAT_ID: Record<string, string> = {
+  'Uber Eats': 'uber', Glovo: 'glovo', 'Just Eat': 'je', 'Tienda online': 'web',
 }
 const nombrePlat = (p: string | null) => NOMBRE_PLAT[(p || '').toLowerCase().trim()] || 'Otras'
 
@@ -127,6 +132,17 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
   const [rowsRaw, setRowsRaw] = useState<Linea[]>([])
   const [cargando, setCargando] = useState(true)
   const [inf, setInf] = useState<InfTab>('Productos')
+  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
+  const [marcasActivas, setMarcasActivas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [netoListo, setNetoListo] = useState(false)
+
+  // Carga única de la capa "real manda" + config de canales (calc neto)
+  useEffect(() => {
+    let alive = true
+    Promise.all([loadConfigCanales(), loadMarcasPorCanal(), loadVentasReales().then(() => loadRatiosCalibrados())])
+      .then(([cfg, marcas]) => { if (alive) { setConfigCanales(cfg); setMarcasActivas(marcas); setNetoListo(true) } })
+    return () => { alive = false }
+  }, [])
 
   // El PERIODO manda la carga. Solo se consulta a Supabase cuando cambia el rango.
   useEffect(() => {
@@ -162,8 +178,10 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
     const plataformas = Array.from(pedidosPlat, ([plataforma, s]) => {
       const peso = s.size / totPed
       const b = bruto * peso
-      const com = b * (COMISION[plataforma] ?? 0.30)
-      return { plataforma, peso, bruto: b, comision: com, neto: b - com }
+      const id = PLAT_ID[plataforma] ?? 'uber'
+      const { neto } = resolverNeto(id, b, s.size, marcasActivas, desde, hasta, configCanales)
+      const com = b - neto
+      return { plataforma, peso, bruto: b, comision: com, neto }
     }).sort((a, b) => b.bruto - a.bruto)
     const comisionTotal = plataformas.reduce((a, p) => a + p.comision, 0)
     const dias = Math.max(1, Math.round((hasta.getTime() - desde.getTime()) / 86400000) + 1)
@@ -177,7 +195,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
     const evolucion = Array.from(evolMap, ([dia, u]) => ({ dia, bruto: Math.round((u / Math.max(1, rows.length)) * bruto), neto: Math.round((u / Math.max(1, rows.length)) * (bruto - comisionTotal)) }))
 
     return { pedidos, bruto, neto: bruto - comisionTotal, comisionTotal, comisionAnual: comisionTotal * (365 / dias), plataformas, porMarca, porProducto, porModificador, porHora, evolucion, unidades: platos.length }
-  }, [rowsRaw, marcasFiltro, canalesFiltro, desde, hasta])
+  }, [rowsRaw, marcasFiltro, canalesFiltro, desde, hasta, configCanales, marcasActivas, netoListo])
 
   const infData: Record<InfTab, { data: Fila[]; color: string; nota: 'REAL' | 'EST.'; sufijo: string }> = {
     Productos: { data: d.porProducto, color: COLORS.ok, nota: 'REAL', sufijo: '×' },
@@ -299,7 +317,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               </span>
               <div style={{ flex: 1, height: 24, borderRadius: 8, overflow: 'hidden', display: 'flex', background: COLORS.group }}>
                 <div style={{ width: `${p.bruto ? (p.neto / p.bruto) * 100 : 0}%`, background: COLORS.ok }} />
-                <div style={{ width: `${(COMISION[p.plataforma] ?? 0.3) * 100}%`, background: COLORS.redSL }} />
+                <div style={{ width: `${p.bruto ? (p.comision / p.bruto) * 100 : 0}%`, background: COLORS.redSL }} />
               </div>
               <span style={{ width: 170, textAlign: 'right', fontFamily: LEXEND, fontSize: 12, color: COLORS.sec }}>
                 <b style={{ fontFamily: OSWALD }}>{fmtEur(p.neto)}</b> neto · <span style={{ color: COLORS.redSL }}>-{fmtEur(p.comision)}</span>
