@@ -46,6 +46,8 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const { T } = useTheme()
 
   const [nombre, setNombre] = useState(eps?.nombre ?? initialNombre ?? '')
+  const [categoria, setCategoria] = useState((eps as any)?.categoria ?? '')
+  const [categorias, setCategorias] = useState<string[]>([])
   const [raciones, setRaciones] = useState(eps?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(eps?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(eps?.unidad ?? 'gr.')
@@ -87,6 +89,12 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   useEffect(() => {
     supabase.from('ingredientes').select('*').then(({ data }) => { if (data) setTodosIngredientes(data) })
     supabase.from('eps').select('id,nombre,coste_rac').then(({ data }) => { if (data) setTodasEps(data) })
+    supabase.from('configuracion').select('valor').eq('clave', 'categorias_eps').single()
+      .then(({ data }) => {
+        if (data?.valor) {
+          try { const c = JSON.parse(data.valor); if (Array.isArray(c)) setCategorias(c) } catch { /* noop */ }
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -231,6 +239,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
       let epsId = eps?.id
       const record = {
         nombre,
+        categoria: categoria || null,
         raciones,
         tamano_rac: tamanoRac || null,
         coste_tanda: costeTanda,
@@ -287,8 +296,15 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
           </div>
 
           <div className="p-5 space-y-5">
-            {/* Cabecera: NOMBRE | RAC. | TAM.RAC | UD. | FECHA */}
+            {/* Cabecera: CATEGORÍA | NOMBRE | RAC. | TAM.RAC | UD. | FECHA */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1.5 }}>
+                <label className={labelCls}>Categoría</label>
+                <select className={inputCls} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}>
+                  <option value="">Sin categoría</option>
+                  {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
               <div style={{ flex: 3 }}>
                 <label className={labelCls}>Nombre</label>
                 <input className={inputCls} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Salsa brava" />
