@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 
 export interface RunningAnualData {
   ingresos: Record<string, Record<number, number>>
@@ -183,6 +184,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
 
       const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
       const cfg = await loadConfigCanales()
+      await loadVentasReales(); await loadRatiosCalibrados()
       const marcasMap = await loadMarcasPorCanal()
 
       const CANAL_BBDD_TO_KEY: Record<string, string> = {
@@ -243,7 +245,7 @@ export function calcNetoCanal(
     fIni.setDate(fFin.getDate() - Math.max(1, diasPeriodo - 1))
   }
   const id = canalKey === 'directa' ? 'dir' : canalKey
-  const { neto } = calcNetoPorCanal(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales)
+  const { neto } = resolverNeto(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales)
   return neto
 }
 
