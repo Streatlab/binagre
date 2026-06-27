@@ -10,7 +10,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { calcPorCobrar, type PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
@@ -157,6 +158,7 @@ export default function TabResumen({
   /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
   useEffect(() => {
     loadConfigCanales().then(cfg => setConfigCanales(cfg))
+    loadVentasReales().then(() => loadRatiosCalibrados())
     loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
     const onChange = () => {
       recargarConfigCanales().then(cfg => setConfigCanales(cfg))
@@ -350,7 +352,7 @@ export default function TabResumen({
       const pedKey = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
       const bruto = rowsPeriodo.reduce((a, r) => a + (Number(r[brutoKey]) || 0), 0)
       const pedidos = rowsPeriodo.reduce((a, r) => a + (Number(r[pedKey]) || 0), 0)
-      const { neto, margenPct } = calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta, configCanales, diasConDatos: diasConDatosPeriodo })
+      const { neto, margenPct } = resolverNeto(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta, configCanales, diasConDatos: diasConDatosPeriodo })
       return {
         id, label: labels[id], color: colores[id], bruto, neto, pedidos,
         pct: totalBruto > 0 ? (bruto / totalBruto) * 100 : 0,
@@ -613,7 +615,7 @@ export default function TabResumen({
         const pk = `${id === 'dir' ? 'directa' : id}_pedidos` as keyof RowFacturacion
         const bruto = rs.reduce((a, r) => a + (Number(r[bk]) || 0), 0)
         const pedidos = rs.reduce((a, r) => a + (Number(r[pk]) || 0), 0)
-        n += calcNetoPorCanal(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: fIni, fechaHasta: fFin, configCanales, diasConDatos: diasDatos }).neto
+        n += resolverNeto(id, bruto, pedidos, { modo: 'agregado_canal', marcasPorCanal, fechaDesde: fIni, fechaHasta: fFin, configCanales, diasConDatos: diasDatos }).neto
       }
       return n
     }
