@@ -105,6 +105,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     return init
   })
   const didAutofillRef = useRef(false)
+  const didTaperRef = useRef(false)
 
   const [canalesActivos, setCanalesActivos] = useState<string[]>(['uber', 'glovo', 'je'])
   const [lineas, setLineas] = useState<RecetaLinea[]>(
@@ -161,6 +162,20 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
+  // Táper por defecto como 1ª línea en receta nueva
+  useEffect(() => {
+    if (receta) return
+    if (didTaperRef.current) return
+    const taper = ingredientes.find(i => i.nombre === 'Tapper 1000 ml_ENV') || ingredientes.find(i => /_ENV$/.test(i.nombre ?? ''))
+    if (!taper) return
+    didTaperRef.current = true
+    setLineas(prev => {
+      if (prev.some(l => l.tipo === 'ENV')) return prev
+      const taperLine: RecetaLinea = { linea: 1, tipo: 'ENV', ingrediente_nombre: taper.nombre, ingrediente_id: taper.id, eps_id: null, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(taper.eur_min) || n(taper.eur_std) }
+      return [taperLine, ...prev.filter(l => l.ingrediente_nombre !== '')]
+    })
+  }, [ingredientes, receta])
+
   useEffect(() => {
     if (showConflictos && conflictos.length === 0) {
       const t = setTimeout(() => setShowConflictos(false), 300)
@@ -177,12 +192,21 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
   const costeMP = raciones > 0 ? costeTanda / raciones : 0
 
+  const pesoTanda = useMemo(() => lineas.reduce((s, l) => {
+    const u = (l.unidad || '').toLowerCase()
+    if (u.startsWith('kg') || u.startsWith('l')) return s + l.cantidad * 1000
+    if (u.startsWith('g') || u.startsWith('ml')) return s + l.cantidad
+    return s
+  }, 0), [lineas])
+  const onRacionesChange = (v: number) => { setIsDirty(true); setRaciones(v); if (pesoTanda > 0 && v > 0) setTamanoRac(Math.round((pesoTanda / v) * 100) / 100) }
+  const onTamanoChange = (v: number) => { setIsDirty(true); setTamanoRac(v); if (pesoTanda > 0 && v > 0) setRaciones(Math.max(1, Math.round(pesoTanda / v))) }
+
   // Autocompletar PVP real de cada canal con su PVP recomendado (solo una vez, si está vacío)
   useEffect(() => {
     if (didAutofillRef.current) return
     if (loadingLineas || costeMP <= 0) return
     if (!cfg.canales || cfg.canales.length === 0) return
-    const estructura = norm(cfg.estructura_pct ?? 0)
+    const estructura = norm(cfg.estructura_pct ?? 20)
     setPvpCanal(prev => {
       const next = { ...prev }
       let changed = false
@@ -206,6 +230,20 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const addLinea = () => { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_nombre: '', ingrediente_id: null, eps_id: null, cantidad: 0, unidad: 'gr.', eur_ud_neta: 0 }]) }
   const changeTipo = (idx: number, tipo: 'ING' | 'EPS' | 'ENV') => updateLinea(idx, { tipo, ingrediente_nombre: '', ingrediente_id: null, eps_id: null, eur_ud_neta: 0, unidad: tipo === 'ENV' ? 'ud.' : 'gr.' })
   const envases = useMemo(() => ingredientes.filter(i => /_ENV$/.test(i.nombre ?? '')), [ingredientes])
+  const masBaratos = useMemo(() => {
+    const cnt: Record<string, number> = {}
+    const best: Record<string, { id: string; precio: number }> = {}
+    for (const i of ingredientes) {
+      const baseKey = ((i.nombre_base || i.nombre || '') as string).toLowerCase().trim()
+      if (!baseKey) continue
+      cnt[baseKey] = (cnt[baseKey] || 0) + 1
+      const precio = n(i.eur_min) || n(i.eur_std) || Infinity
+      if (!best[baseKey] || precio < best[baseKey].precio) best[baseKey] = { id: i.id, precio }
+    }
+    const set = new Set<string>()
+    for (const k in best) if (cnt[k] > 1) set.add(best[k].id)
+    return set
+  }, [ingredientes])
   const selectItem = (idx: number, val: string) => {
     const l = lineas[idx]
     if (l.tipo === 'ING' || l.tipo === 'ENV') {
@@ -278,13 +316,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     const ch = CHANNELS.find(c => c.id === cid)!
     const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
     const comision = norm(cfgCanal?.comision_pct ?? 0)
-    const estructura = norm(cfg.estructura_pct ?? 0)
+    const estructura = norm(cfg.estructura_pct ?? 20)
     const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
     const w = computeWaterfall(costeMP, pvpCanal[ch.pvpKey] || 0, comision, estructura, margenDeseado)
     return { ch, comision, margenDeseado, w }
   })
 
-  const getSemaforoColor = (pct: number): string => { if (pct > 15) return '#06C167'; if (pct >= 5) return '#f5a623'; return '#ff6b70' }
+  const getSemaforoColor = (margenEur: number, margenPct: number, margenDeseado: number): string => { if (margenEur < 0) return '#ff6b70'; if ((margenPct / 100) < margenDeseado) return '#f5a623'; return '#06C167' }
   const pvpRef = useRef<HTMLInputElement>(null)
   const btnSaveStyle: CSSProperties = { backgroundColor: 'var(--sl-btn-save-bg)', color: 'var(--sl-btn-save-text)', fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px', borderRadius: '5px', border: 'none', cursor: 'pointer', minHeight: '40px' }
   const btnCancelStyle: CSSProperties = { backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', border: '1px solid var(--sl-btn-cancel-border)', fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', padding: '9px 24px', borderRadius: '5px', cursor: 'pointer', minHeight: '40px' }
@@ -306,8 +344,8 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 160px' }}><label style={labelStyle()}>Categoría</label><select style={inputStyle} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}><option value="">Sin categoría</option>{categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
             <div style={{ flex: 1 }}><label style={labelStyle()}>Nombre</label><input style={inputStyle} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Smash Burger" /></div>
-            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Raciones</label><input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} /></div>
-            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Tamaño rac</label><input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} /></div>
+            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Raciones</label><input type="number" min={1} step="1" style={inputStyle} value={raciones || ''} onChange={e => onRacionesChange(parseFloat(e.target.value) || 1)} /></div>
+            <div style={{ flex: '0 0 80px' }}><label style={labelStyle()}>Tamaño rac</label><input type="number" min={0} step="any" style={inputStyle} value={tamanoRac || ''} onChange={e => onTamanoChange(parseFloat(e.target.value) || 0)} /></div>
             <div style={{ flex: '0 0 90px' }}><label style={labelStyle()}>Unidad</label><select style={inputStyle} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
             <div style={{ flex: '0 0 140px' }}><label style={labelStyle()}>Fecha</label><input type="date" style={inputStyle} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} /></div>
           </div>
@@ -344,7 +382,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                           <tr key={idx}>
                             <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS' | 'ENV')}><option value="ING">ING</option><option value="EPS">EPS</option><option value="ENV">ENV</option></select></td>
-                            <td className={tdCls}><input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} /><datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre} />) : l.tipo === 'ENV' ? envases.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist></td>
+                            <td className={tdCls}><input list={`r-i-${idx}`} className="w-full bg-transparent border-none outline-none text-sm placeholder:text-[var(--sl-text-muted)]" style={{ color: nameColor }} value={l.ingrediente_nombre} onChange={e => selectItem(idx, e.target.value)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} /><datalist id={`r-i-${idx}`}>{l.tipo === 'ING' ? ingredientes.map(i => <option key={i.id} value={i.nombre}>{masBaratos.has(i.id) ? '✔ más barato' : undefined}</option>) : l.tipo === 'ENV' ? envases.map(i => <option key={i.id} value={i.nombre} />) : epsList.map(e => <option key={e.id} value={e.nombre} />)}</datalist></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
                             <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
@@ -402,9 +440,9 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                       <tr style={{ backgroundColor: 'var(--sl-card)' }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: '#2a52a0', background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ borderTop: '2px solid var(--sl-border-strong)' }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
+                      <tr style={{ borderTop: '2px solid var(--sl-border-strong)' }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
                       <tr><td style={metricaCellStyle}>Margen €</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-primary)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td><td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.margenC)}</td></>))}</tr>
-                      <tr><td style={metricaCellStyle}>% Margen</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctR), ...channelBorderStyle(idx, true) }}>{fmtPct(d.w.margenPctR / 100)}</td><td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenPctC) }}>{fmtPct(d.w.margenPctC / 100)}</td></>))}</tr>
+                      <tr><td style={metricaCellStyle}>% Margen</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtPct(d.w.margenPctR / 100)}</td><td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenC, d.w.margenPctC, d.margenDeseado) }}>{fmtPct(d.w.margenPctC / 100)}</td></>))}</tr>
                     </tbody>
                     <tbody>
                       <tr style={{ backgroundColor: 'var(--sl-card-alt)' }}><td style={metricaCellStyle}>IVA repercutido</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td><td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: 'var(--sl-text-muted)' }}>{fmtEur(d.w.ivaRepercutido)}</td></>))}</tr>
