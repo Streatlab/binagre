@@ -1,9 +1,10 @@
 /**
  * TabEvolucion — Panel Global · pestaña Evolución
- * Reconstruido como LANDING NARRATIVO neobrutal (lenguaje de ResumenLanding):
- * bandas a sangre completa, titulares-frase con número incrustado, Spark, Barra
- * gruesa, pastillas eyebrow, cierre emocional. Datos intactos (mesMap, netoDeRow,
- * comparativa posición/fecha, racha, día de semana, tienda online).
+ * Composición PROPIA (no clon de Resumen): la historia es la TRAYECTORIA en el
+ * tiempo. Hero de tendencia a sangre + gráfico mensual como firma + racha,
+ * detalle mes a mes, ritmo semanal, tienda propia y comparativa de periodo.
+ * Toda la lógica de datos es la original (mesMap, netoDeRow, racha, día de
+ * semana, online, CardComparativaPeriodo): solo cambia la presentación.
  */
 
 import { useState, useEffect } from 'react'
@@ -36,15 +37,15 @@ function netoDeRow(r: RowFacturacion): number {
   }, 0)
 }
 
-// ── Helpers de cifra (mismo "rollo" que Resumen) ──────────────
+// ── Helpers de cifra ──────────────────────────────────────────
 const EUR = (n: number) => fmtEur(n)
 const E = (n: number) => fmtEur(n).replace(/\s?€/, '')
 const N = (n: number) => fmtNum(n)
 const P0 = (n: number) => `${Math.round(n)}%`
-const P1 = (n: number) => `${n >= 0 ? '' : ''}${n.toFixed(1)}%`
+const P1 = (n: number) => `${n.toFixed(1)}%`
 const fmtMesKey = (key: string) => { const [y, m] = key.split('-'); return `${MESES_ES[parseInt(m, 10) - 1]} ${y}` }
 
-// ── Dispositivos visuales (copiados del lenguaje Resumen) ─────
+// ── Dispositivos visuales ─────────────────────────────────────
 function Arrow({ v }: { v: number | null }) {
   if (v == null) return null
   const up = v >= 0
@@ -334,24 +335,17 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
   // ── Serie online 12m para sparkline ──
   const serieOnline = ultimos12.map(k => mesMap[k].bruto > 0 ? (mesMap[k].online / mesMap[k].bruto) * 100 : 0)
 
-  // Color y verbo del estado de salud (igual que Resumen)
+  // Color y verbo de la tendencia (la tendencia es el protagonista de Evolución)
   const tendColor = tendencia == null ? AMA : tendencia >= 3 ? VERDE : tendencia <= -3 ? ROJO : NAR
   const tendTxt = tendencia == null ? INK : '#fff'
   const verbo = tendencia == null ? 'En marcha' : tendencia >= 3 ? 'En crecimiento' : tendencia <= -3 ? 'A la baja' : 'Estable'
 
-  // Pastillas de insight (banda oscura)
-  const insights: Array<{ t: string; c: string }> = []
-  insights.push({ t: `Mejor mes ${fmtMesKey(mejorMes)} · ${E(mesMap[mejorMes].bruto)}`, c: VERDE })
-  insights.push({ t: `Peor mes ${fmtMesKey(peorMes)} · ${E(mesMap[peorMes].bruto)}`, c: ROJO })
-  if (mejorDia) insights.push({ t: `${DIAS_ES[mejorDia.dia]} tu día fuerte · ${E(mejorDia.media)}/día`, c: AMA })
-  insights.push({ t: `Online pesa ${P0(pesoOnline)}`, c: AZUL })
-  if (racha && racha.racha > 0) insights.push({ t: `Racha objetivo · ${racha.racha} días`, c: VERDE })
-
+  // Mini-stats de la tira inferior del hero (resumen de la trayectoria)
   const heroStats: Array<{ l: string; v: string; c: string }> = [
     { l: 'Mejor mes (12m)', v: fmtMesKey(mejorMes), c: VERDE },
     { l: 'Peor mes (12m)', v: fmtMesKey(peorMes), c: ROJO },
     { l: 'TM medio 12m', v: EUR(tmMedio), c: NAR },
-    { l: 'Pedidos totales 12m', v: N(pedidosTotales), c: INK },
+    { l: 'Pedidos 12m', v: N(pedidosTotales), c: INK },
     { l: 'Neto último mes', v: EUR(mesActual.neto), c: VERDE },
   ]
 
@@ -360,67 +354,45 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
   return (
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
 
-      {/* 0 · HERO — titular-frase con tendencia incrustada */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: tendColor, color: tendTxt }}>
-        <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={eyebrow('#fff')}>Evolución · últimos 12 meses</span>
-            <span style={{ ...eyebrow(INK, tendColor === AMA ? AMA : '#fff'), fontSize: 12, color: tendColor === AMA ? INK : tendColor }}>{verbo}</span>
-          </div>
-          <div style={{ ...d('clamp(30px,4vw,52px)', tendTxt), margin: '18px 0 18px', maxWidth: 640 }}>
-            {tendencia == null
-              ? <>Aún no hay histórico del año pasado para comparar.</>
-              : <>Frente al año pasado, el negocio va{' '}
-                  <span style={{ background: INK, color: tendColor, padding: '0 .14em', display: 'inline-block' }}>{tendencia >= 0 ? '+' : ''}{P1(tendencia)}</span>.</>}
-          </div>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>Facturación último mes · {fmtMesKey(mesActualKey)}</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
-                <div style={d('clamp(44px,6.8vw,92px)', tendTxt)}>{EUR(mesActual.bruto)}</div>
-                {tendencia != null && <div style={{ ...eyebrow(tendencia >= 0 ? VERDE : ROJO, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={tendencia} />{P1(tendencia)}</div>}
-              </div>
+      {/* 0 · HERO — la TENDENCIA manda. Full-bleed, sin tarjeta lateral. */}
+      <section style={{ background: tendColor, color: tendTxt, borderBottom: `4px solid ${INK}`, padding: `42px ${PAD} 34px` }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={eyebrow('#fff')}>Evolución · últimos 12 meses</span>
+          <span style={{ ...eyebrow(INK, tendColor === AMA ? AMA : '#fff'), fontSize: 12, color: tendColor === AMA ? INK : tendColor }}>{verbo}</span>
+        </div>
+        <div style={{ ...d('clamp(30px,4vw,52px)', tendTxt), margin: '18px 0', maxWidth: 760 }}>
+          {tendencia == null
+            ? <>Aún no hay histórico del año pasado para comparar.</>
+            : <>Frente al año pasado, el negocio va{' '}
+                <span style={{ background: INK, color: tendColor, padding: '0 .14em', display: 'inline-block' }}>{tendencia >= 0 ? '+' : '−'}{P1(Math.abs(tendencia))}</span>.</>}
+        </div>
+        <div style={{ display: 'flex', gap: 28, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>Facturación último mes · {fmtMesKey(mesActualKey)}</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
+              <div style={d('clamp(44px,6.8vw,92px)', tendTxt)}>{EUR(mesActual.bruto)}</div>
+              {tendencia != null && <div style={{ ...eyebrow(tendencia >= 0 ? VERDE : ROJO, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={tendencia} />{P1(Math.abs(tendencia))}</div>}
             </div>
-            <div style={{ marginBottom: 4, minWidth: 200 }}><Spark serie={serie12} color={tendColor === AMA ? INK : '#fff'} /></div>
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 16px', marginTop: 18 }}>
-            <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Neto estimado mes</span>
-            <span style={d('clamp(24px,3.4vw,40px)', '#fff')}>{EUR(mesActual.neto)}</span>
+          <div style={{ marginBottom: 4, minWidth: 200, flex: 1 }}><Spark serie={serie12} color={tendColor === AMA ? INK : '#fff'} w={320} /></div>
+          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 16px' }}>
+            <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Neto est. mes</span>
+            <span style={d('clamp(22px,3.2vw,38px)', '#fff')}>{EUR(mesActual.neto)}</span>
             <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600 }}>{N(mesActual.pedidos)} ped.</span>
           </div>
         </div>
-        <div style={{ background: CLARO, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '26px 28px', width: '100%', maxWidth: 380 }}>
-            <div style={{ ...d('17px'), borderBottom: `2px dashed ${INK}`, paddingBottom: 12, marginBottom: 4 }}>· Resumen de 12 meses ·</div>
-            {heroStats.map((s, i) => (
-              <div key={s.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: i < heroStats.length - 1 ? `1px dotted ${INK}55` : 'none' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{s.l}</span>
-                <span style={d('clamp(20px,2.6vw,26px)', s.c)}>{s.v}</span>
-              </div>
-            ))}
-          </div>
+        {/* tira de mini-stats: la trayectoria en una línea */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginTop: 26 }}>
+          {heroStats.map(s => (
+            <div key={s.l} style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '12px 14px' }}>
+              <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{s.l}</div>
+              <div style={{ ...d('clamp(18px,2.4vw,24px)', s.c), marginTop: 4 }}>{s.v}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* 1 · INSIGHTS — banda oscura */}
-      <section style={{ background: OSC, borderBottom: `4px solid ${INK}`, padding: `18px ${PAD}`, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ ...d('16px', CREMA), marginRight: 4 }}>Lo que cuenta →</span>
-        {insights.slice(0, 5).map((a, i) => (
-          <span key={i} style={{ display: 'inline-block', background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
-        ))}
-      </section>
-
-      {/* 2 · FRASE — banda de acento */}
-      <section style={{ background: ROSA, color: '#fff', padding: `46px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
-        <div style={{ ...d('clamp(26px,4vw,50px)', '#fff'), maxWidth: 1000 }}>
-          Tu mejor mes fue <span style={{ background: '#fff', color: ROSA, padding: '0 10px' }}>{fmtMesKey(mejorMes)}</span>{mejorDia && <> y los <span style={{ background: '#fff', color: ROSA, padding: '0 10px' }}>{DIAS_ES[mejorDia.dia]}</span> son tu día fuerte</>}.
-        </div>
-        <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>
-          A este ritmo, el ticket medio del último mes es {EUR(tmActual)} y la tienda online ya pesa {P0(pesoOnline)} de la facturación.
-        </div>
-      </section>
-
-      {/* 3 · EVOLUCIÓN MENSUAL — barras verticales gruesas (estilo Días pico) */}
+      {/* 1 · GRÁFICO MES A MES — la firma de Evolución, a todo el ancho */}
       <section style={sec('#fff')}>
         <Title tag="Cómo ha ido mes a mes" tagBg={AMA} title="Facturación bruta · últimos 12 meses" />
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, minHeight: 180, marginBottom: 14 }}>
@@ -444,7 +416,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
         </div>
       </section>
 
-      {/* 4 · DETALLE MENSUAL (66%) | MÉTRICAS (33%) */}
+      {/* 2 · DETALLE MENSUAL (66%) | TICKET MEDIO + RACHA (33%) */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
           <Title tag="Mes a mes" tagBg={VERDE} tagColor="#fff" title="Detalle mensual" />
@@ -467,7 +439,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: INK, textAlign: 'right' }}>{N(pedidos)}</span>
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: INK, textAlign: 'right' }}>{E(bruto)}</span>
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, color: VERDE, textAlign: 'right' }}>{E(neto)}</span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vsAnt == null ? GRIS : vsAnt >= 0 ? VERDE : ROJO, textAlign: 'right' }}>{vsAnt == null ? '—' : <><Arrow v={vsAnt} />{P1(vsAnt)}</>}</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vsAnt == null ? GRIS : vsAnt >= 0 ? VERDE : ROJO, textAlign: 'right' }}>{vsAnt == null ? '—' : <><Arrow v={vsAnt} />{P1(Math.abs(vsAnt))}</>}</span>
                 </div>
               )
             })}
@@ -493,7 +465,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
         </div>
       </section>
 
-      {/* 5 · DÍA DE SEMANA (AMA) | TIENDA ONLINE (AZUL) */}
+      {/* 3 · RITMO SEMANAL (AMA) | TIENDA PROPIA (AZUL) */}
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: `4px solid ${INK}` }}>
         <div style={{ background: AMA, padding: `44px ${PAD}`, borderRight: `4px solid ${INK}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -540,13 +512,13 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
         </div>
       </section>
 
-      {/* 6 · COMPARATIVA DEL PERIODO */}
+      {/* 4 · COMPARATIVA DEL PERIODO */}
       <section style={sec(CREMA)}>
         <Title tag="Comparativa del periodo" tagBg={GRANATE} tagColor="#fff" title="Misma posición y misma fecha, frente a mes y año anteriores." />
         <CardComparativaPeriodo rowsAll={rowsAll} ancla={periodoHasta ?? new Date()} />
       </section>
 
-      {/* 7 · CIERRE */}
+      {/* 5 · CIERRE */}
       <section style={{ background: OSC, color: CREMA, padding: PAD, textAlign: 'center' }}>
         <div style={d('clamp(30px,5.5vw,64px)', CREMA)}>Cada mes, un peldaño más.</div>
         <div style={{ fontFamily: OSW, letterSpacing: '6px', fontSize: 15, color: AMA, marginTop: 12, textTransform: 'uppercase' }}>Comer bien. Aquí y ahora.</div>
