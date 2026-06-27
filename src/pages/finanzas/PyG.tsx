@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
 import { fmtEur, fmtPct } from '@/utils/format'
-import { calcNetoPorCanal, loadConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 
 const MESES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -54,8 +55,9 @@ export default function PyG() {
     const lastDay = new Date(year, month, 0).getDate()
     const fechaFin = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
 
-    // Pre-cargar config de canales para que calcNetoPorCanal pueda usarla en modo síncrono
+    // Pre-cargar config + ventas reales para que resolverNeto use REAL MANDA en modo síncrono
     await loadConfigCanales()
+    await loadVentasReales(); await loadRatiosCalibrados()
 
     const [facturacionRes, gastosRes, fijosRes] = await Promise.all([
       supabase
@@ -92,11 +94,11 @@ export default function PyG() {
       const dHasta = new Date(`${fechaFin}T00:00:00`)
       const opt = { modo: 'agregado_canal' as const, fechaDesde: dDesde, fechaHasta: dHasta }
       netos =
-        calcNetoPorCanal('uber',  bUber,  0, opt).neto +
-        calcNetoPorCanal('glovo', bGlovo, 0, opt).neto +
-        calcNetoPorCanal('je',    bJe,    0, opt).neto +
-        calcNetoPorCanal('web',   bWeb,   0, opt).neto +
-        calcNetoPorCanal('dir',   bDir,   0, opt).neto
+        resolverNeto('uber',  bUber,  0, opt).neto +
+        resolverNeto('glovo', bGlovo, 0, opt).neto +
+        resolverNeto('je',    bJe,    0, opt).neto +
+        resolverNeto('web',   bWeb,   0, opt).neto +
+        resolverNeto('dir',   bDir,   0, opt).neto
     }
     setIngresosBrutos(brutos)
     setIngresosNetos(netos)
