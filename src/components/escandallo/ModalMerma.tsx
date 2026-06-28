@@ -279,10 +279,10 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="modal-merma border border-[var(--sl-border)] w-full max-w-4xl my-8 shadow-2xl" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '10px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-merma border-[3px] border-[#140f08] w-full max-w-4xl my-8 shadow-[4px_4px_0_#140f08]" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '0' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
           <div>
-            <h3 className="text-base font-semibold text-[var(--sl-text-primary)]">{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
+            <h3 className="text-base text-[var(--sl-text-primary)]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
           </div>
           <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
