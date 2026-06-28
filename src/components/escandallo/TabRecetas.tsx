@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CLARO, SHADOW, BORDER_CARD, OSW, LEX, VERDE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, VERDE, GRANATE, GRIS } from '@/styles/neobrutal'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
 
@@ -58,8 +58,8 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: INK, padding: '10px 12px', background: CLARO, borderBottom: `2px solid ${INK}`,
-    textAlign: 'left', whiteSpace: 'nowrap',
+    color: CREMA, padding: '10px 12px', background: INK, borderBottom: `2px solid ${INK}`,
+    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
     fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
