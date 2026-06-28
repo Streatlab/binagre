@@ -10,6 +10,7 @@ export interface Empleado {
   id: string
   nombre: string
   cargo?: string | null
+  estado?: string | null
 }
 
 /** Un tramo de un turno (formato HH:MM). Un turno partido tiene 2 tramos. */
@@ -146,4 +147,4 @@ export function fmtHoras(h: number): string {
   return h.toLocaleString('es-ES', { minimumFractionDigits: h % 1 === 0 ? 0 : 1, maximumFractionDigits: 1 }) + 'h'
 }
 
-// build: rota v8 — total bruto en rojo + jornada Andrés S26
+// build: rota v9 — estado en Empleado (archivar respeta histórico)
