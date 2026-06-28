@@ -27,6 +27,7 @@ type TipoDetectado =
   | 'factura_proveedor'
   | 'extracto_bancario'
   | 'resumen_plataforma_marca'
+  | 'liquidacion_uber_resumen'
   | 'nomina'
   | 'ventas_plataforma_csv'
   | 'desconocido'
@@ -44,6 +45,7 @@ const TIPO_LEGIBLE: Record<TipoDetectado, string> = {
   factura_proveedor:       'Factura Proveedor',
   extracto_bancario:       'Extracto Bancario',
   resumen_plataforma_marca:'Resumen Plataforma/Marca',
+  liquidacion_uber_resumen:'Liquidación Uber (resumen)',
   nomina:                  'Nómina',
   ventas_plataforma_csv:   'Ventas Plataforma CSV',
   desconocido:             'Tipo desconocido',
@@ -56,6 +58,7 @@ const DESTINO_MODULO: Record<TipoDetectado, string> = {
   factura_proveedor:       'facturas',
   extracto_bancario:       'movimientos_bancarios',
   resumen_plataforma_marca:'ventas_plataforma_marca_mensual',
+  liquidacion_uber_resumen:'uber_liquidaciones',
   nomina:                  'nominas',
   ventas_plataforma_csv:   'ventas_plataforma',
   desconocido:             'pendiente',
@@ -392,7 +395,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 24 }}>
         {[
-          { id: 'uber',     label: 'Uber / Portier',  nif: 'B88515200',  color: '#06C167', formatos: 'PDF factura' },
+          { id: 'uber',     label: 'Uber / Portier',  nif: 'B88515200',  color: '#06C167', formatos: 'PDF factura · CSV resumen' },
           { id: 'glovo',    label: 'Glovo',            nif: 'B67282871',  color: '#aabc00', formatos: 'PDF (formato A/B)' },
           { id: 'rushour',  label: 'RushHour',         nif: 'Francés',    color: '#7F77DD', formatos: 'PDF · CTR-SW' },
           { id: 'just_eat', label: 'Just Eat',         nif: 'Pendiente',  color: '#f5a623', formatos: 'Sin parser aún' },
