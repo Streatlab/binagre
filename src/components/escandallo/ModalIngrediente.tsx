@@ -282,10 +282,10 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="ds-modal w-full max-w-5xl my-8 shadow-2xl" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="ds-modal w-full max-w-5xl my-8" style={{ maxHeight: '90vh', overflowY: 'auto', border: '3px solid #140f08', borderRadius: 0, boxShadow: '4px 4px 0 #140f08' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="ds-modal-title">{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            <h3 className="ds-modal-title" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
           </div>
           <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
         </div>
